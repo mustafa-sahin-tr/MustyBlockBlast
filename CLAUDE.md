@@ -24,6 +24,13 @@
 
 ---
 
+## Game Design
+
+**`docs/game-design.md` is the single source of truth for game rules.** Read it before
+implementing or changing any gameplay behaviour. Summary: 8x8 board, three non-rotatable
+pieces per tray, no gravity, rows and columns clear when full, endless play with a high
+score, one-step undo and two power-ups earned via rewarded ads.
+
 ## Architecture
 
 ### Assembly Definitions
