@@ -114,3 +114,6 @@ InitTestScene*.unity*
 .claude/state/*.jsonl
 .claude/state/*.txt
 .claude/state/*.md
+
+# everything-claude-unity oturum durumu (tamami yerel)
+.claude/state/

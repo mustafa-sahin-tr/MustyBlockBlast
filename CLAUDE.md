@@ -15,9 +15,11 @@
 
 ### Detected Packages
 
+- UniTask
 - 2D Sprite
 - 2D Animation
-- Visual Scripting
+- VContainer
+- MessagePipe
 - Input System
 
 ---
@@ -26,7 +28,11 @@
 
 ### Assembly Definitions
 
-- `Unity.2D.Welcome (Assets/Welcome/Unity.2D.Welcome.asmdef)`
+- `MustyBlockBlast.Tests.PlayMode (Assets/Tests/PlayMode/MustyBlockBlast.Tests.PlayMode.asmdef)`
+- `MustyBlockBlast.Tests.EditMode (Assets/Tests/EditMode/MustyBlockBlast.Tests.EditMode.asmdef)`
+- `MustyBlockBlast.Core (Assets/Scripts/Core/MustyBlockBlast.Core.asmdef)`
+- `MustyBlockBlast.Gameplay (Assets/Scripts/Gameplay/MustyBlockBlast.Gameplay.asmdef)`
+- `MustyBlockBlast.Presentation (Assets/Scripts/Presentation/MustyBlockBlast.Presentation.asmdef)`
 
 ### Scenes in Build
 
