@@ -1,19 +1,28 @@
 ---
 name: unity-feature
-description: "Plans and implements a Unity feature — identifies subsystems, loads skills, writes code, sets up scene elements via MCP."
+description: "Plans and implements a Unity feature from a GitHub issue — fetches the issue, identifies subsystems, loads skills, writes code, sets up scene elements via MCP."
 user-invocable: true
-args: feature_description
+args: issue_number
 ---
 
-# /unity-feature — Implement a Feature
+# /unity-feature — Implement a Feature from a GitHub Issue
 
-Plan and implement the feature described by the user: **$ARGUMENTS**
+Argument: **$ARGUMENTS** — a GitHub issue number (optionally followed by `--quick`), e.g. `42` or `42 --quick`.
 
 ## Agent Routing
 
 - Default: use `unity-coder` agent (opus — full architectural reasoning)
 - If `$ARGUMENTS` contains `--quick`: use `unity-coder-lite` agent (sonnet — faster, for simple additions)
-- Strip the `--quick` flag from arguments before passing to the agent
+- Strip the `--quick` flag, leaving just the issue number
+
+## Phase 0: Fetch the Issue
+
+1. Extract the issue number from `$ARGUMENTS` (strip `--quick` if present). If what remains isn't a plain number, stop and tell the user to pass a GitHub issue number (e.g. `/unity-feature 42`).
+2. Fetch it: `gh issue view <issue_number> --json number,title,body,url,state,labels`
+   - If `gh` is not authenticated or the issue can't be found, stop and report the error rather than guessing at a feature description.
+   - If the issue is already closed, tell the user and ask whether to proceed anyway.
+3. Use the issue's **title** and **body** as the feature description for Phase 1 — this replaces any free-text description. Note the issue's labels if they hint at scope (e.g. `bug` vs `enhancement`).
+4. Keep the issue number and URL on hand — reference it in the Phase 3 summary and in any commit message (`Refs #<issue_number>` or `Closes #<issue_number>` if the user commits).
 
 ## Phase 1: Plan
 
@@ -52,6 +61,7 @@ Plan and implement the feature described by the user: **$ARGUMENTS**
 2. Summarize what was created/modified
 3. Explain how to test the feature
 4. Note any manual steps needed (e.g., assigning references in Inspector)
+5. Reference the source issue (`#<issue_number>`, its URL) in the summary so the user can link it in their commit/PR
 
 ## Phase 4: Auto-Verify (Optional)
 
