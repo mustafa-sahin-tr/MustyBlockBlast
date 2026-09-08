@@ -1,0 +1,19 @@
+{
+    "name": "MustyBlockBlast.Gameplay",
+    "rootNamespace": "MustyBlockBlast.Gameplay",
+    "references": [
+        "MustyBlockBlast.Core",
+        "UniTask",
+        "MessagePipe",
+        "VContainer"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

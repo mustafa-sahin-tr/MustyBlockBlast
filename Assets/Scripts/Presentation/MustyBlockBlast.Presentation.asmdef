@@ -1,0 +1,22 @@
+{
+    "name": "MustyBlockBlast.Presentation",
+    "rootNamespace": "MustyBlockBlast.Presentation",
+    "references": [
+        "MustyBlockBlast.Core",
+        "MustyBlockBlast.Gameplay",
+        "UniTask",
+        "MessagePipe",
+        "MessagePipe.VContainer",
+        "VContainer",
+        "Unity.InputSystem"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
