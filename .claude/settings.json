@@ -4,7 +4,15 @@
   },
   "mcpServers": {
     "unityMCP": {
-      "url": "http://localhost:8080/mcp"
+      "type": "stdio",
+      "command": "/Users/mustafasahin/.local/bin/uvx",
+      "args": [
+        "--from",
+        "mcpforunityserver==10.2.0",
+        "mcp-for-unity",
+        "--transport",
+        "stdio"
+      ]
     }
   },
   "hooks": {
