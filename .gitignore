@@ -117,3 +117,10 @@ InitTestScene*.unity*
 
 # everything-claude-unity oturum durumu (tamami yerel)
 .claude/state/
+
+# Local-only MCP/agent debug captures — never need to be pushed
+/[Aa]ssets/[Ss]creenshots/
+/[Aa]ssets/[Ss]creenshots.meta
+
+# Local Editor preference, not shared project state
+/ProjectSettings/SceneTemplateSettings.json
