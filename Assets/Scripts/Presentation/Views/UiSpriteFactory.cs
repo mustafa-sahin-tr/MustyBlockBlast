@@ -11,8 +11,10 @@ namespace MustyBlockBlast.Presentation.Views
     {
         private const int ROUNDED_SIZE = 64;
         private const int ROUNDED_RADIUS = 16;
+        private const int GLOW_SIZE = 128;
 
         private static Sprite _roundedSquare;
+        private static Sprite _radialGlow;
 
         /// <summary>9-sliced rounded square, white. Tint via <see cref="UnityEngine.UI.Image.color"/>.</summary>
         internal static Sprite RoundedSquare
@@ -25,6 +27,20 @@ namespace MustyBlockBlast.Presentation.Views
                 }
 
                 return _roundedSquare;
+            }
+        }
+
+        /// <summary>Soft radial falloff, white. One shared instance so every glow batches together.</summary>
+        internal static Sprite RadialGlow
+        {
+            get
+            {
+                if (_radialGlow == null)
+                {
+                    _radialGlow = CreateRadialGlow(GLOW_SIZE);
+                }
+
+                return _radialGlow;
             }
         }
 
@@ -87,6 +103,45 @@ namespace MustyBlockBlast.Presentation.Views
                 SpriteMeshType.FullRect,
                 new Vector4(radius, radius, radius, radius));
             sprite.name = "MustyBlockBlast_RoundedSquareSprite";
+            sprite.hideFlags = HideFlags.HideAndDontSave;
+            return sprite;
+        }
+
+        private static Sprite CreateRadialGlow(int size)
+        {
+            var texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
+            {
+                name = "MustyBlockBlast_RadialGlow",
+                wrapMode = TextureWrapMode.Clamp,
+                filterMode = FilterMode.Bilinear,
+                hideFlags = HideFlags.HideAndDontSave,
+            };
+
+            var pixels = new Color32[size * size];
+            float centre = (size - 1) * 0.5f;
+            float radius = size * 0.5f;
+
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float dx = (x - centre) / radius;
+                    float dy = (y - centre) / radius;
+                    float distance = Mathf.Sqrt((dx * dx) + (dy * dy));
+
+                    // Smooth quadratic falloff: opaque core, fully transparent at the edge.
+                    float alpha = Mathf.Clamp01(1f - distance);
+                    alpha *= alpha;
+                    pixels[(y * size) + x] = new Color32(255, 255, 255, (byte)Mathf.RoundToInt(alpha * 255f));
+                }
+            }
+
+            texture.SetPixels32(pixels);
+            texture.Apply(false, true);
+
+            Sprite sprite = Sprite.Create(
+                texture, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect);
+            sprite.name = "MustyBlockBlast_RadialGlowSprite";
             sprite.hideFlags = HideFlags.HideAndDontSave;
             return sprite;
         }

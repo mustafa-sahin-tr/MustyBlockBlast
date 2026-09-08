@@ -51,6 +51,7 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterComponentInHierarchy<BoardView>();
             builder.RegisterComponentInHierarchy<PieceTrayView>();
             builder.RegisterComponentInHierarchy<ScoreView>();
+            builder.RegisterComponentInHierarchy<LineClearBurstView>();
             builder.RegisterComponentInHierarchy<GameOverView>();
             builder.RegisterComponentInHierarchy<BoardInputView>();
         }
