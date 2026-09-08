@@ -34,7 +34,7 @@ Piece set (each defined as a set of cell offsets):
 | Lines | 1×2, 1×3, 1×4, 1×5 and their vertical counterparts |
 | Squares | 2×2, 3×3 |
 | Corners (L) | 2×2 corner in 4 orientations, 3×3 corner in 4 orientations |
-| T / S / Z | 3-cell T, S and Z in their common orientations |
+| T / S / Z | Standard 4-cell T, S and Z tetrominoes in their common orientations |
 
 Each distinct orientation is a **separate piece definition** — because rotation does not exist,
 "L rotated 90°" is simply a different piece. This keeps placement logic trivial and data-driven.
