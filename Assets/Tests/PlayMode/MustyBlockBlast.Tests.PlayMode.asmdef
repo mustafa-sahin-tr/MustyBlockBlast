@@ -1,0 +1,27 @@
+{
+    "name": "MustyBlockBlast.Tests.PlayMode",
+    "rootNamespace": "MustyBlockBlast.Tests.PlayMode",
+    "references": [
+        "MustyBlockBlast.Core",
+        "MustyBlockBlast.Gameplay",
+        "MustyBlockBlast.Presentation",
+        "UniTask",
+        "MessagePipe",
+        "MessagePipe.VContainer",
+        "VContainer",
+        "UnityEngine.TestRunner"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
