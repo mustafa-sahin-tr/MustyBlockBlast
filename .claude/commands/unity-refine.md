@@ -9,7 +9,7 @@ args: issue_number
 
 Argument: **$ARGUMENTS** — a GitHub issue number or URL, e.g. `12`.
 
-This command does not write code. It turns a raw issue into something `/unity-feature` or `/unity-fix` can implement without guessing.
+This command does not write code. It delegates to the `unity-business-analyst` agent to turn a raw issue into something `/unity-feature` or `/unity-fix` can implement without guessing.
 
 ## Phase 0: Fetch the Issue
 
@@ -18,21 +18,18 @@ This command does not write code. It turns a raw issue into something `/unity-fe
    - If the issue is already closed, tell the user and ask whether to proceed anyway.
 2. Read the title, body, labels, and every comment fully before doing anything else.
 
-## Phase 1: Ground in the Project
+## Phase 1: Refine
 
-Never guess at current behavior — verify it:
+Spawn the `unity-business-analyst` agent with the issue number and ask it to ground itself in `docs/game-design.md`, `CLAUDE.md`, `.claude/rules/architecture.md`, and the relevant code under `Assets/Scripts/Core`, `Gameplay`, `Presentation` before writing anything — never let it guess at current behavior.
 
-- Read `docs/game-design.md` for the game-rules context the issue sits in.
-- Read `CLAUDE.md` and `.claude/rules/architecture.md` for constraints (MVS layering, VContainer, MessagePipe).
-- Search the codebase (`Assets/Scripts/Core`, `Gameplay`, `Presentation`) for anything the issue already touches, and read it.
-
-## Phase 2: Refine
-
-Rewrite the issue body into this structure (same substance as the `/unity-interview` brief, condensed for a GitHub issue):
+Have it rewrite the issue body into this structure:
 
 ```markdown
 ## Problem
 [what's broken or missing, in plain terms]
+
+## User Story
+As a <player/designer>, I want <thing> so that <benefit>.
 
 ## Acceptance Criteria
 1. [ ] [specific, testable condition — concrete values, not vague language]
@@ -54,9 +51,9 @@ Rewrite the issue body into this structure (same substance as the `/unity-interv
 ```
 
 - Every Open Question goes to the **user** — never fill it in with a guess.
-- If the issue clearly doesn't fit in one PR, propose a vertically-sliced sub-issue breakdown: each sub-issue independently shippable, plus a suggested implementation order and dependency notes.
+- If the issue clearly doesn't fit in one PR, the agent should propose a vertically-sliced sub-issue breakdown: each sub-issue independently shippable, plus a suggested implementation order and dependency notes.
 
-## Phase 3: Report and Approve
+## Phase 2: Report and Approve
 
 Show the user:
 - The filled-in issue body
@@ -65,7 +62,7 @@ Show the user:
 
 **Wait for explicit approval before writing anything to GitHub.**
 
-## Phase 4: Write (only after approval)
+## Phase 3: Write (only after approval)
 
 - `gh issue edit <issue_number> --body-file <tmp file>` to update the body
 - For each approved sub-issue: `gh issue create --title "..." --body "Part of #<issue_number>\n\n..."`, then add it as a checklist item on the parent via another `gh issue edit`

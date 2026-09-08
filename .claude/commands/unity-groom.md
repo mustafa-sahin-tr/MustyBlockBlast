@@ -9,7 +9,7 @@ args: issue_number
 
 Argument: **$ARGUMENTS** — a GitHub issue number or URL, e.g. `12`.
 
-Get a raw issue ready for implementation. This project has no separate product-owner/business-analyst/designer agents, so reason through each step yourself and stop wherever a judgment call needs the user.
+Get a raw issue ready for implementation. This project has dedicated `unity-product-owner` and `unity-business-analyst` agents — delegate to them for Phases 1 and 2 rather than reasoning through their steps yourself, and stop wherever a judgment call needs the user. There is no separate designer agent; Phase 3's mockup pass is handled inline.
 
 ## Phase 0: Fetch the Issue
 
@@ -19,22 +19,19 @@ If `gh` isn't authenticated or the issue can't be found, stop and show the error
 
 ## Phase 1: Prioritize
 
-Weigh this issue against `docs/game-design.md`'s core loop (8x8 board, 3-piece tray, no gravity, line clears, endless play + high score, one-step undo, two power-ups) and the project's current state:
+Spawn the `unity-product-owner` agent with the fetched issue content and `docs/game-design.md`'s core loop (8x8 board, 3-piece tray, no gravity, line clears, endless play + high score, one-step undo, two power-ups) as context. Ask it to return: **DO NOW / DO LATER / WON'T DO**, a one-line reason, and any priority ordering if multiple issues are in play.
 
-- Does this touch the core loop, or is it peripheral (nice-to-have, polish, tooling)?
-- Is there an unmet dependency (e.g. it needs TMP Essentials imported, or an `.inputactions` asset that doesn't exist yet)?
-- Make a rough call: **DO NOW / LATER / WON'T DO**, with a one-line reason.
-
-If the call is LATER or WON'T DO, stop here and tell the user — don't keep grooming something not worth doing yet. Continue only if the user overrides.
+If the call is DO LATER or WON'T DO, stop here and tell the user — don't keep grooming something not worth doing yet. Continue only if the user overrides.
 
 ## Phase 2: Refine
 
-Same substance as `/unity-refine`:
+Spawn the `unity-business-analyst` agent with the issue number. It will:
 
-- Ground in the codebase (`Assets/Scripts/Core`, `Gameplay`, `Presentation`) and `.claude/rules/architecture.md` — verify as-is behavior by reading code, never guess.
-- Fill in: Problem, Acceptance Criteria (concrete, testable, include a negative test), Out of Scope, Affected Systems, Risks, Open Questions.
-- Every Open Question goes to the user.
-- If the issue doesn't fit in one PR, propose a vertically-sliced sub-issue breakdown with a suggested implementation order and dependency notes.
+- Ground itself in the codebase (`Assets/Scripts/Core`, `Gameplay`, `Presentation`) and `.claude/rules/architecture.md` — verify as-is behavior by reading code, never guess.
+- Fill in: Problem, User Story, Acceptance Criteria (concrete, testable, include a negative test), Out of Scope, Affected Systems, Risks, Open Questions.
+- Propose a vertically-sliced sub-issue breakdown if the issue doesn't fit in one PR, with a suggested implementation order and dependency notes.
+
+Every Open Question the agent surfaces goes to the user — don't answer on its behalf.
 
 ## Phase 3: Mockup (only if UI-facing)
 
