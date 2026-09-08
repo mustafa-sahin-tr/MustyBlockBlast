@@ -72,6 +72,19 @@ Unless `--no-critic` is specified in the original arguments:
 
 ## Phase 3: Execute
 
+### Branch first
+
+Before any file is created or edited, create and check out a dedicated branch — never implement directly on `main`:
+
+1. `git status` — if there are uncommitted changes unrelated to this issue, stop and ask the user how to handle them (stash, commit, or abort) rather than branching over dirty state.
+2. Build the branch name from the issue: `issue-<issue_number>-<kebab-case-slug-of-the-title>`, e.g. issue #1 titled "satır yok olma effekti olsun..." → `issue-1-line-clear-effect` (slug from the *gist* of the title, not a literal transliteration — short, meaningful, a handful of words).
+3. `git checkout -b issue-<issue_number>-<slug>` off the current `main` (fast-forward/pull first if `main` is behind `origin/main`).
+4. If a branch with that name already exists (e.g. a resumed workflow), check it out instead of creating a new one — don't error out.
+
+Do this once per `/unity-workflow` run, before Phase 3 step 1 below. Do not push the branch or open a PR automatically — that stays a separate, explicitly-requested action per this project's push/PR safety rules.
+
+### Implement
+
 Follow the approved plan:
 
 1. **Route to the appropriate agent(s)** based on the plan
@@ -136,6 +149,9 @@ Present a complete summary to the user:
 
 ### Source issue
 - #<issue_number> — <url>
+
+### Branch
+- `issue-<issue_number>-<slug>` — not pushed; push and open a PR when the user asks
 ```
 
 ## Design Principles

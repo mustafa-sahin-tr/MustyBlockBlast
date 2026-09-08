@@ -42,6 +42,12 @@ Argument: **$ARGUMENTS** — a GitHub issue number (optionally followed by `--qu
 
 ## Phase 2: Implement
 
+0. **Branch first** — never implement directly on `main`:
+   - `git status`; if there are uncommitted changes unrelated to this issue, stop and ask the user how to handle them (stash, commit, or abort) instead of branching over dirty state.
+   - Branch name: `issue-<issue_number>-<kebab-case-slug-of-the-title>` (short, meaningful — the gist of the title, not a literal transliteration).
+   - `git checkout -b issue-<issue_number>-<slug>` off the current `main` (pull first if `main` is behind `origin/main`). If that branch already exists (a resumed run), check it out instead of erroring.
+   - Do not push the branch or open a PR automatically — that's a separate, explicitly-requested step.
+
 1. **Write C# code** using the `unity-coder` agent:
    - Follow all rules in `.claude/rules/`
    - Place scripts in correct assembly definition
@@ -61,7 +67,7 @@ Argument: **$ARGUMENTS** — a GitHub issue number (optionally followed by `--qu
 2. Summarize what was created/modified
 3. Explain how to test the feature
 4. Note any manual steps needed (e.g., assigning references in Inspector)
-5. Reference the source issue (`#<issue_number>`, its URL) in the summary so the user can link it in their commit/PR
+5. Reference the source issue (`#<issue_number>`, its URL) and the branch created in Phase 2 in the summary
 
 ## Phase 4: Auto-Verify (Optional)
 

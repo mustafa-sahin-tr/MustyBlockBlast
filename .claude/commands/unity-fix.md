@@ -26,6 +26,12 @@ Argument: **$ARGUMENTS** — a GitHub issue number (optionally followed by `--qu
 
 ## Workflow
 
+0. **Branch first** — never fix directly on `main`:
+   - `git status`; if there are uncommitted changes unrelated to this issue, stop and ask the user how to handle them (stash, commit, or abort) instead of branching over dirty state.
+   - Branch name: `issue-<issue_number>-<kebab-case-slug-of-the-title>` (short, meaningful — the gist of the title, not a literal transliteration).
+   - `git checkout -b issue-<issue_number>-<slug>` off the current `main` (pull first if `main` is behind `origin/main`). If that branch already exists (a resumed run), check it out instead of erroring.
+   - Do not push the branch or open a PR automatically — that's a separate, explicitly-requested step.
+
 Use the selected fixer agent to:
 
 1. **Gather evidence:**
@@ -48,4 +54,4 @@ Use the selected fixer agent to:
    - If it was a serialization issue, warn about data that may need re-configuration
    - If it was a build issue, suggest running `/unity-build` to verify
 
-5. **Explain** what caused the bug and how the fix prevents recurrence. Reference the source issue (`#<issue_number>`, its URL) so the user can link it in their commit/PR.
+5. **Explain** what caused the bug and how the fix prevents recurrence. Reference the source issue (`#<issue_number>`, its URL) and the branch created in step 0.
