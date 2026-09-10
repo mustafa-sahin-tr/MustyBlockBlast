@@ -30,6 +30,7 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterMessageBroker<LinesClearedMessage>(options);
             builder.RegisterMessageBroker<ScoreChangedMessage>(options);
             builder.RegisterMessageBroker<GameOverMessage>(options);
+            builder.RegisterMessageBroker<PlaySfxRequestedMessage>(options);
         }
 
         private static void RegisterModels(IContainerBuilder builder)
@@ -37,12 +38,14 @@ namespace MustyBlockBlast.Presentation
             builder.Register<BoardModel>(Lifetime.Singleton);
             builder.Register<TrayModel>(Lifetime.Singleton);
             builder.Register<ScoreModel>(Lifetime.Singleton);
+            builder.Register<SfxModel>(Lifetime.Singleton);
         }
 
         private static void RegisterSystems(IContainerBuilder builder)
         {
             builder.Register<WeightedPieceDraw>(Lifetime.Singleton);
             builder.Register<ScoreSystem>(Lifetime.Singleton);
+            builder.Register<SfxSystem>(Lifetime.Singleton).As<ISfxService>().AsSelf();
             builder.RegisterEntryPoint<BoardSystem>(Lifetime.Singleton).AsSelf();
         }
 
@@ -54,6 +57,7 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterComponentInHierarchy<LineClearBurstView>();
             builder.RegisterComponentInHierarchy<GameOverView>();
             builder.RegisterComponentInHierarchy<BoardInputView>();
+            builder.RegisterComponentInHierarchy<SfxPlayerView>();
         }
     }
 }
