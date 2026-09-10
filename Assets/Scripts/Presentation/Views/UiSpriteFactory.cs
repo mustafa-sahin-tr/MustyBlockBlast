@@ -13,8 +13,16 @@ namespace MustyBlockBlast.Presentation.Views
         private const int ROUNDED_RADIUS = 16;
         private const int GLOW_SIZE = 128;
 
+        // The rounded square is drawn 9-sliced with a pixelsPerUnitMultiplier of 3, so its corner
+        // radius stays ~5 screen pixels whatever the cell size. The facet triangle cannot be sliced
+        // (it is rotated and has diagonal edges), so it is stretched over the whole cell instead:
+        // these numbers reproduce roughly the same corner radius on a board-sized cell.
+        private const int TRIANGLE_SIZE = 128;
+        private const int TRIANGLE_RADIUS = 6;
+
         private static Sprite _roundedSquare;
         private static Sprite _radialGlow;
+        private static Sprite _triangleFacet;
 
         /// <summary>9-sliced rounded square, white. Tint via <see cref="UnityEngine.UI.Image.color"/>.</summary>
         internal static Sprite RoundedSquare
@@ -41,6 +49,25 @@ namespace MustyBlockBlast.Presentation.Views
                 }
 
                 return _radialGlow;
+            }
+        }
+
+        /// <summary>
+        /// Right triangle whose base is the top edge of the texture and whose apex is the exact
+        /// centre, with the two base corners rounded to match <see cref="RoundedSquare"/>. Stretch
+        /// it over a square cell and rotate by 0/90/180/270 to get the four bevel facets; the four
+        /// rotations together tile the full rounded square. White — tint via Image.color.
+        /// </summary>
+        internal static Sprite TriangleFacet
+        {
+            get
+            {
+                if (_triangleFacet == null)
+                {
+                    _triangleFacet = CreateTriangleFacet(TRIANGLE_SIZE, TRIANGLE_RADIUS);
+                }
+
+                return _triangleFacet;
             }
         }
 
@@ -107,6 +134,53 @@ namespace MustyBlockBlast.Presentation.Views
             return sprite;
         }
 
+        private static Sprite CreateTriangleFacet(int size, int radius)
+        {
+            var texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
+            {
+                name = "MustyBlockBlast_TriangleFacet",
+                wrapMode = TextureWrapMode.Clamp,
+                filterMode = FilterMode.Bilinear,
+                hideFlags = HideFlags.HideAndDontSave,
+            };
+
+            var pixels = new Color32[size * size];
+
+            // Vertices: base (0, size)-(size, size) along the top edge, apex at the centre.
+            // Interior is x + y >= size (left diagonal) and y >= x (right diagonal).
+            const float INV_SQRT2 = 0.70710678f;
+
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float pixelX = x + 0.5f;
+                    float pixelY = y + 0.5f;
+
+                    float leftCoverage = Mathf.Clamp01((((pixelX + pixelY) - size) * INV_SQRT2) + 0.5f);
+                    float rightCoverage = Mathf.Clamp01(((pixelY - pixelX) * INV_SQRT2) + 0.5f);
+
+                    // Round only the two base corners so the four rotations line up with the
+                    // rounded-square silhouette used by the rest of the cell.
+                    float centreX = pixelX < radius ? radius : (pixelX > size - radius ? size - radius : pixelX);
+                    float centreY = pixelY > size - radius ? size - radius : pixelY;
+                    float cornerCoverage = CircleCoverage(pixelX, pixelY, centreX, centreY, radius);
+
+                    float alpha = Mathf.Min(Mathf.Min(leftCoverage, rightCoverage), cornerCoverage);
+                    pixels[(y * size) + x] = new Color32(255, 255, 255, (byte)Mathf.RoundToInt(alpha * 255f));
+                }
+            }
+
+            texture.SetPixels32(pixels);
+            texture.Apply(false, true);
+
+            Sprite sprite = Sprite.Create(
+                texture, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect);
+            sprite.name = "MustyBlockBlast_TriangleFacetSprite";
+            sprite.hideFlags = HideFlags.HideAndDontSave;
+            return sprite;
+        }
+
         private static Sprite CreateRadialGlow(int size)
         {
             var texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
@@ -155,6 +229,12 @@ namespace MustyBlockBlast.Presentation.Views
             float centreX = pixelX < radius ? radius : (pixelX > size - radius ? size - radius : pixelX);
             float centreY = pixelY < radius ? radius : (pixelY > size - radius ? size - radius : pixelY);
 
+            return CircleCoverage(pixelX, pixelY, centreX, centreY, radius);
+        }
+
+        /// <summary>Anti-aliased coverage of one pixel against a circle of <paramref name="radius"/>.</summary>
+        private static float CircleCoverage(float pixelX, float pixelY, float centreX, float centreY, float radius)
+        {
             float dx = pixelX - centreX;
             float dy = pixelY - centreY;
             float distance = Mathf.Sqrt((dx * dx) + (dy * dy));

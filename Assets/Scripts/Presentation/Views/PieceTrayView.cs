@@ -166,7 +166,8 @@ namespace MustyBlockBlast.Presentation.Views
                     _slotRects[slotIndex], $"TrayCell_{i}", _trayCellSize, _cellInset, _cellBevelThickness);
                 var rect = (RectTransform)cell.transform;
                 rect.anchoredPosition = new Vector2(offsetX + (offset.X * pitch), offsetY + (offset.Y * pitch));
-                cell.SetColours(_palette.GetFill(colourId), _palette.GetShade(colourId));
+                cell.SetEmbossedColours(
+                    _palette.GetFill(colourId), _palette.GetHighlight(colourId), _palette.GetShade(colourId));
                 cells.Add(cell);
             }
         }

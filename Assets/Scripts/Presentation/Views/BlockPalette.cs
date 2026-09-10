@@ -23,13 +23,21 @@ namespace MustyBlockBlast.Presentation.Views
         [SerializeField] private Color _emptyCellFill = FromHex(0xE6E4EC);
         [SerializeField] private Color _emptyCellOutline = FromHex(0xD6D3E0);
 
-        [Header("Piece kinds (fill / bevel shade)")]
+        [Header("Piece kinds (fill / bevel highlight / bevel shade)")]
         [SerializeField]
         private Color[] _kindFills =
         {
             FromHex(0xE8785A),
             FromHex(0x6FB8B0),
             FromHex(0xE0C36B),
+        };
+
+        [SerializeField]
+        private Color[] _kindHighlights =
+        {
+            FromHex(0xF6A48D),
+            FromHex(0x9AD8D1),
+            FromHex(0xF0DDA0),
         };
 
         [SerializeField]
@@ -78,6 +86,9 @@ namespace MustyBlockBlast.Presentation.Views
 
         /// <summary>Main face colour for a cosmetic colour id (1-based; 0 is empty).</summary>
         public Color GetFill(int colourId) => Pick(_kindFills, colourId, _emptyCellFill);
+
+        /// <summary>Lit bevel facet colour (top/left) for a cosmetic colour id.</summary>
+        public Color GetHighlight(int colourId) => Pick(_kindHighlights, colourId, _emptyCellFill);
 
         /// <summary>Darker bevel/outline colour for a cosmetic colour id.</summary>
         public Color GetShade(int colourId) => Pick(_kindShades, colourId, _emptyCellOutline);
