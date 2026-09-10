@@ -214,10 +214,16 @@ namespace MustyBlockBlast.Presentation.Views
             for (int i = 0; i < piece.Offsets.Count; i++)
             {
                 GridPosition offset = piece.Offsets[i];
-                CellView cell = CellFactory.CreateCell(_ghostRoot, $"GhostCell_{i}", _boardView.CellSize, 3f, 6f);
+                CellView cell = CellFactory.CreateCell(
+                    _ghostRoot,
+                    $"GhostCell_{i}",
+                    _boardView.CellSize,
+                    _boardView.CellInset,
+                    _boardView.CellBevelThickness);
                 var rect = (RectTransform)cell.transform;
                 rect.anchoredPosition = new Vector2(offsetX + (offset.X * pitch), offsetY + (offset.Y * pitch));
-                cell.SetColours(_palette.GetFill(colourId), _palette.GetShade(colourId));
+                cell.SetEmbossedColours(
+                    _palette.GetFill(colourId), _palette.GetHighlight(colourId), _palette.GetShade(colourId));
                 cell.SetAlpha(_ghostAlpha);
                 _ghostCells.Add(cell);
             }

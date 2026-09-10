@@ -82,6 +82,10 @@ namespace MustyBlockBlast.Presentation.Views
 
         internal float CellSpacing => _cellSpacing;
 
+        internal float CellInset => _cellInset;
+
+        internal float CellBevelThickness => _cellBevelThickness;
+
         private void Awake()
         {
             if (_palette == null)
@@ -392,9 +396,6 @@ namespace MustyBlockBlast.Presentation.Views
             CellView view = _cells[index];
             int colourId = _pendingColourIds[index];
 
-            Color face = colourId == Board.EMPTY ? _palette.EmptyCellFill : _palette.GetFill(colourId);
-            Color shade = colourId == Board.EMPTY ? _palette.EmptyCellOutline : _palette.GetShade(colourId);
-
             try
             {
                 if (isIntersection)
@@ -411,7 +412,7 @@ namespace MustyBlockBlast.Presentation.Views
 
                         // Triangle ramp: colour goes to white and back over the flash window.
                         float blend = 1f - Mathf.Abs(((flashElapsed / flashDuration) * 2f) - 1f);
-                        view.SetColours(Color.Lerp(face, FlashTint, blend), Color.Lerp(shade, FlashTint, blend));
+                        ApplyClearTint(view, colourId, blend);
 
                         await UniTask.Yield(PlayerLoopTiming.Update, _destroyToken);
                         flashElapsed += Time.unscaledDeltaTime;
@@ -422,7 +423,7 @@ namespace MustyBlockBlast.Presentation.Views
                         return;
                     }
 
-                    view.SetColours(face, shade);
+                    ApplyClearTint(view, colourId, 0f);
                 }
 
                 float fadeDuration = Mathf.Max(0.01f, _fadeDuration);
@@ -468,7 +469,26 @@ namespace MustyBlockBlast.Presentation.Views
                 return;
             }
 
-            view.SetColours(_palette.GetFill(colourId), _palette.GetShade(colourId));
+            view.SetEmbossedColours(
+                _palette.GetFill(colourId), _palette.GetHighlight(colourId), _palette.GetShade(colourId));
+        }
+
+        /// <summary>Draws a clearing cell blended towards the flash tint, keeping it on the same
+        /// layer set it was already showing so the fade never switches looks mid-flight.</summary>
+        private void ApplyClearTint(CellView view, int colourId, float blend)
+        {
+            if (colourId == Board.EMPTY)
+            {
+                view.SetColours(
+                    Color.Lerp(_palette.EmptyCellFill, FlashTint, blend),
+                    Color.Lerp(_palette.EmptyCellOutline, FlashTint, blend));
+                return;
+            }
+
+            view.SetEmbossedColours(
+                Color.Lerp(_palette.GetFill(colourId), FlashTint, blend),
+                Color.Lerp(_palette.GetHighlight(colourId), FlashTint, blend),
+                Color.Lerp(_palette.GetShade(colourId), FlashTint, blend));
         }
     }
 }
