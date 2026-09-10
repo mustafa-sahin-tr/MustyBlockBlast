@@ -7,7 +7,9 @@ using MustyBlockBlast.Core;
 using MustyBlockBlast.Gameplay.Messages;
 using MustyBlockBlast.Gameplay.Models;
 using MustyBlockBlast.Gameplay.Reactive;
+using MustyBlockBlast.Gameplay.Settings;
 using UnityEngine;
+using UnityEngine.UI;
 using VContainer;
 
 namespace MustyBlockBlast.Presentation.Views
@@ -36,9 +38,6 @@ namespace MustyBlockBlast.Presentation.Views
         [Tooltip("Seconds of white flash on a cell that sits on both a cleared row and a cleared column.")]
         [SerializeField] private float _intersectionFlashDuration = 0.08f;
 
-        [Header("Palette")]
-        [SerializeField] private BlockPalette _palette;
-
         private static readonly Color FlashTint = Color.white;
 
         private readonly GridPosition[] _previewCells = new GridPosition[16];
@@ -50,6 +49,8 @@ namespace MustyBlockBlast.Presentation.Views
         private RectTransform _rectTransform;
         private Canvas _canvas;
         private CellView[] _cells;
+        private Image _cardImage;
+        private Image _cardShadowImage;
 
         // Per-cell bookkeeping, parallel to _cells and indexed by CellIndex.
         private int[] _cellColourIds;
@@ -59,6 +60,8 @@ namespace MustyBlockBlast.Presentation.Views
         private bool[] _cellPending;
 
         private BoardModel _boardModel;
+        private SettingsModel _settingsModel;
+        private ThemeDefinition _currentTheme;
         private ISubscriber<LinesClearedMessage> _linesClearedSubscriber;
         private ISubscriber<RunStartedMessage> _runStartedSubscriber;
 
@@ -70,10 +73,12 @@ namespace MustyBlockBlast.Presentation.Views
         [Inject]
         public void Construct(
             BoardModel boardModel,
+            SettingsModel settingsModel,
             ISubscriber<LinesClearedMessage> linesClearedSubscriber,
             ISubscriber<RunStartedMessage> runStartedSubscriber)
         {
             _boardModel = boardModel;
+            _settingsModel = settingsModel;
             _linesClearedSubscriber = linesClearedSubscriber;
             _runStartedSubscriber = runStartedSubscriber;
         }
@@ -88,11 +93,6 @@ namespace MustyBlockBlast.Presentation.Views
 
         private void Awake()
         {
-            if (_palette == null)
-            {
-                _palette = BlockPalette.CreateDefault();
-            }
-
             _destroyToken = this.GetCancellationTokenOnDestroy();
 
             _rectTransform = (RectTransform)transform;
@@ -111,19 +111,22 @@ namespace MustyBlockBlast.Presentation.Views
                 _rectTransform,
                 "BoardCard",
                 new Vector2(cardExtent, cardExtent),
-                _palette.CardBackground,
-                _palette.CardShadow);
+                out _cardImage,
+                out _cardShadowImage);
 
             BuildCells(BuildCellLayer(card));
         }
 
         private void Start()
         {
-            if (_boardModel == null)
+            if (_boardModel == null || _settingsModel == null)
             {
                 Debug.LogError($"{nameof(BoardView)} was not injected. Is it registered in the LifetimeScope?", this);
                 return;
             }
+
+            // Subscribed first so _currentTheme is set before anything below paints a cell.
+            _settingsModel.CurrentTheme.Subscribe(OnThemeChanged).AddTo(_disposables);
 
             _boardModel.CellChanged += OnCellChanged;
             _linesClearedSubscriber.Subscribe(OnLinesCleared).AddTo(_disposables);
@@ -182,12 +185,12 @@ namespace MustyBlockBlast.Presentation.Views
         {
             ClearPreview();
 
-            if (piece == null)
+            if (piece == null || _currentTheme == null)
             {
                 return;
             }
 
-            Color tint = isValid ? _palette.ValidPreview : _palette.InvalidPreview;
+            Color tint = isValid ? _currentTheme.ValidPreview : _currentTheme.InvalidPreview;
             for (int i = 0; i < piece.Offsets.Count && _previewCount < _previewCells.Length; i++)
             {
                 GridPosition cell = anchor + piece.Offsets[i];
@@ -269,7 +272,10 @@ namespace MustyBlockBlast.Presentation.Views
                         parent, $"Cell_{x}_{y}", _cellSize, _cellInset, _cellBevelThickness);
                     var rect = (RectTransform)cell.transform;
                     rect.anchoredPosition = new Vector2(origin + (x * pitch), origin + (y * pitch));
-                    cell.SetColours(_palette.EmptyCellFill, _palette.EmptyCellOutline);
+
+                    // Cells are built in Awake, before the theme is known; the theme subscription in
+                    // Start paints them (and repaints them on every later theme switch).
+                    cell.SetColours(Color.clear, Color.clear);
                     _cells[(y * Board.SIZE) + x] = cell;
                 }
             }
@@ -460,35 +466,81 @@ namespace MustyBlockBlast.Presentation.Views
             view.SetAlpha(1f);
         }
 
+        /// <summary>Adopts a new theme: repaints the card and every cell already on the board, so a
+        /// mid-run theme switch changes the pieces that are already placed, not just future ones.</summary>
+        private void OnThemeChanged(ThemeDefinition theme)
+        {
+            if (theme == null)
+            {
+                return;
+            }
+
+            _currentTheme = theme;
+
+            _cardImage.color = theme.CardBackground;
+            _cardShadowImage.color = theme.CardShadow;
+
+            RepaintCells();
+        }
+
+        private void RepaintCells()
+        {
+            for (int y = 0; y < Board.SIZE; y++)
+            {
+                for (int x = 0; x < Board.SIZE; x++)
+                {
+                    int index = (y * Board.SIZE) + x;
+
+                    // A cell fading out from a line clear still shows its pre-clear colour; repaint
+                    // that one instead of the (already empty) settled colour. The fade in flight
+                    // restores the alpha on its next tick.
+                    int colourId = _cellPending[index] ? _pendingColourIds[index] : _cellColourIds[index];
+                    ApplyCellColour(new GridPosition(x, y), colourId);
+                }
+            }
+        }
+
         private void ApplyCellColour(GridPosition cell, int colourId)
         {
+            if (_currentTheme == null)
+            {
+                return;
+            }
+
             CellView view = _cells[CellIndex(cell)];
             if (colourId == Board.EMPTY)
             {
-                view.SetColours(_palette.EmptyCellFill, _palette.EmptyCellOutline);
+                view.SetColours(_currentTheme.EmptyCellFill, _currentTheme.EmptyCellOutline);
                 return;
             }
 
             view.SetEmbossedColours(
-                _palette.GetFill(colourId), _palette.GetHighlight(colourId), _palette.GetShade(colourId));
+                _currentTheme.GetFill(colourId),
+                _currentTheme.GetHighlight(colourId),
+                _currentTheme.GetShade(colourId));
         }
 
         /// <summary>Draws a clearing cell blended towards the flash tint, keeping it on the same
         /// layer set it was already showing so the fade never switches looks mid-flight.</summary>
         private void ApplyClearTint(CellView view, int colourId, float blend)
         {
+            if (_currentTheme == null)
+            {
+                return;
+            }
+
             if (colourId == Board.EMPTY)
             {
                 view.SetColours(
-                    Color.Lerp(_palette.EmptyCellFill, FlashTint, blend),
-                    Color.Lerp(_palette.EmptyCellOutline, FlashTint, blend));
+                    Color.Lerp(_currentTheme.EmptyCellFill, FlashTint, blend),
+                    Color.Lerp(_currentTheme.EmptyCellOutline, FlashTint, blend));
                 return;
             }
 
             view.SetEmbossedColours(
-                Color.Lerp(_palette.GetFill(colourId), FlashTint, blend),
-                Color.Lerp(_palette.GetHighlight(colourId), FlashTint, blend),
-                Color.Lerp(_palette.GetShade(colourId), FlashTint, blend));
+                Color.Lerp(_currentTheme.GetFill(colourId), FlashTint, blend),
+                Color.Lerp(_currentTheme.GetHighlight(colourId), FlashTint, blend),
+                Color.Lerp(_currentTheme.GetShade(colourId), FlashTint, blend));
         }
     }
 }

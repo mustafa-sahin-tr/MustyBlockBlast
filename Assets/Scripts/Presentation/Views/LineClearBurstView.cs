@@ -3,7 +3,9 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using MessagePipe;
 using MustyBlockBlast.Gameplay.Messages;
+using MustyBlockBlast.Gameplay.Models;
 using MustyBlockBlast.Gameplay.Reactive;
+using MustyBlockBlast.Gameplay.Settings;
 using UnityEngine;
 using UnityEngine.UI;
 using VContainer;
@@ -22,6 +24,11 @@ namespace MustyBlockBlast.Presentation.Views
         private const int RAY_COUNT = 10;
         private const float RAY_LENGTH = 360f;
         private const float RAY_WIDTH = 7f;
+
+        // Burst word is always a fixed white fill (see AnimateText) so its outline must stay a fixed
+        // dark colour too, independent of theme.Ink — a light-ink theme (e.g. Kış) would otherwise
+        // outline white text in near-white and make it unreadable.
+        private static readonly Color TextOutlineColor = new Color(0.1686f, 0.1529f, 0.20f, 1f);
 
         // Phase fractions of a tier's total duration (0.15 / 0.55 / 0.30 == the approved NICE timing).
         private const float GROW_FRACTION = 0.15f;
@@ -55,9 +62,6 @@ namespace MustyBlockBlast.Presentation.Views
         [Header("Flash (AMAZING only)")]
         [SerializeField] private float _flashAlpha = 0.28f;
 
-        [Header("Palette")]
-        [SerializeField] private BlockPalette _palette;
-
         private readonly CompositeDisposable _disposables = new CompositeDisposable();
 
         private readonly Vector2[] _particleDirections = new Vector2[PARTICLE_CAPACITY];
@@ -68,6 +72,8 @@ namespace MustyBlockBlast.Presentation.Views
         private ISubscriber<LinesClearedMessage> _linesClearedSubscriber;
         private ISubscriber<GameOverMessage> _gameOverSubscriber;
         private ISubscriber<RunStartedMessage> _runStartedSubscriber;
+        private SettingsModel _settingsModel;
+        private ThemeDefinition _currentTheme;
 
         private GameObject _layerObject;
         private RectTransform _centreRect;
@@ -78,6 +84,7 @@ namespace MustyBlockBlast.Presentation.Views
         private Outline _textOutline;
         private GameObject _flashObject;
         private CanvasGroup _flashGroup;
+        private Image _flashImage;
         private GameObject _raysObject;
         private RectTransform[] _rayRects;
         private Image[] _rayImages;
@@ -91,10 +98,12 @@ namespace MustyBlockBlast.Presentation.Views
 
         [Inject]
         public void Construct(
+            SettingsModel settingsModel,
             ISubscriber<LinesClearedMessage> linesClearedSubscriber,
             ISubscriber<GameOverMessage> gameOverSubscriber,
             ISubscriber<RunStartedMessage> runStartedSubscriber)
         {
+            _settingsModel = settingsModel;
             _linesClearedSubscriber = linesClearedSubscriber;
             _gameOverSubscriber = gameOverSubscriber;
             _runStartedSubscriber = runStartedSubscriber;
@@ -102,26 +111,24 @@ namespace MustyBlockBlast.Presentation.Views
 
         private void Awake()
         {
-            if (_palette == null)
-            {
-                _palette = BlockPalette.CreateDefault();
-            }
-
             _destroyToken = this.GetCancellationTokenOnDestroy();
 
             BuildHierarchy();
-            CacheParticleColours();
             _layerObject.SetActive(false);
         }
 
         private void Start()
         {
-            if (_linesClearedSubscriber == null)
+            if (_linesClearedSubscriber == null || _settingsModel == null)
             {
                 Debug.LogError(
                     $"{nameof(LineClearBurstView)} was not injected. Is it registered in the LifetimeScope?", this);
                 return;
             }
+
+            // Bursts are spawned on demand, so keeping the theme (and the cached particle colours)
+            // current is enough — a burst always renders with the theme selected when it starts.
+            _settingsModel.CurrentTheme.Subscribe(OnThemeChanged).AddTo(_disposables);
 
             _linesClearedSubscriber.Subscribe(OnLinesCleared).AddTo(_disposables);
             _gameOverSubscriber.Subscribe(OnGameOver).AddTo(_disposables);
@@ -144,7 +151,7 @@ namespace MustyBlockBlast.Presentation.Views
         private void OnLinesCleared(LinesClearedMessage message)
         {
             int lineCount = message.LineCount;
-            if (lineCount < 2)
+            if (lineCount < 2 || _currentTheme == null)
             {
                 return;
             }
@@ -312,7 +319,7 @@ namespace MustyBlockBlast.Presentation.Views
             fill.a = fade;
             _text.color = fill;
 
-            Color outline = _palette.Ink;
+            Color outline = TextOutlineColor;
             outline.a = fade;
             _textOutline.effectColor = outline;
         }
@@ -361,7 +368,7 @@ namespace MustyBlockBlast.Presentation.Views
             float length = Mathf.Lerp(0.25f, 1f, grow);
             float alpha = fade * Mathf.Clamp01(1f - (grow * 0.85f)) * 0.85f;
 
-            Color colour = _palette.GetFill(tier.GlowColourId);
+            Color colour = _currentTheme.GetFill(tier.GlowColourId);
             colour.a = alpha;
 
             for (int i = 0; i < _rayRects.Length; i++)
@@ -373,7 +380,7 @@ namespace MustyBlockBlast.Presentation.Views
 
         private Color TintedGlow(BurstTier tier, float fade)
         {
-            Color colour = _palette.GetFill(tier.GlowColourId);
+            Color colour = _currentTheme.GetFill(tier.GlowColourId);
             colour.a = tier.GlowAlpha * fade;
             return colour;
         }
@@ -431,9 +438,8 @@ namespace MustyBlockBlast.Presentation.Views
             _flashGroup.interactable = false;
             _flashGroup.blocksRaycasts = false;
 
-            var image = flashObject.GetComponent<Image>();
-            image.color = _palette.CardBackground;
-            image.raycastTarget = false;
+            _flashImage = flashObject.GetComponent<Image>();
+            _flashImage.raycastTarget = false;
 
             flashObject.SetActive(false);
         }
@@ -509,16 +515,31 @@ namespace MustyBlockBlast.Presentation.Views
             _text = UiTextFactory.Create(parent, "BurstWord", Tiers[0].FontSize, FontStyle.Bold, Color.white);
             _textRect = (RectTransform)_text.transform;
             _textOutline = _text.gameObject.AddComponent<Outline>();
-            _textOutline.effectColor = _palette.Ink;
             _textOutline.useGraphicAlpha = false;
+        }
+
+        /// <summary>Adopts a new theme. Nothing is repainted retroactively: a burst lives for about a
+        /// second, so the next one simply starts in the new theme.</summary>
+        private void OnThemeChanged(ThemeDefinition theme)
+        {
+            if (theme == null)
+            {
+                return;
+            }
+
+            _currentTheme = theme;
+            _flashImage.color = theme.CardBackground;
+            _textOutline.effectColor = TextOutlineColor;
+            CacheParticleColours();
         }
 
         private void CacheParticleColours()
         {
             for (int i = 0; i < PARTICLE_CAPACITY; i++)
             {
-                int colourId = (i % BlockPalette.KIND_COUNT) + 1;
-                _particleColours[i] = (i % 2 == 0) ? _palette.GetFill(colourId) : _palette.GetShade(colourId);
+                int colourId = (i % ThemeDefinition.KIND_COUNT) + 1;
+                _particleColours[i] =
+                    (i % 2 == 0) ? _currentTheme.GetFill(colourId) : _currentTheme.GetShade(colourId);
             }
         }
 

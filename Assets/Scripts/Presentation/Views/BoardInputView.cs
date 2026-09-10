@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using MustyBlockBlast.Core;
 using MustyBlockBlast.Gameplay.Models;
+using MustyBlockBlast.Gameplay.Reactive;
+using MustyBlockBlast.Gameplay.Settings;
 using MustyBlockBlast.Gameplay.Systems;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -21,10 +23,8 @@ namespace MustyBlockBlast.Presentation.Views
         [SerializeField] private Vector2 _dragScreenOffset = new Vector2(0f, 150f);
         [SerializeField] private float _ghostAlpha = 0.9f;
 
-        [Header("Palette")]
-        [SerializeField] private BlockPalette _palette;
-
         private readonly List<CellView> _ghostCells = new List<CellView>(9);
+        private readonly CompositeDisposable _disposables = new CompositeDisposable();
 
         private InputAction _pointerPositionAction;
         private InputAction _pointerPressAction;
@@ -34,6 +34,8 @@ namespace MustyBlockBlast.Presentation.Views
 
         private BoardSystem _boardSystem;
         private TrayModel _trayModel;
+        private SettingsModel _settingsModel;
+        private ThemeDefinition _currentTheme;
         private BoardView _boardView;
         private PieceTrayView _trayView;
 
@@ -42,21 +44,22 @@ namespace MustyBlockBlast.Presentation.Views
         private bool _hasAnchor;
 
         [Inject]
-        public void Construct(BoardSystem boardSystem, TrayModel trayModel, BoardView boardView, PieceTrayView trayView)
+        public void Construct(
+            BoardSystem boardSystem,
+            TrayModel trayModel,
+            SettingsModel settingsModel,
+            BoardView boardView,
+            PieceTrayView trayView)
         {
             _boardSystem = boardSystem;
             _trayModel = trayModel;
+            _settingsModel = settingsModel;
             _boardView = boardView;
             _trayView = trayView;
         }
 
         private void Awake()
         {
-            if (_palette == null)
-            {
-                _palette = BlockPalette.CreateDefault();
-            }
-
             _canvas = GetComponentInParent<Canvas>();
             _pointerPositionAction = new InputAction("PointerPosition", InputActionType.Value, "<Pointer>/position");
             _pointerPressAction = new InputAction("PointerPress", InputActionType.Button, "<Pointer>/press");
@@ -80,6 +83,20 @@ namespace MustyBlockBlast.Presentation.Views
             _pointerPositionAction.Disable();
         }
 
+        private void Start()
+        {
+            if (_settingsModel == null)
+            {
+                Debug.LogError(
+                    $"{nameof(BoardInputView)} was not injected. Is it registered in the LifetimeScope?", this);
+                return;
+            }
+
+            // The ghost is built on pick-up, so keeping the theme current is enough — there is
+            // nothing already on screen to repaint when the theme changes.
+            _settingsModel.CurrentTheme.Subscribe(OnThemeChanged).AddTo(_disposables);
+        }
+
         private void Update()
         {
             if (_draggedSlot < 0)
@@ -92,8 +109,19 @@ namespace MustyBlockBlast.Presentation.Views
 
         private void OnDestroy()
         {
+            _disposables.Dispose();
             _pointerPositionAction?.Dispose();
             _pointerPressAction?.Dispose();
+        }
+
+        private void OnThemeChanged(ThemeDefinition theme)
+        {
+            if (theme == null)
+            {
+                return;
+            }
+
+            _currentTheme = theme;
         }
 
         private void OnPressStarted(InputAction.CallbackContext context)
@@ -154,7 +182,10 @@ namespace MustyBlockBlast.Presentation.Views
                 ? _canvas.worldCamera
                 : null;
 
-            if (RectTransformUtility.ScreenPointToLocalPointInRectangle(
+            // BuildGhost bails out when no theme is known yet, so the ghost can legitimately be
+            // missing while a drag is in flight.
+            if (_ghostRoot != null
+                && RectTransformUtility.ScreenPointToLocalPointInRectangle(
                     _dragLayer, targetScreen, eventCamera, out Vector2 local))
             {
                 _ghostRoot.anchoredPosition = local;
@@ -198,6 +229,11 @@ namespace MustyBlockBlast.Presentation.Views
 
         private void BuildGhost(Piece piece, int colourId)
         {
+            if (_currentTheme == null)
+            {
+                return;
+            }
+
             var ghostObject = new GameObject("DragGhost", typeof(RectTransform));
             _ghostRoot = (RectTransform)ghostObject.transform;
             _ghostRoot.SetParent(_dragLayer, false);
@@ -223,7 +259,9 @@ namespace MustyBlockBlast.Presentation.Views
                 var rect = (RectTransform)cell.transform;
                 rect.anchoredPosition = new Vector2(offsetX + (offset.X * pitch), offsetY + (offset.Y * pitch));
                 cell.SetEmbossedColours(
-                    _palette.GetFill(colourId), _palette.GetHighlight(colourId), _palette.GetShade(colourId));
+                    _currentTheme.GetFill(colourId),
+                    _currentTheme.GetHighlight(colourId),
+                    _currentTheme.GetShade(colourId));
                 cell.SetAlpha(_ghostAlpha);
                 _ghostCells.Add(cell);
             }
