@@ -22,10 +22,13 @@ namespace MustyBlockBlast.Presentation.Views
             return cellView;
         }
 
-        /// <summary>Rounded card with a soft offset shadow behind it. Returns the card rect; content
-        /// should be parented to it.</summary>
+        /// <summary>
+        /// Rounded card with a soft offset shadow behind it. Returns the card rect; content should be
+        /// parented to it. Both Images start fully transparent and are handed back so the caller can
+        /// paint them from the current theme — cards are built in Awake, before the theme is known.
+        /// </summary>
         internal static RectTransform CreateCard(
-            RectTransform parent, string cardName, Vector2 size, Color background, Color shadow)
+            RectTransform parent, string cardName, Vector2 size, out Image background, out Image shadow)
         {
             var shadowObject = new GameObject(cardName + "Shadow", typeof(RectTransform), typeof(Image));
             var shadowRect = (RectTransform)shadowObject.transform;
@@ -34,7 +37,8 @@ namespace MustyBlockBlast.Presentation.Views
             shadowRect.anchorMax = new Vector2(0.5f, 0.5f);
             shadowRect.sizeDelta = size + new Vector2(10f, 10f);
             shadowRect.anchoredPosition = new Vector2(0f, -8f);
-            ConfigureCardImage(shadowObject.GetComponent<Image>(), shadow);
+            shadow = shadowObject.GetComponent<Image>();
+            ConfigureCardImage(shadow);
 
             var cardObject = new GameObject(cardName, typeof(RectTransform), typeof(Image));
             var cardRect = (RectTransform)cardObject.transform;
@@ -42,17 +46,18 @@ namespace MustyBlockBlast.Presentation.Views
             cardRect.anchorMin = new Vector2(0.5f, 0.5f);
             cardRect.anchorMax = new Vector2(0.5f, 0.5f);
             cardRect.sizeDelta = size;
-            ConfigureCardImage(cardObject.GetComponent<Image>(), background);
+            background = cardObject.GetComponent<Image>();
+            ConfigureCardImage(background);
 
             return cardRect;
         }
 
-        private static void ConfigureCardImage(Image image, Color colour)
+        private static void ConfigureCardImage(Image image)
         {
             image.sprite = UiSpriteFactory.RoundedSquare;
             image.type = Image.Type.Sliced;
             image.pixelsPerUnitMultiplier = 1.4f;
-            image.color = colour;
+            image.color = Color.clear;
             image.raycastTarget = false;
         }
     }

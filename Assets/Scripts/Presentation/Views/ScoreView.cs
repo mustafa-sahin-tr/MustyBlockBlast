@@ -1,6 +1,7 @@
 using System.Text;
 using MustyBlockBlast.Gameplay.Models;
 using MustyBlockBlast.Gameplay.Reactive;
+using MustyBlockBlast.Gameplay.Settings;
 using UnityEngine;
 using UnityEngine.UI;
 using VContainer;
@@ -17,29 +18,23 @@ namespace MustyBlockBlast.Presentation.Views
         [SerializeField] private int _bestFontSize = 40;
         [SerializeField] private float _bestOffsetY = -95f;
 
-        [Header("Palette")]
-        [SerializeField] private BlockPalette _palette;
-
         private readonly CompositeDisposable _disposables = new CompositeDisposable();
         private readonly StringBuilder _stringBuilder = new StringBuilder(16);
 
         private ScoreModel _scoreModel;
+        private SettingsModel _settingsModel;
         private Text _scoreText;
         private Text _bestText;
 
         [Inject]
-        public void Construct(ScoreModel scoreModel)
+        public void Construct(ScoreModel scoreModel, SettingsModel settingsModel)
         {
             _scoreModel = scoreModel;
+            _settingsModel = settingsModel;
         }
 
         private void Awake()
         {
-            if (_palette == null)
-            {
-                _palette = BlockPalette.CreateDefault();
-            }
-
             var rect = (RectTransform)transform;
             rect.anchorMin = new Vector2(0.5f, 0.5f);
             rect.anchorMax = new Vector2(0.5f, 0.5f);
@@ -47,24 +42,38 @@ namespace MustyBlockBlast.Presentation.Views
             rect.sizeDelta = new Vector2(600f, 220f);
             rect.anchoredPosition = _anchoredPosition;
 
-            _scoreText = UiTextFactory.Create(rect, "ScoreLabel", _scoreFontSize, FontStyle.Bold, _palette.Ink);
-            _bestText = UiTextFactory.Create(rect, "BestLabel", _bestFontSize, FontStyle.Normal, _palette.SoftInk);
+            // Labels are built in Awake, before the theme is known; the theme subscription in Start
+            // paints them (and repaints them on every later theme switch).
+            _scoreText = UiTextFactory.Create(rect, "ScoreLabel", _scoreFontSize, FontStyle.Bold, Color.clear);
+            _bestText = UiTextFactory.Create(rect, "BestLabel", _bestFontSize, FontStyle.Normal, Color.clear);
             ((RectTransform)_bestText.transform).anchoredPosition = new Vector2(0f, _bestOffsetY);
         }
 
         private void Start()
         {
-            if (_scoreModel == null)
+            if (_scoreModel == null || _settingsModel == null)
             {
                 Debug.LogError($"{nameof(ScoreView)} was not injected. Is it registered in the LifetimeScope?", this);
                 return;
             }
 
+            _settingsModel.CurrentTheme.Subscribe(OnThemeChanged).AddTo(_disposables);
             _scoreModel.Score.Subscribe(OnScoreChanged).AddTo(_disposables);
             _scoreModel.HighScore.Subscribe(OnHighScoreChanged).AddTo(_disposables);
         }
 
         private void OnDestroy() => _disposables.Dispose();
+
+        private void OnThemeChanged(ThemeDefinition theme)
+        {
+            if (theme == null)
+            {
+                return;
+            }
+
+            _scoreText.color = theme.Ink;
+            _bestText.color = theme.SoftInk;
+        }
 
         private void OnScoreChanged(int score)
         {

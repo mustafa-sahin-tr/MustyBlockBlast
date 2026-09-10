@@ -1,7 +1,10 @@
 using System.Collections.Generic;
 using MustyBlockBlast.Core;
 using MustyBlockBlast.Gameplay.Models;
+using MustyBlockBlast.Gameplay.Reactive;
+using MustyBlockBlast.Gameplay.Settings;
 using UnityEngine;
+using UnityEngine.UI;
 using VContainer;
 
 namespace MustyBlockBlast.Presentation.Views
@@ -24,29 +27,27 @@ namespace MustyBlockBlast.Presentation.Views
         [SerializeField] private float _cellInset = 2f;
         [SerializeField] private float _cellBevelThickness = 4f;
 
-        [Header("Palette")]
-        [SerializeField] private BlockPalette _palette;
-
         private readonly List<CellView>[] _slotCells = new List<CellView>[TrayModel.SLOT_COUNT];
+        private readonly CompositeDisposable _disposables = new CompositeDisposable();
 
         private RectTransform _rectTransform;
         private RectTransform[] _slotRects;
         private Canvas _canvas;
+        private Image _cardImage;
+        private Image _cardShadowImage;
         private TrayModel _trayModel;
+        private SettingsModel _settingsModel;
+        private ThemeDefinition _currentTheme;
 
         [Inject]
-        public void Construct(TrayModel trayModel)
+        public void Construct(TrayModel trayModel, SettingsModel settingsModel)
         {
             _trayModel = trayModel;
+            _settingsModel = settingsModel;
         }
 
         private void Awake()
         {
-            if (_palette == null)
-            {
-                _palette = BlockPalette.CreateDefault();
-            }
-
             _rectTransform = (RectTransform)transform;
             _canvas = GetComponentInParent<Canvas>();
 
@@ -57,18 +58,21 @@ namespace MustyBlockBlast.Presentation.Views
             _rectTransform.anchoredPosition = _anchoredPosition;
 
             RectTransform card = CellFactory.CreateCard(
-                _rectTransform, "TrayCard", _cardSize, _palette.CardBackground, _palette.CardShadow);
+                _rectTransform, "TrayCard", _cardSize, out _cardImage, out _cardShadowImage);
 
             BuildSlots(card);
         }
 
         private void Start()
         {
-            if (_trayModel == null)
+            if (_trayModel == null || _settingsModel == null)
             {
                 Debug.LogError($"{nameof(PieceTrayView)} was not injected. Is it registered in the LifetimeScope?", this);
                 return;
             }
+
+            // Subscribed first so _currentTheme is set before the initial slot rebuild paints a cell.
+            _settingsModel.CurrentTheme.Subscribe(OnThemeChanged).AddTo(_disposables);
 
             _trayModel.SlotChanged += OnSlotChanged;
             for (int i = 0; i < TrayModel.SLOT_COUNT; i++)
@@ -79,6 +83,8 @@ namespace MustyBlockBlast.Presentation.Views
 
         private void OnDestroy()
         {
+            _disposables.Dispose();
+
             if (_trayModel != null)
             {
                 _trayModel.SlotChanged -= OnSlotChanged;
@@ -136,6 +142,49 @@ namespace MustyBlockBlast.Presentation.Views
 
         private void OnSlotChanged(int slotIndex) => RebuildSlot(slotIndex);
 
+        /// <summary>Adopts a new theme: repaints the card and the pieces currently sitting in the
+        /// tray, so a mid-run theme switch is not deferred until the next draw.</summary>
+        private void OnThemeChanged(ThemeDefinition theme)
+        {
+            if (theme == null)
+            {
+                return;
+            }
+
+            _currentTheme = theme;
+
+            _cardImage.color = theme.CardBackground;
+            _cardShadowImage.color = theme.CardShadow;
+
+            for (int slotIndex = 0; slotIndex < TrayModel.SLOT_COUNT; slotIndex++)
+            {
+                List<CellView> cells = _slotCells[slotIndex];
+                if (cells == null || cells.Count == 0)
+                {
+                    continue;
+                }
+
+                int colourId = _trayModel.GetColourId(slotIndex);
+                for (int i = 0; i < cells.Count; i++)
+                {
+                    ApplyCellColour(cells[i], colourId);
+                }
+            }
+        }
+
+        private void ApplyCellColour(CellView cell, int colourId)
+        {
+            if (_currentTheme == null)
+            {
+                return;
+            }
+
+            cell.SetEmbossedColours(
+                _currentTheme.GetFill(colourId),
+                _currentTheme.GetHighlight(colourId),
+                _currentTheme.GetShade(colourId));
+        }
+
         private void RebuildSlot(int slotIndex)
         {
             List<CellView> cells = _slotCells[slotIndex];
@@ -166,8 +215,7 @@ namespace MustyBlockBlast.Presentation.Views
                     _slotRects[slotIndex], $"TrayCell_{i}", _trayCellSize, _cellInset, _cellBevelThickness);
                 var rect = (RectTransform)cell.transform;
                 rect.anchoredPosition = new Vector2(offsetX + (offset.X * pitch), offsetY + (offset.Y * pitch));
-                cell.SetEmbossedColours(
-                    _palette.GetFill(colourId), _palette.GetHighlight(colourId), _palette.GetShade(colourId));
+                ApplyCellColour(cell, colourId);
                 cells.Add(cell);
             }
         }

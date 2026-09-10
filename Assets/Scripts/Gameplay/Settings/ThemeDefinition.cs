@@ -6,16 +6,17 @@ namespace MustyBlockBlast.Gameplay.Settings
     /// A single selectable visual theme. Static config, so it lives in a ScriptableObject; one asset
     /// per theme (Yaz, Kış, ...) and the selected one is held by <c>SettingsModel</c>.
     /// <para>
-    /// The colour surface is deliberately a superset of <c>BlockPalette</c> so later sub-issues can
-    /// move cells, pieces, text and drag previews onto themes without another asset migration. In
-    /// this slice only <see cref="BackgroundTop"/> and <see cref="BackgroundBottom"/> are consumed
-    /// (by <c>BackgroundView</c>); every other colour carries the <c>BlockPalette</c> default so the
-    /// assets already hold sane data.
+    /// This is the single source of colour for every View: background, cards, cells, piece kinds,
+    /// text and drag previews. Views subscribe to <c>SettingsModel.CurrentTheme</c> and repaint
+    /// whenever the selected theme changes.
     /// </para>
     /// </summary>
     [CreateAssetMenu(menuName = "MustyBlockBlast/Theme Definition", fileName = "ThemeDefinition")]
     public sealed class ThemeDefinition : ScriptableObject
     {
+        /// <summary>Piece "kinds" — colour ids are 1..KIND_COUNT and are cosmetic only.</summary>
+        public const int KIND_COUNT = 3;
+
         [Header("Identity")]
         [Tooltip("Stable id persisted to PlayerPrefs. Must be unique and must never change once shipped.")]
         [SerializeField] private int _id;
