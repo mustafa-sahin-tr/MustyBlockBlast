@@ -58,6 +58,7 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterComponentInHierarchy<GameOverView>();
             builder.RegisterComponentInHierarchy<BoardInputView>();
             builder.RegisterComponentInHierarchy<SfxPlayerView>();
+            builder.RegisterComponentInHierarchy<LineClearSfxView>();
         }
     }
 }
