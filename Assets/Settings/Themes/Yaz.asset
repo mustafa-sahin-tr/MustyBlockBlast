@@ -1,0 +1,38 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7048929a301e8495b93f9f544cf75aa7, type: 3}
+  m_Name: Yaz
+  m_EditorClassIdentifier: MustyBlockBlast.Gameplay::MustyBlockBlast.Gameplay.Settings.ThemeDefinition
+  _id: 0
+  _displayName: Yaz
+  _backgroundTop: {r: 0.5294118, g: 0.8078431, b: 0.9803922, a: 1}
+  _backgroundBottom: {r: 1, g: 0.8784314, b: 0.5098039, a: 1}
+  _cardBackground: {r: 0.99215686, g: 0.9882353, b: 0.9843137, a: 1}
+  _cardShadow: {r: 0.17, g: 0.15, b: 0.2, a: 0.1}
+  _emptyCellFill: {r: 0.9019608, g: 0.89411765, b: 0.9254902, a: 1}
+  _emptyCellOutline: {r: 0.8392157, g: 0.827451, b: 0.8784314, a: 1}
+  _kindFills:
+  - {r: 0.9098039, g: 0.47058824, b: 0.3529412, a: 1}
+  - {r: 0.43529412, g: 0.72156864, b: 0.6901961, a: 1}
+  - {r: 0.8784314, g: 0.7647059, b: 0.41960785, a: 1}
+  _kindHighlights:
+  - {r: 0.9647059, g: 0.6431373, b: 0.5529412, a: 1}
+  - {r: 0.6039216, g: 0.84705883, b: 0.81960785, a: 1}
+  - {r: 0.9411765, g: 0.8666667, b: 0.627451, a: 1}
+  _kindShades:
+  - {r: 0.7607843, g: 0.3529412, b: 0.24705882, a: 1}
+  - {r: 0.29803923, g: 0.5803922, b: 0.54901963, a: 1}
+  - {r: 0.7607843, g: 0.62352943, b: 0.28627452, a: 1}
+  _ink: {r: 0.16862746, g: 0.15294118, b: 0.2, a: 1}
+  _softInk: {r: 0.43137255, g: 0.40784314, b: 0.47058824, a: 1}
+  _validPreview: {r: 0.44, g: 0.72, b: 0.69, a: 0.45}
+  _invalidPreview: {r: 0.91, g: 0.47, b: 0.35, a: 0.35}

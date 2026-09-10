@@ -766,6 +766,50 @@ MonoBehaviour:
   _bestFontSize: 40
   _bestOffsetY: -95
   _palette: {fileID: 11400000, guid: 6f890eaf4a1e14ed58470597ad2be986, type: 2}
+--- !u!1 &1363646020
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1363646022}
+  - component: {fileID: 1363646021}
+  m_Layer: 0
+  m_Name: DebugThemeSwitch
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1363646021
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1363646020}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 71d1d087cf4cf4e58a682355fdafc87d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.DebugThemeSwitchView
+--- !u!4 &1363646022
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1363646020}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1443061544
 GameObject:
   m_ObjectHideFlags: 0
@@ -850,6 +894,9 @@ MonoBehaviour:
     TypeName: 
   autoRun: 1
   autoInjectGameObjects: []
+  _availableThemes:
+  - {fileID: 11400000, guid: b9175b9b98bd442ebb1d49763339cc97, type: 2}
+  - {fileID: 11400000, guid: 2bbaa111b67a5484eb577ffa2c37bd8e, type: 2}
 --- !u!4 &1490060644
 Transform:
   m_ObjectHideFlags: 0
@@ -915,7 +962,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 44a854401d6084b2983cf1e90a93274d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.BackgroundView
-  _palette: {fileID: 11400000, guid: 6f890eaf4a1e14ed58470597ad2be986, type: 2}
 --- !u!114 &1641886732
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1011,3 +1057,4 @@ SceneRoots:
   - {fileID: 979778625}
   - {fileID: 350165919}
   - {fileID: 1885774692}
+  - {fileID: 1363646022}
