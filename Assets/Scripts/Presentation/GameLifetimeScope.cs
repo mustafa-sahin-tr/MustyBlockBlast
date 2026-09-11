@@ -26,12 +26,13 @@ namespace MustyBlockBlast.Presentation
             RegisterViews(builder);
 
             // ScoreSystem subscribes in its constructor, so it must exist before the first run starts.
-            // SettingsSystem loads the persisted theme in its constructor, so it must exist before
-            // any View subscribes to SettingsModel in Start().
+            // SettingsSystem and SfxSystem load their persisted settings in their constructors, so
+            // they must exist before any View subscribes to SettingsModel/SfxModel in Start().
             builder.RegisterBuildCallback(container =>
             {
                 container.Resolve<ScoreSystem>();
                 container.Resolve<SettingsSystem>();
+                container.Resolve<SfxSystem>();
             });
         }
 
@@ -72,7 +73,8 @@ namespace MustyBlockBlast.Presentation
         {
             builder.RegisterComponentInHierarchy<BoardView>();
             builder.RegisterComponentInHierarchy<BackgroundView>();
-            builder.RegisterComponentInHierarchy<DebugThemeSwitchView>();
+            builder.RegisterComponentInHierarchy<SettingsButtonView>();
+            builder.RegisterComponentInHierarchy<SettingsPanelView>();
             builder.RegisterComponentInHierarchy<PieceTrayView>();
             builder.RegisterComponentInHierarchy<ScoreView>();
             builder.RegisterComponentInHierarchy<LineClearBurstView>();

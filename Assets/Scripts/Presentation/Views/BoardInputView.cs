@@ -38,6 +38,8 @@ namespace MustyBlockBlast.Presentation.Views
         private ThemeDefinition _currentTheme;
         private BoardView _boardView;
         private PieceTrayView _trayView;
+        private SettingsButtonView _settingsButtonView;
+        private SettingsPanelView _settingsPanelView;
 
         private int _draggedSlot = -1;
         private GridPosition _currentAnchor;
@@ -49,13 +51,17 @@ namespace MustyBlockBlast.Presentation.Views
             TrayModel trayModel,
             SettingsModel settingsModel,
             BoardView boardView,
-            PieceTrayView trayView)
+            PieceTrayView trayView,
+            SettingsButtonView settingsButtonView,
+            SettingsPanelView settingsPanelView)
         {
             _boardSystem = boardSystem;
             _trayModel = trayModel;
             _settingsModel = settingsModel;
             _boardView = boardView;
             _trayView = trayView;
+            _settingsButtonView = settingsButtonView;
+            _settingsPanelView = settingsPanelView;
         }
 
         private void Awake()
@@ -128,9 +134,24 @@ namespace MustyBlockBlast.Presentation.Views
         {
             Vector2 screenPosition = _pointerPositionAction.ReadValue<Vector2>();
 
+            // While the settings panel is open it is modal and swallows every tap.
+            if (_settingsPanelView.IsOpen)
+            {
+                _settingsPanelView.HandleTap(screenPosition);
+                return;
+            }
+
+            // Game over is checked before the HUD icon: the game-over card covers the whole screen,
+            // so honouring a tap on the icon hidden underneath it would be a hidden hotspot.
             if (_boardSystem.IsGameOver)
             {
                 _boardSystem.StartNewRun();
+                return;
+            }
+
+            if (_settingsButtonView.ContainsScreenPoint(screenPosition))
+            {
+                _settingsPanelView.Open();
                 return;
             }
 

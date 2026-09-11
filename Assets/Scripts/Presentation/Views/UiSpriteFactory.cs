@@ -3,8 +3,8 @@ using UnityEngine;
 namespace MustyBlockBlast.Presentation.Views
 {
     /// <summary>
-    /// Generates the handful of placeholder sprites the prototype needs (rounded square, vertical
-    /// gradient) so no art assets are required. Each sprite is created once and shared by every
+    /// Generates the handful of placeholder sprites the prototype needs (rounded square, circle,
+    /// bevel facet, glow, vertical gradient) so no art assets are required. Each sprite is created once and shared by every
     /// Image, so all cells keep batching into a single draw call.
     /// </summary>
     internal static class UiSpriteFactory
@@ -12,6 +12,7 @@ namespace MustyBlockBlast.Presentation.Views
         private const int ROUNDED_SIZE = 64;
         private const int ROUNDED_RADIUS = 16;
         private const int GLOW_SIZE = 128;
+        private const int CIRCLE_SIZE = 128;
 
         // The rounded square is drawn 9-sliced with a pixelsPerUnitMultiplier of 3, so its corner
         // radius stays ~5 screen pixels whatever the cell size. The facet triangle cannot be sliced
@@ -23,6 +24,7 @@ namespace MustyBlockBlast.Presentation.Views
         private static Sprite _roundedSquare;
         private static Sprite _radialGlow;
         private static Sprite _triangleFacet;
+        private static Sprite _circle;
 
         /// <summary>9-sliced rounded square, white. Tint via <see cref="UnityEngine.UI.Image.color"/>.</summary>
         internal static Sprite RoundedSquare
@@ -68,6 +70,25 @@ namespace MustyBlockBlast.Presentation.Views
                 }
 
                 return _triangleFacet;
+            }
+        }
+
+        /// <summary>
+        /// Hard-edged disc, white, filling the whole texture. Unlike <see cref="RadialGlow"/> it is
+        /// opaque right up to an anti-aliased rim, so it reads as a solid circle: draw a smaller one
+        /// on top in the backing plate's colour to fake a ring or a cut-out. Tint via Image.color and
+        /// use <c>Image.Type.Simple</c> — it must not be sliced.
+        /// </summary>
+        internal static Sprite Circle
+        {
+            get
+            {
+                if (_circle == null)
+                {
+                    _circle = CreateCircle(CIRCLE_SIZE);
+                }
+
+                return _circle;
             }
         }
 
@@ -177,6 +198,42 @@ namespace MustyBlockBlast.Presentation.Views
             Sprite sprite = Sprite.Create(
                 texture, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect);
             sprite.name = "MustyBlockBlast_TriangleFacetSprite";
+            sprite.hideFlags = HideFlags.HideAndDontSave;
+            return sprite;
+        }
+
+        private static Sprite CreateCircle(int size)
+        {
+            var texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
+            {
+                name = "MustyBlockBlast_Circle",
+                wrapMode = TextureWrapMode.Clamp,
+                filterMode = FilterMode.Bilinear,
+                hideFlags = HideFlags.HideAndDontSave,
+            };
+
+            var pixels = new Color32[size * size];
+            float centre = size * 0.5f;
+
+            // Half a pixel of inset keeps the anti-aliased rim inside the texture, so scaling the
+            // sprite up never clips the edge against the texture border.
+            float radius = centre - 0.5f;
+
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float alpha = CircleCoverage(x + 0.5f, y + 0.5f, centre, centre, radius);
+                    pixels[(y * size) + x] = new Color32(255, 255, 255, (byte)Mathf.RoundToInt(alpha * 255f));
+                }
+            }
+
+            texture.SetPixels32(pixels);
+            texture.Apply(false, true);
+
+            Sprite sprite = Sprite.Create(
+                texture, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect);
+            sprite.name = "MustyBlockBlast_CircleSprite";
             sprite.hideFlags = HideFlags.HideAndDontSave;
             return sprite;
         }
