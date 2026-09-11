@@ -4,7 +4,6 @@ using MustyBlockBlast.Gameplay.Models;
 using MustyBlockBlast.Gameplay.Reactive;
 using MustyBlockBlast.Gameplay.Settings;
 using UnityEngine;
-using UnityEngine.UI;
 using VContainer;
 
 namespace MustyBlockBlast.Presentation.Views
@@ -25,7 +24,7 @@ namespace MustyBlockBlast.Presentation.Views
 
         [Header("Cell style")]
         [SerializeField] private float _cellInset = 2f;
-        [SerializeField] private float _cellBevelThickness = 4f;
+        [SerializeField] private float _cellBevelThickness = 6f;
 
         private readonly List<CellView>[] _slotCells = new List<CellView>[TrayModel.SLOT_COUNT];
         private readonly CompositeDisposable _disposables = new CompositeDisposable();
@@ -33,8 +32,6 @@ namespace MustyBlockBlast.Presentation.Views
         private RectTransform _rectTransform;
         private RectTransform[] _slotRects;
         private Canvas _canvas;
-        private Image _cardImage;
-        private Image _cardShadowImage;
         private TrayModel _trayModel;
         private SettingsModel _settingsModel;
         private ThemeDefinition _currentTheme;
@@ -57,8 +54,16 @@ namespace MustyBlockBlast.Presentation.Views
             _rectTransform.sizeDelta = _cardSize;
             _rectTransform.anchoredPosition = _anchoredPosition;
 
-            RectTransform card = CellFactory.CreateCard(
-                _rectTransform, "TrayCard", _cardSize, out _cardImage, out _cardShadowImage);
+            // No card visual behind the tray — the app background is enough, a separate tray card
+            // just adds visual clutter. This is a plain layout container for the three slots.
+            var cardObject = new GameObject("TrayLayout", typeof(RectTransform));
+            var card = (RectTransform)cardObject.transform;
+            card.SetParent(_rectTransform, false);
+            card.anchorMin = new Vector2(0.5f, 0.5f);
+            card.anchorMax = new Vector2(0.5f, 0.5f);
+            card.pivot = new Vector2(0.5f, 0.5f);
+            card.sizeDelta = _cardSize;
+            card.anchoredPosition = Vector2.zero;
 
             BuildSlots(card);
         }
@@ -152,9 +157,6 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             _currentTheme = theme;
-
-            _cardImage.color = theme.CardBackground;
-            _cardShadowImage.color = theme.CardShadow;
 
             for (int slotIndex = 0; slotIndex < TrayModel.SLOT_COUNT; slotIndex++)
             {

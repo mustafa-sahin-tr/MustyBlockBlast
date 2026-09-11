@@ -29,7 +29,7 @@ namespace MustyBlockBlast.Presentation.Views
 
         [Header("Cell style")]
         [SerializeField] private float _cellInset = 3f;
-        [SerializeField] private float _cellBevelThickness = 6f;
+        [SerializeField] private float _cellBevelThickness = 12f;
 
         [Header("Line Clear Fade")]
         [Tooltip("Seconds a cleared cell takes to fade from its colour to fully transparent.")]

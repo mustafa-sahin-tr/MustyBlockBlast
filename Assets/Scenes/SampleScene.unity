@@ -172,10 +172,9 @@ MonoBehaviour:
   _cellSpacing: 8
   _cardPadding: 24
   _cellInset: 3
-  _cellBevelThickness: 6
+  _cellBevelThickness: 12
   _fadeDuration: 0.2
   _intersectionFlashDuration: 0.08
-  _palette: {fileID: 11400000, guid: 6f890eaf4a1e14ed58470597ad2be986, type: 2}
 --- !u!1 &350165917
 GameObject:
   m_ObjectHideFlags: 0
@@ -273,7 +272,6 @@ MonoBehaviour:
   _durationScale: 1
   _particleScale: 1
   _flashAlpha: 0.28
-  _palette: {fileID: 11400000, guid: 6f890eaf4a1e14ed58470597ad2be986, type: 2}
 --- !u!1 &519420028
 GameObject:
   m_ObjectHideFlags: 0
@@ -564,7 +562,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.GameOverView
   _cardSize: {x: 760, y: 420}
-  _palette: {fileID: 11400000, guid: 6f890eaf4a1e14ed58470597ad2be986, type: 2}
   _scrimColour: {r: 0.17, g: 0.15, b: 0.2, a: 0.55}
 --- !u!1 &979778622
 GameObject:
@@ -650,6 +647,8 @@ RectTransform:
   - {fileID: 680048524}
   - {fileID: 1443061545}
   - {fileID: 436960494}
+  - {fileID: 1187853041}
+  - {fileID: 1618923935}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
@@ -711,8 +710,57 @@ MonoBehaviour:
   _trayCellSize: 56
   _trayCellSpacing: 5
   _cellInset: 2
-  _cellBevelThickness: 4
-  _palette: {fileID: 11400000, guid: 6f890eaf4a1e14ed58470597ad2be986, type: 2}
+  _cellBevelThickness: 6
+--- !u!1 &1187853040
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1187853041}
+  - component: {fileID: 1187853042}
+  m_Layer: 0
+  m_Name: SettingsButton
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &1187853041
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1187853040}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 979778625}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 100, y: 100}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &1187853042
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1187853040}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ad084f7a7bda8453cae1db2d55edf2ae, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.SettingsButtonView
+  _cornerOffset: {x: -60, y: -60}
+  _buttonSize: 112
 --- !u!1 &1262375241
 GameObject:
   m_ObjectHideFlags: 0
@@ -765,51 +813,6 @@ MonoBehaviour:
   _scoreFontSize: 130
   _bestFontSize: 40
   _bestOffsetY: -95
-  _palette: {fileID: 11400000, guid: 6f890eaf4a1e14ed58470597ad2be986, type: 2}
---- !u!1 &1363646020
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1363646022}
-  - component: {fileID: 1363646021}
-  m_Layer: 0
-  m_Name: DebugThemeSwitch
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &1363646021
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1363646020}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 71d1d087cf4cf4e58a682355fdafc87d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.DebugThemeSwitchView
---- !u!4 &1363646022
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1363646020}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1443061544
 GameObject:
   m_ObjectHideFlags: 0
@@ -860,7 +863,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.BoardInputView
   _dragScreenOffset: {x: 0, y: 150}
   _ghostAlpha: 0.9
-  _palette: {fileID: 11400000, guid: 6f890eaf4a1e14ed58470597ad2be986, type: 2}
 --- !u!1 &1490060642
 GameObject:
   m_ObjectHideFlags: 0
@@ -897,6 +899,8 @@ MonoBehaviour:
   _availableThemes:
   - {fileID: 11400000, guid: b9175b9b98bd442ebb1d49763339cc97, type: 2}
   - {fileID: 11400000, guid: 2bbaa111b67a5484eb577ffa2c37bd8e, type: 2}
+  - {fileID: 11400000, guid: 6f26de2cc55b24ebc99c3de7fa962bea, type: 2}
+  - {fileID: 11400000, guid: 831e0e797b0744975a6ef99be8b03b47, type: 2}
 --- !u!4 &1490060644
 Transform:
   m_ObjectHideFlags: 0
@@ -912,6 +916,60 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1618923934
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1618923935}
+  - component: {fileID: 1618923936}
+  m_Layer: 0
+  m_Name: SettingsPanel
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &1618923935
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1618923934}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 979778625}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 100, y: 100}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &1618923936
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1618923934}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7c3c5ef659fe4476ca83c352d1a2e316, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.SettingsPanelView
+  _cardSize: {x: 880, y: 980}
+  _optionSize: {x: 380, y: 300}
+  _optionSpacing: {x: 400, y: 340}
+  _settingsCardSize: {x: 880, y: 640}
+  _scrimColour: {r: 0.17, g: 0.15, b: 0.2, a: 0.55}
+  _selectionBorderThickness: 8
 --- !u!1 &1641886729
 GameObject:
   m_ObjectHideFlags: 0
@@ -1057,4 +1115,3 @@ SceneRoots:
   - {fileID: 979778625}
   - {fileID: 350165919}
   - {fileID: 1885774692}
-  - {fileID: 1363646022}

@@ -1,0 +1,860 @@
+using System.Collections.Generic;
+using MustyBlockBlast.Gameplay.Models;
+using MustyBlockBlast.Gameplay.Reactive;
+using MustyBlockBlast.Gameplay.Settings;
+using MustyBlockBlast.Gameplay.Systems;
+using UnityEngine;
+using UnityEngine.UI;
+using VContainer;
+
+namespace MustyBlockBlast.Presentation.Views
+{
+    /// <summary>
+    /// The settings overlay. Two screens live inside one card:
+    /// <list type="bullet">
+    /// <item>Settings — a grouped list with the current theme, the sound toggle and a (visual only)
+    /// round duration row.</item>
+    /// <item>Theme — the swatch grid; picking one calls <see cref="SettingsSystem.SetTheme"/> and
+    /// returns to the settings screen. The recolour itself is handled by the existing reactive theme
+    /// subscriptions in every other View, so nothing else happens here.</item>
+    /// </list>
+    /// Both screens are built once in <see cref="Start"/> and toggled with SetActive — the same
+    /// "build once, never rebuild" approach <see cref="CellView"/> uses for its two looks.
+    /// <para>
+    /// The swatch list is built from <c>SettingsModel.AvailableThemes</c>, so shipping a new theme is
+    /// a new ScriptableObject plus a LifetimeScope entry — no change to this class.
+    /// </para>
+    /// <para>
+    /// Like the rest of the UI this View never raycasts: <see cref="BoardInputView"/> owns the pointer
+    /// and forwards taps to <see cref="HandleTap"/> while the panel is open.
+    /// </para>
+    /// </summary>
+    [DisallowMultipleComponent]
+    public sealed class SettingsPanelView : MonoBehaviour
+    {
+        private const int COLUMN_COUNT = 2;
+
+        // Layout, in canvas reference pixels. The mock-up was drawn against a 380pt card; everything
+        // here is that mock-up scaled to the 880pt card the rest of the UI already uses.
+        private const float HEADER_INSET = 92f;
+        private const float SIDE_INSET = 60f;
+        private const float ICON_BUTTON_SIZE = 92f;
+        private const float LIST_WIDTH = 760f;
+        private const float ROW_HEIGHT = 128f;
+        private const int ROW_COUNT = 3;
+        private const float BADGE_SIZE = 84f;
+        private const float DIVIDER_THICKNESS = 3f;
+        private const float PILL_WIDTH = 240f;
+        private const float PILL_HEIGHT = 76f;
+        private const float TOGGLE_WIDTH = 106f;
+        private const float TOGGLE_HEIGHT = 62f;
+        private const float TOGGLE_THUMB_SIZE = 50f;
+
+        /// <summary>Half the slack left in the track once the thumb and its 6pt inset are removed.</summary>
+        private const float TOGGLE_THUMB_TRAVEL = (TOGGLE_WIDTH - TOGGLE_THUMB_SIZE - 12f) * 0.5f;
+
+        private const float CHEVRON_HALF_SIZE = 13f;
+        private const float CHEVRON_THICKNESS = 7f;
+
+        /// <summary>Placeholder until the round-duration options are specified. Not persisted.</summary>
+        private const string DURATION_PLACEHOLDER = "60 sn";
+
+        // The switch is a universal affordance, so unlike everything else on the card it keeps the
+        // same colours in every theme.
+        private static readonly Color ToggleOnColour = new Color(0.298f, 0.686f, 0.510f, 1f);
+        private static readonly Color ToggleOffColour = new Color(0.851f, 0.835f, 0.871f, 1f);
+
+        private readonly CompositeDisposable _disposables = new CompositeDisposable();
+        private readonly List<ThemeOption> _options = new List<ThemeOption>(4);
+
+        // Repaint buckets: every Image built here belongs to exactly one of them, so a theme switch is
+        // a handful of tight loops instead of a hierarchy walk.
+        private readonly List<Image> _inkImages = new List<Image>(24);
+        private readonly List<Image> _badgeImages = new List<Image>(4);
+        private readonly List<Image> _pillImages = new List<Image>(2);
+        private readonly List<Image> _dividerImages = new List<Image>(2);
+        private readonly List<Text> _inkTexts = new List<Text>(8);
+        private readonly Image[] _themeBadgeDots = new Image[ThemeDefinition.KIND_COUNT];
+
+        [Header("Layout")]
+        [Tooltip("Card size while the theme grid is showing.")]
+        [SerializeField] private Vector2 _cardSize = new Vector2(880f, 980f);
+        [Tooltip("Card size while the settings list is showing.")]
+        [SerializeField] private Vector2 _settingsCardSize = new Vector2(880f, 640f);
+        [SerializeField] private Vector2 _optionSize = new Vector2(380f, 300f);
+        [SerializeField] private Vector2 _optionSpacing = new Vector2(400f, 340f);
+
+        [Header("Palette")]
+        [SerializeField] private Color _scrimColour = new Color(0.17f, 0.15f, 0.20f, 0.55f);
+        [Tooltip("Outline thickness drawn around the currently selected theme swatch.")]
+        [SerializeField] private float _selectionBorderThickness = 8f;
+
+        private SettingsModel _settingsModel;
+        private SettingsSystem _settingsSystem;
+        private SfxModel _sfxModel;
+        private ISfxService _sfxService;
+        private Canvas _canvas;
+
+        private PanelScreen _screen = PanelScreen.Settings;
+
+        private GameObject _panel;
+        private RectTransform _cardRect;
+        private RectTransform _cardShadowRect;
+        private Image _cardImage;
+        private Image _cardShadowImage;
+
+        private GameObject _settingsScreenRoot;
+        private GameObject _themeScreenRoot;
+
+        private Image _listImage;
+        private RectTransform _closeButtonRect;
+        private RectTransform _themeRowRect;
+        private RectTransform _soundRowRect;
+        private RectTransform _durationRowRect;
+        private RectTransform _backButtonRect;
+        private RectTransform _toggleThumbRect;
+        private Image _toggleTrackImage;
+        private Text _themeValueText;
+
+        /// <summary>Which of the two screens inside the card is showing.</summary>
+        private enum PanelScreen
+        {
+            Settings,
+            Theme,
+        }
+
+        [Inject]
+        public void Construct(
+            SettingsModel settingsModel, SettingsSystem settingsSystem, SfxModel sfxModel, ISfxService sfxService)
+        {
+            _settingsModel = settingsModel;
+            _settingsSystem = settingsSystem;
+            _sfxModel = sfxModel;
+            _sfxService = sfxService;
+        }
+
+        private void Awake()
+        {
+            _canvas = GetComponentInParent<Canvas>();
+        }
+
+        private void Start()
+        {
+            if (_settingsModel == null || _settingsSystem == null || _sfxModel == null || _sfxService == null)
+            {
+                Debug.LogError(
+                    $"{nameof(SettingsPanelView)} was not injected. Is it registered in the LifetimeScope?", this);
+                return;
+            }
+
+            // Built in Start rather than Awake: the swatch list needs the injected theme catalogue,
+            // which is only available once VContainer has run Construct.
+            BuildPanel();
+            SetScreen(PanelScreen.Settings);
+            _panel.SetActive(false);
+
+            _settingsModel.CurrentTheme.Subscribe(OnThemeChanged).AddTo(_disposables);
+            _sfxModel.IsMuted.Subscribe(OnMutedChanged).AddTo(_disposables);
+        }
+
+        private void OnDestroy() => _disposables.Dispose();
+
+        /// <summary>True while the panel is showing. Read by <see cref="BoardInputView"/>.</summary>
+        internal bool IsOpen => _panel != null && _panel.activeSelf;
+
+        /// <summary>
+        /// Shows the panel on top of everything else, including the game-over card. Always lands on
+        /// the settings screen, whichever screen it was left on last time.
+        /// </summary>
+        internal void Open()
+        {
+            if (_panel == null)
+            {
+                return;
+            }
+
+            SetScreen(PanelScreen.Settings);
+            _panel.SetActive(true);
+            transform.SetAsLastSibling();
+        }
+
+        /// <summary>
+        /// Routes a tap while the panel is open. Controls are tested first, then the card itself
+        /// (which swallows the tap and stays open); only the scrim outside the card dismisses.
+        /// </summary>
+        internal void HandleTap(Vector2 screenPosition)
+        {
+            if (!IsOpen)
+            {
+                return;
+            }
+
+            Camera eventCamera = _canvas != null && _canvas.renderMode != RenderMode.ScreenSpaceOverlay
+                ? _canvas.worldCamera
+                : null;
+
+            bool handled = _screen == PanelScreen.Theme
+                ? HandleThemeScreenTap(screenPosition, eventCamera)
+                : HandleSettingsScreenTap(screenPosition, eventCamera);
+
+            if (handled)
+            {
+                return;
+            }
+
+            // Tapping the card but missing a control keeps the panel open; only the scrim dismisses,
+            // and it dismisses outright rather than stepping back a screen.
+            if (RectTransformUtility.RectangleContainsScreenPoint(_cardRect, screenPosition, eventCamera))
+            {
+                return;
+            }
+
+            Close();
+        }
+
+        private bool HandleSettingsScreenTap(Vector2 screenPosition, Camera eventCamera)
+        {
+            if (RectTransformUtility.RectangleContainsScreenPoint(_closeButtonRect, screenPosition, eventCamera))
+            {
+                Close();
+                return true;
+            }
+
+            if (RectTransformUtility.RectangleContainsScreenPoint(_themeRowRect, screenPosition, eventCamera))
+            {
+                SetScreen(PanelScreen.Theme);
+                return true;
+            }
+
+            if (RectTransformUtility.RectangleContainsScreenPoint(_soundRowRect, screenPosition, eventCamera))
+            {
+                _sfxService.SetMuted(!_sfxModel.IsMuted.Value);
+                return true;
+            }
+
+            // Inert by design: the duration options are not specified yet. It still swallows the tap
+            // so the row never behaves like the scrim.
+            return RectTransformUtility.RectangleContainsScreenPoint(_durationRowRect, screenPosition, eventCamera);
+        }
+
+        private bool HandleThemeScreenTap(Vector2 screenPosition, Camera eventCamera)
+        {
+            for (int optionIndex = 0; optionIndex < _options.Count; optionIndex++)
+            {
+                ThemeOption option = _options[optionIndex];
+                if (RectTransformUtility.RectangleContainsScreenPoint(option.Rect, screenPosition, eventCamera))
+                {
+                    _settingsSystem.SetTheme(option.ThemeId);
+                    SetScreen(PanelScreen.Settings);
+                    return true;
+                }
+            }
+
+            if (RectTransformUtility.RectangleContainsScreenPoint(_backButtonRect, screenPosition, eventCamera))
+            {
+                SetScreen(PanelScreen.Settings);
+                return true;
+            }
+
+            return false;
+        }
+
+        private void Close() => _panel.SetActive(false);
+
+        private void SetScreen(PanelScreen screen)
+        {
+            _screen = screen;
+
+            bool isSettings = screen == PanelScreen.Settings;
+            _settingsScreenRoot.SetActive(isSettings);
+            _themeScreenRoot.SetActive(!isSettings);
+
+            // The two screens need very different heights, so the shared card resizes with them
+            // rather than leaving the settings list stranded in a tall empty card.
+            Vector2 size = isSettings ? _settingsCardSize : _cardSize;
+            _cardRect.sizeDelta = size;
+            _cardShadowRect.sizeDelta = size + new Vector2(10f, 10f);
+        }
+
+        private void OnMutedChanged(bool muted)
+        {
+            if (_toggleTrackImage == null)
+            {
+                return;
+            }
+
+            // Deliberately not theme-derived: the switch is a universal affordance, so it keeps the
+            // same green/grey in every theme.
+            _toggleTrackImage.color = muted ? ToggleOffColour : ToggleOnColour;
+            _toggleThumbRect.anchoredPosition =
+                new Vector2(muted ? -TOGGLE_THUMB_TRAVEL : TOGGLE_THUMB_TRAVEL, 0f);
+        }
+
+        private void OnThemeChanged(ThemeDefinition theme)
+        {
+            if (theme == null)
+            {
+                return;
+            }
+
+            _cardImage.color = theme.CardBackground;
+            _cardShadowImage.color = theme.CardShadow;
+
+            // Every neutral in the mock-up is derived from the Ink/CardBackground pair instead of
+            // being hard-coded: that pair is guaranteed readable in every theme by design, whereas a
+            // fixed light neutral collapses against a light-ink theme (e.g. Kış's near-white ink).
+            _listImage.color = Color.Lerp(theme.CardBackground, theme.Ink, 0.06f);
+            Color badgeColour = Color.Lerp(theme.CardBackground, theme.Ink, 0.16f);
+
+            for (int imageIndex = 0; imageIndex < _badgeImages.Count; imageIndex++)
+            {
+                _badgeImages[imageIndex].color = badgeColour;
+            }
+
+            for (int imageIndex = 0; imageIndex < _dividerImages.Count; imageIndex++)
+            {
+                _dividerImages[imageIndex].color = badgeColour;
+            }
+
+            for (int imageIndex = 0; imageIndex < _pillImages.Count; imageIndex++)
+            {
+                _pillImages[imageIndex].color = theme.CardBackground;
+            }
+
+            for (int imageIndex = 0; imageIndex < _inkImages.Count; imageIndex++)
+            {
+                _inkImages[imageIndex].color = theme.Ink;
+            }
+
+            for (int textIndex = 0; textIndex < _inkTexts.Count; textIndex++)
+            {
+                _inkTexts[textIndex].color = theme.Ink;
+            }
+
+            // Colour ids are 1-based; 0 means "empty cell".
+            for (int kindIndex = 0; kindIndex < _themeBadgeDots.Length; kindIndex++)
+            {
+                _themeBadgeDots[kindIndex].color = theme.GetFill(kindIndex + 1);
+            }
+
+            _themeValueText.text = theme.DisplayName;
+
+            // The swatches themselves show their own theme's colours and never change; only the
+            // selection outline and the labels follow the active theme.
+            for (int optionIndex = 0; optionIndex < _options.Count; optionIndex++)
+            {
+                ThemeOption option = _options[optionIndex];
+                bool isSelected = option.ThemeId == theme.Id;
+                option.BorderImage.color = isSelected ? theme.Ink : Color.clear;
+                option.NameText.color = isSelected ? theme.Ink : theme.SoftInk;
+            }
+        }
+
+        private void BuildPanel()
+        {
+            var rect = (RectTransform)transform;
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+
+            var panelObject = new GameObject("SettingsPanel", typeof(RectTransform), typeof(Image));
+            var panelRect = (RectTransform)panelObject.transform;
+            panelRect.SetParent(rect, false);
+            panelRect.anchorMin = Vector2.zero;
+            panelRect.anchorMax = Vector2.one;
+            panelRect.offsetMin = Vector2.zero;
+            panelRect.offsetMax = Vector2.zero;
+
+            var scrim = panelObject.GetComponent<Image>();
+            scrim.color = _scrimColour;
+            scrim.raycastTarget = false;
+
+            _cardRect = CellFactory.CreateCard(
+                panelRect, "SettingsCard", _cardSize, out _cardImage, out _cardShadowImage);
+            _cardShadowRect = (RectTransform)_cardShadowImage.transform;
+
+            _settingsScreenRoot = CreateScreenRoot("SettingsScreen");
+            _themeScreenRoot = CreateScreenRoot("ThemeScreen");
+
+            BuildSettingsScreen((RectTransform)_settingsScreenRoot.transform, _settingsCardSize.y * 0.5f);
+            BuildThemeScreen((RectTransform)_themeScreenRoot.transform, _cardSize.y * 0.5f);
+
+            _panel = panelObject;
+        }
+
+        private GameObject CreateScreenRoot(string objectName)
+        {
+            var screenObject = new GameObject(objectName, typeof(RectTransform));
+            var screenRect = (RectTransform)screenObject.transform;
+            screenRect.SetParent(_cardRect, false);
+            screenRect.anchorMin = Vector2.zero;
+            screenRect.anchorMax = Vector2.one;
+            screenRect.offsetMin = Vector2.zero;
+            screenRect.offsetMax = Vector2.zero;
+            return screenObject;
+        }
+
+        private void BuildSettingsScreen(RectTransform root, float cardHalfHeight)
+        {
+            float headerY = cardHalfHeight - HEADER_INSET;
+
+            Text title = CreateLabel(
+                root, "Title", "Ayarlar", 64, FontStyle.Bold, TextAnchor.MiddleLeft,
+                new Vector2(-(_settingsCardSize.x * 0.5f) + SIDE_INSET, headerY));
+            _inkTexts.Add(title);
+
+            BuildCloseButton(
+                root,
+                new Vector2((_settingsCardSize.x * 0.5f) - SIDE_INSET - (ICON_BUTTON_SIZE * 0.5f), headerY));
+
+            float listHeight = ROW_HEIGHT * ROW_COUNT;
+            float listCentreY = headerY - (ICON_BUTTON_SIZE * 0.5f) - 56f - (listHeight * 0.5f);
+
+            var listObject = new GameObject("SettingsList", typeof(RectTransform), typeof(Image));
+            var listRect = (RectTransform)listObject.transform;
+            listRect.SetParent(root, false);
+            Centre(listRect, new Vector2(LIST_WIDTH, listHeight));
+            listRect.anchoredPosition = new Vector2(0f, listCentreY);
+            _listImage = listObject.GetComponent<Image>();
+            ConfigureRounded(_listImage);
+
+            _themeRowRect = BuildRow(listRect, 0, "ThemeRow", "Tema");
+            _soundRowRect = BuildRow(listRect, 1, "SoundRow", "Ses");
+            _durationRowRect = BuildRow(listRect, 2, "DurationRow", "Süre");
+
+            for (int dividerIndex = 1; dividerIndex < ROW_COUNT; dividerIndex++)
+            {
+                BuildDivider(listRect, (listHeight * 0.5f) - (ROW_HEIGHT * dividerIndex));
+            }
+
+            BuildThemeRowContent(_themeRowRect);
+            BuildSoundRowContent(_soundRowRect);
+            BuildDurationRowContent(_durationRowRect);
+        }
+
+        private RectTransform BuildRow(RectTransform listRect, int rowIndex, string objectName, string label)
+        {
+            var rowObject = new GameObject(objectName, typeof(RectTransform));
+            var rowRect = (RectTransform)rowObject.transform;
+            rowRect.SetParent(listRect, false);
+            Centre(rowRect, new Vector2(LIST_WIDTH, ROW_HEIGHT));
+            rowRect.anchoredPosition = new Vector2(
+                0f, (((ROW_COUNT - 1) * 0.5f) - rowIndex) * ROW_HEIGHT);
+
+            Text labelText = CreateLabel(
+                rowRect, "Label", label, 40, FontStyle.Normal, TextAnchor.MiddleLeft,
+                new Vector2((-LIST_WIDTH * 0.5f) + 140f, 0f));
+            _inkTexts.Add(labelText);
+
+            return rowRect;
+        }
+
+        private RectTransform BuildBadge(RectTransform rowRect)
+        {
+            var badgeObject = new GameObject("Badge", typeof(RectTransform), typeof(Image));
+            var badgeRect = (RectTransform)badgeObject.transform;
+            badgeRect.SetParent(rowRect, false);
+            Centre(badgeRect, new Vector2(BADGE_SIZE, BADGE_SIZE));
+            badgeRect.anchoredPosition = new Vector2((-LIST_WIDTH * 0.5f) + 76f, 0f);
+
+            var badgeImage = badgeObject.GetComponent<Image>();
+            ConfigureRounded(badgeImage);
+            _badgeImages.Add(badgeImage);
+            return badgeRect;
+        }
+
+        private void BuildDivider(RectTransform listRect, float y)
+        {
+            var dividerObject = new GameObject("Divider", typeof(RectTransform), typeof(Image));
+            var dividerRect = (RectTransform)dividerObject.transform;
+            dividerRect.SetParent(listRect, false);
+            Centre(dividerRect, new Vector2(LIST_WIDTH - 144f, DIVIDER_THICKNESS));
+            dividerRect.anchoredPosition = new Vector2(0f, y);
+
+            var dividerImage = dividerObject.GetComponent<Image>();
+            ConfigureRounded(dividerImage);
+            _dividerImages.Add(dividerImage);
+        }
+
+        private void BuildThemeRowContent(RectTransform rowRect)
+        {
+            RectTransform badgeRect = BuildBadge(rowRect);
+
+            // Same three dots as the swatches use, just smaller: one visual language for "theme".
+            BuildKindDots(badgeRect, null, 20f, 26f, Vector2.zero, _themeBadgeDots);
+
+            _themeValueText = BuildPill(rowRect, string.Empty);
+        }
+
+        private void BuildSoundRowContent(RectTransform rowRect)
+        {
+            RectTransform badgeRect = BuildBadge(rowRect);
+            BuildVolumeGlyph(badgeRect);
+            BuildToggle(rowRect);
+        }
+
+        private void BuildDurationRowContent(RectTransform rowRect)
+        {
+            RectTransform badgeRect = BuildBadge(rowRect);
+            BuildClockGlyph(badgeRect);
+            BuildPill(rowRect, DURATION_PLACEHOLDER);
+        }
+
+        /// <summary>Three ascending bars, bottom-aligned — the usual "volume" glyph.</summary>
+        private void BuildVolumeGlyph(RectTransform badgeRect)
+        {
+            const int BAR_COUNT = 3;
+            const float BAR_WIDTH = 11f;
+            const float BAR_SPACING = 21f;
+            const float BAR_BASE_Y = -26f;
+
+            for (int barIndex = 0; barIndex < BAR_COUNT; barIndex++)
+            {
+                float barHeight = 24f + (barIndex * 14f);
+                var barObject = new GameObject($"VolumeBar_{barIndex}", typeof(RectTransform), typeof(Image));
+                var barRect = (RectTransform)barObject.transform;
+                barRect.SetParent(badgeRect, false);
+                Centre(barRect, new Vector2(BAR_WIDTH, barHeight));
+                barRect.anchoredPosition = new Vector2(
+                    (barIndex - ((BAR_COUNT - 1) * 0.5f)) * BAR_SPACING, BAR_BASE_Y + (barHeight * 0.5f));
+
+                var barImage = barObject.GetComponent<Image>();
+                ConfigureRounded(barImage);
+                _inkImages.Add(barImage);
+            }
+        }
+
+        /// <summary>Ring plus a single off-vertical hand — enough to read as a clock at badge size.</summary>
+        private void BuildClockGlyph(RectTransform badgeRect)
+        {
+            const float DIAL_DIAMETER = 54f;
+            const float FACE_DIAMETER = 38f;
+            const float HAND_LENGTH = 17f;
+            const float HAND_ANGLE = -35f;
+
+            var dialObject = new GameObject("ClockDial", typeof(RectTransform), typeof(Image));
+            var dialRect = (RectTransform)dialObject.transform;
+            dialRect.SetParent(badgeRect, false);
+            Centre(dialRect, new Vector2(DIAL_DIAMETER, DIAL_DIAMETER));
+            var dialImage = dialObject.GetComponent<Image>();
+            ConfigureCircle(dialImage);
+            _inkImages.Add(dialImage);
+
+            // Fake cut-out: the badge underneath is always painted with one opaque colour, so a
+            // smaller circle in that colour turns the dial into a ring.
+            var faceObject = new GameObject("ClockFace", typeof(RectTransform), typeof(Image));
+            var faceRect = (RectTransform)faceObject.transform;
+            faceRect.SetParent(badgeRect, false);
+            Centre(faceRect, new Vector2(FACE_DIAMETER, FACE_DIAMETER));
+            var faceImage = faceObject.GetComponent<Image>();
+            ConfigureCircle(faceImage);
+            _badgeImages.Add(faceImage);
+
+            var handObject = new GameObject("ClockHand", typeof(RectTransform), typeof(Image));
+            var handRect = (RectTransform)handObject.transform;
+            handRect.SetParent(badgeRect, false);
+            Centre(handRect, new Vector2(5f, HAND_LENGTH));
+            handRect.localRotation = Quaternion.Euler(0f, 0f, HAND_ANGLE);
+
+            // Pushed half its own length along its rotated axis so the base sits on the centre.
+            handRect.anchoredPosition =
+                (Vector2)(Quaternion.Euler(0f, 0f, HAND_ANGLE) * new Vector3(0f, HAND_LENGTH * 0.5f, 0f));
+
+            var handImage = handObject.GetComponent<Image>();
+            ConfigureRounded(handImage);
+            _inkImages.Add(handImage);
+        }
+
+        /// <summary>Right-aligned value pill with a chevron. Returns its value label.</summary>
+        private Text BuildPill(RectTransform rowRect, string value)
+        {
+            var pillObject = new GameObject("Pill", typeof(RectTransform), typeof(Image));
+            var pillRect = (RectTransform)pillObject.transform;
+            pillRect.SetParent(rowRect, false);
+            Centre(pillRect, new Vector2(PILL_WIDTH, PILL_HEIGHT));
+            pillRect.anchoredPosition = new Vector2((LIST_WIDTH * 0.5f) - 36f - (PILL_WIDTH * 0.5f), 0f);
+
+            var pillImage = pillObject.GetComponent<Image>();
+            ConfigureRounded(pillImage);
+            _pillImages.Add(pillImage);
+
+            BuildChevron(pillRect, new Vector2((PILL_WIDTH * 0.5f) - 30f, 0f), 1f);
+
+            Text valueText = CreateLabel(
+                pillRect, "Value", value, 34, FontStyle.Bold, TextAnchor.MiddleRight,
+                new Vector2((PILL_WIDTH * 0.5f) - 56f, 0f));
+            _inkTexts.Add(valueText);
+            return valueText;
+        }
+
+        private void BuildToggle(RectTransform rowRect)
+        {
+            var trackObject = new GameObject("ToggleTrack", typeof(RectTransform), typeof(Image));
+            var trackRect = (RectTransform)trackObject.transform;
+            trackRect.SetParent(rowRect, false);
+            Centre(trackRect, new Vector2(TOGGLE_WIDTH, TOGGLE_HEIGHT));
+            trackRect.anchoredPosition = new Vector2((LIST_WIDTH * 0.5f) - 36f - (TOGGLE_WIDTH * 0.5f), 0f);
+
+            _toggleTrackImage = trackObject.GetComponent<Image>();
+            ConfigureRounded(_toggleTrackImage);
+            _toggleTrackImage.color = ToggleOnColour;
+
+            var thumbObject = new GameObject("ToggleThumb", typeof(RectTransform), typeof(Image));
+            _toggleThumbRect = (RectTransform)thumbObject.transform;
+            _toggleThumbRect.SetParent(trackRect, false);
+            Centre(_toggleThumbRect, new Vector2(TOGGLE_THUMB_SIZE, TOGGLE_THUMB_SIZE));
+            _toggleThumbRect.anchoredPosition = new Vector2(TOGGLE_THUMB_TRAVEL, 0f);
+
+            var thumbImage = thumbObject.GetComponent<Image>();
+            ConfigureCircle(thumbImage);
+            thumbImage.color = Color.white;
+        }
+
+        /// <summary>
+        /// Two rotated bars meeting at a point, the same trick <see cref="CellView"/> uses for its
+        /// bevel facets. <paramref name="directionX"/> is +1 for a right chevron, -1 for a left one.
+        /// </summary>
+        private void BuildChevron(RectTransform parent, Vector2 centre, float directionX)
+        {
+            float armLength = (CHEVRON_HALF_SIZE * Mathf.Sqrt(2f)) + CHEVRON_THICKNESS;
+
+            for (int armIndex = 0; armIndex < 2; armIndex++)
+            {
+                float sign = armIndex == 0 ? 1f : -1f;
+                var armObject = new GameObject($"ChevronArm_{armIndex}", typeof(RectTransform), typeof(Image));
+                var armRect = (RectTransform)armObject.transform;
+                armRect.SetParent(parent, false);
+                Centre(armRect, new Vector2(armLength, CHEVRON_THICKNESS));
+                armRect.anchoredPosition = centre + new Vector2(0f, sign * CHEVRON_HALF_SIZE * 0.5f);
+                armRect.localRotation = Quaternion.Euler(0f, 0f, -45f * sign * directionX);
+
+                var armImage = armObject.GetComponent<Image>();
+                ConfigureRounded(armImage);
+                _inkImages.Add(armImage);
+            }
+        }
+
+        /// <summary>Two bars crossed at right angles — the close glyph.</summary>
+        private void BuildCloseButton(RectTransform root, Vector2 anchoredPosition)
+        {
+            const float CROSS_LENGTH = 46f;
+            const float CROSS_THICKNESS = 8f;
+
+            var closeObject = new GameObject("CloseButton", typeof(RectTransform));
+            _closeButtonRect = (RectTransform)closeObject.transform;
+            _closeButtonRect.SetParent(root, false);
+            Centre(_closeButtonRect, new Vector2(ICON_BUTTON_SIZE, ICON_BUTTON_SIZE));
+            _closeButtonRect.anchoredPosition = anchoredPosition;
+
+            for (int barIndex = 0; barIndex < 2; barIndex++)
+            {
+                var barObject = new GameObject($"CloseBar_{barIndex}", typeof(RectTransform), typeof(Image));
+                var barRect = (RectTransform)barObject.transform;
+                barRect.SetParent(_closeButtonRect, false);
+                Centre(barRect, new Vector2(CROSS_LENGTH, CROSS_THICKNESS));
+                barRect.localRotation = Quaternion.Euler(0f, 0f, barIndex == 0 ? 45f : -45f);
+
+                var barImage = barObject.GetComponent<Image>();
+                ConfigureRounded(barImage);
+                _inkImages.Add(barImage);
+            }
+        }
+
+        private void BuildThemeScreen(RectTransform root, float cardHalfHeight)
+        {
+            float headerY = cardHalfHeight - HEADER_INSET;
+            float leftEdge = -(_cardSize.x * 0.5f);
+
+            var backObject = new GameObject("BackButton", typeof(RectTransform));
+            _backButtonRect = (RectTransform)backObject.transform;
+            _backButtonRect.SetParent(root, false);
+            Centre(_backButtonRect, new Vector2(ICON_BUTTON_SIZE, ICON_BUTTON_SIZE));
+            _backButtonRect.anchoredPosition =
+                new Vector2(leftEdge + SIDE_INSET + (ICON_BUTTON_SIZE * 0.5f), headerY);
+
+            BuildChevron(_backButtonRect, Vector2.zero, -1f);
+
+            Text title = CreateLabel(
+                root, "Title", "Tema Seç", 64, FontStyle.Bold, TextAnchor.MiddleLeft,
+                new Vector2(leftEdge + SIDE_INSET + ICON_BUTTON_SIZE + 30f, headerY));
+            _inkTexts.Add(title);
+
+            BuildOptions(root);
+        }
+
+        private void BuildOptions(RectTransform root)
+        {
+            IReadOnlyList<ThemeDefinition> themes = _settingsModel.AvailableThemes;
+            int rowCount = Mathf.Max(1, Mathf.CeilToInt(themes.Count / (float)COLUMN_COUNT));
+
+            for (int themeIndex = 0; themeIndex < themes.Count; themeIndex++)
+            {
+                ThemeDefinition theme = themes[themeIndex];
+                if (theme == null)
+                {
+                    continue;
+                }
+
+                int column = themeIndex % COLUMN_COUNT;
+                int row = themeIndex / COLUMN_COUNT;
+
+                // Centre the grid on the card: columns spread around x = 0, rows around y = 0.
+                float x = (column - ((COLUMN_COUNT - 1) * 0.5f)) * _optionSpacing.x;
+                float y = (((rowCount - 1) * 0.5f) - row) * _optionSpacing.y;
+
+                _options.Add(BuildOption(root, theme, new Vector2(x, y)));
+            }
+        }
+
+        private ThemeOption BuildOption(RectTransform root, ThemeDefinition theme, Vector2 anchoredPosition)
+        {
+            var optionObject = new GameObject($"Option_{theme.Id}", typeof(RectTransform));
+            var optionRect = (RectTransform)optionObject.transform;
+            optionRect.SetParent(root, false);
+            Centre(optionRect, _optionSize);
+            optionRect.anchoredPosition = anchoredPosition;
+
+            var swatchSize = new Vector2(_optionSize.x - 24f, _optionSize.y - 100f);
+            var swatchPosition = new Vector2(0f, 40f);
+
+            // Sits behind the swatch and is inset-matched to it, so when it is tinted it reads as an
+            // outline around the swatch only — the label below stays legible.
+            var borderObject = new GameObject("Border", typeof(RectTransform), typeof(Image));
+            var borderRect = (RectTransform)borderObject.transform;
+            borderRect.SetParent(optionRect, false);
+            Centre(borderRect, swatchSize + (Vector2.one * (_selectionBorderThickness * 2f)));
+            borderRect.anchoredPosition = swatchPosition;
+            var borderImage = borderObject.GetComponent<Image>();
+            ConfigureRounded(borderImage);
+
+            // One gradient texture per theme, created once here and never regenerated — the swatch
+            // always previews its own theme, not the active one.
+            var swatchObject = new GameObject("Swatch", typeof(RectTransform), typeof(Image));
+            var swatchRect = (RectTransform)swatchObject.transform;
+            swatchRect.SetParent(optionRect, false);
+            Centre(swatchRect, swatchSize);
+            swatchRect.anchoredPosition = swatchPosition;
+
+            var swatchImage = swatchObject.GetComponent<Image>();
+            swatchImage.sprite = UiSpriteFactory.CreateVerticalGradient(theme.BackgroundBottom, theme.BackgroundTop);
+            swatchImage.type = Image.Type.Simple;
+            swatchImage.color = Color.white;
+            swatchImage.raycastTarget = false;
+
+            BuildKindDots(
+                swatchRect, theme, 44f, 72f, new Vector2(0f, (-swatchSize.y * 0.5f) + 44f), null);
+
+            Text nameText = UiTextFactory.Create(optionRect, "Name", 38, FontStyle.Bold, Color.clear);
+            nameText.text = theme.DisplayName;
+            ((RectTransform)nameText.transform).anchoredPosition =
+                new Vector2(0f, (-_optionSize.y * 0.5f) + 40f);
+
+            return new ThemeOption(theme.Id, optionRect, borderImage, nameText);
+        }
+
+        /// <summary>
+        /// A row of one dot per piece kind, in that kind's fill colour. Pass a null
+        /// <paramref name="theme"/> to leave them unpainted and collect them in
+        /// <paramref name="output"/> instead, for dots that must follow the active theme.
+        /// </summary>
+        private static void BuildKindDots(
+            RectTransform parent, ThemeDefinition theme, float dotSize, float spacing, Vector2 centre, Image[] output)
+        {
+            for (int kindIndex = 0; kindIndex < ThemeDefinition.KIND_COUNT; kindIndex++)
+            {
+                var dotObject = new GameObject($"Kind_{kindIndex}", typeof(RectTransform), typeof(Image));
+                var dotRect = (RectTransform)dotObject.transform;
+                dotRect.SetParent(parent, false);
+                Centre(dotRect, new Vector2(dotSize, dotSize));
+                dotRect.anchoredPosition = centre + new Vector2(
+                    (kindIndex - ((ThemeDefinition.KIND_COUNT - 1) * 0.5f)) * spacing, 0f);
+
+                var dotImage = dotObject.GetComponent<Image>();
+                ConfigureRounded(dotImage);
+
+                if (theme != null)
+                {
+                    // Colour ids are 1-based; 0 means "empty cell".
+                    dotImage.color = theme.GetFill(kindIndex + 1);
+                }
+
+                if (output != null)
+                {
+                    output[kindIndex] = dotImage;
+                }
+            }
+        }
+
+        private static Text CreateLabel(
+            RectTransform parent,
+            string objectName,
+            string content,
+            int fontSize,
+            FontStyle fontStyle,
+            TextAnchor alignment,
+            Vector2 anchoredPosition)
+        {
+            Text text = UiTextFactory.Create(parent, objectName, fontSize, fontStyle, Color.clear);
+            text.text = content;
+            text.alignment = alignment;
+
+            var rect = (RectTransform)text.transform;
+
+            // Pivot on the aligned edge so the anchored position is that edge, whatever the string
+            // ends up measuring — labels overflow their rect by design (see UiTextFactory).
+            float pivotX = alignment == TextAnchor.MiddleRight ? 1f : (alignment == TextAnchor.MiddleLeft ? 0f : 0.5f);
+            rect.pivot = new Vector2(pivotX, 0.5f);
+            rect.sizeDelta = new Vector2(0f, fontSize * 1.6f);
+            rect.anchoredPosition = anchoredPosition;
+            return text;
+        }
+
+        private static void Centre(RectTransform rect, Vector2 size)
+        {
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.sizeDelta = size;
+            rect.anchoredPosition = Vector2.zero;
+        }
+
+        private static void ConfigureRounded(Image image)
+        {
+            image.sprite = UiSpriteFactory.RoundedSquare;
+            image.type = Image.Type.Sliced;
+            image.pixelsPerUnitMultiplier = 3f;
+            image.color = Color.clear;
+            image.raycastTarget = false;
+        }
+
+        // The circle sprite has no border, so it must never be sliced.
+        private static void ConfigureCircle(Image image)
+        {
+            image.sprite = UiSpriteFactory.Circle;
+            image.type = Image.Type.Simple;
+            image.color = Color.clear;
+            image.raycastTarget = false;
+        }
+
+        /// <summary>One tappable swatch: its theme id plus the bits that repaint on selection.</summary>
+        private sealed class ThemeOption
+        {
+            internal ThemeOption(int themeId, RectTransform rect, Image borderImage, Text nameText)
+            {
+                ThemeId = themeId;
+                Rect = rect;
+                BorderImage = borderImage;
+                NameText = nameText;
+            }
+
+            internal int ThemeId { get; }
+
+            internal RectTransform Rect { get; }
+
+            internal Image BorderImage { get; }
+
+            internal Text NameText { get; }
+        }
+    }
+}
