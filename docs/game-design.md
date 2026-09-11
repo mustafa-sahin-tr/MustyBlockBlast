@@ -82,6 +82,33 @@ fits **anywhere** on the board. If none does, the run ends.
 This check is also what powers the "no moves" hint state, so it must be cheap enough to run
 every placement.
 
+## Timed mode
+
+Two modes are selectable: **Sınırsız** (endless, the default) and **Süreli** (timed). Switching
+mode restarts the run, because a board mid-run belongs to the mode it was started in.
+
+Timed mode layers a countdown on top of the identical endless rule set — board, pieces,
+clearing and scoring are unchanged. Only the "run ends" condition gains a second trigger.
+
+- The round length is chosen **before** a run, in Settings → Süre. The selectable list is
+  5 / 10 / 15 / 20 / 25 seconds, default 15. The list lives in a `TimedModeConfig`
+  ScriptableObject, so retuning it is an asset edit, not a code change.
+- The countdown starts the moment a tray of three pieces is drawn, and resets to the full
+  duration **only** on a tray refill — that is, once all three pieces have been placed.
+  Placing an individual piece never resets it. The clock therefore measures "clear the whole
+  tray in time", not "place a piece in time".
+- Reaching 0 ends the run immediately with the score as it stands, through the same game-over
+  path as running out of moves. There is exactly one end-of-run state; time is just another way
+  to reach it.
+- Dragging a piece does **not** pause the clock — holding a piece in mid-air would otherwise be
+  free time. Backgrounding the app **does** pause it, and resumes with the same time remaining.
+- The Süre row is greyed out and inert while endless is selected.
+
+Endless runs are unaffected: they show no timer and are never ended by time.
+
+High scores are not yet tracked per duration — a timed score competes with the same single
+best score as an endless one. That is a known v1 simplification.
+
 ## Undo
 
 - Depth: **1 step**. Only the most recent placement can be undone.
