@@ -21,6 +21,7 @@ namespace MustyBlockBlast.Gameplay.Systems
         private readonly IPublisher<PiecePlacedMessage> _piecePlacedPublisher;
         private readonly IPublisher<LinesClearedMessage> _linesClearedPublisher;
         private readonly IPublisher<GameOverMessage> _gameOverPublisher;
+        private readonly IPublisher<TrayRefilledMessage> _trayRefilledPublisher;
         private readonly List<Piece> _remainingBuffer = new List<Piece>(TrayModel.SLOT_COUNT);
 
         public BoardSystem(
@@ -30,7 +31,8 @@ namespace MustyBlockBlast.Gameplay.Systems
             IPublisher<RunStartedMessage> runStartedPublisher,
             IPublisher<PiecePlacedMessage> piecePlacedPublisher,
             IPublisher<LinesClearedMessage> linesClearedPublisher,
-            IPublisher<GameOverMessage> gameOverPublisher)
+            IPublisher<GameOverMessage> gameOverPublisher,
+            IPublisher<TrayRefilledMessage> trayRefilledPublisher)
         {
             _boardModel = boardModel;
             _trayModel = trayModel;
@@ -39,6 +41,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             _piecePlacedPublisher = piecePlacedPublisher;
             _linesClearedPublisher = linesClearedPublisher;
             _gameOverPublisher = gameOverPublisher;
+            _trayRefilledPublisher = trayRefilledPublisher;
         }
 
         public bool IsGameOver { get; private set; }
@@ -115,6 +118,22 @@ namespace MustyBlockBlast.Gameplay.Systems
             return true;
         }
 
+        /// <summary>
+        /// Ends the run for a reason other than "no moves left" — currently only the timed-mode
+        /// clock expiring. Kept here so the game-over invariant has exactly one owner; callers must
+        /// never set their own end-of-run state. Already-over runs are a no-op.
+        /// </summary>
+        public void ForceGameOver()
+        {
+            if (IsGameOver)
+            {
+                return;
+            }
+
+            IsGameOver = true;
+            _gameOverPublisher.Publish(new GameOverMessage());
+        }
+
         public void Dispose()
         {
         }
@@ -128,6 +147,10 @@ namespace MustyBlockBlast.Gameplay.Systems
             {
                 _trayModel.SetSlot(i, _pieceDraw.DrawPiece(), _pieceDraw.DrawColourId());
             }
+
+            // Published from here rather than from the two call sites, so the opening draw of a run
+            // and every mid-run refill are indistinguishable to subscribers.
+            _trayRefilledPublisher.Publish(new TrayRefilledMessage());
         }
 
         private void CheckGameOver()

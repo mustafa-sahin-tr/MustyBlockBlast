@@ -18,6 +18,9 @@ namespace MustyBlockBlast.Presentation
         [Tooltip("Selectable themes in display order. The first entry is the default (Yaz).")]
         [SerializeField] private ThemeDefinition[] _availableThemes;
 
+        [Tooltip("Selectable round lengths for timed mode. Required — timed runs cannot be configured without it.")]
+        [SerializeField] private TimedModeConfig _timedModeConfig;
+
         protected override void Configure(IContainerBuilder builder)
         {
             RegisterMessaging(builder);
@@ -45,20 +48,43 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterMessageBroker<ScoreChangedMessage>(options);
             builder.RegisterMessageBroker<GameOverMessage>(options);
             builder.RegisterMessageBroker<PlaySfxRequestedMessage>(options);
+            builder.RegisterMessageBroker<TrayRefilledMessage>(options);
         }
 
-        // Instance method: the theme list is scene-configured on this MonoBehaviour.
+        // Instance method: the theme list and the timed-mode config are scene-configured on this
+        // MonoBehaviour.
         private void RegisterModels(IContainerBuilder builder)
         {
             builder.RegisterInstance<IReadOnlyList<ThemeDefinition>>(
                 _availableThemes ?? new ThemeDefinition[0]);
+            builder.RegisterInstance(ResolveTimedModeConfig());
 
             builder.Register<BoardModel>(Lifetime.Singleton);
             builder.Register<TrayModel>(Lifetime.Singleton);
             builder.Register<ScoreModel>(Lifetime.Singleton);
             builder.Register<GameModeModel>(Lifetime.Singleton);
+            builder.Register<TimedModeModel>(Lifetime.Singleton);
+            builder.Register<TimerModel>(Lifetime.Singleton);
             builder.Register<SfxModel>(Lifetime.Singleton);
             builder.Register<SettingsModel>(Lifetime.Singleton);
+        }
+
+        /// <summary>
+        /// The config is a required scene reference, but registering a null instance fails deep
+        /// inside the container with an opaque error. Falling back to a default-valued instance keeps
+        /// the scene bootable and turns the mistake into one readable console line.
+        /// </summary>
+        private TimedModeConfig ResolveTimedModeConfig()
+        {
+            if (_timedModeConfig != null)
+            {
+                return _timedModeConfig;
+            }
+
+            Debug.LogError(
+                $"{nameof(GameLifetimeScope)} has no {nameof(TimedModeConfig)} assigned. " +
+                "Timed mode is falling back to the built-in default durations.", this);
+            return ScriptableObject.CreateInstance<TimedModeConfig>();
         }
 
         private static void RegisterSystems(IContainerBuilder builder)
@@ -69,6 +95,11 @@ namespace MustyBlockBlast.Presentation
             builder.Register<SettingsSystem>(Lifetime.Singleton);
             builder.RegisterEntryPoint<BoardSystem>(Lifetime.Singleton).AsSelf();
             builder.Register<GameModeSystem>(Lifetime.Singleton);
+            builder.Register<TimedModeSystem>(Lifetime.Singleton);
+
+            // Entry point because it is an ITickable: the countdown is driven by VContainer's player
+            // loop, not by a MonoBehaviour Update.
+            builder.RegisterEntryPoint<TimerRunSystem>(Lifetime.Singleton).AsSelf();
         }
 
         private static void RegisterViews(IContainerBuilder builder)
@@ -79,6 +110,7 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterComponentInHierarchy<SettingsPanelView>();
             builder.RegisterComponentInHierarchy<PieceTrayView>();
             builder.RegisterComponentInHierarchy<ScoreView>();
+            builder.RegisterComponentInHierarchy<TimerHudView>();
             builder.RegisterComponentInHierarchy<LineClearBurstView>();
             builder.RegisterComponentInHierarchy<GameOverView>();
             builder.RegisterComponentInHierarchy<BoardInputView>();

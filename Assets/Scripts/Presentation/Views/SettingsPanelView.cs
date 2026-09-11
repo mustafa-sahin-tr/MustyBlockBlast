@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Text;
 using MustyBlockBlast.Gameplay;
 using MustyBlockBlast.Gameplay.Models;
 using MustyBlockBlast.Gameplay.Reactive;
@@ -68,8 +69,10 @@ namespace MustyBlockBlast.Presentation.Views
         private const float CHEVRON_HALF_SIZE = 13f;
         private const float CHEVRON_THICKNESS = 7f;
 
-        /// <summary>Placeholder until the round-duration options are specified. Not persisted.</summary>
-        private const string DURATION_PLACEHOLDER = "60 sn";
+        /// <summary>Shown in the duration pill while endless is active, where a length means nothing.</summary>
+        private const string DURATION_NOT_APPLICABLE = "—";
+
+        private const string DURATION_UNIT_SUFFIX = " sn";
 
         private const string ENDLESS_MODE_NAME = "Sınırsız";
         private const string TIMED_MODE_NAME = "Süreli";
@@ -77,6 +80,10 @@ namespace MustyBlockBlast.Presentation.Views
         private static readonly Vector2 ModeOptionSize = new Vector2(320f, 180f);
         private static readonly Vector2 ConfirmButtonSize = new Vector2(340f, 96f);
         private const float MODE_OPTION_SPACING_X = 360f;
+
+        private const int DURATION_COLUMN_COUNT = 3;
+        private static readonly Vector2 DurationOptionSize = new Vector2(200f, 130f);
+        private static readonly Vector2 DurationOptionSpacing = new Vector2(232f, 162f);
 
         // The switch is a universal affordance, so unlike everything else on the card it keeps the
         // same colours in every theme.
@@ -86,6 +93,8 @@ namespace MustyBlockBlast.Presentation.Views
         private readonly CompositeDisposable _disposables = new CompositeDisposable();
         private readonly List<ThemeOption> _options = new List<ThemeOption>(4);
         private readonly List<ModeOption> _modeOptions = new List<ModeOption>(2);
+        private readonly List<DurationOption> _durationOptions = new List<DurationOption>(6);
+        private readonly StringBuilder _stringBuilder = new StringBuilder(8);
 
         // Repaint buckets: every Image built here belongs to exactly one of them, so a theme switch is
         // a handful of tight loops instead of a hierarchy walk.
@@ -116,6 +125,8 @@ namespace MustyBlockBlast.Presentation.Views
         private SfxModel _sfxModel;
         private ISfxService _sfxService;
         private GameModeSystem _gameModeSystem;
+        private TimedModeSystem _timedModeSystem;
+        private TimerRunSystem _timerRunSystem;
         private Canvas _canvas;
 
         private PanelScreen _screen = PanelScreen.Settings;
@@ -133,6 +144,7 @@ namespace MustyBlockBlast.Presentation.Views
         private GameObject _themeScreenRoot;
         private GameObject _modeScreenRoot;
         private GameObject _confirmScreenRoot;
+        private GameObject _durationScreenRoot;
 
         private Image _listImage;
         private RectTransform _closeButtonRect;
@@ -142,12 +154,15 @@ namespace MustyBlockBlast.Presentation.Views
         private RectTransform _durationRowRect;
         private RectTransform _themeBackButtonRect;
         private RectTransform _modeBackButtonRect;
+        private RectTransform _durationBackButtonRect;
         private RectTransform _confirmYesRect;
         private RectTransform _confirmNoRect;
         private RectTransform _toggleThumbRect;
         private Image _toggleTrackImage;
         private Text _themeValueText;
         private Text _modeValueText;
+        private Text _durationValueText;
+        private Text _durationLabelText;
 
         /// <summary>Which of the screens inside the card is showing.</summary>
         private enum PanelScreen
@@ -156,6 +171,7 @@ namespace MustyBlockBlast.Presentation.Views
             Theme,
             Mode,
             ModeConfirm,
+            Duration,
         }
 
         /// <summary>
@@ -173,13 +189,17 @@ namespace MustyBlockBlast.Presentation.Views
             SettingsSystem settingsSystem,
             SfxModel sfxModel,
             ISfxService sfxService,
-            GameModeSystem gameModeSystem)
+            GameModeSystem gameModeSystem,
+            TimedModeSystem timedModeSystem,
+            TimerRunSystem timerRunSystem)
         {
             _settingsModel = settingsModel;
             _settingsSystem = settingsSystem;
             _sfxModel = sfxModel;
             _sfxService = sfxService;
             _gameModeSystem = gameModeSystem;
+            _timedModeSystem = timedModeSystem;
+            _timerRunSystem = timerRunSystem;
         }
 
         private void Awake()
@@ -190,7 +210,7 @@ namespace MustyBlockBlast.Presentation.Views
         private void Start()
         {
             if (_settingsModel == null || _settingsSystem == null || _sfxModel == null || _sfxService == null
-                || _gameModeSystem == null)
+                || _gameModeSystem == null || _timedModeSystem == null || _timerRunSystem == null)
             {
                 Debug.LogError(
                     $"{nameof(SettingsPanelView)} was not injected. Is it registered in the LifetimeScope?", this);
@@ -205,6 +225,10 @@ namespace MustyBlockBlast.Presentation.Views
 
             _settingsModel.CurrentTheme.Subscribe(OnThemeChanged).AddTo(_disposables);
             _sfxModel.IsMuted.Subscribe(OnMutedChanged).AddTo(_disposables);
+            _timedModeSystem.SelectedDuration.Subscribe(OnSelectedDurationChanged).AddTo(_disposables);
+
+            // Last, because its handler repaints the duration row, which needs the two above to have
+            // published their first value.
             _gameModeSystem.CurrentMode.Subscribe(OnModeChanged).AddTo(_disposables);
         }
 
@@ -227,6 +251,7 @@ namespace MustyBlockBlast.Presentation.Views
             SetScreen(PanelScreen.Settings);
             _panel.SetActive(true);
             transform.SetAsLastSibling();
+            _timerRunSystem.SetMenuPaused(true);
         }
 
         /// <summary>
@@ -249,6 +274,7 @@ namespace MustyBlockBlast.Presentation.Views
                 PanelScreen.Theme => HandleThemeScreenTap(screenPosition, eventCamera),
                 PanelScreen.Mode => HandleModeScreenTap(screenPosition, eventCamera),
                 PanelScreen.ModeConfirm => HandleConfirmScreenTap(screenPosition, eventCamera),
+                PanelScreen.Duration => HandleDurationScreenTap(screenPosition, eventCamera),
                 _ => HandleSettingsScreenTap(screenPosition, eventCamera),
             };
 
@@ -293,9 +319,19 @@ namespace MustyBlockBlast.Presentation.Views
                 return true;
             }
 
-            // Inert by design: the duration options are not specified yet. It still swallows the tap
-            // so the row never behaves like the scrim.
-            return RectTransformUtility.RectangleContainsScreenPoint(_durationRowRect, screenPosition, eventCamera);
+            if (!RectTransformUtility.RectangleContainsScreenPoint(_durationRowRect, screenPosition, eventCamera))
+            {
+                return false;
+            }
+
+            // A round length is meaningless in an endless run, so the row is greyed out and inert
+            // there — but it still swallows the tap, so it never behaves like the scrim.
+            if (_gameModeSystem.CurrentMode.Value == GameMode.Timed)
+            {
+                SetScreen(PanelScreen.Duration);
+            }
+
+            return true;
         }
 
         private bool HandleThemeScreenTap(Vector2 screenPosition, Camera eventCamera)
@@ -370,7 +406,37 @@ namespace MustyBlockBlast.Presentation.Views
             return false;
         }
 
-        private void Close() => _panel.SetActive(false);
+        private bool HandleDurationScreenTap(Vector2 screenPosition, Camera eventCamera)
+        {
+            for (int optionIndex = 0; optionIndex < _durationOptions.Count; optionIndex++)
+            {
+                DurationOption option = _durationOptions[optionIndex];
+                if (!RectTransformUtility.RectangleContainsScreenPoint(option.Rect, screenPosition, eventCamera))
+                {
+                    continue;
+                }
+
+                // No confirmation step: unlike a mode switch this does not restart the run. The new
+                // length takes effect on the next tray refill.
+                _timedModeSystem.SelectDuration(option.Seconds);
+                SetScreen(PanelScreen.Settings);
+                return true;
+            }
+
+            if (RectTransformUtility.RectangleContainsScreenPoint(_durationBackButtonRect, screenPosition, eventCamera))
+            {
+                SetScreen(PanelScreen.Settings);
+                return true;
+            }
+
+            return false;
+        }
+
+        private void Close()
+        {
+            _panel.SetActive(false);
+            _timerRunSystem.SetMenuPaused(false);
+        }
 
         private void SetScreen(PanelScreen screen)
         {
@@ -380,6 +446,7 @@ namespace MustyBlockBlast.Presentation.Views
             _themeScreenRoot.SetActive(screen == PanelScreen.Theme);
             _modeScreenRoot.SetActive(screen == PanelScreen.Mode);
             _confirmScreenRoot.SetActive(screen == PanelScreen.ModeConfirm);
+            _durationScreenRoot.SetActive(screen == PanelScreen.Duration);
 
             // The screens need very different heights, so the shared card resizes with them rather
             // than leaving the shorter content stranded in a tall empty card.
@@ -468,6 +535,11 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             RefreshModeSelection();
+            RefreshDurationSelection();
+
+            // Last: the bulk ink loops above repaint the duration row's label and pill too, so its
+            // greyed-out state has to be reapplied on top of them.
+            RefreshDurationRow();
         }
 
         private void OnModeChanged(GameMode mode)
@@ -479,6 +551,69 @@ namespace MustyBlockBlast.Presentation.Views
 
             _modeValueText.text = mode == GameMode.Timed ? TIMED_MODE_NAME : ENDLESS_MODE_NAME;
             RefreshModeSelection();
+            RefreshDurationRow();
+        }
+
+        private void OnSelectedDurationChanged(float seconds)
+        {
+            RefreshDurationRow();
+            RefreshDurationSelection();
+        }
+
+        /// <summary>
+        /// Repaints the duration row's pill and greys it out outside timed mode. Shared by the theme,
+        /// mode and duration handlers, all three of which can invalidate it.
+        /// </summary>
+        private void RefreshDurationRow()
+        {
+            if (_durationValueText == null || _durationLabelText == null)
+            {
+                return;
+            }
+
+            bool isTimed = _gameModeSystem.CurrentMode.Value == GameMode.Timed;
+            _durationValueText.text = isTimed
+                ? FormatDuration(_timedModeSystem.SelectedDuration.Value)
+                : DURATION_NOT_APPLICABLE;
+
+            ThemeDefinition theme = _settingsModel.CurrentTheme.Value;
+            if (theme == null)
+            {
+                return;
+            }
+
+            // Greyed rather than hidden: the row staying in place keeps the list height stable and
+            // tells the player the setting exists and which mode unlocks it.
+            Color rowColour = isTimed ? theme.Ink : theme.SoftInk;
+            _durationValueText.color = rowColour;
+            _durationLabelText.color = rowColour;
+        }
+
+        /// <summary>Repaints the duration chips' selection outline.</summary>
+        private void RefreshDurationSelection()
+        {
+            ThemeDefinition theme = _settingsModel.CurrentTheme.Value;
+            if (theme == null)
+            {
+                return;
+            }
+
+            float selected = _timedModeSystem.SelectedDuration.Value;
+            for (int optionIndex = 0; optionIndex < _durationOptions.Count; optionIndex++)
+            {
+                DurationOption option = _durationOptions[optionIndex];
+                bool isSelected = Mathf.Approximately(option.Seconds, selected);
+                option.BorderImage.color = isSelected ? theme.Ink : Color.clear;
+                option.NameText.color = isSelected ? theme.Ink : theme.SoftInk;
+            }
+        }
+
+        private string FormatDuration(float seconds)
+        {
+            _stringBuilder.Clear();
+            _stringBuilder.Append(Mathf.RoundToInt(seconds));
+            _stringBuilder.Append(DURATION_UNIT_SUFFIX);
+            return _stringBuilder.ToString();
         }
 
         /// <summary>Repaints the mode cards' selection outline. Shared by the theme and mode handlers.</summary>
@@ -528,11 +663,13 @@ namespace MustyBlockBlast.Presentation.Views
             _themeScreenRoot = CreateScreenRoot("ThemeScreen");
             _modeScreenRoot = CreateScreenRoot("ModeScreen");
             _confirmScreenRoot = CreateScreenRoot("ModeConfirmScreen");
+            _durationScreenRoot = CreateScreenRoot("DurationScreen");
 
             BuildSettingsScreen((RectTransform)_settingsScreenRoot.transform, SettingsCardSize.y * 0.5f);
             BuildThemeScreen((RectTransform)_themeScreenRoot.transform, _cardSize.y * 0.5f);
             BuildModeScreen((RectTransform)_modeScreenRoot.transform, SettingsCardSize.y * 0.5f);
             BuildConfirmScreen((RectTransform)_confirmScreenRoot.transform, _confirmCardSize.y * 0.5f);
+            BuildDurationScreen((RectTransform)_durationScreenRoot.transform, SettingsCardSize.y * 0.5f);
 
             _panel = panelObject;
         }
@@ -574,10 +711,10 @@ namespace MustyBlockBlast.Presentation.Views
             _listImage = listObject.GetComponent<Image>();
             ConfigureRounded(_listImage);
 
-            _modeRowRect = BuildRow(listRect, 0, "ModeRow", "Mod");
-            _themeRowRect = BuildRow(listRect, 1, "ThemeRow", "Tema");
-            _soundRowRect = BuildRow(listRect, 2, "SoundRow", "Ses");
-            _durationRowRect = BuildRow(listRect, 3, "DurationRow", "Süre");
+            _modeRowRect = BuildRow(listRect, 0, "ModeRow", "Mod", out _);
+            _themeRowRect = BuildRow(listRect, 1, "ThemeRow", "Tema", out _);
+            _soundRowRect = BuildRow(listRect, 2, "SoundRow", "Ses", out _);
+            _durationRowRect = BuildRow(listRect, 3, "DurationRow", "Süre", out _durationLabelText);
 
             for (int dividerIndex = 1; dividerIndex < ROW_COUNT; dividerIndex++)
             {
@@ -590,7 +727,13 @@ namespace MustyBlockBlast.Presentation.Views
             BuildDurationRowContent(_durationRowRect);
         }
 
-        private RectTransform BuildRow(RectTransform listRect, int rowIndex, string objectName, string label)
+        /// <summary>
+        /// Builds one list row. <paramref name="labelText"/> is handed back for the rows that need to
+        /// repaint their label outside the bulk ink loop — currently only the duration row, which
+        /// greys out in endless mode.
+        /// </summary>
+        private RectTransform BuildRow(
+            RectTransform listRect, int rowIndex, string objectName, string label, out Text labelText)
         {
             var rowObject = new GameObject(objectName, typeof(RectTransform));
             var rowRect = (RectTransform)rowObject.transform;
@@ -599,7 +742,7 @@ namespace MustyBlockBlast.Presentation.Views
             rowRect.anchoredPosition = new Vector2(
                 0f, (((ROW_COUNT - 1) * 0.5f) - rowIndex) * ROW_HEIGHT);
 
-            Text labelText = CreateLabel(
+            labelText = CreateLabel(
                 rowRect, "Label", label, 40, FontStyle.Normal, TextAnchor.MiddleLeft,
                 new Vector2((-LIST_WIDTH * 0.5f) + 140f, 0f));
             _inkTexts.Add(labelText);
@@ -704,7 +847,7 @@ namespace MustyBlockBlast.Presentation.Views
         {
             RectTransform badgeRect = BuildBadge(rowRect);
             BuildClockGlyph(badgeRect);
-            BuildPill(rowRect, DURATION_PLACEHOLDER);
+            _durationValueText = BuildPill(rowRect, string.Empty);
         }
 
         /// <summary>Three ascending bars, bottom-aligned — the usual "volume" glyph.</summary>
@@ -953,6 +1096,66 @@ namespace MustyBlockBlast.Presentation.Views
             return new ModeOption(mode, optionRect, borderImage, nameText);
         }
 
+        private void BuildDurationScreen(RectTransform root, float cardHalfHeight)
+        {
+            float headerY = cardHalfHeight - HEADER_INSET;
+            float leftEdge = -(SettingsCardSize.x * 0.5f);
+
+            _durationBackButtonRect = BuildBackButton(root, leftEdge, headerY);
+
+            Text title = CreateLabel(
+                root, "Title", "Süre Seç", 64, FontStyle.Bold, TextAnchor.MiddleLeft,
+                new Vector2(leftEdge + SIDE_INSET + ICON_BUTTON_SIZE + 30f, headerY));
+            _inkTexts.Add(title);
+
+            // Same centred grid as the theme swatches, so adding a duration to the config asset needs
+            // no change here.
+            IReadOnlyList<float> durations = _timedModeSystem.AvailableDurations;
+            int rowCount = Mathf.Max(1, Mathf.CeilToInt(durations.Count / (float)DURATION_COLUMN_COUNT));
+
+            for (int durationIndex = 0; durationIndex < durations.Count; durationIndex++)
+            {
+                int column = durationIndex % DURATION_COLUMN_COUNT;
+                int row = durationIndex / DURATION_COLUMN_COUNT;
+
+                float x = (column - ((DURATION_COLUMN_COUNT - 1) * 0.5f)) * DurationOptionSpacing.x;
+                float y = (((rowCount - 1) * 0.5f) - row) * DurationOptionSpacing.y;
+
+                _durationOptions.Add(
+                    BuildDurationOption(root, durations[durationIndex], new Vector2(x, y)));
+            }
+        }
+
+        private DurationOption BuildDurationOption(RectTransform root, float seconds, Vector2 anchoredPosition)
+        {
+            var optionObject = new GameObject($"DurationOption_{Mathf.RoundToInt(seconds)}", typeof(RectTransform));
+            var optionRect = (RectTransform)optionObject.transform;
+            optionRect.SetParent(root, false);
+            Centre(optionRect, DurationOptionSize);
+            optionRect.anchoredPosition = anchoredPosition;
+
+            // Same outset-rect-as-outline trick the theme swatches and mode cards use.
+            var borderObject = new GameObject("Border", typeof(RectTransform), typeof(Image));
+            var borderRect = (RectTransform)borderObject.transform;
+            borderRect.SetParent(optionRect, false);
+            Centre(borderRect, DurationOptionSize + (Vector2.one * (_selectionBorderThickness * 2f)));
+            var borderImage = borderObject.GetComponent<Image>();
+            ConfigureRounded(borderImage);
+
+            var faceObject = new GameObject("Face", typeof(RectTransform), typeof(Image));
+            var faceRect = (RectTransform)faceObject.transform;
+            faceRect.SetParent(optionRect, false);
+            Centre(faceRect, DurationOptionSize);
+            var faceImage = faceObject.GetComponent<Image>();
+            ConfigureRounded(faceImage);
+            _badgeImages.Add(faceImage);
+
+            Text nameText = UiTextFactory.Create(optionRect, "Name", 46, FontStyle.Bold, Color.clear);
+            nameText.text = FormatDuration(seconds);
+
+            return new DurationOption(seconds, optionRect, borderImage, nameText);
+        }
+
         private void BuildConfirmScreen(RectTransform root, float cardHalfHeight)
         {
             float headerY = cardHalfHeight - HEADER_INSET;
@@ -1182,6 +1385,26 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             internal GameMode Mode { get; }
+
+            internal RectTransform Rect { get; }
+
+            internal Image BorderImage { get; }
+
+            internal Text NameText { get; }
+        }
+
+        /// <summary>One tappable duration chip: the length it selects plus its selection visuals.</summary>
+        private sealed class DurationOption
+        {
+            internal DurationOption(float seconds, RectTransform rect, Image borderImage, Text nameText)
+            {
+                Seconds = seconds;
+                Rect = rect;
+                BorderImage = borderImage;
+                NameText = nameText;
+            }
+
+            internal float Seconds { get; }
 
             internal RectTransform Rect { get; }
 

@@ -7,8 +7,8 @@ namespace MustyBlockBlast.Gameplay.Systems
     /// Owns <see cref="GameModeModel"/>. Switching mode restarts the run, because the board state of
     /// the run in progress belongs to the mode it was started in.
     /// <para>
-    /// <see cref="GameMode.Timed"/> has no distinct behaviour yet, so both modes restart through the
-    /// same endless <see cref="BoardSystem.StartNewRun"/>.
+    /// Both modes restart through the same <see cref="BoardSystem.StartNewRun"/>; the timed rule set
+    /// is layered on by <c>TimerRunSystem</c>, which watches this mode rather than being switched by it.
     /// </para>
     /// </summary>
     public sealed class GameModeSystem
