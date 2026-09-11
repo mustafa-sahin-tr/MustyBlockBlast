@@ -56,6 +56,7 @@ namespace MustyBlockBlast.Presentation
             builder.Register<BoardModel>(Lifetime.Singleton);
             builder.Register<TrayModel>(Lifetime.Singleton);
             builder.Register<ScoreModel>(Lifetime.Singleton);
+            builder.Register<GameModeModel>(Lifetime.Singleton);
             builder.Register<SfxModel>(Lifetime.Singleton);
             builder.Register<SettingsModel>(Lifetime.Singleton);
         }
@@ -67,6 +68,7 @@ namespace MustyBlockBlast.Presentation
             builder.Register<SfxSystem>(Lifetime.Singleton).As<ISfxService>().AsSelf();
             builder.Register<SettingsSystem>(Lifetime.Singleton);
             builder.RegisterEntryPoint<BoardSystem>(Lifetime.Singleton).AsSelf();
+            builder.Register<GameModeSystem>(Lifetime.Singleton);
         }
 
         private static void RegisterViews(IContainerBuilder builder)

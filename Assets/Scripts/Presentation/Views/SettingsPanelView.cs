@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using MustyBlockBlast.Gameplay;
 using MustyBlockBlast.Gameplay.Models;
 using MustyBlockBlast.Gameplay.Reactive;
 using MustyBlockBlast.Gameplay.Settings;
@@ -10,13 +11,17 @@ using VContainer;
 namespace MustyBlockBlast.Presentation.Views
 {
     /// <summary>
-    /// The settings overlay. Two screens live inside one card:
+    /// The settings overlay. Four screens live inside one card:
     /// <list type="bullet">
-    /// <item>Settings — a grouped list with the current theme, the sound toggle and a (visual only)
-    /// round duration row.</item>
+    /// <item>Settings — a grouped list with the current mode, the current theme, the sound toggle and
+    /// a (visual only) round duration row.</item>
     /// <item>Theme — the swatch grid; picking one calls <see cref="SettingsSystem.SetTheme"/> and
     /// returns to the settings screen. The recolour itself is handled by the existing reactive theme
     /// subscriptions in every other View, so nothing else happens here.</item>
+    /// <item>Mode — the two mode cards. Picking the active mode just returns; picking the other one
+    /// steps to the confirmation screen, because switching restarts the run.</item>
+    /// <item>ModeConfirm — the "this restarts your run" prompt. Confirming calls
+    /// <see cref="GameModeSystem.SelectMode"/>, which owns the restart.</item>
     /// </list>
     /// Both screens are built once in <see cref="Start"/> and toggled with SetActive — the same
     /// "build once, never rebuild" approach <see cref="CellView"/> uses for its two looks.
@@ -41,7 +46,14 @@ namespace MustyBlockBlast.Presentation.Views
         private const float ICON_BUTTON_SIZE = 92f;
         private const float LIST_WIDTH = 760f;
         private const float ROW_HEIGHT = 128f;
-        private const int ROW_COUNT = 3;
+        private const int ROW_COUNT = 4;
+
+        /// <summary>Card top edge to list top edge: the header band plus the gap under it.</summary>
+        private const float LIST_TOP_INSET = 194f;
+
+        /// <summary>List bottom edge to card bottom edge.</summary>
+        private const float LIST_BOTTOM_INSET = 62f;
+
         private const float BADGE_SIZE = 84f;
         private const float DIVIDER_THICKNESS = 3f;
         private const float PILL_WIDTH = 240f;
@@ -59,6 +71,13 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>Placeholder until the round-duration options are specified. Not persisted.</summary>
         private const string DURATION_PLACEHOLDER = "60 sn";
 
+        private const string ENDLESS_MODE_NAME = "Sınırsız";
+        private const string TIMED_MODE_NAME = "Süreli";
+
+        private static readonly Vector2 ModeOptionSize = new Vector2(320f, 180f);
+        private static readonly Vector2 ConfirmButtonSize = new Vector2(340f, 96f);
+        private const float MODE_OPTION_SPACING_X = 360f;
+
         // The switch is a universal affordance, so unlike everything else on the card it keeps the
         // same colours in every theme.
         private static readonly Color ToggleOnColour = new Color(0.298f, 0.686f, 0.510f, 1f);
@@ -66,6 +85,7 @@ namespace MustyBlockBlast.Presentation.Views
 
         private readonly CompositeDisposable _disposables = new CompositeDisposable();
         private readonly List<ThemeOption> _options = new List<ThemeOption>(4);
+        private readonly List<ModeOption> _modeOptions = new List<ModeOption>(2);
 
         // Repaint buckets: every Image built here belongs to exactly one of them, so a theme switch is
         // a handful of tight loops instead of a hierarchy walk.
@@ -79,8 +99,10 @@ namespace MustyBlockBlast.Presentation.Views
         [Header("Layout")]
         [Tooltip("Card size while the theme grid is showing.")]
         [SerializeField] private Vector2 _cardSize = new Vector2(880f, 980f);
-        [Tooltip("Card size while the settings list is showing.")]
+        [Tooltip("Minimum card size while the settings list or the mode picker is showing. Grown automatically when the row list no longer fits.")]
         [SerializeField] private Vector2 _settingsCardSize = new Vector2(880f, 640f);
+        [Tooltip("Card size while the mode-change confirmation is showing.")]
+        [SerializeField] private Vector2 _confirmCardSize = new Vector2(880f, 460f);
         [SerializeField] private Vector2 _optionSize = new Vector2(380f, 300f);
         [SerializeField] private Vector2 _optionSpacing = new Vector2(400f, 340f);
 
@@ -93,9 +115,13 @@ namespace MustyBlockBlast.Presentation.Views
         private SettingsSystem _settingsSystem;
         private SfxModel _sfxModel;
         private ISfxService _sfxService;
+        private GameModeSystem _gameModeSystem;
         private Canvas _canvas;
 
         private PanelScreen _screen = PanelScreen.Settings;
+
+        /// <summary>The mode the confirmation screen is asking about. Only meaningful on that screen.</summary>
+        private GameMode _pendingMode = GameMode.Endless;
 
         private GameObject _panel;
         private RectTransform _cardRect;
@@ -105,32 +131,55 @@ namespace MustyBlockBlast.Presentation.Views
 
         private GameObject _settingsScreenRoot;
         private GameObject _themeScreenRoot;
+        private GameObject _modeScreenRoot;
+        private GameObject _confirmScreenRoot;
 
         private Image _listImage;
         private RectTransform _closeButtonRect;
+        private RectTransform _modeRowRect;
         private RectTransform _themeRowRect;
         private RectTransform _soundRowRect;
         private RectTransform _durationRowRect;
-        private RectTransform _backButtonRect;
+        private RectTransform _themeBackButtonRect;
+        private RectTransform _modeBackButtonRect;
+        private RectTransform _confirmYesRect;
+        private RectTransform _confirmNoRect;
         private RectTransform _toggleThumbRect;
         private Image _toggleTrackImage;
         private Text _themeValueText;
+        private Text _modeValueText;
 
-        /// <summary>Which of the two screens inside the card is showing.</summary>
+        /// <summary>Which of the screens inside the card is showing.</summary>
         private enum PanelScreen
         {
             Settings,
             Theme,
+            Mode,
+            ModeConfirm,
         }
+
+        /// <summary>
+        /// Settings/mode card size. Derived from the row count so adding a row never has to be
+        /// mirrored into the scene-serialized <see cref="_settingsCardSize"/>; the serialized value
+        /// is a floor, so a designer can still make the card roomier.
+        /// </summary>
+        private Vector2 SettingsCardSize => new Vector2(
+            _settingsCardSize.x,
+            Mathf.Max(_settingsCardSize.y, (ROW_HEIGHT * ROW_COUNT) + LIST_TOP_INSET + LIST_BOTTOM_INSET));
 
         [Inject]
         public void Construct(
-            SettingsModel settingsModel, SettingsSystem settingsSystem, SfxModel sfxModel, ISfxService sfxService)
+            SettingsModel settingsModel,
+            SettingsSystem settingsSystem,
+            SfxModel sfxModel,
+            ISfxService sfxService,
+            GameModeSystem gameModeSystem)
         {
             _settingsModel = settingsModel;
             _settingsSystem = settingsSystem;
             _sfxModel = sfxModel;
             _sfxService = sfxService;
+            _gameModeSystem = gameModeSystem;
         }
 
         private void Awake()
@@ -140,7 +189,8 @@ namespace MustyBlockBlast.Presentation.Views
 
         private void Start()
         {
-            if (_settingsModel == null || _settingsSystem == null || _sfxModel == null || _sfxService == null)
+            if (_settingsModel == null || _settingsSystem == null || _sfxModel == null || _sfxService == null
+                || _gameModeSystem == null)
             {
                 Debug.LogError(
                     $"{nameof(SettingsPanelView)} was not injected. Is it registered in the LifetimeScope?", this);
@@ -155,6 +205,7 @@ namespace MustyBlockBlast.Presentation.Views
 
             _settingsModel.CurrentTheme.Subscribe(OnThemeChanged).AddTo(_disposables);
             _sfxModel.IsMuted.Subscribe(OnMutedChanged).AddTo(_disposables);
+            _gameModeSystem.CurrentMode.Subscribe(OnModeChanged).AddTo(_disposables);
         }
 
         private void OnDestroy() => _disposables.Dispose();
@@ -193,9 +244,13 @@ namespace MustyBlockBlast.Presentation.Views
                 ? _canvas.worldCamera
                 : null;
 
-            bool handled = _screen == PanelScreen.Theme
-                ? HandleThemeScreenTap(screenPosition, eventCamera)
-                : HandleSettingsScreenTap(screenPosition, eventCamera);
+            bool handled = _screen switch
+            {
+                PanelScreen.Theme => HandleThemeScreenTap(screenPosition, eventCamera),
+                PanelScreen.Mode => HandleModeScreenTap(screenPosition, eventCamera),
+                PanelScreen.ModeConfirm => HandleConfirmScreenTap(screenPosition, eventCamera),
+                _ => HandleSettingsScreenTap(screenPosition, eventCamera),
+            };
 
             if (handled)
             {
@@ -217,6 +272,12 @@ namespace MustyBlockBlast.Presentation.Views
             if (RectTransformUtility.RectangleContainsScreenPoint(_closeButtonRect, screenPosition, eventCamera))
             {
                 Close();
+                return true;
+            }
+
+            if (RectTransformUtility.RectangleContainsScreenPoint(_modeRowRect, screenPosition, eventCamera))
+            {
+                SetScreen(PanelScreen.Mode);
                 return true;
             }
 
@@ -250,9 +311,59 @@ namespace MustyBlockBlast.Presentation.Views
                 }
             }
 
-            if (RectTransformUtility.RectangleContainsScreenPoint(_backButtonRect, screenPosition, eventCamera))
+            if (RectTransformUtility.RectangleContainsScreenPoint(_themeBackButtonRect, screenPosition, eventCamera))
             {
                 SetScreen(PanelScreen.Settings);
+                return true;
+            }
+
+            return false;
+        }
+
+        private bool HandleModeScreenTap(Vector2 screenPosition, Camera eventCamera)
+        {
+            for (int optionIndex = 0; optionIndex < _modeOptions.Count; optionIndex++)
+            {
+                ModeOption option = _modeOptions[optionIndex];
+                if (!RectTransformUtility.RectangleContainsScreenPoint(option.Rect, screenPosition, eventCamera))
+                {
+                    continue;
+                }
+
+                // Re-picking the active mode must not restart the run, so it never reaches the
+                // confirmation step.
+                if (option.Mode == _gameModeSystem.CurrentMode.Value)
+                {
+                    SetScreen(PanelScreen.Settings);
+                    return true;
+                }
+
+                _pendingMode = option.Mode;
+                SetScreen(PanelScreen.ModeConfirm);
+                return true;
+            }
+
+            if (RectTransformUtility.RectangleContainsScreenPoint(_modeBackButtonRect, screenPosition, eventCamera))
+            {
+                SetScreen(PanelScreen.Settings);
+                return true;
+            }
+
+            return false;
+        }
+
+        private bool HandleConfirmScreenTap(Vector2 screenPosition, Camera eventCamera)
+        {
+            if (RectTransformUtility.RectangleContainsScreenPoint(_confirmYesRect, screenPosition, eventCamera))
+            {
+                _gameModeSystem.SelectMode(_pendingMode);
+                SetScreen(PanelScreen.Settings);
+                return true;
+            }
+
+            if (RectTransformUtility.RectangleContainsScreenPoint(_confirmNoRect, screenPosition, eventCamera))
+            {
+                SetScreen(PanelScreen.Mode);
                 return true;
             }
 
@@ -265,13 +376,20 @@ namespace MustyBlockBlast.Presentation.Views
         {
             _screen = screen;
 
-            bool isSettings = screen == PanelScreen.Settings;
-            _settingsScreenRoot.SetActive(isSettings);
-            _themeScreenRoot.SetActive(!isSettings);
+            _settingsScreenRoot.SetActive(screen == PanelScreen.Settings);
+            _themeScreenRoot.SetActive(screen == PanelScreen.Theme);
+            _modeScreenRoot.SetActive(screen == PanelScreen.Mode);
+            _confirmScreenRoot.SetActive(screen == PanelScreen.ModeConfirm);
 
-            // The two screens need very different heights, so the shared card resizes with them
-            // rather than leaving the settings list stranded in a tall empty card.
-            Vector2 size = isSettings ? _settingsCardSize : _cardSize;
+            // The screens need very different heights, so the shared card resizes with them rather
+            // than leaving the shorter content stranded in a tall empty card.
+            Vector2 size = screen switch
+            {
+                PanelScreen.Theme => _cardSize,
+                PanelScreen.ModeConfirm => _confirmCardSize,
+                _ => SettingsCardSize,
+            };
+
             _cardRect.sizeDelta = size;
             _cardShadowRect.sizeDelta = size + new Vector2(10f, 10f);
         }
@@ -348,6 +466,38 @@ namespace MustyBlockBlast.Presentation.Views
                 option.BorderImage.color = isSelected ? theme.Ink : Color.clear;
                 option.NameText.color = isSelected ? theme.Ink : theme.SoftInk;
             }
+
+            RefreshModeSelection();
+        }
+
+        private void OnModeChanged(GameMode mode)
+        {
+            if (_modeValueText == null)
+            {
+                return;
+            }
+
+            _modeValueText.text = mode == GameMode.Timed ? TIMED_MODE_NAME : ENDLESS_MODE_NAME;
+            RefreshModeSelection();
+        }
+
+        /// <summary>Repaints the mode cards' selection outline. Shared by the theme and mode handlers.</summary>
+        private void RefreshModeSelection()
+        {
+            ThemeDefinition theme = _settingsModel.CurrentTheme.Value;
+            if (theme == null)
+            {
+                return;
+            }
+
+            GameMode current = _gameModeSystem.CurrentMode.Value;
+            for (int optionIndex = 0; optionIndex < _modeOptions.Count; optionIndex++)
+            {
+                ModeOption option = _modeOptions[optionIndex];
+                bool isSelected = option.Mode == current;
+                option.BorderImage.color = isSelected ? theme.Ink : Color.clear;
+                option.NameText.color = isSelected ? theme.Ink : theme.SoftInk;
+            }
         }
 
         private void BuildPanel()
@@ -376,9 +526,13 @@ namespace MustyBlockBlast.Presentation.Views
 
             _settingsScreenRoot = CreateScreenRoot("SettingsScreen");
             _themeScreenRoot = CreateScreenRoot("ThemeScreen");
+            _modeScreenRoot = CreateScreenRoot("ModeScreen");
+            _confirmScreenRoot = CreateScreenRoot("ModeConfirmScreen");
 
-            BuildSettingsScreen((RectTransform)_settingsScreenRoot.transform, _settingsCardSize.y * 0.5f);
+            BuildSettingsScreen((RectTransform)_settingsScreenRoot.transform, SettingsCardSize.y * 0.5f);
             BuildThemeScreen((RectTransform)_themeScreenRoot.transform, _cardSize.y * 0.5f);
+            BuildModeScreen((RectTransform)_modeScreenRoot.transform, SettingsCardSize.y * 0.5f);
+            BuildConfirmScreen((RectTransform)_confirmScreenRoot.transform, _confirmCardSize.y * 0.5f);
 
             _panel = panelObject;
         }
@@ -398,15 +552,16 @@ namespace MustyBlockBlast.Presentation.Views
         private void BuildSettingsScreen(RectTransform root, float cardHalfHeight)
         {
             float headerY = cardHalfHeight - HEADER_INSET;
+            float halfWidth = SettingsCardSize.x * 0.5f;
 
             Text title = CreateLabel(
                 root, "Title", "Ayarlar", 64, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(-(_settingsCardSize.x * 0.5f) + SIDE_INSET, headerY));
+                new Vector2(-halfWidth + SIDE_INSET, headerY));
             _inkTexts.Add(title);
 
             BuildCloseButton(
                 root,
-                new Vector2((_settingsCardSize.x * 0.5f) - SIDE_INSET - (ICON_BUTTON_SIZE * 0.5f), headerY));
+                new Vector2(halfWidth - SIDE_INSET - (ICON_BUTTON_SIZE * 0.5f), headerY));
 
             float listHeight = ROW_HEIGHT * ROW_COUNT;
             float listCentreY = headerY - (ICON_BUTTON_SIZE * 0.5f) - 56f - (listHeight * 0.5f);
@@ -419,15 +574,17 @@ namespace MustyBlockBlast.Presentation.Views
             _listImage = listObject.GetComponent<Image>();
             ConfigureRounded(_listImage);
 
-            _themeRowRect = BuildRow(listRect, 0, "ThemeRow", "Tema");
-            _soundRowRect = BuildRow(listRect, 1, "SoundRow", "Ses");
-            _durationRowRect = BuildRow(listRect, 2, "DurationRow", "Süre");
+            _modeRowRect = BuildRow(listRect, 0, "ModeRow", "Mod");
+            _themeRowRect = BuildRow(listRect, 1, "ThemeRow", "Tema");
+            _soundRowRect = BuildRow(listRect, 2, "SoundRow", "Ses");
+            _durationRowRect = BuildRow(listRect, 3, "DurationRow", "Süre");
 
             for (int dividerIndex = 1; dividerIndex < ROW_COUNT; dividerIndex++)
             {
                 BuildDivider(listRect, (listHeight * 0.5f) - (ROW_HEIGHT * dividerIndex));
             }
 
+            BuildModeRowContent(_modeRowRect);
             BuildThemeRowContent(_themeRowRect);
             BuildSoundRowContent(_soundRowRect);
             BuildDurationRowContent(_durationRowRect);
@@ -475,6 +632,55 @@ namespace MustyBlockBlast.Presentation.Views
             var dividerImage = dividerObject.GetComponent<Image>();
             ConfigureRounded(dividerImage);
             _dividerImages.Add(dividerImage);
+        }
+
+        private void BuildModeRowContent(RectTransform rowRect)
+        {
+            RectTransform badgeRect = BuildBadge(rowRect);
+            BuildModeGlyph(badgeRect);
+            _modeValueText = BuildPill(rowRect, string.Empty);
+        }
+
+        /// <summary>
+        /// Two overlapping rings — a loose nod to the infinity mark, which is enough to read as
+        /// "mode" at badge size without inventing a bespoke glyph.
+        /// </summary>
+        private void BuildModeGlyph(RectTransform badgeRect)
+        {
+            const float RING_DIAMETER = 40f;
+            const float RING_OVERLAP = 13f;
+
+            for (int discIndex = 0; discIndex < 2; discIndex++)
+            {
+                var discObject = new GameObject($"ModeDisc_{discIndex}", typeof(RectTransform), typeof(Image));
+                var discRect = (RectTransform)discObject.transform;
+                discRect.SetParent(badgeRect, false);
+                Centre(discRect, new Vector2(RING_DIAMETER, RING_DIAMETER));
+                discRect.anchoredPosition = new Vector2(RingOffsetX(discIndex), 0f);
+
+                var discImage = discObject.GetComponent<Image>();
+                ConfigureCircle(discImage);
+                _inkImages.Add(discImage);
+            }
+
+            // Same fake cut-out as the clock glyph: a smaller circle in the badge colour turns each
+            // disc into a ring. Both holes are drawn after both discs so neither disc fills the
+            // other's hole.
+            for (int holeIndex = 0; holeIndex < 2; holeIndex++)
+            {
+                var holeObject = new GameObject($"ModeDiscHole_{holeIndex}", typeof(RectTransform), typeof(Image));
+                var holeRect = (RectTransform)holeObject.transform;
+                holeRect.SetParent(badgeRect, false);
+                Centre(holeRect, new Vector2(RING_DIAMETER - 14f, RING_DIAMETER - 14f));
+                holeRect.anchoredPosition = new Vector2(RingOffsetX(holeIndex), 0f);
+
+                var holeImage = holeObject.GetComponent<Image>();
+                ConfigureCircle(holeImage);
+                _badgeImages.Add(holeImage);
+            }
+
+            float RingOffsetX(int index)
+                => (index == 0 ? -1f : 1f) * ((RING_DIAMETER * 0.5f) - (RING_OVERLAP * 0.5f));
         }
 
         private void BuildThemeRowContent(RectTransform rowRect)
@@ -666,14 +872,7 @@ namespace MustyBlockBlast.Presentation.Views
             float headerY = cardHalfHeight - HEADER_INSET;
             float leftEdge = -(_cardSize.x * 0.5f);
 
-            var backObject = new GameObject("BackButton", typeof(RectTransform));
-            _backButtonRect = (RectTransform)backObject.transform;
-            _backButtonRect.SetParent(root, false);
-            Centre(_backButtonRect, new Vector2(ICON_BUTTON_SIZE, ICON_BUTTON_SIZE));
-            _backButtonRect.anchoredPosition =
-                new Vector2(leftEdge + SIDE_INSET + (ICON_BUTTON_SIZE * 0.5f), headerY);
-
-            BuildChevron(_backButtonRect, Vector2.zero, -1f);
+            _themeBackButtonRect = BuildBackButton(root, leftEdge, headerY);
 
             Text title = CreateLabel(
                 root, "Title", "Tema Seç", 64, FontStyle.Bold, TextAnchor.MiddleLeft,
@@ -681,6 +880,120 @@ namespace MustyBlockBlast.Presentation.Views
             _inkTexts.Add(title);
 
             BuildOptions(root);
+        }
+
+        /// <summary>
+        /// Left chevron in the header. Each screen owns its own instance: the cards differ in height,
+        /// so a shared one would sit at the wrong header line on all but one screen.
+        /// </summary>
+        private RectTransform BuildBackButton(RectTransform root, float leftEdge, float headerY)
+        {
+            var backObject = new GameObject("BackButton", typeof(RectTransform));
+            var backRect = (RectTransform)backObject.transform;
+            backRect.SetParent(root, false);
+            Centre(backRect, new Vector2(ICON_BUTTON_SIZE, ICON_BUTTON_SIZE));
+            backRect.anchoredPosition = new Vector2(leftEdge + SIDE_INSET + (ICON_BUTTON_SIZE * 0.5f), headerY);
+
+            BuildChevron(backRect, Vector2.zero, -1f);
+            return backRect;
+        }
+
+        private void BuildModeScreen(RectTransform root, float cardHalfHeight)
+        {
+            float headerY = cardHalfHeight - HEADER_INSET;
+            float leftEdge = -(SettingsCardSize.x * 0.5f);
+
+            _modeBackButtonRect = BuildBackButton(root, leftEdge, headerY);
+
+            Text title = CreateLabel(
+                root, "Title", "Mod Seç", 64, FontStyle.Bold, TextAnchor.MiddleLeft,
+                new Vector2(leftEdge + SIDE_INSET + ICON_BUTTON_SIZE + 30f, headerY));
+            _inkTexts.Add(title);
+
+            // Two options only, so the same column-centring the theme grid uses collapses to one
+            // centred row.
+            for (int modeIndex = 0; modeIndex < 2; modeIndex++)
+            {
+                GameMode mode = modeIndex == 0 ? GameMode.Endless : GameMode.Timed;
+                string label = modeIndex == 0 ? ENDLESS_MODE_NAME : TIMED_MODE_NAME;
+                float x = (modeIndex - ((COLUMN_COUNT - 1) * 0.5f)) * MODE_OPTION_SPACING_X;
+                _modeOptions.Add(BuildModeOption(root, mode, label, new Vector2(x, 0f)));
+            }
+        }
+
+        private ModeOption BuildModeOption(
+            RectTransform root, GameMode mode, string label, Vector2 anchoredPosition)
+        {
+            var optionObject = new GameObject($"ModeOption_{mode}", typeof(RectTransform));
+            var optionRect = (RectTransform)optionObject.transform;
+            optionRect.SetParent(root, false);
+            Centre(optionRect, ModeOptionSize);
+            optionRect.anchoredPosition = anchoredPosition;
+
+            // Same trick as the theme swatches: an outset rect behind the card reads as an outline
+            // once it is tinted.
+            var borderObject = new GameObject("Border", typeof(RectTransform), typeof(Image));
+            var borderRect = (RectTransform)borderObject.transform;
+            borderRect.SetParent(optionRect, false);
+            Centre(borderRect, ModeOptionSize + (Vector2.one * (_selectionBorderThickness * 2f)));
+            var borderImage = borderObject.GetComponent<Image>();
+            ConfigureRounded(borderImage);
+
+            var faceObject = new GameObject("Face", typeof(RectTransform), typeof(Image));
+            var faceRect = (RectTransform)faceObject.transform;
+            faceRect.SetParent(optionRect, false);
+            Centre(faceRect, ModeOptionSize);
+            var faceImage = faceObject.GetComponent<Image>();
+            ConfigureRounded(faceImage);
+            _badgeImages.Add(faceImage);
+
+            Text nameText = UiTextFactory.Create(optionRect, "Name", 42, FontStyle.Bold, Color.clear);
+            nameText.text = label;
+
+            return new ModeOption(mode, optionRect, borderImage, nameText);
+        }
+
+        private void BuildConfirmScreen(RectTransform root, float cardHalfHeight)
+        {
+            float headerY = cardHalfHeight - HEADER_INSET;
+
+            Text title = CreateLabel(
+                root, "Title", "Modu Değiştir", 58, FontStyle.Bold, TextAnchor.MiddleCenter,
+                new Vector2(0f, headerY));
+            _inkTexts.Add(title);
+
+            Text body = CreateLabel(
+                root, "Body", "Oyun yeniden başlayacak. Devam edilsin mi?", 34, FontStyle.Normal,
+                TextAnchor.MiddleCenter, new Vector2(0f, headerY - 92f));
+            _inkTexts.Add(body);
+
+            float buttonY = -cardHalfHeight + HEADER_INSET;
+            float buttonOffsetX = (ConfirmButtonSize.x * 0.5f) + 24f;
+
+            _confirmYesRect = BuildConfirmButton(
+                root, "ConfirmYes", "Evet, Başlat", new Vector2(-buttonOffsetX, buttonY));
+            _confirmNoRect = BuildConfirmButton(
+                root, "ConfirmNo", "Vazgeç", new Vector2(buttonOffsetX, buttonY));
+        }
+
+        private RectTransform BuildConfirmButton(
+            RectTransform root, string objectName, string label, Vector2 anchoredPosition)
+        {
+            var buttonObject = new GameObject(objectName, typeof(RectTransform), typeof(Image));
+            var buttonRect = (RectTransform)buttonObject.transform;
+            buttonRect.SetParent(root, false);
+            Centre(buttonRect, ConfirmButtonSize);
+            buttonRect.anchoredPosition = anchoredPosition;
+
+            var buttonImage = buttonObject.GetComponent<Image>();
+            ConfigureRounded(buttonImage);
+            _badgeImages.Add(buttonImage);
+
+            Text labelText = CreateLabel(
+                buttonRect, "Label", label, 38, FontStyle.Bold, TextAnchor.MiddleCenter, Vector2.zero);
+            _inkTexts.Add(labelText);
+
+            return buttonRect;
         }
 
         private void BuildOptions(RectTransform root)
@@ -849,6 +1162,26 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             internal int ThemeId { get; }
+
+            internal RectTransform Rect { get; }
+
+            internal Image BorderImage { get; }
+
+            internal Text NameText { get; }
+        }
+
+        /// <summary>One tappable mode card: the mode it selects plus the bits that repaint on selection.</summary>
+        private sealed class ModeOption
+        {
+            internal ModeOption(GameMode mode, RectTransform rect, Image borderImage, Text nameText)
+            {
+                Mode = mode;
+                Rect = rect;
+                BorderImage = borderImage;
+                NameText = nameText;
+            }
+
+            internal GameMode Mode { get; }
 
             internal RectTransform Rect { get; }
 
