@@ -102,6 +102,7 @@ namespace MustyBlockBlast.Presentation
             builder.Register<PlacementScoreRule>(Lifetime.Singleton).As<IScoreRule>();
             builder.Register<LineClearScoreRule>(Lifetime.Singleton).As<IScoreRule>();
             builder.Register<MonochromeScoreRule>(Lifetime.Singleton).As<IScoreRule>();
+            builder.Register<MultiClearStreakScoreRule>(Lifetime.Singleton).As<IScoreRule>();
             builder.Register<ScoreSystem>(Lifetime.Singleton);
             builder.Register<TimedHighScoreSystem>(Lifetime.Singleton);
             builder.Register<SfxSystem>(Lifetime.Singleton).As<ISfxService>().AsSelf();

@@ -67,6 +67,7 @@ namespace MustyBlockBlast.Gameplay.Systems
         {
             _scoreModel.Score.Value = 0;
             _scoreModel.Streak.Value = 0;
+            _scoreModel.MultiClearStreak.Value = 0;
             _recordAtRunStart = _scoreModel.HighScore.Value;
             _hasCelebratedRecordThisRun = false;
             _scoreChangedPublisher.Publish(new ScoreChangedMessage(0, 0, 0));
@@ -74,9 +75,13 @@ namespace MustyBlockBlast.Gameplay.Systems
 
         private void OnPiecePlaced(PiecePlacedMessage message)
         {
-            // Built before the streak is touched: rules score against the streak this placement began with.
+            // Built before the streaks are touched: rules score against the streaks this placement began with.
             ScorePlacementContext context = new ScorePlacementContext(
-                message.CellCount, message.LinesCleared, _scoreModel.Streak.Value, message.MonochromeLineCount);
+                message.CellCount,
+                message.LinesCleared,
+                _scoreModel.Streak.Value,
+                message.MonochromeLineCount,
+                _scoreModel.MultiClearStreak.Value);
 
             int gained = 0;
             for (int ruleIndex = 0; ruleIndex < _scoreRules.Length; ruleIndex++)
@@ -91,6 +96,17 @@ namespace MustyBlockBlast.Gameplay.Systems
             else
             {
                 _scoreModel.Streak.Value = 0;
+            }
+
+            // The multi-clear streak only cares about 2+-line clears: a single breaks the chain, while a
+            // non-clearing placement leaves it frozen (neither extended nor reset).
+            if (message.LinesCleared >= 2)
+            {
+                _scoreModel.MultiClearStreak.Value += 1;
+            }
+            else if (message.LinesCleared == 1)
+            {
+                _scoreModel.MultiClearStreak.Value = 0;
             }
 
             _scoreModel.Score.Value += gained;

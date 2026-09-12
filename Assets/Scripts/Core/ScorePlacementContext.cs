@@ -10,12 +10,14 @@ namespace MustyBlockBlast.Core
             int cellCount,
             int linesCleared,
             int streakBeforePlacement,
-            int monochromeLineCount)
+            int monochromeLineCount,
+            int multiClearStreakBeforePlacement)
         {
             CellCount = cellCount;
             LinesCleared = linesCleared;
             StreakBeforePlacement = streakBeforePlacement;
             MonochromeLineCount = monochromeLineCount;
+            MultiClearStreakBeforePlacement = multiClearStreakBeforePlacement;
         }
 
         /// <summary>Number of cells occupied by the piece that was just placed.</summary>
@@ -29,5 +31,8 @@ namespace MustyBlockBlast.Core
 
         /// <summary>Of <see cref="LinesCleared"/>, how many were entirely one colour.</summary>
         public int MonochromeLineCount { get; }
+
+        /// <summary>Consecutive-multi-clear streak as it stood before this placement's increment/reset.</summary>
+        public int MultiClearStreakBeforePlacement { get; }
     }
 }
