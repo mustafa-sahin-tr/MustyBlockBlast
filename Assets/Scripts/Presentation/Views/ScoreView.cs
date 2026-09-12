@@ -1,5 +1,10 @@
+using System;
 using System.Text;
+using System.Threading;
+using Cysharp.Threading.Tasks;
+using MessagePipe;
 using MustyBlockBlast.Gameplay;
+using MustyBlockBlast.Gameplay.Messages;
 using MustyBlockBlast.Gameplay.Models;
 using MustyBlockBlast.Gameplay.Reactive;
 using MustyBlockBlast.Gameplay.Settings;
@@ -23,6 +28,11 @@ namespace MustyBlockBlast.Presentation.Views
         [SerializeField] private int _bestLabelFontSize = 36;
         [SerializeField] private int _bestValueFontSize = 96;
         [SerializeField] private Vector2 _bestCornerOffset = new Vector2(32f, -32f);
+        [SerializeField] private float _countUpDuration = 0.4f;
+
+        [Header("Score Style")]
+        [Tooltip("Decorative font for the score label only. Leave empty to fall back to the builtin font.")]
+        [SerializeField] private Font _scoreFont;
 
         private readonly CompositeDisposable _disposables = new CompositeDisposable();
         private readonly StringBuilder _stringBuilder = new StringBuilder(16);
@@ -32,9 +42,14 @@ namespace MustyBlockBlast.Presentation.Views
         private SettingsModel _settingsModel;
         private GameModeSystem _gameModeSystem;
         private TimedModeSystem _timedModeSystem;
+        private ISubscriber<RunStartedMessage> _runStartedSubscriber;
         private Text _scoreText;
         private Text _bestLabelText;
         private Text _bestValueText;
+
+        private CancellationToken _destroyToken;
+        private CancellationTokenSource _countUpCts;
+        private int _displayedScore;
 
         [Inject]
         public void Construct(
@@ -42,17 +57,21 @@ namespace MustyBlockBlast.Presentation.Views
             TimedHighScoreModel timedHighScoreModel,
             SettingsModel settingsModel,
             GameModeSystem gameModeSystem,
-            TimedModeSystem timedModeSystem)
+            TimedModeSystem timedModeSystem,
+            ISubscriber<RunStartedMessage> runStartedSubscriber)
         {
             _scoreModel = scoreModel;
             _timedHighScoreModel = timedHighScoreModel;
             _settingsModel = settingsModel;
             _gameModeSystem = gameModeSystem;
             _timedModeSystem = timedModeSystem;
+            _runStartedSubscriber = runStartedSubscriber;
         }
 
         private void Awake()
         {
+            _destroyToken = this.GetCancellationTokenOnDestroy();
+
             var rect = (RectTransform)transform;
             rect.anchorMin = new Vector2(0.5f, 0.5f);
             rect.anchorMax = new Vector2(0.5f, 0.5f);
@@ -62,7 +81,7 @@ namespace MustyBlockBlast.Presentation.Views
 
             // Labels are built in Awake, before the theme is known; the theme subscription in Start
             // paints them (and repaints them on every later theme switch).
-            _scoreText = UiTextFactory.Create(rect, "ScoreLabel", _scoreFontSize, FontStyle.Bold, Color.clear);
+            _scoreText = UiTextFactory.Create(rect, "ScoreLabel", _scoreFontSize, FontStyle.Bold, Color.clear, _scoreFont);
 
             // "Best" is pinned to the Canvas's top-left corner rather than nested under the centred
             // score box, so its position doesn't depend on where the score sits. Label and value are
@@ -90,7 +109,7 @@ namespace MustyBlockBlast.Presentation.Views
         private void Start()
         {
             if (_scoreModel == null || _timedHighScoreModel == null || _settingsModel == null
-                || _gameModeSystem == null || _timedModeSystem == null)
+                || _gameModeSystem == null || _timedModeSystem == null || _runStartedSubscriber == null)
             {
                 Debug.LogError($"{nameof(ScoreView)} was not injected. Is it registered in the LifetimeScope?", this);
                 return;
@@ -98,6 +117,7 @@ namespace MustyBlockBlast.Presentation.Views
 
             _settingsModel.CurrentTheme.Subscribe(OnThemeChanged).AddTo(_disposables);
             _scoreModel.Score.Subscribe(OnScoreChanged).AddTo(_disposables);
+            _runStartedSubscriber.Subscribe(OnRunStarted).AddTo(_disposables);
 
             // "Best" has several inputs that can change which value or wording is authoritative:
             // the active mode, the endless high score, the timed per-duration best, and (for the
@@ -108,7 +128,11 @@ namespace MustyBlockBlast.Presentation.Views
             _timedModeSystem.SelectedDuration.Subscribe(OnSelectedDurationChanged).AddTo(_disposables);
         }
 
-        private void OnDestroy() => _disposables.Dispose();
+        private void OnDestroy()
+        {
+            _disposables.Dispose();
+            CancelCountUp();
+        }
 
         private void OnThemeChanged(ThemeDefinition theme)
         {
@@ -117,13 +141,80 @@ namespace MustyBlockBlast.Presentation.Views
                 return;
             }
 
-            _scoreText.color = theme.Ink;
+            _scoreText.color = theme.Accent;
             _bestLabelText.color = theme.SoftInk;
             _bestValueText.color = theme.Ink;
         }
 
-        private void OnScoreChanged(int score)
+        private void OnScoreChanged(int score) => AnimateScoreToAsync(score).Forget();
+
+        /// <summary>
+        /// Resets the label to 0 immediately with no animation, so a fresh run never visibly
+        /// counts down from (or up from) the previous run's final score.
+        /// </summary>
+        private void OnRunStarted(RunStartedMessage message)
         {
+            CancelCountUp();
+            SetDisplayedScore(0);
+        }
+
+        /// <summary>
+        /// Counts the displayed score up to <paramref name="targetScore"/> over a fixed duration.
+        /// A new call always supersedes any animation already in flight, retargeting from the
+        /// currently displayed value rather than restarting or stacking (acceptance criterion 3).
+        /// </summary>
+        private async UniTaskVoid AnimateScoreToAsync(int targetScore)
+        {
+            CancelCountUp();
+
+            if (_displayedScore == targetScore)
+            {
+                // Still writes the text even when the value is unchanged, e.g. the initial
+                // Subscribe callback with the starting score before any label text exists.
+                SetDisplayedScore(targetScore);
+                return;
+            }
+
+            _countUpCts = CancellationTokenSource.CreateLinkedTokenSource(_destroyToken);
+            CancellationToken token = _countUpCts.Token;
+
+            int startScore = _displayedScore;
+
+            try
+            {
+                float elapsed = 0f;
+                while (elapsed < _countUpDuration)
+                {
+                    float t = Mathf.Clamp01(elapsed / _countUpDuration);
+                    SetDisplayedScore(startScore + Mathf.RoundToInt((targetScore - startScore) * t));
+                    await UniTask.Yield(PlayerLoopTiming.Update, token);
+                    elapsed += Time.unscaledDeltaTime;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // Superseded by a newer score change, a run restart, or object destruction.
+                return;
+            }
+
+            SetDisplayedScore(targetScore);
+        }
+
+        private void CancelCountUp()
+        {
+            if (_countUpCts == null)
+            {
+                return;
+            }
+
+            _countUpCts.Cancel();
+            _countUpCts.Dispose();
+            _countUpCts = null;
+        }
+
+        private void SetDisplayedScore(int score)
+        {
+            _displayedScore = score;
             _stringBuilder.Clear();
             _stringBuilder.Append(score);
             _scoreText.text = _stringBuilder.ToString();

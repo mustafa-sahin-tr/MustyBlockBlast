@@ -173,6 +173,7 @@ MonoBehaviour:
   _cardPadding: 24
   _cellInset: 3
   _cellBevelThickness: 12
+  _previewLeadMarginFraction: 0.5
   _fadeDuration: 0.2
   _intersectionFlashDuration: 0.08
 --- !u!1 &350165917
@@ -862,6 +863,8 @@ MonoBehaviour:
   _bestLabelFontSize: 36
   _bestValueFontSize: 96
   _bestCornerOffset: {x: 32, y: -32}
+  _countUpDuration: 0.4
+  _scoreFont: {fileID: 12800000, guid: 0879445ee55bb4fc5bfdc99e4b94f899, type: 3}
 --- !u!1 &1443061544
 GameObject:
   m_ObjectHideFlags: 0
