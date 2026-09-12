@@ -48,6 +48,7 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterMessageBroker<PiecePlacedMessage>(options);
             builder.RegisterMessageBroker<LinesClearedMessage>(options);
             builder.RegisterMessageBroker<ScoreChangedMessage>(options);
+            builder.RegisterMessageBroker<NewRecordMessage>(options);
             builder.RegisterMessageBroker<GameOverMessage>(options);
             builder.RegisterMessageBroker<PlaySfxRequestedMessage>(options);
             builder.RegisterMessageBroker<PlayMusicRequestedMessage>(options);
@@ -127,6 +128,7 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterComponentInHierarchy<LineClearSfxView>();
             builder.RegisterComponentInHierarchy<BlockPlaceSfxView>();
             builder.RegisterComponentInHierarchy<GameOverSfxView>();
+            builder.RegisterComponentInHierarchy<NewRecordSfxView>();
         }
     }
 }

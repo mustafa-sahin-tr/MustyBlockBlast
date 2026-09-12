@@ -30,6 +30,10 @@ namespace MustyBlockBlast.Presentation.Views
         [SerializeField] private Vector2 _bestCornerOffset = new Vector2(32f, -32f);
         [SerializeField] private float _countUpDuration = 0.4f;
 
+        [Header("New Record Celebration")]
+        [SerializeField] private float _celebrationDuration = 0.7f;
+        [SerializeField] private float _celebrationScale = 1.8f;
+
         [Header("Score Style")]
         [Tooltip("Decorative font for the score label only. Leave empty to fall back to the builtin font.")]
         [SerializeField] private Font _scoreFont;
@@ -43,13 +47,18 @@ namespace MustyBlockBlast.Presentation.Views
         private GameModeSystem _gameModeSystem;
         private TimedModeSystem _timedModeSystem;
         private ISubscriber<RunStartedMessage> _runStartedSubscriber;
+        private ISubscriber<NewRecordMessage> _newRecordSubscriber;
         private Text _scoreText;
         private Text _bestLabelText;
         private Text _bestValueText;
+        private RectTransform _bestLabelRect;
+        private RectTransform _bestValueRect;
 
         private CancellationToken _destroyToken;
         private CancellationTokenSource _countUpCts;
+        private CancellationTokenSource _celebrationCts;
         private int _displayedScore;
+        private ThemeDefinition _currentTheme;
 
         [Inject]
         public void Construct(
@@ -58,7 +67,8 @@ namespace MustyBlockBlast.Presentation.Views
             SettingsModel settingsModel,
             GameModeSystem gameModeSystem,
             TimedModeSystem timedModeSystem,
-            ISubscriber<RunStartedMessage> runStartedSubscriber)
+            ISubscriber<RunStartedMessage> runStartedSubscriber,
+            ISubscriber<NewRecordMessage> newRecordSubscriber)
         {
             _scoreModel = scoreModel;
             _timedHighScoreModel = timedHighScoreModel;
@@ -66,6 +76,7 @@ namespace MustyBlockBlast.Presentation.Views
             _gameModeSystem = gameModeSystem;
             _timedModeSystem = timedModeSystem;
             _runStartedSubscriber = runStartedSubscriber;
+            _newRecordSubscriber = newRecordSubscriber;
         }
 
         private void Awake()
@@ -90,26 +101,27 @@ namespace MustyBlockBlast.Presentation.Views
             var canvasRect = (RectTransform)transform.parent;
 
             _bestLabelText = UiTextFactory.Create(canvasRect, "BestLabel", _bestLabelFontSize, FontStyle.Bold, Color.clear);
-            var bestLabelRect = (RectTransform)_bestLabelText.transform;
-            bestLabelRect.anchorMin = new Vector2(0f, 1f);
-            bestLabelRect.anchorMax = new Vector2(0f, 1f);
-            bestLabelRect.pivot = new Vector2(0f, 1f);
-            bestLabelRect.anchoredPosition = _bestCornerOffset;
+            _bestLabelRect = (RectTransform)_bestLabelText.transform;
+            _bestLabelRect.anchorMin = new Vector2(0f, 1f);
+            _bestLabelRect.anchorMax = new Vector2(0f, 1f);
+            _bestLabelRect.pivot = new Vector2(0f, 1f);
+            _bestLabelRect.anchoredPosition = _bestCornerOffset;
             _bestLabelText.alignment = TextAnchor.UpperLeft;
 
             _bestValueText = UiTextFactory.Create(canvasRect, "BestValue", _bestValueFontSize, FontStyle.Bold, Color.clear);
-            var bestValueRect = (RectTransform)_bestValueText.transform;
-            bestValueRect.anchorMin = new Vector2(0f, 1f);
-            bestValueRect.anchorMax = new Vector2(0f, 1f);
-            bestValueRect.pivot = new Vector2(0f, 1f);
-            bestValueRect.anchoredPosition = _bestCornerOffset + new Vector2(0f, -(_bestLabelFontSize + 8f));
+            _bestValueRect = (RectTransform)_bestValueText.transform;
+            _bestValueRect.anchorMin = new Vector2(0f, 1f);
+            _bestValueRect.anchorMax = new Vector2(0f, 1f);
+            _bestValueRect.pivot = new Vector2(0f, 1f);
+            _bestValueRect.anchoredPosition = _bestCornerOffset + new Vector2(0f, -(_bestLabelFontSize + 8f));
             _bestValueText.alignment = TextAnchor.UpperLeft;
         }
 
         private void Start()
         {
             if (_scoreModel == null || _timedHighScoreModel == null || _settingsModel == null
-                || _gameModeSystem == null || _timedModeSystem == null || _runStartedSubscriber == null)
+                || _gameModeSystem == null || _timedModeSystem == null || _runStartedSubscriber == null
+                || _newRecordSubscriber == null)
             {
                 Debug.LogError($"{nameof(ScoreView)} was not injected. Is it registered in the LifetimeScope?", this);
                 return;
@@ -118,6 +130,7 @@ namespace MustyBlockBlast.Presentation.Views
             _settingsModel.CurrentTheme.Subscribe(OnThemeChanged).AddTo(_disposables);
             _scoreModel.Score.Subscribe(OnScoreChanged).AddTo(_disposables);
             _runStartedSubscriber.Subscribe(OnRunStarted).AddTo(_disposables);
+            _newRecordSubscriber.Subscribe(OnNewRecordReached).AddTo(_disposables);
 
             // "Best" has several inputs that can change which value or wording is authoritative:
             // the active mode, the endless high score, the timed per-duration best, and (for the
@@ -132,6 +145,7 @@ namespace MustyBlockBlast.Presentation.Views
         {
             _disposables.Dispose();
             CancelCountUp();
+            CancelCelebrationToken();
         }
 
         private void OnThemeChanged(ThemeDefinition theme)
@@ -141,9 +155,16 @@ namespace MustyBlockBlast.Presentation.Views
                 return;
             }
 
+            _currentTheme = theme;
             _scoreText.color = theme.Accent;
-            _bestLabelText.color = theme.SoftInk;
-            _bestValueText.color = theme.Ink;
+
+            // Skip repainting the best label/value while a celebration is mid-flight — it owns their
+            // colour for its duration and will restore the themed colour itself when it ends.
+            if (_celebrationCts == null)
+            {
+                _bestLabelText.color = theme.SoftInk;
+                _bestValueText.color = theme.Ink;
+            }
         }
 
         private void OnScoreChanged(int score) => AnimateScoreToAsync(score).Forget();
@@ -156,6 +177,8 @@ namespace MustyBlockBlast.Presentation.Views
         {
             CancelCountUp();
             SetDisplayedScore(0);
+            CancelCelebrationToken();
+            ResetCelebrationVisuals();
         }
 
         /// <summary>
@@ -218,6 +241,85 @@ namespace MustyBlockBlast.Presentation.Views
             _stringBuilder.Clear();
             _stringBuilder.Append(score);
             _scoreText.text = _stringBuilder.ToString();
+        }
+
+        /// <summary>
+        /// <see cref="ScoreSystem"/> only ever publishes this while in Endless mode, so no mode check
+        /// is needed here — the best label is already showing <see cref="ScoreModel.HighScore"/>.
+        /// </summary>
+        private void OnNewRecordReached(NewRecordMessage message) => PlayNewRecordCelebrationAsync().Forget();
+
+        /// <summary>
+        /// Pulse-scales and colour-flashes the best label/value once. A new call always supersedes any
+        /// celebration already in flight, mirroring <see cref="AnimateScoreToAsync"/>.
+        /// </summary>
+        private async UniTaskVoid PlayNewRecordCelebrationAsync()
+        {
+            CancelCelebrationToken();
+            _celebrationCts = CancellationTokenSource.CreateLinkedTokenSource(_destroyToken);
+            CancellationToken token = _celebrationCts.Token;
+
+            Color flashColor = _currentTheme != null ? _currentTheme.Accent : Color.white;
+
+            try
+            {
+                float elapsed = 0f;
+                while (elapsed < _celebrationDuration)
+                {
+                    float t = Mathf.Clamp01(elapsed / _celebrationDuration);
+                    float pulse = Mathf.Sin(t * Mathf.PI);
+                    ApplyCelebrationFrame(pulse, flashColor);
+                    await UniTask.Yield(PlayerLoopTiming.Update, token);
+                    elapsed += Time.unscaledDeltaTime;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // Superseded by a run restart or object destruction.
+                return;
+            }
+
+            _celebrationCts.Dispose();
+            _celebrationCts = null;
+            ResetCelebrationVisuals();
+        }
+
+        private void ApplyCelebrationFrame(float pulse, Color flashColor)
+        {
+            float scale = 1f + pulse * (_celebrationScale - 1f);
+            var scaleVector = new Vector3(scale, scale, 1f);
+            _bestLabelRect.localScale = scaleVector;
+            _bestValueRect.localScale = scaleVector;
+
+            if (_currentTheme != null)
+            {
+                _bestLabelText.color = Color.Lerp(_currentTheme.SoftInk, flashColor, pulse);
+                _bestValueText.color = Color.Lerp(_currentTheme.Ink, flashColor, pulse);
+            }
+        }
+
+        private void CancelCelebrationToken()
+        {
+            if (_celebrationCts == null)
+            {
+                return;
+            }
+
+            _celebrationCts.Cancel();
+            _celebrationCts.Dispose();
+            _celebrationCts = null;
+        }
+
+        private void ResetCelebrationVisuals()
+        {
+            _bestLabelRect.localScale = Vector3.one;
+            _bestValueRect.localScale = Vector3.one;
+
+            if (_currentTheme != null)
+            {
+                _bestLabelText.color = _currentTheme.SoftInk;
+                _bestValueText.color = _currentTheme.Ink;
+            }
         }
 
         private void OnModeChanged(GameMode mode) => RefreshBestLabel();
