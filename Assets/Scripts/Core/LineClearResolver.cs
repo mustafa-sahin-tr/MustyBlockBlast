@@ -6,11 +6,16 @@ namespace MustyBlockBlast.Core
     /// simultaneously; a cell at their intersection is counted once.</summary>
     public readonly struct LineClearResult
     {
-        public LineClearResult(IReadOnlyList<int> clearedRows, IReadOnlyList<int> clearedColumns, int clearedCellCount)
+        public LineClearResult(
+            IReadOnlyList<int> clearedRows,
+            IReadOnlyList<int> clearedColumns,
+            int clearedCellCount,
+            int monochromeLineCount)
         {
             ClearedRows = clearedRows;
             ClearedColumns = clearedColumns;
             ClearedCellCount = clearedCellCount;
+            MonochromeLineCount = monochromeLineCount;
         }
 
         public IReadOnlyList<int> ClearedRows { get; }
@@ -19,6 +24,10 @@ namespace MustyBlockBlast.Core
 
         /// <summary>Total distinct cells emptied, counting each row/column intersection once.</summary>
         public int ClearedCellCount { get; }
+
+        /// <summary>How many of the cleared lines consisted entirely of one colour. Each row/column is
+        /// evaluated independently, so a shared intersection cell never forces the two lines to match.</summary>
+        public int MonochromeLineCount { get; }
 
         /// <summary>Simultaneous lines cleared — the "lines" term used by <see cref="ScoreRules"/>.</summary>
         public int LineCount => ClearedRows.Count + ClearedColumns.Count;
@@ -50,7 +59,7 @@ namespace MustyBlockBlast.Core
 
             if (!PlacementRules.CanPlace(board, piece, anchor))
             {
-                return new LineClearResult(resultRows, resultColumns, 0);
+                return new LineClearResult(resultRows, resultColumns, 0, 0);
             }
 
             scratchBoard.CopyFrom(board);
@@ -79,7 +88,9 @@ namespace MustyBlockBlast.Core
                 + (resultColumns.Count * Board.SIZE)
                 - (resultRows.Count * resultColumns.Count);
 
-            return new LineClearResult(resultRows, resultColumns, clearedCellCount);
+            // Always 0: the previewed piece is stamped with the placeholder PreviewColourId rather than its
+            // real colour, so per-line colour uniformity cannot be judged here. No UI surfaces it yet.
+            return new LineClearResult(resultRows, resultColumns, clearedCellCount, 0);
         }
 
         public static LineClearResult ResolveClears(Board board)
@@ -107,6 +118,24 @@ namespace MustyBlockBlast.Core
                 + (clearedColumns.Count * Board.SIZE)
                 - (clearedRows.Count * clearedColumns.Count);
 
+            // Must run before any clearing — once cleared, the colour data is gone.
+            int monochromeLineCount = 0;
+            for (int i = 0; i < clearedRows.Count; i++)
+            {
+                if (IsRowMonochrome(board, clearedRows[i]))
+                {
+                    monochromeLineCount++;
+                }
+            }
+
+            for (int i = 0; i < clearedColumns.Count; i++)
+            {
+                if (IsColumnMonochrome(board, clearedColumns[i]))
+                {
+                    monochromeLineCount++;
+                }
+            }
+
             for (int i = 0; i < clearedRows.Count; i++)
             {
                 ClearRow(board, clearedRows[i]);
@@ -117,7 +146,47 @@ namespace MustyBlockBlast.Core
                 ClearColumn(board, clearedColumns[i]);
             }
 
-            return new LineClearResult(clearedRows, clearedColumns, clearedCellCount);
+            return new LineClearResult(clearedRows, clearedColumns, clearedCellCount, monochromeLineCount);
+        }
+
+        /// <summary>True when every cell of row <paramref name="y"/> holds the same non-empty colour.</summary>
+        private static bool IsRowMonochrome(Board board, int y)
+        {
+            int firstColourId = board[new GridPosition(0, y)];
+            if (firstColourId == Board.EMPTY)
+            {
+                return false;
+            }
+
+            for (int x = 1; x < Board.SIZE; x++)
+            {
+                if (board[new GridPosition(x, y)] != firstColourId)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>True when every cell of column <paramref name="x"/> holds the same non-empty colour.</summary>
+        private static bool IsColumnMonochrome(Board board, int x)
+        {
+            int firstColourId = board[new GridPosition(x, 0)];
+            if (firstColourId == Board.EMPTY)
+            {
+                return false;
+            }
+
+            for (int y = 1; y < Board.SIZE; y++)
+            {
+                if (board[new GridPosition(x, y)] != firstColourId)
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         private static void ClearRow(Board board, int y)

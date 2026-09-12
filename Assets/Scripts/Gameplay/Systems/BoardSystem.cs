@@ -108,7 +108,7 @@ namespace MustyBlockBlast.Gameplay.Systems
         {
             _previewRowsBuffer.Clear();
             _previewColumnsBuffer.Clear();
-            return new LineClearResult(_previewRowsBuffer, _previewColumnsBuffer, 0);
+            return new LineClearResult(_previewRowsBuffer, _previewColumnsBuffer, 0, 0);
         }
 
         /// <summary>Starts a new placement-preview session by clearing any sticky lock left over
@@ -164,7 +164,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             }
 
             _piecePlacedPublisher.Publish(new PiecePlacedMessage(
-                piece.Id, anchor, piece.CellCount, colourId, clearResult.LineCount));
+                piece.Id, anchor, piece.CellCount, colourId, clearResult.LineCount, clearResult.MonochromeLineCount));
 
             if (clearResult.AnyCleared)
             {

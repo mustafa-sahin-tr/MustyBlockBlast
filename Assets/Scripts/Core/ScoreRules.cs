@@ -7,9 +7,13 @@ namespace MustyBlockBlast.Core
     public static class ScoreRules
     {
         private const int POINTS_PER_PLACED_CELL = 1;
-        private const int POINTS_PER_LINE = 10;
+        /// <summary>Internal so sibling rules in this assembly (e.g. MonochromeScoreRule) reuse the constant
+        /// instead of duplicating a magic 10; still not part of the public API.</summary>
+        internal const int POINTS_PER_LINE = 10;
+
         private const double STREAK_BONUS_PER_STEP = 0.5;
         private const double MAX_STREAK_BONUS = 3.0;
+        private const double MONOCHROME_BONUS_PER_LINE = 0.5;
 
         /// <summary>+1 point per cell of the piece just placed.</summary>
         public static int PlacementScore(int cellCount) => cellCount * POINTS_PER_PLACED_CELL;
@@ -44,6 +48,18 @@ namespace MustyBlockBlast.Core
             }
 
             return Math.Min(streak * STREAK_BONUS_PER_STEP, MAX_STREAK_BONUS);
+        }
+
+        /// <summary>+0.5x per cleared line that was entirely one colour, stacking additively into the clear
+        /// multiplier alongside the combo multiplier and streak bonus.</summary>
+        public static double MonochromeMultiplierBonus(int monochromeLineCount)
+        {
+            if (monochromeLineCount <= 0)
+            {
+                return 0;
+            }
+
+            return monochromeLineCount * MONOCHROME_BONUS_PER_LINE;
         }
 
         /// <summary>10 x lines x (comboMultiplier(lines) + streakBonus(streak)). Zero when no lines cleared.</summary>

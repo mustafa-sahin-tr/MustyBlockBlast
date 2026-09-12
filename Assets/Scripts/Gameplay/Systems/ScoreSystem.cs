@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using MessagePipe;
 using MustyBlockBlast.Core;
 using MustyBlockBlast.Gameplay;
@@ -10,7 +11,8 @@ namespace MustyBlockBlast.Gameplay.Systems
 {
     /// <summary>
     /// Owns <see cref="ScoreModel"/>. Reacts to placements only — it never sees the board and never
-    /// references BoardSystem. All arithmetic comes from <see cref="ScoreRules"/>.
+    /// references BoardSystem. All arithmetic comes from the injected <see cref="IScoreRule"/> set, so
+    /// a new bonus is a new rule class plus one DI registration — this class does not change.
     /// <para>
     /// <see cref="ScoreModel.HighScore"/> is the persisted Endless best, so it is only ever bumped or
     /// saved while <see cref="GameModeSystem.CurrentMode"/> is <see cref="GameMode.Endless"/> — a good
@@ -23,6 +25,7 @@ namespace MustyBlockBlast.Gameplay.Systems
 
         private readonly ScoreModel _scoreModel;
         private readonly GameModeSystem _gameModeSystem;
+        private readonly IScoreRule[] _scoreRules;
         private readonly IPublisher<ScoreChangedMessage> _scoreChangedPublisher;
         private readonly IPublisher<NewRecordMessage> _newRecordPublisher;
         private readonly IDisposable _subscriptions;
@@ -36,6 +39,7 @@ namespace MustyBlockBlast.Gameplay.Systems
         public ScoreSystem(
             ScoreModel scoreModel,
             GameModeSystem gameModeSystem,
+            IEnumerable<IScoreRule> scoreRules,
             ISubscriber<PiecePlacedMessage> piecePlacedSubscriber,
             ISubscriber<RunStartedMessage> runStartedSubscriber,
             IPublisher<ScoreChangedMessage> scoreChangedPublisher,
@@ -43,6 +47,9 @@ namespace MustyBlockBlast.Gameplay.Systems
         {
             _scoreModel = scoreModel;
             _gameModeSystem = gameModeSystem;
+
+            // Materialised once so the per-placement loop never re-enumerates a lazy sequence.
+            _scoreRules = new List<IScoreRule>(scoreRules).ToArray();
             _scoreChangedPublisher = scoreChangedPublisher;
             _newRecordPublisher = newRecordPublisher;
             _scoreModel.HighScore.Value = PlayerPrefs.GetInt(HIGH_SCORE_PREFS_KEY, 0);
@@ -67,11 +74,18 @@ namespace MustyBlockBlast.Gameplay.Systems
 
         private void OnPiecePlaced(PiecePlacedMessage message)
         {
-            int gained = ScoreRules.PlacementScore(message.CellCount);
+            // Built before the streak is touched: rules score against the streak this placement began with.
+            ScorePlacementContext context = new ScorePlacementContext(
+                message.CellCount, message.LinesCleared, _scoreModel.Streak.Value, message.MonochromeLineCount);
+
+            int gained = 0;
+            for (int ruleIndex = 0; ruleIndex < _scoreRules.Length; ruleIndex++)
+            {
+                gained += _scoreRules[ruleIndex].ComputeBonus(context);
+            }
 
             if (message.LinesCleared > 0)
             {
-                gained += ScoreRules.ClearScore(message.LinesCleared, _scoreModel.Streak.Value);
                 _scoreModel.Streak.Value += 1;
             }
             else

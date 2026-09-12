@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using MessagePipe;
+using MustyBlockBlast.Core;
 using MustyBlockBlast.Gameplay.Messages;
 using MustyBlockBlast.Gameplay.Models;
 using MustyBlockBlast.Gameplay.Settings;
@@ -96,6 +97,11 @@ namespace MustyBlockBlast.Presentation
         private static void RegisterSystems(IContainerBuilder builder)
         {
             builder.Register<WeightedPieceDraw>(Lifetime.Singleton);
+            // Each .As<IScoreRule>() adds to the same collection binding, so ScoreSystem's
+            // IEnumerable<IScoreRule> resolves all of them. A new bonus = one more line here.
+            builder.Register<PlacementScoreRule>(Lifetime.Singleton).As<IScoreRule>();
+            builder.Register<LineClearScoreRule>(Lifetime.Singleton).As<IScoreRule>();
+            builder.Register<MonochromeScoreRule>(Lifetime.Singleton).As<IScoreRule>();
             builder.Register<ScoreSystem>(Lifetime.Singleton);
             builder.Register<TimedHighScoreSystem>(Lifetime.Singleton);
             builder.Register<SfxSystem>(Lifetime.Singleton).As<ISfxService>().AsSelf();

@@ -118,6 +118,100 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.AreEqual(2, board[new GridPosition(3, 5)]);
         }
 
+        [Test]
+        public void ResolveClears_MonochromeRow_CountsOneMonochromeLine()
+        {
+            var board = new Board();
+            FillRow(board, y: 3, colourId: 2);
+
+            LineClearResult result = LineClearResolver.ResolveClears(board);
+
+            Assert.AreEqual(1, result.LineCount);
+            Assert.AreEqual(1, result.MonochromeLineCount);
+        }
+
+        [Test]
+        public void ResolveClears_MixedColourRow_CountsNoMonochromeLine()
+        {
+            var board = new Board();
+            FillRow(board, y: 3, colourId: 2);
+            board.Occupy(new GridPosition(5, 3), 4);
+
+            LineClearResult result = LineClearResolver.ResolveClears(board);
+
+            Assert.AreEqual(1, result.LineCount);
+            Assert.AreEqual(0, result.MonochromeLineCount);
+        }
+
+        [Test]
+        public void ResolveClears_MonochromeColumn_CountsOneMonochromeLine()
+        {
+            var board = new Board();
+            FillColumn(board, x: 5, colourId: 3);
+
+            LineClearResult result = LineClearResolver.ResolveClears(board);
+
+            Assert.AreEqual(1, result.MonochromeLineCount);
+        }
+
+        /// <summary>Each line is judged on its own cells, so a mixed column does not disqualify the row it crosses.</summary>
+        [Test]
+        public void ResolveClears_MonochromeRowCrossingMixedColumn_CountsOnlyTheRow()
+        {
+            var board = new Board();
+            FillColumn(board, x: 4, colourId: 3);
+            // Row 2 is laid down last so it overwrites the column's cell at the intersection: the row is
+            // uniformly colour 2, while the column now holds a 2 among its 3s.
+            FillRow(board, y: 2, colourId: 2);
+
+            LineClearResult result = LineClearResolver.ResolveClears(board);
+
+            Assert.AreEqual(2, result.LineCount);
+            Assert.AreEqual(1, result.MonochromeLineCount);
+        }
+
+        /// <summary>The intersection cell is counted for both lines; each only has to be internally uniform.</summary>
+        [Test]
+        public void ResolveClears_IntersectingRowAndColumnBothMonochrome_CountsBoth()
+        {
+            var board = new Board();
+            FillRow(board, y: 2, colourId: 2);
+            FillColumn(board, x: 4, colourId: 2);
+
+            LineClearResult result = LineClearResolver.ResolveClears(board);
+
+            Assert.AreEqual(2, result.LineCount);
+            Assert.AreEqual(2, result.MonochromeLineCount);
+        }
+
+        /// <summary>Two monochrome lines need not share a colour with each other.</summary>
+        [Test]
+        public void ResolveClears_TwoRowsMonochromeInDifferentColours_CountsBoth()
+        {
+            var board = new Board();
+            FillRow(board, y: 1, colourId: 2);
+            FillRow(board, y: 6, colourId: 5);
+
+            LineClearResult result = LineClearResolver.ResolveClears(board);
+
+            Assert.AreEqual(2, result.LineCount);
+            Assert.AreEqual(2, result.MonochromeLineCount);
+        }
+
+        [Test]
+        public void ResolveClears_OneMonochromeRowAndOneMixedRow_CountsOnlyTheMonochromeOne()
+        {
+            var board = new Board();
+            FillRow(board, y: 1, colourId: 2);
+            FillRow(board, y: 6, colourId: 5);
+            board.Occupy(new GridPosition(0, 6), 1);
+
+            LineClearResult result = LineClearResolver.ResolveClears(board);
+
+            Assert.AreEqual(2, result.LineCount);
+            Assert.AreEqual(1, result.MonochromeLineCount);
+        }
+
         private static void FillRow(Board board, int y, int colourId)
         {
             for (int x = 0; x < Board.SIZE; x++)
