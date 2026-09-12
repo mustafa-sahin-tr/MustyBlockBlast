@@ -201,6 +201,7 @@ namespace MustyBlockBlast.Presentation.Views
         {
             _draggedSlot = slotIndex;
             _hasAnchor = false;
+            _boardSystem.BeginPlacementPreview();
             _trayView.SetSlotVisible(slotIndex, false);
             BuildGhost(_trayModel.GetPiece(slotIndex), _trayModel.GetColourId(slotIndex));
             UpdateDrag(screenPosition);
@@ -237,12 +238,14 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             PieceLayout.GetBounds(piece, out int width, out int height);
-            _currentAnchor = new GridPosition(
+            var rawAnchor = new GridPosition(
                 pointerCell.X - ((width - 1) / 2),
                 pointerCell.Y - ((height - 1) / 2));
+
+            _currentAnchor = _boardSystem.ResolvePlacementAnchor(_draggedSlot, rawAnchor, out bool isValid);
             _hasAnchor = true;
 
-            _boardView.ShowPreview(piece, _currentAnchor, _boardSystem.CanPlace(_draggedSlot, _currentAnchor));
+            _boardView.ShowPreview(piece, _currentAnchor, isValid);
         }
 
         private void CreateDragLayer()

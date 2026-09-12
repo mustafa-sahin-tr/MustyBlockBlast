@@ -14,9 +14,14 @@ namespace MustyBlockBlast.Gameplay.Systems
     /// </summary>
     public sealed class BoardSystem : IStartable, IDisposable
     {
+        /// <summary>How far (in cells) <see cref="ResolvePlacementAnchor"/> will search for a legal
+        /// placement when the raw pointer anchor itself is illegal.</summary>
+        private const int SnapSearchRadius = 2;
+
         private readonly BoardModel _boardModel;
         private readonly TrayModel _trayModel;
         private readonly WeightedPieceDraw _pieceDraw;
+        private readonly PlacementSnapper _placementSnapper = new PlacementSnapper();
         private readonly IPublisher<RunStartedMessage> _runStartedPublisher;
         private readonly IPublisher<PiecePlacedMessage> _piecePlacedPublisher;
         private readonly IPublisher<LinesClearedMessage> _linesClearedPublisher;
@@ -73,6 +78,33 @@ namespace MustyBlockBlast.Gameplay.Systems
             }
 
             return PlacementRules.CanPlace(_boardModel.Board, piece, anchor);
+        }
+
+        /// <summary>Starts a new placement-preview session by clearing any sticky lock left over
+        /// from a previous drag. Call once when a drag begins.</summary>
+        public void BeginPlacementPreview() => _placementSnapper.Reset();
+
+        /// <summary>Resolves the anchor to preview/place at for this frame's raw pointer anchor,
+        /// applying the sticky-lock and nearest-candidate snapping on top of it. <paramref name="isValid"/>
+        /// is false only when no legal placement exists within the search radius.</summary>
+        public GridPosition ResolvePlacementAnchor(int slotIndex, GridPosition rawAnchor, out bool isValid)
+        {
+            if (IsGameOver || !IsValidSlot(slotIndex))
+            {
+                isValid = false;
+                return rawAnchor;
+            }
+
+            Piece piece = _trayModel.GetPiece(slotIndex);
+            if (piece == null)
+            {
+                isValid = false;
+                return rawAnchor;
+            }
+
+            SnapResult result = _placementSnapper.Resolve(_boardModel.Board, piece, rawAnchor, SnapSearchRadius);
+            isValid = result.IsValid;
+            return result.Anchor;
         }
 
         /// <summary>Places the tray piece if legal, resolves clears, refills the tray when empty and
