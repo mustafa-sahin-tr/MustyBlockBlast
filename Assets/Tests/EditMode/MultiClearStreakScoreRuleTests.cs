@@ -18,7 +18,7 @@ namespace MustyBlockBlast.Tests.EditMode
             MultiClearStreakScoreRule rule = new MultiClearStreakScoreRule();
             ScorePlacementContext context = new ScorePlacementContext(
                 cellCount: 4, linesCleared: 0, streakBeforePlacement: 3, monochromeLineCount: 0,
-                multiClearStreakBeforePlacement: multiClearStreak);
+                multiClearStreakBeforePlacement: multiClearStreak, cumulativeMultiClearCountBeforePlacement: 0);
 
             Assert.AreEqual(0, rule.ComputeBonus(context));
         }
@@ -31,7 +31,7 @@ namespace MustyBlockBlast.Tests.EditMode
             MultiClearStreakScoreRule rule = new MultiClearStreakScoreRule();
             ScorePlacementContext context = new ScorePlacementContext(
                 cellCount: 4, linesCleared: 1, streakBeforePlacement: 3, monochromeLineCount: 0,
-                multiClearStreakBeforePlacement: multiClearStreak);
+                multiClearStreakBeforePlacement: multiClearStreak, cumulativeMultiClearCountBeforePlacement: 0);
 
             Assert.AreEqual(0, rule.ComputeBonus(context));
         }
@@ -42,7 +42,7 @@ namespace MustyBlockBlast.Tests.EditMode
             MultiClearStreakScoreRule rule = new MultiClearStreakScoreRule();
             ScorePlacementContext context = new ScorePlacementContext(
                 cellCount: 4, linesCleared: 2, streakBeforePlacement: 1, monochromeLineCount: 0,
-                multiClearStreakBeforePlacement: 0);
+                multiClearStreakBeforePlacement: 0, cumulativeMultiClearCountBeforePlacement: 0);
 
             Assert.AreEqual(0, ScoreRules.StreakBonus(0));
             Assert.AreEqual(0, rule.ComputeBonus(context));
@@ -57,7 +57,7 @@ namespace MustyBlockBlast.Tests.EditMode
             MultiClearStreakScoreRule rule = new MultiClearStreakScoreRule();
             ScorePlacementContext context = new ScorePlacementContext(
                 cellCount: 4, linesCleared: linesCleared, streakBeforePlacement: 0, monochromeLineCount: 0,
-                multiClearStreakBeforePlacement: multiClearStreak);
+                multiClearStreakBeforePlacement: multiClearStreak, cumulativeMultiClearCountBeforePlacement: 0);
 
             // 10 points per line x lines x the +0.5x-per-consecutive-multi-clear multiplier.
             int expected = (int)System.Math.Round(
@@ -73,7 +73,7 @@ namespace MustyBlockBlast.Tests.EditMode
             MultiClearStreakScoreRule rule = new MultiClearStreakScoreRule();
             ScorePlacementContext context = new ScorePlacementContext(
                 cellCount: 4, linesCleared: 3, streakBeforePlacement: 0, monochromeLineCount: 0,
-                multiClearStreakBeforePlacement: 10);
+                multiClearStreakBeforePlacement: 10, cumulativeMultiClearCountBeforePlacement: 0);
 
             // StreakBonus caps at +3.0x, so 10 x 3 lines x 3.0 = 90 no matter how long the chain runs.
             Assert.AreEqual(3.0, ScoreRules.StreakBonus(10));
@@ -85,7 +85,7 @@ namespace MustyBlockBlast.Tests.EditMode
         {
             ScorePlacementContext context = new ScorePlacementContext(
                 cellCount: 4, linesCleared: 2, streakBeforePlacement: 1, monochromeLineCount: 0,
-                multiClearStreakBeforePlacement: 2);
+                multiClearStreakBeforePlacement: 2, cumulativeMultiClearCountBeforePlacement: 0);
             List<IScoreRule> rules = new List<IScoreRule>
             {
                 new PlacementScoreRule(),

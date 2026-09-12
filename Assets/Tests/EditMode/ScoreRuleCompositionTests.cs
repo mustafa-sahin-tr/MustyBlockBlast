@@ -18,7 +18,7 @@ namespace MustyBlockBlast.Tests.EditMode
         public void PlacementScoreRule_MatchesScoreRulesFormula(int cellCount)
         {
             PlacementScoreRule rule = new PlacementScoreRule();
-            ScorePlacementContext context = new ScorePlacementContext(cellCount, 0, 0, 0, 0);
+            ScorePlacementContext context = new ScorePlacementContext(cellCount, 0, 0, 0, 0, 0);
 
             Assert.AreEqual(ScoreRules.PlacementScore(cellCount), rule.ComputeBonus(context));
         }
@@ -30,7 +30,7 @@ namespace MustyBlockBlast.Tests.EditMode
         public void LineClearScoreRule_MatchesScoreRulesFormula(int linesCleared, int streak)
         {
             LineClearScoreRule rule = new LineClearScoreRule();
-            ScorePlacementContext context = new ScorePlacementContext(4, linesCleared, streak, 0, 0);
+            ScorePlacementContext context = new ScorePlacementContext(4, linesCleared, streak, 0, 0, 0);
 
             Assert.AreEqual(ScoreRules.ClearScore(linesCleared, streak), rule.ComputeBonus(context));
         }
@@ -40,7 +40,7 @@ namespace MustyBlockBlast.Tests.EditMode
         {
             LineClearScoreRule rule = new LineClearScoreRule();
 
-            Assert.AreEqual(0, rule.ComputeBonus(new ScorePlacementContext(4, 0, 3, 0, 0)));
+            Assert.AreEqual(0, rule.ComputeBonus(new ScorePlacementContext(4, 0, 3, 0, 0, 0)));
         }
 
         [TestCase(1, 1)]
@@ -50,7 +50,7 @@ namespace MustyBlockBlast.Tests.EditMode
         public void MonochromeScoreRule_MatchesTheManualFormula(int linesCleared, int monochromeLineCount)
         {
             MonochromeScoreRule rule = new MonochromeScoreRule();
-            ScorePlacementContext context = new ScorePlacementContext(4, linesCleared, 0, monochromeLineCount, 0);
+            ScorePlacementContext context = new ScorePlacementContext(4, linesCleared, 0, monochromeLineCount, 0, 0);
 
             // 10 points per line x lines x the +0.5x-per-monochrome-line multiplier.
             int expected = (int)System.Math.Round(
@@ -65,7 +65,7 @@ namespace MustyBlockBlast.Tests.EditMode
         {
             MonochromeScoreRule rule = new MonochromeScoreRule();
 
-            Assert.AreEqual(0, rule.ComputeBonus(new ScorePlacementContext(4, 2, 3, 0, 0)));
+            Assert.AreEqual(0, rule.ComputeBonus(new ScorePlacementContext(4, 2, 3, 0, 0, 0)));
         }
 
         [Test]
@@ -73,7 +73,7 @@ namespace MustyBlockBlast.Tests.EditMode
         {
             MonochromeScoreRule rule = new MonochromeScoreRule();
 
-            Assert.AreEqual(0, rule.ComputeBonus(new ScorePlacementContext(4, 0, 3, 2, 0)));
+            Assert.AreEqual(0, rule.ComputeBonus(new ScorePlacementContext(4, 0, 3, 2, 0, 0)));
         }
 
         [Test]
@@ -81,7 +81,7 @@ namespace MustyBlockBlast.Tests.EditMode
         {
             ScorePlacementContext context = new ScorePlacementContext(
                 cellCount: 4, linesCleared: 2, streakBeforePlacement: 1, monochromeLineCount: 2,
-                multiClearStreakBeforePlacement: 0);
+                multiClearStreakBeforePlacement: 0, cumulativeMultiClearCountBeforePlacement: 0);
             List<IScoreRule> rules = new List<IScoreRule>
             {
                 new PlacementScoreRule(),
@@ -104,7 +104,7 @@ namespace MustyBlockBlast.Tests.EditMode
         {
             ScorePlacementContext context = new ScorePlacementContext(
                 cellCount: 4, linesCleared: 2, streakBeforePlacement: 1, monochromeLineCount: 0,
-                multiClearStreakBeforePlacement: 0);
+                multiClearStreakBeforePlacement: 0, cumulativeMultiClearCountBeforePlacement: 0);
             List<IScoreRule> rules = new List<IScoreRule>
             {
                 new PlacementScoreRule(),
@@ -125,7 +125,7 @@ namespace MustyBlockBlast.Tests.EditMode
         {
             ScorePlacementContext context = new ScorePlacementContext(
                 cellCount: 5, linesCleared: 0, streakBeforePlacement: 0, monochromeLineCount: 0,
-                multiClearStreakBeforePlacement: 0);
+                multiClearStreakBeforePlacement: 0, cumulativeMultiClearCountBeforePlacement: 0);
             List<IScoreRule> rules = new List<IScoreRule> { new PlacementScoreRule() };
 
             int before = SumBonuses(rules, context);

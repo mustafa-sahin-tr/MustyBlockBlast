@@ -68,6 +68,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             _scoreModel.Score.Value = 0;
             _scoreModel.Streak.Value = 0;
             _scoreModel.MultiClearStreak.Value = 0;
+            _scoreModel.CumulativeMultiClearCount.Value = 0;
             _recordAtRunStart = _scoreModel.HighScore.Value;
             _hasCelebratedRecordThisRun = false;
             _scoreChangedPublisher.Publish(new ScoreChangedMessage(0, 0, 0));
@@ -81,7 +82,8 @@ namespace MustyBlockBlast.Gameplay.Systems
                 message.LinesCleared,
                 _scoreModel.Streak.Value,
                 message.MonochromeLineCount,
-                _scoreModel.MultiClearStreak.Value);
+                _scoreModel.MultiClearStreak.Value,
+                _scoreModel.CumulativeMultiClearCount.Value);
 
             int gained = 0;
             for (int ruleIndex = 0; ruleIndex < _scoreRules.Length; ruleIndex++)
@@ -103,6 +105,10 @@ namespace MustyBlockBlast.Gameplay.Systems
             if (message.LinesCleared >= 2)
             {
                 _scoreModel.MultiClearStreak.Value += 1;
+
+                // Counts the same trigger but never resets mid-run: it only tracks how many multi-clears the
+                // run has accumulated, consecutive or not.
+                _scoreModel.CumulativeMultiClearCount.Value += 1;
             }
             else if (message.LinesCleared == 1)
             {

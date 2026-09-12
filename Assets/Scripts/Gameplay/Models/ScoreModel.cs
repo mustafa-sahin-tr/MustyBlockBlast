@@ -15,5 +15,10 @@ namespace MustyBlockBlast.Gameplay.Models
         /// <summary>Consecutive placements that each cleared 2+ lines ("multi" clears) — a single-line clear
         /// resets this to 0, but a non-clearing placement leaves it unchanged. Stacks alongside <see cref="Streak"/>.</summary>
         public ReactiveProperty<int> MultiClearStreak { get; } = new ReactiveProperty<int>(0);
+
+        /// <summary>Cumulative count of placements that cleared 2+ lines this run, regardless of whether they
+        /// were consecutive — never resets except at run start. Drives
+        /// <see cref="MustyBlockBlast.Core.CumulativeMultiClearMilestoneScoreRule"/>.</summary>
+        public ReactiveProperty<int> CumulativeMultiClearCount { get; } = new ReactiveProperty<int>(0);
     }
 }

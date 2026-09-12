@@ -15,6 +15,9 @@ namespace MustyBlockBlast.Core
         private const double MAX_STREAK_BONUS = 3.0;
         private const double MONOCHROME_BONUS_PER_LINE = 0.5;
 
+        private const int MULTI_CLEAR_MILESTONE_STEP = 5;
+        private const int MULTI_CLEAR_MILESTONE_REWARD_PER_STEP = 10;
+
         /// <summary>+1 point per cell of the piece just placed.</summary>
         public static int PlacementScore(int cellCount) => cellCount * POINTS_PER_PLACED_CELL;
 
@@ -60,6 +63,19 @@ namespace MustyBlockBlast.Core
             }
 
             return monochromeLineCount * MONOCHROME_BONUS_PER_LINE;
+        }
+
+        /// <summary>Flat bonus when <paramref name="occurrenceCount"/> (the cumulative multi-line-clear count
+        /// AFTER this placement) lands exactly on a multiple of 5 — the 5th, 10th, 15th, ... occurrence this
+        /// run. Reward scales with the milestone reached (occurrenceCount x 10). Zero otherwise.</summary>
+        public static int MultiClearMilestoneBonus(int occurrenceCount)
+        {
+            if (occurrenceCount <= 0 || occurrenceCount % MULTI_CLEAR_MILESTONE_STEP != 0)
+            {
+                return 0;
+            }
+
+            return occurrenceCount * MULTI_CLEAR_MILESTONE_REWARD_PER_STEP;
         }
 
         /// <summary>10 x lines x (comboMultiplier(lines) + streakBonus(streak)). Zero when no lines cleared.</summary>
