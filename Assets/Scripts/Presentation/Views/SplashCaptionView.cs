@@ -29,11 +29,11 @@ namespace MustyBlockBlast.Presentation.Views
         private const int SKIP_FONT_SIZE = 40;
         private const int JINGLE_FONT_SIZE = 30;
 
-        /// <summary>#2A6920 — the dark green used by the dots and the skip hint.</summary>
-        private static readonly Color DarkGreen = new Color32(42, 105, 32, 255);
+        /// <summary>#FFFFFF — white used by the dots and the skip hint.</summary>
+        private static readonly Color PrimaryCaption = Color.white;
 
-        /// <summary>#79A568 — the lighter sage used by the jingle note.</summary>
-        private static readonly Color SageGreen = new Color32(121, 165, 104, 255);
+        /// <summary>#C7C2E8 — soft lavender used by the jingle note.</summary>
+        private static readonly Color SecondaryCaption = new Color32(199, 194, 232, 255);
 
         /// <summary>Dot opacities, fading left to right exactly as in the mockup.</summary>
         private static readonly float[] DotAlphas = { 0.85f, 0.55f, 0.3f };
@@ -50,8 +50,8 @@ namespace MustyBlockBlast.Presentation.Views
             rootRect.anchoredPosition = Vector2.zero;
 
             BuildDots(rootRect);
-            BuildCaption(rootRect, "SkipHint", "Geçmek için dokun", SKIP_FONT_SIZE, FontStyle.Bold, DarkGreen, 0.75f, SKIP_TEXT_Y);
-            BuildCaption(rootRect, "JingleNote", "Açılış cıngılı ses ayarınıza uyar", JINGLE_FONT_SIZE, FontStyle.Normal, SageGreen, 1f, JINGLE_TEXT_Y);
+            BuildCaption(rootRect, "SkipHint", "Geçmek için dokun", SKIP_FONT_SIZE, FontStyle.Bold, PrimaryCaption, 0.75f, SKIP_TEXT_Y);
+            BuildCaption(rootRect, "JingleNote", "Açılış cıngılı ses ayarınıza uyar", JINGLE_FONT_SIZE, FontStyle.Normal, SecondaryCaption, 1f, JINGLE_TEXT_Y);
         }
 
         private static void BuildDots(RectTransform parent)
@@ -78,7 +78,7 @@ namespace MustyBlockBlast.Presentation.Views
                 dotRect.sizeDelta = new Vector2(DOT_SIZE, DOT_SIZE);
                 dotRect.anchoredPosition = new Vector2(firstX + (dotIndex * DOT_SPACING), 0f);
 
-                Color colour = DarkGreen;
+                Color colour = PrimaryCaption;
                 colour.a = DotAlphas[dotIndex];
 
                 var image = dotObject.GetComponent<Image>();

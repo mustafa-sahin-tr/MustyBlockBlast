@@ -12,11 +12,11 @@ namespace MustyBlockBlast.Presentation.Views
     [RequireComponent(typeof(Image))]
     public sealed class SplashBackgroundView : MonoBehaviour
     {
-        /// <summary>#A5D6A7 — soft spring green at the top of the screen.</summary>
-        private static readonly Color TopColour = new Color32(165, 214, 167, 255);
+        /// <summary>#4A3A8C — violet-blue at the top of the screen.</summary>
+        private static readonly Color TopColour = new Color32(74, 58, 140, 255);
 
-        /// <summary>#FFECB3 — warm cream at the bottom of the screen.</summary>
-        private static readonly Color BottomColour = new Color32(255, 236, 179, 255);
+        /// <summary>#211F49 — deep indigo at the bottom of the screen.</summary>
+        private static readonly Color BottomColour = new Color32(33, 31, 73, 255);
 
         private void Awake()
         {

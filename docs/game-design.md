@@ -1,4 +1,4 @@
-# MustyBlockBlast — Game Design
+# Blockio Blast: Time Rush — Game Design
 
 Genre: block-placement puzzle (Block Blast / 1010! family). Portrait mobile, iOS + Android.
 This document is the single source of truth for game rules. Code must match it; when they
