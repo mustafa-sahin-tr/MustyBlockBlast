@@ -50,6 +50,8 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterMessageBroker<ScoreChangedMessage>(options);
             builder.RegisterMessageBroker<GameOverMessage>(options);
             builder.RegisterMessageBroker<PlaySfxRequestedMessage>(options);
+            builder.RegisterMessageBroker<PlayMusicRequestedMessage>(options);
+            builder.RegisterMessageBroker<StopMusicRequestedMessage>(options);
             builder.RegisterMessageBroker<TrayRefilledMessage>(options);
         }
 
@@ -96,6 +98,7 @@ namespace MustyBlockBlast.Presentation
             builder.Register<ScoreSystem>(Lifetime.Singleton);
             builder.Register<TimedHighScoreSystem>(Lifetime.Singleton);
             builder.Register<SfxSystem>(Lifetime.Singleton).As<ISfxService>().AsSelf();
+            builder.Register<MusicSystem>(Lifetime.Singleton).As<IMusicService>().AsSelf();
             builder.Register<SettingsSystem>(Lifetime.Singleton);
             builder.RegisterEntryPoint<BoardSystem>(Lifetime.Singleton).AsSelf();
             builder.Register<GameModeSystem>(Lifetime.Singleton);
@@ -119,7 +122,11 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterComponentInHierarchy<GameOverView>();
             builder.RegisterComponentInHierarchy<BoardInputView>();
             builder.RegisterComponentInHierarchy<SfxPlayerView>();
+            builder.RegisterComponentInHierarchy<MusicPlayerView>();
+            builder.RegisterComponentInHierarchy<GameMusicView>();
             builder.RegisterComponentInHierarchy<LineClearSfxView>();
+            builder.RegisterComponentInHierarchy<BlockPlaceSfxView>();
+            builder.RegisterComponentInHierarchy<GameOverSfxView>();
         }
     }
 }

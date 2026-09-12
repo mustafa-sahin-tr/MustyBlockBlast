@@ -730,7 +730,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8c7eccce3d0ff4a43854d3137e83c830, type: 3}
   m_Name: 
   m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.SplashView
-  _jingleClip: {fileID: 8300000, guid: 8eb1d9bbb1e9348adaad28c744201832, type: 3}
+  _jingleClip: {fileID: 8300000, guid: 51297841e41a642888b03dd72b2e0429, type: 3}
   _logoImage: {fileID: 1236628432}
 --- !u!114 &1523687284
 MonoBehaviour:

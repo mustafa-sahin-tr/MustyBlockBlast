@@ -409,6 +409,53 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &592480569
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 592480571}
+  - component: {fileID: 592480570}
+  m_Layer: 0
+  m_Name: GameOverSfx
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &592480570
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 592480569}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4459a378140a44f459166bac271b3368, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.GameOverSfxView
+  _noMovesLeftClip: {fileID: 8300000, guid: 31687e7af9a3848cf8ce1b964404ec8b, type: 3}
+  _timeUpClip: {fileID: 8300000, guid: 196d204bb5e7f4aaba39a84335bf1627, type: 3}
+  _stingClip: {fileID: 8300000, guid: 08a35fe15e86342c9b5677e27a6d2b25, type: 3}
+--- !u!4 &592480571
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 592480569}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &619394800
 GameObject:
   m_ObjectHideFlags: 0
@@ -812,8 +859,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.ScoreView
   _anchoredPosition: {x: 0, y: 780}
   _scoreFontSize: 130
-  _bestFontSize: 40
-  _bestOffsetY: -95
+  _bestLabelFontSize: 36
+  _bestValueFontSize: 96
+  _bestCornerOffset: {x: 32, y: -32}
 --- !u!1 &1443061544
 GameObject:
   m_ObjectHideFlags: 0
@@ -864,6 +912,51 @@ MonoBehaviour:
   m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.BoardInputView
   _dragScreenOffset: {x: 0, y: 150}
   _ghostAlpha: 0.9
+--- !u!1 &1477601600
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1477601602}
+  - component: {fileID: 1477601601}
+  m_Layer: 0
+  m_Name: GameMusic
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1477601601
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1477601600}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d012aafd96279412eaeb238348ce67a2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.GameMusicView
+  _bgmLoopClip: {fileID: 8300000, guid: d8b7be3829bc5482b987746cbd779e8d, type: 3}
+--- !u!4 &1477601602
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1477601600}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1490060642
 GameObject:
   m_ObjectHideFlags: 0
@@ -1140,9 +1233,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 938170b6f32ed49c49b5ce8598868216, type: 3}
   m_Name: 
   m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.LineClearSfxView
-  _niceClip: {fileID: 8300000, guid: eb1f455f7d44b47c3936efe5fb382648, type: 3}
-  _greatClip: {fileID: 8300000, guid: 45ba1a6ca112346d8a006e69973e1416, type: 3}
-  _amazingClip: {fileID: 8300000, guid: e7395188140e54cf381e67b5de07c20f, type: 3}
+  _lineClearClip: {fileID: 8300000, guid: 906a49d3f39a8439cb413e90c80d94c3, type: 3}
+  _comboClip: {fileID: 8300000, guid: eb79945ff12f44d2eb69bcc7591edfd2, type: 3}
+  _niceClip: {fileID: 8300000, guid: 38eaf94c75d674533ba05777aeff003a, type: 3}
+  _greatClip: {fileID: 8300000, guid: 5eb040d366c814934b7a038ac2bceb55, type: 3}
+  _amazingClip: {fileID: 8300000, guid: 4d4f84bdb7d3f462882341b1f31083dc, type: 3}
 --- !u!4 &1885774692
 Transform:
   m_ObjectHideFlags: 0
@@ -1150,6 +1245,95 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1885774690}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &2099223032
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2099223034}
+  - component: {fileID: 2099223033}
+  m_Layer: 0
+  m_Name: BlockPlaceSfx
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &2099223033
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2099223032}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a8bfdaa2c4337420eafc204ad8ac7d77, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.BlockPlaceSfxView
+  _placeClip: {fileID: 8300000, guid: 1a7a79e52975c4da2863904000f08c0e, type: 3}
+--- !u!4 &2099223034
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2099223032}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &2141778596
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2141778598}
+  - component: {fileID: 2141778597}
+  m_Layer: 0
+  m_Name: MusicPlayer
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &2141778597
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2141778596}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 69fea784b54484ab9ac3cb5263f7eefe, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.MusicPlayerView
+--- !u!4 &2141778598
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2141778596}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -1168,3 +1352,7 @@ SceneRoots:
   - {fileID: 979778625}
   - {fileID: 350165919}
   - {fileID: 1885774692}
+  - {fileID: 2099223034}
+  - {fileID: 592480571}
+  - {fileID: 1477601602}
+  - {fileID: 2141778598}
