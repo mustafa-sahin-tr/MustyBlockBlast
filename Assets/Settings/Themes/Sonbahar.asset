@@ -36,3 +36,4 @@ MonoBehaviour:
   _softInk: {r: 0.5099624, g: 0.4132494, b: 0.39642978, a: 1}
   _validPreview: {r: 0.4862745, g: 0.7019608, b: 0.25882354, a: 0.45}
   _invalidPreview: {r: 0.84705883, g: 0.2627451, b: 0.08235294, a: 0.35}
+  _wouldClearHighlight: {r: 1, g: 0.81960785, b: 0.29803923, a: 0.95}

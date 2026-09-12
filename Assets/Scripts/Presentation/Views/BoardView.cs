@@ -50,6 +50,12 @@ namespace MustyBlockBlast.Presentation.Views
         private readonly bool[] _rowClearMask = new bool[Board.SIZE];
         private readonly bool[] _columnClearMask = new bool[Board.SIZE];
 
+        // Which cells currently wear the would-clear outline, and the set being built for this
+        // frame. Two fixed masks so the per-frame update is a diff against what is already on
+        // screen: no allocation, and only the cells that actually changed are touched.
+        private readonly bool[] _highlightMask = new bool[Board.SIZE * Board.SIZE];
+        private readonly bool[] _pendingHighlightMask = new bool[Board.SIZE * Board.SIZE];
+
         private RectTransform _rectTransform;
         private Canvas _canvas;
         private CellView[] _cells;
@@ -73,6 +79,7 @@ namespace MustyBlockBlast.Presentation.Views
         private int _previewCount;
         private float _gridExtent;
         private bool _isDestroyed;
+        private bool _hasHighlight;
 
         [Inject]
         public void Construct(
@@ -234,6 +241,78 @@ namespace MustyBlockBlast.Presentation.Views
             _previewCount = 0;
         }
 
+        /// <summary>
+        /// Outlines every cell of the rows/columns the in-flight drag would clear — filled cells and
+        /// the empty ones the piece would occupy alike. Safe to call every frame: it diffs against
+        /// what is already outlined, so an unchanged set costs nothing and a line that stopped
+        /// qualifying is switched off in the same pass. Empty lists mean "outline nothing".
+        /// <para>
+        /// The outline is its own layer inside <see cref="CellView"/>, so it stacks on top of the
+        /// <see cref="ShowPreview"/> tint instead of competing with it.
+        /// </para>
+        /// </summary>
+        /// <remarks>The caller's lists are read here and never stored — <c>BoardSystem</c> hands back
+        /// scratch buffers it overwrites on the next query.</remarks>
+        internal void ShowWouldClearHighlight(IReadOnlyList<int> rows, IReadOnlyList<int> columns)
+        {
+            Array.Clear(_pendingHighlightMask, 0, _pendingHighlightMask.Length);
+
+            if (_currentTheme == null || _cells == null)
+            {
+                ApplyHighlightMask();
+                return;
+            }
+
+            if (rows != null)
+            {
+                for (int i = 0; i < rows.Count; i++)
+                {
+                    int y = rows[i];
+                    if (y < 0 || y >= Board.SIZE)
+                    {
+                        continue;
+                    }
+
+                    for (int x = 0; x < Board.SIZE; x++)
+                    {
+                        _pendingHighlightMask[(y * Board.SIZE) + x] = true;
+                    }
+                }
+            }
+
+            if (columns != null)
+            {
+                for (int i = 0; i < columns.Count; i++)
+                {
+                    int x = columns[i];
+                    if (x < 0 || x >= Board.SIZE)
+                    {
+                        continue;
+                    }
+
+                    for (int y = 0; y < Board.SIZE; y++)
+                    {
+                        _pendingHighlightMask[(y * Board.SIZE) + x] = true;
+                    }
+                }
+            }
+
+            ApplyHighlightMask();
+        }
+
+        /// <summary>Drops every would-clear outline. Called on drop, cancel and whenever the drag has
+        /// no legal anchor.</summary>
+        internal void ClearWouldClearHighlight()
+        {
+            if (!_hasHighlight)
+            {
+                return;
+            }
+
+            Array.Clear(_pendingHighlightMask, 0, _pendingHighlightMask.Length);
+            ApplyHighlightMask();
+        }
+
         private static int CellIndex(GridPosition cell) => (cell.Y * Board.SIZE) + cell.X;
 
         private static float EaseOutCubic(float t)
@@ -296,6 +375,10 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>Forces every cell back to the model's state, opaque and with no fade in flight.</summary>
         private void RedrawAll()
         {
+            // A run restart wipes the board underneath any drag that was in flight, so no outline
+            // from that drag may survive it.
+            ClearWouldClearHighlight();
+
             for (int y = 0; y < Board.SIZE; y++)
             {
                 for (int x = 0; x < Board.SIZE; x++)
@@ -396,6 +479,59 @@ namespace MustyBlockBlast.Presentation.Views
         /// publishing a <see cref="LinesClearedMessage"/> to claim them.</summary>
         private void OnRunStarted(RunStartedMessage message) => RedrawAll();
 
+        /// <summary>Pushes <see cref="_pendingHighlightMask"/> to the cells, touching only the ones
+        /// whose state actually changed, and adopts it as the current mask.</summary>
+        private void ApplyHighlightMask()
+        {
+            if (_cells == null)
+            {
+                return;
+            }
+
+            Color colour = _currentTheme != null ? _currentTheme.WouldClearHighlight : Color.clear;
+            _hasHighlight = false;
+
+            for (int index = 0; index < _highlightMask.Length; index++)
+            {
+                bool wanted = _pendingHighlightMask[index];
+                _hasHighlight |= wanted;
+
+                if (wanted == _highlightMask[index])
+                {
+                    continue;
+                }
+
+                _highlightMask[index] = wanted;
+
+                if (wanted)
+                {
+                    _cells[index].SetHighlight(colour);
+                }
+                else
+                {
+                    _cells[index].ClearHighlight();
+                }
+            }
+        }
+
+        /// <summary>Re-tints the outlines already on screen after a theme switch.</summary>
+        private void RepaintHighlight()
+        {
+            if (!_hasHighlight || _currentTheme == null)
+            {
+                return;
+            }
+
+            Color colour = _currentTheme.WouldClearHighlight;
+            for (int index = 0; index < _highlightMask.Length; index++)
+            {
+                if (_highlightMask[index])
+                {
+                    _cells[index].SetHighlight(colour);
+                }
+            }
+        }
+
         /// <summary>Invalidates any fade on a cell and restores it to full opacity.</summary>
         private void CancelFade(int index)
         {
@@ -493,6 +629,7 @@ namespace MustyBlockBlast.Presentation.Views
             _cardShadowImage.color = theme.CardShadow;
 
             RepaintCells();
+            RepaintHighlight();
         }
 
         private void RepaintCells()

@@ -70,6 +70,9 @@ namespace MustyBlockBlast.Gameplay.Settings
         [SerializeField] private Color _validPreview = new Color(0.44f, 0.72f, 0.69f, 0.45f);
         [SerializeField] private Color _invalidPreview = new Color(0.91f, 0.47f, 0.35f, 0.35f);
 
+        [Tooltip("Outline drawn around every cell of a row/column the current drag would clear. Bright and celebratory — it sits on top of the valid-preview tint, so it must read against it.")]
+        [SerializeField] private Color _wouldClearHighlight = new Color(1f, 0.85f, 0.30f, 0.95f);
+
         /// <summary>Stable identity used by <c>SettingsSystem.SetTheme</c> and PlayerPrefs, not the array index.</summary>
         public int Id => _id;
 
@@ -96,6 +99,9 @@ namespace MustyBlockBlast.Gameplay.Settings
         public Color ValidPreview => _validPreview;
 
         public Color InvalidPreview => _invalidPreview;
+
+        /// <summary>Outline colour for the rows/columns the in-flight drag would clear.</summary>
+        public Color WouldClearHighlight => _wouldClearHighlight;
 
         /// <summary>Main face colour for a cosmetic colour id (1-based; 0 is empty).</summary>
         public Color GetFill(int colourId) => Pick(_kindFills, colourId, _emptyCellFill);
