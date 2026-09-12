@@ -28,6 +28,9 @@ namespace MustyBlockBlast.Gameplay.Systems
         private readonly IPublisher<GameOverMessage> _gameOverPublisher;
         private readonly IPublisher<TrayRefilledMessage> _trayRefilledPublisher;
         private readonly List<Piece> _remainingBuffer = new List<Piece>(TrayModel.SLOT_COUNT);
+        private readonly Board _previewScratchBoard = new Board();
+        private readonly List<int> _previewRowsBuffer = new List<int>(Board.SIZE);
+        private readonly List<int> _previewColumnsBuffer = new List<int>(Board.SIZE);
 
         public BoardSystem(
             BoardModel boardModel,
@@ -78,6 +81,34 @@ namespace MustyBlockBlast.Gameplay.Systems
             }
 
             return PlacementRules.CanPlace(_boardModel.Board, piece, anchor);
+        }
+
+        /// <summary>Non-mutating query: which rows/columns would clear if the tray piece in
+        /// <paramref name="slotIndex"/> were placed at <paramref name="anchor"/>. Returns an empty result
+        /// when the placement itself is illegal. Safe to call every drag-update frame — reuses internal
+        /// scratch buffers rather than allocating. Used by the drag-preview highlight.</summary>
+        public LineClearResult GetWouldClearLines(int slotIndex, GridPosition anchor)
+        {
+            if (IsGameOver || !IsValidSlot(slotIndex))
+            {
+                return EmptyPreview();
+            }
+
+            Piece piece = _trayModel.GetPiece(slotIndex);
+            if (piece == null)
+            {
+                return EmptyPreview();
+            }
+
+            return LineClearResolver.PreviewClears(
+                _boardModel.Board, piece, anchor, _previewScratchBoard, _previewRowsBuffer, _previewColumnsBuffer);
+        }
+
+        private LineClearResult EmptyPreview()
+        {
+            _previewRowsBuffer.Clear();
+            _previewColumnsBuffer.Clear();
+            return new LineClearResult(_previewRowsBuffer, _previewColumnsBuffer, 0);
         }
 
         /// <summary>Starts a new placement-preview session by clearing any sticky lock left over

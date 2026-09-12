@@ -13,12 +13,19 @@ namespace MustyBlockBlast.Presentation.Views
     /// symmetrically inset face square drawn on top, which covers the facets' pointed centre tips
     /// and leaves the four trapezoid bevels visible. Used for filled piece cells.</item>
     /// </list>
+    /// On top of both sits an independent outline layer (see <see cref="SetHighlight"/>) that is
+    /// toggled on its own and never disturbs the colours of the two looks underneath.
     /// Pure visual — it is told a colour, it never decides one.
     /// </summary>
     [RequireComponent(typeof(Image))]
     public sealed class CellView : MonoBehaviour
     {
         private const int FACET_COUNT = 4;
+
+        /// <summary>Lower than the shared layers' multiplier (see <see cref="ConfigureSliced"/>) so the
+        /// nine-slice border renders noticeably thicker than the cell's other frame lines, keeping the
+        /// would-clear outline legible at a glance.</summary>
+        private const float HighlightPixelsPerUnitMultiplier = 1.25f;
 
         /// <summary>Facet index order, matching a -90 degree step per index from the top facet.</summary>
         private const int FACET_TOP = 0;
@@ -32,6 +39,7 @@ namespace MustyBlockBlast.Presentation.Views
         private Image _flatFaceImage;
         private GameObject _embossRoot;
         private Image _embossFaceImage;
+        private Image _highlightImage;
 
         private void Awake() => CacheOuter();
 
@@ -71,6 +79,46 @@ namespace MustyBlockBlast.Presentation.Views
             SetStretchInsets((RectTransform)_embossFaceImage.transform, faceInset, faceInset, faceInset, faceInset);
 
             _embossRoot.SetActive(false);
+
+            // Built after the emboss root so it is the cell's last sibling and therefore draws over
+            // whichever look is active. fillCenter is off, so the sliced sprite renders only its
+            // nine-slice border: a constant-thickness rounded frame with a hollow middle. Reusing
+            // RoundedSquare keeps it on the same texture as every other cell layer, so the outline
+            // costs no extra draw call and its corner radius matches the cell silhouette exactly.
+            _highlightImage = CreateStretchedImage(transform, "Highlight");
+            ConfigureSliced(_highlightImage, roundedSprite, HighlightPixelsPerUnitMultiplier);
+            _highlightImage.fillCenter = false;
+            _highlightImage.color = Color.clear;
+            _highlightImage.gameObject.SetActive(false);
+        }
+
+        /// <summary>Shows the outline frame in <paramref name="colour"/>. Independent of both looks:
+        /// it neither reads nor writes the face/fill/shade layers, so a cell can be tinted, embossed
+        /// or empty underneath an outline.</summary>
+        internal void SetHighlight(Color colour)
+        {
+            if (_highlightImage == null)
+            {
+                return;
+            }
+
+            _highlightImage.color = colour;
+
+            if (!_highlightImage.gameObject.activeSelf)
+            {
+                _highlightImage.gameObject.SetActive(true);
+            }
+        }
+
+        /// <summary>Hides the outline frame. Safe to call on a cell that never had one.</summary>
+        internal void ClearHighlight()
+        {
+            if (_highlightImage == null || !_highlightImage.gameObject.activeSelf)
+            {
+                return;
+            }
+
+            _highlightImage.gameObject.SetActive(false);
         }
 
         /// <summary>Flat two-layer look: empty cells and the drag preview tint.</summary>
@@ -125,6 +173,10 @@ namespace MustyBlockBlast.Presentation.Views
             ApplyAlpha(_flatFaceImage, alpha);
             ApplyAlpha(_embossFaceImage, alpha);
 
+            // The outline fades with the rest so a highlighted cell cannot stay solid mid-fade. Its
+            // own alpha is restored in full by the next SetHighlight call.
+            ApplyAlpha(_highlightImage, alpha);
+
             for (int facetIndex = 0; facetIndex < FACET_COUNT; facetIndex++)
             {
                 ApplyAlpha(_facetImages[facetIndex], alpha);
@@ -143,11 +195,11 @@ namespace MustyBlockBlast.Presentation.Views
             image.color = colour;
         }
 
-        private static void ConfigureSliced(Image image, Sprite roundedSprite)
+        private static void ConfigureSliced(Image image, Sprite roundedSprite, float pixelsPerUnitMultiplier = 3f)
         {
             image.sprite = roundedSprite;
             image.type = Image.Type.Sliced;
-            image.pixelsPerUnitMultiplier = 3f;
+            image.pixelsPerUnitMultiplier = pixelsPerUnitMultiplier;
             image.raycastTarget = false;
         }
 

@@ -186,6 +186,7 @@ namespace MustyBlockBlast.Presentation.Views
             _draggedSlot = -1;
 
             _boardView.ClearPreview();
+            _boardView.ClearWouldClearHighlight();
             DestroyGhost();
 
             bool placed = _hasAnchor && _boardSystem.TryPlacePiece(slotIndex, _currentAnchor);
@@ -234,6 +235,7 @@ namespace MustyBlockBlast.Presentation.Views
             {
                 _hasAnchor = false;
                 _boardView.ClearPreview();
+                _boardView.ClearWouldClearHighlight();
                 return;
             }
 
@@ -246,6 +248,17 @@ namespace MustyBlockBlast.Presentation.Views
             _hasAnchor = true;
 
             _boardView.ShowPreview(piece, _currentAnchor, isValid);
+
+            if (!isValid)
+            {
+                _boardView.ClearWouldClearHighlight();
+                return;
+            }
+
+            // The query already answers "nothing" for an illegal or barren placement, and the view
+            // treats empty lines as "outline nothing" — so this needs no extra guard.
+            LineClearResult wouldClear = _boardSystem.GetWouldClearLines(_draggedSlot, _currentAnchor);
+            _boardView.ShowWouldClearHighlight(wouldClear.ClearedRows, wouldClear.ClearedColumns);
         }
 
         private void CreateDragLayer()
