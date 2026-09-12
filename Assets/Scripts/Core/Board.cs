@@ -87,6 +87,13 @@ namespace MustyBlockBlast.Core
             return new Board(copy);
         }
 
+        /// <summary>Overwrites this board's cells with <paramref name="source"/>'s. Used to reuse a scratch
+        /// board across preview queries without allocating a new board each call.</summary>
+        public void CopyFrom(Board source)
+        {
+            Array.Copy(source._cells, _cells, _cells.Length);
+        }
+
         private static int Index(GridPosition position)
         {
             if (!IsInside(position))
