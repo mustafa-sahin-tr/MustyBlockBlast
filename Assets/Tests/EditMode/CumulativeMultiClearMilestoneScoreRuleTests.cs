@@ -19,7 +19,7 @@ namespace MustyBlockBlast.Tests.EditMode
             CumulativeMultiClearMilestoneScoreRule rule = new CumulativeMultiClearMilestoneScoreRule();
             ScorePlacementContext context = new ScorePlacementContext(
                 cellCount: 4, linesCleared: 0, streakBeforePlacement: 3, monochromeLineCount: 0,
-                multiClearStreakBeforePlacement: 0, cumulativeMultiClearCountBeforePlacement: cumulativeCount);
+                multiClearStreakBeforePlacement: 0, cumulativeMultiClearCountBeforePlacement: cumulativeCount, boardEmptyAfterPlacement: false);
 
             Assert.AreEqual(0, rule.ComputeBonus(context));
         }
@@ -33,7 +33,7 @@ namespace MustyBlockBlast.Tests.EditMode
             CumulativeMultiClearMilestoneScoreRule rule = new CumulativeMultiClearMilestoneScoreRule();
             ScorePlacementContext context = new ScorePlacementContext(
                 cellCount: 4, linesCleared: 1, streakBeforePlacement: 3, monochromeLineCount: 0,
-                multiClearStreakBeforePlacement: 0, cumulativeMultiClearCountBeforePlacement: cumulativeCount);
+                multiClearStreakBeforePlacement: 0, cumulativeMultiClearCountBeforePlacement: cumulativeCount, boardEmptyAfterPlacement: false);
 
             Assert.AreEqual(0, rule.ComputeBonus(context));
         }
@@ -44,7 +44,7 @@ namespace MustyBlockBlast.Tests.EditMode
             CumulativeMultiClearMilestoneScoreRule rule = new CumulativeMultiClearMilestoneScoreRule();
             ScorePlacementContext context = new ScorePlacementContext(
                 cellCount: 4, linesCleared: 2, streakBeforePlacement: 1, monochromeLineCount: 0,
-                multiClearStreakBeforePlacement: 0, cumulativeMultiClearCountBeforePlacement: 4);
+                multiClearStreakBeforePlacement: 0, cumulativeMultiClearCountBeforePlacement: 4, boardEmptyAfterPlacement: false);
 
             Assert.AreEqual(50, rule.ComputeBonus(context));
         }
@@ -55,7 +55,7 @@ namespace MustyBlockBlast.Tests.EditMode
             CumulativeMultiClearMilestoneScoreRule rule = new CumulativeMultiClearMilestoneScoreRule();
             ScorePlacementContext context = new ScorePlacementContext(
                 cellCount: 4, linesCleared: 2, streakBeforePlacement: 1, monochromeLineCount: 0,
-                multiClearStreakBeforePlacement: 0, cumulativeMultiClearCountBeforePlacement: 9);
+                multiClearStreakBeforePlacement: 0, cumulativeMultiClearCountBeforePlacement: 9, boardEmptyAfterPlacement: false);
 
             Assert.AreEqual(100, rule.ComputeBonus(context));
         }
@@ -66,7 +66,7 @@ namespace MustyBlockBlast.Tests.EditMode
             CumulativeMultiClearMilestoneScoreRule rule = new CumulativeMultiClearMilestoneScoreRule();
             ScorePlacementContext context = new ScorePlacementContext(
                 cellCount: 4, linesCleared: 3, streakBeforePlacement: 1, monochromeLineCount: 0,
-                multiClearStreakBeforePlacement: 0, cumulativeMultiClearCountBeforePlacement: 3);
+                multiClearStreakBeforePlacement: 0, cumulativeMultiClearCountBeforePlacement: 3, boardEmptyAfterPlacement: false);
 
             // 4th occurrence — not a multiple of 5.
             Assert.AreEqual(0, rule.ComputeBonus(context));
@@ -82,7 +82,7 @@ namespace MustyBlockBlast.Tests.EditMode
             CumulativeMultiClearMilestoneScoreRule rule = new CumulativeMultiClearMilestoneScoreRule();
             ScorePlacementContext context = new ScorePlacementContext(
                 cellCount: 4, linesCleared: linesCleared, streakBeforePlacement: 1, monochromeLineCount: 0,
-                multiClearStreakBeforePlacement: 0, cumulativeMultiClearCountBeforePlacement: 4);
+                multiClearStreakBeforePlacement: 0, cumulativeMultiClearCountBeforePlacement: 4, boardEmptyAfterPlacement: false);
 
             Assert.AreEqual(50, rule.ComputeBonus(context));
         }
@@ -92,7 +92,7 @@ namespace MustyBlockBlast.Tests.EditMode
         {
             ScorePlacementContext context = new ScorePlacementContext(
                 cellCount: 4, linesCleared: 2, streakBeforePlacement: 1, monochromeLineCount: 0,
-                multiClearStreakBeforePlacement: 2, cumulativeMultiClearCountBeforePlacement: 4);
+                multiClearStreakBeforePlacement: 2, cumulativeMultiClearCountBeforePlacement: 4, boardEmptyAfterPlacement: false);
             List<IScoreRule> rules = new List<IScoreRule>
             {
                 new PlacementScoreRule(),

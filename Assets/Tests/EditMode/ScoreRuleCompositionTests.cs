@@ -18,7 +18,7 @@ namespace MustyBlockBlast.Tests.EditMode
         public void PlacementScoreRule_MatchesScoreRulesFormula(int cellCount)
         {
             PlacementScoreRule rule = new PlacementScoreRule();
-            ScorePlacementContext context = new ScorePlacementContext(cellCount, 0, 0, 0, 0, 0);
+            ScorePlacementContext context = new ScorePlacementContext(cellCount, 0, 0, 0, 0, 0, false);
 
             Assert.AreEqual(ScoreRules.PlacementScore(cellCount), rule.ComputeBonus(context));
         }
@@ -30,7 +30,7 @@ namespace MustyBlockBlast.Tests.EditMode
         public void LineClearScoreRule_MatchesScoreRulesFormula(int linesCleared, int streak)
         {
             LineClearScoreRule rule = new LineClearScoreRule();
-            ScorePlacementContext context = new ScorePlacementContext(4, linesCleared, streak, 0, 0, 0);
+            ScorePlacementContext context = new ScorePlacementContext(4, linesCleared, streak, 0, 0, 0, false);
 
             Assert.AreEqual(ScoreRules.ClearScore(linesCleared, streak), rule.ComputeBonus(context));
         }
@@ -40,7 +40,7 @@ namespace MustyBlockBlast.Tests.EditMode
         {
             LineClearScoreRule rule = new LineClearScoreRule();
 
-            Assert.AreEqual(0, rule.ComputeBonus(new ScorePlacementContext(4, 0, 3, 0, 0, 0)));
+            Assert.AreEqual(0, rule.ComputeBonus(new ScorePlacementContext(4, 0, 3, 0, 0, 0, false)));
         }
 
         [TestCase(1, 1)]
@@ -50,7 +50,7 @@ namespace MustyBlockBlast.Tests.EditMode
         public void MonochromeScoreRule_MatchesTheManualFormula(int linesCleared, int monochromeLineCount)
         {
             MonochromeScoreRule rule = new MonochromeScoreRule();
-            ScorePlacementContext context = new ScorePlacementContext(4, linesCleared, 0, monochromeLineCount, 0, 0);
+            ScorePlacementContext context = new ScorePlacementContext(4, linesCleared, 0, monochromeLineCount, 0, 0, false);
 
             // 10 points per line x lines x the +0.5x-per-monochrome-line multiplier.
             int expected = (int)System.Math.Round(
@@ -65,7 +65,7 @@ namespace MustyBlockBlast.Tests.EditMode
         {
             MonochromeScoreRule rule = new MonochromeScoreRule();
 
-            Assert.AreEqual(0, rule.ComputeBonus(new ScorePlacementContext(4, 2, 3, 0, 0, 0)));
+            Assert.AreEqual(0, rule.ComputeBonus(new ScorePlacementContext(4, 2, 3, 0, 0, 0, false)));
         }
 
         [Test]
@@ -73,7 +73,7 @@ namespace MustyBlockBlast.Tests.EditMode
         {
             MonochromeScoreRule rule = new MonochromeScoreRule();
 
-            Assert.AreEqual(0, rule.ComputeBonus(new ScorePlacementContext(4, 0, 3, 2, 0, 0)));
+            Assert.AreEqual(0, rule.ComputeBonus(new ScorePlacementContext(4, 0, 3, 2, 0, 0, false)));
         }
 
         [Test]
@@ -81,7 +81,7 @@ namespace MustyBlockBlast.Tests.EditMode
         {
             ScorePlacementContext context = new ScorePlacementContext(
                 cellCount: 4, linesCleared: 2, streakBeforePlacement: 1, monochromeLineCount: 2,
-                multiClearStreakBeforePlacement: 0, cumulativeMultiClearCountBeforePlacement: 0);
+                multiClearStreakBeforePlacement: 0, cumulativeMultiClearCountBeforePlacement: 0, boardEmptyAfterPlacement: false);
             List<IScoreRule> rules = new List<IScoreRule>
             {
                 new PlacementScoreRule(),
@@ -104,7 +104,7 @@ namespace MustyBlockBlast.Tests.EditMode
         {
             ScorePlacementContext context = new ScorePlacementContext(
                 cellCount: 4, linesCleared: 2, streakBeforePlacement: 1, monochromeLineCount: 0,
-                multiClearStreakBeforePlacement: 0, cumulativeMultiClearCountBeforePlacement: 0);
+                multiClearStreakBeforePlacement: 0, cumulativeMultiClearCountBeforePlacement: 0, boardEmptyAfterPlacement: false);
             List<IScoreRule> rules = new List<IScoreRule>
             {
                 new PlacementScoreRule(),
@@ -125,7 +125,7 @@ namespace MustyBlockBlast.Tests.EditMode
         {
             ScorePlacementContext context = new ScorePlacementContext(
                 cellCount: 5, linesCleared: 0, streakBeforePlacement: 0, monochromeLineCount: 0,
-                multiClearStreakBeforePlacement: 0, cumulativeMultiClearCountBeforePlacement: 0);
+                multiClearStreakBeforePlacement: 0, cumulativeMultiClearCountBeforePlacement: 0, boardEmptyAfterPlacement: false);
             List<IScoreRule> rules = new List<IScoreRule> { new PlacementScoreRule() };
 
             int before = SumBonuses(rules, context);
@@ -134,6 +134,115 @@ namespace MustyBlockBlast.Tests.EditMode
 
             Assert.AreEqual(ScoreRules.PlacementScore(5), before);
             Assert.AreEqual(ScoreRules.PlacementScore(5) + FAKE_RULE_BONUS, after);
+        }
+
+        /// <summary>
+        /// The bonus marker is what lets the scoring system report a combined bonus total for player
+        /// feedback (#61) without attributing it to a rule. Every bonus rule must carry it.
+        /// </summary>
+        [Test]
+        public void BonusRules_ImplementTheBonusMarker()
+        {
+            Assert.IsInstanceOf<IBonusScoreRule>(new MonochromeScoreRule());
+            Assert.IsInstanceOf<IBonusScoreRule>(new MultiClearStreakScoreRule());
+            Assert.IsInstanceOf<IBonusScoreRule>(new CumulativeMultiClearMilestoneScoreRule());
+            Assert.IsInstanceOf<IBonusScoreRule>(new BoardWipeScoreRule());
+        }
+
+        /// <summary>Base scoring is not a bonus: marking it would make every placement "celebrate".</summary>
+        [Test]
+        public void BaseScoringRules_DoNotImplementTheBonusMarker()
+        {
+            Assert.IsNotInstanceOf<IBonusScoreRule>(new PlacementScoreRule());
+            Assert.IsNotInstanceOf<IBonusScoreRule>(new LineClearScoreRule());
+        }
+
+        /// <summary>
+        /// Mirrors how the scoring system splits the per-placement total: the bonus subtotal excludes
+        /// base placement/line-clear points, and never changes the grand total.
+        /// </summary>
+        [Test]
+        public void BonusSubtotal_ExcludesBaseScoring_AndLeavesTheTotalUntouched()
+        {
+            ScorePlacementContext context = new ScorePlacementContext(
+                cellCount: 4, linesCleared: 2, streakBeforePlacement: 1, monochromeLineCount: 2,
+                multiClearStreakBeforePlacement: 0, cumulativeMultiClearCountBeforePlacement: 0,
+                boardEmptyAfterPlacement: false);
+            List<IScoreRule> rules = new List<IScoreRule>
+            {
+                new PlacementScoreRule(),
+                new LineClearScoreRule(),
+                new MonochromeScoreRule(),
+                new MultiClearStreakScoreRule()
+            };
+
+            int expectedBonus = new MonochromeScoreRule().ComputeBonus(context)
+                + new MultiClearStreakScoreRule().ComputeBonus(context);
+
+            Assert.AreEqual(expectedBonus, SumBonusRuleBonuses(rules, context));
+            Assert.AreEqual(
+                ScoreRules.PlacementScore(4) + ScoreRules.ClearScore(2, 1) + expectedBonus,
+                SumBonuses(rules, context));
+        }
+
+        /// <summary>
+        /// Negative case: a placement that clears no lines can still score (placement points), but no
+        /// bonus rule fires — so no bonus feedback is ever triggered.
+        /// </summary>
+        [Test]
+        public void BonusSubtotal_NoLinesCleared_IsZero()
+        {
+            ScorePlacementContext context = new ScorePlacementContext(
+                cellCount: 5, linesCleared: 0, streakBeforePlacement: 3, monochromeLineCount: 0,
+                multiClearStreakBeforePlacement: 4, cumulativeMultiClearCountBeforePlacement: 4,
+                boardEmptyAfterPlacement: false);
+            List<IScoreRule> rules = new List<IScoreRule>
+            {
+                new PlacementScoreRule(),
+                new LineClearScoreRule(),
+                new MonochromeScoreRule(),
+                new MultiClearStreakScoreRule(),
+                new CumulativeMultiClearMilestoneScoreRule(),
+                new BoardWipeScoreRule()
+            };
+
+            Assert.AreEqual(0, SumBonusRuleBonuses(rules, context));
+            Assert.Greater(SumBonuses(rules, context), 0);
+        }
+
+        /// <summary>Negative case: lines cleared, but no bonus condition met — nothing to celebrate.</summary>
+        [Test]
+        public void BonusSubtotal_LinesClearedWithoutAnyBonusCondition_IsZero()
+        {
+            ScorePlacementContext context = new ScorePlacementContext(
+                cellCount: 4, linesCleared: 1, streakBeforePlacement: 0, monochromeLineCount: 0,
+                multiClearStreakBeforePlacement: 0, cumulativeMultiClearCountBeforePlacement: 0,
+                boardEmptyAfterPlacement: false);
+            List<IScoreRule> rules = new List<IScoreRule>
+            {
+                new PlacementScoreRule(),
+                new LineClearScoreRule(),
+                new MonochromeScoreRule(),
+                new MultiClearStreakScoreRule(),
+                new CumulativeMultiClearMilestoneScoreRule(),
+                new BoardWipeScoreRule()
+            };
+
+            Assert.AreEqual(0, SumBonusRuleBonuses(rules, context));
+        }
+
+        private static int SumBonusRuleBonuses(IEnumerable<IScoreRule> rules, ScorePlacementContext context)
+        {
+            int total = 0;
+            foreach (IScoreRule rule in rules)
+            {
+                if (rule is IBonusScoreRule)
+                {
+                    total += rule.ComputeBonus(context);
+                }
+            }
+
+            return total;
         }
 
         private static int SumBonuses(IEnumerable<IScoreRule> rules, ScorePlacementContext context)

@@ -18,6 +18,8 @@ namespace MustyBlockBlast.Core
         private const int MULTI_CLEAR_MILESTONE_STEP = 5;
         private const int MULTI_CLEAR_MILESTONE_REWARD_PER_STEP = 10;
 
+        private const int BOARD_WIPE_BONUS = 200;
+
         /// <summary>+1 point per cell of the piece just placed.</summary>
         public static int PlacementScore(int cellCount) => cellCount * POINTS_PER_PLACED_CELL;
 
@@ -76,6 +78,19 @@ namespace MustyBlockBlast.Core
             }
 
             return occurrenceCount * MULTI_CLEAR_MILESTONE_REWARD_PER_STEP;
+        }
+
+        /// <summary>Large flat bonus when a placement's line clears leave the board completely empty
+        /// ("perfect clear"). Zero unless lines were actually cleared this placement AND the board ended up
+        /// empty.</summary>
+        public static int BoardWipeBonus(int linesCleared, bool boardEmptyAfterPlacement)
+        {
+            if (linesCleared <= 0 || !boardEmptyAfterPlacement)
+            {
+                return 0;
+            }
+
+            return BOARD_WIPE_BONUS;
         }
 
         /// <summary>10 x lines x (comboMultiplier(lines) + streakBonus(streak)). Zero when no lines cleared.</summary>

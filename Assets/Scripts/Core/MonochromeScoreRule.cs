@@ -9,7 +9,7 @@ namespace MustyBlockBlast.Core
     /// multiplier and streak bonus. Applies only when lines actually cleared (mirrors
     /// <see cref="LineClearScoreRule"/>'s zero-lines guard).
     /// </summary>
-    public sealed class MonochromeScoreRule : IScoreRule
+    public sealed class MonochromeScoreRule : IBonusScoreRule
     {
         public int ComputeBonus(ScorePlacementContext context)
         {

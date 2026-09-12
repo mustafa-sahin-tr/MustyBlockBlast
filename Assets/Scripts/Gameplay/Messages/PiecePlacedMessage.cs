@@ -12,7 +12,8 @@ namespace MustyBlockBlast.Gameplay.Messages
             int cellCount,
             int colourId,
             int linesCleared,
-            int monochromeLineCount)
+            int monochromeLineCount,
+            bool boardEmptyAfterPlacement)
         {
             PieceId = pieceId;
             Anchor = anchor;
@@ -20,6 +21,7 @@ namespace MustyBlockBlast.Gameplay.Messages
             ColourId = colourId;
             LinesCleared = linesCleared;
             MonochromeLineCount = monochromeLineCount;
+            BoardEmptyAfterPlacement = boardEmptyAfterPlacement;
         }
 
         public string PieceId { get; }
@@ -34,5 +36,9 @@ namespace MustyBlockBlast.Gameplay.Messages
 
         /// <summary>Of <see cref="LinesCleared"/>, how many were entirely one colour.</summary>
         public int MonochromeLineCount { get; }
+
+        /// <summary>True when, after this placement's line clears resolved, the board had zero occupied
+        /// cells — a "perfect clear".</summary>
+        public bool BoardEmptyAfterPlacement { get; }
     }
 }

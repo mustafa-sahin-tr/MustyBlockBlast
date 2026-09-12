@@ -12,7 +12,8 @@ namespace MustyBlockBlast.Core
             int streakBeforePlacement,
             int monochromeLineCount,
             int multiClearStreakBeforePlacement,
-            int cumulativeMultiClearCountBeforePlacement)
+            int cumulativeMultiClearCountBeforePlacement,
+            bool boardEmptyAfterPlacement)
         {
             CellCount = cellCount;
             LinesCleared = linesCleared;
@@ -20,6 +21,7 @@ namespace MustyBlockBlast.Core
             MonochromeLineCount = monochromeLineCount;
             MultiClearStreakBeforePlacement = multiClearStreakBeforePlacement;
             CumulativeMultiClearCountBeforePlacement = cumulativeMultiClearCountBeforePlacement;
+            BoardEmptyAfterPlacement = boardEmptyAfterPlacement;
         }
 
         /// <summary>Number of cells occupied by the piece that was just placed.</summary>
@@ -40,5 +42,9 @@ namespace MustyBlockBlast.Core
         /// <summary>Run-scoped count of placements that cleared 2+ lines, as it stood before this placement's
         /// increment — consecutive or not.</summary>
         public int CumulativeMultiClearCountBeforePlacement { get; }
+
+        /// <summary>True when, after this placement's line clears resolved, the board had zero occupied
+        /// cells — a "perfect clear".</summary>
+        public bool BoardEmptyAfterPlacement { get; }
     }
 }

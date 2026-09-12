@@ -79,6 +79,20 @@ namespace MustyBlockBlast.Core
             return true;
         }
 
+        /// <summary>True when every cell on the board is <see cref="EMPTY"/> — a "perfect clear".</summary>
+        public bool IsEmpty()
+        {
+            for (int i = 0; i < SIZE * SIZE; i++)
+            {
+                if (_cells[i] != EMPTY)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         /// <summary>Deep copy, used for undo snapshots.</summary>
         public Board Clone()
         {
