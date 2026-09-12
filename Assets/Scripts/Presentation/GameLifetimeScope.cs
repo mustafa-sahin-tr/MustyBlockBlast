@@ -28,12 +28,14 @@ namespace MustyBlockBlast.Presentation
             RegisterSystems(builder);
             RegisterViews(builder);
 
-            // ScoreSystem subscribes in its constructor, so it must exist before the first run starts.
-            // SettingsSystem and SfxSystem load their persisted settings in their constructors, so
-            // they must exist before any View subscribes to SettingsModel/SfxModel in Start().
+            // ScoreSystem and TimedHighScoreSystem subscribe in their constructors, so they must exist
+            // before the first run starts. SettingsSystem and SfxSystem load their persisted settings
+            // in their constructors, so they must exist before any View subscribes to
+            // SettingsModel/SfxModel in Start().
             builder.RegisterBuildCallback(container =>
             {
                 container.Resolve<ScoreSystem>();
+                container.Resolve<TimedHighScoreSystem>();
                 container.Resolve<SettingsSystem>();
                 container.Resolve<SfxSystem>();
             });
@@ -62,6 +64,7 @@ namespace MustyBlockBlast.Presentation
             builder.Register<BoardModel>(Lifetime.Singleton);
             builder.Register<TrayModel>(Lifetime.Singleton);
             builder.Register<ScoreModel>(Lifetime.Singleton);
+            builder.Register<TimedHighScoreModel>(Lifetime.Singleton);
             builder.Register<GameModeModel>(Lifetime.Singleton);
             builder.Register<TimedModeModel>(Lifetime.Singleton);
             builder.Register<TimerModel>(Lifetime.Singleton);
@@ -91,6 +94,7 @@ namespace MustyBlockBlast.Presentation
         {
             builder.Register<WeightedPieceDraw>(Lifetime.Singleton);
             builder.Register<ScoreSystem>(Lifetime.Singleton);
+            builder.Register<TimedHighScoreSystem>(Lifetime.Singleton);
             builder.Register<SfxSystem>(Lifetime.Singleton).As<ISfxService>().AsSelf();
             builder.Register<SettingsSystem>(Lifetime.Singleton);
             builder.RegisterEntryPoint<BoardSystem>(Lifetime.Singleton).AsSelf();

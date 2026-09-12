@@ -1,9 +1,11 @@
 using System.Text;
 using MessagePipe;
+using MustyBlockBlast.Gameplay;
 using MustyBlockBlast.Gameplay.Messages;
 using MustyBlockBlast.Gameplay.Models;
 using MustyBlockBlast.Gameplay.Reactive;
 using MustyBlockBlast.Gameplay.Settings;
+using MustyBlockBlast.Gameplay.Systems;
 using UnityEngine;
 using UnityEngine.UI;
 using VContainer;
@@ -27,7 +29,10 @@ namespace MustyBlockBlast.Presentation.Views
         private readonly StringBuilder _stringBuilder = new StringBuilder(32);
 
         private ScoreModel _scoreModel;
+        private TimedHighScoreModel _timedHighScoreModel;
         private SettingsModel _settingsModel;
+        private GameModeSystem _gameModeSystem;
+        private TimedModeSystem _timedModeSystem;
         private ISubscriber<GameOverMessage> _gameOverSubscriber;
         private ISubscriber<RunStartedMessage> _runStartedSubscriber;
         private GameObject _panel;
@@ -42,12 +47,18 @@ namespace MustyBlockBlast.Presentation.Views
         [Inject]
         public void Construct(
             ScoreModel scoreModel,
+            TimedHighScoreModel timedHighScoreModel,
             SettingsModel settingsModel,
+            GameModeSystem gameModeSystem,
+            TimedModeSystem timedModeSystem,
             ISubscriber<GameOverMessage> gameOverSubscriber,
             ISubscriber<RunStartedMessage> runStartedSubscriber)
         {
             _scoreModel = scoreModel;
+            _timedHighScoreModel = timedHighScoreModel;
             _settingsModel = settingsModel;
+            _gameModeSystem = gameModeSystem;
+            _timedModeSystem = timedModeSystem;
             _gameOverSubscriber = gameOverSubscriber;
             _runStartedSubscriber = runStartedSubscriber;
         }
@@ -169,10 +180,23 @@ namespace MustyBlockBlast.Presentation.Views
             _changeModeText.gameObject.SetActive(isTimeUp);
 
             _stringBuilder.Clear();
-            _stringBuilder.Append("Score ");
-            _stringBuilder.Append(_scoreModel.Score.Value);
-            _stringBuilder.Append("   Best ");
-            _stringBuilder.Append(_scoreModel.HighScore.Value);
+            if (_gameModeSystem.CurrentMode.Value == GameMode.Timed)
+            {
+                // Timed bests are per round length, so the length has to be named or the number is
+                // meaningless. Endless keeps its original wording untouched.
+                _stringBuilder.Append("Best for ");
+                _stringBuilder.Append((int)_timedModeSystem.SelectedDuration.Value);
+                _stringBuilder.Append("s: ");
+                _stringBuilder.Append(_timedHighScoreModel.Best.Value);
+            }
+            else
+            {
+                _stringBuilder.Append("Score ");
+                _stringBuilder.Append(_scoreModel.Score.Value);
+                _stringBuilder.Append("   Best ");
+                _stringBuilder.Append(_scoreModel.HighScore.Value);
+            }
+
             _scoreText.text = _stringBuilder.ToString();
 
             _panel.SetActive(true);
