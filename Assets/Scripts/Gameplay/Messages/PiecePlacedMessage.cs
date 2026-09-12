@@ -6,13 +6,20 @@ namespace MustyBlockBlast.Gameplay.Messages
     /// Carries <see cref="LinesCleared"/> so scoring is a pure function of this one message.</summary>
     public readonly struct PiecePlacedMessage
     {
-        public PiecePlacedMessage(string pieceId, GridPosition anchor, int cellCount, int colourId, int linesCleared)
+        public PiecePlacedMessage(
+            string pieceId,
+            GridPosition anchor,
+            int cellCount,
+            int colourId,
+            int linesCleared,
+            int monochromeLineCount)
         {
             PieceId = pieceId;
             Anchor = anchor;
             CellCount = cellCount;
             ColourId = colourId;
             LinesCleared = linesCleared;
+            MonochromeLineCount = monochromeLineCount;
         }
 
         public string PieceId { get; }
@@ -24,5 +31,8 @@ namespace MustyBlockBlast.Gameplay.Messages
         public int ColourId { get; }
 
         public int LinesCleared { get; }
+
+        /// <summary>Of <see cref="LinesCleared"/>, how many were entirely one colour.</summary>
+        public int MonochromeLineCount { get; }
     }
 }

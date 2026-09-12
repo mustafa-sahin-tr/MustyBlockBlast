@@ -112,6 +112,41 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.AreEqual(0, result.ClearedColumns.Count);
         }
 
+        /// <summary>Preview stamps a placeholder colour, so it never reports monochrome lines.</summary>
+        [Test]
+        public void PreviewClears_MonochromeRowCompleted_StillReportsNoMonochromeLines()
+        {
+            var board = new Board();
+            var scratchBoard = new Board();
+            var rows = new List<int>();
+            var columns = new List<int>();
+            FillRow(board, y: 3, colourId: 1);
+            board.Clear(new GridPosition(0, 3));
+
+            Piece piece = SingleCell();
+            LineClearResult result = LineClearResolver.PreviewClears(
+                board, piece, new GridPosition(0, 3), scratchBoard, rows, columns);
+
+            Assert.IsTrue(result.AnyCleared);
+            Assert.AreEqual(0, result.MonochromeLineCount);
+        }
+
+        [Test]
+        public void PreviewClears_InvalidPlacement_ReportsNoMonochromeLines()
+        {
+            var board = new Board();
+            var scratchBoard = new Board();
+            var rows = new List<int>();
+            var columns = new List<int>();
+            board.Occupy(new GridPosition(0, 0), 1);
+
+            Piece piece = SingleCell();
+            LineClearResult result = LineClearResolver.PreviewClears(
+                board, piece, new GridPosition(0, 0), scratchBoard, rows, columns);
+
+            Assert.AreEqual(0, result.MonochromeLineCount);
+        }
+
         private static Piece SingleCell() => new Piece("test_single_cell", new[] { new GridPosition(0, 0) });
 
         private static void FillRow(Board board, int y, int colourId)
