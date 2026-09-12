@@ -28,6 +28,7 @@ namespace MustyBlockBlast.Gameplay.Systems
         private readonly IScoreRule[] _scoreRules;
         private readonly IPublisher<ScoreChangedMessage> _scoreChangedPublisher;
         private readonly IPublisher<NewRecordMessage> _newRecordPublisher;
+        private readonly IPublisher<BonusScoredMessage> _bonusScoredPublisher;
         private readonly IDisposable _subscriptions;
 
         /// <summary>High score the current run started with — the bar <see cref="NewRecordMessage"/> celebrates clearing.</summary>
@@ -43,7 +44,8 @@ namespace MustyBlockBlast.Gameplay.Systems
             ISubscriber<PiecePlacedMessage> piecePlacedSubscriber,
             ISubscriber<RunStartedMessage> runStartedSubscriber,
             IPublisher<ScoreChangedMessage> scoreChangedPublisher,
-            IPublisher<NewRecordMessage> newRecordPublisher)
+            IPublisher<NewRecordMessage> newRecordPublisher,
+            IPublisher<BonusScoredMessage> bonusScoredPublisher)
         {
             _scoreModel = scoreModel;
             _gameModeSystem = gameModeSystem;
@@ -52,6 +54,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             _scoreRules = new List<IScoreRule>(scoreRules).ToArray();
             _scoreChangedPublisher = scoreChangedPublisher;
             _newRecordPublisher = newRecordPublisher;
+            _bonusScoredPublisher = bonusScoredPublisher;
             _scoreModel.HighScore.Value = PlayerPrefs.GetInt(HIGH_SCORE_PREFS_KEY, 0);
             _recordAtRunStart = _scoreModel.HighScore.Value;
 
@@ -83,12 +86,25 @@ namespace MustyBlockBlast.Gameplay.Systems
                 _scoreModel.Streak.Value,
                 message.MonochromeLineCount,
                 _scoreModel.MultiClearStreak.Value,
-                _scoreModel.CumulativeMultiClearCount.Value);
+                _scoreModel.CumulativeMultiClearCount.Value,
+                message.BoardEmptyAfterPlacement);
 
             int gained = 0;
+
+            // Bonus-only subtotal, summed from the same ComputeBonus results as the grand total — it
+            // exists purely so the presentation layer can celebrate bonuses (#61), and never feeds back
+            // into the score itself.
+            int bonusGained = 0;
             for (int ruleIndex = 0; ruleIndex < _scoreRules.Length; ruleIndex++)
             {
-                gained += _scoreRules[ruleIndex].ComputeBonus(context);
+                IScoreRule rule = _scoreRules[ruleIndex];
+                int ruleBonus = rule.ComputeBonus(context);
+                gained += ruleBonus;
+
+                if (rule is IBonusScoreRule)
+                {
+                    bonusGained += ruleBonus;
+                }
             }
 
             if (message.LinesCleared > 0)
@@ -134,6 +150,12 @@ namespace MustyBlockBlast.Gameplay.Systems
 
             _scoreChangedPublisher.Publish(new ScoreChangedMessage(
                 _scoreModel.Score.Value, gained, _scoreModel.Streak.Value));
+
+            // Nothing is published for a bonus-free placement, so consumers never have to filter zeroes.
+            if (bonusGained > 0)
+            {
+                _bonusScoredPublisher.Publish(new BonusScoredMessage(bonusGained));
+            }
         }
     }
 }

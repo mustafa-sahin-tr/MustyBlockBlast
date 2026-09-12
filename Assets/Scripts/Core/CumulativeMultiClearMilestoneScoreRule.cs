@@ -10,7 +10,7 @@ namespace MustyBlockBlast.Core
     /// per-clear-event granularity <see cref="ScoreRules.ComboMultiplier"/> already uses.
     /// </para>
     /// </summary>
-    public sealed class CumulativeMultiClearMilestoneScoreRule : IScoreRule
+    public sealed class CumulativeMultiClearMilestoneScoreRule : IBonusScoreRule
     {
         public int ComputeBonus(ScorePlacementContext context)
         {

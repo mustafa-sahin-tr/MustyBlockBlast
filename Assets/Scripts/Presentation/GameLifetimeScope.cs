@@ -50,6 +50,7 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterMessageBroker<LinesClearedMessage>(options);
             builder.RegisterMessageBroker<ScoreChangedMessage>(options);
             builder.RegisterMessageBroker<NewRecordMessage>(options);
+            builder.RegisterMessageBroker<BonusScoredMessage>(options);
             builder.RegisterMessageBroker<GameOverMessage>(options);
             builder.RegisterMessageBroker<PlaySfxRequestedMessage>(options);
             builder.RegisterMessageBroker<PlayMusicRequestedMessage>(options);
@@ -104,6 +105,7 @@ namespace MustyBlockBlast.Presentation
             builder.Register<MonochromeScoreRule>(Lifetime.Singleton).As<IScoreRule>();
             builder.Register<MultiClearStreakScoreRule>(Lifetime.Singleton).As<IScoreRule>();
             builder.Register<CumulativeMultiClearMilestoneScoreRule>(Lifetime.Singleton).As<IScoreRule>();
+            builder.Register<BoardWipeScoreRule>(Lifetime.Singleton).As<IScoreRule>();
             builder.Register<ScoreSystem>(Lifetime.Singleton);
             builder.Register<TimedHighScoreSystem>(Lifetime.Singleton);
             builder.Register<SfxSystem>(Lifetime.Singleton).As<ISfxService>().AsSelf();
@@ -128,6 +130,7 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterComponentInHierarchy<ScoreView>();
             builder.RegisterComponentInHierarchy<TimerHudView>();
             builder.RegisterComponentInHierarchy<LineClearBurstView>();
+            builder.RegisterComponentInHierarchy<BonusFeedbackView>();
             builder.RegisterComponentInHierarchy<GameOverView>();
             builder.RegisterComponentInHierarchy<BoardInputView>();
             builder.RegisterComponentInHierarchy<SfxPlayerView>();
@@ -137,6 +140,7 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterComponentInHierarchy<BlockPlaceSfxView>();
             builder.RegisterComponentInHierarchy<GameOverSfxView>();
             builder.RegisterComponentInHierarchy<NewRecordSfxView>();
+            builder.RegisterComponentInHierarchy<BonusSfxView>();
         }
     }
 }

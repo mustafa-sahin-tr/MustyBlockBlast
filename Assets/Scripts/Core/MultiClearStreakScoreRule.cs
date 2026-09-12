@@ -15,7 +15,7 @@ namespace MustyBlockBlast.Core
     /// so it stacks additively next to the combo and monochrome bonuses.
     /// </para>
     /// </summary>
-    public sealed class MultiClearStreakScoreRule : IScoreRule
+    public sealed class MultiClearStreakScoreRule : IBonusScoreRule
     {
         public int ComputeBonus(ScorePlacementContext context)
         {
