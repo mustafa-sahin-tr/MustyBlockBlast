@@ -13,7 +13,7 @@ namespace MustyBlockBlast.Presentation.Views
         private static Font _builtinFont;
 
         internal static Text Create(
-            RectTransform parent, string objectName, int fontSize, FontStyle fontStyle, Color colour)
+            RectTransform parent, string objectName, int fontSize, FontStyle fontStyle, Color colour, Font font = null)
         {
             var textObject = new GameObject(objectName, typeof(RectTransform), typeof(Text));
             var rect = (RectTransform)textObject.transform;
@@ -23,7 +23,7 @@ namespace MustyBlockBlast.Presentation.Views
             rect.pivot = new Vector2(0.5f, 0.5f);
 
             var text = textObject.GetComponent<Text>();
-            text.font = GetBuiltinFont();
+            text.font = font != null ? font : GetBuiltinFont();
             text.fontSize = fontSize;
             text.fontStyle = fontStyle;
             text.color = colour;

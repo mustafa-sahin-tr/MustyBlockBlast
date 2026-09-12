@@ -63,6 +63,9 @@ namespace MustyBlockBlast.Gameplay.Settings
         [SerializeField] private Color _ink = FromHex(0x2B2733);
         [SerializeField] private Color _softInk = FromHex(0x6E6878);
 
+        [Tooltip("Score label highlight colour — distinct from Ink so the score reads as an accent, not flat body text.")]
+        [SerializeField] private Color _accent = FromHex(0xE0A72E);
+
         [Header("Drag preview")]
         [SerializeField] private Color _validPreview = new Color(0.44f, 0.72f, 0.69f, 0.45f);
         [SerializeField] private Color _invalidPreview = new Color(0.91f, 0.47f, 0.35f, 0.35f);
@@ -87,6 +90,8 @@ namespace MustyBlockBlast.Gameplay.Settings
         public Color Ink => _ink;
 
         public Color SoftInk => _softInk;
+
+        public Color Accent => _accent;
 
         public Color ValidPreview => _validPreview;
 
