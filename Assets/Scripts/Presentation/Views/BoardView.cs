@@ -31,6 +31,10 @@ namespace MustyBlockBlast.Presentation.Views
         [SerializeField] private float _cellInset = 3f;
         [SerializeField] private float _cellBevelThickness = 12f;
 
+        [Header("Drag Preview")]
+        [Tooltip("Fraction of a cell's size added as a margin around the grid rect where the placement preview starts appearing, ahead of the pointer strictly entering the grid.")]
+        [SerializeField] private float _previewLeadMarginFraction = 0.5f;
+
         [Header("Line Clear Fade")]
         [Tooltip("Seconds a cleared cell takes to fade from its colour to fully transparent.")]
         [SerializeField] private float _fadeDuration = 0.2f;
@@ -146,7 +150,10 @@ namespace MustyBlockBlast.Presentation.Views
             }
         }
 
-        /// <summary>Maps a screen point to a board cell. False when the point is off the grid.</summary>
+        /// <summary>Maps a screen point to a board cell. Points within <see cref="_previewLeadMarginFraction"/>
+        /// of a cell's width/height outside the grid still resolve to the nearest edge cell, so the
+        /// placement preview can appear slightly ahead of the pointer entering the grid. False when
+        /// the point is farther than that margin from the grid.</summary>
         internal bool TryGetCell(Vector2 screenPosition, out GridPosition cell)
         {
             cell = default;
@@ -161,17 +168,21 @@ namespace MustyBlockBlast.Presentation.Views
                 return false;
             }
 
-            float pitch = _cellSize + _cellSpacing;
-            float originX = local.x + (_gridExtent * 0.5f);
-            float originY = local.y + (_gridExtent * 0.5f);
+            float halfExtent = _gridExtent * 0.5f;
+            float margin = _cellSize * _previewLeadMarginFraction;
 
-            int x = Mathf.FloorToInt(originX / pitch);
-            int y = Mathf.FloorToInt(originY / pitch);
-
-            if (x < 0 || x >= Board.SIZE || y < 0 || y >= Board.SIZE)
+            if (local.x < -halfExtent - margin || local.x > halfExtent + margin
+                || local.y < -halfExtent - margin || local.y > halfExtent + margin)
             {
                 return false;
             }
+
+            float pitch = _cellSize + _cellSpacing;
+            float originX = local.x + halfExtent;
+            float originY = local.y + halfExtent;
+
+            int x = Mathf.Clamp(Mathf.FloorToInt(originX / pitch), 0, Board.SIZE - 1);
+            int y = Mathf.Clamp(Mathf.FloorToInt(originY / pitch), 0, Board.SIZE - 1);
 
             cell = new GridPosition(x, y);
             return true;
@@ -180,17 +191,18 @@ namespace MustyBlockBlast.Presentation.Views
         internal Vector3 GetCellWorldPosition(GridPosition cell)
             => _cells[CellIndex(cell)].transform.position;
 
-        /// <summary>Tints the cells a piece would occupy. Safe to call every frame while dragging.</summary>
+        /// <summary>Tints the cells a piece would occupy. Safe to call every frame while dragging.
+        /// Shows nothing when the placement is not legal — an invalid drop spot gets no shadow at all.</summary>
         internal void ShowPreview(Piece piece, GridPosition anchor, bool isValid)
         {
             ClearPreview();
 
-            if (piece == null || _currentTheme == null)
+            if (piece == null || _currentTheme == null || !isValid)
             {
                 return;
             }
 
-            Color tint = isValid ? _currentTheme.ValidPreview : _currentTheme.InvalidPreview;
+            Color tint = _currentTheme.ValidPreview;
             for (int i = 0; i < piece.Offsets.Count && _previewCount < _previewCells.Length; i++)
             {
                 GridPosition cell = anchor + piece.Offsets[i];
