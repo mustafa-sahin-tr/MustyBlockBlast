@@ -40,6 +40,7 @@ namespace MustyBlockBlast.Presentation.Views
         private PieceTrayView _trayView;
         private SettingsButtonView _settingsButtonView;
         private SettingsPanelView _settingsPanelView;
+        private GameOverView _gameOverView;
 
         private int _draggedSlot = -1;
         private GridPosition _currentAnchor;
@@ -53,7 +54,8 @@ namespace MustyBlockBlast.Presentation.Views
             BoardView boardView,
             PieceTrayView trayView,
             SettingsButtonView settingsButtonView,
-            SettingsPanelView settingsPanelView)
+            SettingsPanelView settingsPanelView,
+            GameOverView gameOverView)
         {
             _boardSystem = boardSystem;
             _trayModel = trayModel;
@@ -62,6 +64,7 @@ namespace MustyBlockBlast.Presentation.Views
             _trayView = trayView;
             _settingsButtonView = settingsButtonView;
             _settingsPanelView = settingsPanelView;
+            _gameOverView = gameOverView;
         }
 
         private void Awake()
@@ -142,9 +145,17 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             // Game over is checked before the HUD icon: the game-over card covers the whole screen,
-            // so honouring a tap on the icon hidden underneath it would be a hidden hotspot.
+            // so honouring a tap on the icon hidden underneath it would be a hidden hotspot. The
+            // "change mode" link is the one exception — it is drawn on the card itself, so it is
+            // visible and must win over the card-wide restart tap.
             if (_boardSystem.IsGameOver)
             {
+                if (_gameOverView.ContainsChangeModeScreenPoint(screenPosition))
+                {
+                    _settingsPanelView.Open();
+                    return;
+                }
+
                 _boardSystem.StartNewRun();
                 return;
             }

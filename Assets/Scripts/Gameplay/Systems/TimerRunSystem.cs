@@ -81,7 +81,7 @@ namespace MustyBlockBlast.Gameplay.Systems
 
             _timerModel.RemainingSeconds.Value = 0f;
             _timerModel.IsRunning.Value = false;
-            _boardSystem.ForceGameOver();
+            _boardSystem.ForceGameOver(GameOverReason.TimeUp);
         }
 
         public void Dispose()

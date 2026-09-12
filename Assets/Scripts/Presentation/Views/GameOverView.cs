@@ -10,7 +10,10 @@ using VContainer;
 
 namespace MustyBlockBlast.Presentation.Views
 {
-    /// <summary>Shows the end-of-run card. Restarting is a tap handled by the input View.</summary>
+    /// <summary>
+    /// Shows the end-of-run card, worded for why the run ended. Restarting is a tap handled by the
+    /// input View; timed runs also get a "change mode" link back to the mode/duration picker.
+    /// </summary>
     [DisallowMultipleComponent]
     public sealed class GameOverView : MonoBehaviour
     {
@@ -33,6 +36,8 @@ namespace MustyBlockBlast.Presentation.Views
         private Text _titleText;
         private Text _scoreText;
         private Text _hintText;
+        private Text _changeModeText;
+        private Canvas _canvas;
 
         [Inject]
         public void Construct(
@@ -49,6 +54,7 @@ namespace MustyBlockBlast.Presentation.Views
 
         private void Awake()
         {
+            _canvas = GetComponentInParent<Canvas>();
             BuildPanel();
             _panel.SetActive(false);
         }
@@ -83,6 +89,7 @@ namespace MustyBlockBlast.Presentation.Views
             _titleText.color = theme.Ink;
             _scoreText.color = theme.Ink;
             _hintText.color = theme.SoftInk;
+            _changeModeText.color = theme.SoftInk;
         }
 
         private void BuildPanel()
@@ -121,11 +128,46 @@ namespace MustyBlockBlast.Presentation.Views
             _hintText.text = "Tap anywhere to play again";
             ((RectTransform)_hintText.transform).anchoredPosition = new Vector2(0f, -120f);
 
+            // Sized explicitly rather than left at the default text rect: this is the one label on
+            // the card that is hit-tested, so its rect has to be a sane tap target.
+            _changeModeText = UiTextFactory.Create(card, "ChangeMode", 32, FontStyle.Normal, Color.clear);
+            _changeModeText.text = "Change mode";
+            var changeModeRect = (RectTransform)_changeModeText.transform;
+            changeModeRect.sizeDelta = new Vector2(320f, 60f);
+            changeModeRect.anchoredPosition = new Vector2(0f, -175f);
+            _changeModeText.gameObject.SetActive(false);
+
             _panel = panelObject;
+        }
+
+        /// <summary>
+        /// True when the given screen point is on the "change mode" link. Only meaningful while the
+        /// link is visible (timed game over). Called by <see cref="BoardInputView"/>.
+        /// </summary>
+        internal bool ContainsChangeModeScreenPoint(Vector2 screenPosition)
+        {
+            if (_changeModeText == null || !_changeModeText.gameObject.activeSelf)
+            {
+                return false;
+            }
+
+            Camera eventCamera = _canvas != null && _canvas.renderMode != RenderMode.ScreenSpaceOverlay
+                ? _canvas.worldCamera
+                : null;
+
+            return RectTransformUtility.RectangleContainsScreenPoint(
+                (RectTransform)_changeModeText.transform, screenPosition, eventCamera);
         }
 
         private void OnGameOver(GameOverMessage message)
         {
+            bool isTimeUp = message.Reason == GameOverReason.TimeUp;
+            _titleText.text = isTimeUp ? "TIME'S UP" : "NO MOVES LEFT";
+
+            // Only the timed flow offers the escape hatch: endless keeps the whole card as one big
+            // restart target, exactly as before.
+            _changeModeText.gameObject.SetActive(isTimeUp);
+
             _stringBuilder.Clear();
             _stringBuilder.Append("Score ");
             _stringBuilder.Append(_scoreModel.Score.Value);

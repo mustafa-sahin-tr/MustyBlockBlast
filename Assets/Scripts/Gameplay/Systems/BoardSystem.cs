@@ -119,11 +119,12 @@ namespace MustyBlockBlast.Gameplay.Systems
         }
 
         /// <summary>
-        /// Ends the run for a reason other than "no moves left" — currently only the timed-mode
-        /// clock expiring. Kept here so the game-over invariant has exactly one owner; callers must
-        /// never set their own end-of-run state. Already-over runs are a no-op.
+        /// Ends the run for a reason the board cannot detect itself — currently only the timed-mode
+        /// clock expiring — with the caller supplying that reason. Kept here so the game-over
+        /// invariant has exactly one owner; callers must never set their own end-of-run state.
+        /// Already-over runs are a no-op.
         /// </summary>
-        public void ForceGameOver()
+        public void ForceGameOver(GameOverReason reason)
         {
             if (IsGameOver)
             {
@@ -131,7 +132,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             }
 
             IsGameOver = true;
-            _gameOverPublisher.Publish(new GameOverMessage());
+            _gameOverPublisher.Publish(new GameOverMessage(reason));
         }
 
         public void Dispose()
@@ -162,7 +163,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             }
 
             IsGameOver = true;
-            _gameOverPublisher.Publish(new GameOverMessage());
+            _gameOverPublisher.Publish(new GameOverMessage(GameOverReason.NoMovesLeft));
         }
     }
 }
