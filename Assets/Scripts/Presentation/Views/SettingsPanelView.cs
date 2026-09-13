@@ -1,6 +1,8 @@
+using System;
 using System.Collections.Generic;
 using System.Text;
 using MustyBlockBlast.Gameplay;
+using MustyBlockBlast.Gameplay.Localization;
 using MustyBlockBlast.Gameplay.Models;
 using MustyBlockBlast.Gameplay.Reactive;
 using MustyBlockBlast.Gameplay.Settings;
@@ -12,10 +14,13 @@ using VContainer;
 namespace MustyBlockBlast.Presentation.Views
 {
     /// <summary>
-    /// The settings overlay. Four screens live inside one card:
+    /// The settings overlay. Several screens live inside one card:
     /// <list type="bullet">
-    /// <item>Settings — a grouped list with the current mode, the current theme, the sound toggle and
-    /// a (visual only) round duration row.</item>
+    /// <item>Settings — a grouped list with the current mode, the current theme, the current
+    /// language, the sound toggle and a round duration row.</item>
+    /// <item>Language — one chip per shipped language, each labelled in its own language. Picking one
+    /// calls <see cref="LocalizationSystem.SetLocale"/>; the re-wording is handled by the reactive
+    /// locale subscriptions in every View, this one included.</item>
     /// <item>Theme — the swatch grid; picking one calls <see cref="SettingsSystem.SetTheme"/> and
     /// returns to the settings screen. The recolour itself is handled by the existing reactive theme
     /// subscriptions in every other View, so nothing else happens here.</item>
@@ -47,7 +52,7 @@ namespace MustyBlockBlast.Presentation.Views
         private const float ICON_BUTTON_SIZE = 92f;
         private const float LIST_WIDTH = 760f;
         private const float ROW_HEIGHT = 128f;
-        private const int ROW_COUNT = 4;
+        private const int ROW_COUNT = 5;
 
         /// <summary>Card top edge to list top edge: the header band plus the gap under it.</summary>
         private const float LIST_TOP_INSET = 194f;
@@ -69,13 +74,12 @@ namespace MustyBlockBlast.Presentation.Views
         private const float CHEVRON_HALF_SIZE = 13f;
         private const float CHEVRON_THICKNESS = 7f;
 
-        /// <summary>Shown in the duration pill while endless is active, where a length means nothing.</summary>
+        /// <summary>
+        /// Shown in the duration pill while endless is active, where a length means nothing. An em
+        /// dash, not a word — deliberately left out of the String Table, since there is nothing here
+        /// for a translator to translate.
+        /// </summary>
         private const string DURATION_NOT_APPLICABLE = "—";
-
-        private const string DURATION_UNIT_SUFFIX = " sn";
-
-        private const string ENDLESS_MODE_NAME = "Sınırsız";
-        private const string TIMED_MODE_NAME = "Süreli";
 
         private static readonly Vector2 ModeOptionSize = new Vector2(320f, 180f);
         private static readonly Vector2 ConfirmButtonSize = new Vector2(340f, 96f);
@@ -84,6 +88,11 @@ namespace MustyBlockBlast.Presentation.Views
         private const int DURATION_COLUMN_COUNT = 3;
         private static readonly Vector2 DurationOptionSize = new Vector2(200f, 130f);
         private static readonly Vector2 DurationOptionSpacing = new Vector2(232f, 162f);
+
+        // One chip per language, stacked instead of gridded: a language name is a word rather than a
+        // number, so it needs a wide chip, and three wide chips only fit one to a row.
+        private static readonly Vector2 LanguageOptionSize = new Vector2(520f, 116f);
+        private const float LANGUAGE_OPTION_SPACING_Y = 148f;
 
         // The switch is a universal affordance, so unlike everything else on the card it keeps the
         // same colours in every theme.
@@ -94,6 +103,7 @@ namespace MustyBlockBlast.Presentation.Views
         private readonly List<ThemeOption> _options = new List<ThemeOption>(4);
         private readonly List<ModeOption> _modeOptions = new List<ModeOption>(2);
         private readonly List<DurationOption> _durationOptions = new List<DurationOption>(6);
+        private readonly List<LanguageOption> _languageOptions = new List<LanguageOption>(3);
         private readonly StringBuilder _stringBuilder = new StringBuilder(8);
 
         // Repaint buckets: every Image built here belongs to exactly one of them, so a theme switch is
@@ -104,6 +114,16 @@ namespace MustyBlockBlast.Presentation.Views
         private readonly List<Image> _dividerImages = new List<Image>(2);
         private readonly List<Text> _inkTexts = new List<Text>(8);
         private readonly Image[] _themeBadgeDots = new Image[ThemeDefinition.KIND_COUNT];
+
+        /// <summary>
+        /// Every label whose wording is a plain String Table lookup, paired with its key. The same
+        /// "repaint bucket" idea as <see cref="_inkTexts"/>, applied to words instead of colours: a
+        /// language switch is one tight loop rather than a hierarchy walk, and a new label is one
+        /// <see cref="RegisterLocalized"/> call rather than a new branch in the locale handler.
+        /// Labels that need a value substituted in (the pills, the duration chips) are not in here —
+        /// they are re-rendered by their own refresh methods.
+        /// </summary>
+        private readonly List<LocalizedLabel> _localizedLabels = new List<LocalizedLabel>(16);
 
         [Header("Layout")]
         [Tooltip("Card size while the theme grid is showing.")]
@@ -122,6 +142,8 @@ namespace MustyBlockBlast.Presentation.Views
 
         private SettingsModel _settingsModel;
         private SettingsSystem _settingsSystem;
+        private LocalizationModel _localizationModel;
+        private LocalizationSystem _localizationSystem;
         private SfxModel _sfxModel;
         private ISfxService _sfxService;
         private GameModeSystem _gameModeSystem;
@@ -145,6 +167,7 @@ namespace MustyBlockBlast.Presentation.Views
         private GameObject _modeScreenRoot;
         private GameObject _confirmScreenRoot;
         private GameObject _durationScreenRoot;
+        private GameObject _languageScreenRoot;
 
         private Image _listImage;
         private RectTransform _closeButtonRect;
@@ -152,9 +175,11 @@ namespace MustyBlockBlast.Presentation.Views
         private RectTransform _themeRowRect;
         private RectTransform _soundRowRect;
         private RectTransform _durationRowRect;
+        private RectTransform _languageRowRect;
         private RectTransform _themeBackButtonRect;
         private RectTransform _modeBackButtonRect;
         private RectTransform _durationBackButtonRect;
+        private RectTransform _languageBackButtonRect;
         private RectTransform _confirmYesRect;
         private RectTransform _confirmNoRect;
         private RectTransform _toggleThumbRect;
@@ -163,6 +188,7 @@ namespace MustyBlockBlast.Presentation.Views
         private Text _modeValueText;
         private Text _durationValueText;
         private Text _durationLabelText;
+        private Text _languageValueText;
 
         /// <summary>Which of the screens inside the card is showing.</summary>
         private enum PanelScreen
@@ -172,6 +198,21 @@ namespace MustyBlockBlast.Presentation.Views
             Mode,
             ModeConfirm,
             Duration,
+            Language,
+        }
+
+        /// <summary>A built label together with the String Table key it renders.</summary>
+        private readonly struct LocalizedLabel
+        {
+            internal LocalizedLabel(Text label, string key)
+            {
+                Label = label;
+                Key = key;
+            }
+
+            internal Text Label { get; }
+
+            internal string Key { get; }
         }
 
         /// <summary>
@@ -187,6 +228,8 @@ namespace MustyBlockBlast.Presentation.Views
         public void Construct(
             SettingsModel settingsModel,
             SettingsSystem settingsSystem,
+            LocalizationModel localizationModel,
+            LocalizationSystem localizationSystem,
             SfxModel sfxModel,
             ISfxService sfxService,
             GameModeSystem gameModeSystem,
@@ -195,6 +238,8 @@ namespace MustyBlockBlast.Presentation.Views
         {
             _settingsModel = settingsModel;
             _settingsSystem = settingsSystem;
+            _localizationModel = localizationModel;
+            _localizationSystem = localizationSystem;
             _sfxModel = sfxModel;
             _sfxService = sfxService;
             _gameModeSystem = gameModeSystem;
@@ -210,6 +255,7 @@ namespace MustyBlockBlast.Presentation.Views
         private void Start()
         {
             if (_settingsModel == null || _settingsSystem == null || _sfxModel == null || _sfxService == null
+                || _localizationModel == null || _localizationSystem == null
                 || _gameModeSystem == null || _timedModeSystem == null || _timerRunSystem == null)
             {
                 Debug.LogError(
@@ -223,11 +269,15 @@ namespace MustyBlockBlast.Presentation.Views
             SetScreen(PanelScreen.Settings);
             _panel.SetActive(false);
 
+            // Before the theme subscription: the theme handler repaints the duration row, which can
+            // only be worded once the language is known.
+            _localizationModel.CurrentLocale.Subscribe(OnLocaleChanged).AddTo(_disposables);
+
             _settingsModel.CurrentTheme.Subscribe(OnThemeChanged).AddTo(_disposables);
             _sfxModel.IsMuted.Subscribe(OnMutedChanged).AddTo(_disposables);
             _timedModeSystem.SelectedDuration.Subscribe(OnSelectedDurationChanged).AddTo(_disposables);
 
-            // Last, because its handler repaints the duration row, which needs the two above to have
+            // Last, because its handler repaints the duration row, which needs the ones above to have
             // published their first value.
             _gameModeSystem.CurrentMode.Subscribe(OnModeChanged).AddTo(_disposables);
         }
@@ -275,6 +325,7 @@ namespace MustyBlockBlast.Presentation.Views
                 PanelScreen.Mode => HandleModeScreenTap(screenPosition, eventCamera),
                 PanelScreen.ModeConfirm => HandleConfirmScreenTap(screenPosition, eventCamera),
                 PanelScreen.Duration => HandleDurationScreenTap(screenPosition, eventCamera),
+                PanelScreen.Language => HandleLanguageScreenTap(screenPosition, eventCamera),
                 _ => HandleSettingsScreenTap(screenPosition, eventCamera),
             };
 
@@ -310,6 +361,12 @@ namespace MustyBlockBlast.Presentation.Views
             if (RectTransformUtility.RectangleContainsScreenPoint(_themeRowRect, screenPosition, eventCamera))
             {
                 SetScreen(PanelScreen.Theme);
+                return true;
+            }
+
+            if (RectTransformUtility.RectangleContainsScreenPoint(_languageRowRect, screenPosition, eventCamera))
+            {
+                SetScreen(PanelScreen.Language);
                 return true;
             }
 
@@ -432,6 +489,32 @@ namespace MustyBlockBlast.Presentation.Views
             return false;
         }
 
+        private bool HandleLanguageScreenTap(Vector2 screenPosition, Camera eventCamera)
+        {
+            for (int optionIndex = 0; optionIndex < _languageOptions.Count; optionIndex++)
+            {
+                LanguageOption option = _languageOptions[optionIndex];
+                if (!RectTransformUtility.RectangleContainsScreenPoint(option.Rect, screenPosition, eventCamera))
+                {
+                    continue;
+                }
+
+                // The System owns the switch and the persistence; every label on every open screen
+                // re-words itself through the CurrentLocale subscriptions, this card's included.
+                _localizationSystem.SetLocale(option.LocaleCode);
+                SetScreen(PanelScreen.Settings);
+                return true;
+            }
+
+            if (RectTransformUtility.RectangleContainsScreenPoint(_languageBackButtonRect, screenPosition, eventCamera))
+            {
+                SetScreen(PanelScreen.Settings);
+                return true;
+            }
+
+            return false;
+        }
+
         private void Close()
         {
             _panel.SetActive(false);
@@ -447,6 +530,7 @@ namespace MustyBlockBlast.Presentation.Views
             _modeScreenRoot.SetActive(screen == PanelScreen.Mode);
             _confirmScreenRoot.SetActive(screen == PanelScreen.ModeConfirm);
             _durationScreenRoot.SetActive(screen == PanelScreen.Duration);
+            _languageScreenRoot.SetActive(screen == PanelScreen.Language);
 
             // The screens need very different heights, so the shared card resizes with them rather
             // than leaving the shorter content stranded in a tall empty card.
@@ -522,7 +606,7 @@ namespace MustyBlockBlast.Presentation.Views
                 _themeBadgeDots[kindIndex].color = theme.GetFill(kindIndex + 1);
             }
 
-            _themeValueText.text = theme.DisplayName;
+            _themeValueText.text = ResolveThemeName(theme);
 
             // The swatches themselves show their own theme's colours and never change; only the
             // selection outline and the labels follow the active theme.
@@ -536,10 +620,120 @@ namespace MustyBlockBlast.Presentation.Views
 
             RefreshModeSelection();
             RefreshDurationSelection();
+            RefreshLanguageSelection();
 
             // Last: the bulk ink loops above repaint the duration row's label and pill too, so its
             // greyed-out state has to be reapplied on top of them.
             RefreshDurationRow();
+        }
+
+        /// <summary>
+        /// Re-words every label on every screen, showing or hidden, so a screen the player has not
+        /// opened yet is already in the new language when they do. The mirror image of
+        /// <see cref="OnThemeChanged"/>, which does the same for colour.
+        /// </summary>
+        private void OnLocaleChanged(LocaleDefinition locale)
+        {
+            for (int labelIndex = 0; labelIndex < _localizedLabels.Count; labelIndex++)
+            {
+                LocalizedLabel localizedLabel = _localizedLabels[labelIndex];
+                localizedLabel.Label.text = _localizationSystem.Translate(localizedLabel.Key);
+            }
+
+            RefreshDurationOptionLabels();
+            RefreshModeValue();
+            RefreshDurationRow();
+            RefreshThemeNames();
+
+            // The language rows are the one place that shows a language's own name rather than a
+            // translated string, so they are driven by the locale itself instead of the table.
+            RefreshLanguageValue(locale);
+            RefreshLanguageSelection();
+        }
+
+        /// <summary>
+        /// Re-words the theme row's pill and every swatch label in the picker. Unlike the language
+        /// row, theme names ARE translated (Summer/Verano/Yaz differ per locale), so both call sites
+        /// resolve through <see cref="ResolveThemeName"/> instead of a raw <c>DisplayName</c>.
+        /// </summary>
+        private void RefreshThemeNames()
+        {
+            if (_themeValueText != null)
+            {
+                _themeValueText.text = ResolveThemeName(_settingsModel.CurrentTheme.Value);
+            }
+
+            IReadOnlyList<ThemeDefinition> themes = _settingsModel.AvailableThemes;
+            for (int optionIndex = 0; optionIndex < _options.Count; optionIndex++)
+            {
+                ThemeOption option = _options[optionIndex];
+                for (int themeIndex = 0; themeIndex < themes.Count; themeIndex++)
+                {
+                    ThemeDefinition theme = themes[themeIndex];
+                    if (theme != null && theme.Id == option.ThemeId)
+                    {
+                        option.NameText.text = ResolveThemeName(theme);
+                        break;
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Resolves a theme's player-facing name via its <see cref="ThemeDefinition.TranslationKey"/>,
+        /// falling back to <see cref="ThemeDefinition.DisplayName"/> only when a theme asset was shipped
+        /// without wiring localization — a data-completeness guard, not a table fallback (the table's
+        /// own missing-key fallback lives in <see cref="LocalizationSystem.Translate"/>).
+        /// </summary>
+        private string ResolveThemeName(ThemeDefinition theme)
+        {
+            if (theme == null)
+            {
+                return string.Empty;
+            }
+
+            if (string.IsNullOrEmpty(theme.TranslationKey))
+            {
+                return theme.DisplayName;
+            }
+
+            return _localizationSystem.Translate(theme.TranslationKey);
+        }
+
+        /// <summary>
+        /// Re-words the language row's pill. The name is the locale's own
+        /// <see cref="LocaleDefinition.DisplayName"/> — "Türkçe", never "Turkish" — so a player who
+        /// cannot read the current language can still find their own.
+        /// </summary>
+        private void RefreshLanguageValue(LocaleDefinition locale)
+        {
+            if (_languageValueText == null || locale == null)
+            {
+                return;
+            }
+
+            _languageValueText.text = locale.DisplayName;
+        }
+
+        /// <summary>Repaints the language chips' selection outline.</summary>
+        private void RefreshLanguageSelection()
+        {
+            ThemeDefinition theme = _settingsModel.CurrentTheme.Value;
+            if (theme == null)
+            {
+                return;
+            }
+
+            LocaleDefinition currentLocale = _localizationModel.CurrentLocale.Value;
+            string currentCode = currentLocale == null ? null : currentLocale.Code;
+
+            for (int optionIndex = 0; optionIndex < _languageOptions.Count; optionIndex++)
+            {
+                LanguageOption option = _languageOptions[optionIndex];
+                bool isSelected = string.Equals(option.LocaleCode, currentCode, StringComparison.OrdinalIgnoreCase);
+                option.BorderImage.color = isSelected ? theme.Ink : Color.clear;
+                option.NameText.color = isSelected ? theme.Ink : theme.SoftInk;
+            }
         }
 
         private void OnModeChanged(GameMode mode)
@@ -549,9 +743,46 @@ namespace MustyBlockBlast.Presentation.Views
                 return;
             }
 
-            _modeValueText.text = mode == GameMode.Timed ? TIMED_MODE_NAME : ENDLESS_MODE_NAME;
+            RefreshModeValue();
             RefreshModeSelection();
             RefreshDurationRow();
+        }
+
+        /// <summary>Re-words the mode row's pill from the active mode.</summary>
+        private void RefreshModeValue()
+        {
+            if (_modeValueText == null)
+            {
+                return;
+            }
+
+            _modeValueText.text = _localizationSystem.Translate(
+                ModeNameKey(_gameModeSystem.CurrentMode.Value));
+        }
+
+        /// <summary>Re-renders the duration chips, whose wording is a number in the seconds format.</summary>
+        private void RefreshDurationOptionLabels()
+        {
+            for (int optionIndex = 0; optionIndex < _durationOptions.Count; optionIndex++)
+            {
+                DurationOption option = _durationOptions[optionIndex];
+                option.NameText.text = FormatDuration(option.Seconds);
+            }
+        }
+
+        private static string ModeNameKey(GameMode mode)
+        {
+            return mode == GameMode.Timed ? LocalizationKeys.MODE_TIMED : LocalizationKeys.MODE_ENDLESS;
+        }
+
+        /// <summary>
+        /// Records <paramref name="label"/> as rendering <paramref name="key"/> and paints it once, so
+        /// a label is correct from the moment it is built rather than only after the first switch.
+        /// </summary>
+        private void RegisterLocalized(Text label, string key)
+        {
+            _localizedLabels.Add(new LocalizedLabel(label, key));
+            label.text = _localizationSystem.Translate(key);
         }
 
         private void OnSelectedDurationChanged(float seconds)
@@ -608,12 +839,15 @@ namespace MustyBlockBlast.Presentation.Views
             }
         }
 
+        /// <summary>
+        /// Renders a round length through the shared seconds format, the same one the countdown HUD
+        /// and the game-over card use, so a length is spelled identically everywhere it appears.
+        /// </summary>
         private string FormatDuration(float seconds)
         {
             _stringBuilder.Clear();
             _stringBuilder.Append(Mathf.RoundToInt(seconds));
-            _stringBuilder.Append(DURATION_UNIT_SUFFIX);
-            return _stringBuilder.ToString();
+            return _localizationSystem.Format(LocalizationKeys.FORMAT_SECONDS, _stringBuilder.ToString());
         }
 
         /// <summary>Repaints the mode cards' selection outline. Shared by the theme and mode handlers.</summary>
@@ -664,12 +898,14 @@ namespace MustyBlockBlast.Presentation.Views
             _modeScreenRoot = CreateScreenRoot("ModeScreen");
             _confirmScreenRoot = CreateScreenRoot("ModeConfirmScreen");
             _durationScreenRoot = CreateScreenRoot("DurationScreen");
+            _languageScreenRoot = CreateScreenRoot("LanguageScreen");
 
             BuildSettingsScreen((RectTransform)_settingsScreenRoot.transform, SettingsCardSize.y * 0.5f);
             BuildThemeScreen((RectTransform)_themeScreenRoot.transform, _cardSize.y * 0.5f);
             BuildModeScreen((RectTransform)_modeScreenRoot.transform, SettingsCardSize.y * 0.5f);
             BuildConfirmScreen((RectTransform)_confirmScreenRoot.transform, _confirmCardSize.y * 0.5f);
             BuildDurationScreen((RectTransform)_durationScreenRoot.transform, SettingsCardSize.y * 0.5f);
+            BuildLanguageScreen((RectTransform)_languageScreenRoot.transform, SettingsCardSize.y * 0.5f);
 
             _panel = panelObject;
         }
@@ -692,9 +928,10 @@ namespace MustyBlockBlast.Presentation.Views
             float halfWidth = SettingsCardSize.x * 0.5f;
 
             Text title = CreateLabel(
-                root, "Title", "Ayarlar", 64, FontStyle.Bold, TextAnchor.MiddleLeft,
+                root, "Title", 64, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(-halfWidth + SIDE_INSET, headerY));
             _inkTexts.Add(title);
+            RegisterLocalized(title, LocalizationKeys.SETTINGS_TITLE);
 
             BuildCloseButton(
                 root,
@@ -711,10 +948,16 @@ namespace MustyBlockBlast.Presentation.Views
             _listImage = listObject.GetComponent<Image>();
             ConfigureRounded(_listImage);
 
-            _modeRowRect = BuildRow(listRect, 0, "ModeRow", "Mod", out _);
-            _themeRowRect = BuildRow(listRect, 1, "ThemeRow", "Tema", out _);
-            _soundRowRect = BuildRow(listRect, 2, "SoundRow", "Ses", out _);
-            _durationRowRect = BuildRow(listRect, 3, "DurationRow", "Süre", out _durationLabelText);
+            _modeRowRect = BuildRow(listRect, 0, "ModeRow", LocalizationKeys.SETTINGS_ROW_MODE, out _);
+            _themeRowRect = BuildRow(listRect, 1, "ThemeRow", LocalizationKeys.SETTINGS_ROW_THEME, out _);
+
+            // Next to the theme row rather than at the bottom: both are "how the game looks and
+            // reads", and a player hunting for the language in a script they cannot read finds it
+            // faster in the top half of the list.
+            _languageRowRect = BuildRow(listRect, 2, "LanguageRow", LocalizationKeys.SETTINGS_ROW_LANGUAGE, out _);
+            _soundRowRect = BuildRow(listRect, 3, "SoundRow", LocalizationKeys.SETTINGS_ROW_SOUND, out _);
+            _durationRowRect = BuildRow(
+                listRect, 4, "DurationRow", LocalizationKeys.SETTINGS_ROW_DURATION, out _durationLabelText);
 
             for (int dividerIndex = 1; dividerIndex < ROW_COUNT; dividerIndex++)
             {
@@ -723,6 +966,7 @@ namespace MustyBlockBlast.Presentation.Views
 
             BuildModeRowContent(_modeRowRect);
             BuildThemeRowContent(_themeRowRect);
+            BuildLanguageRowContent(_languageRowRect);
             BuildSoundRowContent(_soundRowRect);
             BuildDurationRowContent(_durationRowRect);
         }
@@ -733,7 +977,7 @@ namespace MustyBlockBlast.Presentation.Views
         /// greys out in endless mode.
         /// </summary>
         private RectTransform BuildRow(
-            RectTransform listRect, int rowIndex, string objectName, string label, out Text labelText)
+            RectTransform listRect, int rowIndex, string objectName, string labelKey, out Text labelText)
         {
             var rowObject = new GameObject(objectName, typeof(RectTransform));
             var rowRect = (RectTransform)rowObject.transform;
@@ -743,9 +987,10 @@ namespace MustyBlockBlast.Presentation.Views
                 0f, (((ROW_COUNT - 1) * 0.5f) - rowIndex) * ROW_HEIGHT);
 
             labelText = CreateLabel(
-                rowRect, "Label", label, 40, FontStyle.Normal, TextAnchor.MiddleLeft,
+                rowRect, "Label", 40, FontStyle.Normal, TextAnchor.MiddleLeft,
                 new Vector2((-LIST_WIDTH * 0.5f) + 140f, 0f));
             _inkTexts.Add(labelText);
+            RegisterLocalized(labelText, labelKey);
 
             return rowRect;
         }
@@ -781,7 +1026,7 @@ namespace MustyBlockBlast.Presentation.Views
         {
             RectTransform badgeRect = BuildBadge(rowRect);
             BuildModeGlyph(badgeRect);
-            _modeValueText = BuildPill(rowRect, string.Empty);
+            _modeValueText = BuildPill(rowRect);
         }
 
         /// <summary>
@@ -833,7 +1078,74 @@ namespace MustyBlockBlast.Presentation.Views
             // Same three dots as the swatches use, just smaller: one visual language for "theme".
             BuildKindDots(badgeRect, null, 20f, 26f, Vector2.zero, _themeBadgeDots);
 
-            _themeValueText = BuildPill(rowRect, string.Empty);
+            _themeValueText = BuildPill(rowRect);
+        }
+
+        private void BuildLanguageRowContent(RectTransform rowRect)
+        {
+            RectTransform badgeRect = BuildBadge(rowRect);
+            BuildGlobeGlyph(badgeRect);
+            _languageValueText = BuildPill(rowRect);
+        }
+
+        /// <summary>
+        /// Ring plus an equator and a meridian — the usual globe, built from the same ring-and-bars
+        /// parts as the clock glyph so the badges stay one family.
+        /// </summary>
+        private void BuildGlobeGlyph(RectTransform badgeRect)
+        {
+            const float GLOBE_DIAMETER = 54f;
+            const float GLOBE_FACE_DIAMETER = 40f;
+            const float MERIDIAN_WIDTH = 26f;
+            const float LINE_THICKNESS = 5f;
+
+            var globeObject = new GameObject("GlobeOutline", typeof(RectTransform), typeof(Image));
+            var globeRect = (RectTransform)globeObject.transform;
+            globeRect.SetParent(badgeRect, false);
+            Centre(globeRect, new Vector2(GLOBE_DIAMETER, GLOBE_DIAMETER));
+            var globeImage = globeObject.GetComponent<Image>();
+            ConfigureCircle(globeImage);
+            _inkImages.Add(globeImage);
+
+            // Same fake cut-out as the clock dial: the badge underneath is one opaque colour, so a
+            // smaller circle in that colour turns the disc into a ring.
+            var faceObject = new GameObject("GlobeFace", typeof(RectTransform), typeof(Image));
+            var faceRect = (RectTransform)faceObject.transform;
+            faceRect.SetParent(badgeRect, false);
+            Centre(faceRect, new Vector2(GLOBE_FACE_DIAMETER, GLOBE_FACE_DIAMETER));
+            var faceImage = faceObject.GetComponent<Image>();
+            ConfigureCircle(faceImage);
+            _badgeImages.Add(faceImage);
+
+            // A narrow ellipse would be truer, but the sprite set has no ellipse; a narrow rounded
+            // rect reads the same at badge size. Drawn after the cut-out so it survives it.
+            var meridianObject = new GameObject("GlobeMeridian", typeof(RectTransform), typeof(Image));
+            var meridianRect = (RectTransform)meridianObject.transform;
+            meridianRect.SetParent(badgeRect, false);
+            Centre(meridianRect, new Vector2(MERIDIAN_WIDTH, GLOBE_DIAMETER));
+            var meridianImage = meridianObject.GetComponent<Image>();
+            ConfigureRounded(meridianImage);
+            _inkImages.Add(meridianImage);
+
+            // Hollows the meridian out so it reads as an outline rather than a filled capsule.
+            var meridianHoleObject = new GameObject("GlobeMeridianHole", typeof(RectTransform), typeof(Image));
+            var meridianHoleRect = (RectTransform)meridianHoleObject.transform;
+            meridianHoleRect.SetParent(badgeRect, false);
+            Centre(
+                meridianHoleRect,
+                new Vector2(MERIDIAN_WIDTH - (LINE_THICKNESS * 2f), GLOBE_DIAMETER - (LINE_THICKNESS * 2f)));
+            var meridianHoleImage = meridianHoleObject.GetComponent<Image>();
+            ConfigureRounded(meridianHoleImage);
+            _badgeImages.Add(meridianHoleImage);
+
+            // Last of all: the meridian's own cut-out would otherwise punch a gap out of its middle.
+            var equatorObject = new GameObject("GlobeEquator", typeof(RectTransform), typeof(Image));
+            var equatorRect = (RectTransform)equatorObject.transform;
+            equatorRect.SetParent(badgeRect, false);
+            Centre(equatorRect, new Vector2(GLOBE_DIAMETER, LINE_THICKNESS));
+            var equatorImage = equatorObject.GetComponent<Image>();
+            ConfigureRounded(equatorImage);
+            _inkImages.Add(equatorImage);
         }
 
         private void BuildSoundRowContent(RectTransform rowRect)
@@ -847,7 +1159,7 @@ namespace MustyBlockBlast.Presentation.Views
         {
             RectTransform badgeRect = BuildBadge(rowRect);
             BuildClockGlyph(badgeRect);
-            _durationValueText = BuildPill(rowRect, string.Empty);
+            _durationValueText = BuildPill(rowRect);
         }
 
         /// <summary>Three ascending bars, bottom-aligned — the usual "volume" glyph.</summary>
@@ -916,7 +1228,7 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         /// <summary>Right-aligned value pill with a chevron. Returns its value label.</summary>
-        private Text BuildPill(RectTransform rowRect, string value)
+        private Text BuildPill(RectTransform rowRect)
         {
             var pillObject = new GameObject("Pill", typeof(RectTransform), typeof(Image));
             var pillRect = (RectTransform)pillObject.transform;
@@ -931,7 +1243,7 @@ namespace MustyBlockBlast.Presentation.Views
             BuildChevron(pillRect, new Vector2((PILL_WIDTH * 0.5f) - 30f, 0f), 1f);
 
             Text valueText = CreateLabel(
-                pillRect, "Value", value, 34, FontStyle.Bold, TextAnchor.MiddleRight,
+                pillRect, "Value", 34, FontStyle.Bold, TextAnchor.MiddleRight,
                 new Vector2((PILL_WIDTH * 0.5f) - 56f, 0f));
             _inkTexts.Add(valueText);
             return valueText;
@@ -1018,9 +1330,10 @@ namespace MustyBlockBlast.Presentation.Views
             _themeBackButtonRect = BuildBackButton(root, leftEdge, headerY);
 
             Text title = CreateLabel(
-                root, "Title", "Tema Seç", 64, FontStyle.Bold, TextAnchor.MiddleLeft,
+                root, "Title", 64, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(leftEdge + SIDE_INSET + ICON_BUTTON_SIZE + 30f, headerY));
             _inkTexts.Add(title);
+            RegisterLocalized(title, LocalizationKeys.SETTINGS_THEME_SCREEN_TITLE);
 
             BuildOptions(root);
         }
@@ -1049,23 +1362,22 @@ namespace MustyBlockBlast.Presentation.Views
             _modeBackButtonRect = BuildBackButton(root, leftEdge, headerY);
 
             Text title = CreateLabel(
-                root, "Title", "Mod Seç", 64, FontStyle.Bold, TextAnchor.MiddleLeft,
+                root, "Title", 64, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(leftEdge + SIDE_INSET + ICON_BUTTON_SIZE + 30f, headerY));
             _inkTexts.Add(title);
+            RegisterLocalized(title, LocalizationKeys.SETTINGS_MODE_SCREEN_TITLE);
 
             // Two options only, so the same column-centring the theme grid uses collapses to one
             // centred row.
             for (int modeIndex = 0; modeIndex < 2; modeIndex++)
             {
                 GameMode mode = modeIndex == 0 ? GameMode.Endless : GameMode.Timed;
-                string label = modeIndex == 0 ? ENDLESS_MODE_NAME : TIMED_MODE_NAME;
                 float x = (modeIndex - ((COLUMN_COUNT - 1) * 0.5f)) * MODE_OPTION_SPACING_X;
-                _modeOptions.Add(BuildModeOption(root, mode, label, new Vector2(x, 0f)));
+                _modeOptions.Add(BuildModeOption(root, mode, new Vector2(x, 0f)));
             }
         }
 
-        private ModeOption BuildModeOption(
-            RectTransform root, GameMode mode, string label, Vector2 anchoredPosition)
+        private ModeOption BuildModeOption(RectTransform root, GameMode mode, Vector2 anchoredPosition)
         {
             var optionObject = new GameObject($"ModeOption_{mode}", typeof(RectTransform));
             var optionRect = (RectTransform)optionObject.transform;
@@ -1091,7 +1403,7 @@ namespace MustyBlockBlast.Presentation.Views
             _badgeImages.Add(faceImage);
 
             Text nameText = UiTextFactory.Create(optionRect, "Name", 42, FontStyle.Bold, Color.clear);
-            nameText.text = label;
+            RegisterLocalized(nameText, ModeNameKey(mode));
 
             return new ModeOption(mode, optionRect, borderImage, nameText);
         }
@@ -1104,9 +1416,10 @@ namespace MustyBlockBlast.Presentation.Views
             _durationBackButtonRect = BuildBackButton(root, leftEdge, headerY);
 
             Text title = CreateLabel(
-                root, "Title", "Süre Seç", 64, FontStyle.Bold, TextAnchor.MiddleLeft,
+                root, "Title", 64, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(leftEdge + SIDE_INSET + ICON_BUTTON_SIZE + 30f, headerY));
             _inkTexts.Add(title);
+            RegisterLocalized(title, LocalizationKeys.SETTINGS_DURATION_SCREEN_TITLE);
 
             // Same centred grid as the theme swatches, so adding a duration to the config asset needs
             // no change here.
@@ -1156,31 +1469,100 @@ namespace MustyBlockBlast.Presentation.Views
             return new DurationOption(seconds, optionRect, borderImage, nameText);
         }
 
+        /// <summary>
+        /// Built from <c>LocalizationModel.AvailableLocales</c> the same way the theme grid is built
+        /// from the theme catalogue, so shipping a language is a Locale asset plus its String Table
+        /// column — no change here.
+        /// </summary>
+        private void BuildLanguageScreen(RectTransform root, float cardHalfHeight)
+        {
+            float headerY = cardHalfHeight - HEADER_INSET;
+            float leftEdge = -(SettingsCardSize.x * 0.5f);
+
+            _languageBackButtonRect = BuildBackButton(root, leftEdge, headerY);
+
+            Text title = CreateLabel(
+                root, "Title", 64, FontStyle.Bold, TextAnchor.MiddleLeft,
+                new Vector2(leftEdge + SIDE_INSET + ICON_BUTTON_SIZE + 30f, headerY));
+            _inkTexts.Add(title);
+            RegisterLocalized(title, LocalizationKeys.SETTINGS_LANGUAGE_SCREEN_TITLE);
+
+            IReadOnlyList<LocaleDefinition> locales = _localizationModel.AvailableLocales;
+
+            for (int localeIndex = 0; localeIndex < locales.Count; localeIndex++)
+            {
+                LocaleDefinition locale = locales[localeIndex];
+                if (locale == null)
+                {
+                    continue;
+                }
+
+                // Stacked around y = 0, the same centring the grids use collapsed to one column.
+                float y = (((locales.Count - 1) * 0.5f) - localeIndex) * LANGUAGE_OPTION_SPACING_Y;
+                _languageOptions.Add(BuildLanguageOption(root, locale, new Vector2(0f, y)));
+            }
+        }
+
+        private LanguageOption BuildLanguageOption(
+            RectTransform root, LocaleDefinition locale, Vector2 anchoredPosition)
+        {
+            var optionObject = new GameObject($"LanguageOption_{locale.Code}", typeof(RectTransform));
+            var optionRect = (RectTransform)optionObject.transform;
+            optionRect.SetParent(root, false);
+            Centre(optionRect, LanguageOptionSize);
+            optionRect.anchoredPosition = anchoredPosition;
+
+            // Same outset-rect-as-outline trick the theme swatches, mode cards and duration chips use.
+            var borderObject = new GameObject("Border", typeof(RectTransform), typeof(Image));
+            var borderRect = (RectTransform)borderObject.transform;
+            borderRect.SetParent(optionRect, false);
+            Centre(borderRect, LanguageOptionSize + (Vector2.one * (_selectionBorderThickness * 2f)));
+            var borderImage = borderObject.GetComponent<Image>();
+            ConfigureRounded(borderImage);
+
+            var faceObject = new GameObject("Face", typeof(RectTransform), typeof(Image));
+            var faceRect = (RectTransform)faceObject.transform;
+            faceRect.SetParent(optionRect, false);
+            Centre(faceRect, LanguageOptionSize);
+            var faceImage = faceObject.GetComponent<Image>();
+            ConfigureRounded(faceImage);
+            _badgeImages.Add(faceImage);
+
+            // Not a String Table lookup and deliberately never re-worded: a language is always
+            // labelled in its own language, so this chip reads the same in every locale.
+            Text nameText = UiTextFactory.Create(optionRect, "Name", 46, FontStyle.Bold, Color.clear);
+            nameText.text = locale.DisplayName;
+
+            return new LanguageOption(locale.Code, optionRect, borderImage, nameText);
+        }
+
         private void BuildConfirmScreen(RectTransform root, float cardHalfHeight)
         {
             float headerY = cardHalfHeight - HEADER_INSET;
 
             Text title = CreateLabel(
-                root, "Title", "Modu Değiştir", 58, FontStyle.Bold, TextAnchor.MiddleCenter,
+                root, "Title", 58, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(0f, headerY));
             _inkTexts.Add(title);
+            RegisterLocalized(title, LocalizationKeys.SETTINGS_CONFIRM_TITLE);
 
             Text body = CreateLabel(
-                root, "Body", "Oyun yeniden başlayacak. Devam edilsin mi?", 34, FontStyle.Normal,
+                root, "Body", 34, FontStyle.Normal,
                 TextAnchor.MiddleCenter, new Vector2(0f, headerY - 92f));
             _inkTexts.Add(body);
+            RegisterLocalized(body, LocalizationKeys.SETTINGS_CONFIRM_BODY);
 
             float buttonY = -cardHalfHeight + HEADER_INSET;
             float buttonOffsetX = (ConfirmButtonSize.x * 0.5f) + 24f;
 
             _confirmYesRect = BuildConfirmButton(
-                root, "ConfirmYes", "Evet, Başlat", new Vector2(-buttonOffsetX, buttonY));
+                root, "ConfirmYes", LocalizationKeys.SETTINGS_CONFIRM_YES, new Vector2(-buttonOffsetX, buttonY));
             _confirmNoRect = BuildConfirmButton(
-                root, "ConfirmNo", "Vazgeç", new Vector2(buttonOffsetX, buttonY));
+                root, "ConfirmNo", LocalizationKeys.SETTINGS_CONFIRM_NO, new Vector2(buttonOffsetX, buttonY));
         }
 
         private RectTransform BuildConfirmButton(
-            RectTransform root, string objectName, string label, Vector2 anchoredPosition)
+            RectTransform root, string objectName, string labelKey, Vector2 anchoredPosition)
         {
             var buttonObject = new GameObject(objectName, typeof(RectTransform), typeof(Image));
             var buttonRect = (RectTransform)buttonObject.transform;
@@ -1193,8 +1575,9 @@ namespace MustyBlockBlast.Presentation.Views
             _badgeImages.Add(buttonImage);
 
             Text labelText = CreateLabel(
-                buttonRect, "Label", label, 38, FontStyle.Bold, TextAnchor.MiddleCenter, Vector2.zero);
+                buttonRect, "Label", 38, FontStyle.Bold, TextAnchor.MiddleCenter, Vector2.zero);
             _inkTexts.Add(labelText);
+            RegisterLocalized(labelText, labelKey);
 
             return buttonRect;
         }
@@ -1262,7 +1645,7 @@ namespace MustyBlockBlast.Presentation.Views
                 swatchRect, theme, 44f, 72f, new Vector2(0f, (-swatchSize.y * 0.5f) + 44f), null);
 
             Text nameText = UiTextFactory.Create(optionRect, "Name", 38, FontStyle.Bold, Color.clear);
-            nameText.text = theme.DisplayName;
+            nameText.text = ResolveThemeName(theme);
             ((RectTransform)nameText.transform).anchoredPosition =
                 new Vector2(0f, (-_optionSize.y * 0.5f) + 40f);
 
@@ -1302,17 +1685,20 @@ namespace MustyBlockBlast.Presentation.Views
             }
         }
 
+        /// <summary>
+        /// Builds a wordless label. Callers fill it in, either through
+        /// <see cref="RegisterLocalized"/> for a plain key or from their own refresh method when the
+        /// wording has a value substituted into it.
+        /// </summary>
         private static Text CreateLabel(
             RectTransform parent,
             string objectName,
-            string content,
             int fontSize,
             FontStyle fontStyle,
             TextAnchor alignment,
             Vector2 anchoredPosition)
         {
             Text text = UiTextFactory.Create(parent, objectName, fontSize, fontStyle, Color.clear);
-            text.text = content;
             text.alignment = alignment;
 
             var rect = (RectTransform)text.transform;
@@ -1385,6 +1771,26 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             internal GameMode Mode { get; }
+
+            internal RectTransform Rect { get; }
+
+            internal Image BorderImage { get; }
+
+            internal Text NameText { get; }
+        }
+
+        /// <summary>One tappable language chip: the locale it selects plus its selection visuals.</summary>
+        private sealed class LanguageOption
+        {
+            internal LanguageOption(string localeCode, RectTransform rect, Image borderImage, Text nameText)
+            {
+                LocaleCode = localeCode;
+                Rect = rect;
+                BorderImage = borderImage;
+                NameText = nameText;
+            }
+
+            internal string LocaleCode { get; }
 
             internal RectTransform Rect { get; }
 

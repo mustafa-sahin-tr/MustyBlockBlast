@@ -1,0 +1,147 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e9620f8c34305754d8cc9a7e49e852d9, type: 3}
+  m_Name: GameStrings_en
+  m_EditorClassIdentifier: Unity.Localization::UnityEngine.Localization.Tables.StringTable
+  m_LocaleId:
+    m_Code: en
+  m_SharedData: {fileID: 11400000, guid: a73815efbfb4c49698bb1f3a8c077cd6, type: 2}
+  m_Metadata:
+    m_Items: []
+  m_TableData:
+  - m_Id: 745529344
+    m_Localized: '{0}s'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 762306560
+    m_Localized: Tap to skip
+    m_Metadata:
+      m_Items: []
+  - m_Id: 762306561
+    m_Localized: The intro jingle follows your sound setting
+    m_Metadata:
+      m_Items: []
+  - m_Id: 762306562
+    m_Localized: BEST
+    m_Metadata:
+      m_Items: []
+  - m_Id: 766500864
+    m_Localized: BEST ({0})
+    m_Metadata:
+      m_Items: []
+  - m_Id: 766500865
+    m_Localized: NO MOVES LEFT
+    m_Metadata:
+      m_Items: []
+  - m_Id: 766500866
+    m_Localized: TIME'S UP
+    m_Metadata:
+      m_Items: []
+  - m_Id: 766500867
+    m_Localized: Tap anywhere to play again
+    m_Metadata:
+      m_Items: []
+  - m_Id: 766500868
+    m_Localized: Change mode
+    m_Metadata:
+      m_Items: []
+  - m_Id: 766500869
+    m_Localized: 'Best for {0}: {1}'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 766500870
+    m_Localized: Score {0}   Best {1}
+    m_Metadata:
+      m_Items: []
+  - m_Id: 766500871
+    m_Localized: Endless
+    m_Metadata:
+      m_Items: []
+  - m_Id: 766500872
+    m_Localized: Timed
+    m_Metadata:
+      m_Items: []
+  - m_Id: 766500873
+    m_Localized: Settings
+    m_Metadata:
+      m_Items: []
+  - m_Id: 766500874
+    m_Localized: Mode
+    m_Metadata:
+      m_Items: []
+  - m_Id: 766500875
+    m_Localized: Theme
+    m_Metadata:
+      m_Items: []
+  - m_Id: 766500876
+    m_Localized: Sound
+    m_Metadata:
+      m_Items: []
+  - m_Id: 766500877
+    m_Localized: Duration
+    m_Metadata:
+      m_Items: []
+  - m_Id: 766500878
+    m_Localized: Choose Theme
+    m_Metadata:
+      m_Items: []
+  - m_Id: 766500879
+    m_Localized: Choose Mode
+    m_Metadata:
+      m_Items: []
+  - m_Id: 766500880
+    m_Localized: Choose Duration
+    m_Metadata:
+      m_Items: []
+  - m_Id: 766500881
+    m_Localized: Change Mode
+    m_Metadata:
+      m_Items: []
+  - m_Id: 766500882
+    m_Localized: The game will restart. Continue?
+    m_Metadata:
+      m_Items: []
+  - m_Id: 766500883
+    m_Localized: Yes, Start
+    m_Metadata:
+      m_Items: []
+  - m_Id: 766500884
+    m_Localized: Cancel
+    m_Metadata:
+      m_Items: []
+  - m_Id: 10990476320768
+    m_Localized: Language
+    m_Metadata:
+      m_Items: []
+  - m_Id: 10990702813184
+    m_Localized: Language
+    m_Metadata:
+      m_Items: []
+  - m_Id: 15821903486976
+    m_Localized: Summer
+    m_Metadata:
+      m_Items: []
+  - m_Id: 15821916069888
+    m_Localized: Winter
+    m_Metadata:
+      m_Items: []
+  - m_Id: 15821916069889
+    m_Localized: Spring
+    m_Metadata:
+      m_Items: []
+  - m_Id: 15821920264192
+    m_Localized: Autumn
+    m_Metadata:
+      m_Items: []
+  references:
+    version: 2
+    RefIds: []

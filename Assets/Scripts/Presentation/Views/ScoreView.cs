@@ -4,6 +4,7 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using MessagePipe;
 using MustyBlockBlast.Gameplay;
+using MustyBlockBlast.Gameplay.Localization;
 using MustyBlockBlast.Gameplay.Messages;
 using MustyBlockBlast.Gameplay.Models;
 using MustyBlockBlast.Gameplay.Reactive;
@@ -44,6 +45,8 @@ namespace MustyBlockBlast.Presentation.Views
         private ScoreModel _scoreModel;
         private TimedHighScoreModel _timedHighScoreModel;
         private SettingsModel _settingsModel;
+        private LocalizationModel _localizationModel;
+        private LocalizationSystem _localizationSystem;
         private GameModeSystem _gameModeSystem;
         private TimedModeSystem _timedModeSystem;
         private ISubscriber<RunStartedMessage> _runStartedSubscriber;
@@ -65,6 +68,8 @@ namespace MustyBlockBlast.Presentation.Views
             ScoreModel scoreModel,
             TimedHighScoreModel timedHighScoreModel,
             SettingsModel settingsModel,
+            LocalizationModel localizationModel,
+            LocalizationSystem localizationSystem,
             GameModeSystem gameModeSystem,
             TimedModeSystem timedModeSystem,
             ISubscriber<RunStartedMessage> runStartedSubscriber,
@@ -73,6 +78,8 @@ namespace MustyBlockBlast.Presentation.Views
             _scoreModel = scoreModel;
             _timedHighScoreModel = timedHighScoreModel;
             _settingsModel = settingsModel;
+            _localizationModel = localizationModel;
+            _localizationSystem = localizationSystem;
             _gameModeSystem = gameModeSystem;
             _timedModeSystem = timedModeSystem;
             _runStartedSubscriber = runStartedSubscriber;
@@ -120,6 +127,7 @@ namespace MustyBlockBlast.Presentation.Views
         private void Start()
         {
             if (_scoreModel == null || _timedHighScoreModel == null || _settingsModel == null
+                || _localizationModel == null || _localizationSystem == null
                 || _gameModeSystem == null || _timedModeSystem == null || _runStartedSubscriber == null
                 || _newRecordSubscriber == null)
             {
@@ -133,8 +141,10 @@ namespace MustyBlockBlast.Presentation.Views
             _newRecordSubscriber.Subscribe(OnNewRecordReached).AddTo(_disposables);
 
             // "Best" has several inputs that can change which value or wording is authoritative:
-            // the active mode, the endless high score, the timed per-duration best, and (for the
-            // duration suffix) the selected timed duration itself.
+            // the active mode, the endless high score, the timed per-duration best, (for the
+            // duration suffix) the selected timed duration itself, and the language the label and its
+            // suffix are written in.
+            _localizationModel.CurrentLocale.Subscribe(OnLocaleChanged).AddTo(_disposables);
             _gameModeSystem.CurrentMode.Subscribe(OnModeChanged).AddTo(_disposables);
             _scoreModel.HighScore.Subscribe(OnHighScoreChanged).AddTo(_disposables);
             _timedHighScoreModel.Best.Subscribe(OnTimedBestChanged).AddTo(_disposables);
@@ -322,6 +332,8 @@ namespace MustyBlockBlast.Presentation.Views
             }
         }
 
+        private void OnLocaleChanged(LocaleDefinition locale) => RefreshBestLabel();
+
         private void OnModeChanged(GameMode mode) => RefreshBestLabel();
 
         private void OnHighScoreChanged(int highScore) => RefreshBestLabel();
@@ -340,15 +352,21 @@ namespace MustyBlockBlast.Presentation.Views
             bool isTimed = _gameModeSystem.CurrentMode.Value == GameMode.Timed;
             int best = isTimed ? _timedHighScoreModel.Best.Value : _scoreModel.HighScore.Value;
 
-            _stringBuilder.Clear();
-            _stringBuilder.Append("BEST");
             if (isTimed)
             {
-                _stringBuilder.Append(" (");
+                // The round length goes through the shared seconds format rather than being spelled
+                // here, so the countdown HUD and this suffix always read the same way.
+                _stringBuilder.Clear();
                 _stringBuilder.Append((int)_timedModeSystem.SelectedDuration.Value);
-                _stringBuilder.Append("s)");
+                string duration = _localizationSystem.Format(
+                    LocalizationKeys.FORMAT_SECONDS, _stringBuilder.ToString());
+
+                _bestLabelText.text = _localizationSystem.Format(LocalizationKeys.SCORE_BEST_TIMED, duration);
             }
-            _bestLabelText.text = _stringBuilder.ToString();
+            else
+            {
+                _bestLabelText.text = _localizationSystem.Translate(LocalizationKeys.SCORE_BEST);
+            }
 
             _stringBuilder.Clear();
             _stringBuilder.Append(best);

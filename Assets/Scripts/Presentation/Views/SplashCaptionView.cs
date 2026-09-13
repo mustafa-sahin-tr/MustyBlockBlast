@@ -1,13 +1,18 @@
+using MustyBlockBlast.Gameplay.Localization;
+using MustyBlockBlast.Gameplay.Models;
+using MustyBlockBlast.Gameplay.Reactive;
+using MustyBlockBlast.Gameplay.Systems;
 using UnityEngine;
 using UnityEngine.UI;
+using VContainer;
 
 namespace MustyBlockBlast.Presentation.Views
 {
     /// <summary>
     /// Bottom caption cluster of the splash screen: three loading dots, the "tap to skip" hint and
-    /// the note that the boot jingle follows the device sound setting. Built once in
+    /// the note that the boot jingle follows the device sound setting. The hierarchy is built once in
     /// <see cref="Awake"/> and never animated — the mockup's dots are static, only their opacity
-    /// steps down left to right.
+    /// steps down left to right. Only the caption wording changes, and only when the language does.
     /// <para>
     /// Purely informative: it neither reads nor drives <see cref="SplashSystem"/>, so the skip hint
     /// can never desynchronise the transition it describes.
@@ -38,6 +43,20 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>Dot opacities, fading left to right exactly as in the mockup.</summary>
         private static readonly float[] DotAlphas = { 0.85f, 0.55f, 0.3f };
 
+        private readonly CompositeDisposable _disposables = new CompositeDisposable();
+
+        private LocalizationModel _localizationModel;
+        private LocalizationSystem _localizationSystem;
+        private Text _skipHintText;
+        private Text _jingleNoteText;
+
+        [Inject]
+        public void Construct(LocalizationModel localizationModel, LocalizationSystem localizationSystem)
+        {
+            _localizationModel = localizationModel;
+            _localizationSystem = localizationSystem;
+        }
+
         private void Awake()
         {
             var rootRect = (RectTransform)transform;
@@ -50,8 +69,33 @@ namespace MustyBlockBlast.Presentation.Views
             rootRect.anchoredPosition = Vector2.zero;
 
             BuildDots(rootRect);
-            BuildCaption(rootRect, "SkipHint", "Geçmek için dokun", SKIP_FONT_SIZE, FontStyle.Bold, PrimaryCaption, 0.75f, SKIP_TEXT_Y);
-            BuildCaption(rootRect, "JingleNote", "Açılış cıngılı ses ayarınıza uyar", JINGLE_FONT_SIZE, FontStyle.Normal, SecondaryCaption, 1f, JINGLE_TEXT_Y);
+
+            // Built wordless: the locale subscription in Start fills both captions in and refills them
+            // on every later language switch.
+            _skipHintText = BuildCaption(
+                rootRect, "SkipHint", SKIP_FONT_SIZE, FontStyle.Bold, PrimaryCaption, 0.75f, SKIP_TEXT_Y);
+            _jingleNoteText = BuildCaption(
+                rootRect, "JingleNote", JINGLE_FONT_SIZE, FontStyle.Normal, SecondaryCaption, 1f, JINGLE_TEXT_Y);
+        }
+
+        private void Start()
+        {
+            if (_localizationModel == null || _localizationSystem == null)
+            {
+                Debug.LogError(
+                    $"{nameof(SplashCaptionView)} was not injected. Is it registered in the LifetimeScope?", this);
+                return;
+            }
+
+            _localizationModel.CurrentLocale.Subscribe(OnLocaleChanged).AddTo(_disposables);
+        }
+
+        private void OnDestroy() => _disposables.Dispose();
+
+        private void OnLocaleChanged(LocaleDefinition locale)
+        {
+            _skipHintText.text = _localizationSystem.Translate(LocalizationKeys.SPLASH_SKIP_HINT);
+            _jingleNoteText.text = _localizationSystem.Translate(LocalizationKeys.SPLASH_JINGLE_NOTE);
         }
 
         private static void BuildDots(RectTransform parent)
@@ -89,10 +133,9 @@ namespace MustyBlockBlast.Presentation.Views
             }
         }
 
-        private static void BuildCaption(
+        private static Text BuildCaption(
             RectTransform parent,
             string objectName,
-            string content,
             int fontSize,
             FontStyle fontStyle,
             Color colour,
@@ -102,7 +145,6 @@ namespace MustyBlockBlast.Presentation.Views
             colour.a = alpha;
 
             Text text = UiTextFactory.Create(parent, objectName, fontSize, fontStyle, colour);
-            text.text = content;
 
             var rect = (RectTransform)text.transform;
             rect.anchorMin = new Vector2(0.5f, 0f);
@@ -110,6 +152,7 @@ namespace MustyBlockBlast.Presentation.Views
             rect.pivot = new Vector2(0.5f, 0.5f);
             rect.sizeDelta = new Vector2(0f, fontSize * 1.4f);
             rect.anchoredPosition = new Vector2(0f, y);
+            return text;
         }
     }
 }

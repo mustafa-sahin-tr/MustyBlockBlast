@@ -1,0 +1,147 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e9620f8c34305754d8cc9a7e49e852d9, type: 3}
+  m_Name: GameStrings_es
+  m_EditorClassIdentifier: Unity.Localization::UnityEngine.Localization.Tables.StringTable
+  m_LocaleId:
+    m_Code: es
+  m_SharedData: {fileID: 11400000, guid: a73815efbfb4c49698bb1f3a8c077cd6, type: 2}
+  m_Metadata:
+    m_Items: []
+  m_TableData:
+  - m_Id: 745529344
+    m_Localized: '{0} s'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 762306560
+    m_Localized: Toca para omitir
+    m_Metadata:
+      m_Items: []
+  - m_Id: 762306561
+    m_Localized: "La melod\xEDa de inicio sigue tu ajuste de sonido"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 762306562
+    m_Localized: MEJOR
+    m_Metadata:
+      m_Items: []
+  - m_Id: 766500864
+    m_Localized: MEJOR ({0})
+    m_Metadata:
+      m_Items: []
+  - m_Id: 766500865
+    m_Localized: SIN MOVIMIENTOS
+    m_Metadata:
+      m_Items: []
+  - m_Id: 766500866
+    m_Localized: TIEMPO AGOTADO
+    m_Metadata:
+      m_Items: []
+  - m_Id: 766500867
+    m_Localized: Toca para volver a jugar
+    m_Metadata:
+      m_Items: []
+  - m_Id: 766500868
+    m_Localized: Cambiar modo
+    m_Metadata:
+      m_Items: []
+  - m_Id: 766500869
+    m_Localized: 'Mejor en {0}: {1}'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 766500870
+    m_Localized: Puntos {0}   Mejor {1}
+    m_Metadata:
+      m_Items: []
+  - m_Id: 766500871
+    m_Localized: Infinito
+    m_Metadata:
+      m_Items: []
+  - m_Id: 766500872
+    m_Localized: Contrarreloj
+    m_Metadata:
+      m_Items: []
+  - m_Id: 766500873
+    m_Localized: Ajustes
+    m_Metadata:
+      m_Items: []
+  - m_Id: 766500874
+    m_Localized: Modo
+    m_Metadata:
+      m_Items: []
+  - m_Id: 766500875
+    m_Localized: Tema
+    m_Metadata:
+      m_Items: []
+  - m_Id: 766500876
+    m_Localized: Sonido
+    m_Metadata:
+      m_Items: []
+  - m_Id: 766500877
+    m_Localized: "Duraci\xF3n"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 766500878
+    m_Localized: Elige tema
+    m_Metadata:
+      m_Items: []
+  - m_Id: 766500879
+    m_Localized: Elige modo
+    m_Metadata:
+      m_Items: []
+  - m_Id: 766500880
+    m_Localized: "Elige duraci\xF3n"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 766500881
+    m_Localized: Cambiar modo
+    m_Metadata:
+      m_Items: []
+  - m_Id: 766500882
+    m_Localized: "La partida se reiniciar\xE1. \xBFContinuar?"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 766500883
+    m_Localized: "S\xED, empezar"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 766500884
+    m_Localized: Cancelar
+    m_Metadata:
+      m_Items: []
+  - m_Id: 10990476320768
+    m_Localized: Idioma
+    m_Metadata:
+      m_Items: []
+  - m_Id: 10990702813184
+    m_Localized: Idioma
+    m_Metadata:
+      m_Items: []
+  - m_Id: 15821903486976
+    m_Localized: Verano
+    m_Metadata:
+      m_Items: []
+  - m_Id: 15821916069888
+    m_Localized: Invierno
+    m_Metadata:
+      m_Items: []
+  - m_Id: 15821916069889
+    m_Localized: Primavera
+    m_Metadata:
+      m_Items: []
+  - m_Id: 15821920264192
+    m_Localized: "Oto\xF1o"
+    m_Metadata:
+      m_Items: []
+  references:
+    version: 2
+    RefIds: []
