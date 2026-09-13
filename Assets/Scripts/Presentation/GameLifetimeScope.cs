@@ -1,10 +1,12 @@
 using System.Collections.Generic;
 using MessagePipe;
 using MustyBlockBlast.Core;
+using MustyBlockBlast.Gameplay.Localization;
 using MustyBlockBlast.Gameplay.Messages;
 using MustyBlockBlast.Gameplay.Models;
 using MustyBlockBlast.Gameplay.Settings;
 using MustyBlockBlast.Gameplay.Systems;
+using MustyBlockBlast.Presentation.Localization;
 using MustyBlockBlast.Presentation.Views;
 using UnityEngine;
 using VContainer;
@@ -30,15 +32,16 @@ namespace MustyBlockBlast.Presentation
             RegisterViews(builder);
 
             // ScoreSystem and TimedHighScoreSystem subscribe in their constructors, so they must exist
-            // before the first run starts. SettingsSystem and SfxSystem load their persisted settings
-            // in their constructors, so they must exist before any View subscribes to
-            // SettingsModel/SfxModel in Start().
+            // before the first run starts. SettingsSystem, SfxSystem and LocalizationSystem load their
+            // persisted settings in their constructors, so they must exist before any View subscribes
+            // to SettingsModel/SfxModel/LocalizationModel in Start().
             builder.RegisterBuildCallback(container =>
             {
                 container.Resolve<ScoreSystem>();
                 container.Resolve<TimedHighScoreSystem>();
                 container.Resolve<SettingsSystem>();
                 container.Resolve<SfxSystem>();
+                container.Resolve<LocalizationSystem>();
             });
         }
 
@@ -66,6 +69,10 @@ namespace MustyBlockBlast.Presentation
                 _availableThemes ?? new ThemeDefinition[0]);
             builder.RegisterInstance(ResolveTimedModeConfig());
 
+            // Languages come from the project's Locale assets rather than a scene field: a new
+            // language is a Locale asset plus a String Table column, with no scene edit.
+            builder.RegisterInstance<IReadOnlyList<LocaleDefinition>>(UnityLocaleCatalog.Build());
+
             builder.Register<BoardModel>(Lifetime.Singleton);
             builder.Register<TrayModel>(Lifetime.Singleton);
             builder.Register<ScoreModel>(Lifetime.Singleton);
@@ -75,6 +82,7 @@ namespace MustyBlockBlast.Presentation
             builder.Register<TimerModel>(Lifetime.Singleton);
             builder.Register<SfxModel>(Lifetime.Singleton);
             builder.Register<SettingsModel>(Lifetime.Singleton);
+            builder.Register<LocalizationModel>(Lifetime.Singleton);
         }
 
         /// <summary>
@@ -111,6 +119,8 @@ namespace MustyBlockBlast.Presentation
             builder.Register<SfxSystem>(Lifetime.Singleton).As<ISfxService>().AsSelf();
             builder.Register<MusicSystem>(Lifetime.Singleton).As<IMusicService>().AsSelf();
             builder.Register<SettingsSystem>(Lifetime.Singleton);
+            builder.Register<UnityLocalizedStringSource>(Lifetime.Singleton).As<ILocalizedStringSource>();
+            builder.Register<LocalizationSystem>(Lifetime.Singleton);
             builder.RegisterEntryPoint<BoardSystem>(Lifetime.Singleton).AsSelf();
             builder.Register<GameModeSystem>(Lifetime.Singleton);
             builder.Register<TimedModeSystem>(Lifetime.Singleton);

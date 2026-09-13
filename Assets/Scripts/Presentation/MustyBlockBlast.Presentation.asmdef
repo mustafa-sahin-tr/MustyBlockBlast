@@ -9,6 +9,8 @@
         "MessagePipe.VContainer",
         "VContainer",
         "Unity.InputSystem",
+        "Unity.Localization",
+        "Unity.ResourceManager",
         "UnityEngine.UI"
     ],
     "includePlatforms": [],

@@ -1,5 +1,6 @@
 using System.Text;
 using MustyBlockBlast.Gameplay;
+using MustyBlockBlast.Gameplay.Localization;
 using MustyBlockBlast.Gameplay.Models;
 using MustyBlockBlast.Gameplay.Reactive;
 using MustyBlockBlast.Gameplay.Settings;
@@ -35,6 +36,8 @@ namespace MustyBlockBlast.Presentation.Views
         private GameModeSystem _gameModeSystem;
         private TimerRunSystem _timerRunSystem;
         private SettingsModel _settingsModel;
+        private LocalizationModel _localizationModel;
+        private LocalizationSystem _localizationSystem;
         private Text _timerText;
 
         /// <summary>Last value rendered, so a per-frame tick only touches the label when it changes.</summary>
@@ -45,12 +48,16 @@ namespace MustyBlockBlast.Presentation.Views
             TimerModel timerModel,
             GameModeSystem gameModeSystem,
             TimerRunSystem timerRunSystem,
-            SettingsModel settingsModel)
+            SettingsModel settingsModel,
+            LocalizationModel localizationModel,
+            LocalizationSystem localizationSystem)
         {
             _timerModel = timerModel;
             _gameModeSystem = gameModeSystem;
             _timerRunSystem = timerRunSystem;
             _settingsModel = settingsModel;
+            _localizationModel = localizationModel;
+            _localizationSystem = localizationSystem;
         }
 
         private void Awake()
@@ -69,14 +76,19 @@ namespace MustyBlockBlast.Presentation.Views
 
         private void Start()
         {
-            if (_timerModel == null || _gameModeSystem == null || _timerRunSystem == null || _settingsModel == null)
+            if (_timerModel == null || _gameModeSystem == null || _timerRunSystem == null || _settingsModel == null
+                || _localizationModel == null || _localizationSystem == null)
             {
                 Debug.LogError($"{nameof(TimerHudView)} was not injected. Is it registered in the LifetimeScope?", this);
                 return;
             }
 
             _settingsModel.CurrentTheme.Subscribe(OnThemeChanged).AddTo(_disposables);
+            _localizationModel.CurrentLocale.Subscribe(OnLocaleChanged).AddTo(_disposables);
             _gameModeSystem.CurrentMode.Subscribe(OnModeChanged).AddTo(_disposables);
+
+            // Last: it is the only subscription that renders the label, so it must run after the
+            // locale is known.
             _timerModel.RemainingSeconds.Subscribe(OnRemainingChanged).AddTo(_disposables);
         }
 
@@ -109,6 +121,20 @@ namespace MustyBlockBlast.Presentation.Views
 
         private void OnModeChanged(GameMode mode) => _timerText.gameObject.SetActive(mode == GameMode.Timed);
 
+        /// <summary>
+        /// Re-renders the countdown in the new language. Skipped before the first tick, when there is
+        /// no second to re-render yet.
+        /// </summary>
+        private void OnLocaleChanged(LocaleDefinition locale)
+        {
+            if (_displayedSeconds < 0)
+            {
+                return;
+            }
+
+            RenderCountdown();
+        }
+
         private void OnRemainingChanged(float remainingSeconds)
         {
             // Ceiling, so a fresh 15s round reads "15" for its first frame and "0" only once expired.
@@ -119,10 +145,18 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             _displayedSeconds = seconds;
+            RenderCountdown();
+        }
+
+        /// <summary>
+        /// Paints <see cref="_displayedSeconds"/> through the shared seconds format, so the countdown
+        /// and the "best" suffix can never disagree on how a duration is spelled.
+        /// </summary>
+        private void RenderCountdown()
+        {
             _stringBuilder.Clear();
-            _stringBuilder.Append(seconds);
-            _stringBuilder.Append(" sn");
-            _timerText.text = _stringBuilder.ToString();
+            _stringBuilder.Append(_displayedSeconds);
+            _timerText.text = _localizationSystem.Format(LocalizationKeys.FORMAT_SECONDS, _stringBuilder.ToString());
         }
     }
 }

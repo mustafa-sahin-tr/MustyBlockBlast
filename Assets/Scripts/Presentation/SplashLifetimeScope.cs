@@ -1,7 +1,10 @@
+using System.Collections.Generic;
 using MessagePipe;
+using MustyBlockBlast.Gameplay.Localization;
 using MustyBlockBlast.Gameplay.Messages;
 using MustyBlockBlast.Gameplay.Models;
 using MustyBlockBlast.Gameplay.Systems;
+using MustyBlockBlast.Presentation.Localization;
 using MustyBlockBlast.Presentation.Views;
 using UnityEngine;
 using VContainer;
@@ -21,12 +24,30 @@ namespace MustyBlockBlast.Presentation
         {
             RegisterMessaging(builder);
             RegisterAudio(builder);
+            RegisterLocalization(builder);
             RegisterSplash(builder);
             RegisterDecor(builder);
 
             // SfxSystem loads the persisted mute flag in its constructor, so it must exist before
-            // SplashView asks it to play anything in Start().
-            builder.RegisterBuildCallback(container => container.Resolve<SfxSystem>());
+            // SplashView asks it to play anything in Start(); LocalizationSystem loads the persisted
+            // language the same way, before SplashCaptionView reads its captions in Start().
+            builder.RegisterBuildCallback(container =>
+            {
+                container.Resolve<SfxSystem>();
+                container.Resolve<LocalizationSystem>();
+            });
+        }
+
+        /// <summary>
+        /// The splash screen has captions of its own, so it needs the same language stack the gameplay
+        /// scene has — the two scenes are loadable independently and share no container.
+        /// </summary>
+        private static void RegisterLocalization(IContainerBuilder builder)
+        {
+            builder.RegisterInstance<IReadOnlyList<LocaleDefinition>>(UnityLocaleCatalog.Build());
+            builder.Register<LocalizationModel>(Lifetime.Singleton);
+            builder.Register<UnityLocalizedStringSource>(Lifetime.Singleton).As<ILocalizedStringSource>();
+            builder.Register<LocalizationSystem>(Lifetime.Singleton);
         }
 
         private static void RegisterMessaging(IContainerBuilder builder)
@@ -57,8 +78,9 @@ namespace MustyBlockBlast.Presentation
         }
 
         /// <summary>
-        /// Purely decorative Views. They take no dependencies, but registering them keeps every
-        /// splash-scene View discoverable from the one composition root.
+        /// Non-interactive Views. Most take no dependencies at all (registering them anyway keeps every
+        /// splash-scene View discoverable from the one composition root); the caption cluster is the
+        /// exception, since its text is localized.
         /// </summary>
         private static void RegisterDecor(IContainerBuilder builder)
         {

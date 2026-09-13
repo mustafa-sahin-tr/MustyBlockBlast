@@ -21,8 +21,13 @@ namespace MustyBlockBlast.Gameplay.Settings
         [Tooltip("Stable id persisted to PlayerPrefs. Must be unique and must never change once shipped.")]
         [SerializeField] private int _id;
 
-        [Tooltip("Player-facing name, shown by the theme picker UI once it exists.")]
+        [Tooltip("Editor-facing fallback name, used only if TranslationKey is unset. Player-facing " +
+            "text should come from TranslationKey via LocalizationSystem instead.")]
         [SerializeField] private string _displayName;
+
+        [Tooltip("LocalizationKeys constant resolved by LocalizationSystem.Translate to get the " +
+            "player-facing, locale-specific theme name.")]
+        [SerializeField] private string _translationKey;
 
         [Header("Surfaces")]
         [SerializeField] private Color _backgroundTop = FromHex(0xEDE9F5);
@@ -77,6 +82,9 @@ namespace MustyBlockBlast.Gameplay.Settings
         public int Id => _id;
 
         public string DisplayName => _displayName;
+
+        /// <summary>Key into <c>LocalizationKeys</c>/the GameStrings table for this theme's player-facing name.</summary>
+        public string TranslationKey => _translationKey;
 
         public Color BackgroundTop => _backgroundTop;
 
