@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using MustyBlockBlast.Core;
 
 namespace MustyBlockBlast.Gameplay.Models
@@ -50,6 +51,22 @@ namespace MustyBlockBlast.Gameplay.Models
                 {
                     CellChanged?.Invoke(new GridPosition(x, y), Board.EMPTY);
                 }
+            }
+        }
+
+        /// <summary>Raises change notifications for an arbitrary set of cells a power-up emptied. The
+        /// Core resolver has already mutated the board when this is called. Separate from
+        /// <see cref="NotifyCleared"/> because a power-up clears a region, not whole lines.</summary>
+        internal void NotifyPowerUpCleared(IReadOnlyList<GridPosition> clearedCells)
+        {
+            if (clearedCells == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < clearedCells.Count; i++)
+            {
+                CellChanged?.Invoke(clearedCells[i], Board.EMPTY);
             }
         }
 

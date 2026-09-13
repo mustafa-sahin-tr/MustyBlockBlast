@@ -34,7 +34,9 @@ namespace MustyBlockBlast.Presentation
             // ScoreSystem and TimedHighScoreSystem subscribe in their constructors, so they must exist
             // before the first run starts. SettingsSystem, SfxSystem and LocalizationSystem load their
             // persisted settings in their constructors, so they must exist before any View subscribes
-            // to SettingsModel/SfxModel/LocalizationModel in Start().
+            // to SettingsModel/SfxModel/LocalizationModel in Start(). PowerUpSystem loads the persisted
+            // inventory in its constructor and PowerUpScoreSystem subscribes in its own, so neither may
+            // wait for a first lazy resolve.
             builder.RegisterBuildCallback(container =>
             {
                 container.Resolve<ScoreSystem>();
@@ -42,6 +44,8 @@ namespace MustyBlockBlast.Presentation
                 container.Resolve<SettingsSystem>();
                 container.Resolve<SfxSystem>();
                 container.Resolve<LocalizationSystem>();
+                container.Resolve<PowerUpSystem>();
+                container.Resolve<PowerUpScoreSystem>();
             });
         }
 
@@ -59,6 +63,8 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterMessageBroker<PlayMusicRequestedMessage>(options);
             builder.RegisterMessageBroker<StopMusicRequestedMessage>(options);
             builder.RegisterMessageBroker<TrayRefilledMessage>(options);
+            builder.RegisterMessageBroker<PowerUpAppliedMessage>(options);
+            builder.RegisterMessageBroker<PowerUpGrantedMessage>(options);
         }
 
         // Instance method: the theme list and the timed-mode config are scene-configured on this
@@ -83,6 +89,7 @@ namespace MustyBlockBlast.Presentation
             builder.Register<SfxModel>(Lifetime.Singleton);
             builder.Register<SettingsModel>(Lifetime.Singleton);
             builder.Register<LocalizationModel>(Lifetime.Singleton);
+            builder.Register<PowerUpModel>(Lifetime.Singleton);
         }
 
         /// <summary>
@@ -124,6 +131,11 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterEntryPoint<BoardSystem>(Lifetime.Singleton).AsSelf();
             builder.Register<GameModeSystem>(Lifetime.Singleton);
             builder.Register<TimedModeSystem>(Lifetime.Singleton);
+
+            // Always-granting stub until a rewarded-ad SDK is wired up; swapping it is one line here.
+            builder.Register<DeterministicRewardSource>(Lifetime.Singleton).As<IRewardSource>().AsSelf();
+            builder.Register<PowerUpSystem>(Lifetime.Singleton).AsSelf();
+            builder.Register<PowerUpScoreSystem>(Lifetime.Singleton).AsSelf();
 
             // Entry point because it is an ITickable: the countdown is driven by VContainer's player
             // loop, not by a MonoBehaviour Update.
