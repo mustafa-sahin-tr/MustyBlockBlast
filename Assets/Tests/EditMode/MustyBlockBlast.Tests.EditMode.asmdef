@@ -4,6 +4,8 @@
     "references": [
         "MustyBlockBlast.Core",
         "MustyBlockBlast.Gameplay",
+        "MessagePipe",
+        "UniTask",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner",
         "Unity.Localization",
