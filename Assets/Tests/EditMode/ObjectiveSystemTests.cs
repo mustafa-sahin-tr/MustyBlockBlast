@@ -80,6 +80,56 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.AreEqual(0, _completedBroker.Published.Count);
         }
 
+        private static ObjectiveProgress RerollSaveObjective(int targetValue = 1)
+        {
+            return new ObjectiveProgress(new ObjectiveDefinition(
+                "reroll_save", ObjectiveType.RerollSave, ObjectiveScope.PerRun, targetValue));
+        }
+
+        [Test]
+        public void OnPowerUpApplied_Reroll_WasClutchSave_AdvancesTheObjective()
+        {
+            _objectiveModel.SetCurrentObjective(RerollSaveObjective());
+
+            _powerUpAppliedBroker.Publish(new PowerUpAppliedMessage(
+                PowerUpKind.Reroll, clearedCellCount: 0, clearedLineCount: 0, emptiedLineCount: 0,
+                wasClutchSave: true));
+
+            Assert.AreEqual(1, _objectiveModel.CurrentObjective.CurrentValue);
+            Assert.IsTrue(_objectiveModel.CurrentObjective.IsComplete);
+            Assert.AreEqual(1, _completedBroker.Published.Count);
+        }
+
+        [Test]
+        public void OnPowerUpApplied_Reroll_NotAClutchSave_NeverAdvancesTheObjective()
+        {
+            // A reroll used while moves already existed — the negative case AC2 in issue #95 guards.
+            _objectiveModel.SetCurrentObjective(RerollSaveObjective());
+
+            _powerUpAppliedBroker.Publish(new PowerUpAppliedMessage(
+                PowerUpKind.Reroll, clearedCellCount: 0, clearedLineCount: 0, emptiedLineCount: 0,
+                wasClutchSave: false));
+
+            Assert.AreEqual(0, _objectiveModel.CurrentObjective.CurrentValue);
+            Assert.IsFalse(_objectiveModel.CurrentObjective.IsComplete);
+            Assert.AreEqual(0, _completedBroker.Published.Count);
+        }
+
+        [Test]
+        public void OnPowerUpApplied_Bomb_NeverAdvancesARerollSaveObjective_EvenWithLinesEmptied()
+        {
+            // Converse of the Bomb-kind filter test above: a Bomb event must not leak into a
+            // RerollSave objective just because both are power-up-sourced events.
+            _objectiveModel.SetCurrentObjective(RerollSaveObjective());
+
+            _powerUpAppliedBroker.Publish(new PowerUpAppliedMessage(
+                PowerUpKind.Bomb, clearedCellCount: 3, clearedLineCount: 0, emptiedLineCount: 1));
+
+            Assert.AreEqual(0, _objectiveModel.CurrentObjective.CurrentValue);
+            Assert.IsFalse(_objectiveModel.CurrentObjective.IsComplete);
+            Assert.AreEqual(0, _completedBroker.Published.Count);
+        }
+
         [Test]
         public void OnPowerUpApplied_Bomb_EmptiedNoLine_DoesNotAdvance()
         {

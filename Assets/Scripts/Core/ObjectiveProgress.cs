@@ -240,6 +240,32 @@ namespace MustyBlockBlast.Core
         }
 
         /// <summary>
+        /// Folds one "clutch" Reroll save into this objective's progress. Deliberately a separate
+        /// method from <see cref="ApplyPlacement"/>, mirroring <see cref="ApplyPowerUpLineEmptied"/>:
+        /// a Reroll is not a placement, and the qualifying condition (zero legal moves before, at
+        /// least one after) is decided entirely by the caller before this is invoked — this method
+        /// only knows "a clutch save just happened", the same trust boundary
+        /// <see cref="ApplyPowerUpLineEmptied"/> already draws for Bomb.
+        /// </summary>
+        public bool ApplyPowerUpRerollSave()
+        {
+            if (IsComplete || Definition.Type != ObjectiveType.RerollSave)
+            {
+                return false;
+            }
+
+            int previousValue = CurrentValue;
+            CurrentValue = Math.Min(CurrentValue + 1, Definition.TargetValue);
+            if (CurrentValue == previousValue)
+            {
+                return false;
+            }
+
+            IsComplete = CurrentValue >= Definition.TargetValue;
+            return true;
+        }
+
+        /// <summary>
         /// Rehydrates persisted progress (e.g. after an app relaunch) without going through
         /// <see cref="ApplyPlacement"/>'s qualification rules. Clamps to the target and re-derives
         /// <see cref="IsComplete"/> exactly like a normal update would.

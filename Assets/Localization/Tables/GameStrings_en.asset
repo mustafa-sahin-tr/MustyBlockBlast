@@ -242,6 +242,10 @@ MonoBehaviour:
     m_Localized: Reach the target score within the first {0} seconds
     m_Metadata:
       m_Items: []
+  - m_Id: 280945016954880
+    m_Localized: Use Reroll while your dock is empty of moves but your pocket has you covered
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

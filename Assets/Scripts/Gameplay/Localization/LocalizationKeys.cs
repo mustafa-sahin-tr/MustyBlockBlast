@@ -99,6 +99,8 @@ namespace MustyBlockBlast.Gameplay.Localization
         /// "1000/2500" progress.</summary>
         public const string OBJECTIVE_EARLY_SCORE_RUSH = "objective.early_score_rush";
 
+        public const string OBJECTIVE_REROLL_SAVE = "objective.reroll_save";
+
         // Translated display names for individual catalog pieces, keyed by piece id in
         // ObjectiveDescriptionFormatter.PieceIdNameKey. Not exhaustive — only pieces an authored
         // objective actually references need one; an unmapped id falls back to its raw catalog id.

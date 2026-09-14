@@ -242,6 +242,10 @@ MonoBehaviour:
     m_Localized: "\u0130lk {0} saniye i\xE7inde hedef skora ula\u015F"
     m_Metadata:
       m_Items: []
+  - m_Id: 280945016954880
+    m_Localized: "Elindeki hamle bitmi\u015Fken ama cebindeki par\xE7a seni kurtar\u0131rken Yeniden \xC7ekil kullan"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []
