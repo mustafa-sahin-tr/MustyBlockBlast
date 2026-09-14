@@ -459,6 +459,286 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.AreEqual(0, gameOverBroker.Published.Count);
         }
 
+        /// <summary>
+        /// AC1. The expected set is produced by a second draw seeded identically and asked for the same
+        /// thing, so the assertion is "all three slots hold the freshly drawn set" without depending on
+        /// the order the System happens to pull pieces and colours in.
+        /// </summary>
+        [Test]
+        public void TryApplyReroll_WithOneHeld_ReplacesAllThreeDockPiecesAndSpendsOne()
+        {
+            const int seed = 12345;
+            PersistCount(PowerUpKind.Reroll, 2);
+
+            var boardModel = new BoardModel();
+            var trayModel = new TrayModel();
+            trayModel.SetSlot(0, FindPiece("square_3x3"), colourId: 1);
+            trayModel.SetSlot(1, FindPiece("line_h5"), colourId: 2);
+            // Deliberately consumed: a reroll restocks every slot, not only the occupied ones.
+            trayModel.SetSlot(2, null, Board.EMPTY);
+
+            PowerUpModel model = new PowerUpModel();
+            PowerUpSystem system = CreateRerollSystem(
+                model,
+                boardModel,
+                trayModel,
+                seed,
+                new TestMessageBroker<TrayRefilledMessage>(),
+                new TestMessageBroker<GameOverMessage>());
+
+            bool applied = system.TryApplyReroll();
+
+            Assert.IsTrue(applied);
+            Assert.AreEqual(1, model.RerollCount.Value);
+
+            var expectedPieces = new Piece[TrayModel.SLOT_COUNT];
+            var expectedColours = new int[TrayModel.SLOT_COUNT];
+            new WeightedPieceDraw(seed).TryDrawSolvableSet(
+                new BoardModel().Board, expectedPieces, expectedColours);
+
+            for (int slotIndex = 0; slotIndex < TrayModel.SLOT_COUNT; slotIndex++)
+            {
+                Assert.AreSame(expectedPieces[slotIndex], trayModel.GetPiece(slotIndex));
+                Assert.AreEqual(expectedColours[slotIndex], trayModel.GetColourId(slotIndex));
+            }
+
+            Assert.AreEqual(1, _appliedBroker.Published.Count);
+            Assert.AreEqual(PowerUpKind.Reroll, _appliedBroker.Published[0].Kind);
+            Assert.AreEqual(0, _appliedBroker.Published[0].ClearedCellCount);
+        }
+
+        /// <summary>
+        /// AC2. The board is filled but for a 2x2 corner, so most of the catalog cannot be placed at
+        /// all — the reroll's guarantee is what makes the set it hands back playable.
+        /// </summary>
+        [Test]
+        public void TryApplyReroll_OnAConstrainedBoard_DrawsASetWithALegalPlacement()
+        {
+            PersistCount(PowerUpKind.Reroll, 1);
+
+            var boardModel = new BoardModel();
+            FillBoardExcept(
+                boardModel,
+                new GridPosition(0, 0),
+                new GridPosition(1, 0),
+                new GridPosition(0, 1),
+                new GridPosition(1, 1));
+
+            var trayModel = new TrayModel();
+            var gameOverBroker = new TestMessageBroker<GameOverMessage>();
+            PowerUpSystem system = CreateRerollSystem(
+                new PowerUpModel(),
+                boardModel,
+                trayModel,
+                drawSeed: 7,
+                new TestMessageBroker<TrayRefilledMessage>(),
+                gameOverBroker);
+
+            Assert.IsTrue(system.TryApplyReroll());
+
+            var drawn = new List<Piece>(TrayModel.SLOT_COUNT);
+            for (int slotIndex = 0; slotIndex < TrayModel.SLOT_COUNT; slotIndex++)
+            {
+                Assert.IsNotNull(trayModel.GetPiece(slotIndex));
+                drawn.Add(trayModel.GetPiece(slotIndex));
+            }
+
+            Assert.IsTrue(MoveAvailability.HasAnyMove(boardModel.Board, drawn));
+
+            // The other half of the same claim: a set with a move in it cannot have ended the run.
+            Assert.AreEqual(0, gameOverBroker.Published.Count);
+        }
+
+        /// <summary>AC3. Holding none is a complete no-op — nothing drawn, nothing spent.</summary>
+        [Test]
+        public void TryApplyReroll_WithNoneHeld_ChangesNothing()
+        {
+            var trayModel = new TrayModel();
+            Piece first = FindPiece("t_up");
+            Piece second = FindPiece("line_h2");
+            trayModel.SetSlot(0, first, colourId: 1);
+            trayModel.SetSlot(1, second, colourId: 2);
+
+            PowerUpModel model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, new BoardModel(), trayModel);
+
+            bool applied = system.TryApplyReroll();
+
+            Assert.IsFalse(applied);
+            Assert.AreEqual(0, model.RerollCount.Value);
+            Assert.AreSame(first, trayModel.GetPiece(0));
+            Assert.AreEqual(1, trayModel.GetColourId(0));
+            Assert.AreSame(second, trayModel.GetPiece(1));
+            Assert.IsNull(trayModel.GetPiece(2));
+            Assert.AreEqual(0, _appliedBroker.Published.Count);
+        }
+
+        /// <summary>
+        /// A reroll is a discard, not a dock played out, so it must not masquerade as a refill: the one
+        /// subscriber of that message restarts the timed-mode countdown from full on it.
+        /// </summary>
+        [Test]
+        public void TryApplyReroll_DoesNotPublishTrayRefilled()
+        {
+            PersistCount(PowerUpKind.Reroll, 1);
+            var trayRefilledBroker = new TestMessageBroker<TrayRefilledMessage>();
+            PowerUpSystem system = CreateRerollSystem(
+                new PowerUpModel(),
+                new BoardModel(),
+                new TrayModel(),
+                drawSeed: 3,
+                trayRefilledBroker,
+                new TestMessageBroker<GameOverMessage>());
+
+            Assert.IsTrue(system.TryApplyReroll());
+
+            Assert.AreEqual(0, trayRefilledBroker.Published.Count);
+        }
+
+        /// <summary>A parked piece is not on offer, so it is not part of what a reroll discards.</summary>
+        [Test]
+        public void TryApplyReroll_LeavesTheHoldSlotAlone()
+        {
+            PersistCount(PowerUpKind.Reroll, 1);
+            var trayModel = new TrayModel();
+            trayModel.SetSlot(0, FindPiece("line_h2"), colourId: 1);
+            trayModel.SetHeld(FindPiece("square_3x3"), colourId: 2);
+
+            PowerUpSystem system = CreateRerollSystem(
+                new PowerUpModel(),
+                new BoardModel(),
+                trayModel,
+                drawSeed: 11,
+                new TestMessageBroker<TrayRefilledMessage>(),
+                new TestMessageBroker<GameOverMessage>());
+
+            Assert.IsTrue(system.TryApplyReroll());
+
+            Assert.AreSame(FindPiece("square_3x3"), trayModel.HeldPiece);
+            Assert.AreEqual(2, trayModel.HeldColourId);
+        }
+
+        /// <summary>Reroll has no target, so there is nothing to aim it at and it must never become an
+        /// armed selection — an armed reroll could only be released onto a cell that means nothing to
+        /// it.</summary>
+        [Test]
+        public void Arm_WithReroll_DoesNotArmIt()
+        {
+            PersistCount(PowerUpKind.Reroll, 3);
+            PowerUpModel model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, new BoardModel());
+
+            system.Arm(PowerUpKind.Reroll);
+
+            Assert.IsNull(model.Armed.Value);
+            Assert.AreEqual(3, model.RerollCount.Value);
+        }
+
+        /// <summary>Applying a reroll while another kind is armed drops that selection, so the clock
+        /// hold an armed kind carries is never stranded behind it.</summary>
+        [Test]
+        public void TryApplyReroll_WhileAnotherKindIsArmed_DropsThatSelection()
+        {
+            PersistCount(PowerUpKind.Reroll, 1);
+            PersistCount(PowerUpKind.Bomb, 1);
+            PowerUpModel model = new PowerUpModel();
+            PowerUpSystem system = CreateRerollSystem(
+                model,
+                new BoardModel(),
+                new TrayModel(),
+                drawSeed: 5,
+                new TestMessageBroker<TrayRefilledMessage>(),
+                new TestMessageBroker<GameOverMessage>());
+            system.Arm(PowerUpKind.Bomb);
+
+            Assert.IsTrue(system.TryApplyReroll());
+
+            Assert.IsNull(model.Armed.Value);
+            Assert.AreEqual(1, model.BombCount.Value);
+        }
+
+        [Test]
+        public void TryApplyReroll_AfterSpending_TheDecrementedCountIsLoadedByANewSystem()
+        {
+            PersistCount(PowerUpKind.Reroll, 2);
+            PowerUpSystem system = CreateRerollSystem(
+                new PowerUpModel(),
+                new BoardModel(),
+                new TrayModel(),
+                drawSeed: 9,
+                new TestMessageBroker<TrayRefilledMessage>(),
+                new TestMessageBroker<GameOverMessage>());
+            system.TryApplyReroll();
+
+            PowerUpModel reloadedModel = new PowerUpModel();
+            PowerUpSystem unused = CreateSystem(reloadedModel, new BoardModel());
+
+            Assert.AreEqual(1, reloadedModel.RerollCount.Value);
+        }
+
+        /// <summary>
+        /// AC5, end to end: on a full board no set can satisfy the guarantee, so the bounded draw gives
+        /// up and hands back its last attempt. The player still gets three real pieces and is still
+        /// charged for the reroll, and the re-check ends the run exactly as an exhausted board would —
+        /// the same contract as a rotate that leaves nothing placeable.
+        /// </summary>
+        [Test]
+        public void TryApplyReroll_OnABoardNoPieceFits_IsStillSpentAndEndsTheRun()
+        {
+            PersistCount(PowerUpKind.Reroll, 1);
+            var boardModel = new BoardModel();
+            FillBoardExcept(boardModel);
+
+            var trayModel = new TrayModel();
+            var gameOverBroker = new TestMessageBroker<GameOverMessage>();
+            PowerUpModel model = new PowerUpModel();
+            PowerUpSystem system = CreateRerollSystem(
+                model,
+                boardModel,
+                trayModel,
+                drawSeed: 13,
+                new TestMessageBroker<TrayRefilledMessage>(),
+                gameOverBroker);
+
+            Assert.IsTrue(system.TryApplyReroll());
+
+            Assert.AreEqual(0, model.RerollCount.Value);
+            for (int slotIndex = 0; slotIndex < TrayModel.SLOT_COUNT; slotIndex++)
+            {
+                Assert.IsNotNull(trayModel.GetPiece(slotIndex), "The fallback must still restock the dock.");
+            }
+
+            Assert.AreEqual(1, gameOverBroker.Published.Count);
+            Assert.AreEqual(GameOverReason.NoMovesLeft, gameOverBroker.Published[0].Reason);
+        }
+
+        /// <summary>A run that is already over refuses the reroll outright: nothing is drawn, the dock
+        /// is left as it was and nothing is spent.</summary>
+        [Test]
+        public void TryApplyReroll_WhenTheRunIsAlreadyOver_ChangesNothing()
+        {
+            PersistCount(PowerUpKind.Reroll, 1);
+            var boardModel = new BoardModel();
+            var trayModel = new TrayModel();
+            Piece parked = FindPiece("line_h2");
+            trayModel.SetSlot(0, parked, colourId: 1);
+
+            BoardSystem boardSystem = CreateBoardSystem(
+                boardModel, trayModel, new TestMessageBroker<GameOverMessage>());
+            boardSystem.ForceGameOver(GameOverReason.TimeUp);
+
+            PowerUpModel model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(
+                model, boardModel, trayModel, new StubRewardSource(granted: true), boardSystem);
+
+            Assert.IsFalse(system.TryApplyReroll());
+
+            Assert.AreEqual(1, model.RerollCount.Value);
+            Assert.AreSame(parked, trayModel.GetPiece(0));
+            Assert.IsNull(trayModel.GetPiece(1));
+            Assert.AreEqual(0, _appliedBroker.Published.Count);
+        }
+
         [Test]
         public void GrantRewardAsync_WhenTheSourceGrants_IncrementsPersistsAndPublishes()
         {
@@ -500,6 +780,27 @@ namespace MustyBlockBlast.Tests.EditMode
             PowerUpSystem unused = CreateSystem(reloadedModel, new BoardModel());
 
             Assert.AreEqual(1, reloadedModel.ColumnClearCount.Value);
+        }
+
+        /// <summary>Builds a system whose reroll draws are reproducible, and hands back the brokers and
+        /// board system the reroll tests need to observe.</summary>
+        private PowerUpSystem CreateRerollSystem(
+            PowerUpModel model,
+            BoardModel boardModel,
+            TrayModel trayModel,
+            int drawSeed,
+            TestMessageBroker<TrayRefilledMessage> trayRefilledBroker,
+            TestMessageBroker<GameOverMessage> gameOverBroker)
+        {
+            BoardSystem boardSystem = CreateBoardSystem(
+                boardModel,
+                trayModel,
+                gameOverBroker,
+                new WeightedPieceDraw(drawSeed),
+                trayRefilledBroker);
+
+            return CreateSystem(
+                model, boardModel, trayModel, new StubRewardSource(granted: true), boardSystem);
         }
 
         private PowerUpSystem CreateSystem(PowerUpModel model, BoardModel boardModel)
@@ -573,15 +874,32 @@ namespace MustyBlockBlast.Tests.EditMode
         private static BoardSystem CreateBoardSystem(
             BoardModel boardModel, TrayModel trayModel, TestMessageBroker<GameOverMessage> gameOverBroker)
         {
+            return CreateBoardSystem(
+                boardModel,
+                trayModel,
+                gameOverBroker,
+                new WeightedPieceDraw(),
+                new TestMessageBroker<TrayRefilledMessage>());
+        }
+
+        /// <summary>For the reroll tests, which need a seeded draw (so the set is reproducible) and a
+        /// readable tray-refill broker (so "a reroll is not a refill" can be asserted).</summary>
+        private static BoardSystem CreateBoardSystem(
+            BoardModel boardModel,
+            TrayModel trayModel,
+            TestMessageBroker<GameOverMessage> gameOverBroker,
+            WeightedPieceDraw pieceDraw,
+            TestMessageBroker<TrayRefilledMessage> trayRefilledBroker)
+        {
             return new BoardSystem(
                 boardModel,
                 trayModel,
-                new WeightedPieceDraw(),
+                pieceDraw,
                 new TestMessageBroker<RunStartedMessage>(),
                 new TestMessageBroker<PiecePlacedMessage>(),
                 new TestMessageBroker<LinesClearedMessage>(),
                 gameOverBroker,
-                new TestMessageBroker<TrayRefilledMessage>());
+                trayRefilledBroker);
         }
 
         /// <summary>Occupies every board cell except the ones named, so a test can state the one gap it
@@ -641,6 +959,7 @@ namespace MustyBlockBlast.Tests.EditMode
             PlayerPrefs.DeleteKey(PowerUpInventoryKey.For(PowerUpKind.Joker));
             PlayerPrefs.DeleteKey(PowerUpInventoryKey.For(PowerUpKind.ColorCleanser));
             PlayerPrefs.DeleteKey(PowerUpInventoryKey.For(PowerUpKind.Rotate));
+            PlayerPrefs.DeleteKey(PowerUpInventoryKey.For(PowerUpKind.Reroll));
         }
 
         private static Piece FindPiece(string id)

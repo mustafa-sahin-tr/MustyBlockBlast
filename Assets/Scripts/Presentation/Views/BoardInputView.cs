@@ -30,6 +30,10 @@ namespace MustyBlockBlast.Presentation.Views
     /// branches share the one aim gate, so only the target resolution differs.
     /// </para>
     /// <para>
+    /// A drag is also cancelled if its dock slot is rewritten underneath it — see
+    /// <see cref="OnTraySlotChanged"/>, which covers the Reroll power-up replacing the whole dock.
+    /// </para>
+    /// <para>
     /// A piece drag has a second destination besides the board: released over <see cref="HoldSlotView"/>
     /// it is parked in the pocket instead of placed. That branch is decided while dragging, not on
     /// release, so the highlight the player sees and the drop they get are always the same thing.
@@ -168,6 +172,8 @@ namespace MustyBlockBlast.Presentation.Views
             // The ghost is built on pick-up, so keeping the theme current is enough — there is
             // nothing already on screen to repaint when the theme changes.
             _settingsModel.CurrentTheme.Subscribe(OnThemeChanged).AddTo(_disposables);
+
+            _trayModel.SlotChanged += OnTraySlotChanged;
         }
 
         private void Update()
@@ -191,8 +197,54 @@ namespace MustyBlockBlast.Presentation.Views
         private void OnDestroy()
         {
             _disposables.Dispose();
+
+            if (_trayModel != null)
+            {
+                _trayModel.SlotChanged -= OnTraySlotChanged;
+            }
+
             _pointerPositionAction?.Dispose();
             _pointerPressAction?.Dispose();
+        }
+
+        /// <summary>
+        /// Drops an in-flight drag whose piece was swapped out from under it. The Reroll power-up is the
+        /// only thing that can do this today: it rewrites all three dock slots without a placement, so
+        /// a drag still running would go on showing a ghost of a piece the tray no longer offers and
+        /// would drop *that* piece's shape onto the board.
+        /// <para>
+        /// Every other write to a dock slot is a consequence of the drag ending — a placement or a park
+        /// both clear <see cref="_draggedSlot"/> before touching the model — so those never reach the
+        /// cancel below, and this hooks the model rather than the reroll specifically: the invariant is
+        /// "the slot being dragged changed underneath us", whatever changed it.
+        /// </para>
+        /// <para>
+        /// On the current single-pointer input path this is unreachable in practice, and deliberately
+        /// kept anyway. <c>_pointerPressAction</c> is one button action over <c>&lt;Pointer&gt;/press</c>:
+        /// while it is actuated by the press that began the drag it does not fire <c>started</c> again,
+        /// so the separate tap a reroll needs cannot happen until the drag's own press is released. This
+        /// guards the case a second pointer, a second input path, or any other future caller of
+        /// <c>TryRerollTray</c> would open up — none of which should have to know a drag exists.
+        /// </para>
+        /// </summary>
+        private void OnTraySlotChanged(int slotIndex)
+        {
+            if (_draggedSlot != slotIndex)
+            {
+                return;
+            }
+
+            _draggedSlot = -1;
+            _hasAnchor = false;
+            _isOverHoldSlot = false;
+
+            _boardView.ClearPreview();
+            _boardView.ClearWouldClearHighlight();
+            _holdSlotView.SetHovered(false);
+            DestroyGhost();
+
+            // The slot holds a piece again — the new one — so the plate the drag hid must come back.
+            _trayView.SetSlotVisible(slotIndex, true);
         }
 
         private void OnThemeChanged(ThemeDefinition theme)

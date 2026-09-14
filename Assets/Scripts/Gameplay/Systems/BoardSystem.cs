@@ -30,6 +30,10 @@ namespace MustyBlockBlast.Gameplay.Systems
         // Sized for the three dock slots plus the parked piece, which CheckGameOver appends.
         private readonly List<Piece> _remainingBuffer = new List<Piece>(TrayModel.SLOT_COUNT + 1);
         private readonly Board _previewScratchBoard = new Board();
+        // Reroll draws a whole set at once and only then writes it to the tray, so a draw that has to
+        // be retried never touches a slot. Owned here and reused, so a reroll allocates nothing.
+        private readonly Piece[] _rerollPieceBuffer = new Piece[TrayModel.SLOT_COUNT];
+        private readonly int[] _rerollColourBuffer = new int[TrayModel.SLOT_COUNT];
         private readonly List<int> _previewRowsBuffer = new List<int>(Board.SIZE);
         private readonly List<int> _previewColumnsBuffer = new List<int>(Board.SIZE);
 
@@ -261,9 +265,55 @@ namespace MustyBlockBlast.Gameplay.Systems
         }
 
         /// <summary>
+        /// Replaces all three dock pieces with a freshly drawn set for the Reroll power-up. Unlike a
+        /// refill this does not wait for the dock to empty: whatever is in the three slots is discarded,
+        /// occupied or not.
+        /// <para>
+        /// The set comes from <see cref="WeightedPieceDraw.TryDrawSolvableSet"/>, so at least one of the
+        /// three pieces fits the current board — the one draw in the game that is guaranteed. Ordinary
+        /// refills keep using the unguaranteed <see cref="WeightedPieceDraw.DrawPiece"/>, deliberately:
+        /// an unplayable refill is a legitimate game over (docs/game-design.md, "Drawing pieces").
+        /// </para>
+        /// <para>
+        /// Deliberately does <em>not</em> publish <see cref="TrayRefilledMessage"/>. That message means
+        /// "the dock ran dry and was restocked", and its only subscriber restarts the timed-mode
+        /// countdown from full on it. A reroll never empties the dock and is a discard rather than a
+        /// dock played out, so firing it would quietly turn Reroll into a full clock reset in Timed mode
+        /// — a far stronger effect than the one this power-up is scoped to. Views do not need it either:
+        /// they repaint from <see cref="TrayModel.SlotChanged"/>, which every write below raises.
+        /// </para>
+        /// <para>
+        /// The Hold slot is untouched: a parked piece was set aside deliberately and is not on offer, so
+        /// it is not part of what a reroll discards.
+        /// </para>
+        /// Returns false when the run is already over — nothing is drawn and nothing changes.
+        /// </summary>
+        internal bool TryRerollTray()
+        {
+            if (IsGameOver)
+            {
+                return false;
+            }
+
+            // The return value is intentionally ignored: false means the bounded retry gave up and the
+            // buffers hold the last attempt instead. The player still gets three real pieces, and the
+            // re-check below ends the run if none of them fits — exactly as it would for any other
+            // change to the shapes on offer.
+            _pieceDraw.TryDrawSolvableSet(_boardModel.Board, _rerollPieceBuffer, _rerollColourBuffer);
+
+            for (int slotIndex = 0; slotIndex < TrayModel.SLOT_COUNT; slotIndex++)
+            {
+                _trayModel.SetSlot(slotIndex, _rerollPieceBuffer[slotIndex], _rerollColourBuffer[slotIndex]);
+            }
+
+            RecheckGameOver();
+            return true;
+        }
+
+        /// <summary>
         /// Re-runs the no-moves-left check after something outside this system changed which shapes the
-        /// player holds — currently only the Rotate power-up, which swaps a dock slot's piece for
-        /// another orientation of it.
+        /// player holds — the Rotate power-up, which swaps a dock slot's piece for another orientation
+        /// of it, and Reroll, which replaces all three at once.
         /// <para>
         /// Deliberately a request, not a verdict: the caller says "the tray's shapes changed", and this
         /// system alone decides whether that ends the run, so the game-over invariant keeps its single

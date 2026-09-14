@@ -62,6 +62,13 @@ they have no second orientation and Rotate has nothing to do to them.
   (A "always offer at least one placeable piece" rule is a possible later tuning knob, but it
   changes the game's character and is deliberately excluded from v1.)
 
+The **one exception** is the Reroll power-up (see "Power-ups"), and only for the set it draws:
+a set the player spent an earned power-up on is retried until at least one of its three pieces
+fits the board. That guarantee is scoped to Reroll alone — ordinary refills are untouched by it,
+so the difficulty above still holds for ordinary play. The retry is bounded; if the bound is
+exhausted the last set drawn is used as-is, which can only happen on a board no catalog piece
+fits at all — a board that was already out of moves.
+
 ## Clearing
 
 - A row or column clears when all 8 of its cells are occupied
@@ -258,7 +265,7 @@ score and streak are therefore plain data in `Core`, not scattered MonoBehaviour
 
 ## Power-ups
 
-All but Rotate are applied as a board mutation before the next placement:
+All but Rotate and Reroll are applied as a board mutation before the next placement:
 
 | Power-up | Effect |
 |---|---|
@@ -268,6 +275,7 @@ All but Rotate are applied as a board mutation before the next placement:
 | Joker | Player taps an **empty** cell; fills it, then clears its row and/or column if the fill completed them |
 | Color Cleanser | Player taps an **occupied** cell; clears every cell on the board sharing that cell's colour |
 | Rotate | Player taps a **dock piece**; turns it 90° clockwise, in place, in its slot |
+| Reroll | Player taps the icon; discards all three dock pieces and draws three new ones, at least one of which fits the board |
 
 The first three force-clear their region whether or not it is full. The joker is the
 exception: it adds a cell rather than removing any, and clears only on the condition a
@@ -295,6 +303,23 @@ is scoped deliberately narrowly:
   it: a rotation that leaves nothing placeable ends the run, exactly as the placement that
   exhausted the board would.
 
+Reroll is the only power-up with **no target**. There is nothing to aim it at — the whole dock is
+the subject — so it is applied on the tap that selects it rather than armed and then aimed, and it
+is never an armed selection. Its other distinguishing rules:
+
+- It discards all three dock slots, **occupied or not**. The pocket is untouched: a parked piece
+  was deliberately set aside and is not on offer, so it is not part of what is discarded.
+- Its draw is the game's **only solvability-guaranteed** one (see "Drawing pieces").
+- It touches no cell, so it clears nothing, scores nothing and neither advances nor breaks the
+  combo streak — exactly as Rotate.
+- Because it changes which shapes the player holds, the no-moves-left check is re-run after it,
+  again exactly as Rotate.
+- It is **not** a tray refill. In Timed mode a refill restarts the countdown from full, which is
+  earned by playing the whole dock out; a reroll is a discard, and granting it the same reset
+  would make it a time power-up as well as a piece one.
+- A drag in flight is cancelled the moment its slot is rewritten, so no drag can drop a piece the
+  tray no longer offers.
+
 Cleared cells score as a normal clear but **do not** advance the combo streak — power-ups
 should not be a way to farm multipliers. A power-up that clears nothing scores nothing,
 including a joker that only fills a cell. Bomb and Color Cleanser both pay per cell cleared,
@@ -302,7 +327,7 @@ since neither has a fixed region size; Row Clear/Column Clear pay the flat one-l
 
 ## Hold slot (pocket)
 
-Separate from the six power-ups above: the Hold slot is not earned, has no charge or count,
+Separate from the seven power-ups above: the Hold slot is not earned, has no charge or count,
 is never armed, and never touches the board. It is always available, for the whole run.
 
 A single extra slot sits beside the tray. The player drags a tray piece onto it to **park**

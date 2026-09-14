@@ -2,8 +2,8 @@ namespace MustyBlockBlast.Gameplay
 {
     /// <summary>
     /// The power-ups. Each is earned separately and kept in its own inventory slot, so the kind is the
-    /// identity used by persistence, messaging and scoring alike. All but <see cref="Rotate"/> mutate
-    /// the board; <see cref="Rotate"/> is the one kind aimed at the tray instead.
+    /// identity used by persistence, messaging and scoring alike. All but <see cref="Rotate"/> and
+    /// <see cref="Reroll"/> mutate the board; those two act on the tray instead.
     /// <para>
     /// Values are persisted by name (see <c>PowerUpInventoryKey</c>), so members may be appended but
     /// never reordered or renamed.
@@ -42,5 +42,14 @@ namespace MustyBlockBlast.Gameplay
         /// targets — nothing is spent, nothing is disarmed.
         /// </summary>
         Rotate,
+
+        /// <summary>
+        /// Discards all three dock pieces and draws three new ones, guaranteeing at least one of them
+        /// has a legal placement on the current board — the one draw in the game that is solvability-
+        /// guaranteed; ordinary refills stay unguaranteed. Like <see cref="Rotate"/> it touches no cell,
+        /// and unlike every other kind it has no target at all: it is applied the moment it is tapped
+        /// rather than armed and aimed.
+        /// </summary>
+        Reroll,
     }
 }
