@@ -765,6 +765,7 @@ MonoBehaviour:
   _anchoredPosition: {x: 0, y: -430}
   _slotSize: 104
   _slotSpacing: 180
+  _maxStripWidth: 1000
   _countFontSize: 34
   _armedScale: 1.12
 --- !u!1 &979778622
@@ -851,6 +852,7 @@ RectTransform:
   - {fileID: 1262375242}
   - {fileID: 1462617057}
   - {fileID: 1770068465}
+  - {fileID: 1274277862}
   - {fileID: 680048524}
   - {fileID: 1443061545}
   - {fileID: 436960494}
@@ -980,6 +982,7 @@ MonoBehaviour:
   _trayCellSpacing: 5
   _cellInset: 2
   _cellBevelThickness: 6
+  _aimedSlotScale: 1.06
 --- !u!1 &1186743024
 GameObject:
   m_ObjectHideFlags: 0
@@ -1132,6 +1135,56 @@ MonoBehaviour:
   _celebrationDuration: 0.7
   _celebrationScale: 1.8
   _scoreFont: {fileID: 12800000, guid: 0879445ee55bb4fc5bfdc99e4b94f899, type: 3}
+--- !u!1 &1274277861
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1274277862}
+  - component: {fileID: 1274277863}
+  m_Layer: 0
+  m_Name: DoubleMultiplierHud
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &1274277862
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1274277861}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 979778625}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: 0, y: -330}
+  m_SizeDelta: {x: 400, y: 90}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &1274277863
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1274277861}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c9d42a8e9073e4ac78debce84d373cd3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.DoubleMultiplierHudView
+  _anchoredPosition: {x: 0, y: -330}
+  _fontSize: 44
 --- !u!1 &1443061544
 GameObject:
   m_ObjectHideFlags: 0

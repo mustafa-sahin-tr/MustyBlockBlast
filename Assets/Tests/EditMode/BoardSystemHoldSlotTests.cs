@@ -405,6 +405,7 @@ namespace MustyBlockBlast.Tests.EditMode
             return new ScoreSystem(
                 scoreModel,
                 new GameModeSystem(new GameModeModel(), _system),
+                new DoubleMultiplierModel(),
                 new List<IScoreRule>(),
                 _piecePlacedBroker,
                 _runStartedBroker,

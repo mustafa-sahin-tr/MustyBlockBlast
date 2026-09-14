@@ -275,7 +275,8 @@ score and streak are therefore plain data in `Core`, not scattered MonoBehaviour
 
 ## Power-ups
 
-All but Rotate and Reroll are applied as a board mutation before the next placement:
+All but Rotate, Reroll and Double Multiplier are applied as a board mutation before the
+next placement:
 
 | Power-up | Effect |
 |---|---|
@@ -286,6 +287,7 @@ All but Rotate and Reroll are applied as a board mutation before the next placem
 | Color Cleanser | Player taps an **occupied** cell; clears every cell on the board sharing that cell's colour |
 | Rotate | Player taps a **dock piece**; turns it 90° clockwise, in place, in its slot |
 | Reroll | Player taps the icon; discards all three dock pieces and draws three new ones, at least one of which fits the board |
+| Double Multiplier | Player taps the icon; every score gain in the run is worth **2×** for the next 15 seconds |
 
 The first three force-clear their region whether or not it is full. The joker is the
 exception: it adds a cell rather than removing any, and clears only on the condition a
@@ -313,7 +315,7 @@ is scoped deliberately narrowly:
   it: a rotation that leaves nothing placeable ends the run, exactly as the placement that
   exhausted the board would.
 
-Reroll is the only power-up with **no target**. There is nothing to aim it at — the whole dock is
+Reroll is the first of the two power-ups with **no target**. There is nothing to aim it at — the whole dock is
 the subject — so it is applied on the tap that selects it rather than armed and then aimed, and it
 is never an armed selection. Its other distinguishing rules:
 
@@ -330,6 +332,28 @@ is never an armed selection. Its other distinguishing rules:
 - A drag in flight is cancelled the moment its slot is rewritten, so no drag can drop a piece the
   tray no longer offers.
 
+Double Multiplier (the "2× frenzy") is the second targetless power-up, and the only one whose
+effect is not immediate: tapping it spends the charge and opens a **15-second window**, and
+everything it does happens inside that window.
+
+- While the window is open, **every** score gain in the run is doubled — a placement's total and
+  a power-up clear's alike. Power-up-sourced points are explicitly included: the rule is "every
+  score gain", not "every placement".
+- The doubling is applied to each event's **finished total**, after the whole additive multiplier
+  stack (combo, streak, monochrome, milestone bonuses) has resolved. It is not another term in
+  that stack, so it never compounds with the streak arithmetic — it simply doubles the output.
+- A score event worth **0 is still worth 0**: there is no floor, so a placement or clear that
+  earned nothing earns nothing during a frenzy too.
+- The 15 seconds are **run seconds, not wall-clock seconds**: the window is held for exactly as
+  long as the run is paused — a modal panel open (Settings/Level path/Badges), another power-up
+  armed and being aimed, or the app backgrounded — the same three reasons that hold the Timed
+  mode countdown, and it resumes where it left off.
+- Activating it again while a window is already open **restarts** it at 15 seconds rather than
+  stacking: this is a doubling, never a 4×.
+- Like Rotate and Reroll it touches no cell, so it clears nothing and scores nothing at the moment
+  it is spent — opening the window never pays the player for opening it.
+- The window belongs to the run it was opened in: it does not survive game over or a restart.
+
 Cleared cells score as a normal clear but **do not** advance the combo streak — power-ups
 should not be a way to farm multipliers. A power-up that clears nothing scores nothing,
 including a joker that only fills a cell. Bomb and Color Cleanser both pay per cell cleared,
@@ -337,7 +361,7 @@ since neither has a fixed region size; Row Clear/Column Clear pay the flat one-l
 
 ## Hold slot (pocket)
 
-Separate from the seven power-ups above: the Hold slot is not earned, has no charge or count,
+Separate from the eight power-ups above: the Hold slot is not earned, has no charge or count,
 is never armed, and never touches the board. It is always available, for the whole run.
 
 A single extra slot sits beside the tray. The player drags a tray piece onto it to **park**

@@ -51,5 +51,14 @@ namespace MustyBlockBlast.Gameplay
         /// rather than armed and aimed.
         /// </summary>
         Reroll,
+
+        /// <summary>
+        /// Opens a fixed-length window during which every score gain — placements and power-up clears
+        /// alike — is worth double. Like <see cref="Reroll"/> it has no target and is applied on the tap
+        /// that selects it, and like <see cref="Rotate"/> and <see cref="Reroll"/> it touches no cell.
+        /// It is the only kind that changes nothing at the moment it is spent: its whole effect is what
+        /// happens for the next few seconds (see <c>DoubleMultiplierModel</c>).
+        /// </summary>
+        DoubleMultiplier,
     }
 }

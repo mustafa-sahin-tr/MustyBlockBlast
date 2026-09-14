@@ -21,6 +21,11 @@ namespace MustyBlockBlast.Tests.EditMode
         private TestMessageBroker<PowerUpAppliedMessage> _appliedBroker;
         private TestMessageBroker<PowerUpGrantedMessage> _grantedBroker;
 
+        /// <summary>The frenzy window the double multiplier opens. Kept as a field so a test can read
+        /// the model behind it without reaching back through the system under test.</summary>
+        private DoubleMultiplierModel _doubleMultiplierModel;
+        private DoubleMultiplierSystem _doubleMultiplierSystem;
+
         /// <summary>PowerUpSystem loads the inventory in its constructor, so a count left behind by a
         /// previous test would silently decide whether the next one can spend anything.</summary>
         [SetUp]
@@ -29,6 +34,12 @@ namespace MustyBlockBlast.Tests.EditMode
             DeleteInventoryKeys();
             _appliedBroker = new TestMessageBroker<PowerUpAppliedMessage>();
             _grantedBroker = new TestMessageBroker<PowerUpGrantedMessage>();
+            _doubleMultiplierModel = new DoubleMultiplierModel();
+            _doubleMultiplierSystem = new DoubleMultiplierSystem(
+                _doubleMultiplierModel,
+                new RunPauseModel(),
+                new TestMessageBroker<RunStartedMessage>(),
+                new TestMessageBroker<GameOverMessage>());
         }
 
         [TearDown]
@@ -895,6 +906,102 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.AreEqual(1, reloadedModel.ColumnClearCount.Value);
         }
 
+        [Test]
+        public void TryApplyDoubleMultiplier_WithNoneHeld_ChangesNothing()
+        {
+            PowerUpModel model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, new BoardModel());
+
+            bool applied = system.TryApplyDoubleMultiplier();
+
+            Assert.IsFalse(applied);
+            Assert.AreEqual(0, model.DoubleMultiplierCount.Value);
+            Assert.IsFalse(_doubleMultiplierModel.IsActive);
+            Assert.AreEqual(0, _appliedBroker.Published.Count);
+        }
+
+        [Test]
+        public void TryApplyDoubleMultiplier_WithOneHeld_SpendsItAndOpensAFullWindow()
+        {
+            PersistCount(PowerUpKind.DoubleMultiplier, 2);
+            PowerUpModel model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, new BoardModel());
+
+            bool applied = system.TryApplyDoubleMultiplier();
+
+            Assert.IsTrue(applied);
+            Assert.AreEqual(1, model.DoubleMultiplierCount.Value);
+            Assert.IsTrue(_doubleMultiplierModel.IsActive);
+            Assert.AreEqual(
+                DoubleMultiplierModel.WINDOW_SECONDS, _doubleMultiplierModel.RemainingSeconds.Value);
+        }
+
+        /// <summary>The badge counter that tracks "power-ups used" has to see this kind too, even
+        /// though it clears nothing — the same contract Rotate and Reroll follow.</summary>
+        [Test]
+        public void TryApplyDoubleMultiplier_PublishesAnApplicationThatClearedNothing()
+        {
+            PersistCount(PowerUpKind.DoubleMultiplier, 1);
+            PowerUpSystem system = CreateSystem(new PowerUpModel(), new BoardModel());
+
+            system.TryApplyDoubleMultiplier();
+
+            Assert.AreEqual(1, _appliedBroker.Published.Count);
+            Assert.AreEqual(PowerUpKind.DoubleMultiplier, _appliedBroker.Published[0].Kind);
+            Assert.AreEqual(0, _appliedBroker.Published[0].ClearedCellCount);
+        }
+
+        /// <summary>Targetless, so it is never an armed selection — exactly like the reroll.</summary>
+        [Test]
+        public void Arm_DoubleMultiplier_IsRefusedEvenWhenHeld()
+        {
+            PersistCount(PowerUpKind.DoubleMultiplier, 3);
+            PowerUpModel model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, new BoardModel());
+
+            system.Arm(PowerUpKind.DoubleMultiplier);
+
+            Assert.IsNull(model.Armed.Value);
+            Assert.AreEqual(3, model.DoubleMultiplierCount.Value);
+        }
+
+        /// <summary>Re-activating restarts the window rather than stacking: the power-up is a doubling,
+        /// not a multiplier that compounds with itself.</summary>
+        [Test]
+        public void TryApplyDoubleMultiplier_Twice_RestartsTheWindowRatherThanExtendingIt()
+        {
+            PersistCount(PowerUpKind.DoubleMultiplier, 2);
+            PowerUpSystem system = CreateSystem(new PowerUpModel(), new BoardModel());
+
+            system.TryApplyDoubleMultiplier();
+            _doubleMultiplierSystem.Advance(10f);
+            system.TryApplyDoubleMultiplier();
+
+            Assert.AreEqual(
+                DoubleMultiplierModel.WINDOW_SECONDS, _doubleMultiplierModel.RemainingSeconds.Value);
+        }
+
+        [Test]
+        public void TryApplyDoubleMultiplier_WithTheRunOver_IsRefused()
+        {
+            PersistCount(PowerUpKind.DoubleMultiplier, 1);
+            var boardModel = new BoardModel();
+            var trayModel = new TrayModel();
+            BoardSystem boardSystem = CreateBoardSystem(
+                boardModel, trayModel, new TestMessageBroker<GameOverMessage>());
+            boardSystem.ForceGameOver(GameOverReason.TimeUp);
+
+            PowerUpModel model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(
+                model, boardModel, trayModel, new StubRewardSource(granted: true), boardSystem);
+
+            bool applied = system.TryApplyDoubleMultiplier();
+
+            Assert.IsFalse(applied);
+            Assert.AreEqual(1, model.DoubleMultiplierCount.Value);
+            Assert.IsFalse(_doubleMultiplierModel.IsActive);
+        }
+
         /// <summary>Builds a system whose reroll draws are reproducible, and hands back the brokers and
         /// board system the reroll tests need to observe.</summary>
         private PowerUpSystem CreateRerollSystem(
@@ -967,6 +1074,7 @@ namespace MustyBlockBlast.Tests.EditMode
                 trayModel,
                 boardSystem,
                 CreateTimerRunSystem(boardSystem),
+                _doubleMultiplierSystem,
                 rewardSource,
                 _appliedBroker,
                 _grantedBroker,
@@ -1073,6 +1181,7 @@ namespace MustyBlockBlast.Tests.EditMode
             PlayerPrefs.DeleteKey(PowerUpInventoryKey.For(PowerUpKind.ColorCleanser));
             PlayerPrefs.DeleteKey(PowerUpInventoryKey.For(PowerUpKind.Rotate));
             PlayerPrefs.DeleteKey(PowerUpInventoryKey.For(PowerUpKind.Reroll));
+            PlayerPrefs.DeleteKey(PowerUpInventoryKey.For(PowerUpKind.DoubleMultiplier));
         }
 
         private static Piece FindPiece(string id)

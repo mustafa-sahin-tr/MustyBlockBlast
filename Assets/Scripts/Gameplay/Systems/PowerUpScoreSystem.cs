@@ -31,15 +31,18 @@ namespace MustyBlockBlast.Gameplay.Systems
         private const int POWER_UP_LINES_CLEARED = 1;
 
         private readonly ScoreModel _scoreModel;
+        private readonly DoubleMultiplierModel _doubleMultiplierModel;
         private readonly IPublisher<ScoreChangedMessage> _scoreChangedPublisher;
         private readonly IDisposable _subscription;
 
         public PowerUpScoreSystem(
             ScoreModel scoreModel,
+            DoubleMultiplierModel doubleMultiplierModel,
             ISubscriber<PowerUpAppliedMessage> powerUpAppliedSubscriber,
             IPublisher<ScoreChangedMessage> scoreChangedPublisher)
         {
             _scoreModel = scoreModel;
+            _doubleMultiplierModel = doubleMultiplierModel;
             _scoreChangedPublisher = scoreChangedPublisher;
             _subscription = powerUpAppliedSubscriber.Subscribe(OnPowerUpApplied);
         }
@@ -60,6 +63,12 @@ namespace MustyBlockBlast.Gameplay.Systems
             {
                 return;
             }
+
+            // Doubled on the way out, like a placement's total: a frenzy applies to every score gain in
+            // the run, not just to the ones that came from placing a piece. The zero case never reaches
+            // here — the early-out above already dropped it — so nothing is published for a clear that
+            // was worth nothing, doubled or not.
+            gained = _doubleMultiplierModel.Multiply(gained);
 
             _scoreModel.Score.Value += gained;
 
