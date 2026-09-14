@@ -11,6 +11,9 @@ namespace MustyBlockBlast.Core
         public const int SIZE = 8;
         public const int EMPTY = 0;
 
+        /// <summary>Width/height of the centered "core" region <see cref="IsCenterCoreEmpty"/> checks.</summary>
+        private const int CENTER_CORE_SIZE = 4;
+
         private readonly int[] _cells;
 
         public Board()
@@ -137,6 +140,96 @@ namespace MustyBlockBlast.Core
             }
 
             return count;
+        }
+
+        /// <summary>True when the board's centered 4x4 "core" is completely empty — a topology goal
+        /// distinct from <see cref="IsEmpty"/> (whole board) or any single row/column.</summary>
+        public bool IsCenterCoreEmpty()
+        {
+            int min = (SIZE - CENTER_CORE_SIZE) / 2;
+            int max = min + CENTER_CORE_SIZE - 1;
+
+            for (int y = min; y <= max; y++)
+            {
+                for (int x = min; x <= max; x++)
+                {
+                    if (_cells[Index(new GridPosition(x, y))] != EMPTY)
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// True when at least one empty cell cannot be reached from the board edge through a path of
+        /// empty cells (4-directional) — an "isolated hole" trapped behind occupied cells. Flood-fills
+        /// from every empty border cell; O(64) with two small scratch arrays, cheap enough to run once
+        /// per placement (not a per-frame concern, so this is not held to the Update-path zero-alloc rule).
+        /// </summary>
+        public bool HasIsolatedEmptyCells()
+        {
+            var reachable = new bool[SIZE * SIZE];
+            var stack = new int[SIZE * SIZE];
+            int stackCount = 0;
+
+            for (int x = 0; x < SIZE; x++)
+            {
+                stackCount = SeedIfEmpty(x, 0, reachable, stack, stackCount);
+                stackCount = SeedIfEmpty(x, SIZE - 1, reachable, stack, stackCount);
+            }
+
+            for (int y = 1; y < SIZE - 1; y++)
+            {
+                stackCount = SeedIfEmpty(0, y, reachable, stack, stackCount);
+                stackCount = SeedIfEmpty(SIZE - 1, y, reachable, stack, stackCount);
+            }
+
+            while (stackCount > 0)
+            {
+                stackCount--;
+                int index = stack[stackCount];
+                int x = index % SIZE;
+                int y = index / SIZE;
+
+                stackCount = SeedIfEmpty(x - 1, y, reachable, stack, stackCount);
+                stackCount = SeedIfEmpty(x + 1, y, reachable, stack, stackCount);
+                stackCount = SeedIfEmpty(x, y - 1, reachable, stack, stackCount);
+                stackCount = SeedIfEmpty(x, y + 1, reachable, stack, stackCount);
+            }
+
+            for (int i = 0; i < SIZE * SIZE; i++)
+            {
+                if (_cells[i] == EMPTY && !reachable[i])
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>Marks (x, y) reachable and pushes it onto the flood-fill stack, when it is
+        /// in-bounds, empty, and not already marked. Returns the updated stack count so callers can
+        /// chain calls without a <c>ref</c> parameter.</summary>
+        private int SeedIfEmpty(int x, int y, bool[] reachable, int[] stack, int stackCount)
+        {
+            if (x < 0 || x >= SIZE || y < 0 || y >= SIZE)
+            {
+                return stackCount;
+            }
+
+            int index = (y * SIZE) + x;
+            if (_cells[index] != EMPTY || reachable[index])
+            {
+                return stackCount;
+            }
+
+            reachable[index] = true;
+            stack[stackCount] = index;
+            return stackCount + 1;
         }
 
         /// <summary>Deep copy, used for undo snapshots.</summary>

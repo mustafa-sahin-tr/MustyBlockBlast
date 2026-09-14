@@ -95,6 +95,9 @@ alter them.
 | At-least line clear ("mega clear") | A placement clears **at least** the required number of lines at once | +1 per qualifying placement |
 | Piece id count | A placement uses the exact catalog piece named by the objective | +1 per qualifying placement |
 | Piece id line clear | A placement uses the exact catalog piece AND clears at least one line | +1 per qualifying placement |
+| Four corners cleared | A placement's clear touches a board corner cell | +1 per qualifying placement |
+| Center core evacuated | A placement leaves the board's centered 4×4 core completely empty | +1 per qualifying placement |
+| No isolated holes streak | A placement leaves zero unreachable-from-edge empty cells | Best streak of consecutive qualifying placements |
 
 The line-clear objective matches exactly, not "at least": a 3-line clear does not satisfy a
 "clear 2 lines at once" objective — that is a separate, harder goal. Shape families are
@@ -137,6 +140,22 @@ rather than its shape family — `Piece shape family` groups every size of a sha
 (`Square` covers both 2×2 and 3×3), so "place 3×3 solid blocks specifically" or "clear a line
 with the I5 pentomino" need the finer-grained id, not the family. A typo'd id is caught at
 authoring time: `LevelObjectiveConfig.IsValid` checks it against the real `PieceCatalog`.
+
+Board topology objectives read the board's shape, not just what a placement cleared:
+
+- **Four corners cleared** counts a clear that touches any corner cell. Clearing row 0 or the
+  last row alone already touches two corners at once (every cell in that row is cleared,
+  including both edge columns), so this reduces to checking whether the cleared row/column
+  indices include either edge — no per-cell coordinate tracking needed.
+- **Center core evacuated** checks the board's centered 4×4 region, independently of the whole
+  board (`Board wipe`, above) or any single row/column.
+- **No isolated holes streak** flood-fills from every empty edge cell to find which empty cells
+  are reachable; anything empty and unreached is an isolated hole. This runs on *every*
+  placement (not just clearing ones) and **after** that placement's own line clears resolved —
+  a hole that opens up and is immediately closed by the same placement's clear never breaks the
+  streak, matching how a normal line clear is evaluated after the whole piece lands. Like
+  `Streak threshold`, progress tracks the best run ever, not the live one — a single bad
+  placement drops the live streak to 0 but never erases an earlier peak.
 
 Lifetime "how many pieces has the player ever placed" goals are covered by the Badges system's
 `TotalPiecesPlaced` stat, not a separate objective type — a level goal and a lifetime achievement

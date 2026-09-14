@@ -222,6 +222,18 @@ MonoBehaviour:
     m_Localized: 5-long line
     m_Metadata:
       m_Items: []
+  - m_Id: 236115477913600
+    m_Localized: Clear a line through a corner
+    m_Metadata:
+      m_Items: []
+  - m_Id: 236115591159808
+    m_Localized: Empty the board's center
+    m_Metadata:
+      m_Items: []
+  - m_Id: 236115591159809
+    m_Localized: Keep the board free of trapped gaps
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

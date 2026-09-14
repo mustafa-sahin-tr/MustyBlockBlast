@@ -86,6 +86,9 @@ namespace MustyBlockBlast.Gameplay.Localization
         public const string OBJECTIVE_AT_LEAST_LINE_CLEAR = "objective.at_least_line_clear";
         public const string OBJECTIVE_PIECE_ID_COUNT = "objective.piece_id_count";
         public const string OBJECTIVE_PIECE_ID_LINE_CLEAR = "objective.piece_id_line_clear";
+        public const string OBJECTIVE_FOUR_CORNERS_CLEARED = "objective.four_corners_cleared";
+        public const string OBJECTIVE_CENTER_CORE_EVACUATED = "objective.center_core_evacuated";
+        public const string OBJECTIVE_NO_ISOLATED_HOLES_STREAK = "objective.no_isolated_holes_streak";
 
         // Translated display names for individual catalog pieces, keyed by piece id in
         // ObjectiveDescriptionFormatter.PieceIdNameKey. Not exhaustive — only pieces an authored

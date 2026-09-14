@@ -98,7 +98,7 @@ namespace MustyBlockBlast.Tests.EditMode
             _piecePlacedBroker.Publish(new PiecePlacedMessage(
                 pieceId: "line_h4", anchor: new GridPosition(0, 0), pieceFamily: PieceFamily.Line,
                 cellCount: 4, colourId: 1, linesCleared: 4, rowsCleared: 4, columnsCleared: 0,
-                monochromeLineCount: 0, boardEmptyAfterPlacement: true, occupiedCellCountBeforeClear: 0));
+                monochromeLineCount: 0, boardEmptyAfterPlacement: true, occupiedCellCountBeforeClear: 0, anyCornerCleared: false, centerCoreEmptyAfterPlacement: false, hasIsolatedHolesAfterPlacement: false));
 
             Assert.AreEqual(0, _objectiveModel.CurrentObjective.CurrentValue);
             Assert.AreEqual(0, _completedBroker.Published.Count);
@@ -114,7 +114,7 @@ namespace MustyBlockBlast.Tests.EditMode
             _piecePlacedBroker.Publish(new PiecePlacedMessage(
                 pieceId: "single_1x1", anchor: new GridPosition(0, 0), pieceFamily: PieceFamily.Single,
                 cellCount: 1, colourId: 1, linesCleared: 1, rowsCleared: 1, columnsCleared: 0,
-                monochromeLineCount: 0, boardEmptyAfterPlacement: true, occupiedCellCountBeforeClear: 0));
+                monochromeLineCount: 0, boardEmptyAfterPlacement: true, occupiedCellCountBeforeClear: 0, anyCornerCleared: false, centerCoreEmptyAfterPlacement: false, hasIsolatedHolesAfterPlacement: false));
 
             Assert.AreEqual(1, objective.CurrentValue);
             Assert.IsTrue(objective.IsComplete);
@@ -131,7 +131,7 @@ namespace MustyBlockBlast.Tests.EditMode
             _piecePlacedBroker.Publish(new PiecePlacedMessage(
                 pieceId: "square_2x2", anchor: new GridPosition(0, 0), pieceFamily: PieceFamily.Square,
                 cellCount: 4, colourId: 1, linesCleared: 2, rowsCleared: 1, columnsCleared: 1,
-                monochromeLineCount: 0, boardEmptyAfterPlacement: false, occupiedCellCountBeforeClear: 0));
+                monochromeLineCount: 0, boardEmptyAfterPlacement: false, occupiedCellCountBeforeClear: 0, anyCornerCleared: false, centerCoreEmptyAfterPlacement: false, hasIsolatedHolesAfterPlacement: false));
 
             Assert.AreEqual(1, objective.CurrentValue);
             Assert.IsTrue(objective.IsComplete);
@@ -148,7 +148,7 @@ namespace MustyBlockBlast.Tests.EditMode
             _piecePlacedBroker.Publish(new PiecePlacedMessage(
                 pieceId: "line_h4", anchor: new GridPosition(0, 0), pieceFamily: PieceFamily.Line,
                 cellCount: 4, colourId: 1, linesCleared: 1, rowsCleared: 1, columnsCleared: 0,
-                monochromeLineCount: 0, boardEmptyAfterPlacement: false, occupiedCellCountBeforeClear: 60));
+                monochromeLineCount: 0, boardEmptyAfterPlacement: false, occupiedCellCountBeforeClear: 60, anyCornerCleared: false, centerCoreEmptyAfterPlacement: false, hasIsolatedHolesAfterPlacement: false));
 
             Assert.AreEqual(1, objective.CurrentValue);
             Assert.IsTrue(objective.IsComplete);

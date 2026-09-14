@@ -219,6 +219,18 @@ MonoBehaviour:
     m_Key: objective.piece_name.line_5
     m_Metadata:
       m_Items: []
+  - m_Id: 236115477913600
+    m_Key: objective.four_corners_cleared
+    m_Metadata:
+      m_Items: []
+  - m_Id: 236115591159808
+    m_Key: objective.center_core_evacuated
+    m_Metadata:
+      m_Items: []
+  - m_Id: 236115591159809
+    m_Key: objective.no_isolated_holes_streak
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

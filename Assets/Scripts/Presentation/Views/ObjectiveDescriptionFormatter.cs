@@ -66,6 +66,15 @@ namespace MustyBlockBlast.Presentation.Views
                     return localization.Format(
                         LocalizationKeys.OBJECTIVE_PIECE_ID_LINE_CLEAR, PieceIdDisplayName(definition.RequiredPieceId, localization));
 
+                case ObjectiveType.FourCornersCleared:
+                    return localization.Translate(LocalizationKeys.OBJECTIVE_FOUR_CORNERS_CLEARED);
+
+                case ObjectiveType.CenterCoreEvacuated:
+                    return localization.Translate(LocalizationKeys.OBJECTIVE_CENTER_CORE_EVACUATED);
+
+                case ObjectiveType.NoIsolatedHolesStreak:
+                    return localization.Translate(LocalizationKeys.OBJECTIVE_NO_ISOLATED_HOLES_STREAK);
+
                 default:
                     return string.Empty;
             }

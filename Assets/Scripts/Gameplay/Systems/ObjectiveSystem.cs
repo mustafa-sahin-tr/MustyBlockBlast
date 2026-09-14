@@ -81,7 +81,10 @@ namespace MustyBlockBlast.Gameplay.Systems
                 _currentRunScore,
                 message.BoardEmptyAfterPlacement,
                 _currentStreak,
-                message.OccupiedCellCountBeforeClear);
+                message.OccupiedCellCountBeforeClear,
+                message.AnyCornerCleared,
+                message.CenterCoreEmptyAfterPlacement,
+                message.HasIsolatedHolesAfterPlacement);
 
             ApplyToAllObjectives(objective => objective.ApplyPlacement(context));
         }

@@ -9,6 +9,13 @@ namespace MustyBlockBlast.Core
     /// </summary>
     public sealed class ObjectiveProgress
     {
+        /// <summary>The ongoing (not best-ever) run of consecutive placements with no isolated holes.
+        /// Meaningful only for <see cref="ObjectiveType.NoIsolatedHolesStreak"/> — every other type
+        /// leaves this at 0 and never reads it. Separate from <see cref="CurrentValue"/>, which tracks
+        /// the high-water mark this feeds, the same split <see cref="ObjectiveType.StreakThreshold"/>
+        /// uses for the combo streak.</summary>
+        private int _consecutiveNoIsolatedHolesCount;
+
         public ObjectiveProgress(ObjectiveDefinition definition)
         {
             Definition = definition;
@@ -120,6 +127,33 @@ namespace MustyBlockBlast.Core
                     // of 4 then a reset then a streak of 6 reads as "best streak 6", never "10".
                     CurrentValue = Math.Max(CurrentValue, Math.Min(context.CurrentStreak, Definition.TargetValue));
                     break;
+
+                case ObjectiveType.FourCornersCleared:
+                    if (context.AnyCornerCleared)
+                    {
+                        CurrentValue = Math.Min(CurrentValue + 1, Definition.TargetValue);
+                    }
+
+                    break;
+
+                case ObjectiveType.CenterCoreEvacuated:
+                    if (context.CenterCoreEmptyAfterPlacement)
+                    {
+                        CurrentValue = Math.Min(CurrentValue + 1, Definition.TargetValue);
+                    }
+
+                    break;
+
+                case ObjectiveType.NoIsolatedHolesStreak:
+                    // Every placement counts here, not just clearing ones — this is a hygiene streak,
+                    // not a clear-event counter. Mirrors StreakThreshold's high-water-mark split: the
+                    // live streak can drop to 0, but CurrentValue (the best run ever) never does.
+                    _consecutiveNoIsolatedHolesCount = context.HasIsolatedHolesAfterPlacement
+                        ? 0
+                        : _consecutiveNoIsolatedHolesCount + 1;
+                    CurrentValue = Math.Max(
+                        CurrentValue, Math.Min(_consecutiveNoIsolatedHolesCount, Definition.TargetValue));
+                    break;
             }
 
             if (CurrentValue == previousValue)
@@ -187,6 +221,7 @@ namespace MustyBlockBlast.Core
 
             CurrentValue = 0;
             IsComplete = false;
+            _consecutiveNoIsolatedHolesCount = 0;
         }
     }
 }

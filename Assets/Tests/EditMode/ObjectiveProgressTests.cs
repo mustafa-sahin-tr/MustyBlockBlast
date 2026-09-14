@@ -20,11 +20,15 @@ namespace MustyBlockBlast.Tests.EditMode
             int currentRunScore = 0,
             bool boardEmptyAfterPlacement = false,
             int currentStreak = 0,
-            int occupiedCellCountBeforeClear = 0)
+            int occupiedCellCountBeforeClear = 0,
+            bool anyCornerCleared = false,
+            bool centerCoreEmptyAfterPlacement = false,
+            bool hasIsolatedHolesAfterPlacement = false)
         {
             return new ObjectivePlacementContext(
                 linesCleared, rowsCleared, columnsCleared, pieceFamily, pieceId, currentRunScore,
-                boardEmptyAfterPlacement, currentStreak, occupiedCellCountBeforeClear);
+                boardEmptyAfterPlacement, currentStreak, occupiedCellCountBeforeClear,
+                anyCornerCleared, centerCoreEmptyAfterPlacement, hasIsolatedHolesAfterPlacement);
         }
 
         private static ObjectiveProgress StreakObjective(int targetValue)
@@ -418,6 +422,135 @@ namespace MustyBlockBlast.Tests.EditMode
 
             Assert.IsFalse(objective.ApplyPlacement(Placement(pieceId: "line_v5", linesCleared: 1)));
             Assert.AreEqual(0, objective.CurrentValue);
+        }
+
+        [Test]
+        public void FourCornersCleared_ACornerClear_Increments()
+        {
+            ObjectiveProgress objective = new ObjectiveProgress(new ObjectiveDefinition(
+                "corners", ObjectiveType.FourCornersCleared, ObjectiveScope.PerRun, targetValue: 8));
+
+            Assert.IsTrue(objective.ApplyPlacement(Placement(anyCornerCleared: true)));
+            Assert.AreEqual(1, objective.CurrentValue);
+        }
+
+        [Test]
+        public void FourCornersCleared_AClearThatMissesEveryCorner_DoesNotIncrement()
+        {
+            ObjectiveProgress objective = new ObjectiveProgress(new ObjectiveDefinition(
+                "corners", ObjectiveType.FourCornersCleared, ObjectiveScope.PerRun, targetValue: 8));
+
+            Assert.IsFalse(objective.ApplyPlacement(Placement(linesCleared: 1, anyCornerCleared: false)));
+            Assert.AreEqual(0, objective.CurrentValue);
+        }
+
+        [Test]
+        public void CenterCoreEvacuated_CenterLeftEmpty_Increments()
+        {
+            ObjectiveProgress objective = new ObjectiveProgress(new ObjectiveDefinition(
+                "core", ObjectiveType.CenterCoreEvacuated, ObjectiveScope.PerRun, targetValue: 1));
+
+            Assert.IsTrue(objective.ApplyPlacement(Placement(centerCoreEmptyAfterPlacement: true)));
+            Assert.AreEqual(1, objective.CurrentValue);
+            Assert.IsTrue(objective.IsComplete);
+        }
+
+        [Test]
+        public void CenterCoreEvacuated_CenterStillOccupied_DoesNotIncrement()
+        {
+            ObjectiveProgress objective = new ObjectiveProgress(new ObjectiveDefinition(
+                "core", ObjectiveType.CenterCoreEvacuated, ObjectiveScope.PerRun, targetValue: 1));
+
+            Assert.IsFalse(objective.ApplyPlacement(Placement(centerCoreEmptyAfterPlacement: false)));
+            Assert.AreEqual(0, objective.CurrentValue);
+        }
+
+        [Test]
+        public void NoIsolatedHolesStreak_ConsecutiveCleanPlacements_Accumulates()
+        {
+            ObjectiveProgress objective = new ObjectiveProgress(new ObjectiveDefinition(
+                "no_holes", ObjectiveType.NoIsolatedHolesStreak, ObjectiveScope.PerRun, targetValue: 15));
+
+            Assert.IsTrue(objective.ApplyPlacement(Placement(hasIsolatedHolesAfterPlacement: false)));
+            Assert.AreEqual(1, objective.CurrentValue);
+
+            Assert.IsTrue(objective.ApplyPlacement(Placement(hasIsolatedHolesAfterPlacement: false)));
+            Assert.AreEqual(2, objective.CurrentValue);
+        }
+
+        [Test]
+        public void NoIsolatedHolesStreak_APlacementThatCreatesAHole_ResetsTheLiveStreak_ButKeepsThePeak()
+        {
+            ObjectiveProgress objective = new ObjectiveProgress(new ObjectiveDefinition(
+                "no_holes", ObjectiveType.NoIsolatedHolesStreak, ObjectiveScope.PerRun, targetValue: 15));
+
+            objective.ApplyPlacement(Placement(hasIsolatedHolesAfterPlacement: false));
+            objective.ApplyPlacement(Placement(hasIsolatedHolesAfterPlacement: false));
+            objective.ApplyPlacement(Placement(hasIsolatedHolesAfterPlacement: false));
+            Assert.AreEqual(3, objective.CurrentValue);
+
+            // A hole breaks the live streak, but the best-ever peak (3) must survive it — same
+            // high-water-mark discipline StreakThreshold uses for the combo streak.
+            Assert.IsFalse(objective.ApplyPlacement(Placement(hasIsolatedHolesAfterPlacement: true)));
+            Assert.AreEqual(3, objective.CurrentValue);
+
+            // The live streak resumed from 0, not 3 — a fresh streak of 2 does not exceed the peak.
+            objective.ApplyPlacement(Placement(hasIsolatedHolesAfterPlacement: false));
+            objective.ApplyPlacement(Placement(hasIsolatedHolesAfterPlacement: false));
+            Assert.AreEqual(3, objective.CurrentValue);
+        }
+
+        [Test]
+        public void NoIsolatedHolesStreak_EveryPlacementCounts_NotJustClearingOnes()
+        {
+            // Deliberately different from every other counting objective: this is a hygiene streak,
+            // not a clear-event counter, so a placement that clears nothing still extends it as long
+            // as it leaves no isolated holes.
+            ObjectiveProgress objective = new ObjectiveProgress(new ObjectiveDefinition(
+                "no_holes", ObjectiveType.NoIsolatedHolesStreak, ObjectiveScope.PerRun, targetValue: 15));
+
+            Assert.IsTrue(objective.ApplyPlacement(
+                Placement(linesCleared: 0, hasIsolatedHolesAfterPlacement: false)));
+            Assert.AreEqual(1, objective.CurrentValue);
+        }
+
+        [Test]
+        public void NoIsolatedHolesStreak_ResetForNewRun_ClearsTheLiveStreakForAPerRunObjective()
+        {
+            ObjectiveProgress objective = new ObjectiveProgress(new ObjectiveDefinition(
+                "no_holes", ObjectiveType.NoIsolatedHolesStreak, ObjectiveScope.PerRun, targetValue: 5));
+
+            objective.ApplyPlacement(Placement(hasIsolatedHolesAfterPlacement: false));
+            objective.ApplyPlacement(Placement(hasIsolatedHolesAfterPlacement: false));
+            objective.ApplyPlacement(Placement(hasIsolatedHolesAfterPlacement: false));
+            Assert.AreEqual(3, objective.CurrentValue);
+
+            objective.ResetForNewRun();
+
+            // Not just CurrentValue — the internal live-streak counter must also reset, or the next
+            // run's first clean placement would silently jump to 4 instead of starting at 1.
+            Assert.IsTrue(objective.ApplyPlacement(Placement(hasIsolatedHolesAfterPlacement: false)));
+            Assert.AreEqual(1, objective.CurrentValue);
+        }
+
+        [Test]
+        public void NoIsolatedHolesStreak_ResetForNewRun_LeavesTheLiveStreakUntouchedForACumulativeObjective()
+        {
+            // The exact opposite of the PerRun case above: a Cumulative "no isolated holes" streak is
+            // a lifetime best, so a run boundary must not touch the live streak counter at all — the
+            // next run's first clean placement should extend it (4), not restart it at 1.
+            ObjectiveProgress objective = new ObjectiveProgress(new ObjectiveDefinition(
+                "no_holes_lifetime", ObjectiveType.NoIsolatedHolesStreak, ObjectiveScope.Cumulative, targetValue: 5));
+
+            objective.ApplyPlacement(Placement(hasIsolatedHolesAfterPlacement: false));
+            objective.ApplyPlacement(Placement(hasIsolatedHolesAfterPlacement: false));
+            objective.ApplyPlacement(Placement(hasIsolatedHolesAfterPlacement: false));
+            Assert.AreEqual(3, objective.CurrentValue);
+
+            objective.ResetForNewRun();
+
+            Assert.IsTrue(objective.ApplyPlacement(Placement(hasIsolatedHolesAfterPlacement: false)));
+            Assert.AreEqual(4, objective.CurrentValue);
         }
 
         [TestCase(0)]
