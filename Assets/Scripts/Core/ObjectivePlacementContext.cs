@@ -20,7 +20,8 @@ namespace MustyBlockBlast.Core
             int occupiedCellCountBeforeClear,
             bool anyCornerCleared,
             bool centerCoreEmptyAfterPlacement,
-            bool hasIsolatedHolesAfterPlacement)
+            bool hasIsolatedHolesAfterPlacement,
+            float elapsedRunSeconds)
         {
             LinesCleared = linesCleared;
             RowsCleared = rowsCleared;
@@ -34,6 +35,7 @@ namespace MustyBlockBlast.Core
             AnyCornerCleared = anyCornerCleared;
             CenterCoreEmptyAfterPlacement = centerCoreEmptyAfterPlacement;
             HasIsolatedHolesAfterPlacement = hasIsolatedHolesAfterPlacement;
+            ElapsedRunSeconds = elapsedRunSeconds;
         }
 
         /// <summary>Rows plus columns cleared by this placement; zero when nothing cleared.</summary>
@@ -80,5 +82,10 @@ namespace MustyBlockBlast.Core
         /// <summary>True when, after this placement's line clears resolved, at least one empty cell on
         /// the board is unreachable from the edge through other empty cells.</summary>
         public bool HasIsolatedHolesAfterPlacement { get; }
+
+        /// <summary>Wall-clock seconds elapsed since the current run started, as of this placement.
+        /// Independent of any Timed-mode countdown — it runs identically in Endless and Timed mode and
+        /// is never paused by a modal being open.</summary>
+        public float ElapsedRunSeconds { get; }
     }
 }

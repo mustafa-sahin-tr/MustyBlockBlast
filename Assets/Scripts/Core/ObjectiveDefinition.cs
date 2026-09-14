@@ -14,7 +14,8 @@ namespace MustyBlockBlast.Core
             int requiredLineCount = 0,
             PieceFamily requiredPieceFamily = PieceFamily.Single,
             int requiredOccupancyThreshold = 0,
-            string requiredPieceId = null)
+            string requiredPieceId = null,
+            float windowSeconds = 0f)
         {
             if (targetValue <= 0)
             {
@@ -28,6 +29,22 @@ namespace MustyBlockBlast.Core
                 throw new System.ArgumentException("ScoreInRun objectives cannot be Cumulative — they always reset with the run.", nameof(scope));
             }
 
+            // EarlyScoreRush mirrors the live score exactly like ScoreInRun (see above) — the same
+            // "would visibly drop every new run" incoherence applies.
+            if (type == ObjectiveType.EarlyScoreRush && scope == ObjectiveScope.Cumulative)
+            {
+                throw new System.ArgumentException("EarlyScoreRush objectives cannot be Cumulative — they always reset with the run.", nameof(scope));
+            }
+
+            // RollingLineClearWindow's window is measured against elapsed-time-since-run-start, a clock that
+            // resets to 0 every run. A Cumulative one would compare timestamps across a run boundary
+            // as if they were on the same clock, which they are not — the window would silently span
+            // runs it has no business spanning.
+            if (type == ObjectiveType.RollingLineClearWindow && scope == ObjectiveScope.Cumulative)
+            {
+                throw new System.ArgumentException("RollingLineClearWindow objectives cannot be Cumulative — their window is measured against a per-run clock.", nameof(scope));
+            }
+
             Id = id;
             Type = type;
             Scope = scope;
@@ -36,6 +53,7 @@ namespace MustyBlockBlast.Core
             RequiredPieceFamily = requiredPieceFamily;
             RequiredOccupancyThreshold = requiredOccupancyThreshold;
             RequiredPieceId = requiredPieceId;
+            WindowSeconds = windowSeconds;
         }
 
         /// <summary>Stable identifier; carried by the progress/completion messages so views can key off it.</summary>
@@ -67,5 +85,10 @@ namespace MustyBlockBlast.Core
         /// 3x3 one. Meaningful only when <see cref="Type"/> is <see cref="ObjectiveType.PieceIdCount"/>
         /// or <see cref="ObjectiveType.PieceIdLineClear"/>.</summary>
         public string RequiredPieceId { get; }
+
+        /// <summary>Width of the rolling window (seconds) for <see cref="ObjectiveType.RollingLineClearWindow"/>,
+        /// or the deadline (seconds from run start) for <see cref="ObjectiveType.EarlyScoreRush"/>.
+        /// Meaningless for every other type.</summary>
+        public float WindowSeconds { get; }
     }
 }

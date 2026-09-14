@@ -113,6 +113,7 @@ namespace MustyBlockBlast.Presentation
             builder.Register<GameModeModel>(Lifetime.Singleton);
             builder.Register<TimedModeModel>(Lifetime.Singleton);
             builder.Register<TimerModel>(Lifetime.Singleton);
+            builder.Register<RunPauseModel>(Lifetime.Singleton);
             builder.Register<SfxModel>(Lifetime.Singleton);
             builder.Register<SettingsModel>(Lifetime.Singleton);
             builder.Register<LocalizationModel>(Lifetime.Singleton);

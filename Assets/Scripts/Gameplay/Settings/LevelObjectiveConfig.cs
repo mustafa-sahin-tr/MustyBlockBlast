@@ -55,6 +55,10 @@ namespace MustyBlockBlast.Gameplay.Settings
         [Tooltip("Power-up granted on completing this level. Used only when Grants Level Up Reward is on.")]
         [SerializeField] private PowerUpKind _levelUpReward = PowerUpKind.RowClear;
 
+        [Tooltip("Width of the rolling window in seconds for RollingLineClearWindow, or the deadline in " +
+            "seconds from run start for EarlyScoreRush. Unused otherwise.")]
+        [SerializeField] private float _windowSeconds = 15f;
+
         /// <summary>1-based level number; <see cref="LevelCatalog"/> looks levels up by this, not by index.</summary>
         public int LevelNumber => _levelNumber;
 
@@ -90,7 +94,8 @@ namespace MustyBlockBlast.Gameplay.Settings
                 _requiredLineCount,
                 _requiredPieceFamily,
                 _requiredOccupancyThreshold,
-                _requiredPieceId);
+                _requiredPieceId,
+                _windowSeconds);
         }
 
         /// <summary>
@@ -148,6 +153,21 @@ namespace MustyBlockBlast.Gameplay.Settings
                 }
             }
 
+            if (_objectiveType == ObjectiveType.RollingLineClearWindow || _objectiveType == ObjectiveType.EarlyScoreRush)
+            {
+                if (_windowSeconds <= 0f)
+                {
+                    error = $"{_objectiveType} needs a window/deadline of more than 0 seconds.";
+                    return false;
+                }
+
+                if (_scope == ObjectiveScope.Cumulative)
+                {
+                    error = $"{_objectiveType} objectives cannot be Cumulative — their window is measured against a per-run clock.";
+                    return false;
+                }
+            }
+
             error = null;
             return true;
         }
@@ -179,6 +199,7 @@ namespace MustyBlockBlast.Gameplay.Settings
             _targetValue = Mathf.Max(1, _targetValue);
             _requiredLineCount = Mathf.Max(1, _requiredLineCount);
             _requiredOccupancyThreshold = Mathf.Clamp(_requiredOccupancyThreshold, 1, Board.SIZE * Board.SIZE);
+            _windowSeconds = Mathf.Max(1f, _windowSeconds);
         }
 #endif
     }

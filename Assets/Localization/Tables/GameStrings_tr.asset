@@ -234,6 +234,14 @@ MonoBehaviour:
     m_Localized: "Tahtay\u0131 s\u0131k\u0131\u015Fm\u0131\u015F bo\u015Fluklardan uzak tut"
     m_Metadata:
       m_Items: []
+  - m_Id: 240837526020096
+    m_Localized: "{0} saniye i\xE7inde s\u0131ra temizle"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 240837534408704
+    m_Localized: "\u0130lk {0} saniye i\xE7inde hedef skora ula\u015F"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

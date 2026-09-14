@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace MustyBlockBlast.Core
 {
@@ -15,6 +16,14 @@ namespace MustyBlockBlast.Core
         /// the high-water mark this feeds, the same split <see cref="ObjectiveType.StreakThreshold"/>
         /// uses for the combo streak.</summary>
         private int _consecutiveNoIsolatedHolesCount;
+
+        /// <summary>Timestamp (elapsed-run-seconds) and line count of every recent qualifying clear
+        /// still inside the rolling window, oldest first. Meaningful only for
+        /// <see cref="ObjectiveType.RollingLineClearWindow"/>. Entries are appended in increasing timestamp
+        /// order (elapsed-run-seconds only ever grows within a run), so purging expired entries from
+        /// the front is always correct and never needs to scan the middle of the list.</summary>
+        private readonly List<(float Timestamp, int LinesCleared)> _recentBurstEvents =
+            new List<(float, int)>();
 
         public ObjectiveProgress(ObjectiveDefinition definition)
         {
@@ -154,6 +163,43 @@ namespace MustyBlockBlast.Core
                     CurrentValue = Math.Max(
                         CurrentValue, Math.Min(_consecutiveNoIsolatedHolesCount, Definition.TargetValue));
                     break;
+
+                case ObjectiveType.RollingLineClearWindow:
+                    if (context.LinesCleared >= 1)
+                    {
+                        _recentBurstEvents.Add((context.ElapsedRunSeconds, context.LinesCleared));
+                    }
+
+                    // Entries are appended in increasing timestamp order, so anything expired is
+                    // always at the front — no need to scan past the first surviving entry.
+                    float windowStart = context.ElapsedRunSeconds - Definition.WindowSeconds;
+                    while (_recentBurstEvents.Count > 0 && _recentBurstEvents[0].Timestamp < windowStart)
+                    {
+                        _recentBurstEvents.RemoveAt(0);
+                    }
+
+                    int burstLineTotal = 0;
+                    for (int burstIndex = 0; burstIndex < _recentBurstEvents.Count; burstIndex++)
+                    {
+                        burstLineTotal += _recentBurstEvents[burstIndex].LinesCleared;
+                    }
+
+                    // Not a high-water mark: a live reading of "lines in the window right now", which
+                    // can fall back down as old entries expire. The shared IsComplete latch below is
+                    // what keeps a target once reached from being un-reached by a later expiry.
+                    CurrentValue = Math.Min(burstLineTotal, Definition.TargetValue);
+                    break;
+
+                case ObjectiveType.EarlyScoreRush:
+                    // Only updates while still inside the deadline — once elapsed time passes
+                    // WindowSeconds this branch simply stops running, freezing CurrentValue at
+                    // whatever it last read rather than completing late.
+                    if (context.ElapsedRunSeconds <= Definition.WindowSeconds)
+                    {
+                        CurrentValue = Math.Min(context.CurrentRunScore, Definition.TargetValue);
+                    }
+
+                    break;
             }
 
             if (CurrentValue == previousValue)
@@ -222,6 +268,7 @@ namespace MustyBlockBlast.Core
             CurrentValue = 0;
             IsComplete = false;
             _consecutiveNoIsolatedHolesCount = 0;
+            _recentBurstEvents.Clear();
         }
     }
 }

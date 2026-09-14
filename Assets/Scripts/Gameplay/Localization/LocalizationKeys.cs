@@ -90,6 +90,15 @@ namespace MustyBlockBlast.Gameplay.Localization
         public const string OBJECTIVE_CENTER_CORE_EVACUATED = "objective.center_core_evacuated";
         public const string OBJECTIVE_NO_ISOLATED_HOLES_STREAK = "objective.no_isolated_holes_streak";
 
+        /// <summary><c>{0}</c> is the rolling window width in whole seconds. The line-clear target
+        /// itself is left out, same as every other template here — the HUD renders it as "4/6".</summary>
+        public const string OBJECTIVE_LINE_CLEAR_BURST = "objective.line_clear_burst";
+
+        /// <summary><c>{0}</c> is the deadline in whole seconds, counted from run start. The score
+        /// target itself is left out, same as every other template here — the HUD renders it as the
+        /// "1000/2500" progress.</summary>
+        public const string OBJECTIVE_EARLY_SCORE_RUSH = "objective.early_score_rush";
+
         // Translated display names for individual catalog pieces, keyed by piece id in
         // ObjectiveDescriptionFormatter.PieceIdNameKey. Not exhaustive — only pieces an authored
         // objective actually references need one; an unmapped id falls back to its raw catalog id.

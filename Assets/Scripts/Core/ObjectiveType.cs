@@ -66,5 +66,17 @@ namespace MustyBlockBlast.Core
         /// that placement's own line clears resolved. High-water mark, same mechanic as
         /// <see cref="StreakThreshold"/>, but driven by board topology instead of the combo streak.</summary>
         NoIsolatedHolesStreak = 13,
+
+        /// <summary>Count lines cleared by placements within a trailing
+        /// <see cref="ObjectiveDefinition.WindowSeconds"/>-wide rolling window — e.g. "clear 6 lines
+        /// within any 12-second span". Tracks its own timestamped event queue internally; not built
+        /// on any Timed-mode timer, so it behaves identically in Endless and Timed mode.</summary>
+        RollingLineClearWindow = 14,
+
+        /// <summary>Reach <see cref="ObjectiveDefinition.TargetValue"/> run score within the first
+        /// <see cref="ObjectiveDefinition.WindowSeconds"/> seconds of the run — e.g. "2500 points in
+        /// the first 60 seconds". Mirrors the live score like <see cref="ScoreInRun"/>, but only while
+        /// still inside the deadline; past it, progress freezes rather than completing late.</summary>
+        EarlyScoreRush = 15,
     }
 }

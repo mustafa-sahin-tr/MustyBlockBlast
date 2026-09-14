@@ -23,6 +23,7 @@ namespace MustyBlockBlast.Tests.EditMode
         private TestMessageBroker<ObjectiveProgressChangedMessage> _progressChangedBroker;
         private TestMessageBroker<ObjectiveCompletedMessage> _completedBroker;
         private ObjectiveModel _objectiveModel;
+        private RunPauseModel _runPauseModel;
         private ObjectiveSystem _system;
 
         [SetUp]
@@ -35,8 +36,9 @@ namespace MustyBlockBlast.Tests.EditMode
             _progressChangedBroker = new TestMessageBroker<ObjectiveProgressChangedMessage>();
             _completedBroker = new TestMessageBroker<ObjectiveCompletedMessage>();
             _objectiveModel = new ObjectiveModel();
+            _runPauseModel = new RunPauseModel();
             _system = new ObjectiveSystem(
-                _objectiveModel, _piecePlacedBroker, _runStartedBroker, _scoreChangedBroker,
+                _objectiveModel, _runPauseModel, _piecePlacedBroker, _runStartedBroker, _scoreChangedBroker,
                 _powerUpAppliedBroker, _progressChangedBroker, _completedBroker);
         }
 

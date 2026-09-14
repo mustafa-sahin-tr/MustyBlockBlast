@@ -231,6 +231,14 @@ MonoBehaviour:
     m_Key: objective.no_isolated_holes_streak
     m_Metadata:
       m_Items: []
+  - m_Id: 240837526020096
+    m_Key: objective.line_clear_burst
+    m_Metadata:
+      m_Items: []
+  - m_Id: 240837534408704
+    m_Key: objective.early_score_rush
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

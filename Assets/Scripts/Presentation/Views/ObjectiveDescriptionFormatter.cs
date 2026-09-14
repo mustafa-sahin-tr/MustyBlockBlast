@@ -75,6 +75,16 @@ namespace MustyBlockBlast.Presentation.Views
                 case ObjectiveType.NoIsolatedHolesStreak:
                     return localization.Translate(LocalizationKeys.OBJECTIVE_NO_ISOLATED_HOLES_STREAK);
 
+                case ObjectiveType.RollingLineClearWindow:
+                    return localization.Format(
+                        LocalizationKeys.OBJECTIVE_LINE_CLEAR_BURST,
+                        WholeSeconds(definition.WindowSeconds));
+
+                case ObjectiveType.EarlyScoreRush:
+                    return localization.Format(
+                        LocalizationKeys.OBJECTIVE_EARLY_SCORE_RUSH,
+                        WholeSeconds(definition.WindowSeconds));
+
                 default:
                     return string.Empty;
             }
@@ -109,6 +119,13 @@ namespace MustyBlockBlast.Presentation.Views
                 default:
                     return null;
             }
+        }
+
+        /// <summary>Renders a window/deadline duration as a whole-second count, matching how every
+        /// other duration in the HUD (countdown, best-score suffix) is displayed via FORMAT_SECONDS.</summary>
+        private static string WholeSeconds(float seconds)
+        {
+            return System.Math.Round(seconds).ToString(System.Globalization.CultureInfo.InvariantCulture);
         }
 
         private static string FamilyKey(PieceFamily family)

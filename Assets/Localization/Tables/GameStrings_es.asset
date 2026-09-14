@@ -234,6 +234,14 @@ MonoBehaviour:
     m_Localized: "Mant\xE9n el tablero sin huecos atrapados"
     m_Metadata:
       m_Items: []
+  - m_Id: 240837526020096
+    m_Localized: "Despeja l\xEDneas en un intervalo de {0} segundos"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 240837534408704
+    m_Localized: "Alcanza la puntuaci\xF3n objetivo en los primeros {0} segundos"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

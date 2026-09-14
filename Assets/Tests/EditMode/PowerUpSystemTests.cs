@@ -351,6 +351,7 @@ namespace MustyBlockBlast.Tests.EditMode
             var timedModeConfig = ScriptableObject.CreateInstance<TimedModeConfig>();
             return new TimerRunSystem(
                 new TimerModel(),
+                new RunPauseModel(),
                 new GameModeSystem(new GameModeModel(), boardSystem),
                 new TimedModeSystem(new TimedModeModel(), timedModeConfig),
                 boardSystem,

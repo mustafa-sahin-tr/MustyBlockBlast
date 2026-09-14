@@ -23,12 +23,14 @@ namespace MustyBlockBlast.Tests.EditMode
             int occupiedCellCountBeforeClear = 0,
             bool anyCornerCleared = false,
             bool centerCoreEmptyAfterPlacement = false,
-            bool hasIsolatedHolesAfterPlacement = false)
+            bool hasIsolatedHolesAfterPlacement = false,
+            float elapsedRunSeconds = 0f)
         {
             return new ObjectivePlacementContext(
                 linesCleared, rowsCleared, columnsCleared, pieceFamily, pieceId, currentRunScore,
                 boardEmptyAfterPlacement, currentStreak, occupiedCellCountBeforeClear,
-                anyCornerCleared, centerCoreEmptyAfterPlacement, hasIsolatedHolesAfterPlacement);
+                anyCornerCleared, centerCoreEmptyAfterPlacement, hasIsolatedHolesAfterPlacement,
+                elapsedRunSeconds);
         }
 
         private static ObjectiveProgress StreakObjective(int targetValue)
@@ -551,6 +553,145 @@ namespace MustyBlockBlast.Tests.EditMode
 
             Assert.IsTrue(objective.ApplyPlacement(Placement(hasIsolatedHolesAfterPlacement: false)));
             Assert.AreEqual(4, objective.CurrentValue);
+        }
+
+        private static ObjectiveProgress RollingLineClearWindowObjective(int targetValue, float windowSeconds)
+        {
+            return new ObjectiveProgress(new ObjectiveDefinition(
+                "burst", ObjectiveType.RollingLineClearWindow, ObjectiveScope.PerRun, targetValue,
+                windowSeconds: windowSeconds));
+        }
+
+        private static ObjectiveProgress EarlyScoreRushObjective(int targetValue, float windowSeconds)
+        {
+            return new ObjectiveProgress(new ObjectiveDefinition(
+                "rush", ObjectiveType.EarlyScoreRush, ObjectiveScope.PerRun, targetValue,
+                windowSeconds: windowSeconds));
+        }
+
+        [Test]
+        public void RollingLineClearWindow_ClearsWithinTheWindow_Accumulates()
+        {
+            ObjectiveProgress objective = RollingLineClearWindowObjective(targetValue: 6, windowSeconds: 12f);
+
+            Assert.IsTrue(objective.ApplyPlacement(Placement(linesCleared: 2, elapsedRunSeconds: 1f)));
+            Assert.AreEqual(2, objective.CurrentValue);
+
+            Assert.IsTrue(objective.ApplyPlacement(Placement(linesCleared: 3, elapsedRunSeconds: 5f)));
+            Assert.AreEqual(5, objective.CurrentValue);
+        }
+
+        [Test]
+        public void RollingLineClearWindow_APlacementThatClearsNothing_DoesNotCountButDoesNotBreakTheWindow()
+        {
+            ObjectiveProgress objective = RollingLineClearWindowObjective(targetValue: 6, windowSeconds: 12f);
+
+            objective.ApplyPlacement(Placement(linesCleared: 2, elapsedRunSeconds: 1f));
+            Assert.IsFalse(objective.ApplyPlacement(Placement(linesCleared: 0, elapsedRunSeconds: 2f)));
+            Assert.AreEqual(2, objective.CurrentValue);
+
+            Assert.IsTrue(objective.ApplyPlacement(Placement(linesCleared: 4, elapsedRunSeconds: 3f)));
+            Assert.AreEqual(6, objective.CurrentValue);
+        }
+
+        [Test]
+        public void RollingLineClearWindow_AnEventThatAgesOutOfTheWindow_IsDroppedFromTheRunningTotal()
+        {
+            ObjectiveProgress objective = RollingLineClearWindowObjective(targetValue: 10, windowSeconds: 10f);
+
+            objective.ApplyPlacement(Placement(linesCleared: 3, elapsedRunSeconds: 0f));
+            Assert.AreEqual(3, objective.CurrentValue);
+
+            // At t=11, the window is [1, 11] (the purge drops entries strictly older than windowStart,
+            // so an entry exactly on the boundary survives); the t=0 event is outside it and must be purged, so
+            // the running total reflects only the new event, not 3+2.
+            objective.ApplyPlacement(Placement(linesCleared: 2, elapsedRunSeconds: 11f));
+            Assert.AreEqual(2, objective.CurrentValue);
+        }
+
+        [Test]
+        public void RollingLineClearWindow_OnceComplete_APlacementThatAgesOutOfTheWindow_DoesNotUncomplete()
+        {
+            ObjectiveProgress objective = RollingLineClearWindowObjective(targetValue: 3, windowSeconds: 10f);
+
+            Assert.IsTrue(objective.ApplyPlacement(Placement(linesCleared: 3, elapsedRunSeconds: 0f)));
+            Assert.IsTrue(objective.IsComplete);
+
+            // IsComplete latches in ApplyPlacement's shared early-return, so a later placement that
+            // would otherwise cause the running total to age back down never even runs the switch.
+            Assert.IsFalse(objective.ApplyPlacement(Placement(linesCleared: 0, elapsedRunSeconds: 20f)));
+            Assert.IsTrue(objective.IsComplete);
+            Assert.AreEqual(3, objective.CurrentValue);
+        }
+
+        [Test]
+        public void RollingLineClearWindow_ResetForNewRun_ClearsTheEventQueue()
+        {
+            ObjectiveProgress objective = RollingLineClearWindowObjective(targetValue: 10, windowSeconds: 10f);
+
+            objective.ApplyPlacement(Placement(linesCleared: 3, elapsedRunSeconds: 0f));
+            Assert.AreEqual(3, objective.CurrentValue);
+
+            objective.ResetForNewRun();
+
+            // Not just CurrentValue — the internal event queue must also clear, or a new run's first
+            // placement at elapsedRunSeconds=0 would spuriously sum with the stale t=0 entry.
+            Assert.IsTrue(objective.ApplyPlacement(Placement(linesCleared: 2, elapsedRunSeconds: 0f)));
+            Assert.AreEqual(2, objective.CurrentValue);
+        }
+
+        [Test]
+        public void EarlyScoreRush_WithinTheDeadline_MirrorsTheRunScore()
+        {
+            ObjectiveProgress objective = EarlyScoreRushObjective(targetValue: 2500, windowSeconds: 60f);
+
+            Assert.IsTrue(objective.ApplyPlacement(
+                Placement(currentRunScore: 1000, elapsedRunSeconds: 30f)));
+            Assert.AreEqual(1000, objective.CurrentValue);
+        }
+
+        [Test]
+        public void EarlyScoreRush_PastTheDeadline_FreezesInsteadOfCompletingLate()
+        {
+            ObjectiveProgress objective = EarlyScoreRushObjective(targetValue: 2500, windowSeconds: 60f);
+
+            objective.ApplyPlacement(Placement(currentRunScore: 1000, elapsedRunSeconds: 30f));
+            Assert.AreEqual(1000, objective.CurrentValue);
+
+            // A later placement past the deadline must not update CurrentValue even though the run
+            // score kept climbing — it freezes at the last in-window reading.
+            Assert.IsFalse(objective.ApplyPlacement(
+                Placement(currentRunScore: 3000, elapsedRunSeconds: 90f)));
+            Assert.AreEqual(1000, objective.CurrentValue);
+            Assert.IsFalse(objective.IsComplete);
+        }
+
+        [Test]
+        public void EarlyScoreRush_ResetForNewRun_ClearsProgress()
+        {
+            ObjectiveProgress objective = EarlyScoreRushObjective(targetValue: 2500, windowSeconds: 60f);
+
+            objective.ApplyPlacement(Placement(currentRunScore: 1000, elapsedRunSeconds: 30f));
+            objective.ResetForNewRun();
+
+            Assert.AreEqual(0, objective.CurrentValue);
+            Assert.IsFalse(objective.IsComplete);
+        }
+
+        [Test]
+        public void RollingLineClearWindowDefinition_CumulativeScope_Throws()
+        {
+            Assert.Throws<ArgumentException>(() => new ObjectiveDefinition(
+                "burst", ObjectiveType.RollingLineClearWindow, ObjectiveScope.Cumulative, targetValue: 6,
+                windowSeconds: 12f));
+        }
+
+        [Test]
+        public void EarlyScoreRushDefinition_CumulativeScope_Throws()
+        {
+            Assert.Throws<ArgumentException>(() => new ObjectiveDefinition(
+                "rush", ObjectiveType.EarlyScoreRush, ObjectiveScope.Cumulative, targetValue: 2500,
+                windowSeconds: 60f));
         }
 
         [TestCase(0)]
