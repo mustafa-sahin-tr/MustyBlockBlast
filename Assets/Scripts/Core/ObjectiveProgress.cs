@@ -89,6 +89,34 @@ namespace MustyBlockBlast.Core
         }
 
         /// <summary>
+        /// Folds one Bomb-induced empty line into this objective's progress. Deliberately a separate
+        /// method from <see cref="ApplyPlacement"/> rather than a field on <see cref="ObjectivePlacementContext"/>:
+        /// a power-up application is not a placement, and reusing the placement context here would risk
+        /// a synthetic context accidentally satisfying an unrelated objective type (e.g. a stray
+        /// default <see cref="PieceFamily"/> value matching a <see cref="ObjectiveType.PieceFamilyCount"/>
+        /// objective that never actually saw a placement). Gating on <see cref="ObjectiveDefinition.Type"/>
+        /// up front makes every other type structurally immune to a power-up event, not just
+        /// incidentally so.
+        /// </summary>
+        public bool ApplyPowerUpLineEmptied()
+        {
+            if (IsComplete || Definition.Type != ObjectiveType.BombInducedLineClear)
+            {
+                return false;
+            }
+
+            int previousValue = CurrentValue;
+            CurrentValue = Math.Min(CurrentValue + 1, Definition.TargetValue);
+            if (CurrentValue == previousValue)
+            {
+                return false;
+            }
+
+            IsComplete = CurrentValue >= Definition.TargetValue;
+            return true;
+        }
+
+        /// <summary>
         /// Rehydrates persisted progress (e.g. after an app relaunch) without going through
         /// <see cref="ApplyPlacement"/>'s qualification rules. Clamps to the target and re-derives
         /// <see cref="IsComplete"/> exactly like a normal update would.

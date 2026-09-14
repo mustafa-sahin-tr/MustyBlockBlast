@@ -235,5 +235,64 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.Throws<ArgumentException>(() => new ObjectiveDefinition(
                 "bad_scope", ObjectiveType.ScoreInRun, ObjectiveScope.Cumulative, targetValue: 500));
         }
+
+        [Test]
+        public void BombInducedLineClear_ApplyPowerUpLineEmptied_Increments()
+        {
+            ObjectiveProgress objective = new ObjectiveProgress(new ObjectiveDefinition(
+                "bomb_line", ObjectiveType.BombInducedLineClear, ObjectiveScope.PerRun, targetValue: 2));
+
+            Assert.IsTrue(objective.ApplyPowerUpLineEmptied());
+            Assert.AreEqual(1, objective.CurrentValue);
+            Assert.IsFalse(objective.IsComplete);
+
+            Assert.IsTrue(objective.ApplyPowerUpLineEmptied());
+            Assert.AreEqual(2, objective.CurrentValue);
+            Assert.IsTrue(objective.IsComplete);
+        }
+
+        [Test]
+        public void BombInducedLineClear_AlreadyComplete_StopsTracking()
+        {
+            ObjectiveProgress objective = new ObjectiveProgress(new ObjectiveDefinition(
+                "bomb_line", ObjectiveType.BombInducedLineClear, ObjectiveScope.PerRun, targetValue: 1));
+
+            Assert.IsTrue(objective.ApplyPowerUpLineEmptied());
+            Assert.IsFalse(objective.ApplyPowerUpLineEmptied());
+            Assert.AreEqual(1, objective.CurrentValue);
+        }
+
+        [Test]
+        public void BombInducedLineClear_IsNeverAdvancedByAPlacement()
+        {
+            // The whole reason this type has its own method: a placement — however it clears lines,
+            // whatever piece family, whatever the score — must never be mistaken for a Bomb event.
+            ObjectiveProgress objective = new ObjectiveProgress(new ObjectiveDefinition(
+                "bomb_line", ObjectiveType.BombInducedLineClear, ObjectiveScope.PerRun, targetValue: 1));
+
+            Assert.IsFalse(objective.ApplyPlacement(Placement(
+                linesCleared: 4, pieceFamily: PieceFamily.Square, currentRunScore: 9999,
+                boardEmptyAfterPlacement: true, currentStreak: 99)));
+            Assert.AreEqual(0, objective.CurrentValue);
+            Assert.IsFalse(objective.IsComplete);
+        }
+
+        [Test]
+        public void OtherObjectiveTypes_AreNeverAdvancedByApplyPowerUpLineEmptied()
+        {
+            // The converse guard: a Bomb event must not leak into an unrelated objective type just
+            // because it happens to be tracked in the same run.
+            ObjectiveProgress lineClear = LineClearObjective(requiredLineCount: 2, targetValue: 3);
+            ObjectiveProgress family = FamilyObjective(PieceFamily.Square, targetValue: 3);
+            ObjectiveProgress streak = StreakObjective(targetValue: 3);
+
+            Assert.IsFalse(lineClear.ApplyPowerUpLineEmptied());
+            Assert.IsFalse(family.ApplyPowerUpLineEmptied());
+            Assert.IsFalse(streak.ApplyPowerUpLineEmptied());
+
+            Assert.AreEqual(0, lineClear.CurrentValue);
+            Assert.AreEqual(0, family.CurrentValue);
+            Assert.AreEqual(0, streak.CurrentValue);
+        }
     }
 }

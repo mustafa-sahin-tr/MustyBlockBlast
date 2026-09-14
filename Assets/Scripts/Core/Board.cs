@@ -79,6 +79,36 @@ namespace MustyBlockBlast.Core
             return true;
         }
 
+        /// <summary>True when every cell of row <paramref name="y"/> is <see cref="EMPTY"/> — used to
+        /// detect a line a power-up's clear happened to empty out, as distinct from a normal
+        /// line-clear (which fires on the opposite condition, the row becoming full).</summary>
+        public bool IsRowEmpty(int y)
+        {
+            for (int x = 0; x < SIZE; x++)
+            {
+                if (_cells[Index(new GridPosition(x, y))] != EMPTY)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>True when every cell of column <paramref name="x"/> is <see cref="EMPTY"/>.</summary>
+        public bool IsColumnEmpty(int x)
+        {
+            for (int y = 0; y < SIZE; y++)
+            {
+                if (_cells[Index(new GridPosition(x, y))] != EMPTY)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         /// <summary>True when every cell on the board is <see cref="EMPTY"/> — a "perfect clear".</summary>
         public bool IsEmpty()
         {

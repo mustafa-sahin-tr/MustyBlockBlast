@@ -273,7 +273,8 @@ namespace MustyBlockBlast.Gameplay.Systems
                 _boardModel.NotifyPowerUpCleared(result.ClearedCells);
             }
 
-            _appliedPublisher.Publish(new PowerUpAppliedMessage(kind, result.ClearedCellCount));
+            _appliedPublisher.Publish(new PowerUpAppliedMessage(
+                kind, result.ClearedCellCount, clearedLineCount: 0, emptiedLineCount: result.EmptiedLineCount));
         }
 
         private ReactiveProperty<int> CountOf(PowerUpKind kind)

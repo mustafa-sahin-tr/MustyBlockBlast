@@ -8,9 +8,9 @@ using MustyBlockBlast.Gameplay.Models;
 namespace MustyBlockBlast.Gameplay.Systems
 {
     /// <summary>
-    /// Owns <see cref="ObjectiveModel"/>. Like <see cref="ScoreSystem"/> it reacts to placements only
-    /// and never sees the board; all rules live in <see cref="ObjectiveProgress"/>, so a new objective
-    /// type is a Core change and this class does not move.
+    /// Owns <see cref="ObjectiveModel"/>. Reacts to events only — placements and power-up
+    /// applications — and never sees the board; all rules live in <see cref="ObjectiveProgress"/>, so a
+    /// new objective type is a Core change and this class does not move.
     /// <para>
     /// Reads the run score from <see cref="ScoreChangedMessage"/> rather than <see cref="ScoreModel"/>
     /// directly: <see cref="ScoreSystem"/> publishes it synchronously after writing
@@ -33,6 +33,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             ISubscriber<PiecePlacedMessage> piecePlacedSubscriber,
             ISubscriber<RunStartedMessage> runStartedSubscriber,
             ISubscriber<ScoreChangedMessage> scoreChangedSubscriber,
+            ISubscriber<PowerUpAppliedMessage> powerUpAppliedSubscriber,
             IPublisher<ObjectiveProgressChangedMessage> progressChangedPublisher,
             IPublisher<ObjectiveCompletedMessage> completedPublisher)
         {
@@ -44,6 +45,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             piecePlacedSubscriber.Subscribe(OnPiecePlaced).AddTo(bag);
             runStartedSubscriber.Subscribe(OnRunStarted).AddTo(bag);
             scoreChangedSubscriber.Subscribe(OnScoreChanged).AddTo(bag);
+            powerUpAppliedSubscriber.Subscribe(OnPowerUpApplied).AddTo(bag);
             _subscriptions = bag.Build();
         }
 
@@ -77,15 +79,39 @@ namespace MustyBlockBlast.Gameplay.Systems
                 message.BoardEmptyAfterPlacement,
                 _currentStreak);
 
+            ApplyToAllObjectives(objective => objective.ApplyPlacement(context));
+        }
+
+        /// <summary>
+        /// A Bomb clear is not a placement — it never publishes <see cref="PiecePlacedMessage"/> — so
+        /// it needs its own event source into the objective engine rather than being folded into
+        /// <see cref="OnPiecePlaced"/>'s context.
+        /// </summary>
+        private void OnPowerUpApplied(PowerUpAppliedMessage message)
+        {
+            if (message.Kind != PowerUpKind.Bomb || message.EmptiedLineCount <= 0)
+            {
+                return;
+            }
+
+            ApplyToAllObjectives(objective => objective.ApplyPowerUpLineEmptied());
+        }
+
+        /// <summary>
+        /// Shared fold-and-publish: applies <paramref name="apply"/> to every tracked objective and
+        /// announces exactly the two things a change can mean — progress moved, and/or the objective
+        /// just completed (the false-to-true edge, so <see cref="ObjectiveCompletedMessage"/> fires
+        /// exactly once regardless of which event source drove the change).
+        /// </summary>
+        private void ApplyToAllObjectives(Func<ObjectiveProgress, bool> apply)
+        {
             IReadOnlyList<ObjectiveProgress> objectives = _objectiveModel.TrackedObjectives;
             for (int objectiveIndex = 0; objectiveIndex < objectives.Count; objectiveIndex++)
             {
                 ObjectiveProgress objective = objectives[objectiveIndex];
 
-                // Captured before applying: completion is the false -> true edge, which is what makes
-                // ObjectiveCompletedMessage fire exactly once.
                 bool wasComplete = objective.IsComplete;
-                if (!objective.ApplyPlacement(context))
+                if (!apply(objective))
                 {
                     continue;
                 }

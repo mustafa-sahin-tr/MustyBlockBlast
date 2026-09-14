@@ -190,6 +190,10 @@ MonoBehaviour:
     m_Localized: Reach a combo streak
     m_Metadata:
       m_Items: []
+  - m_Id: 217997032546304
+    m_Localized: Empty a line with a Bomb
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

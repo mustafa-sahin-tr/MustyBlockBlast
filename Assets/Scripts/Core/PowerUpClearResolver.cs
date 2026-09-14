@@ -8,18 +8,38 @@ namespace MustyBlockBlast.Core
     /// and never depends on a line being full.</summary>
     public readonly struct PowerUpClearResult
     {
-        public PowerUpClearResult(IReadOnlyList<GridPosition> clearedCells)
+        public PowerUpClearResult(
+            IReadOnlyList<GridPosition> clearedCells,
+            IReadOnlyList<int> emptiedRows,
+            IReadOnlyList<int> emptiedColumns)
         {
             ClearedCells = clearedCells;
+            EmptiedRows = emptiedRows;
+            EmptiedColumns = emptiedColumns;
         }
 
         /// <summary>Exactly the cells that held a colour before the clear — cells that were already
         /// empty inside the affected region are not reported.</summary>
         public IReadOnlyList<GridPosition> ClearedCells { get; }
 
+        /// <summary>Rows that had at least one cleared cell and, after clearing, have zero occupied
+        /// cells — a row this clear happened to empty out entirely. Note this is the OPPOSITE
+        /// condition from a normal line-clear (which fires on a row becoming full, not empty); a
+        /// Row Clear/Column Clear power-up will trivially always report its own target line here
+        /// (clearing a line necessarily empties it), so this is only a meaningful "surprise" signal
+        /// for a power-up whose target doesn't already guarantee it, like Bomb.</summary>
+        public IReadOnlyList<int> EmptiedRows { get; }
+
+        /// <summary>Columns that had at least one cleared cell and, after clearing, are fully empty.</summary>
+        public IReadOnlyList<int> EmptiedColumns { get; }
+
         public int ClearedCellCount => ClearedCells.Count;
 
         public bool AnyCleared => ClearedCellCount > 0;
+
+        public int EmptiedLineCount => EmptiedRows.Count + EmptiedColumns.Count;
+
+        public bool AnyLineEmptied => EmptiedLineCount > 0;
     }
 
     /// <summary>Clears a region of the board outside the normal placement flow: a 3x3 bomb area, a whole
@@ -77,7 +97,29 @@ namespace MustyBlockBlast.Core
             }
 
             ClearAll(board, clearedCells);
-            return new PowerUpClearResult(clearedCells);
+
+            // Only rows/columns a cleared cell actually belonged to can have changed emptiness — no
+            // need to scan the whole board. Each cleared cell was occupied before this clear, so every
+            // row/column it touches necessarily had at least one occupied cell; checked post-clear,
+            // "now empty" can only be true because of what this clear just removed.
+            var emptiedRows = new List<int>();
+            var emptiedColumns = new List<int>();
+            for (int i = 0; i < clearedCells.Count; i++)
+            {
+                GridPosition position = clearedCells[i];
+
+                if (!emptiedRows.Contains(position.Y) && board.IsRowEmpty(position.Y))
+                {
+                    emptiedRows.Add(position.Y);
+                }
+
+                if (!emptiedColumns.Contains(position.X) && board.IsColumnEmpty(position.X))
+                {
+                    emptiedColumns.Add(position.X);
+                }
+            }
+
+            return new PowerUpClearResult(clearedCells, emptiedRows, emptiedColumns);
         }
 
         private static void ClearAll(Board board, List<GridPosition> cells)

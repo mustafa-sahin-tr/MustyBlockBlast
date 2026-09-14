@@ -21,5 +21,10 @@ namespace MustyBlockBlast.Core
         /// <summary>Track the best combo streak reached this run against the target — a high-water
         /// mark, not a live mirror, so a streak reset can never undo progress already made.</summary>
         StreakThreshold = 4,
+
+        /// <summary>Count Bomb power-up clears that happened to leave a row or column completely
+        /// empty. Never advanced by <see cref="ObjectiveProgress.ApplyPlacement"/> — a distinct,
+        /// power-up-sourced event, folded in only via <see cref="ObjectiveProgress.ApplyPowerUpLineEmptied"/>.</summary>
+        BombInducedLineClear = 5,
     }
 }

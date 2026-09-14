@@ -190,6 +190,10 @@ MonoBehaviour:
     m_Localized: "Bir kombo serisine ula\u015F"
     m_Metadata:
       m_Items: []
+  - m_Id: 217997032546304
+    m_Localized: "Bombayla bir s\u0131ray\u0131 bo\u015Falt"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []
