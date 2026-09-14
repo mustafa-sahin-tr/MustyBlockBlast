@@ -17,7 +17,10 @@ namespace MustyBlockBlast.Core
             int currentRunScore,
             bool boardEmptyAfterPlacement,
             int currentStreak,
-            int occupiedCellCountBeforeClear)
+            int occupiedCellCountBeforeClear,
+            bool anyCornerCleared,
+            bool centerCoreEmptyAfterPlacement,
+            bool hasIsolatedHolesAfterPlacement)
         {
             LinesCleared = linesCleared;
             RowsCleared = rowsCleared;
@@ -28,6 +31,9 @@ namespace MustyBlockBlast.Core
             BoardEmptyAfterPlacement = boardEmptyAfterPlacement;
             CurrentStreak = currentStreak;
             OccupiedCellCountBeforeClear = occupiedCellCountBeforeClear;
+            AnyCornerCleared = anyCornerCleared;
+            CenterCoreEmptyAfterPlacement = centerCoreEmptyAfterPlacement;
+            HasIsolatedHolesAfterPlacement = hasIsolatedHolesAfterPlacement;
         }
 
         /// <summary>Rows plus columns cleared by this placement; zero when nothing cleared.</summary>
@@ -62,5 +68,17 @@ namespace MustyBlockBlast.Core
         /// line clears from this placement resolved — the board's "under pressure" reading a clutch
         /// objective checks against.</summary>
         public int OccupiedCellCountBeforeClear { get; }
+
+        /// <summary>True when this placement's clear touched a board corner cell — its row or column
+        /// (whichever cleared) included coordinate (0,0), (SIZE-1,0), (0,SIZE-1) or (SIZE-1,SIZE-1).</summary>
+        public bool AnyCornerCleared { get; }
+
+        /// <summary>True when, after this placement's line clears resolved, the board's centered 4x4
+        /// core was completely empty.</summary>
+        public bool CenterCoreEmptyAfterPlacement { get; }
+
+        /// <summary>True when, after this placement's line clears resolved, at least one empty cell on
+        /// the board is unreachable from the edge through other empty cells.</summary>
+        public bool HasIsolatedHolesAfterPlacement { get; }
     }
 }

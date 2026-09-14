@@ -167,10 +167,13 @@ namespace MustyBlockBlast.Gameplay.Systems
                 _boardModel.NotifyCleared(clearResult);
             }
 
+            bool anyCornerCleared = AnyCornerTouched(clearResult.ClearedRows, clearResult.ClearedColumns);
+
             _piecePlacedPublisher.Publish(new PiecePlacedMessage(
                 piece.Id, anchor, PieceFamilyClassifier.Classify(piece.Id), piece.CellCount, colourId,
                 clearResult.LineCount, clearResult.ClearedRows.Count, clearResult.ClearedColumns.Count,
-                clearResult.MonochromeLineCount, _boardModel.Board.IsEmpty(), occupiedCellCountBeforeClear));
+                clearResult.MonochromeLineCount, _boardModel.Board.IsEmpty(), occupiedCellCountBeforeClear,
+                anyCornerCleared, _boardModel.Board.IsCenterCoreEmpty(), _boardModel.Board.HasIsolatedEmptyCells()));
 
             if (clearResult.AnyCleared)
             {
@@ -210,6 +213,30 @@ namespace MustyBlockBlast.Gameplay.Systems
 
         private static bool IsValidSlot(int slotIndex)
             => slotIndex >= 0 && slotIndex < TrayModel.SLOT_COUNT;
+
+        /// <summary>
+        /// True when this clear touched a board corner. Clearing row 0 or row SIZE-1 alone already
+        /// touches two corners (every cell in that row, including columns 0 and SIZE-1, is cleared);
+        /// symmetrically for column 0/SIZE-1 — so checking membership of just these four indices,
+        /// without cross-referencing specific (row, column) pairs, is sufficient.
+        /// </summary>
+        private static bool AnyCornerTouched(IReadOnlyList<int> clearedRows, IReadOnlyList<int> clearedColumns)
+        {
+            return ContainsEdgeIndex(clearedRows) || ContainsEdgeIndex(clearedColumns);
+        }
+
+        private static bool ContainsEdgeIndex(IReadOnlyList<int> indices)
+        {
+            for (int indexPosition = 0; indexPosition < indices.Count; indexPosition++)
+            {
+                if (indices[indexPosition] == 0 || indices[indexPosition] == Board.SIZE - 1)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
 
         private void RefillTray()
         {

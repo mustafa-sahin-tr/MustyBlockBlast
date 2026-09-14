@@ -53,5 +53,18 @@ namespace MustyBlockBlast.Core
         /// <see cref="ObjectiveDefinition.RequiredPieceId"/> that ALSO cleared at least one line —
         /// e.g. "clear a line using the I5 pentomino".</summary>
         PieceIdLineClear = 10,
+
+        /// <summary>Count placements whose clear touched a board corner — a row or column cleared
+        /// that includes coordinate (0,0), (SIZE-1,0), (0,SIZE-1) or (SIZE-1,SIZE-1).</summary>
+        FourCornersCleared = 11,
+
+        /// <summary>Count placements that leave the board's centered 4x4 core completely empty.</summary>
+        CenterCoreEvacuated = 12,
+
+        /// <summary>Best streak of consecutive placements — every placement, not just clearing ones —
+        /// that left zero isolated (unreachable-from-edge) empty cells on the board, evaluated after
+        /// that placement's own line clears resolved. High-water mark, same mechanic as
+        /// <see cref="StreakThreshold"/>, but driven by board topology instead of the combo streak.</summary>
+        NoIsolatedHolesStreak = 13,
     }
 }

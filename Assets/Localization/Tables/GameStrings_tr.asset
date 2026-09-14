@@ -222,6 +222,18 @@ MonoBehaviour:
     m_Localized: "5'li \xE7izgi"
     m_Metadata:
       m_Items: []
+  - m_Id: 236115477913600
+    m_Localized: "Bir k\xF6\u015Feden ge\xE7en s\u0131ra temizle"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 236115591159808
+    m_Localized: "Tahtan\u0131n merkezini bo\u015Falt"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 236115591159809
+    m_Localized: "Tahtay\u0131 s\u0131k\u0131\u015Fm\u0131\u015F bo\u015Fluklardan uzak tut"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

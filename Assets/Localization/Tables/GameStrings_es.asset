@@ -222,6 +222,18 @@ MonoBehaviour:
     m_Localized: "l\xEDnea de 5"
     m_Metadata:
       m_Items: []
+  - m_Id: 236115477913600
+    m_Localized: "Despeja una l\xEDnea por una esquina"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 236115591159808
+    m_Localized: "Vac\xEDa el centro del tablero"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 236115591159809
+    m_Localized: "Mant\xE9n el tablero sin huecos atrapados"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []
