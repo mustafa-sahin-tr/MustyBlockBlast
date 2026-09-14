@@ -16,7 +16,8 @@ namespace MustyBlockBlast.Gameplay.Messages
             int rowsCleared,
             int columnsCleared,
             int monochromeLineCount,
-            bool boardEmptyAfterPlacement)
+            bool boardEmptyAfterPlacement,
+            int occupiedCellCountBeforeClear)
         {
             PieceId = pieceId;
             Anchor = anchor;
@@ -28,6 +29,7 @@ namespace MustyBlockBlast.Gameplay.Messages
             ColumnsCleared = columnsCleared;
             MonochromeLineCount = monochromeLineCount;
             BoardEmptyAfterPlacement = boardEmptyAfterPlacement;
+            OccupiedCellCountBeforeClear = occupiedCellCountBeforeClear;
         }
 
         public string PieceId { get; }
@@ -60,5 +62,9 @@ namespace MustyBlockBlast.Gameplay.Messages
         /// <summary>True when, after this placement's line clears resolved, the board had zero occupied
         /// cells — a "perfect clear".</summary>
         public bool BoardEmptyAfterPlacement { get; }
+
+        /// <summary>How many cells were occupied right after this piece landed, before any of its line
+        /// clears resolved — the board's "under pressure" reading a clutch objective checks against.</summary>
+        public int OccupiedCellCountBeforeClear { get; }
     }
 }

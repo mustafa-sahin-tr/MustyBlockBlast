@@ -77,6 +77,15 @@ namespace MustyBlockBlast.Core
 
                     break;
 
+                case ObjectiveType.ClutchRecoveryClear:
+                    if (context.LinesCleared >= 1
+                        && context.OccupiedCellCountBeforeClear >= Definition.RequiredOccupancyThreshold)
+                    {
+                        CurrentValue = Math.Min(CurrentValue + 1, Definition.TargetValue);
+                    }
+
+                    break;
+
                 case ObjectiveType.StreakThreshold:
                     // Unlike ScoreInRun, the streak itself is NOT monotonic — it drops to 0 on a
                     // non-clearing placement. Tracking the high-water mark (rather than mirroring the

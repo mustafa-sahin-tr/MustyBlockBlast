@@ -198,6 +198,10 @@ MonoBehaviour:
     m_Localized: Despeja una fila y una columna a la vez
     m_Metadata:
       m_Items: []
+  - m_Id: 227150882922496
+    m_Localized: "Despeja una l\xEDnea bajo presi\xF3n"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

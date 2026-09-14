@@ -198,6 +198,10 @@ MonoBehaviour:
     m_Localized: Clear a row and a column at once
     m_Metadata:
       m_Items: []
+  - m_Id: 227150882922496
+    m_Localized: Clear a line under pressure
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

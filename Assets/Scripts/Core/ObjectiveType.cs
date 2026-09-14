@@ -31,5 +31,10 @@ namespace MustyBlockBlast.Core
         /// simultaneously — distinct from clearing two rows, which <see cref="ObjectivePlacementContext.LinesCleared"/>
         /// alone cannot tell apart from this.</summary>
         RowAndColumnCrossClear = 6,
+
+        /// <summary>Count placements that clear at least one line while the board, immediately before
+        /// that clear, held at least <see cref="ObjectiveDefinition.RequiredOccupancyThreshold"/>
+        /// occupied cells — a "clutch recovery" under pressure.</summary>
+        ClutchRecoveryClear = 7,
     }
 }
