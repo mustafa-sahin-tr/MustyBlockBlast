@@ -27,6 +27,7 @@ namespace MustyBlockBlast.Gameplay.Systems
     public sealed class TimerRunSystem : ITickable, IDisposable
     {
         private readonly TimerModel _timerModel;
+        private readonly RunPauseModel _runPauseModel;
         private readonly GameModeSystem _gameModeSystem;
         private readonly TimedModeSystem _timedModeSystem;
         private readonly BoardSystem _boardSystem;
@@ -40,6 +41,7 @@ namespace MustyBlockBlast.Gameplay.Systems
 
         public TimerRunSystem(
             TimerModel timerModel,
+            RunPauseModel runPauseModel,
             GameModeSystem gameModeSystem,
             TimedModeSystem timedModeSystem,
             BoardSystem boardSystem,
@@ -47,6 +49,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             ISubscriber<GameOverMessage> gameOverSubscriber)
         {
             _timerModel = timerModel;
+            _runPauseModel = runPauseModel;
             _gameModeSystem = gameModeSystem;
             _timedModeSystem = timedModeSystem;
             _boardSystem = boardSystem;
@@ -60,7 +63,11 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// Suspends the countdown without discarding the remaining time. Called only from the app
         /// pause hook: a backgrounded app must neither lose nor gain seconds.
         /// </summary>
-        public void SetAppPaused(bool paused) => _isAppPaused = paused;
+        public void SetAppPaused(bool paused)
+        {
+            _isAppPaused = paused;
+            RefreshPauseModel();
+        }
 
         /// <summary>
         /// Suspends the countdown while a modal menu panel is open, so a player can't lose a timed run
@@ -68,14 +75,32 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// on their own open/close edges — one flag rather than one per panel, because the input gate
         /// chain makes the two mutually exclusive, so they can never disagree about who holds it.
         /// </summary>
-        public void SetMenuPaused(bool paused) => _isMenuPaused = paused;
+        public void SetMenuPaused(bool paused)
+        {
+            _isMenuPaused = paused;
+            RefreshPauseModel();
+        }
 
         /// <summary>
         /// Suspends the countdown while a power-up is armed and being aimed, so the seconds spent
         /// choosing a target are free. Called only from <c>PowerUpSystem</c>, which arms, cancels and
         /// applies — and therefore owns both edges of this flag.
         /// </summary>
-        public void SetPowerUpArmedPaused(bool paused) => _isPowerUpArmedPaused = paused;
+        public void SetPowerUpArmedPaused(bool paused)
+        {
+            _isPowerUpArmedPaused = paused;
+            RefreshPauseModel();
+        }
+
+        /// <summary>
+        /// Publishes the combined pause state to <see cref="RunPauseModel"/> so other wall-clock-driven
+        /// systems — currently <c>ObjectiveSystem</c>'s rolling-window objectives — hold the same three
+        /// reasons this countdown already does, without each caller needing to know about both.
+        /// </summary>
+        private void RefreshPauseModel()
+        {
+            _runPauseModel.IsPaused.Value = _isAppPaused || _isMenuPaused || _isPowerUpArmedPaused;
+        }
 
         void ITickable.Tick()
         {

@@ -4,6 +4,7 @@ using MessagePipe;
 using MustyBlockBlast.Core;
 using MustyBlockBlast.Gameplay.Messages;
 using MustyBlockBlast.Gameplay.Models;
+using UnityEngine;
 
 namespace MustyBlockBlast.Gameplay.Systems
 {
@@ -17,6 +18,13 @@ namespace MustyBlockBlast.Gameplay.Systems
     /// <see cref="ScoreModel.Score"/> on the same <see cref="PiecePlacedMessage"/>, so caching it here
     /// makes the data dependency explicit instead of relying on MessagePipe subscriber resolve order.
     /// </para>
+    /// <para>
+    /// Elapsed-run-time for rolling-window objectives (<see cref="ObjectiveType.RollingLineClearWindow"/>,
+    /// <see cref="ObjectiveType.EarlyScoreRush"/>) is wall-clock time with any paused spans subtracted
+    /// out, mirroring <see cref="RunPauseModel"/>'s three pause reasons — the same ones
+    /// <see cref="TimerRunSystem"/>'s countdown already respects. This keeps opening a menu, arming a
+    /// power-up, or backgrounding the app from silently burning a burst window or a rush deadline.
+    /// </para>
     /// </summary>
     public sealed class ObjectiveSystem : IDisposable
     {
@@ -27,9 +35,13 @@ namespace MustyBlockBlast.Gameplay.Systems
 
         private int _currentRunScore;
         private int _currentStreak;
+        private float _runStartTimestamp;
+        private float _accumulatedPausedSeconds;
+        private float? _pauseStartedAt;
 
         public ObjectiveSystem(
             ObjectiveModel objectiveModel,
+            RunPauseModel runPauseModel,
             ISubscriber<PiecePlacedMessage> piecePlacedSubscriber,
             ISubscriber<RunStartedMessage> runStartedSubscriber,
             ISubscriber<ScoreChangedMessage> scoreChangedSubscriber,
@@ -46,6 +58,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             runStartedSubscriber.Subscribe(OnRunStarted).AddTo(bag);
             scoreChangedSubscriber.Subscribe(OnScoreChanged).AddTo(bag);
             powerUpAppliedSubscriber.Subscribe(OnPowerUpApplied).AddTo(bag);
+            runPauseModel.IsPaused.Subscribe(OnPauseChanged).AddTo(bag);
             _subscriptions = bag.Build();
         }
 
@@ -57,10 +70,42 @@ namespace MustyBlockBlast.Gameplay.Systems
             _currentStreak = message.Streak;
         }
 
+        /// <summary>
+        /// Records the start/end of a paused span so <see cref="ElapsedRunSeconds"/> can subtract it
+        /// out. <see cref="RunPauseModel.IsPaused"/> invokes this immediately on subscribe with the
+        /// current value, which is harmless here — a false-to-false "change" leaves both fields as-is.
+        /// </summary>
+        private void OnPauseChanged(bool isPaused)
+        {
+            if (isPaused)
+            {
+                _pauseStartedAt = Time.realtimeSinceStartup;
+                return;
+            }
+
+            if (_pauseStartedAt.HasValue)
+            {
+                _accumulatedPausedSeconds += Time.realtimeSinceStartup - _pauseStartedAt.Value;
+                _pauseStartedAt = null;
+            }
+        }
+
         private void OnRunStarted(RunStartedMessage message)
         {
             _currentRunScore = 0;
             _currentStreak = 0;
+            _runStartTimestamp = Time.realtimeSinceStartup;
+            _accumulatedPausedSeconds = 0f;
+
+            // A run can legitimately start while already paused: confirming a mode switch in the
+            // settings panel calls StartNewRun without closing the panel, so the menu pause is still
+            // held. Re-base the in-progress pause onto the new run's clock rather than dropping it —
+            // clearing it here would leave the unpause edge with nothing to subtract, and every second
+            // the panel stayed open would count as elapsed run time.
+            if (_pauseStartedAt.HasValue)
+            {
+                _pauseStartedAt = _runStartTimestamp;
+            }
 
             IReadOnlyList<ObjectiveProgress> objectives = _objectiveModel.TrackedObjectives;
             for (int objectiveIndex = 0; objectiveIndex < objectives.Count; objectiveIndex++)
@@ -70,8 +115,21 @@ namespace MustyBlockBlast.Gameplay.Systems
             }
         }
 
+        /// <summary>Wall-clock seconds since the run started, minus every paused span — including one
+        /// still in progress right now, so a placement that somehow lands mid-pause never counts the
+        /// live pause as elapsed time.</summary>
+        private float ElapsedRunSeconds()
+        {
+            float livePause = _pauseStartedAt.HasValue
+                ? Time.realtimeSinceStartup - _pauseStartedAt.Value
+                : 0f;
+            return Time.realtimeSinceStartup - _runStartTimestamp - _accumulatedPausedSeconds - livePause;
+        }
+
         private void OnPiecePlaced(PiecePlacedMessage message)
         {
+            float elapsedRunSeconds = ElapsedRunSeconds();
+
             ObjectivePlacementContext context = new ObjectivePlacementContext(
                 message.LinesCleared,
                 message.RowsCleared,
@@ -84,7 +142,8 @@ namespace MustyBlockBlast.Gameplay.Systems
                 message.OccupiedCellCountBeforeClear,
                 message.AnyCornerCleared,
                 message.CenterCoreEmptyAfterPlacement,
-                message.HasIsolatedHolesAfterPlacement);
+                message.HasIsolatedHolesAfterPlacement,
+                elapsedRunSeconds);
 
             ApplyToAllObjectives(objective => objective.ApplyPlacement(context));
         }

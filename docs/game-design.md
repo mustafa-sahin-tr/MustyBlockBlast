@@ -98,6 +98,8 @@ alter them.
 | Four corners cleared | A placement's clear touches a board corner cell | +1 per qualifying placement |
 | Center core evacuated | A placement leaves the board's centered 4×4 core completely empty | +1 per qualifying placement |
 | No isolated holes streak | A placement leaves zero unreachable-from-edge empty cells | Best streak of consecutive qualifying placements |
+| Line clear burst | A trailing rolling window of the configured width | Sum of lines cleared by placements still inside the window |
+| Early score rush | The run is still inside the configured deadline (from run start) | Mirrors the current run score, until the deadline passes |
 
 The line-clear objective matches exactly, not "at least": a 3-line clear does not satisfy a
 "clear 2 lines at once" objective — that is a separate, harder goal. Shape families are
@@ -156,6 +158,27 @@ Board topology objectives read the board's shape, not just what a placement clea
   streak, matching how a normal line clear is evaluated after the whole piece lands. Like
   `Streak threshold`, progress tracks the best run ever, not the live one — a single bad
   placement drops the live streak to 0 but never erases an earlier peak.
+
+Rolling-window / time-attack objectives measure against wall-clock time elapsed since the current
+run started (`ElapsedRunSeconds`), tracked independently of Timed mode's countdown — they behave
+identically in Endless and Timed mode, and are never paused by a modal being open (unlike the
+Timed mode countdown, which does pause while backgrounded):
+
+- **Line clear burst** tracks a trailing window of `WindowSeconds` width: every qualifying
+  placement (one that clears at least one line) is recorded with its timestamp and line count,
+  expired entries older than the window age out, and progress is the live sum of what remains
+  inside it. This is **not** a high-water mark like `Streak threshold` — the running total can
+  fall back down as old entries expire — but a completed objective still latches permanently via
+  the same `IsComplete` mechanism every other type uses, so a burst that once reached the target
+  cannot be "un-completed" by its own entries later expiring.
+- **Early score rush** mirrors the run score exactly like `Score in a run`, but only while
+  `ElapsedRunSeconds` is still within `WindowSeconds` of run start; once the deadline passes, the
+  objective simply stops updating and freezes at its last in-window reading rather than
+  completing late off a score reached after the deadline.
+
+Both types forbid Cumulative scope for the same reason: their internal clock (`ElapsedRunSeconds`)
+resets to 0 every run, so a Cumulative instance would have no coherent way to compare timestamps
+across a run boundary.
 
 Lifetime "how many pieces has the player ever placed" goals are covered by the Badges system's
 `TotalPiecesPlaced` stat, not a separate objective type — a level goal and a lifetime achievement
