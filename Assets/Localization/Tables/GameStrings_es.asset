@@ -250,6 +250,10 @@ MonoBehaviour:
     m_Localized: x2 {0}
     m_Metadata:
       m_Items: []
+  - m_Id: 288624816939009
+    m_Localized: No hay colocaciones posibles
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

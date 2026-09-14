@@ -30,9 +30,9 @@ namespace MustyBlockBlast.Gameplay.Systems
     /// to have a distinct rotation).
     /// </para>
     /// <para>
-    /// <see cref="PowerUpKind.Reroll"/> and <see cref="PowerUpKind.DoubleMultiplier"/> sit outside that
-    /// lifecycle entirely: neither has a target to aim at, so neither is ever armed and both are
-    /// applied on the tap that selects them.
+    /// <see cref="PowerUpKind.Reroll"/>, <see cref="PowerUpKind.DoubleMultiplier"/> and
+    /// <see cref="PowerUpKind.GhostFit"/> sit outside that lifecycle entirely: none has a target to aim
+    /// at, so none is ever armed and all three are applied on the tap that selects them.
     /// </para>
     /// <para>
     /// It also owns the armed selection: selecting a power-up arms it immediately (there is no queue),
@@ -55,6 +55,8 @@ namespace MustyBlockBlast.Gameplay.Systems
         private readonly BoardSystem _boardSystem;
         private readonly TimerRunSystem _timerRunSystem;
         private readonly DoubleMultiplierSystem _doubleMultiplierSystem;
+        private readonly GhostFitSystem _ghostFitSystem;
+        private readonly GhostFitModel _ghostFitModel;
         private readonly IRewardSource _rewardSource;
         private readonly IPublisher<PowerUpAppliedMessage> _appliedPublisher;
         private readonly IPublisher<PowerUpGrantedMessage> _grantedPublisher;
@@ -68,6 +70,8 @@ namespace MustyBlockBlast.Gameplay.Systems
             BoardSystem boardSystem,
             TimerRunSystem timerRunSystem,
             DoubleMultiplierSystem doubleMultiplierSystem,
+            GhostFitSystem ghostFitSystem,
+            GhostFitModel ghostFitModel,
             IRewardSource rewardSource,
             IPublisher<PowerUpAppliedMessage> appliedPublisher,
             IPublisher<PowerUpGrantedMessage> grantedPublisher,
@@ -80,6 +84,8 @@ namespace MustyBlockBlast.Gameplay.Systems
             _boardSystem = boardSystem;
             _timerRunSystem = timerRunSystem;
             _doubleMultiplierSystem = doubleMultiplierSystem;
+            _ghostFitSystem = ghostFitSystem;
+            _ghostFitModel = ghostFitModel;
             _rewardSource = rewardSource;
             _appliedPublisher = appliedPublisher;
             _grantedPublisher = grantedPublisher;
@@ -92,6 +98,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             LoadPersistedCount(PowerUpKind.Rotate);
             LoadPersistedCount(PowerUpKind.Reroll);
             LoadPersistedCount(PowerUpKind.DoubleMultiplier);
+            LoadPersistedCount(PowerUpKind.GhostFit);
 
             // An armed selection belongs to the run it was made in: it must not survive either end of
             // a run boundary, or the next run would open with a power-up already aimed and its clock
@@ -105,15 +112,17 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// clock until it is applied or cancelled. Holding none of that kind, or a run that is already
         /// over, is a no-op: neither arms, so neither can be spent by a follow-up tap.
         /// <para>
-        /// <see cref="PowerUpKind.Reroll"/> and <see cref="PowerUpKind.DoubleMultiplier"/> are refused
-        /// outright, however many the player holds: neither has a target, so an armed one could only
-        /// ever be released onto a board cell that means nothing to it. <see cref="TryApplyReroll"/> and
-        /// <see cref="TryApplyDoubleMultiplier"/> are their whole interface.
+        /// <see cref="PowerUpKind.Reroll"/>, <see cref="PowerUpKind.DoubleMultiplier"/> and
+        /// <see cref="PowerUpKind.GhostFit"/> are refused outright, however many the player holds: none
+        /// has a target, so an armed one could only ever be released onto a board cell that means
+        /// nothing to it. <see cref="TryApplyReroll"/>, <see cref="TryApplyDoubleMultiplier"/> and
+        /// <see cref="TryApplyGhostFit"/> are their whole interface.
         /// </para>
         /// </summary>
         public void Arm(PowerUpKind kind)
         {
             if (kind == PowerUpKind.Reroll || kind == PowerUpKind.DoubleMultiplier
+                || kind == PowerUpKind.GhostFit
                 || _boardSystem.IsGameOver || CountOf(kind).Value <= 0)
             {
                 return;
@@ -378,6 +387,59 @@ namespace MustyBlockBlast.Gameplay.Systems
             return true;
         }
 
+        /// <summary>
+        /// Spends one Ghost Fit: searches every dock piece against every board anchor and puts the best
+        /// move it finds on screen as a suggestion (see <see cref="GhostFitSystem"/>).
+        /// <para>
+        /// Targetless like <see cref="TryApplyReroll"/> and <see cref="TryApplyDoubleMultiplier"/>, so
+        /// it is applied on the tap that selects it, and it likewise ends in <see cref="Disarm"/> so
+        /// reaching for it never strands another kind's selection (and the clock hold it carries).
+        /// </para>
+        /// <para>
+        /// Unlike every other kind it changes no game state at all — not a cell, not a tray slot, not a
+        /// score window. What it buys is a suggestion, which the player may act on or ignore. It still
+        /// publishes <see cref="PowerUpAppliedMessage"/>, for the reason Rotate, Reroll and Double
+        /// Multiplier do: the "power-ups used" badge counter must see it. Zero cleared cells keeps
+        /// <see cref="PowerUpScoreSystem"/> from paying for it.
+        /// </para>
+        /// <para>
+        /// Two refusals, both free, both following the "peek before spend" contract of
+        /// <see cref="TryApplyJoker"/>. A second tap while a suggestion is already on screen is the
+        /// dismiss gesture — the same "tap it again to take it back" idiom as cancelling an armed kind —
+        /// so it takes the hint down and spends nothing. And a board where no dock piece fits anywhere
+        /// has no move to point at: the search reports that as the "no placements possible" state, which
+        /// is shown to the player but never charged for.
+        /// </para>
+        /// </summary>
+        public bool TryApplyGhostFit()
+        {
+            if (_boardSystem.IsGameOver || CountOf(PowerUpKind.GhostFit).Value <= 0)
+            {
+                return false;
+            }
+
+            if (_ghostFitModel.IsSuggesting)
+            {
+                _ghostFitSystem.Dismiss();
+                return false;
+            }
+
+            // Searched before a single count is touched: a dock with no legal placement anywhere is a
+            // refusal, and the player must not pay for being told so.
+            if (!_ghostFitSystem.TryShowSuggestion())
+            {
+                return false;
+            }
+
+            TrySpend(PowerUpKind.GhostFit);
+
+            _appliedPublisher.Publish(new PowerUpAppliedMessage(
+                PowerUpKind.GhostFit, clearedCellCount: 0, clearedLineCount: 0));
+
+            Disarm();
+            return true;
+        }
+
         /// <summary>Asks <see cref="IRewardSource"/> for one <paramref name="kind"/> and banks it if
         /// granted. Returns whether it was granted; a refusal leaves the inventory untouched.</summary>
         public async UniTask<bool> GrantRewardAsync(PowerUpKind kind, CancellationToken cancellationToken)
@@ -483,6 +545,8 @@ namespace MustyBlockBlast.Gameplay.Systems
                     return _powerUpModel.RerollCount;
                 case PowerUpKind.DoubleMultiplier:
                     return _powerUpModel.DoubleMultiplierCount;
+                case PowerUpKind.GhostFit:
+                    return _powerUpModel.GhostFitCount;
                 default:
                     return _powerUpModel.BombCount;
             }

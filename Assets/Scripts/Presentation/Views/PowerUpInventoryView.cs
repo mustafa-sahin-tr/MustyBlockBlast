@@ -49,6 +49,7 @@ namespace MustyBlockBlast.Presentation.Views
             PowerUpKind.Rotate,
             PowerUpKind.Reroll,
             PowerUpKind.DoubleMultiplier,
+            PowerUpKind.GhostFit,
         };
 
         /// <summary>Derived from <see cref="SlotKinds"/> rather than written out, so the two can never
@@ -80,6 +81,11 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>Width-to-height ratio that stands the same circle on end for the double multiplier,
         /// so it reads apart from the reroll's flat lozenge without needing a ninth sprite.</summary>
         private const float DOUBLE_MULTIPLIER_GLYPH_FLATTEN = 0.5f;
+
+        /// <summary>Alpha of the Ghost Fit glyph, drawn semi-transparent so the ninth silhouette reads
+        /// as the ghost it is named after — the one distinction in the strip made with alpha rather than
+        /// shape, since every shape the two sprites can make is already spoken for.</summary>
+        private const float GHOST_FIT_GLYPH_ALPHA = 0.55f;
 
         [Header("Layout")]
         [Tooltip("Strip centre in canvas space. Sits in the gap between the board card and the tray.")]
@@ -174,6 +180,7 @@ namespace MustyBlockBlast.Presentation.Views
             WatchCount(_powerUpModel.RotateCount, PowerUpKind.Rotate);
             WatchCount(_powerUpModel.RerollCount, PowerUpKind.Reroll);
             WatchCount(_powerUpModel.DoubleMultiplierCount, PowerUpKind.DoubleMultiplier);
+            WatchCount(_powerUpModel.GhostFitCount, PowerUpKind.GhostFit);
             _powerUpModel.Armed.Subscribe(OnArmedChanged).AddTo(_disposables);
 
             _runStartedSubscriber.Subscribe(OnRunStarted).AddTo(_disposables);
@@ -218,6 +225,13 @@ namespace MustyBlockBlast.Presentation.Views
                 else if (kind == PowerUpKind.DoubleMultiplier && _counts[slotIndex] > 0)
                 {
                     _powerUpSystem.TryApplyDoubleMultiplier();
+                }
+                else if (kind == PowerUpKind.GhostFit && _counts[slotIndex] > 0)
+                {
+                    // Targetless like the two above. The System also reads a second tap here as the
+                    // gesture that takes an existing suggestion back down, which is why this branch
+                    // hands every tap on the icon straight to it rather than gating on anything.
+                    _powerUpSystem.TryApplyGhostFit();
                 }
                 else if (_armed == kind)
                 {
@@ -388,9 +402,15 @@ namespace MustyBlockBlast.Presentation.Views
             Color plateColour = isArmed ? _currentTheme.Accent : _currentTheme.CardBackground;
             Color glyphColour = isArmed ? _currentTheme.CardBackground : _currentTheme.Ink;
 
+            // Ghost Fit's glyph is the one drawn see-through; every other kind's takes the slot's own
+            // alpha unchanged.
+            float glyphAlpha = SlotKinds[slotIndex] == PowerUpKind.GhostFit
+                ? alpha * GHOST_FIT_GLYPH_ALPHA
+                : alpha;
+
             _plateImages[slotIndex].color = WithAlpha(plateColour, alpha);
             _shadowImages[slotIndex].color = WithAlpha(_currentTheme.CardShadow, alpha);
-            _glyphImages[slotIndex].color = WithAlpha(glyphColour, alpha);
+            _glyphImages[slotIndex].color = WithAlpha(glyphColour, glyphAlpha);
             _countTexts[slotIndex].color = WithAlpha(_currentTheme.Ink, alpha);
 
             float scale = isArmed ? _armedScale : 1f;
@@ -429,7 +449,7 @@ namespace MustyBlockBlast.Presentation.Views
 
             for (int slotIndex = 0; slotIndex < SlotCount; slotIndex++)
             {
-                BuildSlot(rect, slotIndex, originX + (slotIndex * spacing));
+                BuildSlot(rect, slotIndex, originX + (slotIndex * spacing), spacing);
             }
         }
 
@@ -450,7 +470,7 @@ namespace MustyBlockBlast.Presentation.Views
             return _slotSpacing <= maxSpacing ? _slotSpacing : maxSpacing;
         }
 
-        private void BuildSlot(RectTransform parent, int slotIndex, float centreX)
+        private void BuildSlot(RectTransform parent, int slotIndex, float centreX, float spacing)
         {
             var slotObject = new GameObject($"PowerUpSlot_{SlotKinds[slotIndex]}", typeof(RectTransform));
             var slotRect = (RectTransform)slotObject.transform;
@@ -459,10 +479,15 @@ namespace MustyBlockBlast.Presentation.Views
             slotRect.anchoredPosition = new Vector2(centreX, 0f);
             _slotRects[slotIndex] = slotRect;
 
+            // The shadow reads as a drop shadow by being larger than the plate it sits behind — but at
+            // a narrow squeeze (ResolveSlotSpacing), the preferred +10f padding can make two neighbours'
+            // shadows overlap. Clamped to leave at least 4px of daylight between adjacent shadows, so
+            // the strip never has to choose between "no shadow" and "shadows collide" as slots are added.
+            float shadowPadding = Mathf.Max(0f, Mathf.Min(10f, spacing - _slotSize - 4f));
             var shadowObject = new GameObject("Shadow", typeof(RectTransform), typeof(Image));
             var shadowRect = (RectTransform)shadowObject.transform;
             shadowRect.SetParent(slotRect, false);
-            Centre(shadowRect, new Vector2(_slotSize + 10f, _slotSize + 10f));
+            Centre(shadowRect, new Vector2(_slotSize + shadowPadding, _slotSize + shadowPadding));
             shadowRect.anchoredPosition = new Vector2(0f, -6f);
             _shadowImages[slotIndex] = ConfigurePlate(shadowObject.GetComponent<Image>());
 
@@ -493,7 +518,8 @@ namespace MustyBlockBlast.Presentation.Views
         /// the row clear, a tall bar for the column clear, a diamond — the same rounded square, turned
         /// 45 degrees — for the joker, which reads as "one cell, placed askew", an upright square for
         /// the colour cleanser, that same bar turned 45 degrees for the rotate, and a flattened circle
-        /// for the reroll, and that same circle stood on end for the double multiplier.
+        /// for the reroll, that same circle stood on end for the double multiplier, and the joker's
+        /// diamond again — drawn see-through — for ghost fit.
         /// </summary>
         private Image BuildGlyph(RectTransform parent, PowerUpKind kind)
         {
@@ -545,6 +571,15 @@ namespace MustyBlockBlast.Presentation.Views
                     float lozengeWidth = _slotSize * 0.56f;
                     Centre(glyphRect, new Vector2(lozengeWidth, lozengeWidth * REROLL_GLYPH_FLATTEN));
                     ConfigureCircle(glyphImage);
+                    break;
+                case PowerUpKind.GhostFit:
+                    // The ninth: the joker's diamond at reduced alpha. Every silhouette the two shared
+                    // sprites can make is taken by now, so this one is set apart by being see-through —
+                    // which is also what a "ghost" should look like.
+                    float ghostSide = _slotSize * 0.40f;
+                    Centre(glyphRect, new Vector2(ghostSide, ghostSide));
+                    glyphRect.localRotation = Quaternion.Euler(0f, 0f, JOKER_GLYPH_ROTATION_DEGREES);
+                    ConfigurePlate(glyphImage);
                     break;
                 case PowerUpKind.DoubleMultiplier:
                     // The eighth: the same circle sprite as the reroll's lozenge, stood on end instead

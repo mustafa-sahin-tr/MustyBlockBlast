@@ -34,6 +34,12 @@ namespace MustyBlockBlast.Presentation.Views
     /// <see cref="OnTraySlotChanged"/>, which covers the Reroll power-up replacing the whole dock.
     /// </para>
     /// <para>
+    /// A Ghost Fit suggestion is dismissed by any press that reaches past the power-up strip — aiming an
+    /// armed kind at the board, touching a cell, or picking up a dock piece other than the suggested one.
+    /// Picking up the suggested piece is the exception: that is the player acting on the hint, so the
+    /// silhouette stays up to aim at and the placement itself takes it down.
+    /// </para>
+    /// <para>
     /// A piece drag has a second destination besides the board: released over <see cref="HoldSlotView"/>
     /// it is parked in the pocket instead of placed. That branch is decided while dragging, not on
     /// release, so the highlight the player sees and the drop they get are always the same thing.
@@ -67,6 +73,7 @@ namespace MustyBlockBlast.Presentation.Views
         private SettingsModel _settingsModel;
         private PowerUpModel _powerUpModel;
         private PowerUpSystem _powerUpSystem;
+        private GhostFitSystem _ghostFitSystem;
         private ThemeDefinition _currentTheme;
         private BoardView _boardView;
         private PieceTrayView _trayView;
@@ -104,6 +111,7 @@ namespace MustyBlockBlast.Presentation.Views
             SettingsModel settingsModel,
             PowerUpModel powerUpModel,
             PowerUpSystem powerUpSystem,
+            GhostFitSystem ghostFitSystem,
             BoardView boardView,
             PieceTrayView trayView,
             HoldSlotView holdSlotView,
@@ -122,6 +130,7 @@ namespace MustyBlockBlast.Presentation.Views
             _settingsModel = settingsModel;
             _powerUpModel = powerUpModel;
             _powerUpSystem = powerUpSystem;
+            _ghostFitSystem = ghostFitSystem;
             _boardView = boardView;
             _trayView = trayView;
             _holdSlotView = holdSlotView;
@@ -326,8 +335,14 @@ namespace MustyBlockBlast.Presentation.Views
                 return;
             }
 
+            // Everything below this line is the player reaching for the board or the tray, which is
+            // exactly what takes a Ghost Fit suggestion down (see the class remarks). Sited under the
+            // inventory gate on purpose: a tap on the strip is the player picking another power-up, not
+            // an answer to the hint, and Ghost Fit's own icon needs its second tap to reach the System
+            // as the dismiss gesture rather than being pre-empted here.
             if (_powerUpModel.Armed.Value != null)
             {
+                _ghostFitSystem.Dismiss();
                 BeginPowerUpAim(screenPosition);
                 return;
             }
@@ -335,8 +350,15 @@ namespace MustyBlockBlast.Presentation.Views
             int slotIndex = _trayView.GetSlotIndexAt(screenPosition);
             if (slotIndex < 0 || _trayModel.GetPiece(slotIndex) == null)
             {
+                // A press on the board itself, or on nothing — the acceptance criterion's "touches any
+                // cell". Dead press otherwise, and dismissing nothing is a no-op.
+                _ghostFitSystem.Dismiss();
                 return;
             }
+
+            // Picking up a different piece drops the hint; picking up the suggested one keeps the
+            // silhouette on screen to aim at.
+            _ghostFitSystem.DismissUnlessSuggestedSlot(slotIndex);
 
             BeginDrag(slotIndex, screenPosition);
         }

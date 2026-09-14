@@ -6,7 +6,9 @@ namespace MustyBlockBlast.Tests.EditMode
     /// <summary>Covers <see cref="Board.IsEmpty"/> (a fresh board starts empty, occupying any cell makes
     /// it non-empty, clearing it returns to empty), <see cref="Board.HasIsolatedEmptyCells"/> (the
     /// flood-fill correctly distinguishes a walled-off hole from one with any path to the edge, and
-    /// treats every border cell as inherently reachable), and <see cref="Board.IsCenterCoreEmpty"/>.</summary>
+    /// treats every border cell as inherently reachable), <see cref="Board.LargestEmptyRegionSize"/> (the
+    /// second flood-fill, which counts connected components rather than answering a reachability
+    /// question) and <see cref="Board.IsCenterCoreEmpty"/>.</summary>
     public class BoardTests
     {
         [Test]
@@ -126,6 +128,77 @@ namespace MustyBlockBlast.Tests.EditMode
         }
 
         [Test]
+        public void EmptyBoard_LargestEmptyRegionIsTheWholeBoard()
+        {
+            Board board = new Board();
+
+            Assert.AreEqual(Board.SIZE * Board.SIZE, LargestEmptyRegion(board));
+        }
+
+        [Test]
+        public void FullBoard_HasNoEmptyRegionAtAll()
+        {
+            Board board = new Board();
+            FillEntireBoard(board);
+
+            Assert.AreEqual(0, LargestEmptyRegion(board));
+        }
+
+        [Test]
+        public void OneOccupiedCell_LeavesTheRestAsASingleRegion()
+        {
+            // Removing a non-cut cell from an open board splits nothing: everything else is still
+            // reachable from everything else.
+            Board board = new Board();
+            board.Occupy(new GridPosition(4, 4), 1);
+
+            Assert.AreEqual((Board.SIZE * Board.SIZE) - 1, LargestEmptyRegion(board));
+        }
+
+        [Test]
+        public void TwoSeparatePockets_ReportsTheLargerOne()
+        {
+            // Column 4 walled top to bottom: 32 empty cells to its left, 24 to its right, no path
+            // between them. Unlike HasIsolatedEmptyCells — which would call both sides reachable, since
+            // both touch the border — this has to tell them apart and pick the bigger.
+            Board board = new Board();
+            for (int y = 0; y < Board.SIZE; y++)
+            {
+                board.Occupy(new GridPosition(4, y), 1);
+            }
+
+            Assert.AreEqual(4 * Board.SIZE, LargestEmptyRegion(board));
+        }
+
+        [Test]
+        public void AWalledOffHole_IsNotCountedTowardsTheOpenRegion()
+        {
+            // The 3x3 block around (3,3) is occupied except its centre, so that centre is a region of
+            // exactly one cell while everything outside the block is one big region.
+            Board board = new Board();
+            for (int y = 2; y <= 4; y++)
+            {
+                for (int x = 2; x <= 4; x++)
+                {
+                    board.Occupy(new GridPosition(x, y), 1);
+                }
+            }
+
+            board.Clear(new GridPosition(3, 3));
+
+            Assert.AreEqual((Board.SIZE * Board.SIZE) - 9, LargestEmptyRegion(board));
+        }
+
+        [Test]
+        public void LargestEmptyRegionSize_WithTooSmallABuffer_IsRejected()
+        {
+            Board board = new Board();
+
+            Assert.Throws<System.ArgumentException>(
+                () => board.LargestEmptyRegionSize(new bool[4], new int[Board.SIZE * Board.SIZE]));
+        }
+
+        [Test]
         public void EmptyBoard_HasAnEmptyCenterCore()
         {
             Board board = new Board();
@@ -162,6 +235,21 @@ namespace MustyBlockBlast.Tests.EditMode
             board.Clear(corePosition);
 
             Assert.IsTrue(board.IsCenterCoreEmpty());
+        }
+
+        private static int LargestEmptyRegion(Board board)
+            => board.LargestEmptyRegionSize(
+                new bool[Board.SIZE * Board.SIZE], new int[Board.SIZE * Board.SIZE]);
+
+        private static void FillEntireBoard(Board board)
+        {
+            for (int y = 0; y < Board.SIZE; y++)
+            {
+                for (int x = 0; x < Board.SIZE; x++)
+                {
+                    board.Occupy(new GridPosition(x, y), 1);
+                }
+            }
         }
     }
 }

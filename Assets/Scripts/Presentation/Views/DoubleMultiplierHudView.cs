@@ -25,7 +25,12 @@ namespace MustyBlockBlast.Presentation.Views
     public sealed class DoubleMultiplierHudView : MonoBehaviour
     {
         [Header("Layout")]
-        [SerializeField] private Vector2 _anchoredPosition = new Vector2(0f, -330f);
+        // -285 rather than the original -330: at -330 this banner's 90-tall footprint overlapped the
+        // Ghost Fit "no placements" notice (GhostFitView, centred at -380, also 90 tall) by 40px — the
+        // two are reachable at the same time (a dead dock with a playable Hold piece is not game over,
+        // so Ghost Fit can report "no placements" while a 2x window is still counting down). -285 keeps
+        // a 5px gap below this banner and the notice's top edge.
+        [SerializeField] private Vector2 _anchoredPosition = new Vector2(0f, -285f);
         [SerializeField] private int _fontSize = 44;
 
         private readonly CompositeDisposable _disposables = new CompositeDisposable();
