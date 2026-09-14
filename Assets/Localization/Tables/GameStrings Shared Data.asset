@@ -139,6 +139,50 @@ MonoBehaviour:
     m_Key: theme.sonbahar
     m_Metadata:
       m_Items: []
+  - m_Id: 149663784099840
+    m_Key: objective.simultaneous_line_clear
+    m_Metadata:
+      m_Items: []
+  - m_Id: 149663859597312
+    m_Key: objective.piece_family_count
+    m_Metadata:
+      m_Items: []
+  - m_Id: 149663863791616
+    m_Key: objective.score_in_run
+    m_Metadata:
+      m_Items: []
+  - m_Id: 149663863791617
+    m_Key: objective.board_wipe_count
+    m_Metadata:
+      m_Items: []
+  - m_Id: 149663863791618
+    m_Key: objective.family.single
+    m_Metadata:
+      m_Items: []
+  - m_Id: 149663867985920
+    m_Key: objective.family.line
+    m_Metadata:
+      m_Items: []
+  - m_Id: 149663872180224
+    m_Key: objective.family.square
+    m_Metadata:
+      m_Items: []
+  - m_Id: 149663872180225
+    m_Key: objective.family.corner
+    m_Metadata:
+      m_Items: []
+  - m_Id: 149663872180226
+    m_Key: objective.family.t_shape
+    m_Metadata:
+      m_Items: []
+  - m_Id: 149663872180227
+    m_Key: objective.family.s_shape
+    m_Metadata:
+      m_Items: []
+  - m_Id: 149663872180228
+    m_Key: objective.family.z_shape
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

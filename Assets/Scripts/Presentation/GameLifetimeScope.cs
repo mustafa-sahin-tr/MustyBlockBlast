@@ -24,6 +24,12 @@ namespace MustyBlockBlast.Presentation
         [Tooltip("Selectable round lengths for timed mode. Required — timed runs cannot be configured without it.")]
         [SerializeField] private TimedModeConfig _timedModeConfig;
 
+        [Tooltip("Authored level content. Required — without it there is no objective to show or clear.")]
+        [SerializeField] private LevelCatalog _levelCatalog;
+
+        [Tooltip("Authored badge content. Required — without it there are no badges to track or unlock.")]
+        [SerializeField] private BadgeCatalog _badgeCatalog;
+
         protected override void Configure(IContainerBuilder builder)
         {
             RegisterMessaging(builder);
@@ -46,6 +52,22 @@ namespace MustyBlockBlast.Presentation
                 container.Resolve<LocalizationSystem>();
                 container.Resolve<PowerUpSystem>();
                 container.Resolve<PowerUpScoreSystem>();
+
+                // Subscribes in its constructor, like the systems above. ObjectiveSystem reads the run
+                // score from ScoreChangedMessage rather than ScoreModel directly, so unlike the others
+                // its correctness does not depend on resolve order relative to ScoreSystem.
+                container.Resolve<ObjectiveSystem>();
+
+                // Must come after ObjectiveSystem: it loads the saved level and writes the current
+                // objective into ObjectiveModel, and ObjectiveSystem must already be subscribed to
+                // placements by the time that objective can be progressed.
+                container.Resolve<LevelProgressionSystem>();
+
+                // Subscribes in its constructor and loads the lifetime counters there too, so it must
+                // exist before the first placement — and before BadgeSystem, which reads those
+                // already-loaded counters at its own construction to decide what is already unlocked.
+                container.Resolve<BadgeStatsSystem>();
+                container.Resolve<BadgeSystem>();
             });
         }
 
@@ -65,6 +87,9 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterMessageBroker<TrayRefilledMessage>(options);
             builder.RegisterMessageBroker<PowerUpAppliedMessage>(options);
             builder.RegisterMessageBroker<PowerUpGrantedMessage>(options);
+            builder.RegisterMessageBroker<ObjectiveProgressChangedMessage>(options);
+            builder.RegisterMessageBroker<ObjectiveCompletedMessage>(options);
+            builder.RegisterMessageBroker<LevelAdvancedMessage>(options);
         }
 
         // Instance method: the theme list and the timed-mode config are scene-configured on this
@@ -74,6 +99,8 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterInstance<IReadOnlyList<ThemeDefinition>>(
                 _availableThemes ?? new ThemeDefinition[0]);
             builder.RegisterInstance(ResolveTimedModeConfig());
+            builder.RegisterInstance(ResolveLevelCatalog());
+            builder.RegisterInstance(ResolveBadgeCatalog());
 
             // Languages come from the project's Locale assets rather than a scene field: a new
             // language is a Locale asset plus a String Table column, with no scene edit.
@@ -90,6 +117,46 @@ namespace MustyBlockBlast.Presentation
             builder.Register<SettingsModel>(Lifetime.Singleton);
             builder.Register<LocalizationModel>(Lifetime.Singleton);
             builder.Register<PowerUpModel>(Lifetime.Singleton);
+            builder.Register<ObjectiveModel>(Lifetime.Singleton);
+            builder.Register<LevelProgressionModel>(Lifetime.Singleton);
+            builder.Register<BadgeStatsModel>(Lifetime.Singleton);
+            builder.Register<BadgeModel>(Lifetime.Singleton);
+        }
+
+        /// <summary>
+        /// Same defensive shape as <see cref="ResolveLevelCatalog"/>: an empty catalog boots the scene
+        /// with an empty badge wall and one readable error, which beats an opaque container failure
+        /// deep inside a null instance registration.
+        /// </summary>
+        private BadgeCatalog ResolveBadgeCatalog()
+        {
+            if (_badgeCatalog != null)
+            {
+                return _badgeCatalog;
+            }
+
+            Debug.LogError(
+                $"{nameof(GameLifetimeScope)} has no {nameof(BadgeCatalog)} assigned. " +
+                "No badges will be tracked or unlocked.", this);
+            return ScriptableObject.CreateInstance<BadgeCatalog>();
+        }
+
+        /// <summary>
+        /// Same defensive shape as <see cref="ResolveTimedModeConfig"/>: an empty catalog boots the
+        /// scene with no objective shown and one readable error, which beats an opaque container
+        /// failure deep inside a null instance registration.
+        /// </summary>
+        private LevelCatalog ResolveLevelCatalog()
+        {
+            if (_levelCatalog != null)
+            {
+                return _levelCatalog;
+            }
+
+            Debug.LogError(
+                $"{nameof(GameLifetimeScope)} has no {nameof(LevelCatalog)} assigned. " +
+                "No level objectives will be available.", this);
+            return ScriptableObject.CreateInstance<LevelCatalog>();
         }
 
         /// <summary>
@@ -136,6 +203,10 @@ namespace MustyBlockBlast.Presentation
             builder.Register<DeterministicRewardSource>(Lifetime.Singleton).As<IRewardSource>().AsSelf();
             builder.Register<PowerUpSystem>(Lifetime.Singleton).AsSelf();
             builder.Register<PowerUpScoreSystem>(Lifetime.Singleton).AsSelf();
+            builder.Register<ObjectiveSystem>(Lifetime.Singleton);
+            builder.Register<LevelProgressionSystem>(Lifetime.Singleton);
+            builder.Register<BadgeStatsSystem>(Lifetime.Singleton);
+            builder.Register<BadgeSystem>(Lifetime.Singleton);
 
             // Entry point because it is an ITickable: the countdown is driven by VContainer's player
             // loop, not by a MonoBehaviour Update.
@@ -148,11 +219,17 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterComponentInHierarchy<BackgroundView>();
             builder.RegisterComponentInHierarchy<SettingsButtonView>();
             builder.RegisterComponentInHierarchy<SettingsPanelView>();
+            builder.RegisterComponentInHierarchy<LevelPathButtonView>();
+            builder.RegisterComponentInHierarchy<LevelPathPanelView>();
+            builder.RegisterComponentInHierarchy<BadgesButtonView>();
+            builder.RegisterComponentInHierarchy<BadgesPanelView>();
             builder.RegisterComponentInHierarchy<PieceTrayView>();
             builder.RegisterComponentInHierarchy<ScoreView>();
             builder.RegisterComponentInHierarchy<TimerHudView>();
             builder.RegisterComponentInHierarchy<LineClearBurstView>();
             builder.RegisterComponentInHierarchy<BonusFeedbackView>();
+            builder.RegisterComponentInHierarchy<PowerUpInventoryView>();
+            builder.RegisterComponentInHierarchy<ObjectiveHudView>();
             builder.RegisterComponentInHierarchy<GameOverView>();
             builder.RegisterComponentInHierarchy<BoardInputView>();
             builder.RegisterComponentInHierarchy<SfxPlayerView>();

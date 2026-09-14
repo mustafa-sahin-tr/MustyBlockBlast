@@ -1,0 +1,112 @@
+using System;
+
+namespace MustyBlockBlast.Core
+{
+    /// <summary>
+    /// Live progress of one <see cref="ObjectiveDefinition"/>. The whole objective rule engine lives
+    /// here: a placement is fed in, each type decides whether it qualifies, and the value is clamped to
+    /// the target so a completed objective can never overshoot.
+    /// </summary>
+    public sealed class ObjectiveProgress
+    {
+        public ObjectiveProgress(ObjectiveDefinition definition)
+        {
+            Definition = definition;
+        }
+
+        public ObjectiveDefinition Definition { get; }
+
+        public int CurrentValue { get; private set; }
+
+        public bool IsComplete { get; private set; }
+
+        /// <summary>
+        /// Folds one placement into this objective's progress. Returns true only when
+        /// <see cref="CurrentValue"/> actually moved, so callers can publish a change message without
+        /// filtering no-ops. A completed objective ignores everything.
+        /// </summary>
+        public bool ApplyPlacement(ObjectivePlacementContext context)
+        {
+            if (IsComplete)
+            {
+                return false;
+            }
+
+            int previousValue = CurrentValue;
+
+            switch (Definition.Type)
+            {
+                case ObjectiveType.SimultaneousLineClear:
+                    // Exact match, not "at least": a "clear 2 lines at once" objective is not satisfied
+                    // by a 3-line clear, which is its own, harder objective.
+                    if (context.LinesCleared == Definition.RequiredLineCount)
+                    {
+                        CurrentValue = Math.Min(CurrentValue + 1, Definition.TargetValue);
+                    }
+
+                    break;
+
+                case ObjectiveType.PieceFamilyCount:
+                    if (context.PieceFamily == Definition.RequiredPieceFamily)
+                    {
+                        CurrentValue = Math.Min(CurrentValue + 1, Definition.TargetValue);
+                    }
+
+                    break;
+
+                case ObjectiveType.BoardWipeCount:
+                    if (context.BoardEmptyAfterPlacement)
+                    {
+                        CurrentValue = Math.Min(CurrentValue + 1, Definition.TargetValue);
+                    }
+
+                    break;
+
+                case ObjectiveType.ScoreInRun:
+                    // Mirrors the score rather than counting events. Only monotonic within a single run
+                    // (the run score only grows), which is why ObjectiveDefinition forbids pairing this
+                    // type with Cumulative scope — ResetForNewRun is what keeps it from going backwards.
+                    CurrentValue = Math.Min(context.CurrentRunScore, Definition.TargetValue);
+                    break;
+            }
+
+            if (CurrentValue == previousValue)
+            {
+                return false;
+            }
+
+            IsComplete = CurrentValue >= Definition.TargetValue;
+            return true;
+        }
+
+        /// <summary>
+        /// Rehydrates persisted progress (e.g. after an app relaunch) without going through
+        /// <see cref="ApplyPlacement"/>'s qualification rules. Clamps to the target and re-derives
+        /// <see cref="IsComplete"/> exactly like a normal update would.
+        /// <para>
+        /// Deliberately silent: nothing happened this session, so the caller must not treat a restore
+        /// as a progress or completion event.
+        /// </para>
+        /// </summary>
+        public void RestoreProgress(int currentValue)
+        {
+            CurrentValue = Math.Min(Math.Max(currentValue, 0), Definition.TargetValue);
+            IsComplete = CurrentValue >= Definition.TargetValue;
+        }
+
+        /// <summary>
+        /// Clears progress at the start of a run. Cumulative objectives deliberately ignore this — that
+        /// is the entire difference between the two scopes.
+        /// </summary>
+        public void ResetForNewRun()
+        {
+            if (Definition.Scope == ObjectiveScope.Cumulative)
+            {
+                return;
+            }
+
+            CurrentValue = 0;
+            IsComplete = false;
+        }
+    }
+}

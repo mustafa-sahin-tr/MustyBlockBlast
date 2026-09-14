@@ -54,6 +54,14 @@ namespace MustyBlockBlast.Gameplay.Models
             }
         }
 
+        /// <summary>Raises the change notification for a cell a Core resolver has already occupied.
+        /// Separate from <see cref="Occupy"/> because the resolver owns the mutation there — calling
+        /// Occupy again would be a redundant second write of a cell that is already filled.</summary>
+        internal void NotifyFilled(GridPosition position, int colourId)
+        {
+            CellChanged?.Invoke(position, colourId);
+        }
+
         /// <summary>Raises change notifications for an arbitrary set of cells a power-up emptied. The
         /// Core resolver has already mutated the board when this is called. Separate from
         /// <see cref="NotifyCleared"/> because a power-up clears a region, not whole lines.</summary>

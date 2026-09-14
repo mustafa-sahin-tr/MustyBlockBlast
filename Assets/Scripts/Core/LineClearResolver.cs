@@ -189,7 +189,10 @@ namespace MustyBlockBlast.Core
             return true;
         }
 
-        private static void ClearRow(Board board, int y)
+        /// <summary>Empties row <paramref name="y"/>. Internal so <see cref="JokerFillResolver"/>
+        /// clears a completed line through the exact same primitive a placement does, instead of
+        /// carrying a second definition of "clear this line".</summary>
+        internal static void ClearRow(Board board, int y)
         {
             for (int x = 0; x < Board.SIZE; x++)
             {
@@ -197,7 +200,9 @@ namespace MustyBlockBlast.Core
             }
         }
 
-        private static void ClearColumn(Board board, int x)
+        /// <summary>Empties column <paramref name="x"/>. Internal for the same reason as
+        /// <see cref="ClearRow"/>.</summary>
+        internal static void ClearColumn(Board board, int x)
         {
             for (int y = 0; y < Board.SIZE; y++)
             {
