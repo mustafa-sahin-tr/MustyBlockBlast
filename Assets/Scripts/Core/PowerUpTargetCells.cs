@@ -115,6 +115,27 @@ namespace MustyBlockBlast.Core
             return buffer;
         }
 
+        /// <summary>
+        /// The single cell a colour cleanser tap aims at. Deliberately NOT the full set of cells that
+        /// would actually clear (which depends on board content, not just position, and could be up to
+        /// the whole board) — scanning that live on every pointer-move frame would need its own
+        /// board-sized buffer distinct from every other kind's small fixed-geometry one. This is a
+        /// lightweight aim reticle, not a full preview; <see cref="PowerUpClearResolver.ResolveColorCleanser"/>
+        /// is still the sole authority on what actually clears when the tap lands.
+        /// </summary>
+        public static IReadOnlyList<GridPosition> ForColorCleanser(GridPosition target, List<GridPosition> buffer)
+        {
+            Prepare(buffer);
+
+            if (!Board.IsInside(target))
+            {
+                return buffer;
+            }
+
+            buffer.Add(target);
+            return buffer;
+        }
+
         /// <summary>True when <paramref name="index"/> names a row/column that exists.</summary>
         public static bool IsValidLineIndex(int index) => index >= 0 && index < Board.SIZE;
 

@@ -72,6 +72,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             LoadPersistedCount(PowerUpKind.RowClear);
             LoadPersistedCount(PowerUpKind.ColumnClear);
             LoadPersistedCount(PowerUpKind.Joker);
+            LoadPersistedCount(PowerUpKind.ColorCleanser);
 
             // An armed selection belongs to the run it was made in: it must not survive either end of
             // a run boundary, or the next run would open with a power-up already aimed and its clock
@@ -190,6 +191,33 @@ namespace MustyBlockBlast.Gameplay.Systems
             return true;
         }
 
+        /// <summary>
+        /// Spends one colour cleanser on <paramref name="target"/>: clears every cell on the board
+        /// sharing that cell's colour. An empty target has no colour to extract and is refused outright
+        /// — the same "peek before spending" contract as <see cref="TryApplyJoker"/>: nothing is spent,
+        /// nothing is disarmed, the player simply aims again.
+        /// </summary>
+        public bool TryApplyColorCleanser(GridPosition target)
+        {
+            // Peeked rather than spent, mirroring TryApplyJoker: legality here is "does the resolver
+            // find a colour to clear", and that must be checked before a single count is touched.
+            if (!Board.IsInside(target) || CountOf(PowerUpKind.ColorCleanser).Value <= 0)
+            {
+                return false;
+            }
+
+            PowerUpClearResult result = PowerUpClearResolver.ResolveColorCleanser(_boardModel.Board, target);
+            if (!result.AnyCleared)
+            {
+                return false;
+            }
+
+            TrySpend(PowerUpKind.ColorCleanser);
+            Apply(PowerUpKind.ColorCleanser, result);
+            Disarm();
+            return true;
+        }
+
         /// <summary>Asks <see cref="IRewardSource"/> for one <paramref name="kind"/> and banks it if
         /// granted. Returns whether it was granted; a refusal leaves the inventory untouched.</summary>
         public async UniTask<bool> GrantRewardAsync(PowerUpKind kind, CancellationToken cancellationToken)
@@ -287,6 +315,8 @@ namespace MustyBlockBlast.Gameplay.Systems
                     return _powerUpModel.ColumnClearCount;
                 case PowerUpKind.Joker:
                     return _powerUpModel.JokerCount;
+                case PowerUpKind.ColorCleanser:
+                    return _powerUpModel.ColorCleanserCount;
                 default:
                     return _powerUpModel.BombCount;
             }

@@ -37,6 +37,32 @@ namespace MustyBlockBlast.Tests.EditMode
         }
 
         [Test]
+        public void OnPowerUpApplied_ColorCleanser_ScoresOnePointPerClearedCell()
+        {
+            // Same per-cell rule as Bomb, not the flat one-line rate RowClear/ColumnClear use — a
+            // colour cleanser has no fixed region size, so a flat rate would pay the same for clearing
+            // 3 cells as for clearing 30.
+            _appliedBroker.Publish(new PowerUpAppliedMessage(PowerUpKind.ColorCleanser, 12));
+
+            Assert.AreEqual(ScoreRules.PlacementScore(12), _scoreModel.Score.Value);
+            Assert.AreEqual(12, _scoreModel.Score.Value);
+        }
+
+        [Test]
+        public void OnPowerUpApplied_ColorCleanser_LeavesEveryStreakCounterUntouched()
+        {
+            _scoreModel.Streak.Value = 3;
+            _scoreModel.MultiClearStreak.Value = 2;
+            _scoreModel.CumulativeMultiClearCount.Value = 7;
+
+            _appliedBroker.Publish(new PowerUpAppliedMessage(PowerUpKind.ColorCleanser, 5));
+
+            Assert.AreEqual(3, _scoreModel.Streak.Value);
+            Assert.AreEqual(2, _scoreModel.MultiClearStreak.Value);
+            Assert.AreEqual(7, _scoreModel.CumulativeMultiClearCount.Value);
+        }
+
+        [Test]
         public void OnPowerUpApplied_BombTwice_AccumulatesOnTopOfTheExistingScore()
         {
             _appliedBroker.Publish(new PowerUpAppliedMessage(PowerUpKind.Bomb, 9));

@@ -55,6 +55,11 @@ namespace MustyBlockBlast.Core
         private static readonly List<GridPosition> TargetBuffer =
             new List<GridPosition>(PowerUpTargetCells.MAX_TARGET_CELLS);
 
+        /// <summary>Shared, never-mutated empties for a rejected <see cref="ResolveColorCleanser"/>
+        /// call — avoids allocating a fresh empty list for the common "tapped nothing" case.</summary>
+        private static readonly GridPosition[] EmptyCells = new GridPosition[0];
+        private static readonly int[] EmptyLines = new int[0];
+
         /// <summary>Clears the 3x3 area centred on <paramref name="center"/>, clamped to the board — a
         /// corner centre therefore affects 4 cells and an edge centre 6.</summary>
         public static PowerUpClearResult ResolveBombClear(Board board, GridPosition center)
@@ -81,6 +86,43 @@ namespace MustyBlockBlast.Core
             return ClearTargeted(board, PowerUpTargetCells.ForColumn(column, TargetBuffer));
         }
 
+        /// <summary>
+        /// Clears every cell on the whole board sharing <paramref name="target"/>'s colour. An empty
+        /// target has no colour to extract and is rejected outright — nothing is read or written —
+        /// so <see cref="PowerUpClearResult.AnyCleared"/> doubles as this call's legality signal: the
+        /// caller (<c>PowerUpSystem.TryApplyColorCleanser</c>) must treat a false result as "the player
+        /// aimed at nothing" and charge for nothing, the same contract <see cref="JokerFillResolver"/>
+        /// establishes for an illegal joker target.
+        /// </summary>
+        public static PowerUpClearResult ResolveColorCleanser(Board board, GridPosition target)
+        {
+            if (!Board.IsInside(target))
+            {
+                throw new ArgumentOutOfRangeException(nameof(target), target, "Outside the board.");
+            }
+
+            int colourId = board[target];
+            if (colourId == Board.EMPTY)
+            {
+                return new PowerUpClearResult(EmptyCells, EmptyLines, EmptyLines);
+            }
+
+            var matchingCells = new List<GridPosition>();
+            for (int y = 0; y < Board.SIZE; y++)
+            {
+                for (int x = 0; x < Board.SIZE; x++)
+                {
+                    GridPosition position = new GridPosition(x, y);
+                    if (board[position] == colourId)
+                    {
+                        matchingCells.Add(position);
+                    }
+                }
+            }
+
+            return ClearAndReport(board, matchingCells);
+        }
+
         /// <summary>Clears whichever of <paramref name="targetedCells"/> hold a colour, and reports
         /// exactly those. Occupancy is read before anything is cleared: once cleared, a cell is
         /// indistinguishable from one that was already empty.</summary>
@@ -96,6 +138,14 @@ namespace MustyBlockBlast.Core
                 }
             }
 
+            return ClearAndReport(board, clearedCells);
+        }
+
+        /// <summary>Clears exactly <paramref name="clearedCells"/> (every entry is assumed already
+        /// verified occupied) and reports which rows/columns that emptied out entirely. Shared by every
+        /// resolve method so the emptied-line computation has exactly one implementation.</summary>
+        private static PowerUpClearResult ClearAndReport(Board board, List<GridPosition> clearedCells)
+        {
             ClearAll(board, clearedCells);
 
             // Only rows/columns a cleared cell actually belonged to can have changed emptiness — no

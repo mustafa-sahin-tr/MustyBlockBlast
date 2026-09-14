@@ -14,7 +14,10 @@ namespace MustyBlockBlast.Gameplay.Systems
     /// <para>
     /// A bomb pays per cell (<see cref="ScoreRules.PlacementScore"/>) because its yield already scales
     /// with how much it destroyed; a row/column clear pays the one-line clear rate, so it is worth the
-    /// same as earning that line the hard way.
+    /// same as earning that line the hard way. A colour cleanser follows the bomb's rule, not the
+    /// row/column one: its cleared region has no fixed shape or size (a rare colour might clear 1
+    /// cell, a common one most of the board), so a flat one-line rate would pay the same regardless of
+    /// how much it actually destroyed — exactly the mismatch the bomb's per-cell rate exists to avoid.
     /// </para>
     /// <para>
     /// A joker pays the clear rate for however many lines it actually completed (one, or two when the
@@ -74,6 +77,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             switch (message.Kind)
             {
                 case PowerUpKind.Bomb:
+                case PowerUpKind.ColorCleanser:
                     return ScoreRules.PlacementScore(message.ClearedCellCount);
                 case PowerUpKind.Joker:
                     // The only kind that can clear more than one line at a time, so it is the only one

@@ -401,19 +401,24 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         /// <summary>
-        /// Whether spending the armed kind here would actually do something. Only the joker can be
-        /// aimed at a cell it cannot use — it fills an empty cell, so an occupied one is a dead tap —
-        /// and the preview says so before the player commits. The three region-clearing kinds are
-        /// legal on every cell of the board.
+        /// Whether spending the armed kind here would actually do something. Joker fills an empty
+        /// cell, so an occupied one is a dead tap; a colour cleanser is the mirror image — it needs an
+        /// occupied cell to have a colour to extract, so an empty one is the dead tap. The three
+        /// region-clearing kinds (Bomb/RowClear/ColumnClear) are legal on every cell of the board.
         /// </summary>
         private bool IsLegalTarget(PowerUpKind kind, GridPosition cell)
         {
-            if (kind != PowerUpKind.Joker)
+            if (kind == PowerUpKind.Joker)
             {
-                return true;
+                return _boardModel != null && _boardModel.GetCell(cell) == Board.EMPTY;
             }
 
-            return _boardModel != null && _boardModel.GetCell(cell) == Board.EMPTY;
+            if (kind == PowerUpKind.ColorCleanser)
+            {
+                return _boardModel != null && _boardModel.GetCell(cell) != Board.EMPTY;
+            }
+
+            return true;
         }
 
         /// <summary>Spends the armed power-up on the cell under the pointer, if there is one. The
@@ -450,6 +455,11 @@ namespace MustyBlockBlast.Presentation.Views
                     // player aim again — the highlight has already come off above.
                     _powerUpSystem.TryApplyJoker(target);
                     break;
+                case PowerUpKind.ColorCleanser:
+                    // Mirror image of Joker's refusal case: an empty target leaves this armed and
+                    // unspent, and the player just aims again.
+                    _powerUpSystem.TryApplyColorCleanser(target);
+                    break;
                 default:
                     _powerUpSystem.TryApplyBomb(target);
                     break;
@@ -457,8 +467,11 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         /// <summary>The cells <paramref name="kind"/> would hit at <paramref name="cell"/>, straight
-        /// from the Core geometry the application itself uses — so the preview cannot over- or
-        /// under-promise, notably where a bomb's 3x3 is clamped at a board edge.</summary>
+        /// from the Core geometry the application itself uses — so the preview can never over-promise a
+        /// region the application would not touch, notably where a bomb's 3x3 is clamped at a board
+        /// edge. ColorCleanser is the one kind that deliberately under-promises: its real cleared set
+        /// depends on board content, so the preview shows only the aim reticle (see
+        /// <see cref="PowerUpTargetCells.ForColorCleanser"/>).</summary>
         private IReadOnlyList<GridPosition> GetTargetCells(PowerUpKind kind, GridPosition cell)
         {
             switch (kind)
@@ -469,6 +482,8 @@ namespace MustyBlockBlast.Presentation.Views
                     return PowerUpTargetCells.ForColumn(cell.X, _powerUpTargetBuffer);
                 case PowerUpKind.Joker:
                     return PowerUpTargetCells.ForJoker(cell, _powerUpTargetBuffer);
+                case PowerUpKind.ColorCleanser:
+                    return PowerUpTargetCells.ForColorCleanser(cell, _powerUpTargetBuffer);
                 default:
                     return PowerUpTargetCells.ForBomb(cell, _powerUpTargetBuffer);
             }

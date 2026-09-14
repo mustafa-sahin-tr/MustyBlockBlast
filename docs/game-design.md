@@ -182,15 +182,23 @@ All applied as a board mutation before the next placement:
 | Row clear | Player taps a row; clears it entirely, full or not |
 | Column clear | Player taps a column; clears it entirely, full or not |
 | Joker | Player taps an **empty** cell; fills it, then clears its row and/or column if the fill completed them |
+| Color Cleanser | Player taps an **occupied** cell; clears every cell on the board sharing that cell's colour |
 
 The first three force-clear their region whether or not it is full. The joker is the
 exception: it adds a cell rather than removing any, and clears only on the condition a
 normal placement clears on — the line genuinely became full. Tapping an occupied cell is
 not a legal joker target and costs nothing; the joker stays held and stays aimed.
 
+Color Cleanser is the mirror image of the joker's legality rule: it needs a colour to
+extract from the tapped cell, so an **empty** cell is the illegal target here — nothing
+clears, nothing is spent, the cleanser stays held and stays aimed. Unlike the region-clearing
+three, its cleared set can span the whole board and depends entirely on board content, not
+just the tapped position.
+
 Cleared cells score as a normal clear but **do not** advance the combo streak — power-ups
 should not be a way to farm multipliers. A power-up that clears nothing scores nothing,
-including a joker that only fills a cell.
+including a joker that only fills a cell. Bomb and Color Cleanser both pay per cell cleared,
+since neither has a fixed region size; Row Clear/Column Clear pay the flat one-line rate.
 
 ## Earning undo and power-ups
 
