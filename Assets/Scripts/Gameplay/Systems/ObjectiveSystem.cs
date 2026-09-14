@@ -74,6 +74,8 @@ namespace MustyBlockBlast.Gameplay.Systems
         {
             ObjectivePlacementContext context = new ObjectivePlacementContext(
                 message.LinesCleared,
+                message.RowsCleared,
+                message.ColumnsCleared,
                 message.PieceFamily,
                 _currentRunScore,
                 message.BoardEmptyAfterPlacement,

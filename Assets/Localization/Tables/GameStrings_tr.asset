@@ -194,6 +194,10 @@ MonoBehaviour:
     m_Localized: "Bombayla bir s\u0131ray\u0131 bo\u015Falt"
     m_Metadata:
       m_Items: []
+  - m_Id: 225277056638976
+    m_Localized: "Ayn\u0131 anda bir s\u0131ra ve bir s\xFCtun temizle"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

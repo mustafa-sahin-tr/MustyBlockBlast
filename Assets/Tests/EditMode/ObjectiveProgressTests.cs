@@ -13,13 +13,16 @@ namespace MustyBlockBlast.Tests.EditMode
     {
         private static ObjectivePlacementContext Placement(
             int linesCleared = 0,
+            int rowsCleared = 0,
+            int columnsCleared = 0,
             PieceFamily pieceFamily = PieceFamily.Single,
             int currentRunScore = 0,
             bool boardEmptyAfterPlacement = false,
             int currentStreak = 0)
         {
             return new ObjectivePlacementContext(
-                linesCleared, pieceFamily, currentRunScore, boardEmptyAfterPlacement, currentStreak);
+                linesCleared, rowsCleared, columnsCleared, pieceFamily, currentRunScore,
+                boardEmptyAfterPlacement, currentStreak);
         }
 
         private static ObjectiveProgress StreakObjective(int targetValue)
@@ -219,6 +222,51 @@ namespace MustyBlockBlast.Tests.EditMode
             // And it keeps accumulating into the next run.
             Assert.IsTrue(objective.ApplyPlacement(Placement(pieceFamily: PieceFamily.Square)));
             Assert.AreEqual(3, objective.CurrentValue);
+        }
+
+        [Test]
+        public void RowAndColumnCrossClear_OneRowAndOneColumn_Qualifies()
+        {
+            ObjectiveProgress objective = new ObjectiveProgress(new ObjectiveDefinition(
+                "cross", ObjectiveType.RowAndColumnCrossClear, ObjectiveScope.PerRun, targetValue: 3));
+
+            Assert.IsTrue(objective.ApplyPlacement(Placement(
+                linesCleared: 2, rowsCleared: 1, columnsCleared: 1)));
+            Assert.AreEqual(1, objective.CurrentValue);
+        }
+
+        [Test]
+        public void RowAndColumnCrossClear_TwoRowsAndNoColumns_DoesNotQualify()
+        {
+            // The entire reason this needs its own fields: same LinesCleared total (2) as the
+            // qualifying case above, but it's two rows, not a row-and-column cross.
+            ObjectiveProgress objective = new ObjectiveProgress(new ObjectiveDefinition(
+                "cross", ObjectiveType.RowAndColumnCrossClear, ObjectiveScope.PerRun, targetValue: 3));
+
+            Assert.IsFalse(objective.ApplyPlacement(Placement(
+                linesCleared: 2, rowsCleared: 2, columnsCleared: 0)));
+            Assert.AreEqual(0, objective.CurrentValue);
+        }
+
+        [Test]
+        public void RowAndColumnCrossClear_TwoColumnsAndNoRows_DoesNotQualify()
+        {
+            ObjectiveProgress objective = new ObjectiveProgress(new ObjectiveDefinition(
+                "cross", ObjectiveType.RowAndColumnCrossClear, ObjectiveScope.PerRun, targetValue: 3));
+
+            Assert.IsFalse(objective.ApplyPlacement(Placement(
+                linesCleared: 2, rowsCleared: 0, columnsCleared: 2)));
+            Assert.AreEqual(0, objective.CurrentValue);
+        }
+
+        [Test]
+        public void RowAndColumnCrossClear_NothingCleared_DoesNotQualify()
+        {
+            ObjectiveProgress objective = new ObjectiveProgress(new ObjectiveDefinition(
+                "cross", ObjectiveType.RowAndColumnCrossClear, ObjectiveScope.PerRun, targetValue: 3));
+
+            Assert.IsFalse(objective.ApplyPlacement(Placement(linesCleared: 0)));
+            Assert.AreEqual(0, objective.CurrentValue);
         }
 
         [TestCase(0)]

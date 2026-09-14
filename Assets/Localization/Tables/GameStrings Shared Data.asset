@@ -191,6 +191,10 @@ MonoBehaviour:
     m_Key: objective.bomb_induced_line_clear
     m_Metadata:
       m_Items: []
+  - m_Id: 225277056638976
+    m_Key: objective.row_and_column_cross_clear
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:
