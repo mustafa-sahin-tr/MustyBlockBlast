@@ -88,6 +88,7 @@ alter them.
 | Piece shape family | A placement uses a piece of the required shape family | +1 per qualifying placement |
 | Score in a run | — | Mirrors the current run score |
 | Board wipe | A placement leaves the board completely empty | +1 per qualifying placement |
+| Streak threshold | — | Tracks the best combo streak reached this run (high-water mark) |
 
 The line-clear objective matches exactly, not "at least": a 3-line clear does not satisfy a
 "clear 2 lines at once" objective — that is a separate, harder goal. Shape families are
@@ -96,6 +97,15 @@ regardless of its size or orientation, so adding a new orientation never invalid
 
 Progress is clamped to the target, and an objective stops tracking once complete — it can never
 overshoot and never completes twice.
+
+Streak threshold tracks the best streak *reached*, not the live streak: a streak that peaks at 4
+and then resets to 0 keeps its progress at 4, and a later streak of 6 reads as "best 6", never a
+sum of the two. This is what lets the objective complete permanently the moment the target streak
+is ever reached, even if the player's combo breaks immediately afterward.
+
+Lifetime "how many pieces has the player ever placed" goals are covered by the Badges system's
+`TotalPiecesPlaced` stat, not a separate objective type — a level goal and a lifetime achievement
+watching the same counter would be redundant.
 
 **Progress scopes**
 

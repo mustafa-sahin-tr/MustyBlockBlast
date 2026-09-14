@@ -12,12 +12,14 @@ namespace MustyBlockBlast.Core
             int linesCleared,
             PieceFamily pieceFamily,
             int currentRunScore,
-            bool boardEmptyAfterPlacement)
+            bool boardEmptyAfterPlacement,
+            int currentStreak)
         {
             LinesCleared = linesCleared;
             PieceFamily = pieceFamily;
             CurrentRunScore = currentRunScore;
             BoardEmptyAfterPlacement = boardEmptyAfterPlacement;
+            CurrentStreak = currentStreak;
         }
 
         /// <summary>Rows plus columns cleared by this placement; zero when nothing cleared.</summary>
@@ -32,5 +34,8 @@ namespace MustyBlockBlast.Core
         /// <summary>True when, after this placement's line clears resolved, the board had zero occupied
         /// cells — a "perfect clear".</summary>
         public bool BoardEmptyAfterPlacement { get; }
+
+        /// <summary>Combo streak as it stands after this placement was scored.</summary>
+        public int CurrentStreak { get; }
     }
 }

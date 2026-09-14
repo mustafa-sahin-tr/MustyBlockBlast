@@ -186,6 +186,10 @@ MonoBehaviour:
     m_Localized: en Z
     m_Metadata:
       m_Items: []
+  - m_Id: 209334783959040
+    m_Localized: Alcanza una racha combo
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

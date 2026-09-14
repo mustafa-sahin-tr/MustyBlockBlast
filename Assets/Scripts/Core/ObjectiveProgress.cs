@@ -68,6 +68,15 @@ namespace MustyBlockBlast.Core
                     // type with Cumulative scope — ResetForNewRun is what keeps it from going backwards.
                     CurrentValue = Math.Min(context.CurrentRunScore, Definition.TargetValue);
                     break;
+
+                case ObjectiveType.StreakThreshold:
+                    // Unlike ScoreInRun, the streak itself is NOT monotonic — it drops to 0 on a
+                    // non-clearing placement. Tracking the high-water mark (rather than mirroring the
+                    // live value) is what stops an earlier peak from being erased by a later reset, and
+                    // is also what stops two separate streaks from summing toward the target: a streak
+                    // of 4 then a reset then a streak of 6 reads as "best streak 6", never "10".
+                    CurrentValue = Math.Max(CurrentValue, Math.Min(context.CurrentStreak, Definition.TargetValue));
+                    break;
             }
 
             if (CurrentValue == previousValue)

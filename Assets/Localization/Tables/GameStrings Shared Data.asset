@@ -183,6 +183,10 @@ MonoBehaviour:
     m_Key: objective.family.z_shape
     m_Metadata:
       m_Items: []
+  - m_Id: 209334783959040
+    m_Key: objective.streak_threshold
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

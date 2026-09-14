@@ -26,6 +26,7 @@ namespace MustyBlockBlast.Gameplay.Systems
         private readonly IDisposable _subscriptions;
 
         private int _currentRunScore;
+        private int _currentStreak;
 
         public ObjectiveSystem(
             ObjectiveModel objectiveModel,
@@ -51,11 +52,13 @@ namespace MustyBlockBlast.Gameplay.Systems
         private void OnScoreChanged(ScoreChangedMessage message)
         {
             _currentRunScore = message.Total;
+            _currentStreak = message.Streak;
         }
 
         private void OnRunStarted(RunStartedMessage message)
         {
             _currentRunScore = 0;
+            _currentStreak = 0;
 
             IReadOnlyList<ObjectiveProgress> objectives = _objectiveModel.TrackedObjectives;
             for (int objectiveIndex = 0; objectiveIndex < objectives.Count; objectiveIndex++)
@@ -71,7 +74,8 @@ namespace MustyBlockBlast.Gameplay.Systems
                 message.LinesCleared,
                 message.PieceFamily,
                 _currentRunScore,
-                message.BoardEmptyAfterPlacement);
+                message.BoardEmptyAfterPlacement,
+                _currentStreak);
 
             IReadOnlyList<ObjectiveProgress> objectives = _objectiveModel.TrackedObjectives;
             for (int objectiveIndex = 0; objectiveIndex < objectives.Count; objectiveIndex++)
