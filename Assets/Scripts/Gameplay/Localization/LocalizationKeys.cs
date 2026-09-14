@@ -80,6 +80,7 @@ namespace MustyBlockBlast.Gameplay.Localization
         public const string OBJECTIVE_SCORE_IN_RUN = "objective.score_in_run";
         public const string OBJECTIVE_BOARD_WIPE_COUNT = "objective.board_wipe_count";
         public const string OBJECTIVE_STREAK_THRESHOLD = "objective.streak_threshold";
+        public const string OBJECTIVE_BOMB_INDUCED_LINE_CLEAR = "objective.bomb_induced_line_clear";
 
         // Family names are their own entries rather than being baked into the template above, so a
         // new family is one row per language instead of one template per language.

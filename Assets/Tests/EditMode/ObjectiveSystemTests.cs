@@ -1,0 +1,136 @@
+using MustyBlockBlast.Core;
+using MustyBlockBlast.Gameplay;
+using MustyBlockBlast.Gameplay.Messages;
+using MustyBlockBlast.Gameplay.Models;
+using MustyBlockBlast.Gameplay.Systems;
+using NUnit.Framework;
+
+namespace MustyBlockBlast.Tests.EditMode
+{
+    /// <summary>
+    /// Covers the one rule that has no other test anywhere: a "Bomb-induced line clear" objective
+    /// must advance ONLY off a Bomb clear that actually emptied a line — Row Clear and Column Clear
+    /// trivially empty their own target line every time they're used, so the <c>PowerUpKind</c>
+    /// filter in <see cref="ObjectiveSystem.OnPowerUpApplied"/> is the sole thing standing between a
+    /// routine Row Clear and a wrongly-credited "Bomb synergy" objective.
+    /// </summary>
+    public class ObjectiveSystemTests
+    {
+        private TestMessageBroker<PiecePlacedMessage> _piecePlacedBroker;
+        private TestMessageBroker<RunStartedMessage> _runStartedBroker;
+        private TestMessageBroker<ScoreChangedMessage> _scoreChangedBroker;
+        private TestMessageBroker<PowerUpAppliedMessage> _powerUpAppliedBroker;
+        private TestMessageBroker<ObjectiveProgressChangedMessage> _progressChangedBroker;
+        private TestMessageBroker<ObjectiveCompletedMessage> _completedBroker;
+        private ObjectiveModel _objectiveModel;
+        private ObjectiveSystem _system;
+
+        [SetUp]
+        public void CreateSystem()
+        {
+            _piecePlacedBroker = new TestMessageBroker<PiecePlacedMessage>();
+            _runStartedBroker = new TestMessageBroker<RunStartedMessage>();
+            _scoreChangedBroker = new TestMessageBroker<ScoreChangedMessage>();
+            _powerUpAppliedBroker = new TestMessageBroker<PowerUpAppliedMessage>();
+            _progressChangedBroker = new TestMessageBroker<ObjectiveProgressChangedMessage>();
+            _completedBroker = new TestMessageBroker<ObjectiveCompletedMessage>();
+            _objectiveModel = new ObjectiveModel();
+            _system = new ObjectiveSystem(
+                _objectiveModel, _piecePlacedBroker, _runStartedBroker, _scoreChangedBroker,
+                _powerUpAppliedBroker, _progressChangedBroker, _completedBroker);
+        }
+
+        private static ObjectiveProgress BombLineObjective(int targetValue = 1)
+        {
+            return new ObjectiveProgress(new ObjectiveDefinition(
+                "bomb_line", ObjectiveType.BombInducedLineClear, ObjectiveScope.PerRun, targetValue));
+        }
+
+        [Test]
+        public void OnPowerUpApplied_Bomb_EmptiedALine_AdvancesTheObjective()
+        {
+            _objectiveModel.SetCurrentObjective(BombLineObjective());
+
+            _powerUpAppliedBroker.Publish(new PowerUpAppliedMessage(
+                PowerUpKind.Bomb, clearedCellCount: 3, clearedLineCount: 0, emptiedLineCount: 1));
+
+            Assert.AreEqual(1, _objectiveModel.CurrentObjective.CurrentValue);
+            Assert.IsTrue(_objectiveModel.CurrentObjective.IsComplete);
+            Assert.AreEqual(1, _completedBroker.Published.Count);
+        }
+
+        [TestCase(PowerUpKind.RowClear)]
+        [TestCase(PowerUpKind.ColumnClear)]
+        [TestCase(PowerUpKind.Joker)]
+        public void OnPowerUpApplied_NonBombKind_NeverAdvancesTheObjective_EvenWithLinesEmptied(PowerUpKind kind)
+        {
+            // Row Clear/Column Clear trivially report EmptiedLineCount >= 1 every time they're used
+            // (PowerUpClearResolver's own documented behaviour) — this is exactly the case the Kind
+            // filter exists to reject. If this test ever fails, every routine Row/Column Clear would
+            // silently start completing "Bomb synergy" objectives.
+            _objectiveModel.SetCurrentObjective(BombLineObjective());
+
+            _powerUpAppliedBroker.Publish(new PowerUpAppliedMessage(
+                kind, clearedCellCount: 8, clearedLineCount: 0, emptiedLineCount: 1));
+
+            Assert.AreEqual(0, _objectiveModel.CurrentObjective.CurrentValue);
+            Assert.IsFalse(_objectiveModel.CurrentObjective.IsComplete);
+            Assert.AreEqual(0, _completedBroker.Published.Count);
+        }
+
+        [Test]
+        public void OnPowerUpApplied_Bomb_EmptiedNoLine_DoesNotAdvance()
+        {
+            _objectiveModel.SetCurrentObjective(BombLineObjective());
+
+            _powerUpAppliedBroker.Publish(new PowerUpAppliedMessage(
+                PowerUpKind.Bomb, clearedCellCount: 3, clearedLineCount: 0, emptiedLineCount: 0));
+
+            Assert.AreEqual(0, _objectiveModel.CurrentObjective.CurrentValue);
+            Assert.AreEqual(0, _progressChangedBroker.Published.Count);
+        }
+
+        [Test]
+        public void OnPiecePlaced_NeverAdvancesABombInducedLineClearObjective()
+        {
+            _objectiveModel.SetCurrentObjective(BombLineObjective());
+
+            _piecePlacedBroker.Publish(new PiecePlacedMessage(
+                pieceId: "line_h4", anchor: new GridPosition(0, 0), pieceFamily: PieceFamily.Line,
+                cellCount: 4, colourId: 1, linesCleared: 4, monochromeLineCount: 0,
+                boardEmptyAfterPlacement: true));
+
+            Assert.AreEqual(0, _objectiveModel.CurrentObjective.CurrentValue);
+            Assert.AreEqual(0, _completedBroker.Published.Count);
+        }
+
+        [Test]
+        public void OnPiecePlaced_StillAdvancesAnUnrelatedObjectiveType_RegressionGuardOnTheRefactor()
+        {
+            ObjectiveProgress objective = new ObjectiveProgress(new ObjectiveDefinition(
+                "wipe", ObjectiveType.BoardWipeCount, ObjectiveScope.PerRun, targetValue: 1));
+            _objectiveModel.SetCurrentObjective(objective);
+
+            _piecePlacedBroker.Publish(new PiecePlacedMessage(
+                pieceId: "single_1x1", anchor: new GridPosition(0, 0), pieceFamily: PieceFamily.Single,
+                cellCount: 1, colourId: 1, linesCleared: 1, monochromeLineCount: 0,
+                boardEmptyAfterPlacement: true));
+
+            Assert.AreEqual(1, objective.CurrentValue);
+            Assert.IsTrue(objective.IsComplete);
+            Assert.AreEqual(1, _completedBroker.Published.Count);
+        }
+
+        [Test]
+        public void Dispose_ThenAPowerUpApplication_DoesNotAdvanceTheObjective()
+        {
+            _objectiveModel.SetCurrentObjective(BombLineObjective());
+            _system.Dispose();
+
+            _powerUpAppliedBroker.Publish(new PowerUpAppliedMessage(
+                PowerUpKind.Bomb, clearedCellCount: 3, clearedLineCount: 0, emptiedLineCount: 1));
+
+            Assert.AreEqual(0, _objectiveModel.CurrentObjective.CurrentValue);
+        }
+    }
+}

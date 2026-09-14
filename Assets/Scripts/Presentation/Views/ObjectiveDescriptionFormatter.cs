@@ -44,6 +44,9 @@ namespace MustyBlockBlast.Presentation.Views
                 case ObjectiveType.StreakThreshold:
                     return localization.Translate(LocalizationKeys.OBJECTIVE_STREAK_THRESHOLD);
 
+                case ObjectiveType.BombInducedLineClear:
+                    return localization.Translate(LocalizationKeys.OBJECTIVE_BOMB_INDUCED_LINE_CLEAR);
+
                 default:
                     return string.Empty;
             }

@@ -89,6 +89,7 @@ alter them.
 | Score in a run | — | Mirrors the current run score |
 | Board wipe | A placement leaves the board completely empty | +1 per qualifying placement |
 | Streak threshold | — | Tracks the best combo streak reached this run (high-water mark) |
+| Bomb-induced line clear | A Bomb power-up clear leaves a row or column completely empty | +1 per qualifying Bomb use |
 
 The line-clear objective matches exactly, not "at least": a 3-line clear does not satisfy a
 "clear 2 lines at once" objective — that is a separate, harder goal. Shape families are
@@ -102,6 +103,14 @@ Streak threshold tracks the best streak *reached*, not the live streak: a streak
 and then resets to 0 keeps its progress at 4, and a later streak of 6 reads as "best 6", never a
 sum of the two. This is what lets the objective complete permanently the moment the target streak
 is ever reached, even if the player's combo breaks immediately afterward.
+
+Bomb-induced line clear is the one objective type not driven by a placement at all: it fires off
+the Bomb power-up's own clear, checking whether the 3×3 blast happened to remove the last
+occupied cell(s) of a row or column and leave it entirely empty. This is the *opposite* condition
+from a normal line clear (which fires on a row becoming **full**, not empty), and it is
+deliberately scoped to Bomb only — Row Clear/Column Clear always empty their own target line by
+design, so that would never be a "surprise" worth an objective. It also never advances the streak
+or combo counters, matching every other power-up clear.
 
 Lifetime "how many pieces has the player ever placed" goals are covered by the Badges system's
 `TotalPiecesPlaced` stat, not a separate objective type — a level goal and a lifetime achievement

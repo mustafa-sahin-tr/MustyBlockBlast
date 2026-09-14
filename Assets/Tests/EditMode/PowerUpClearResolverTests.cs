@@ -98,6 +98,67 @@ namespace MustyBlockBlast.Tests.EditMode
         }
 
         [Test]
+        public void ResolveBombClear_ClearsTheLastCellsOfARowAndColumn_ReportsBothAsEmptied()
+        {
+            var board = new Board();
+            // Row 4 and column 4 each have exactly one occupied cell, both inside the bomb's 3x3 —
+            // clearing it empties the whole row and the whole column, not just the one cell.
+            board.Occupy(new GridPosition(4, 4), 1);
+
+            PowerUpClearResult result = PowerUpClearResolver.ResolveBombClear(board, new GridPosition(4, 4));
+
+            Assert.IsTrue(result.AnyLineEmptied);
+            Assert.AreEqual(2, result.EmptiedLineCount);
+            CollectionAssert.Contains(result.EmptiedRows, 4);
+            CollectionAssert.Contains(result.EmptiedColumns, 4);
+            Assert.IsTrue(board.IsRowEmpty(4));
+            Assert.IsTrue(board.IsColumnEmpty(4));
+        }
+
+        [Test]
+        public void ResolveBombClear_RowStillHasAnOccupiedCellOutsideTheBlast_DoesNotReportItEmptied()
+        {
+            var board = new Board();
+            board.Occupy(new GridPosition(4, 4), 1);
+            // Same row, well outside the 3x3 blast around (4,4) — survives, so the row is not empty.
+            board.Occupy(new GridPosition(0, 4), 2);
+            // Also give column 4 a survivor outside the blast, so only the row question is isolated —
+            // otherwise (4,4) being the column's only occupied cell would trivially empty it too.
+            board.Occupy(new GridPosition(4, 0), 3);
+
+            PowerUpClearResult result = PowerUpClearResolver.ResolveBombClear(board, new GridPosition(4, 4));
+
+            CollectionAssert.DoesNotContain(result.EmptiedRows, 4);
+            Assert.IsFalse(board.IsRowEmpty(4));
+        }
+
+        [Test]
+        public void ResolveBombClear_ClearsTwoCellsOfTheSameRow_ReportsThatRowOnlyOnce()
+        {
+            var board = new Board();
+            // Two occupied cells in row 4, both inside the 3x3 around (4,4) — the row is emptied by two
+            // separate cleared cells, so it must be deduped to a single entry, not reported per cell.
+            board.Occupy(new GridPosition(3, 4), 1);
+            board.Occupy(new GridPosition(5, 4), 2);
+
+            PowerUpClearResult result = PowerUpClearResolver.ResolveBombClear(board, new GridPosition(4, 4));
+
+            CollectionAssert.AreEqual(new[] { 4 }, result.EmptiedRows);
+        }
+
+        [Test]
+        public void ResolveBombClear_OverAnEmptyArea_ReportsNoEmptiedLines()
+        {
+            var board = new Board();
+            board.Occupy(new GridPosition(7, 7), 1);
+
+            PowerUpClearResult result = PowerUpClearResolver.ResolveBombClear(board, new GridPosition(2, 2));
+
+            Assert.IsFalse(result.AnyLineEmptied);
+            Assert.AreEqual(0, result.EmptiedLineCount);
+        }
+
+        [Test]
         public void ResolveRowClear_PartiallyFilledRow_ClearsItWithoutNeedingItToBeFull()
         {
             var board = new Board();
@@ -124,6 +185,24 @@ namespace MustyBlockBlast.Tests.EditMode
 
             Assert.AreEqual(Board.SIZE, result.ClearedCellCount);
             Assert.IsFalse(board.IsRowFull(6));
+        }
+
+        [Test]
+        public void ResolveRowClear_PartiallyFilledRow_TriviallyReportsItsOwnRowAsEmptied()
+        {
+            // Documents the trivial case the type-level doc comment calls out: Row Clear always empties
+            // its own target, so EmptiedRows always contains it when anything was cleared at all — this
+            // is not a "surprise" signal for this power-up the way it is for Bomb.
+            var board = new Board();
+            board.Occupy(new GridPosition(1, 2), 1);
+            // Give column 1 a survivor outside row 2, so it isn't trivially emptied too — isolates the
+            // assertion to "the row clear reports its own row", not an incidental column side effect.
+            board.Occupy(new GridPosition(1, 5), 2);
+
+            PowerUpClearResult result = PowerUpClearResolver.ResolveRowClear(board, 2);
+
+            CollectionAssert.AreEqual(new[] { 2 }, result.EmptiedRows);
+            Assert.AreEqual(0, result.EmptiedColumns.Count);
         }
 
         [Test]

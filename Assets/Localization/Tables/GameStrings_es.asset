@@ -190,6 +190,10 @@ MonoBehaviour:
     m_Localized: Alcanza una racha combo
     m_Metadata:
       m_Items: []
+  - m_Id: 217997032546304
+    m_Localized: "Vac\xEDa una l\xEDnea con una Bomba"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []
