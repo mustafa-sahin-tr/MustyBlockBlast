@@ -17,5 +17,9 @@ namespace MustyBlockBlast.Core
 
         /// <summary>Count placements that left the board completely empty.</summary>
         BoardWipeCount = 3,
+
+        /// <summary>Track the best combo streak reached this run against the target — a high-water
+        /// mark, not a live mirror, so a streak reset can never undo progress already made.</summary>
+        StreakThreshold = 4,
     }
 }

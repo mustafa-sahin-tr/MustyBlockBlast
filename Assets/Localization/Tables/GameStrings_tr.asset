@@ -186,6 +186,10 @@ MonoBehaviour:
     m_Localized: Z
     m_Metadata:
       m_Items: []
+  - m_Id: 209334783959040
+    m_Localized: "Bir kombo serisine ula\u015F"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

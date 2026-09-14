@@ -15,10 +15,17 @@ namespace MustyBlockBlast.Tests.EditMode
             int linesCleared = 0,
             PieceFamily pieceFamily = PieceFamily.Single,
             int currentRunScore = 0,
-            bool boardEmptyAfterPlacement = false)
+            bool boardEmptyAfterPlacement = false,
+            int currentStreak = 0)
         {
             return new ObjectivePlacementContext(
-                linesCleared, pieceFamily, currentRunScore, boardEmptyAfterPlacement);
+                linesCleared, pieceFamily, currentRunScore, boardEmptyAfterPlacement, currentStreak);
+        }
+
+        private static ObjectiveProgress StreakObjective(int targetValue)
+        {
+            return new ObjectiveProgress(new ObjectiveDefinition(
+                "streak", ObjectiveType.StreakThreshold, ObjectiveScope.PerRun, targetValue));
         }
 
         private static ObjectiveProgress LineClearObjective(int requiredLineCount, int targetValue)
@@ -113,6 +120,55 @@ namespace MustyBlockBlast.Tests.EditMode
 
             Assert.IsTrue(objective.ApplyPlacement(Placement(currentRunScore: 9999)));
             Assert.AreEqual(500, objective.CurrentValue);
+            Assert.IsTrue(objective.IsComplete);
+        }
+
+        [Test]
+        public void StreakThreshold_ReachingTheTarget_Completes()
+        {
+            ObjectiveProgress objective = StreakObjective(targetValue: 7);
+
+            Assert.IsTrue(objective.ApplyPlacement(Placement(currentStreak: 7)));
+            Assert.AreEqual(7, objective.CurrentValue);
+            Assert.IsTrue(objective.IsComplete);
+        }
+
+        [Test]
+        public void StreakThreshold_TracksTheHighWaterMark_NotTheLiveValue()
+        {
+            ObjectiveProgress objective = StreakObjective(targetValue: 7);
+
+            // Streak climbs to 4, then resets to 0 (a non-clearing placement).
+            Assert.IsTrue(objective.ApplyPlacement(Placement(currentStreak: 4)));
+            Assert.AreEqual(4, objective.CurrentValue);
+
+            // A drop in the live streak must not erase the peak already recorded.
+            Assert.IsFalse(objective.ApplyPlacement(Placement(currentStreak: 0)));
+            Assert.AreEqual(4, objective.CurrentValue);
+            Assert.IsFalse(objective.IsComplete);
+        }
+
+        [Test]
+        public void StreakThreshold_TwoSeparateStreaks_DoNotSumTowardTheTarget()
+        {
+            ObjectiveProgress objective = StreakObjective(targetValue: 7);
+
+            // An earlier streak of 4, a reset, then a later streak of 6: best-ever is 6, never 4+6=10.
+            objective.ApplyPlacement(Placement(currentStreak: 4));
+            objective.ApplyPlacement(Placement(currentStreak: 0));
+
+            Assert.IsTrue(objective.ApplyPlacement(Placement(currentStreak: 6)));
+            Assert.AreEqual(6, objective.CurrentValue);
+            Assert.IsFalse(objective.IsComplete);
+        }
+
+        [Test]
+        public void StreakThreshold_ClampsToTarget()
+        {
+            ObjectiveProgress objective = StreakObjective(targetValue: 7);
+
+            Assert.IsTrue(objective.ApplyPlacement(Placement(currentStreak: 40)));
+            Assert.AreEqual(7, objective.CurrentValue);
             Assert.IsTrue(objective.IsComplete);
         }
 

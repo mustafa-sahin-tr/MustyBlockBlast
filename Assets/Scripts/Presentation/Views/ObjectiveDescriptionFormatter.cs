@@ -38,8 +38,14 @@ namespace MustyBlockBlast.Presentation.Views
                 case ObjectiveType.BoardWipeCount:
                     return localization.Translate(LocalizationKeys.OBJECTIVE_BOARD_WIPE_COUNT);
 
-                default:
+                case ObjectiveType.ScoreInRun:
                     return localization.Translate(LocalizationKeys.OBJECTIVE_SCORE_IN_RUN);
+
+                case ObjectiveType.StreakThreshold:
+                    return localization.Translate(LocalizationKeys.OBJECTIVE_STREAK_THRESHOLD);
+
+                default:
+                    return string.Empty;
             }
         }
 
