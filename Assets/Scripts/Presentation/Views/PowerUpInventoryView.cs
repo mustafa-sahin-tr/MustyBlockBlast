@@ -47,6 +47,7 @@ namespace MustyBlockBlast.Presentation.Views
             PowerUpKind.Joker,
             PowerUpKind.ColorCleanser,
             PowerUpKind.Rotate,
+            PowerUpKind.Reroll,
         };
 
         /// <summary>Derived from <see cref="SlotKinds"/> rather than written out, so the two can never
@@ -71,14 +72,22 @@ namespace MustyBlockBlast.Presentation.Views
         /// column bars and reads as "turned" — again without needing another sprite.</summary>
         private const float ROTATE_GLYPH_ROTATION_DEGREES = 45f;
 
+        /// <summary>Height-to-width ratio that squashes the reroll's circle into a lozenge, so it reads
+        /// apart from the bomb's disc without needing an eighth sprite.</summary>
+        private const float REROLL_GLYPH_FLATTEN = 0.5f;
+
         [Header("Layout")]
         [Tooltip("Strip centre in canvas space. Sits in the gap between the board card and the tray.")]
         [SerializeField] private Vector2 _anchoredPosition = new Vector2(0f, -430f);
 
         [SerializeField] private float _slotSize = 104f;
 
-        [Tooltip("Horizontal distance between neighbouring slot centres.")]
+        [Tooltip("Preferred horizontal distance between neighbouring slot centres.")]
         [SerializeField] private float _slotSpacing = 180f;
+
+        [Tooltip("Widest the strip may grow, in canvas units. Spacing is squeezed below the preferred "
+            + "value rather than letting the strip run off the canvas as kinds are added.")]
+        [SerializeField] private float _maxStripWidth = 1000f;
 
         [SerializeField] private int _countFontSize = 34;
 
@@ -158,6 +167,7 @@ namespace MustyBlockBlast.Presentation.Views
             WatchCount(_powerUpModel.JokerCount, PowerUpKind.Joker);
             WatchCount(_powerUpModel.ColorCleanserCount, PowerUpKind.ColorCleanser);
             WatchCount(_powerUpModel.RotateCount, PowerUpKind.Rotate);
+            WatchCount(_powerUpModel.RerollCount, PowerUpKind.Reroll);
             _powerUpModel.Armed.Subscribe(OnArmedChanged).AddTo(_disposables);
 
             _runStartedSubscriber.Subscribe(OnRunStarted).AddTo(_disposables);
@@ -171,6 +181,11 @@ namespace MustyBlockBlast.Presentation.Views
         /// the armed one, or — on a slot the player holds none of — asks for one to be earned. Returns
         /// false when the point is on no icon, so <see cref="BoardInputView"/> can carry on down its
         /// gate chain.
+        /// <para>
+        /// <see cref="PowerUpKind.Reroll"/> is the exception to the arm-then-aim flow: with no target to
+        /// aim at there is no second tap to wait for, so a tap on a reroll the player holds applies it
+        /// there and then.
+        /// </para>
         /// </summary>
         internal bool TryHandleTap(Vector2 screenPosition)
         {
@@ -187,7 +202,14 @@ namespace MustyBlockBlast.Presentation.Views
                 }
 
                 PowerUpKind kind = SlotKinds[slotIndex];
-                if (_armed == kind)
+                if (kind == PowerUpKind.Reroll && _counts[slotIndex] > 0)
+                {
+                    // The one kind with no target: there is nothing to aim at, so the tap that would
+                    // arm any other kind applies this one outright. The System refuses to arm it at
+                    // all, so this branch is its only way in.
+                    _powerUpSystem.TryApplyReroll();
+                }
+                else if (_armed == kind)
                 {
                     // Tapping the armed icon again is the cancel gesture; nothing is spent.
                     _powerUpSystem.CancelArm();
@@ -385,19 +407,37 @@ namespace MustyBlockBlast.Presentation.Views
             rect.anchorMin = new Vector2(0.5f, 0.5f);
             rect.anchorMax = new Vector2(0.5f, 0.5f);
             rect.pivot = new Vector2(0.5f, 0.5f);
-            rect.sizeDelta = new Vector2((_slotSpacing * (SlotCount - 1)) + _slotSize, _slotSize);
+            float spacing = ResolveSlotSpacing();
+            rect.sizeDelta = new Vector2((spacing * (SlotCount - 1)) + _slotSize, _slotSize);
             rect.anchoredPosition = _anchoredPosition;
 
             // Every size here is in canvas reference units, so the strip owns its own scale rather
             // than inheriting whatever the scene object happened to be created with.
             rect.localScale = Vector3.one;
 
-            float originX = -_slotSpacing * ((SlotCount - 1) * 0.5f);
+            float originX = -spacing * ((SlotCount - 1) * 0.5f);
 
             for (int slotIndex = 0; slotIndex < SlotCount; slotIndex++)
             {
-                BuildSlot(rect, slotIndex, originX + (slotIndex * _slotSpacing));
+                BuildSlot(rect, slotIndex, originX + (slotIndex * spacing));
             }
+        }
+
+        /// <summary>
+        /// The spacing the strip is actually laid out with: the preferred value, squeezed just enough
+        /// to keep the whole strip inside <see cref="_maxStripWidth"/>. Derived rather than authored so
+        /// adding a kind widens the gaps' arithmetic instead of pushing the outermost slot off screen —
+        /// the serialized spacing is already close to the canvas width at six slots.
+        /// </summary>
+        private float ResolveSlotSpacing()
+        {
+            if (SlotCount <= 1)
+            {
+                return _slotSpacing;
+            }
+
+            float maxSpacing = (_maxStripWidth - _slotSize) / (SlotCount - 1);
+            return _slotSpacing <= maxSpacing ? _slotSpacing : maxSpacing;
         }
 
         private void BuildSlot(RectTransform parent, int slotIndex, float centreX)
@@ -442,7 +482,8 @@ namespace MustyBlockBlast.Presentation.Views
         /// dependency and keeps batching with the rest of the UI: a disc for the bomb, a wide bar for
         /// the row clear, a tall bar for the column clear, a diamond — the same rounded square, turned
         /// 45 degrees — for the joker, which reads as "one cell, placed askew", an upright square for
-        /// the colour cleanser, and that same bar turned 45 degrees for the rotate.
+        /// the colour cleanser, that same bar turned 45 degrees for the rotate, and a flattened circle
+        /// for the reroll.
         /// </summary>
         private Image BuildGlyph(RectTransform parent, PowerUpKind kind)
         {
@@ -486,6 +527,14 @@ namespace MustyBlockBlast.Presentation.Views
                     Centre(glyphRect, new Vector2(barLength, barThickness));
                     glyphRect.localRotation = Quaternion.Euler(0f, 0f, ROTATE_GLYPH_ROTATION_DEGREES);
                     ConfigurePlate(glyphImage);
+                    break;
+                case PowerUpKind.Reroll:
+                    // The seventh: the bomb's circle sprite, squashed into a lozenge. Distinct from the
+                    // bomb's true disc and from every straight-edged plate in the strip, and still the
+                    // same two sprites — nothing new to atlas.
+                    float lozengeWidth = _slotSize * 0.56f;
+                    Centre(glyphRect, new Vector2(lozengeWidth, lozengeWidth * REROLL_GLYPH_FLATTEN));
+                    ConfigureCircle(glyphImage);
                     break;
                 default:
                     float diameter = _slotSize * 0.5f;

@@ -13,8 +13,9 @@ namespace MustyBlockBlast.Gameplay.Systems
     /// <summary>
     /// Owns <see cref="PowerUpModel"/>: earning, spending and persisting the power-up inventory, plus
     /// applying a spent power-up to <see cref="BoardModel"/> — or, for <see cref="PowerUpKind.Rotate"/>
-    /// alone, to <see cref="TrayModel"/>. Which model an application mutates is secondary: this is the
-    /// one and only spender of the inventory, so every kind's armed-and-spend lifecycle belongs here.
+    /// and <see cref="PowerUpKind.Reroll"/>, to the tray. Which model an application mutates is
+    /// secondary: this is the one and only spender of the inventory, so every kind's armed-and-spend
+    /// lifecycle belongs here.
     /// <para>
     /// It deliberately does not score. Applying publishes <see cref="PowerUpAppliedMessage"/> and
     /// <see cref="PowerUpScoreSystem"/> turns that into points, mirroring how placements reach
@@ -27,6 +28,10 @@ namespace MustyBlockBlast.Gameplay.Systems
     /// <see cref="PowerUpKind.Joker"/> (an already-occupied cell), <see cref="PowerUpKind.ColorCleanser"/>
     /// (an empty one) and <see cref="PowerUpKind.Rotate"/> (an empty slot, or a piece too symmetrical
     /// to have a distinct rotation).
+    /// </para>
+    /// <para>
+    /// <see cref="PowerUpKind.Reroll"/> sits outside that lifecycle entirely: it has no target to aim
+    /// at, so it is never armed and is applied on the tap that selects it.
     /// </para>
     /// <para>
     /// It also owns the armed selection: selecting a power-up arms it immediately (there is no queue),
@@ -81,6 +86,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             LoadPersistedCount(PowerUpKind.Joker);
             LoadPersistedCount(PowerUpKind.ColorCleanser);
             LoadPersistedCount(PowerUpKind.Rotate);
+            LoadPersistedCount(PowerUpKind.Reroll);
 
             // An armed selection belongs to the run it was made in: it must not survive either end of
             // a run boundary, or the next run would open with a power-up already aimed and its clock
@@ -93,10 +99,15 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// Selects <paramref name="kind"/> and aims it at the board immediately, holding the run's
         /// clock until it is applied or cancelled. Holding none of that kind, or a run that is already
         /// over, is a no-op: neither arms, so neither can be spent by a follow-up tap.
+        /// <para>
+        /// <see cref="PowerUpKind.Reroll"/> is refused outright, however many the player holds: it has
+        /// no target, so an armed reroll could only ever be released onto a board cell that means
+        /// nothing to it. <see cref="TryApplyReroll"/> is its whole interface.
+        /// </para>
         /// </summary>
         public void Arm(PowerUpKind kind)
         {
-            if (_boardSystem.IsGameOver || CountOf(kind).Value <= 0)
+            if (kind == PowerUpKind.Reroll || _boardSystem.IsGameOver || CountOf(kind).Value <= 0)
             {
                 return;
             }
@@ -277,6 +288,48 @@ namespace MustyBlockBlast.Gameplay.Systems
             return true;
         }
 
+        /// <summary>
+        /// Spends one reroll: discards all three dock pieces and draws three new ones, at least one of
+        /// which fits the current board. The second kind aimed at the tray rather than the board, so
+        /// like Rotate it clears nothing and scores nothing.
+        /// <para>
+        /// The odd one out in this class: it has no target parameter at all. There is nothing to aim at
+        /// — the whole dock is the subject — so it is applied on the tap that selects it rather than
+        /// armed first. It still ends in <see cref="Disarm"/>, which is what lets a player who had some
+        /// other kind armed reach for this one without leaving that selection (and the clock hold it
+        /// carries) stranded behind the reroll.
+        /// </para>
+        /// <para>
+        /// Follows the "peek before spend" contract of <see cref="TryApplyJoker"/>: holding none, or a
+        /// run already over, is refused outright before a single count is touched.
+        /// </para>
+        /// </summary>
+        public bool TryApplyReroll()
+        {
+            if (_boardSystem.IsGameOver || CountOf(PowerUpKind.Reroll).Value <= 0)
+            {
+                return false;
+            }
+
+            // BoardSystem owns the tray and the draw, and is the only thing allowed to decide the run is
+            // over — so it performs the reroll and this only pays for it.
+            if (!_boardSystem.TryRerollTray())
+            {
+                return false;
+            }
+
+            TrySpend(PowerUpKind.Reroll);
+
+            // Published for the same reason Rotate is: an application is an application whatever it
+            // targeted, and the "power-ups used" badge counter must see this one. Zero cleared cells
+            // means scoring and the clear animation both correctly ignore it.
+            _appliedPublisher.Publish(new PowerUpAppliedMessage(
+                PowerUpKind.Reroll, clearedCellCount: 0, clearedLineCount: 0));
+
+            Disarm();
+            return true;
+        }
+
         /// <summary>Asks <see cref="IRewardSource"/> for one <paramref name="kind"/> and banks it if
         /// granted. Returns whether it was granted; a refusal leaves the inventory untouched.</summary>
         public async UniTask<bool> GrantRewardAsync(PowerUpKind kind, CancellationToken cancellationToken)
@@ -378,6 +431,8 @@ namespace MustyBlockBlast.Gameplay.Systems
                     return _powerUpModel.ColorCleanserCount;
                 case PowerUpKind.Rotate:
                     return _powerUpModel.RotateCount;
+                case PowerUpKind.Reroll:
+                    return _powerUpModel.RerollCount;
                 default:
                     return _powerUpModel.BombCount;
             }

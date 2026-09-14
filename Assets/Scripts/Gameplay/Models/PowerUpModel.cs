@@ -18,12 +18,15 @@ namespace MustyBlockBlast.Gameplay.Models
 
         public ReactiveProperty<int> RotateCount { get; } = new ReactiveProperty<int>(0);
 
+        public ReactiveProperty<int> RerollCount { get; } = new ReactiveProperty<int>(0);
+
         /// <summary>
         /// The power-up the player has selected and is now aiming — at the board, or at the tray for
         /// <see cref="PowerUpKind.Rotate"/> — or null when none is.
         /// Unlike the counts this is run state, not inventory: it is dropped on every run boundary and
         /// never persisted. Selecting arms immediately — there is no queue, so at most one kind is
-        /// armed at a time.
+        /// armed at a time. <see cref="PowerUpKind.Reroll"/> never appears here: it has no target to
+        /// aim at, so it is applied on the tap that selects it and is never an armed selection.
         /// </summary>
         public ReactiveProperty<PowerUpKind?> Armed { get; } = new ReactiveProperty<PowerUpKind?>(null);
     }
