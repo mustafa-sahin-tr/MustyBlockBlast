@@ -203,6 +203,22 @@ MonoBehaviour:
     m_Key: objective.at_least_line_clear
     m_Metadata:
       m_Items: []
+  - m_Id: 230162711961600
+    m_Key: objective.piece_id_count
+    m_Metadata:
+      m_Items: []
+  - m_Id: 230162825207808
+    m_Key: objective.piece_id_line_clear
+    m_Metadata:
+      m_Items: []
+  - m_Id: 234786474942464
+    m_Key: objective.piece_name.square_3x3
+    m_Metadata:
+      m_Items: []
+  - m_Id: 234786563022848
+    m_Key: objective.piece_name.line_5
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

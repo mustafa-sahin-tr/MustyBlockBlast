@@ -13,7 +13,8 @@ namespace MustyBlockBlast.Core
             int targetValue,
             int requiredLineCount = 0,
             PieceFamily requiredPieceFamily = PieceFamily.Single,
-            int requiredOccupancyThreshold = 0)
+            int requiredOccupancyThreshold = 0,
+            string requiredPieceId = null)
         {
             if (targetValue <= 0)
             {
@@ -34,6 +35,7 @@ namespace MustyBlockBlast.Core
             RequiredLineCount = requiredLineCount;
             RequiredPieceFamily = requiredPieceFamily;
             RequiredOccupancyThreshold = requiredOccupancyThreshold;
+            RequiredPieceId = requiredPieceId;
         }
 
         /// <summary>Stable identifier; carried by the progress/completion messages so views can key off it.</summary>
@@ -59,5 +61,11 @@ namespace MustyBlockBlast.Core
         /// clears resolved) a qualifying placement must meet. Meaningful only when <see cref="Type"/>
         /// is <see cref="ObjectiveType.ClutchRecoveryClear"/>.</summary>
         public int RequiredOccupancyThreshold { get; }
+
+        /// <summary>Exact catalog piece id (e.g. <c>"square_3x3"</c>) a placement must use to qualify —
+        /// finer-grained than <see cref="RequiredPieceFamily"/>, which cannot tell a 2x2 square from a
+        /// 3x3 one. Meaningful only when <see cref="Type"/> is <see cref="ObjectiveType.PieceIdCount"/>
+        /// or <see cref="ObjectiveType.PieceIdLineClear"/>.</summary>
+        public string RequiredPieceId { get; }
     }
 }

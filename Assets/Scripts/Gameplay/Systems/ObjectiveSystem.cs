@@ -77,6 +77,7 @@ namespace MustyBlockBlast.Gameplay.Systems
                 message.RowsCleared,
                 message.ColumnsCleared,
                 message.PieceFamily,
+                message.PieceId,
                 _currentRunScore,
                 message.BoardEmptyAfterPlacement,
                 _currentStreak,

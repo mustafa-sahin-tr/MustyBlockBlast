@@ -84,6 +84,15 @@ namespace MustyBlockBlast.Gameplay.Localization
         public const string OBJECTIVE_ROW_AND_COLUMN_CROSS_CLEAR = "objective.row_and_column_cross_clear";
         public const string OBJECTIVE_CLUTCH_RECOVERY_CLEAR = "objective.clutch_recovery_clear";
         public const string OBJECTIVE_AT_LEAST_LINE_CLEAR = "objective.at_least_line_clear";
+        public const string OBJECTIVE_PIECE_ID_COUNT = "objective.piece_id_count";
+        public const string OBJECTIVE_PIECE_ID_LINE_CLEAR = "objective.piece_id_line_clear";
+
+        // Translated display names for individual catalog pieces, keyed by piece id in
+        // ObjectiveDescriptionFormatter.PieceIdNameKey. Not exhaustive — only pieces an authored
+        // objective actually references need one; an unmapped id falls back to its raw catalog id.
+        // Add a new piece's name here (plus a row in GameStrings) as new objectives need it.
+        public const string OBJECTIVE_PIECE_NAME_SQUARE_3X3 = "objective.piece_name.square_3x3";
+        public const string OBJECTIVE_PIECE_NAME_LINE_5 = "objective.piece_name.line_5";
 
         // Family names are their own entries rather than being baked into the template above, so a
         // new family is one row per language instead of one template per language.

@@ -13,6 +13,7 @@ namespace MustyBlockBlast.Core
             int rowsCleared,
             int columnsCleared,
             PieceFamily pieceFamily,
+            string pieceId,
             int currentRunScore,
             bool boardEmptyAfterPlacement,
             int currentStreak,
@@ -22,6 +23,7 @@ namespace MustyBlockBlast.Core
             RowsCleared = rowsCleared;
             ColumnsCleared = columnsCleared;
             PieceFamily = pieceFamily;
+            PieceId = pieceId;
             CurrentRunScore = currentRunScore;
             BoardEmptyAfterPlacement = boardEmptyAfterPlacement;
             CurrentStreak = currentStreak;
@@ -40,6 +42,11 @@ namespace MustyBlockBlast.Core
 
         /// <summary>Shape family of the piece that was just placed.</summary>
         public PieceFamily PieceFamily { get; }
+
+        /// <summary>Catalog id of the piece that was just placed (e.g. <c>"square_3x3"</c>). Finer-
+        /// grained than <see cref="PieceFamily"/>, which groups every size of a shape together — an
+        /// objective that cares about one specific size or orientation needs this instead.</summary>
+        public string PieceId { get; }
 
         /// <summary>Run score as it stands after this placement was scored.</summary>
         public int CurrentRunScore { get; }

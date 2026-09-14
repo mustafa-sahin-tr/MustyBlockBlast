@@ -93,6 +93,8 @@ alter them.
 | Row and column cross-clear | A placement clears at least one row AND at least one column simultaneously | +1 per qualifying placement |
 | Clutch recovery clear | A placement clears at least one line while the board held at least the configured occupied-cell threshold immediately beforehand | +1 per qualifying placement |
 | At-least line clear ("mega clear") | A placement clears **at least** the required number of lines at once | +1 per qualifying placement |
+| Piece id count | A placement uses the exact catalog piece named by the objective | +1 per qualifying placement |
+| Piece id line clear | A placement uses the exact catalog piece AND clears at least one line | +1 per qualifying placement |
 
 The line-clear objective matches exactly, not "at least": a 3-line clear does not satisfy a
 "clear 2 lines at once" objective — that is a separate, harder goal. Shape families are
@@ -129,6 +131,12 @@ At-least line clear is the deliberate opposite of the exact-match line-clear obj
 genuinely separate type, not a flag on `Simultaneous line clear`, so a level can ask for "clear
 exactly 2" and a different level can ask for "clear 4 or more" without either rule bleeding into
 the other.
+
+Piece id objectives reference a piece by its exact catalog id (e.g. `square_3x3`, `line_h5`)
+rather than its shape family — `Piece shape family` groups every size of a shape together
+(`Square` covers both 2×2 and 3×3), so "place 3×3 solid blocks specifically" or "clear a line
+with the I5 pentomino" need the finer-grained id, not the family. A typo'd id is caught at
+authoring time: `LevelObjectiveConfig.IsValid` checks it against the real `PieceCatalog`.
 
 Lifetime "how many pieces has the player ever placed" goals are covered by the Badges system's
 `TotalPiecesPlaced` stat, not a separate objective type — a level goal and a lifetime achievement

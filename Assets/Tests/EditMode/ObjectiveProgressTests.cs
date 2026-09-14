@@ -16,13 +16,14 @@ namespace MustyBlockBlast.Tests.EditMode
             int rowsCleared = 0,
             int columnsCleared = 0,
             PieceFamily pieceFamily = PieceFamily.Single,
+            string pieceId = null,
             int currentRunScore = 0,
             bool boardEmptyAfterPlacement = false,
             int currentStreak = 0,
             int occupiedCellCountBeforeClear = 0)
         {
             return new ObjectivePlacementContext(
-                linesCleared, rowsCleared, columnsCleared, pieceFamily, currentRunScore,
+                linesCleared, rowsCleared, columnsCleared, pieceFamily, pieceId, currentRunScore,
                 boardEmptyAfterPlacement, currentStreak, occupiedCellCountBeforeClear);
         }
 
@@ -354,6 +355,68 @@ namespace MustyBlockBlast.Tests.EditMode
             ObjectiveProgress objective = LineClearObjective(requiredLineCount: 2, targetValue: 1);
 
             Assert.IsFalse(objective.ApplyPlacement(Placement(linesCleared: 3)));
+            Assert.AreEqual(0, objective.CurrentValue);
+        }
+
+        private static ObjectiveProgress PieceIdCountObjective(string requiredPieceId, int targetValue)
+        {
+            return new ObjectiveProgress(new ObjectiveDefinition(
+                "piece_id", ObjectiveType.PieceIdCount, ObjectiveScope.Cumulative, targetValue,
+                requiredPieceId: requiredPieceId));
+        }
+
+        private static ObjectiveProgress PieceIdLineClearObjective(string requiredPieceId, int targetValue)
+        {
+            return new ObjectiveProgress(new ObjectiveDefinition(
+                "piece_id_clear", ObjectiveType.PieceIdLineClear, ObjectiveScope.PerRun, targetValue,
+                requiredPieceId: requiredPieceId));
+        }
+
+        [Test]
+        public void PieceIdCount_MatchingPieceId_Increments()
+        {
+            ObjectiveProgress objective = PieceIdCountObjective("square_3x3", targetValue: 12);
+
+            Assert.IsTrue(objective.ApplyPlacement(Placement(pieceId: "square_3x3")));
+            Assert.AreEqual(1, objective.CurrentValue);
+        }
+
+        [Test]
+        public void PieceIdCount_DifferentSizeOfTheSameFamily_DoesNotIncrement()
+        {
+            // The whole reason this needs the exact id, not PieceFamilyCount: 2x2 and 3x3 are both
+            // Square family, but only one of them is the target here.
+            ObjectiveProgress objective = PieceIdCountObjective("square_3x3", targetValue: 12);
+
+            Assert.IsFalse(objective.ApplyPlacement(Placement(pieceId: "square_2x2")));
+            Assert.AreEqual(0, objective.CurrentValue);
+        }
+
+        [Test]
+        public void PieceIdLineClear_MatchingPieceIdThatClearsALine_Qualifies()
+        {
+            ObjectiveProgress objective = PieceIdLineClearObjective("line_h5", targetValue: 1);
+
+            Assert.IsTrue(objective.ApplyPlacement(Placement(pieceId: "line_h5", linesCleared: 1)));
+            Assert.AreEqual(1, objective.CurrentValue);
+            Assert.IsTrue(objective.IsComplete);
+        }
+
+        [Test]
+        public void PieceIdLineClear_MatchingPieceIdThatClearsNothing_DoesNotQualify()
+        {
+            ObjectiveProgress objective = PieceIdLineClearObjective("line_h5", targetValue: 1);
+
+            Assert.IsFalse(objective.ApplyPlacement(Placement(pieceId: "line_h5", linesCleared: 0)));
+            Assert.AreEqual(0, objective.CurrentValue);
+        }
+
+        [Test]
+        public void PieceIdLineClear_ClearsALineWithTheWrongPiece_DoesNotQualify()
+        {
+            ObjectiveProgress objective = PieceIdLineClearObjective("line_h5", targetValue: 1);
+
+            Assert.IsFalse(objective.ApplyPlacement(Placement(pieceId: "line_v5", linesCleared: 1)));
             Assert.AreEqual(0, objective.CurrentValue);
         }
 

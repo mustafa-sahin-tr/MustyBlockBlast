@@ -206,6 +206,22 @@ MonoBehaviour:
     m_Localized: "Ayn\u0131 anda {0}+ s\u0131ra temizle"
     m_Metadata:
       m_Items: []
+  - m_Id: 230162711961600
+    m_Localized: "Bir {0} par\xE7a yerle\u015Ftir"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 230162825207808
+    m_Localized: "Bir {0} par\xE7a ile s\u0131ra temizle"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 234786474942464
+    m_Localized: 3x3 blok
+    m_Metadata:
+      m_Items: []
+  - m_Id: 234786563022848
+    m_Localized: "5'li \xE7izgi"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []
