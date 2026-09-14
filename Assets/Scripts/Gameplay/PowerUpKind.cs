@@ -25,5 +25,12 @@ namespace MustyBlockBlast.Gameplay
         /// line that genuinely became full — exactly as a normal placement does.
         /// </summary>
         Joker,
+
+        /// <summary>
+        /// Clears every cell on the board sharing the targeted cell's colour. Like Joker (and unlike
+        /// Bomb/RowClear/ColumnClear), an illegal target — here, an empty cell, which has no colour to
+        /// extract — is rejected outright: nothing is spent, nothing is disarmed.
+        /// </summary>
+        ColorCleanser,
     }
 }

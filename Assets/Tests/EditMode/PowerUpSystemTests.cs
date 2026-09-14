@@ -190,6 +190,81 @@ namespace MustyBlockBlast.Tests.EditMode
         }
 
         [Test]
+        public void TryApplyColorCleanser_WithNoneHeld_ChangesNothing()
+        {
+            var boardModel = new BoardModel();
+            boardModel.Occupy(new GridPosition(3, 3), 1);
+            PowerUpModel model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, boardModel);
+
+            bool applied = system.TryApplyColorCleanser(new GridPosition(3, 3));
+
+            Assert.IsFalse(applied);
+            Assert.AreEqual(0, model.ColorCleanserCount.Value);
+            Assert.AreEqual(1, boardModel.GetCell(new GridPosition(3, 3)));
+            Assert.AreEqual(0, _appliedBroker.Published.Count);
+        }
+
+        [Test]
+        public void TryApplyColorCleanser_OnAnOccupiedCell_ClearsEveryCellOfThatColourOnly()
+        {
+            PersistCount(PowerUpKind.ColorCleanser, 1);
+            var boardModel = new BoardModel();
+            boardModel.Occupy(new GridPosition(0, 0), 1);
+            boardModel.Occupy(new GridPosition(7, 7), 1);
+            // A different colour, must survive.
+            boardModel.Occupy(new GridPosition(4, 4), 2);
+            PowerUpModel model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, boardModel);
+
+            bool applied = system.TryApplyColorCleanser(new GridPosition(0, 0));
+
+            Assert.IsTrue(applied);
+            Assert.AreEqual(0, model.ColorCleanserCount.Value);
+            Assert.AreEqual(Board.EMPTY, boardModel.GetCell(new GridPosition(0, 0)));
+            Assert.AreEqual(Board.EMPTY, boardModel.GetCell(new GridPosition(7, 7)));
+            Assert.AreEqual(2, boardModel.GetCell(new GridPosition(4, 4)));
+            Assert.AreEqual(PowerUpKind.ColorCleanser, _appliedBroker.Published[0].Kind);
+            Assert.AreEqual(2, _appliedBroker.Published[0].ClearedCellCount);
+        }
+
+        [Test]
+        public void TryApplyColorCleanser_OnAnEmptyCell_IsRejected_KeepsInventoryAndArmedSelection()
+        {
+            // Mirrors TryApplyJoker's "peek before spend" contract, not the always-spend contract the
+            // three region-clearing kinds follow.
+            PersistCount(PowerUpKind.ColorCleanser, 1);
+            var boardModel = new BoardModel();
+            boardModel.Occupy(new GridPosition(5, 5), 1);
+            PowerUpModel model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, boardModel);
+            system.Arm(PowerUpKind.ColorCleanser);
+
+            bool applied = system.TryApplyColorCleanser(new GridPosition(2, 2));
+
+            Assert.IsFalse(applied);
+            Assert.AreEqual(1, model.ColorCleanserCount.Value);
+            Assert.AreEqual(1, boardModel.GetCell(new GridPosition(5, 5)));
+            Assert.AreEqual(0, _appliedBroker.Published.Count);
+            Assert.AreEqual(PowerUpKind.ColorCleanser, model.Armed.Value);
+        }
+
+        [Test]
+        public void TryApplyColorCleanser_AfterSpending_TheDecrementedCountIsLoadedByANewSystem()
+        {
+            PersistCount(PowerUpKind.ColorCleanser, 2);
+            var boardModel = new BoardModel();
+            boardModel.Occupy(new GridPosition(0, 0), 1);
+            PowerUpSystem system = CreateSystem(new PowerUpModel(), boardModel);
+            system.TryApplyColorCleanser(new GridPosition(0, 0));
+
+            PowerUpModel reloadedModel = new PowerUpModel();
+            PowerUpSystem unused = CreateSystem(reloadedModel, new BoardModel());
+
+            Assert.AreEqual(1, reloadedModel.ColorCleanserCount.Value);
+        }
+
+        [Test]
         public void GrantRewardAsync_WhenTheSourceGrants_IncrementsPersistsAndPublishes()
         {
             PowerUpModel model = new PowerUpModel();
@@ -293,6 +368,8 @@ namespace MustyBlockBlast.Tests.EditMode
             PlayerPrefs.DeleteKey(PowerUpInventoryKey.For(PowerUpKind.Bomb));
             PlayerPrefs.DeleteKey(PowerUpInventoryKey.For(PowerUpKind.RowClear));
             PlayerPrefs.DeleteKey(PowerUpInventoryKey.For(PowerUpKind.ColumnClear));
+            PlayerPrefs.DeleteKey(PowerUpInventoryKey.For(PowerUpKind.Joker));
+            PlayerPrefs.DeleteKey(PowerUpInventoryKey.For(PowerUpKind.ColorCleanser));
         }
 
         /// <summary>Completes synchronously so these stay plain synchronous EditMode tests.</summary>

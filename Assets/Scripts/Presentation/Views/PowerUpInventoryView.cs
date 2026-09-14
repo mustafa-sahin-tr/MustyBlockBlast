@@ -45,6 +45,7 @@ namespace MustyBlockBlast.Presentation.Views
             PowerUpKind.RowClear,
             PowerUpKind.ColumnClear,
             PowerUpKind.Joker,
+            PowerUpKind.ColorCleanser,
         };
 
         /// <summary>Derived from <see cref="SlotKinds"/> rather than written out, so the two can never
@@ -150,6 +151,7 @@ namespace MustyBlockBlast.Presentation.Views
             WatchCount(_powerUpModel.RowClearCount, PowerUpKind.RowClear);
             WatchCount(_powerUpModel.ColumnClearCount, PowerUpKind.ColumnClear);
             WatchCount(_powerUpModel.JokerCount, PowerUpKind.Joker);
+            WatchCount(_powerUpModel.ColorCleanserCount, PowerUpKind.ColorCleanser);
             _powerUpModel.Armed.Subscribe(OnArmedChanged).AddTo(_disposables);
 
             _runStartedSubscriber.Subscribe(OnRunStarted).AddTo(_disposables);
@@ -462,6 +464,13 @@ namespace MustyBlockBlast.Presentation.Views
                     // Rotating the rect, not the sprite: the same rounded square every other plate
                     // uses stays in the same atlas draw call, it is simply drawn on its point.
                     glyphRect.localRotation = Quaternion.Euler(0f, 0f, JOKER_GLYPH_ROTATION_DEGREES);
+                    ConfigurePlate(glyphImage);
+                    break;
+                case PowerUpKind.ColorCleanser:
+                    // Upright square (not rotated to Joker's diamond, not round like Bomb) — the fifth
+                    // distinct silhouette in the strip, no new sprite needed.
+                    float swatchSide = _slotSize * 0.44f;
+                    Centre(glyphRect, new Vector2(swatchSide, swatchSide));
                     ConfigurePlate(glyphImage);
                     break;
                 default:

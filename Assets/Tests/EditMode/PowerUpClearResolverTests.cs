@@ -1,3 +1,4 @@
+using System;
 using MustyBlockBlast.Core;
 using NUnit.Framework;
 
@@ -277,6 +278,64 @@ namespace MustyBlockBlast.Tests.EditMode
             {
                 board.Occupy(new GridPosition(x, y), colourId);
             }
+        }
+
+        [Test]
+        public void ResolveColorCleanser_OnAnOccupiedCell_ClearsEveryMatchingCellAcrossTheWholeBoard()
+        {
+            var board = new Board();
+            board.Occupy(new GridPosition(0, 0), 1);
+            board.Occupy(new GridPosition(3, 5), 1);
+            board.Occupy(new GridPosition(7, 7), 1);
+            // A different colour at a cell physically between two matches — must survive.
+            board.Occupy(new GridPosition(2, 5), 2);
+
+            PowerUpClearResult result = PowerUpClearResolver.ResolveColorCleanser(board, new GridPosition(0, 0));
+
+            Assert.IsTrue(result.AnyCleared);
+            Assert.AreEqual(3, result.ClearedCellCount);
+            CollectionAssert.AreEquivalent(
+                new[] { new GridPosition(0, 0), new GridPosition(3, 5), new GridPosition(7, 7) },
+                result.ClearedCells);
+            Assert.AreEqual(Board.EMPTY, board[new GridPosition(0, 0)]);
+            Assert.AreEqual(Board.EMPTY, board[new GridPosition(3, 5)]);
+            Assert.AreEqual(Board.EMPTY, board[new GridPosition(7, 7)]);
+            Assert.AreEqual(2, board[new GridPosition(2, 5)]);
+        }
+
+        [Test]
+        public void ResolveColorCleanser_OnAnEmptyCell_IsRejected_BoardUntouched()
+        {
+            var board = new Board();
+            board.Occupy(new GridPosition(4, 4), 1);
+
+            PowerUpClearResult result = PowerUpClearResolver.ResolveColorCleanser(board, new GridPosition(0, 0));
+
+            Assert.IsFalse(result.AnyCleared);
+            Assert.AreEqual(0, result.ClearedCellCount);
+            Assert.AreEqual(1, board[new GridPosition(4, 4)]);
+        }
+
+        [Test]
+        public void ResolveColorCleanser_OffBoard_Throws()
+        {
+            var board = new Board();
+
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => PowerUpClearResolver.ResolveColorCleanser(board, new GridPosition(-1, 0)));
+        }
+
+        [Test]
+        public void ResolveColorCleanser_ClearingTheOnlyCellsOfARow_ReportsItEmptied()
+        {
+            var board = new Board();
+            board.Occupy(new GridPosition(1, 3), 5);
+            board.Occupy(new GridPosition(6, 3), 5);
+
+            PowerUpClearResult result = PowerUpClearResolver.ResolveColorCleanser(board, new GridPosition(1, 3));
+
+            Assert.IsTrue(result.AnyLineEmptied);
+            CollectionAssert.Contains(result.EmptiedRows, 3);
         }
     }
 }
