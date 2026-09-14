@@ -260,6 +260,26 @@ namespace MustyBlockBlast.Gameplay.Systems
             _gameOverPublisher.Publish(new GameOverMessage(reason));
         }
 
+        /// <summary>
+        /// Re-runs the no-moves-left check after something outside this system changed which shapes the
+        /// player holds — currently only the Rotate power-up, which swaps a dock slot's piece for
+        /// another orientation of it.
+        /// <para>
+        /// Deliberately a request, not a verdict: the caller says "the tray's shapes changed", and this
+        /// system alone decides whether that ends the run, so the game-over invariant keeps its single
+        /// owner. Re-checking a run that is already over is a no-op.
+        /// </para>
+        /// </summary>
+        internal void RecheckGameOver()
+        {
+            if (IsGameOver)
+            {
+                return;
+            }
+
+            CheckGameOver();
+        }
+
         public void Dispose()
         {
         }

@@ -16,8 +16,11 @@ namespace MustyBlockBlast.Gameplay.Models
 
         public ReactiveProperty<int> ColorCleanserCount { get; } = new ReactiveProperty<int>(0);
 
+        public ReactiveProperty<int> RotateCount { get; } = new ReactiveProperty<int>(0);
+
         /// <summary>
-        /// The power-up the player has selected and is now aiming at the board, or null when none is.
+        /// The power-up the player has selected and is now aiming — at the board, or at the tray for
+        /// <see cref="PowerUpKind.Rotate"/> — or null when none is.
         /// Unlike the counts this is run state, not inventory: it is dropped on every run boundary and
         /// never persisted. Selecting arms immediately — there is no queue, so at most one kind is
         /// armed at a time.

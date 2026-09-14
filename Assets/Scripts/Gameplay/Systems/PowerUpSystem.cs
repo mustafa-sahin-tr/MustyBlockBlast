@@ -12,7 +12,9 @@ namespace MustyBlockBlast.Gameplay.Systems
 {
     /// <summary>
     /// Owns <see cref="PowerUpModel"/>: earning, spending and persisting the power-up inventory, plus
-    /// applying a spent power-up to <see cref="BoardModel"/>.
+    /// applying a spent power-up to <see cref="BoardModel"/> — or, for <see cref="PowerUpKind.Rotate"/>
+    /// alone, to <see cref="TrayModel"/>. Which model an application mutates is secondary: this is the
+    /// one and only spender of the inventory, so every kind's armed-and-spend lifecycle belongs here.
     /// <para>
     /// It deliberately does not score. Applying publishes <see cref="PowerUpAppliedMessage"/> and
     /// <see cref="PowerUpScoreSystem"/> turns that into points, mirroring how placements reach
@@ -20,9 +22,11 @@ namespace MustyBlockBlast.Gameplay.Systems
     /// </para>
     /// <para>
     /// Spending is charged for a valid target even when the target turns out to be empty: the player
-    /// made a deliberate, legal application. Only holding none of the power-up is a true no-op —
-    /// with one exception, <see cref="PowerUpKind.Joker"/>, which is the only kind that can be aimed
-    /// at an illegal target at all (an already-occupied cell) and charges nothing for one.
+    /// made a deliberate, legal application. Only holding none of the power-up is a true no-op — except
+    /// for the three kinds that have illegal targets at all and charge nothing for one:
+    /// <see cref="PowerUpKind.Joker"/> (an already-occupied cell), <see cref="PowerUpKind.ColorCleanser"/>
+    /// (an empty one) and <see cref="PowerUpKind.Rotate"/> (an empty slot, or a piece too symmetrical
+    /// to have a distinct rotation).
     /// </para>
     /// <para>
     /// It also owns the armed selection: selecting a power-up arms it immediately (there is no queue),
@@ -41,6 +45,7 @@ namespace MustyBlockBlast.Gameplay.Systems
 
         private readonly PowerUpModel _powerUpModel;
         private readonly BoardModel _boardModel;
+        private readonly TrayModel _trayModel;
         private readonly BoardSystem _boardSystem;
         private readonly TimerRunSystem _timerRunSystem;
         private readonly IRewardSource _rewardSource;
@@ -52,6 +57,7 @@ namespace MustyBlockBlast.Gameplay.Systems
         public PowerUpSystem(
             PowerUpModel powerUpModel,
             BoardModel boardModel,
+            TrayModel trayModel,
             BoardSystem boardSystem,
             TimerRunSystem timerRunSystem,
             IRewardSource rewardSource,
@@ -62,6 +68,7 @@ namespace MustyBlockBlast.Gameplay.Systems
         {
             _powerUpModel = powerUpModel;
             _boardModel = boardModel;
+            _trayModel = trayModel;
             _boardSystem = boardSystem;
             _timerRunSystem = timerRunSystem;
             _rewardSource = rewardSource;
@@ -73,6 +80,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             LoadPersistedCount(PowerUpKind.ColumnClear);
             LoadPersistedCount(PowerUpKind.Joker);
             LoadPersistedCount(PowerUpKind.ColorCleanser);
+            LoadPersistedCount(PowerUpKind.Rotate);
 
             // An armed selection belongs to the run it was made in: it must not survive either end of
             // a run boundary, or the next run would open with a power-up already aimed and its clock
@@ -218,6 +226,57 @@ namespace MustyBlockBlast.Gameplay.Systems
             return true;
         }
 
+        /// <summary>
+        /// Spends one rotate on the dock piece in <paramref name="slotIndex"/>, turning it 90 degrees
+        /// clockwise. The only application aimed at the tray rather than the board: no cell changes, so
+        /// nothing clears and nothing scores.
+        /// <para>
+        /// Rotating swaps the slot to the catalog piece that already describes that orientation rather
+        /// than rewriting the piece's offsets, so the slot always holds a real catalog piece whose id
+        /// still matches its shape (see <see cref="PieceRotator"/>).
+        /// </para>
+        /// <para>
+        /// Follows the "peek before spend" contract of <see cref="TryApplyJoker"/>: an out-of-range or
+        /// empty slot, and a fully symmetrical piece whose rotation would be a no-op, are all refused
+        /// outright — nothing is spent, nothing is disarmed, the player simply aims again.
+        /// </para>
+        /// </summary>
+        public bool TryApplyRotate(int slotIndex)
+        {
+            if (slotIndex < 0 || slotIndex >= TrayModel.SLOT_COUNT
+                || CountOf(PowerUpKind.Rotate).Value <= 0)
+            {
+                return false;
+            }
+
+            Piece piece = _trayModel.GetPiece(slotIndex);
+            if (piece == null || !PieceRotator.TryRotateClockwise(piece, out Piece rotated))
+            {
+                return false;
+            }
+
+            TrySpend(PowerUpKind.Rotate);
+
+            // Colour is carried over untouched: rotating changes the shape on offer, never which piece
+            // it is to the player.
+            _trayModel.SetSlot(slotIndex, rotated, _trayModel.GetColourId(slotIndex));
+
+            // Published so an application is an application whatever it targeted — the badge counter
+            // that tracks "power-ups used" must see this one too. Zero cleared cells means scoring and
+            // the board's clear animation both ignore it, which is exactly right: nothing was cleared.
+            _appliedPublisher.Publish(new PowerUpAppliedMessage(
+                PowerUpKind.Rotate, clearedCellCount: 0, clearedLineCount: 0));
+
+            Disarm();
+
+            // Disarmed first, then re-checked: unlike a park (which only permutes pieces between dock
+            // and pocket), this changes *which shapes* the player holds, so the move that kept the run
+            // alive may no longer exist — and a game over raised from here must not find a selection
+            // still armed behind it.
+            _boardSystem.RecheckGameOver();
+            return true;
+        }
+
         /// <summary>Asks <see cref="IRewardSource"/> for one <paramref name="kind"/> and banks it if
         /// granted. Returns whether it was granted; a refusal leaves the inventory untouched.</summary>
         public async UniTask<bool> GrantRewardAsync(PowerUpKind kind, CancellationToken cancellationToken)
@@ -317,6 +376,8 @@ namespace MustyBlockBlast.Gameplay.Systems
                     return _powerUpModel.JokerCount;
                 case PowerUpKind.ColorCleanser:
                     return _powerUpModel.ColorCleanserCount;
+                case PowerUpKind.Rotate:
+                    return _powerUpModel.RotateCount;
                 default:
                     return _powerUpModel.BombCount;
             }

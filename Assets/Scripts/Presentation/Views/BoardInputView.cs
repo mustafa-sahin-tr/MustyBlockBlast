@@ -25,6 +25,11 @@ namespace MustyBlockBlast.Presentation.Views
     /// raycast target off.
     /// </para>
     /// <para>
+    /// An armed power-up is aimed at the board, with one exception: <see cref="PowerUpKind.Rotate"/> is
+    /// aimed at the tray, so its release resolves to a dock slot index instead of a board cell. Both
+    /// branches share the one aim gate, so only the target resolution differs.
+    /// </para>
+    /// <para>
     /// A piece drag has a second destination besides the board: released over <see cref="HoldSlotView"/>
     /// it is parked in the pocket instead of placed. That branch is decided while dragging, not on
     /// release, so the highlight the player sees and the drop they get are always the same thing.
@@ -82,6 +87,10 @@ namespace MustyBlockBlast.Presentation.Views
         private bool _isAimingPowerUp;
         private GridPosition _powerUpTargetCell;
         private bool _hasPowerUpTarget;
+
+        /// <summary>Dock slot the armed Rotate is over this aim frame, or -1. Rotate is the one kind
+        /// aimed at the tray rather than the board, so it resolves to a slot index instead of a cell.</summary>
+        private int _powerUpTargetSlot = -1;
 
         [Inject]
         public void Construct(
@@ -402,6 +411,7 @@ namespace MustyBlockBlast.Presentation.Views
         {
             _isAimingPowerUp = true;
             _hasPowerUpTarget = false;
+            _powerUpTargetSlot = -1;
             UpdatePowerUpAim(screenPosition);
         }
 
@@ -419,8 +429,15 @@ namespace MustyBlockBlast.Presentation.Views
             if (armed == null)
             {
                 _isAimingPowerUp = false;
-                _hasPowerUpTarget = false;
-                _boardView.ClearPowerUpTargetHighlight();
+                ClearAimHighlights();
+                return;
+            }
+
+            // Rotate is aimed at a dock slot, not at a board cell, so it never reaches the board
+            // resolution below.
+            if (armed.Value == PowerUpKind.Rotate)
+            {
+                UpdateRotateAim(screenPosition);
                 return;
             }
 
@@ -436,6 +453,34 @@ namespace MustyBlockBlast.Presentation.Views
             _boardView.ShowPowerUpTargetHighlight(
                 GetTargetCells(armed.Value, pointerCell),
                 IsLegalTarget(armed.Value, pointerCell));
+        }
+
+        /// <summary>
+        /// Previews which dock slot an armed Rotate would turn. Only a slot holding a piece that has a
+        /// distinct rotation lights up: a symmetrical piece, or an empty slot, is a dead tap the System
+        /// refuses, so it is shown as no target at all rather than as a target that then does nothing.
+        /// </summary>
+        private void UpdateRotateAim(Vector2 screenPosition)
+        {
+            int slotIndex = _trayView.GetSlotIndexAt(screenPosition);
+            Piece piece = slotIndex >= 0 ? _trayModel.GetPiece(slotIndex) : null;
+
+            _powerUpTargetSlot = piece != null && !PieceRotator.IsFullySymmetrical(piece) ? slotIndex : -1;
+
+            _hasPowerUpTarget = false;
+            _boardView.ClearPowerUpTargetHighlight();
+            _trayView.SetAimedSlot(_powerUpTargetSlot);
+        }
+
+        /// <summary>Drops both aim previews. The board and the tray can each hold one, and exactly one
+        /// kind uses the tray, so clearing them together is what keeps a stale highlight from
+        /// outliving the aim that drew it.</summary>
+        private void ClearAimHighlights()
+        {
+            _hasPowerUpTarget = false;
+            _powerUpTargetSlot = -1;
+            _boardView.ClearPowerUpTargetHighlight();
+            _trayView.SetAimedSlot(-1);
         }
 
         /// <summary>
@@ -465,16 +510,33 @@ namespace MustyBlockBlast.Presentation.Views
         private void ReleasePowerUpAim()
         {
             _isAimingPowerUp = false;
-            _boardView.ClearPowerUpTargetHighlight();
 
             PowerUpKind? armed = _powerUpModel.Armed.Value;
             bool hasTarget = _hasPowerUpTarget;
             GridPosition target = _powerUpTargetCell;
-            _hasPowerUpTarget = false;
+            int targetSlot = _powerUpTargetSlot;
+            ClearAimHighlights();
+
+            if (armed == null)
+            {
+                return;
+            }
+
+            // Rotate resolves to a dock slot rather than a board cell; -1 means the release landed on
+            // no slot, or on one there is nothing to turn in.
+            if (armed.Value == PowerUpKind.Rotate)
+            {
+                if (targetSlot >= 0)
+                {
+                    _powerUpSystem.TryApplyRotate(targetSlot);
+                }
+
+                return;
+            }
 
             // Releasing off the board keeps the power-up armed, so the player can simply aim again
             // rather than having to re-select it.
-            if (armed == null || !hasTarget)
+            if (!hasTarget)
             {
                 return;
             }
