@@ -712,6 +712,119 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.AreEqual(GameOverReason.NoMovesLeft, gameOverBroker.Published[0].Reason);
         }
 
+        /// <summary>Issue #95 AC1: the dock has zero legal placements before the reroll, and the
+        /// guaranteed-solvable draw rescues it — this is exactly what "clutch" means for the
+        /// RerollSave objective.</summary>
+        [Test]
+        public void TryApplyReroll_DockHadNoLegalMoves_PublishesWasClutchSaveTrue()
+        {
+            PersistCount(PowerUpKind.Reroll, 1);
+
+            var boardModel = new BoardModel();
+            FillBoardExcept(
+                boardModel,
+                new GridPosition(0, 0),
+                new GridPosition(1, 0),
+                new GridPosition(0, 1),
+                new GridPosition(1, 1));
+
+            var trayModel = new TrayModel();
+            // A 3x3 square cannot fit in a 2x2 opening, so none of these three qualify — the dock
+            // starts with zero legal placements.
+            trayModel.SetSlot(0, FindPiece("square_3x3"), colourId: 1);
+            trayModel.SetSlot(1, FindPiece("square_3x3"), colourId: 1);
+            trayModel.SetSlot(2, FindPiece("square_3x3"), colourId: 1);
+
+            PowerUpSystem system = CreateRerollSystem(
+                new PowerUpModel(),
+                boardModel,
+                trayModel,
+                drawSeed: 7,
+                new TestMessageBroker<TrayRefilledMessage>(),
+                new TestMessageBroker<GameOverMessage>());
+
+            Assert.IsTrue(system.TryApplyReroll());
+
+            Assert.AreEqual(1, _appliedBroker.Published.Count);
+            Assert.IsTrue(_appliedBroker.Published[0].WasClutchSave);
+        }
+
+        /// <summary>Issue #95 AC2 (negative case): the dock already had a legal placement before the
+        /// reroll, so however good the fresh draw is, this was never a rescue.</summary>
+        [Test]
+        public void TryApplyReroll_DockAlreadyHadALegalMove_PublishesWasClutchSaveFalse()
+        {
+            PersistCount(PowerUpKind.Reroll, 1);
+
+            var boardModel = new BoardModel();
+            FillBoardExcept(
+                boardModel,
+                new GridPosition(0, 0),
+                new GridPosition(1, 0),
+                new GridPosition(0, 1),
+                new GridPosition(1, 1));
+
+            var trayModel = new TrayModel();
+            // A 1x1 fits the 2x2 opening, so the dock already has a legal move before the reroll.
+            trayModel.SetSlot(0, FindPiece("single_1x1"), colourId: 1);
+            trayModel.SetSlot(1, FindPiece("square_3x3"), colourId: 1);
+            trayModel.SetSlot(2, FindPiece("square_3x3"), colourId: 1);
+
+            PowerUpSystem system = CreateRerollSystem(
+                new PowerUpModel(),
+                boardModel,
+                trayModel,
+                drawSeed: 7,
+                new TestMessageBroker<TrayRefilledMessage>(),
+                new TestMessageBroker<GameOverMessage>());
+
+            Assert.IsTrue(system.TryApplyReroll());
+
+            Assert.AreEqual(1, _appliedBroker.Published.Count);
+            Assert.IsFalse(_appliedBroker.Published[0].WasClutchSave);
+        }
+
+        /// <summary>
+        /// Pins the Hold-slot exclusion documented in docs/game-design.md: the parked piece is not part
+        /// of the "zero legal moves" pre-check, so a dead dock still counts as clutch even when the
+        /// pocket held a piece that fits. This is also the only shape of this case a live run can ever
+        /// reach — <c>CheckGameOver</c> counts the held piece, so a dead dock with an empty pocket has
+        /// already ended the run and <c>TryRerollTray</c> would refuse outright.
+        /// </summary>
+        [Test]
+        public void TryApplyReroll_DockDeadButHeldPieceFits_StillPublishesWasClutchSaveTrue()
+        {
+            PersistCount(PowerUpKind.Reroll, 1);
+
+            var boardModel = new BoardModel();
+            FillBoardExcept(
+                boardModel,
+                new GridPosition(0, 0),
+                new GridPosition(1, 0),
+                new GridPosition(0, 1),
+                new GridPosition(1, 1));
+
+            var trayModel = new TrayModel();
+            trayModel.SetSlot(0, FindPiece("square_3x3"), colourId: 1);
+            trayModel.SetSlot(1, FindPiece("square_3x3"), colourId: 1);
+            trayModel.SetSlot(2, FindPiece("square_3x3"), colourId: 1);
+            // Fits the 2x2 opening — but it is parked, not on offer.
+            trayModel.SetHeld(FindPiece("single_1x1"), colourId: 2);
+
+            PowerUpSystem system = CreateRerollSystem(
+                new PowerUpModel(),
+                boardModel,
+                trayModel,
+                drawSeed: 7,
+                new TestMessageBroker<TrayRefilledMessage>(),
+                new TestMessageBroker<GameOverMessage>());
+
+            Assert.IsTrue(system.TryApplyReroll());
+
+            Assert.AreEqual(1, _appliedBroker.Published.Count);
+            Assert.IsTrue(_appliedBroker.Published[0].WasClutchSave);
+        }
+
         /// <summary>A run that is already over refuses the reroll outright: nothing is drawn, the dock
         /// is left as it was and nothing is spent.</summary>
         [Test]

@@ -288,12 +288,24 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// </para>
         /// Returns false when the run is already over — nothing is drawn and nothing changes.
         /// </summary>
-        internal bool TryRerollTray()
+        internal bool TryRerollTray(out bool wasClutchSave)
         {
+            wasClutchSave = false;
+
             if (IsGameOver)
             {
                 return false;
             }
+
+            // Read before the draw overwrites the dock — this is about the tray as it stood the moment
+            // Reroll was spent, not about whatever the fresh draw happens to contain. Only the dock
+            // counts, deliberately excluding the Hold slot: since CheckGameOver already ends the run
+            // the moment dock AND Hold are both dead, a dead dock with a live run only ever means the
+            // Hold slot was already the thing keeping the player alive — so this is never a genuine
+            // rescue, just a signal that Reroll was spent while the held piece was doing that job.
+            // See ObjectiveType.RerollSave's doc comment for the full reasoning.
+            _trayModel.CollectRemaining(_remainingBuffer);
+            bool hadNoLegalMoves = !MoveAvailability.HasAnyMove(_boardModel.Board, _remainingBuffer);
 
             // The return value is intentionally ignored: false means the bounded retry gave up and the
             // buffers hold the last attempt instead. The player still gets three real pieces, and the
@@ -305,6 +317,8 @@ namespace MustyBlockBlast.Gameplay.Systems
             {
                 _trayModel.SetSlot(slotIndex, _rerollPieceBuffer[slotIndex], _rerollColourBuffer[slotIndex]);
             }
+
+            wasClutchSave = hadNoLegalMoves && MoveAvailability.HasAnyMove(_boardModel.Board, _rerollPieceBuffer);
 
             RecheckGameOver();
             return true;

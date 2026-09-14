@@ -242,6 +242,10 @@ MonoBehaviour:
     m_Localized: "Alcanza la puntuaci\xF3n objetivo en los primeros {0} segundos"
     m_Metadata:
       m_Items: []
+  - m_Id: 280945016954880
+    m_Localized: Usa Reroll cuando tu bandeja no tenga jugadas pero tu bolsillo te cubra
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

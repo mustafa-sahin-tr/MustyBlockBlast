@@ -149,18 +149,22 @@ namespace MustyBlockBlast.Gameplay.Systems
         }
 
         /// <summary>
-        /// A Bomb clear is not a placement — it never publishes <see cref="PiecePlacedMessage"/> — so
-        /// it needs its own event source into the objective engine rather than being folded into
-        /// <see cref="OnPiecePlaced"/>'s context.
+        /// A Bomb clear and a "clutch" Reroll are not placements — neither publishes
+        /// <see cref="PiecePlacedMessage"/> — so each needs its own event source into the objective
+        /// engine rather than being folded into <see cref="OnPiecePlaced"/>'s context.
         /// </summary>
         private void OnPowerUpApplied(PowerUpAppliedMessage message)
         {
-            if (message.Kind != PowerUpKind.Bomb || message.EmptiedLineCount <= 0)
+            if (message.Kind == PowerUpKind.Bomb && message.EmptiedLineCount > 0)
             {
+                ApplyToAllObjectives(objective => objective.ApplyPowerUpLineEmptied());
                 return;
             }
 
-            ApplyToAllObjectives(objective => objective.ApplyPowerUpLineEmptied());
+            if (message.Kind == PowerUpKind.Reroll && message.WasClutchSave)
+            {
+                ApplyToAllObjectives(objective => objective.ApplyPowerUpRerollSave());
+            }
         }
 
         /// <summary>

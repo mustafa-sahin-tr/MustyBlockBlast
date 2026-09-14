@@ -78,5 +78,16 @@ namespace MustyBlockBlast.Core
         /// the first 60 seconds". Mirrors the live score like <see cref="ScoreInRun"/>, but only while
         /// still inside the deadline; past it, progress freezes rather than completing late.</summary>
         EarlyScoreRush = 15,
+
+        /// <summary>Count Reroll uses spent while the dock (the 3 offered pieces, not the Hold slot)
+        /// had zero legal placements. Because <see cref="MustyBlockBlast.Gameplay.Systems.BoardSystem.CheckGameOver"/>
+        /// already ends the run the moment BOTH the dock and the Hold slot are dead, a dead-dock-but-
+        /// live-run state can only exist because the Hold slot still has a placeable piece — so this
+        /// objective is honestly "spent a Reroll while your held piece was the only thing standing
+        /// between the dock and game over", not a genuine rescue from the brink. Never advanced by
+        /// <see cref="ObjectiveProgress.ApplyPlacement"/> — a distinct, power-up-sourced event, folded
+        /// in only via <see cref="ObjectiveProgress.ApplyPowerUpRerollSave"/>, the same shape
+        /// <see cref="BombInducedLineClear"/> uses.</summary>
+        RerollSave = 16,
     }
 }

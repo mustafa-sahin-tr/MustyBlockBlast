@@ -122,6 +122,7 @@ alter them.
 | No isolated holes streak | A placement leaves zero unreachable-from-edge empty cells | Best streak of consecutive qualifying placements |
 | Line clear burst | A trailing rolling window of the configured width | Sum of lines cleared by placements still inside the window |
 | Early score rush | The run is still inside the configured deadline (from run start) | Mirrors the current run score, until the deadline passes |
+| Reroll save (synergy) | The Reroll power-up is spent while the dock had zero legal placements | +1 per qualifying Reroll |
 
 The line-clear objective matches exactly, not "at least": a 3-line clear does not satisfy a
 "clear 2 lines at once" objective — that is a separate, harder goal. Shape families are
@@ -143,6 +144,15 @@ from a normal line clear (which fires on a row becoming **full**, not empty), an
 deliberately scoped to Bomb only — Row Clear/Column Clear always empty their own target line by
 design, so that would never be a "surprise" worth an objective. It also never advances the streak
 or combo counters, matching every other power-up clear.
+
+Reroll save is the other objective type not driven by a placement: it fires off the Reroll
+power-up's own application, checking whether the dock held zero legal placements *immediately
+before* the reroll. Read at the moment Reroll is spent — a reroll used with moves already
+available never qualifies, no matter how good the resulting draw is. The Hold slot's piece is
+deliberately excluded from the "zero legal moves" check, which means this is honestly a "spent a
+Reroll while your held piece was the only thing keeping the dock alive" signal, not a rescue from
+the brink: the run's game-over check already considers the dock *and* the Hold slot together, so a
+dead dock with the run still going can only mean the Hold slot already had it covered.
 
 Row and column cross-clear is deliberately distinct from just checking `Simultaneous line
 clear`'s total: two rows clearing at once and one row plus one column clearing at once both

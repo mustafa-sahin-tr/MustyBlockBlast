@@ -23,11 +23,19 @@ namespace MustyBlockBlast.Gameplay.Messages
 
         public PowerUpAppliedMessage(
             PowerUpKind kind, int clearedCellCount, int clearedLineCount, int emptiedLineCount)
+            : this(kind, clearedCellCount, clearedLineCount, emptiedLineCount, wasClutchSave: false)
+        {
+        }
+
+        public PowerUpAppliedMessage(
+            PowerUpKind kind, int clearedCellCount, int clearedLineCount, int emptiedLineCount,
+            bool wasClutchSave)
         {
             Kind = kind;
             ClearedCellCount = clearedCellCount;
             ClearedLineCount = clearedLineCount;
             EmptiedLineCount = emptiedLineCount;
+            WasClutchSave = wasClutchSave;
         }
 
         public PowerUpKind Kind { get; }
@@ -50,5 +58,15 @@ namespace MustyBlockBlast.Gameplay.Messages
         /// matters as an achievement signal for <see cref="PowerUpKind.Bomb"/>.
         /// </summary>
         public int EmptiedLineCount { get; }
+
+        /// <summary>
+        /// True when the dock had zero legal placements immediately before this Reroll (the Hold
+        /// slot's piece, if any, is not part of that check). Because the run only survives that state
+        /// at all if the Hold slot already had a placeable piece, this is not a rescue from the brink —
+        /// it's a signal that Reroll was spent while the held piece was the only thing keeping the run
+        /// alive. Meaningful only for <see cref="MustyBlockBlast.Gameplay.PowerUpKind.Reroll"/>; every
+        /// other kind leaves this false.
+        /// </summary>
+        public bool WasClutchSave { get; }
     }
 }

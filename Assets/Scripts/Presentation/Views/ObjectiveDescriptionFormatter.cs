@@ -85,6 +85,9 @@ namespace MustyBlockBlast.Presentation.Views
                         LocalizationKeys.OBJECTIVE_EARLY_SCORE_RUSH,
                         WholeSeconds(definition.WindowSeconds));
 
+                case ObjectiveType.RerollSave:
+                    return localization.Translate(LocalizationKeys.OBJECTIVE_REROLL_SAVE);
+
                 default:
                     return string.Empty;
             }

@@ -767,5 +767,60 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.AreEqual(0, family.CurrentValue);
             Assert.AreEqual(0, streak.CurrentValue);
         }
+
+        [Test]
+        public void RerollSave_ApplyPowerUpRerollSave_Increments()
+        {
+            ObjectiveProgress objective = new ObjectiveProgress(new ObjectiveDefinition(
+                "reroll_save", ObjectiveType.RerollSave, ObjectiveScope.PerRun, targetValue: 2));
+
+            Assert.IsTrue(objective.ApplyPowerUpRerollSave());
+            Assert.AreEqual(1, objective.CurrentValue);
+            Assert.IsFalse(objective.IsComplete);
+
+            Assert.IsTrue(objective.ApplyPowerUpRerollSave());
+            Assert.AreEqual(2, objective.CurrentValue);
+            Assert.IsTrue(objective.IsComplete);
+        }
+
+        [Test]
+        public void RerollSave_AlreadyComplete_StopsTracking()
+        {
+            ObjectiveProgress objective = new ObjectiveProgress(new ObjectiveDefinition(
+                "reroll_save", ObjectiveType.RerollSave, ObjectiveScope.PerRun, targetValue: 1));
+
+            Assert.IsTrue(objective.ApplyPowerUpRerollSave());
+            Assert.IsFalse(objective.ApplyPowerUpRerollSave());
+            Assert.AreEqual(1, objective.CurrentValue);
+        }
+
+        [Test]
+        public void RerollSave_IsNeverAdvancedByAPlacement()
+        {
+            ObjectiveProgress objective = new ObjectiveProgress(new ObjectiveDefinition(
+                "reroll_save", ObjectiveType.RerollSave, ObjectiveScope.PerRun, targetValue: 1));
+
+            Assert.IsFalse(objective.ApplyPlacement(Placement(
+                linesCleared: 4, pieceFamily: PieceFamily.Square, currentRunScore: 9999,
+                boardEmptyAfterPlacement: true, currentStreak: 99)));
+            Assert.AreEqual(0, objective.CurrentValue);
+            Assert.IsFalse(objective.IsComplete);
+        }
+
+        [Test]
+        public void OtherObjectiveTypes_AreNeverAdvancedByApplyPowerUpRerollSave()
+        {
+            ObjectiveProgress lineClear = LineClearObjective(requiredLineCount: 2, targetValue: 3);
+            ObjectiveProgress family = FamilyObjective(PieceFamily.Square, targetValue: 3);
+            ObjectiveProgress streak = StreakObjective(targetValue: 3);
+
+            Assert.IsFalse(lineClear.ApplyPowerUpRerollSave());
+            Assert.IsFalse(family.ApplyPowerUpRerollSave());
+            Assert.IsFalse(streak.ApplyPowerUpRerollSave());
+
+            Assert.AreEqual(0, lineClear.CurrentValue);
+            Assert.AreEqual(0, family.CurrentValue);
+            Assert.AreEqual(0, streak.CurrentValue);
+        }
     }
 }

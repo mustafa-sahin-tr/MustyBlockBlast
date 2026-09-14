@@ -313,7 +313,7 @@ namespace MustyBlockBlast.Gameplay.Systems
 
             // BoardSystem owns the tray and the draw, and is the only thing allowed to decide the run is
             // over — so it performs the reroll and this only pays for it.
-            if (!_boardSystem.TryRerollTray())
+            if (!_boardSystem.TryRerollTray(out bool wasClutchSave))
             {
                 return false;
             }
@@ -322,9 +322,11 @@ namespace MustyBlockBlast.Gameplay.Systems
 
             // Published for the same reason Rotate is: an application is an application whatever it
             // targeted, and the "power-ups used" badge counter must see this one. Zero cleared cells
-            // means scoring and the clear animation both correctly ignore it.
+            // means scoring and the clear animation both correctly ignore it. wasClutchSave feeds the
+            // RerollSave objective the same way Bomb's EmptiedLineCount feeds BombInducedLineClear.
             _appliedPublisher.Publish(new PowerUpAppliedMessage(
-                PowerUpKind.Reroll, clearedCellCount: 0, clearedLineCount: 0));
+                PowerUpKind.Reroll, clearedCellCount: 0, clearedLineCount: 0, emptiedLineCount: 0,
+                wasClutchSave));
 
             Disarm();
             return true;

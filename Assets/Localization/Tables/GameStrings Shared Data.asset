@@ -239,6 +239,10 @@ MonoBehaviour:
     m_Key: objective.early_score_rush
     m_Metadata:
       m_Items: []
+  - m_Id: 280945016954880
+    m_Key: objective.reroll_save
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:
