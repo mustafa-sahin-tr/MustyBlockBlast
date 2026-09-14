@@ -225,6 +225,7 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterComponentInHierarchy<BadgesButtonView>();
             builder.RegisterComponentInHierarchy<BadgesPanelView>();
             builder.RegisterComponentInHierarchy<PieceTrayView>();
+            builder.RegisterComponentInHierarchy<HoldSlotView>();
             builder.RegisterComponentInHierarchy<ScoreView>();
             builder.RegisterComponentInHierarchy<TimerHudView>();
             builder.RegisterComponentInHierarchy<LineClearBurstView>();

@@ -27,7 +27,8 @@ namespace MustyBlockBlast.Gameplay.Systems
         private readonly IPublisher<LinesClearedMessage> _linesClearedPublisher;
         private readonly IPublisher<GameOverMessage> _gameOverPublisher;
         private readonly IPublisher<TrayRefilledMessage> _trayRefilledPublisher;
-        private readonly List<Piece> _remainingBuffer = new List<Piece>(TrayModel.SLOT_COUNT);
+        // Sized for the three dock slots plus the parked piece, which CheckGameOver appends.
+        private readonly List<Piece> _remainingBuffer = new List<Piece>(TrayModel.SLOT_COUNT + 1);
         private readonly Board _previewScratchBoard = new Board();
         private readonly List<int> _previewRowsBuffer = new List<int>(Board.SIZE);
         private readonly List<int> _previewColumnsBuffer = new List<int>(Board.SIZE);
@@ -59,6 +60,10 @@ namespace MustyBlockBlast.Gameplay.Systems
         public void StartNewRun()
         {
             _boardModel.ClearAll();
+
+            // A parked piece belongs to the run that parked it; carrying it into the next one would
+            // hand the player a free piece they never drew.
+            _trayModel.ClearHold();
             RefillTray();
             IsGameOver = false;
             _runStartedPublisher.Publish(new RunStartedMessage());
@@ -191,6 +196,54 @@ namespace MustyBlockBlast.Gameplay.Systems
         }
 
         /// <summary>
+        /// Parks the dock piece in <paramref name="slotIndex"/> into the Hold slot, swapping it with
+        /// whatever was already parked there. Atomic by construction: the vacated dock slot is
+        /// overwritten with the previously held piece (or emptied) in the same call, so no action can
+        /// ever leave two pieces in one slot or the same piece in two places.
+        /// <para>
+        /// This is explicitly <em>not</em> a placement. Nothing is put on the board, so nothing scores,
+        /// no line can clear, the combo streak is neither advanced nor broken, and the tray is not
+        /// refilled — the pieces involved were already drawn and are merely somewhere else now.
+        /// </para>
+        /// <para>
+        /// Refused when it would leave the dock with nothing to drag. The Hold slot is fed from the
+        /// dock and only ever emptied by the swap that refills it, so a dock emptied by parking could
+        /// never be refilled (a refill is a placement's consequence) and the run would be stuck with no
+        /// piece to move. A swap can never hit this case: the held piece takes the vacated slot.
+        /// </para>
+        /// Returns false when nothing changed.
+        /// </summary>
+        public bool TryHoldPiece(int slotIndex)
+        {
+            if (IsGameOver || !IsValidSlot(slotIndex))
+            {
+                return false;
+            }
+
+            Piece piece = _trayModel.GetPiece(slotIndex);
+            if (piece == null)
+            {
+                return false;
+            }
+
+            if (!_trayModel.IsHoldOccupied && _trayModel.OccupiedSlotCount == 1)
+            {
+                return false;
+            }
+
+            Piece previouslyHeld = _trayModel.HeldPiece;
+            int previouslyHeldColourId = _trayModel.HeldColourId;
+
+            _trayModel.SetHeld(piece, _trayModel.GetColourId(slotIndex));
+            _trayModel.SetSlot(slotIndex, previouslyHeld, previouslyHeldColourId);
+
+            // No game-over re-check: a park only permutes pieces between the dock and the pocket, so
+            // the set of pieces the player can still play is exactly the one CheckGameOver last found
+            // a move in.
+            return true;
+        }
+
+        /// <summary>
         /// Ends the run for a reason the board cannot detect itself — currently only the timed-mode
         /// clock expiring — with the caller supplying that reason. Kept here so the game-over
         /// invariant has exactly one owner; callers must never set their own end-of-run state.
@@ -253,6 +306,16 @@ namespace MustyBlockBlast.Gameplay.Systems
         private void CheckGameOver()
         {
             _trayModel.CollectRemaining(_remainingBuffer);
+
+            // The parked piece counts as a move the player still has. Swapping it back into a dock slot
+            // is always legal and costs nothing, so a board where only the parked piece fits is not a
+            // dead end — without this, pocketing the one piece that fits would end a run the player
+            // could still play on from.
+            if (_trayModel.HeldPiece != null)
+            {
+                _remainingBuffer.Add(_trayModel.HeldPiece);
+            }
+
             if (MoveAvailability.HasAnyMove(_boardModel.Board, _remainingBuffer))
             {
                 return;
