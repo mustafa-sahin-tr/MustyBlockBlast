@@ -123,6 +123,22 @@ namespace MustyBlockBlast.Core
             return true;
         }
 
+        /// <summary>How many cells are currently occupied. A once-per-placement O(64) scan, not a
+        /// hot-path call — cheap enough to run once per placement, never per frame.</summary>
+        public int OccupiedCellCount()
+        {
+            int count = 0;
+            for (int i = 0; i < SIZE * SIZE; i++)
+            {
+                if (_cells[i] != EMPTY)
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+
         /// <summary>Deep copy, used for undo snapshots.</summary>
         public Board Clone()
         {

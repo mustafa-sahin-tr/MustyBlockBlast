@@ -91,6 +91,7 @@ alter them.
 | Streak threshold | — | Tracks the best combo streak reached this run (high-water mark) |
 | Bomb-induced line clear | A Bomb power-up clear leaves a row or column completely empty | +1 per qualifying Bomb use |
 | Row and column cross-clear | A placement clears at least one row AND at least one column simultaneously | +1 per qualifying placement |
+| Clutch recovery clear | A placement clears at least one line while the board held at least the configured occupied-cell threshold immediately beforehand | +1 per qualifying placement |
 
 The line-clear objective matches exactly, not "at least": a 3-line clear does not satisfy a
 "clear 2 lines at once" objective — that is a separate, harder goal. Shape families are
@@ -117,6 +118,11 @@ Row and column cross-clear is deliberately distinct from just checking `Simultan
 clear`'s total: two rows clearing at once and one row plus one column clearing at once both
 sum to 2 lines cleared, but only the second is a "cross" — the objective needs the row/column
 split, not just the total, to tell them apart.
+
+Clutch recovery clear reads the board's occupancy **immediately after the piece lands but before
+its own clears resolve** — the "how full was it right before this rescued it" moment. A packed
+board that clears nothing does not qualify: pressure alone isn't the goal, clearing under
+pressure is.
 
 Lifetime "how many pieces has the player ever placed" goals are covered by the Badges system's
 `TotalPiecesPlaced` stat, not a separate objective type — a level goal and a lifetime achievement

@@ -157,6 +157,10 @@ namespace MustyBlockBlast.Gameplay.Systems
 
             _trayModel.ConsumeSlot(slotIndex);
 
+            // Read before ResolveClears mutates the board — once a line clears, its cells are gone and
+            // "how full was the board under this placement" can no longer be answered.
+            int occupiedCellCountBeforeClear = _boardModel.Board.OccupiedCellCount();
+
             LineClearResult clearResult = LineClearResolver.ResolveClears(_boardModel.Board);
             if (clearResult.AnyCleared)
             {
@@ -166,7 +170,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             _piecePlacedPublisher.Publish(new PiecePlacedMessage(
                 piece.Id, anchor, PieceFamilyClassifier.Classify(piece.Id), piece.CellCount, colourId,
                 clearResult.LineCount, clearResult.ClearedRows.Count, clearResult.ClearedColumns.Count,
-                clearResult.MonochromeLineCount, _boardModel.Board.IsEmpty()));
+                clearResult.MonochromeLineCount, _boardModel.Board.IsEmpty(), occupiedCellCountBeforeClear));
 
             if (clearResult.AnyCleared)
             {

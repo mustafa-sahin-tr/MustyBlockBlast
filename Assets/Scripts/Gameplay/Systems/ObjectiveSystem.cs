@@ -79,7 +79,8 @@ namespace MustyBlockBlast.Gameplay.Systems
                 message.PieceFamily,
                 _currentRunScore,
                 message.BoardEmptyAfterPlacement,
-                _currentStreak);
+                _currentStreak,
+                message.OccupiedCellCountBeforeClear);
 
             ApplyToAllObjectives(objective => objective.ApplyPlacement(context));
         }

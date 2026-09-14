@@ -38,6 +38,10 @@ namespace MustyBlockBlast.Gameplay.Settings
         [Tooltip("Shape family a placed piece must belong to. Used by PieceFamilyCount only.")]
         [SerializeField] private PieceFamily _requiredPieceFamily = PieceFamily.Single;
 
+        [Tooltip("Minimum board occupancy (cells filled) a qualifying clear must meet. Used by " +
+            "ClutchRecoveryClear only.")]
+        [SerializeField] private int _requiredOccupancyThreshold = 52;
+
         [Tooltip("Grant a power-up when this level is completed. Off by default — milestone levels " +
             "are the reward levels, not every level.")]
         [SerializeField] private bool _grantsLevelUpReward;
@@ -78,7 +82,8 @@ namespace MustyBlockBlast.Gameplay.Settings
                 _scope,
                 _targetValue,
                 _requiredLineCount,
-                _requiredPieceFamily);
+                _requiredPieceFamily,
+                _requiredOccupancyThreshold);
         }
 
         /// <summary>
@@ -112,6 +117,13 @@ namespace MustyBlockBlast.Gameplay.Settings
                 return false;
             }
 
+            if (_objectiveType == ObjectiveType.ClutchRecoveryClear
+                && (_requiredOccupancyThreshold <= 0 || _requiredOccupancyThreshold > Board.SIZE * Board.SIZE))
+            {
+                error = $"ClutchRecoveryClear needs an occupancy threshold between 1 and {Board.SIZE * Board.SIZE}.";
+                return false;
+            }
+
             error = null;
             return true;
         }
@@ -128,6 +140,7 @@ namespace MustyBlockBlast.Gameplay.Settings
             _levelNumber = Mathf.Max(1, _levelNumber);
             _targetValue = Mathf.Max(1, _targetValue);
             _requiredLineCount = Mathf.Max(1, _requiredLineCount);
+            _requiredOccupancyThreshold = Mathf.Clamp(_requiredOccupancyThreshold, 1, Board.SIZE * Board.SIZE);
         }
 #endif
     }

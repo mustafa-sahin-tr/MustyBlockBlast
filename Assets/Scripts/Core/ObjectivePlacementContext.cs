@@ -15,7 +15,8 @@ namespace MustyBlockBlast.Core
             PieceFamily pieceFamily,
             int currentRunScore,
             bool boardEmptyAfterPlacement,
-            int currentStreak)
+            int currentStreak,
+            int occupiedCellCountBeforeClear)
         {
             LinesCleared = linesCleared;
             RowsCleared = rowsCleared;
@@ -24,6 +25,7 @@ namespace MustyBlockBlast.Core
             CurrentRunScore = currentRunScore;
             BoardEmptyAfterPlacement = boardEmptyAfterPlacement;
             CurrentStreak = currentStreak;
+            OccupiedCellCountBeforeClear = occupiedCellCountBeforeClear;
         }
 
         /// <summary>Rows plus columns cleared by this placement; zero when nothing cleared.</summary>
@@ -48,5 +50,10 @@ namespace MustyBlockBlast.Core
 
         /// <summary>Combo streak as it stands after this placement was scored.</summary>
         public int CurrentStreak { get; }
+
+        /// <summary>How many cells were occupied immediately after the piece was placed but before any
+        /// line clears from this placement resolved — the board's "under pressure" reading a clutch
+        /// objective checks against.</summary>
+        public int OccupiedCellCountBeforeClear { get; }
     }
 }

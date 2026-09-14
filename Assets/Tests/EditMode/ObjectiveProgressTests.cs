@@ -18,11 +18,12 @@ namespace MustyBlockBlast.Tests.EditMode
             PieceFamily pieceFamily = PieceFamily.Single,
             int currentRunScore = 0,
             bool boardEmptyAfterPlacement = false,
-            int currentStreak = 0)
+            int currentStreak = 0,
+            int occupiedCellCountBeforeClear = 0)
         {
             return new ObjectivePlacementContext(
                 linesCleared, rowsCleared, columnsCleared, pieceFamily, currentRunScore,
-                boardEmptyAfterPlacement, currentStreak);
+                boardEmptyAfterPlacement, currentStreak, occupiedCellCountBeforeClear);
         }
 
         private static ObjectiveProgress StreakObjective(int targetValue)
@@ -266,6 +267,47 @@ namespace MustyBlockBlast.Tests.EditMode
                 "cross", ObjectiveType.RowAndColumnCrossClear, ObjectiveScope.PerRun, targetValue: 3));
 
             Assert.IsFalse(objective.ApplyPlacement(Placement(linesCleared: 0)));
+            Assert.AreEqual(0, objective.CurrentValue);
+        }
+
+        private static ObjectiveProgress ClutchObjective(int occupancyThreshold, int targetValue)
+        {
+            return new ObjectiveProgress(new ObjectiveDefinition(
+                "clutch", ObjectiveType.ClutchRecoveryClear, ObjectiveScope.PerRun, targetValue,
+                requiredOccupancyThreshold: occupancyThreshold));
+        }
+
+        [Test]
+        public void ClutchRecoveryClear_ClearingALineAtOrAboveTheThreshold_Qualifies()
+        {
+            ObjectiveProgress objective = ClutchObjective(occupancyThreshold: 52, targetValue: 1);
+
+            Assert.IsTrue(objective.ApplyPlacement(Placement(
+                linesCleared: 1, occupiedCellCountBeforeClear: 52)));
+            Assert.AreEqual(1, objective.CurrentValue);
+        }
+
+        // 51 is the adjacent-below case that pins the comparison to ">=" against exactly the threshold:
+        // paired with the at-threshold test above, an off-by-one in either direction fails one of them.
+        [TestCase(20)]
+        [TestCase(51)]
+        public void ClutchRecoveryClear_ClearingALineBelowTheThreshold_DoesNotQualify(int occupiedCellCount)
+        {
+            ObjectiveProgress objective = ClutchObjective(occupancyThreshold: 52, targetValue: 1);
+
+            Assert.IsFalse(objective.ApplyPlacement(Placement(
+                linesCleared: 1, occupiedCellCountBeforeClear: occupiedCellCount)));
+            Assert.AreEqual(0, objective.CurrentValue);
+        }
+
+        [Test]
+        public void ClutchRecoveryClear_HighOccupancyButNoLineCleared_DoesNotQualify()
+        {
+            // A packed board that clears nothing isn't a "clutch recovery" — it's just a packed board.
+            ObjectiveProgress objective = ClutchObjective(occupancyThreshold: 52, targetValue: 1);
+
+            Assert.IsFalse(objective.ApplyPlacement(Placement(
+                linesCleared: 0, occupiedCellCountBeforeClear: 63)));
             Assert.AreEqual(0, objective.CurrentValue);
         }
 

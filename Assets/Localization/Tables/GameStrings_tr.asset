@@ -198,6 +198,10 @@ MonoBehaviour:
     m_Localized: "Ayn\u0131 anda bir s\u0131ra ve bir s\xFCtun temizle"
     m_Metadata:
       m_Items: []
+  - m_Id: 227150882922496
+    m_Localized: "Bask\u0131 alt\u0131nda bir s\u0131ra temizle"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

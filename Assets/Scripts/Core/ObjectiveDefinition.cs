@@ -12,7 +12,8 @@ namespace MustyBlockBlast.Core
             ObjectiveScope scope,
             int targetValue,
             int requiredLineCount = 0,
-            PieceFamily requiredPieceFamily = PieceFamily.Single)
+            PieceFamily requiredPieceFamily = PieceFamily.Single,
+            int requiredOccupancyThreshold = 0)
         {
             if (targetValue <= 0)
             {
@@ -32,6 +33,7 @@ namespace MustyBlockBlast.Core
             TargetValue = targetValue;
             RequiredLineCount = requiredLineCount;
             RequiredPieceFamily = requiredPieceFamily;
+            RequiredOccupancyThreshold = requiredOccupancyThreshold;
         }
 
         /// <summary>Stable identifier; carried by the progress/completion messages so views can key off it.</summary>
@@ -51,5 +53,10 @@ namespace MustyBlockBlast.Core
         /// <summary>Shape family a placed piece must belong to in order to qualify. Meaningful only when
         /// <see cref="Type"/> is <see cref="ObjectiveType.PieceFamilyCount"/>.</summary>
         public PieceFamily RequiredPieceFamily { get; }
+
+        /// <summary>Minimum board occupancy (cells occupied immediately before this placement's line
+        /// clears resolved) a qualifying placement must meet. Meaningful only when <see cref="Type"/>
+        /// is <see cref="ObjectiveType.ClutchRecoveryClear"/>.</summary>
+        public int RequiredOccupancyThreshold { get; }
     }
 }
