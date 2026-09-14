@@ -17,9 +17,11 @@ namespace MustyBlockBlast.Gameplay.Systems
     /// <item>Does nothing at all in endless runs, and is cleared when the mode leaves timed.</item>
     /// </list>
     /// <para>
-    /// Two independent pause reasons — app backgrounding and the Settings panel being open — combine
-    /// with OR: either one holds the clock. Dragging a piece deliberately does <b>not</b> pause:
-    /// holding a piece in mid-air would otherwise be free time.
+    /// Three independent pause reasons — app backgrounding, a modal menu panel being open, and a
+    /// power-up being armed — combine with OR: any one of them holds the clock. Dragging a piece
+    /// deliberately does <b>not</b> pause: holding a piece in mid-air would otherwise be free time.
+    /// Aiming a power-up does, because the player earned that power-up outside the run and must not
+    /// be charged run time for spending it.
     /// </para>
     /// </summary>
     public sealed class TimerRunSystem : ITickable, IDisposable
@@ -34,6 +36,7 @@ namespace MustyBlockBlast.Gameplay.Systems
 
         private bool _isAppPaused;
         private bool _isMenuPaused;
+        private bool _isPowerUpArmedPaused;
 
         public TimerRunSystem(
             TimerModel timerModel,
@@ -60,14 +63,23 @@ namespace MustyBlockBlast.Gameplay.Systems
         public void SetAppPaused(bool paused) => _isAppPaused = paused;
 
         /// <summary>
-        /// Suspends the countdown while the Settings panel is open, so a player can't lose a timed
-        /// run just from opening a menu. Called only from <c>SettingsPanelView.Open</c>/<c>Close</c>.
+        /// Suspends the countdown while a modal menu panel is open, so a player can't lose a timed run
+        /// just from opening a menu. Called from <c>SettingsPanelView</c> and <c>LevelPathPanelView</c>
+        /// on their own open/close edges — one flag rather than one per panel, because the input gate
+        /// chain makes the two mutually exclusive, so they can never disagree about who holds it.
         /// </summary>
         public void SetMenuPaused(bool paused) => _isMenuPaused = paused;
 
+        /// <summary>
+        /// Suspends the countdown while a power-up is armed and being aimed, so the seconds spent
+        /// choosing a target are free. Called only from <c>PowerUpSystem</c>, which arms, cancels and
+        /// applies — and therefore owns both edges of this flag.
+        /// </summary>
+        public void SetPowerUpArmedPaused(bool paused) => _isPowerUpArmedPaused = paused;
+
         void ITickable.Tick()
         {
-            if (!_timerModel.IsRunning.Value || _isAppPaused || _isMenuPaused)
+            if (!_timerModel.IsRunning.Value || _isAppPaused || _isMenuPaused || _isPowerUpArmedPaused)
             {
                 return;
             }
@@ -100,6 +112,7 @@ namespace MustyBlockBlast.Gameplay.Systems
 
             _isAppPaused = false;
             _isMenuPaused = false;
+            _isPowerUpArmedPaused = false;
             _timerModel.RemainingSeconds.Value = _timedModeSystem.SelectedDuration.Value;
             _timerModel.IsRunning.Value = true;
         }

@@ -142,6 +142,50 @@ MonoBehaviour:
     m_Localized: "Oto\xF1o"
     m_Metadata:
       m_Items: []
+  - m_Id: 149663784099840
+    m_Localized: "Despeja {0} l\xEDneas a la vez"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 149663859597312
+    m_Localized: Coloca piezas {0}
+    m_Metadata:
+      m_Items: []
+  - m_Id: 149663863791616
+    m_Localized: Consigue puntos en una partida
+    m_Metadata:
+      m_Items: []
+  - m_Id: 149663863791617
+    m_Localized: "Vac\xEDa todo el tablero"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 149663863791618
+    m_Localized: sencillas
+    m_Metadata:
+      m_Items: []
+  - m_Id: 149663867985920
+    m_Localized: "de l\xEDnea"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 149663872180224
+    m_Localized: cuadradas
+    m_Metadata:
+      m_Items: []
+  - m_Id: 149663872180225
+    m_Localized: de esquina
+    m_Metadata:
+      m_Items: []
+  - m_Id: 149663872180226
+    m_Localized: en T
+    m_Metadata:
+      m_Items: []
+  - m_Id: 149663872180227
+    m_Localized: en S
+    m_Metadata:
+      m_Items: []
+  - m_Id: 149663872180228
+    m_Localized: en Z
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

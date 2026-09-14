@@ -16,6 +16,12 @@ namespace MustyBlockBlast.Gameplay.Systems
     /// with how much it destroyed; a row/column clear pays the one-line clear rate, so it is worth the
     /// same as earning that line the hard way.
     /// </para>
+    /// <para>
+    /// A joker pays the clear rate for however many lines it actually completed (one, or two when the
+    /// filled cell closed its row and column at once) — again the same as earning them the hard way.
+    /// A joker that only filled a cell pays nothing: it cleared nothing, and the general "cleared
+    /// nothing, scored nothing" rule below already covers it.
+    /// </para>
     /// </summary>
     public sealed class PowerUpScoreSystem : IDisposable
     {
@@ -46,14 +52,36 @@ namespace MustyBlockBlast.Gameplay.Systems
                 return;
             }
 
-            int gained = message.Kind == PowerUpKind.Bomb
-                ? ScoreRules.PlacementScore(message.ClearedCellCount)
-                : ScoreRules.ClearScore(POWER_UP_LINES_CLEARED, _scoreModel.Streak.Value);
+            int gained = GainFor(message);
+            if (gained <= 0)
+            {
+                return;
+            }
 
             _scoreModel.Score.Value += gained;
 
             _scoreChangedPublisher.Publish(new ScoreChangedMessage(
                 _scoreModel.Score.Value, gained, _scoreModel.Streak.Value));
+        }
+
+        /// <summary>
+        /// The points one applied power-up is worth. The streak is read into the multiplier exactly as
+        /// a placement's clear would read it, and never written — that asymmetry is the whole reason
+        /// this system exists apart from <see cref="ScoreSystem"/>.
+        /// </summary>
+        private int GainFor(PowerUpAppliedMessage message)
+        {
+            switch (message.Kind)
+            {
+                case PowerUpKind.Bomb:
+                    return ScoreRules.PlacementScore(message.ClearedCellCount);
+                case PowerUpKind.Joker:
+                    // The only kind that can clear more than one line at a time, so it is the only one
+                    // that pays from the message rather than from a fixed count.
+                    return ScoreRules.ClearScore(message.ClearedLineCount, _scoreModel.Streak.Value);
+                default:
+                    return ScoreRules.ClearScore(POWER_UP_LINES_CLEARED, _scoreModel.Streak.Value);
+            }
         }
     }
 }

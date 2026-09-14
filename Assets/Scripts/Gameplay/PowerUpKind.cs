@@ -1,8 +1,12 @@
 namespace MustyBlockBlast.Gameplay
 {
     /// <summary>
-    /// The three board-mutating power-ups. Each is earned separately and kept in its own inventory
+    /// The four board-mutating power-ups. Each is earned separately and kept in its own inventory
     /// slot, so the kind is the identity used by persistence, messaging and scoring alike.
+    /// <para>
+    /// Values are persisted by name (see <c>PowerUpInventoryKey</c>), so members may be appended but
+    /// never reordered or renamed.
+    /// </para>
     /// </summary>
     public enum PowerUpKind
     {
@@ -14,5 +18,12 @@ namespace MustyBlockBlast.Gameplay
 
         /// <summary>Clears a whole column, full or not.</summary>
         ColumnClear,
+
+        /// <summary>
+        /// Fills one empty cell, and clears that cell's row and/or column if the fill completed them.
+        /// The odd one out: it adds rather than removes, and unlike the other three it only clears a
+        /// line that genuinely became full — exactly as a normal placement does.
+        /// </summary>
+        Joker,
     }
 }

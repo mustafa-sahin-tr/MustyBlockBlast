@@ -67,6 +67,29 @@ namespace MustyBlockBlast.Gameplay.Localization
         public const string SETTINGS_CONFIRM_YES = "settings.confirm.yes";
         public const string SETTINGS_CONFIRM_NO = "settings.confirm.no";
 
+        // --- Objectives ---
+        // One description template per ObjectiveType. None of them spells the target value: the HUD
+        // renders that separately as "2/3", so a template that repeated it could drift from the model.
+
+        /// <summary><c>{0}</c> is the number of lines that must fall in one placement.</summary>
+        public const string OBJECTIVE_SIMULTANEOUS_LINE_CLEAR = "objective.simultaneous_line_clear";
+
+        /// <summary><c>{0}</c> is the localized piece-family name.</summary>
+        public const string OBJECTIVE_PIECE_FAMILY_COUNT = "objective.piece_family_count";
+
+        public const string OBJECTIVE_SCORE_IN_RUN = "objective.score_in_run";
+        public const string OBJECTIVE_BOARD_WIPE_COUNT = "objective.board_wipe_count";
+
+        // Family names are their own entries rather than being baked into the template above, so a
+        // new family is one row per language instead of one template per language.
+        public const string OBJECTIVE_FAMILY_SINGLE = "objective.family.single";
+        public const string OBJECTIVE_FAMILY_LINE = "objective.family.line";
+        public const string OBJECTIVE_FAMILY_SQUARE = "objective.family.square";
+        public const string OBJECTIVE_FAMILY_CORNER = "objective.family.corner";
+        public const string OBJECTIVE_FAMILY_T_SHAPE = "objective.family.t_shape";
+        public const string OBJECTIVE_FAMILY_S_SHAPE = "objective.family.s_shape";
+        public const string OBJECTIVE_FAMILY_Z_SHAPE = "objective.family.z_shape";
+
         // --- Themes ---
 
         public const string THEME_YAZ = "theme.yaz";

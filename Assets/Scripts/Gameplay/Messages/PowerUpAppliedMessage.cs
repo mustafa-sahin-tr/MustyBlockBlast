@@ -12,13 +12,26 @@ namespace MustyBlockBlast.Gameplay.Messages
     public readonly struct PowerUpAppliedMessage
     {
         public PowerUpAppliedMessage(PowerUpKind kind, int clearedCellCount)
+            : this(kind, clearedCellCount, 0)
+        {
+        }
+
+        public PowerUpAppliedMessage(PowerUpKind kind, int clearedCellCount, int clearedLineCount)
         {
             Kind = kind;
             ClearedCellCount = clearedCellCount;
+            ClearedLineCount = clearedLineCount;
         }
 
         public PowerUpKind Kind { get; }
 
         public int ClearedCellCount { get; }
+
+        /// <summary>
+        /// How many whole rows/columns became full and cleared. Only <see cref="PowerUpKind.Joker"/>
+        /// reports this, because it is the only kind whose clear is conditional on fullness; the other
+        /// three clear a region regardless, so "lines" is not a thing they have and they leave it 0.
+        /// </summary>
+        public int ClearedLineCount { get; }
     }
 }

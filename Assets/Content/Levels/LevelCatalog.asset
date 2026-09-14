@@ -1,0 +1,815 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 61258d657c03b46119e6d8ad3f7f518d, type: 3}
+  m_Name: LevelCatalog
+  m_EditorClassIdentifier: MustyBlockBlast.Gameplay::MustyBlockBlast.Gameplay.Settings.LevelCatalog
+  _levels:
+  - _levelNumber: 1
+    _objectiveType: 0
+    _scope: 0
+    _targetValue: 2
+    _requiredLineCount: 2
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 2
+    _objectiveType: 0
+    _scope: 0
+    _targetValue: 2
+    _requiredLineCount: 2
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 3
+    _objectiveType: 0
+    _scope: 0
+    _targetValue: 2
+    _requiredLineCount: 2
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 4
+    _objectiveType: 0
+    _scope: 0
+    _targetValue: 2
+    _requiredLineCount: 2
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 5
+    _objectiveType: 0
+    _scope: 0
+    _targetValue: 3
+    _requiredLineCount: 2
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 1
+    _levelUpReward: 1
+  - _levelNumber: 6
+    _objectiveType: 0
+    _scope: 0
+    _targetValue: 3
+    _requiredLineCount: 2
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 7
+    _objectiveType: 0
+    _scope: 0
+    _targetValue: 3
+    _requiredLineCount: 2
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 8
+    _objectiveType: 0
+    _scope: 0
+    _targetValue: 3
+    _requiredLineCount: 2
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 9
+    _objectiveType: 0
+    _scope: 0
+    _targetValue: 4
+    _requiredLineCount: 2
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 10
+    _objectiveType: 0
+    _scope: 0
+    _targetValue: 4
+    _requiredLineCount: 2
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 1
+    _levelUpReward: 2
+  - _levelNumber: 11
+    _objectiveType: 1
+    _scope: 0
+    _targetValue: 5
+    _requiredLineCount: 2
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 12
+    _objectiveType: 1
+    _scope: 0
+    _targetValue: 5
+    _requiredLineCount: 2
+    _requiredPieceFamily: 1
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 13
+    _objectiveType: 0
+    _scope: 0
+    _targetValue: 4
+    _requiredLineCount: 2
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 14
+    _objectiveType: 1
+    _scope: 0
+    _targetValue: 6
+    _requiredLineCount: 2
+    _requiredPieceFamily: 3
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 15
+    _objectiveType: 1
+    _scope: 0
+    _targetValue: 6
+    _requiredLineCount: 2
+    _requiredPieceFamily: 4
+    _grantsLevelUpReward: 1
+    _levelUpReward: 3
+  - _levelNumber: 16
+    _objectiveType: 0
+    _scope: 0
+    _targetValue: 4
+    _requiredLineCount: 2
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 17
+    _objectiveType: 1
+    _scope: 0
+    _targetValue: 7
+    _requiredLineCount: 2
+    _requiredPieceFamily: 6
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 18
+    _objectiveType: 1
+    _scope: 0
+    _targetValue: 7
+    _requiredLineCount: 2
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 19
+    _objectiveType: 0
+    _scope: 0
+    _targetValue: 5
+    _requiredLineCount: 2
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 20
+    _objectiveType: 1
+    _scope: 1
+    _targetValue: 24
+    _requiredLineCount: 2
+    _requiredPieceFamily: 2
+    _grantsLevelUpReward: 1
+    _levelUpReward: 1
+  - _levelNumber: 21
+    _objectiveType: 1
+    _scope: 1
+    _targetValue: 25
+    _requiredLineCount: 2
+    _requiredPieceFamily: 3
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 22
+    _objectiveType: 0
+    _scope: 0
+    _targetValue: 5
+    _requiredLineCount: 2
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 23
+    _objectiveType: 1
+    _scope: 1
+    _targetValue: 27
+    _requiredLineCount: 2
+    _requiredPieceFamily: 5
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 24
+    _objectiveType: 1
+    _scope: 1
+    _targetValue: 28
+    _requiredLineCount: 2
+    _requiredPieceFamily: 6
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 25
+    _objectiveType: 0
+    _scope: 0
+    _targetValue: 6
+    _requiredLineCount: 2
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 1
+    _levelUpReward: 2
+  - _levelNumber: 26
+    _objectiveType: 1
+    _scope: 1
+    _targetValue: 30
+    _requiredLineCount: 2
+    _requiredPieceFamily: 1
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 27
+    _objectiveType: 1
+    _scope: 1
+    _targetValue: 31
+    _requiredLineCount: 2
+    _requiredPieceFamily: 2
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 28
+    _objectiveType: 0
+    _scope: 0
+    _targetValue: 6
+    _requiredLineCount: 2
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 29
+    _objectiveType: 1
+    _scope: 1
+    _targetValue: 33
+    _requiredLineCount: 2
+    _requiredPieceFamily: 4
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 30
+    _objectiveType: 1
+    _scope: 1
+    _targetValue: 34
+    _requiredLineCount: 2
+    _requiredPieceFamily: 5
+    _grantsLevelUpReward: 1
+    _levelUpReward: 3
+  - _levelNumber: 31
+    _objectiveType: 0
+    _scope: 0
+    _targetValue: 3
+    _requiredLineCount: 3
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 32
+    _objectiveType: 1
+    _scope: 1
+    _targetValue: 42
+    _requiredLineCount: 2
+    _requiredPieceFamily: 1
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 33
+    _objectiveType: 3
+    _scope: 0
+    _targetValue: 1
+    _requiredLineCount: 2
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 34
+    _objectiveType: 0
+    _scope: 0
+    _targetValue: 3
+    _requiredLineCount: 3
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 35
+    _objectiveType: 1
+    _scope: 1
+    _targetValue: 48
+    _requiredLineCount: 2
+    _requiredPieceFamily: 4
+    _grantsLevelUpReward: 1
+    _levelUpReward: 1
+  - _levelNumber: 36
+    _objectiveType: 3
+    _scope: 1
+    _targetValue: 2
+    _requiredLineCount: 2
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 37
+    _objectiveType: 0
+    _scope: 0
+    _targetValue: 3
+    _requiredLineCount: 3
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 38
+    _objectiveType: 1
+    _scope: 1
+    _targetValue: 54
+    _requiredLineCount: 2
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 39
+    _objectiveType: 3
+    _scope: 0
+    _targetValue: 1
+    _requiredLineCount: 2
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 40
+    _objectiveType: 0
+    _scope: 0
+    _targetValue: 3
+    _requiredLineCount: 3
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 1
+    _levelUpReward: 2
+  - _levelNumber: 41
+    _objectiveType: 1
+    _scope: 1
+    _targetValue: 60
+    _requiredLineCount: 2
+    _requiredPieceFamily: 3
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 42
+    _objectiveType: 3
+    _scope: 1
+    _targetValue: 3
+    _requiredLineCount: 2
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 43
+    _objectiveType: 0
+    _scope: 0
+    _targetValue: 4
+    _requiredLineCount: 4
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 44
+    _objectiveType: 1
+    _scope: 1
+    _targetValue: 66
+    _requiredLineCount: 2
+    _requiredPieceFamily: 6
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 45
+    _objectiveType: 3
+    _scope: 0
+    _targetValue: 1
+    _requiredLineCount: 2
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 1
+    _levelUpReward: 3
+  - _levelNumber: 46
+    _objectiveType: 0
+    _scope: 0
+    _targetValue: 4
+    _requiredLineCount: 4
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 47
+    _objectiveType: 1
+    _scope: 1
+    _targetValue: 72
+    _requiredLineCount: 2
+    _requiredPieceFamily: 2
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 48
+    _objectiveType: 3
+    _scope: 1
+    _targetValue: 3
+    _requiredLineCount: 2
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 49
+    _objectiveType: 0
+    _scope: 0
+    _targetValue: 4
+    _requiredLineCount: 4
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 50
+    _objectiveType: 1
+    _scope: 1
+    _targetValue: 78
+    _requiredLineCount: 2
+    _requiredPieceFamily: 5
+    _grantsLevelUpReward: 1
+    _levelUpReward: 1
+  - _levelNumber: 51
+    _objectiveType: 3
+    _scope: 0
+    _targetValue: 1
+    _requiredLineCount: 2
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 52
+    _objectiveType: 0
+    _scope: 0
+    _targetValue: 5
+    _requiredLineCount: 4
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 53
+    _objectiveType: 1
+    _scope: 1
+    _targetValue: 84
+    _requiredLineCount: 2
+    _requiredPieceFamily: 1
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 54
+    _objectiveType: 3
+    _scope: 1
+    _targetValue: 4
+    _requiredLineCount: 2
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 55
+    _objectiveType: 0
+    _scope: 0
+    _targetValue: 5
+    _requiredLineCount: 3
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 1
+    _levelUpReward: 2
+  - _levelNumber: 56
+    _objectiveType: 1
+    _scope: 1
+    _targetValue: 90
+    _requiredLineCount: 2
+    _requiredPieceFamily: 4
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 57
+    _objectiveType: 3
+    _scope: 0
+    _targetValue: 1
+    _requiredLineCount: 2
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 58
+    _objectiveType: 0
+    _scope: 0
+    _targetValue: 5
+    _requiredLineCount: 3
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 59
+    _objectiveType: 1
+    _scope: 1
+    _targetValue: 96
+    _requiredLineCount: 2
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 60
+    _objectiveType: 3
+    _scope: 1
+    _targetValue: 4
+    _requiredLineCount: 2
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 1
+    _levelUpReward: 3
+  - _levelNumber: 61
+    _objectiveType: 2
+    _scope: 0
+    _targetValue: 3000
+    _requiredLineCount: 2
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 62
+    _objectiveType: 0
+    _scope: 0
+    _targetValue: 5
+    _requiredLineCount: 3
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 63
+    _objectiveType: 1
+    _scope: 1
+    _targetValue: 110
+    _requiredLineCount: 2
+    _requiredPieceFamily: 2
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 64
+    _objectiveType: 3
+    _scope: 1
+    _targetValue: 5
+    _requiredLineCount: 2
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 65
+    _objectiveType: 2
+    _scope: 0
+    _targetValue: 4000
+    _requiredLineCount: 2
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 1
+    _levelUpReward: 1
+  - _levelNumber: 66
+    _objectiveType: 0
+    _scope: 0
+    _targetValue: 5
+    _requiredLineCount: 3
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 67
+    _objectiveType: 1
+    _scope: 1
+    _targetValue: 130
+    _requiredLineCount: 2
+    _requiredPieceFamily: 6
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 68
+    _objectiveType: 3
+    _scope: 1
+    _targetValue: 5
+    _requiredLineCount: 2
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 69
+    _objectiveType: 2
+    _scope: 0
+    _targetValue: 5000
+    _requiredLineCount: 2
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 70
+    _objectiveType: 0
+    _scope: 0
+    _targetValue: 5
+    _requiredLineCount: 4
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 1
+    _levelUpReward: 2
+  - _levelNumber: 71
+    _objectiveType: 1
+    _scope: 1
+    _targetValue: 150
+    _requiredLineCount: 2
+    _requiredPieceFamily: 3
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 72
+    _objectiveType: 3
+    _scope: 1
+    _targetValue: 6
+    _requiredLineCount: 2
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 73
+    _objectiveType: 2
+    _scope: 0
+    _targetValue: 6000
+    _requiredLineCount: 2
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 74
+    _objectiveType: 0
+    _scope: 0
+    _targetValue: 6
+    _requiredLineCount: 4
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 75
+    _objectiveType: 1
+    _scope: 1
+    _targetValue: 170
+    _requiredLineCount: 2
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 1
+    _levelUpReward: 3
+  - _levelNumber: 76
+    _objectiveType: 3
+    _scope: 1
+    _targetValue: 6
+    _requiredLineCount: 2
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 77
+    _objectiveType: 2
+    _scope: 0
+    _targetValue: 7000
+    _requiredLineCount: 2
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 78
+    _objectiveType: 0
+    _scope: 0
+    _targetValue: 6
+    _requiredLineCount: 3
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 79
+    _objectiveType: 1
+    _scope: 1
+    _targetValue: 190
+    _requiredLineCount: 2
+    _requiredPieceFamily: 4
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 80
+    _objectiveType: 3
+    _scope: 1
+    _targetValue: 7
+    _requiredLineCount: 2
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 1
+    _levelUpReward: 1
+  - _levelNumber: 81
+    _objectiveType: 2
+    _scope: 0
+    _targetValue: 8000
+    _requiredLineCount: 2
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 82
+    _objectiveType: 0
+    _scope: 0
+    _targetValue: 7
+    _requiredLineCount: 3
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 83
+    _objectiveType: 1
+    _scope: 1
+    _targetValue: 210
+    _requiredLineCount: 2
+    _requiredPieceFamily: 1
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 84
+    _objectiveType: 3
+    _scope: 1
+    _targetValue: 7
+    _requiredLineCount: 2
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 85
+    _objectiveType: 2
+    _scope: 0
+    _targetValue: 9000
+    _requiredLineCount: 2
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 1
+    _levelUpReward: 2
+  - _levelNumber: 86
+    _objectiveType: 0
+    _scope: 0
+    _targetValue: 7
+    _requiredLineCount: 4
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 87
+    _objectiveType: 1
+    _scope: 1
+    _targetValue: 230
+    _requiredLineCount: 2
+    _requiredPieceFamily: 5
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 88
+    _objectiveType: 3
+    _scope: 1
+    _targetValue: 8
+    _requiredLineCount: 2
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 89
+    _objectiveType: 2
+    _scope: 0
+    _targetValue: 10000
+    _requiredLineCount: 2
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 90
+    _objectiveType: 0
+    _scope: 0
+    _targetValue: 7
+    _requiredLineCount: 4
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 1
+    _levelUpReward: 3
+  - _levelNumber: 91
+    _objectiveType: 1
+    _scope: 1
+    _targetValue: 250
+    _requiredLineCount: 2
+    _requiredPieceFamily: 2
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 92
+    _objectiveType: 3
+    _scope: 1
+    _targetValue: 8
+    _requiredLineCount: 2
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 93
+    _objectiveType: 2
+    _scope: 0
+    _targetValue: 11000
+    _requiredLineCount: 2
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 94
+    _objectiveType: 0
+    _scope: 0
+    _targetValue: 8
+    _requiredLineCount: 3
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 95
+    _objectiveType: 1
+    _scope: 1
+    _targetValue: 270
+    _requiredLineCount: 2
+    _requiredPieceFamily: 6
+    _grantsLevelUpReward: 1
+    _levelUpReward: 1
+  - _levelNumber: 96
+    _objectiveType: 3
+    _scope: 1
+    _targetValue: 9
+    _requiredLineCount: 2
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 97
+    _objectiveType: 2
+    _scope: 0
+    _targetValue: 12000
+    _requiredLineCount: 2
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 98
+    _objectiveType: 0
+    _scope: 0
+    _targetValue: 8
+    _requiredLineCount: 3
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 99
+    _objectiveType: 1
+    _scope: 1
+    _targetValue: 290
+    _requiredLineCount: 2
+    _requiredPieceFamily: 3
+    _grantsLevelUpReward: 0
+    _levelUpReward: 1
+  - _levelNumber: 100
+    _objectiveType: 3
+    _scope: 1
+    _targetValue: 9
+    _requiredLineCount: 2
+    _requiredPieceFamily: 0
+    _grantsLevelUpReward: 0
+    _levelUpReward: 2

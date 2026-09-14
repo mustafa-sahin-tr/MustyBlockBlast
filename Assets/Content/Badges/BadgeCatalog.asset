@@ -1,0 +1,65 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dfb6350114f76491cb54e81dffcf55ec, type: 3}
+  m_Name: BadgeCatalog
+  m_EditorClassIdentifier: MustyBlockBlast.Gameplay::MustyBlockBlast.Gameplay.Settings.BadgeCatalog
+  _badges:
+  - _id: first_steps
+    _displayName: First Steps
+    _statType: 0
+    _threshold: 50
+    _reward: 0
+  - _id: line_cutter
+    _displayName: Line Cutter
+    _statType: 1
+    _threshold: 100
+    _reward: 1
+  - _id: board_sweeper
+    _displayName: Board Sweeper
+    _statType: 2
+    _threshold: 5
+    _reward: 2
+  - _id: high_scorer
+    _displayName: High Scorer
+    _statType: 3
+    _threshold: 5000
+    _reward: 0
+  - _id: century_club
+    _displayName: Century Club
+    _statType: 1
+    _threshold: 500
+    _reward: 1
+  - _id: perfectionist
+    _displayName: Perfectionist
+    _statType: 2
+    _threshold: 20
+    _reward: 2
+  - _id: veteran
+    _displayName: Veteran
+    _statType: 4
+    _threshold: 25
+    _reward: 0
+  - _id: power_player
+    _displayName: Power Player
+    _statType: 5
+    _threshold: 10
+    _reward: 1
+  - _id: marathon
+    _displayName: Marathon
+    _statType: 0
+    _threshold: 1000
+    _reward: 2
+  - _id: elite_scorer
+    _displayName: Elite Scorer
+    _statType: 3
+    _threshold: 20000
+    _reward: 0

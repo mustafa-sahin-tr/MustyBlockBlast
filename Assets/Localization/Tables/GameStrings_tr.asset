@@ -142,6 +142,50 @@ MonoBehaviour:
     m_Localized: Sonbahar
     m_Metadata:
       m_Items: []
+  - m_Id: 149663784099840
+    m_Localized: "Ayn\u0131 anda {0} s\u0131ra temizle"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 149663859597312
+    m_Localized: "{0} par\xE7a yerle\u015Ftir"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 149663863791616
+    m_Localized: Tek turda puan topla
+    m_Metadata:
+      m_Items: []
+  - m_Id: 149663863791617
+    m_Localized: "T\xFCm tahtay\u0131 temizle"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 149663863791618
+    m_Localized: tekli
+    m_Metadata:
+      m_Items: []
+  - m_Id: 149663867985920
+    m_Localized: "\xE7izgi"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 149663872180224
+    m_Localized: kare
+    m_Metadata:
+      m_Items: []
+  - m_Id: 149663872180225
+    m_Localized: "k\xF6\u015Fe"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 149663872180226
+    m_Localized: T
+    m_Metadata:
+      m_Items: []
+  - m_Id: 149663872180227
+    m_Localized: S
+    m_Metadata:
+      m_Items: []
+  - m_Id: 149663872180228
+    m_Localized: Z
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

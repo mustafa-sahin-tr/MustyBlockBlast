@@ -5,6 +5,7 @@ using MustyBlockBlast.Core;
 using MustyBlockBlast.Gameplay;
 using MustyBlockBlast.Gameplay.Messages;
 using MustyBlockBlast.Gameplay.Models;
+using MustyBlockBlast.Gameplay.Settings;
 using MustyBlockBlast.Gameplay.Systems;
 using NUnit.Framework;
 using UnityEngine;
@@ -238,7 +239,48 @@ namespace MustyBlockBlast.Tests.EditMode
 
         private PowerUpSystem CreateSystem(PowerUpModel model, BoardModel boardModel, IRewardSource rewardSource)
         {
-            return new PowerUpSystem(model, boardModel, rewardSource, _appliedBroker, _grantedBroker);
+            BoardSystem boardSystem = CreateBoardSystem(boardModel);
+            return new PowerUpSystem(
+                model,
+                boardModel,
+                boardSystem,
+                CreateTimerRunSystem(boardSystem),
+                rewardSource,
+                _appliedBroker,
+                _grantedBroker,
+                new TestMessageBroker<RunStartedMessage>(),
+                new TestMessageBroker<GameOverMessage>());
+        }
+
+        /// <summary>
+        /// A real, unstarted <see cref="BoardSystem"/>: <c>PowerUpSystem</c> reads only its
+        /// <c>IsGameOver</c> flag, which is false until the run is started or checked, so the board
+        /// each test set up by hand is left exactly as it was.
+        /// </summary>
+        private static BoardSystem CreateBoardSystem(BoardModel boardModel)
+        {
+            return new BoardSystem(
+                boardModel,
+                new TrayModel(),
+                new WeightedPieceDraw(),
+                new TestMessageBroker<RunStartedMessage>(),
+                new TestMessageBroker<PiecePlacedMessage>(),
+                new TestMessageBroker<LinesClearedMessage>(),
+                new TestMessageBroker<GameOverMessage>(),
+                new TestMessageBroker<TrayRefilledMessage>());
+        }
+
+        /// <summary>Only ever asked to hold and release the countdown here; it is never ticked.</summary>
+        private static TimerRunSystem CreateTimerRunSystem(BoardSystem boardSystem)
+        {
+            var timedModeConfig = ScriptableObject.CreateInstance<TimedModeConfig>();
+            return new TimerRunSystem(
+                new TimerModel(),
+                new GameModeSystem(new GameModeModel(), boardSystem),
+                new TimedModeSystem(new TimedModeModel(), timedModeConfig),
+                boardSystem,
+                new TestMessageBroker<TrayRefilledMessage>(),
+                new TestMessageBroker<GameOverMessage>());
         }
 
         private static void PersistCount(PowerUpKind kind, int count)

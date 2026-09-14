@@ -27,7 +27,13 @@ namespace MustyBlockBlast.Core
     /// always clear, and simply report nothing when the target region was already empty.</summary>
     public static class PowerUpClearResolver
     {
-        private const int BOMB_RADIUS = 1;
+        /// <summary>
+        /// Scratch buffer for the targeted geometry handed back by <see cref="PowerUpTargetCells"/>.
+        /// It never escapes a Resolve call, so reusing it costs nothing and keeps applying a power-up
+        /// down to the one allocation that actually leaves: the result list.
+        /// </summary>
+        private static readonly List<GridPosition> TargetBuffer =
+            new List<GridPosition>(PowerUpTargetCells.MAX_TARGET_CELLS);
 
         /// <summary>Clears the 3x3 area centred on <paramref name="center"/>, clamped to the board — a
         /// corner centre therefore affects 4 cells and an edge centre 6.</summary>
@@ -38,63 +44,40 @@ namespace MustyBlockBlast.Core
                 throw new ArgumentOutOfRangeException(nameof(center), center, "Outside the board.");
             }
 
-            int minX = Math.Max(0, center.X - BOMB_RADIUS);
-            int maxX = Math.Min(Board.SIZE - 1, center.X + BOMB_RADIUS);
-            int minY = Math.Max(0, center.Y - BOMB_RADIUS);
-            int maxY = Math.Min(Board.SIZE - 1, center.Y + BOMB_RADIUS);
-
-            var clearedCells = new List<GridPosition>();
-
-            // Occupancy is read before anything is cleared: once cleared, the cell is indistinguishable
-            // from one that was already empty.
-            for (int y = minY; y <= maxY; y++)
-            {
-                for (int x = minX; x <= maxX; x++)
-                {
-                    CollectIfOccupied(board, new GridPosition(x, y), clearedCells);
-                }
-            }
-
-            ClearAll(board, clearedCells);
-            return new PowerUpClearResult(clearedCells);
+            return ClearTargeted(board, PowerUpTargetCells.ForBomb(center, TargetBuffer));
         }
 
         /// <summary>Clears every occupied cell of <paramref name="row"/>, whether or not the row is full.</summary>
         public static PowerUpClearResult ResolveRowClear(Board board, int row)
         {
             RequireInRange(row, nameof(row));
-
-            var clearedCells = new List<GridPosition>();
-            for (int x = 0; x < Board.SIZE; x++)
-            {
-                CollectIfOccupied(board, new GridPosition(x, row), clearedCells);
-            }
-
-            ClearAll(board, clearedCells);
-            return new PowerUpClearResult(clearedCells);
+            return ClearTargeted(board, PowerUpTargetCells.ForRow(row, TargetBuffer));
         }
 
         /// <summary>Clears every occupied cell of <paramref name="column"/>, whether or not it is full.</summary>
         public static PowerUpClearResult ResolveColumnClear(Board board, int column)
         {
             RequireInRange(column, nameof(column));
+            return ClearTargeted(board, PowerUpTargetCells.ForColumn(column, TargetBuffer));
+        }
 
+        /// <summary>Clears whichever of <paramref name="targetedCells"/> hold a colour, and reports
+        /// exactly those. Occupancy is read before anything is cleared: once cleared, a cell is
+        /// indistinguishable from one that was already empty.</summary>
+        private static PowerUpClearResult ClearTargeted(Board board, IReadOnlyList<GridPosition> targetedCells)
+        {
             var clearedCells = new List<GridPosition>();
-            for (int y = 0; y < Board.SIZE; y++)
+            for (int i = 0; i < targetedCells.Count; i++)
             {
-                CollectIfOccupied(board, new GridPosition(column, y), clearedCells);
+                GridPosition position = targetedCells[i];
+                if (board.IsOccupied(position))
+                {
+                    clearedCells.Add(position);
+                }
             }
 
             ClearAll(board, clearedCells);
             return new PowerUpClearResult(clearedCells);
-        }
-
-        private static void CollectIfOccupied(Board board, GridPosition position, List<GridPosition> clearedCells)
-        {
-            if (board.IsOccupied(position))
-            {
-                clearedCells.Add(position);
-            }
         }
 
         private static void ClearAll(Board board, List<GridPosition> cells)

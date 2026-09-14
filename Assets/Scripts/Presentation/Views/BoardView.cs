@@ -45,6 +45,10 @@ namespace MustyBlockBlast.Presentation.Views
         private static readonly Color FlashTint = Color.white;
 
         private readonly GridPosition[] _previewCells = new GridPosition[16];
+
+        // A power-up never targets more than a full line or a 3x3 block, but the array is sized to
+        // the board so a future kind with a wider footprint cannot silently truncate its preview.
+        private readonly GridPosition[] _powerUpTargetCells = new GridPosition[Board.SIZE * Board.SIZE];
         private readonly CompositeDisposable _disposables = new CompositeDisposable();
 
         private readonly bool[] _rowClearMask = new bool[Board.SIZE];
@@ -74,9 +78,11 @@ namespace MustyBlockBlast.Presentation.Views
         private ThemeDefinition _currentTheme;
         private ISubscriber<LinesClearedMessage> _linesClearedSubscriber;
         private ISubscriber<RunStartedMessage> _runStartedSubscriber;
+        private ISubscriber<PowerUpAppliedMessage> _powerUpAppliedSubscriber;
 
         private CancellationToken _destroyToken;
         private int _previewCount;
+        private int _powerUpTargetCount;
         private float _gridExtent;
         private bool _isDestroyed;
         private bool _hasHighlight;
@@ -86,12 +92,14 @@ namespace MustyBlockBlast.Presentation.Views
             BoardModel boardModel,
             SettingsModel settingsModel,
             ISubscriber<LinesClearedMessage> linesClearedSubscriber,
-            ISubscriber<RunStartedMessage> runStartedSubscriber)
+            ISubscriber<RunStartedMessage> runStartedSubscriber,
+            ISubscriber<PowerUpAppliedMessage> powerUpAppliedSubscriber)
         {
             _boardModel = boardModel;
             _settingsModel = settingsModel;
             _linesClearedSubscriber = linesClearedSubscriber;
             _runStartedSubscriber = runStartedSubscriber;
+            _powerUpAppliedSubscriber = powerUpAppliedSubscriber;
         }
 
         internal float CellSize => _cellSize;
@@ -142,6 +150,7 @@ namespace MustyBlockBlast.Presentation.Views
             _boardModel.CellChanged += OnCellChanged;
             _linesClearedSubscriber.Subscribe(OnLinesCleared).AddTo(_disposables);
             _runStartedSubscriber.Subscribe(OnRunStarted).AddTo(_disposables);
+            _powerUpAppliedSubscriber.Subscribe(OnPowerUpApplied).AddTo(_disposables);
 
             RedrawAll();
         }
@@ -239,6 +248,67 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             _previewCount = 0;
+        }
+
+        /// <summary>
+        /// Tints exactly the cells an armed power-up would hit, occupied or not. The caller reads the
+        /// set from <see cref="PowerUpTargetCells"/> — the same geometry the application itself uses —
+        /// so the tinted region is never a promise the power-up would not keep.
+        /// <para>
+        /// Shares the valid-placement tint on purpose: the project has no power-up-specific colour,
+        /// and both mean the same thing to the player — "this is what the thing in your hand lands
+        /// on". Safe to call every pointer-move frame.
+        /// </para>
+        /// <para>
+        /// <paramref name="isValid"/> exists for the joker, the one kind that can be aimed at a cell
+        /// it cannot legally use (an occupied one). It borrows <see cref="ShowPreview"/>'s
+        /// valid/invalid tint pair so "this tap will do nothing" reads the same way whether the player
+        /// is holding a piece or a power-up. The three region-clearing kinds are legal anywhere on the
+        /// board and simply leave it at its default.
+        /// </para>
+        /// </summary>
+        /// <remarks>The caller's list is read here and never stored.</remarks>
+        internal void ShowPowerUpTargetHighlight(IReadOnlyList<GridPosition> cells, bool isValid = true)
+        {
+            ClearPowerUpTargetHighlight();
+
+            if (cells == null || _currentTheme == null || _cells == null)
+            {
+                return;
+            }
+
+            Color tint = isValid ? _currentTheme.ValidPreview : _currentTheme.InvalidPreview;
+            for (int i = 0; i < cells.Count && _powerUpTargetCount < _powerUpTargetCells.Length; i++)
+            {
+                GridPosition cell = cells[i];
+                if (!Board.IsInside(cell))
+                {
+                    continue;
+                }
+
+                int index = CellIndex(cell);
+
+                // Same reason as ShowPreview: a cell still fading out from a clear must drop the fade
+                // the instant the tint claims it, or the tint would be drawn at partial alpha.
+                CancelFade(index);
+
+                _cells[index].SetColours(tint, tint);
+                _powerUpTargetCells[_powerUpTargetCount] = cell;
+                _powerUpTargetCount++;
+            }
+        }
+
+        /// <summary>Restores every cell the power-up target tint claimed. Called when the pointer
+        /// leaves the board, on release, and whenever the run is rebuilt underneath it.</summary>
+        internal void ClearPowerUpTargetHighlight()
+        {
+            for (int i = 0; i < _powerUpTargetCount; i++)
+            {
+                GridPosition cell = _powerUpTargetCells[i];
+                ApplyCellColour(cell, _boardModel != null ? _boardModel.GetCell(cell) : Board.EMPTY);
+            }
+
+            _powerUpTargetCount = 0;
         }
 
         /// <summary>
@@ -375,9 +445,10 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>Forces every cell back to the model's state, opaque and with no fade in flight.</summary>
         private void RedrawAll()
         {
-            // A run restart wipes the board underneath any drag that was in flight, so no outline
-            // from that drag may survive it.
+            // A run restart wipes the board underneath any drag or power-up aim that was in flight,
+            // so nothing either of them tinted or outlined may survive it.
             ClearWouldClearHighlight();
+            _powerUpTargetCount = 0;
 
             for (int y = 0; y < Board.SIZE; y++)
             {
@@ -472,6 +543,51 @@ namespace MustyBlockBlast.Presentation.Views
                     PlayClearAsync(new GridPosition(x, y), index, _cellGenerations[index], inRow && inColumn)
                         .Forget();
                 }
+            }
+        }
+
+        /// <summary>
+        /// Claims the cells a power-up emptied, exactly as <see cref="OnLinesCleared"/> claims the
+        /// ones a placement emptied.
+        /// <para>
+        /// <see cref="OnCellChanged"/> deliberately holds an emptied cell's pre-clear look on screen
+        /// and waits for whoever cleared it to start the fade. A power-up publishes no
+        /// <see cref="LinesClearedMessage"/> — its clear is a region, not a set of lines — so without
+        /// this the cells it emptied would sit showing their old colour until the next run started.
+        /// </para>
+        /// <para>
+        /// It sweeps every pending cell rather than the message's own, because the message reports how
+        /// many cells cleared, not which. A placement's own pending cells stay claimed by their
+        /// original <see cref="OnLinesCleared"/> fade — <c>_cellPending</c> stays true for that fade's
+        /// whole duration, not just its first frame — so a power-up applied within that window will
+        /// also catch them and restart their fade from full opacity. The <see cref="_cellGenerations"/>
+        /// bump above still guarantees a single final writer either way; this is a cosmetic re-fade in
+        /// the rare case of overlap, not a correctness bug. No intersection flash — that is a
+        /// two-full-lines concept, and a power-up clears a region.
+        /// </para>
+        /// </summary>
+        private void OnPowerUpApplied(PowerUpAppliedMessage message)
+        {
+            if (message.ClearedCellCount <= 0 || _cells == null)
+            {
+                return;
+            }
+
+            for (int index = 0; index < _cells.Length; index++)
+            {
+                if (!_cellPending[index])
+                {
+                    continue;
+                }
+
+                // Bumped first so this fade is the cell's only owner. A placement's fade can still be
+                // in flight here (it holds the cell pending for its whole duration), and two fades
+                // writing one cell's alpha would fight; the bump makes the older one bail on its next
+                // tick instead.
+                _cellGenerations[index]++;
+
+                var cell = new GridPosition(index % Board.SIZE, index / Board.SIZE);
+                PlayClearAsync(cell, index, _cellGenerations[index], false).Forget();
             }
         }
 

@@ -142,6 +142,50 @@ MonoBehaviour:
     m_Localized: Autumn
     m_Metadata:
       m_Items: []
+  - m_Id: 149663784099840
+    m_Localized: Clear {0} lines at once
+    m_Metadata:
+      m_Items: []
+  - m_Id: 149663859597312
+    m_Localized: Place {0} pieces
+    m_Metadata:
+      m_Items: []
+  - m_Id: 149663863791616
+    m_Localized: Score points in one run
+    m_Metadata:
+      m_Items: []
+  - m_Id: 149663863791617
+    m_Localized: Clear the whole board
+    m_Metadata:
+      m_Items: []
+  - m_Id: 149663863791618
+    m_Localized: single
+    m_Metadata:
+      m_Items: []
+  - m_Id: 149663867985920
+    m_Localized: line
+    m_Metadata:
+      m_Items: []
+  - m_Id: 149663872180224
+    m_Localized: square
+    m_Metadata:
+      m_Items: []
+  - m_Id: 149663872180225
+    m_Localized: corner
+    m_Metadata:
+      m_Items: []
+  - m_Id: 149663872180226
+    m_Localized: T
+    m_Metadata:
+      m_Items: []
+  - m_Id: 149663872180227
+    m_Localized: S
+    m_Metadata:
+      m_Items: []
+  - m_Id: 149663872180228
+    m_Localized: Z
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

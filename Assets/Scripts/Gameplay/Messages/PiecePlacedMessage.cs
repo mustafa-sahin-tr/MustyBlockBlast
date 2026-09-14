@@ -9,6 +9,7 @@ namespace MustyBlockBlast.Gameplay.Messages
         public PiecePlacedMessage(
             string pieceId,
             GridPosition anchor,
+            PieceFamily pieceFamily,
             int cellCount,
             int colourId,
             int linesCleared,
@@ -17,6 +18,7 @@ namespace MustyBlockBlast.Gameplay.Messages
         {
             PieceId = pieceId;
             Anchor = anchor;
+            PieceFamily = pieceFamily;
             CellCount = cellCount;
             ColourId = colourId;
             LinesCleared = linesCleared;
@@ -27,6 +29,10 @@ namespace MustyBlockBlast.Gameplay.Messages
         public string PieceId { get; }
 
         public GridPosition Anchor { get; }
+
+        /// <summary>Shape family of <see cref="PieceId"/>, classified once at publish time so objective
+        /// tracking never has to re-parse the id.</summary>
+        public PieceFamily PieceFamily { get; }
 
         public int CellCount { get; }
 

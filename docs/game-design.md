@@ -74,6 +74,40 @@ lines at once should feel disproportionately rewarding.
 
 High score is persisted locally. There is no server, no leaderboard, in v1.
 
+## Levels & Objectives
+
+An objective is a goal the player works towards while playing the ordinary rule set — board,
+pieces, clearing and scoring are unchanged. Objectives only observe placements; they never
+alter them.
+
+**Objective types**
+
+| Type | Qualifies when | Progress |
+|---|---|---|
+| Simultaneous line clear | A placement clears **exactly** the required number of lines at once | +1 per qualifying placement |
+| Piece shape family | A placement uses a piece of the required shape family | +1 per qualifying placement |
+| Score in a run | — | Mirrors the current run score |
+| Board wipe | A placement leaves the board completely empty | +1 per qualifying placement |
+
+The line-clear objective matches exactly, not "at least": a 3-line clear does not satisfy a
+"clear 2 lines at once" objective — that is a separate, harder goal. Shape families are
+`Single`, `Line`, `Square`, `Corner`, `T`, `S`, `Z`; every catalog piece belongs to exactly one,
+regardless of its size or orientation, so adding a new orientation never invalidates a level.
+
+Progress is clamped to the target, and an objective stops tracking once complete — it can never
+overshoot and never completes twice.
+
+**Progress scopes**
+
+- **Per-run** — progress is reset to 0 when a new run starts (i.e. after game over). The goal
+  must be met inside a single run.
+- **Cumulative** — progress persists across runs and is never reset at run start, within the
+  current app session (no cross-restart persistence yet — see the v1 scope note below).
+
+**v1 scope:** this is the tracking engine only. There is no level content, no objective UI and
+no persistence of objective progress yet — those are tracked separately in epic "Levels &
+Objectives" (sub-issues #72 and #73).
+
 ## Game over
 
 After each placement, and after each tray refill, check whether **any** remaining tray piece
@@ -121,19 +155,32 @@ score and streak are therefore plain data in `Core`, not scattered MonoBehaviour
 
 ## Power-ups
 
-Two in v1, both applied as a board mutation before the next placement:
+All applied as a board mutation before the next placement:
 
 | Power-up | Effect |
 |---|---|
 | Bomb | Player taps a cell; clears a 3×3 area centred on it |
-| Line clear | Player taps a row or column; clears it entirely |
+| Row clear | Player taps a row; clears it entirely, full or not |
+| Column clear | Player taps a column; clears it entirely, full or not |
+| Joker | Player taps an **empty** cell; fills it, then clears its row and/or column if the fill completed them |
+
+The first three force-clear their region whether or not it is full. The joker is the
+exception: it adds a cell rather than removing any, and clears only on the condition a
+normal placement clears on — the line genuinely became full. Tapping an occupied cell is
+not a legal joker target and costs nothing; the joker stays held and stays aimed.
 
 Cleared cells score as a normal clear but **do not** advance the combo streak — power-ups
-should not be a way to farm multipliers.
+should not be a way to farm multipliers. A power-up that clears nothing scores nothing,
+including a joker that only fills a cell.
 
 ## Earning undo and power-ups
 
 Both are earned by watching a **rewarded ad**, opt-in only. No forced interstitials in v1.
+
+Power-ups are additionally granted outright — no ad — on two earned events: unlocking a
+badge, and completing a level that authors a level-up reward. Which levels reward, and with
+what, is authored per level in the level catalog rather than derived in code; the reward
+belongs to the level **completed**, not the one advanced into.
 
 The game logic must not know that ads exist. `Core` and `Gameplay` depend on an interface
 such as `IRewardSource` that grants a reward; the ad SDK lives entirely in `Presentation`
@@ -144,7 +191,7 @@ leaves the choice of ad provider (Unity LevelPlay, AdMob) open.
 
 ## Explicitly out of scope for v1
 
-- Levels, objectives, progression map
+- Progression map
 - Piece rotation
 - Leaderboards, accounts, cloud save
 - In-app purchases
