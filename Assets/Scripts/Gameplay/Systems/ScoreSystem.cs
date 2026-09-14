@@ -25,6 +25,7 @@ namespace MustyBlockBlast.Gameplay.Systems
 
         private readonly ScoreModel _scoreModel;
         private readonly GameModeSystem _gameModeSystem;
+        private readonly DoubleMultiplierModel _doubleMultiplierModel;
         private readonly IScoreRule[] _scoreRules;
         private readonly IPublisher<ScoreChangedMessage> _scoreChangedPublisher;
         private readonly IPublisher<NewRecordMessage> _newRecordPublisher;
@@ -40,6 +41,7 @@ namespace MustyBlockBlast.Gameplay.Systems
         public ScoreSystem(
             ScoreModel scoreModel,
             GameModeSystem gameModeSystem,
+            DoubleMultiplierModel doubleMultiplierModel,
             IEnumerable<IScoreRule> scoreRules,
             ISubscriber<PiecePlacedMessage> piecePlacedSubscriber,
             ISubscriber<RunStartedMessage> runStartedSubscriber,
@@ -49,6 +51,7 @@ namespace MustyBlockBlast.Gameplay.Systems
         {
             _scoreModel = scoreModel;
             _gameModeSystem = gameModeSystem;
+            _doubleMultiplierModel = doubleMultiplierModel;
 
             // Materialised once so the per-placement loop never re-enumerates a lazy sequence.
             _scoreRules = new List<IScoreRule>(scoreRules).ToArray();
@@ -106,6 +109,14 @@ namespace MustyBlockBlast.Gameplay.Systems
                     bonusGained += ruleBonus;
                 }
             }
+
+            // Applied to the finished total, not to any individual rule: the whole additive stack —
+            // placement, clears, streak and milestone bonuses — is computed exactly as it always is,
+            // and only its output is doubled. Zero stays zero, so a placement that scored nothing still
+            // scores nothing inside a frenzy. The bonus subtotal is doubled with it so the celebration
+            // the player sees matches the points they were actually credited.
+            gained = _doubleMultiplierModel.Multiply(gained);
+            bonusGained = _doubleMultiplierModel.Multiply(bonusGained);
 
             if (message.LinesCleared > 0)
             {

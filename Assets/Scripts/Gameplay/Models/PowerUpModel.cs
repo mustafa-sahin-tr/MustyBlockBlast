@@ -20,6 +20,8 @@ namespace MustyBlockBlast.Gameplay.Models
 
         public ReactiveProperty<int> RerollCount { get; } = new ReactiveProperty<int>(0);
 
+        public ReactiveProperty<int> DoubleMultiplierCount { get; } = new ReactiveProperty<int>(0);
+
         /// <summary>
         /// The power-up the player has selected and is now aiming — at the board, or at the tray for
         /// <see cref="PowerUpKind.Rotate"/> — or null when none is.

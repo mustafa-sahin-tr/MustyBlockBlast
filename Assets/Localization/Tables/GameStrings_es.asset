@@ -246,6 +246,10 @@ MonoBehaviour:
     m_Localized: Usa Reroll cuando tu bandeja no tenga jugadas pero tu bolsillo te cubra
     m_Metadata:
       m_Items: []
+  - m_Id: 288624816939008
+    m_Localized: x2 {0}
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

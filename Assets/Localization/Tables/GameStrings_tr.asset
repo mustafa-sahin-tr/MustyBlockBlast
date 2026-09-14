@@ -246,6 +246,10 @@ MonoBehaviour:
     m_Localized: "Elindeki hamle bitmi\u015Fken ama cebindeki par\xE7a seni kurtar\u0131rken Yeniden \xC7ekil kullan"
     m_Metadata:
       m_Items: []
+  - m_Id: 288624816939008
+    m_Localized: 2 kat {0}
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

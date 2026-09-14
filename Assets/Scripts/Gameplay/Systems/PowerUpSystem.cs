@@ -30,8 +30,9 @@ namespace MustyBlockBlast.Gameplay.Systems
     /// to have a distinct rotation).
     /// </para>
     /// <para>
-    /// <see cref="PowerUpKind.Reroll"/> sits outside that lifecycle entirely: it has no target to aim
-    /// at, so it is never armed and is applied on the tap that selects it.
+    /// <see cref="PowerUpKind.Reroll"/> and <see cref="PowerUpKind.DoubleMultiplier"/> sit outside that
+    /// lifecycle entirely: neither has a target to aim at, so neither is ever armed and both are
+    /// applied on the tap that selects them.
     /// </para>
     /// <para>
     /// It also owns the armed selection: selecting a power-up arms it immediately (there is no queue),
@@ -53,6 +54,7 @@ namespace MustyBlockBlast.Gameplay.Systems
         private readonly TrayModel _trayModel;
         private readonly BoardSystem _boardSystem;
         private readonly TimerRunSystem _timerRunSystem;
+        private readonly DoubleMultiplierSystem _doubleMultiplierSystem;
         private readonly IRewardSource _rewardSource;
         private readonly IPublisher<PowerUpAppliedMessage> _appliedPublisher;
         private readonly IPublisher<PowerUpGrantedMessage> _grantedPublisher;
@@ -65,6 +67,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             TrayModel trayModel,
             BoardSystem boardSystem,
             TimerRunSystem timerRunSystem,
+            DoubleMultiplierSystem doubleMultiplierSystem,
             IRewardSource rewardSource,
             IPublisher<PowerUpAppliedMessage> appliedPublisher,
             IPublisher<PowerUpGrantedMessage> grantedPublisher,
@@ -76,6 +79,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             _trayModel = trayModel;
             _boardSystem = boardSystem;
             _timerRunSystem = timerRunSystem;
+            _doubleMultiplierSystem = doubleMultiplierSystem;
             _rewardSource = rewardSource;
             _appliedPublisher = appliedPublisher;
             _grantedPublisher = grantedPublisher;
@@ -87,6 +91,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             LoadPersistedCount(PowerUpKind.ColorCleanser);
             LoadPersistedCount(PowerUpKind.Rotate);
             LoadPersistedCount(PowerUpKind.Reroll);
+            LoadPersistedCount(PowerUpKind.DoubleMultiplier);
 
             // An armed selection belongs to the run it was made in: it must not survive either end of
             // a run boundary, or the next run would open with a power-up already aimed and its clock
@@ -100,14 +105,16 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// clock until it is applied or cancelled. Holding none of that kind, or a run that is already
         /// over, is a no-op: neither arms, so neither can be spent by a follow-up tap.
         /// <para>
-        /// <see cref="PowerUpKind.Reroll"/> is refused outright, however many the player holds: it has
-        /// no target, so an armed reroll could only ever be released onto a board cell that means
-        /// nothing to it. <see cref="TryApplyReroll"/> is its whole interface.
+        /// <see cref="PowerUpKind.Reroll"/> and <see cref="PowerUpKind.DoubleMultiplier"/> are refused
+        /// outright, however many the player holds: neither has a target, so an armed one could only
+        /// ever be released onto a board cell that means nothing to it. <see cref="TryApplyReroll"/> and
+        /// <see cref="TryApplyDoubleMultiplier"/> are their whole interface.
         /// </para>
         /// </summary>
         public void Arm(PowerUpKind kind)
         {
-            if (kind == PowerUpKind.Reroll || _boardSystem.IsGameOver || CountOf(kind).Value <= 0)
+            if (kind == PowerUpKind.Reroll || kind == PowerUpKind.DoubleMultiplier
+                || _boardSystem.IsGameOver || CountOf(kind).Value <= 0)
             {
                 return;
             }
@@ -332,6 +339,45 @@ namespace MustyBlockBlast.Gameplay.Systems
             return true;
         }
 
+        /// <summary>
+        /// Spends one double multiplier: opens a fixed-length window during which every score gain —
+        /// placements and power-up clears alike — is worth double.
+        /// <para>
+        /// Targetless like <see cref="TryApplyReroll"/>, so it is applied on the tap that selects it
+        /// rather than armed first, and it likewise ends in <see cref="Disarm"/> so reaching for this
+        /// one never strands another kind's selection (and the clock hold it carries) behind it.
+        /// </para>
+        /// <para>
+        /// The only application that changes nothing at the moment it happens: no cell, no tray slot.
+        /// It publishes <see cref="PowerUpAppliedMessage"/> anyway, for the same reason Rotate and
+        /// Reroll do — the "power-ups used" badge counter must see it — with zero cleared cells, which
+        /// is what keeps <see cref="PowerUpScoreSystem"/> from paying for the activation itself.
+        /// </para>
+        /// <para>
+        /// Follows the "peek before spend" contract of <see cref="TryApplyJoker"/>: holding none, or a
+        /// run already over, is refused outright before a single count is touched.
+        /// </para>
+        /// </summary>
+        public bool TryApplyDoubleMultiplier()
+        {
+            if (_boardSystem.IsGameOver || CountOf(PowerUpKind.DoubleMultiplier).Value <= 0)
+            {
+                return false;
+            }
+
+            TrySpend(PowerUpKind.DoubleMultiplier);
+
+            // Opened before the publish, so any scoring this message goes on to trigger is already
+            // inside the window rather than depending on subscriber order.
+            _doubleMultiplierSystem.Activate();
+
+            _appliedPublisher.Publish(new PowerUpAppliedMessage(
+                PowerUpKind.DoubleMultiplier, clearedCellCount: 0, clearedLineCount: 0));
+
+            Disarm();
+            return true;
+        }
+
         /// <summary>Asks <see cref="IRewardSource"/> for one <paramref name="kind"/> and banks it if
         /// granted. Returns whether it was granted; a refusal leaves the inventory untouched.</summary>
         public async UniTask<bool> GrantRewardAsync(PowerUpKind kind, CancellationToken cancellationToken)
@@ -435,6 +481,8 @@ namespace MustyBlockBlast.Gameplay.Systems
                     return _powerUpModel.RotateCount;
                 case PowerUpKind.Reroll:
                     return _powerUpModel.RerollCount;
+                case PowerUpKind.DoubleMultiplier:
+                    return _powerUpModel.DoubleMultiplierCount;
                 default:
                     return _powerUpModel.BombCount;
             }

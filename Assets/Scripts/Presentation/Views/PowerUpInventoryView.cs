@@ -48,6 +48,7 @@ namespace MustyBlockBlast.Presentation.Views
             PowerUpKind.ColorCleanser,
             PowerUpKind.Rotate,
             PowerUpKind.Reroll,
+            PowerUpKind.DoubleMultiplier,
         };
 
         /// <summary>Derived from <see cref="SlotKinds"/> rather than written out, so the two can never
@@ -75,6 +76,10 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>Height-to-width ratio that squashes the reroll's circle into a lozenge, so it reads
         /// apart from the bomb's disc without needing an eighth sprite.</summary>
         private const float REROLL_GLYPH_FLATTEN = 0.5f;
+
+        /// <summary>Width-to-height ratio that stands the same circle on end for the double multiplier,
+        /// so it reads apart from the reroll's flat lozenge without needing a ninth sprite.</summary>
+        private const float DOUBLE_MULTIPLIER_GLYPH_FLATTEN = 0.5f;
 
         [Header("Layout")]
         [Tooltip("Strip centre in canvas space. Sits in the gap between the board card and the tray.")]
@@ -168,6 +173,7 @@ namespace MustyBlockBlast.Presentation.Views
             WatchCount(_powerUpModel.ColorCleanserCount, PowerUpKind.ColorCleanser);
             WatchCount(_powerUpModel.RotateCount, PowerUpKind.Rotate);
             WatchCount(_powerUpModel.RerollCount, PowerUpKind.Reroll);
+            WatchCount(_powerUpModel.DoubleMultiplierCount, PowerUpKind.DoubleMultiplier);
             _powerUpModel.Armed.Subscribe(OnArmedChanged).AddTo(_disposables);
 
             _runStartedSubscriber.Subscribe(OnRunStarted).AddTo(_disposables);
@@ -182,9 +188,9 @@ namespace MustyBlockBlast.Presentation.Views
         /// false when the point is on no icon, so <see cref="BoardInputView"/> can carry on down its
         /// gate chain.
         /// <para>
-        /// <see cref="PowerUpKind.Reroll"/> is the exception to the arm-then-aim flow: with no target to
-        /// aim at there is no second tap to wait for, so a tap on a reroll the player holds applies it
-        /// there and then.
+        /// <see cref="PowerUpKind.Reroll"/> and <see cref="PowerUpKind.DoubleMultiplier"/> are the
+        /// exceptions to the arm-then-aim flow: with no target to aim at there is no second tap to wait
+        /// for, so a tap on one the player holds applies it there and then.
         /// </para>
         /// </summary>
         internal bool TryHandleTap(Vector2 screenPosition)
@@ -204,10 +210,14 @@ namespace MustyBlockBlast.Presentation.Views
                 PowerUpKind kind = SlotKinds[slotIndex];
                 if (kind == PowerUpKind.Reroll && _counts[slotIndex] > 0)
                 {
-                    // The one kind with no target: there is nothing to aim at, so the tap that would
-                    // arm any other kind applies this one outright. The System refuses to arm it at
-                    // all, so this branch is its only way in.
+                    // The kinds with no target: there is nothing to aim at, so the tap that would arm
+                    // any other kind applies this one outright. The System refuses to arm either of
+                    // them at all, so these branches are their only way in.
                     _powerUpSystem.TryApplyReroll();
+                }
+                else if (kind == PowerUpKind.DoubleMultiplier && _counts[slotIndex] > 0)
+                {
+                    _powerUpSystem.TryApplyDoubleMultiplier();
                 }
                 else if (_armed == kind)
                 {
@@ -483,7 +493,7 @@ namespace MustyBlockBlast.Presentation.Views
         /// the row clear, a tall bar for the column clear, a diamond — the same rounded square, turned
         /// 45 degrees — for the joker, which reads as "one cell, placed askew", an upright square for
         /// the colour cleanser, that same bar turned 45 degrees for the rotate, and a flattened circle
-        /// for the reroll.
+        /// for the reroll, and that same circle stood on end for the double multiplier.
         /// </summary>
         private Image BuildGlyph(RectTransform parent, PowerUpKind kind)
         {
@@ -534,6 +544,14 @@ namespace MustyBlockBlast.Presentation.Views
                     // same two sprites — nothing new to atlas.
                     float lozengeWidth = _slotSize * 0.56f;
                     Centre(glyphRect, new Vector2(lozengeWidth, lozengeWidth * REROLL_GLYPH_FLATTEN));
+                    ConfigureCircle(glyphImage);
+                    break;
+                case PowerUpKind.DoubleMultiplier:
+                    // The eighth: the same circle sprite as the reroll's lozenge, stood on end instead
+                    // of laid flat. Distinct from both the flat lozenge and the bomb's true disc, and
+                    // still no new sprite to atlas.
+                    float uprightWidth = _slotSize * 0.56f * DOUBLE_MULTIPLIER_GLYPH_FLATTEN;
+                    Centre(glyphRect, new Vector2(uprightWidth, _slotSize * 0.56f));
                     ConfigureCircle(glyphImage);
                     break;
                 default:

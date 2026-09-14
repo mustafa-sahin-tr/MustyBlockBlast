@@ -118,6 +118,7 @@ namespace MustyBlockBlast.Presentation
             builder.Register<SettingsModel>(Lifetime.Singleton);
             builder.Register<LocalizationModel>(Lifetime.Singleton);
             builder.Register<PowerUpModel>(Lifetime.Singleton);
+            builder.Register<DoubleMultiplierModel>(Lifetime.Singleton);
             builder.Register<ObjectiveModel>(Lifetime.Singleton);
             builder.Register<LevelProgressionModel>(Lifetime.Singleton);
             builder.Register<BadgeStatsModel>(Lifetime.Singleton);
@@ -212,6 +213,10 @@ namespace MustyBlockBlast.Presentation
             // Entry point because it is an ITickable: the countdown is driven by VContainer's player
             // loop, not by a MonoBehaviour Update.
             builder.RegisterEntryPoint<TimerRunSystem>(Lifetime.Singleton).AsSelf();
+
+            // Same reason: the 2x window has to expire on its own schedule, whether or not the player
+            // places anything while it is open.
+            builder.RegisterEntryPoint<DoubleMultiplierSystem>(Lifetime.Singleton).AsSelf();
         }
 
         private static void RegisterViews(IContainerBuilder builder)
@@ -228,6 +233,7 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterComponentInHierarchy<HoldSlotView>();
             builder.RegisterComponentInHierarchy<ScoreView>();
             builder.RegisterComponentInHierarchy<TimerHudView>();
+            builder.RegisterComponentInHierarchy<DoubleMultiplierHudView>();
             builder.RegisterComponentInHierarchy<LineClearBurstView>();
             builder.RegisterComponentInHierarchy<BonusFeedbackView>();
             builder.RegisterComponentInHierarchy<PowerUpInventoryView>();

@@ -20,6 +20,13 @@ namespace MustyBlockBlast.Gameplay.Localization
         /// they can never disagree on spelling or spacing.</summary>
         public const string FORMAT_SECONDS = "format.seconds";
 
+        // --- Power-ups ---
+
+        /// <summary>Double Multiplier's HUD banner while its window is open. <c>{0}</c> is the
+        /// already-formatted remaining duration (via <see cref="FORMAT_SECONDS"/>) — this template only
+        /// supplies the "2x"/"x2"/"kat" idiom, which differs by language unlike a bare symbol.</summary>
+        public const string POWERUP_DOUBLE_MULTIPLIER_ACTIVE = "powerup.double_multiplier_active";
+
         // --- Splash ---
 
         public const string SPLASH_SKIP_HINT = "splash.skip_hint";
