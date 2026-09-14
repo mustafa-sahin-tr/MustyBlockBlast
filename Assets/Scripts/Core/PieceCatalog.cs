@@ -3,8 +3,14 @@ using System.Collections.Generic;
 namespace MustyBlockBlast.Core
 {
     /// <summary>
-    /// The full, fixed set of piece definitions (see docs/game-design.md, "Pieces"). Pieces are
-    /// never rotated at runtime — every orientation offered by the design is its own entry here.
+    /// The full, fixed set of piece definitions (see docs/game-design.md, "Pieces"). A piece's offsets
+    /// are never rotated at runtime — every orientation offered by the design is its own entry here.
+    /// <para>
+    /// Because of that, this set is <em>closed under 90-degree rotation</em>: the turn of any entry is
+    /// itself an entry (1x1, 2x2 and 3x3 being their own, as every turn of them is identical). The
+    /// Rotate power-up relies on exactly that property — see <see cref="PieceRotator"/>, and the
+    /// catalog-wide test that pins it down.
+    /// </para>
     /// </summary>
     public static class PieceCatalog
     {
@@ -113,7 +119,7 @@ namespace MustyBlockBlast.Core
             });
             yield return new Piece("s_vertical", new[]
             {
-                new GridPosition(0, 1), new GridPosition(0, 2), new GridPosition(1, 0), new GridPosition(1, 1),
+                new GridPosition(1, 1), new GridPosition(1, 2), new GridPosition(0, 0), new GridPosition(0, 1),
             });
 
             yield return new Piece("z_horizontal", new[]
@@ -122,7 +128,7 @@ namespace MustyBlockBlast.Core
             });
             yield return new Piece("z_vertical", new[]
             {
-                new GridPosition(1, 1), new GridPosition(1, 2), new GridPosition(0, 0), new GridPosition(0, 1),
+                new GridPosition(0, 1), new GridPosition(0, 2), new GridPosition(1, 0), new GridPosition(1, 1),
             });
         }
 

@@ -46,6 +46,7 @@ namespace MustyBlockBlast.Presentation.Views
             PowerUpKind.ColumnClear,
             PowerUpKind.Joker,
             PowerUpKind.ColorCleanser,
+            PowerUpKind.Rotate,
         };
 
         /// <summary>Derived from <see cref="SlotKinds"/> rather than written out, so the two can never
@@ -65,6 +66,10 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>Turns the joker's square glyph onto its point, so it is distinct from the bomb's
         /// disc and the two clear bars without needing a fourth sprite.</summary>
         private const float JOKER_GLYPH_ROTATION_DEGREES = 45f;
+
+        /// <summary>Tilts the rotate power-up's bar off both axes, so it is distinct from the row and
+        /// column bars and reads as "turned" — again without needing another sprite.</summary>
+        private const float ROTATE_GLYPH_ROTATION_DEGREES = 45f;
 
         [Header("Layout")]
         [Tooltip("Strip centre in canvas space. Sits in the gap between the board card and the tray.")]
@@ -152,6 +157,7 @@ namespace MustyBlockBlast.Presentation.Views
             WatchCount(_powerUpModel.ColumnClearCount, PowerUpKind.ColumnClear);
             WatchCount(_powerUpModel.JokerCount, PowerUpKind.Joker);
             WatchCount(_powerUpModel.ColorCleanserCount, PowerUpKind.ColorCleanser);
+            WatchCount(_powerUpModel.RotateCount, PowerUpKind.Rotate);
             _powerUpModel.Armed.Subscribe(OnArmedChanged).AddTo(_disposables);
 
             _runStartedSubscriber.Subscribe(OnRunStarted).AddTo(_disposables);
@@ -434,8 +440,9 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>
         /// One Image per kind, drawn from the shared placeholder sprites so the strip adds no art
         /// dependency and keeps batching with the rest of the UI: a disc for the bomb, a wide bar for
-        /// the row clear, a tall bar for the column clear, and a diamond — the same rounded square,
-        /// turned 45 degrees — for the joker, which reads as "one cell, placed askew".
+        /// the row clear, a tall bar for the column clear, a diamond — the same rounded square, turned
+        /// 45 degrees — for the joker, which reads as "one cell, placed askew", an upright square for
+        /// the colour cleanser, and that same bar turned 45 degrees for the rotate.
         /// </summary>
         private Image BuildGlyph(RectTransform parent, PowerUpKind kind)
         {
@@ -471,6 +478,13 @@ namespace MustyBlockBlast.Presentation.Views
                     // distinct silhouette in the strip, no new sprite needed.
                     float swatchSide = _slotSize * 0.44f;
                     Centre(glyphRect, new Vector2(swatchSide, swatchSide));
+                    ConfigurePlate(glyphImage);
+                    break;
+                case PowerUpKind.Rotate:
+                    // The sixth silhouette: the row clear's bar, tilted. Same rect-rotation trick as
+                    // Joker's diamond, so it stays in the shared atlas draw call.
+                    Centre(glyphRect, new Vector2(barLength, barThickness));
+                    glyphRect.localRotation = Quaternion.Euler(0f, 0f, ROTATE_GLYPH_ROTATION_DEGREES);
                     ConfigurePlate(glyphImage);
                     break;
                 default:

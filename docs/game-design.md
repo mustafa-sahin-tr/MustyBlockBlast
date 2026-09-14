@@ -26,6 +26,12 @@ from Tetris and the reason the game is about spatial planning rather than reacti
 Pieces are **not rotatable**. The offered orientation is the only orientation. This is the
 primary source of difficulty and must not be softened without an explicit design decision.
 
+**The single exception** is the Rotate power-up (see "Power-ups"), which is exactly such an
+explicit decision: it is earned, charged for, limited by inventory, and scoped to a piece
+sitting in the **dock**. It is never available mid-drag and never applies to a piece already
+on the board. Rotation remains something the player has to spend to get, not a free move —
+so the "one orientation per offer" difficulty still holds for ordinary play.
+
 Piece set (each defined as a set of cell offsets):
 
 | Family | Shapes |
@@ -36,8 +42,17 @@ Piece set (each defined as a set of cell offsets):
 | Corners (L) | 2×2 corner in 4 orientations, 3×3 corner in 4 orientations |
 | T / S / Z | Standard 4-cell T, S and Z tetrominoes in their common orientations |
 
-Each distinct orientation is a **separate piece definition** — because rotation does not exist,
-"L rotated 90°" is simply a different piece. This keeps placement logic trivial and data-driven.
+Each distinct orientation is a **separate piece definition** — "L rotated 90°" is simply a
+different piece. This keeps placement logic trivial and data-driven.
+
+Because every orientation is already authored, the piece set is **closed under rotation**: the
+90° turn of any piece is itself a piece in the set. The Rotate power-up is defined on top of
+that — it swaps the dock slot to the piece that already describes the turned shape, rather than
+rewriting a piece's offsets. A piece's identity therefore always matches its shape, which is
+what keeps everything keyed on piece id (objectives, families) correct.
+
+Three pieces — 1×1, 2×2 and 3×3 — are **fully symmetrical**: their 90° turn is themselves, so
+they have no second orientation and Rotate has nothing to do to them.
 
 ### Drawing pieces
 
@@ -243,7 +258,7 @@ score and streak are therefore plain data in `Core`, not scattered MonoBehaviour
 
 ## Power-ups
 
-All applied as a board mutation before the next placement:
+All but Rotate are applied as a board mutation before the next placement:
 
 | Power-up | Effect |
 |---|---|
@@ -252,6 +267,7 @@ All applied as a board mutation before the next placement:
 | Column clear | Player taps a column; clears it entirely, full or not |
 | Joker | Player taps an **empty** cell; fills it, then clears its row and/or column if the fill completed them |
 | Color Cleanser | Player taps an **occupied** cell; clears every cell on the board sharing that cell's colour |
+| Rotate | Player taps a **dock piece**; turns it 90° clockwise, in place, in its slot |
 
 The first three force-clear their region whether or not it is full. The joker is the
 exception: it adds a cell rather than removing any, and clears only on the condition a
@@ -264,6 +280,21 @@ clears, nothing is spent, the cleanser stays held and stays aimed. Unlike the re
 three, its cleared set can span the whole board and depends entirely on board content, not
 just the tapped position.
 
+Rotate is the odd one out twice over. It is the **only** power-up aimed at the tray rather than
+the board, and the **only explicit exception** to "pieces are not rotatable" (see "Pieces"). It
+is scoped deliberately narrowly:
+
+- It applies **only to a piece in a dock slot** — never to a piece already placed on the board,
+  and never mid-drag. There is no rotate gesture while dragging.
+- Aimed at a **fully symmetrical** piece (1×1, 2×2, 3×3) it is **rejected**: that piece's 90°
+  turn is itself, so there is nothing to do. Nothing is spent and it stays armed to aim again —
+  the same rule Joker and Color Cleanser follow for their illegal targets.
+- It touches no cell, so it clears nothing, scores nothing and neither advances nor breaks the
+  combo streak.
+- Because it changes **which shapes** the player holds, the no-moves-left check is re-run after
+  it: a rotation that leaves nothing placeable ends the run, exactly as the placement that
+  exhausted the board would.
+
 Cleared cells score as a normal clear but **do not** advance the combo streak — power-ups
 should not be a way to farm multipliers. A power-up that clears nothing scores nothing,
 including a joker that only fills a cell. Bomb and Color Cleanser both pay per cell cleared,
@@ -271,7 +302,7 @@ since neither has a fixed region size; Row Clear/Column Clear pay the flat one-l
 
 ## Hold slot (pocket)
 
-Separate from the five power-ups above: the Hold slot is not earned, has no charge or count,
+Separate from the six power-ups above: the Hold slot is not earned, has no charge or count,
 is never armed, and never touches the board. It is always available, for the whole run.
 
 A single extra slot sits beside the tray. The player drags a tray piece onto it to **park**
@@ -321,7 +352,7 @@ leaves the choice of ad provider (Unity LevelPlay, AdMob) open.
 ## Explicitly out of scope for v1
 
 - Progression map
-- Piece rotation
+- Free piece rotation (the earned, inventory-limited Rotate power-up is the only rotation in v1)
 - Leaderboards, accounts, cloud save
 - In-app purchases
 - Daily rewards, streaks, live-ops

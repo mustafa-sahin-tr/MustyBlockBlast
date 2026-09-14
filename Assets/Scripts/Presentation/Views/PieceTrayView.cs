@@ -11,6 +11,11 @@ namespace MustyBlockBlast.Presentation.Views
     /// <summary>
     /// Renders the three offered pieces in a card below the board. Reads <see cref="TrayModel"/>
     /// only; picking pieces up is the input View's job.
+    /// <para>
+    /// A slot is rebuilt from scratch whenever its piece changes, and the centring offsets are derived
+    /// from that piece's own bounds each time — so a slot whose piece changed shape (the Rotate
+    /// power-up swapping in another orientation) re-centres its new bounding box with no extra work.
+    /// </para>
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class PieceTrayView : MonoBehaviour
@@ -26,11 +31,24 @@ namespace MustyBlockBlast.Presentation.Views
         [SerializeField] private float _cellInset = 2f;
         [SerializeField] private float _cellBevelThickness = 6f;
 
+        [Header("Rotate aim")]
+        [Tooltip("Scale applied to the slot a Rotate is being aimed at, marking it as a live target.")]
+        [SerializeField] private float _aimedSlotScale = 1.06f;
+
         private readonly List<CellView>[] _slotCells = new List<CellView>[TrayModel.SLOT_COUNT];
         private readonly CompositeDisposable _disposables = new CompositeDisposable();
 
         private RectTransform _rectTransform;
         private RectTransform[] _slotRects;
+
+        /// <summary>Per slot: the child the piece's cells hang from. The aim highlight scales this
+        /// rather than the slot itself, so lifting a slot never moves the rect
+        /// <see cref="GetSlotIndexAt"/> hit-tests against and the target cannot shift under the finger
+        /// that is aiming at it.</summary>
+        private RectTransform[] _slotContentRects;
+
+        /// <summary>The slot currently lifted as a Rotate target, or -1 for none.</summary>
+        private int _aimedSlot = -1;
         private Canvas _canvas;
         private TrayModel _trayModel;
         private SettingsModel _settingsModel;
@@ -114,6 +132,33 @@ namespace MustyBlockBlast.Presentation.Views
             return -1;
         }
 
+        /// <summary>
+        /// Marks one dock slot as the live target of an armed Rotate, or -1 for none. Lifting the slot
+        /// costs no extra object and no extra draw call — the same trick the armed power-up icon uses —
+        /// and the lift is small enough that the widest piece the tray can hold still clears its
+        /// neighbours.
+        /// </summary>
+        internal void SetAimedSlot(int slotIndex)
+        {
+            if (_aimedSlot == slotIndex || _slotContentRects == null)
+            {
+                return;
+            }
+
+            if (_aimedSlot >= 0)
+            {
+                _slotContentRects[_aimedSlot].localScale = Vector3.one;
+            }
+
+            _aimedSlot = slotIndex;
+
+            if (_aimedSlot >= 0)
+            {
+                _slotContentRects[_aimedSlot].localScale =
+                    new Vector3(_aimedSlotScale, _aimedSlotScale, 1f);
+            }
+        }
+
         internal void SetSlotVisible(int slotIndex, bool isVisible)
         {
             List<CellView> cells = _slotCells[slotIndex];
@@ -126,6 +171,7 @@ namespace MustyBlockBlast.Presentation.Views
         private void BuildSlots(RectTransform card)
         {
             _slotRects = new RectTransform[TrayModel.SLOT_COUNT];
+            _slotContentRects = new RectTransform[TrayModel.SLOT_COUNT];
             float pitch = _cardSize.x / TrayModel.SLOT_COUNT;
             float originX = (-_cardSize.x * 0.5f) + (pitch * 0.5f);
 
@@ -140,7 +186,17 @@ namespace MustyBlockBlast.Presentation.Views
                 slotRect.sizeDelta = new Vector2(_slotWidth, _cardSize.y - 40f);
                 slotRect.anchoredPosition = new Vector2(originX + (i * pitch), 0f);
 
+                var contentObject = new GameObject("Content", typeof(RectTransform));
+                var contentRect = (RectTransform)contentObject.transform;
+                contentRect.SetParent(slotRect, false);
+                contentRect.anchorMin = new Vector2(0.5f, 0.5f);
+                contentRect.anchorMax = new Vector2(0.5f, 0.5f);
+                contentRect.pivot = new Vector2(0.5f, 0.5f);
+                contentRect.sizeDelta = slotRect.sizeDelta;
+                contentRect.anchoredPosition = Vector2.zero;
+
                 _slotRects[i] = slotRect;
+                _slotContentRects[i] = contentRect;
                 _slotCells[i] = new List<CellView>(9);
             }
         }
@@ -214,7 +270,11 @@ namespace MustyBlockBlast.Presentation.Views
             {
                 GridPosition offset = piece.Offsets[i];
                 CellView cell = CellFactory.CreateCell(
-                    _slotRects[slotIndex], $"TrayCell_{i}", _trayCellSize, _cellInset, _cellBevelThickness);
+                    _slotContentRects[slotIndex],
+                    $"TrayCell_{i}",
+                    _trayCellSize,
+                    _cellInset,
+                    _cellBevelThickness);
                 var rect = (RectTransform)cell.transform;
                 rect.anchoredPosition = new Vector2(offsetX + (offset.X * pitch), offsetY + (offset.Y * pitch));
                 ApplyCellColour(cell, colourId);

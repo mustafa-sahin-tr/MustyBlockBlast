@@ -1,8 +1,9 @@
 namespace MustyBlockBlast.Gameplay
 {
     /// <summary>
-    /// The four board-mutating power-ups. Each is earned separately and kept in its own inventory
-    /// slot, so the kind is the identity used by persistence, messaging and scoring alike.
+    /// The power-ups. Each is earned separately and kept in its own inventory slot, so the kind is the
+    /// identity used by persistence, messaging and scoring alike. All but <see cref="Rotate"/> mutate
+    /// the board; <see cref="Rotate"/> is the one kind aimed at the tray instead.
     /// <para>
     /// Values are persisted by name (see <c>PowerUpInventoryKey</c>), so members may be appended but
     /// never reordered or renamed.
@@ -32,5 +33,14 @@ namespace MustyBlockBlast.Gameplay
         /// extract — is rejected outright: nothing is spent, nothing is disarmed.
         /// </summary>
         ColorCleanser,
+
+        /// <summary>
+        /// Turns one dock piece 90 degrees clockwise, swapping its tray slot to the catalog piece that
+        /// already describes that orientation. The only kind that never touches the board: it is aimed
+        /// at the tray, clears nothing and scores nothing. A fully symmetrical piece (1x1, 2x2, 3x3)
+        /// has no distinct rotation and is rejected outright, like Joker's and ColorCleanser's illegal
+        /// targets — nothing is spent, nothing is disarmed.
+        /// </summary>
+        Rotate,
     }
 }
