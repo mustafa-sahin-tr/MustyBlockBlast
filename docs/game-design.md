@@ -197,8 +197,9 @@ Objectives" (sub-issues #72 and #73).
 
 ## Game over
 
-After each placement, and after each tray refill, check whether **any** remaining tray piece
-fits **anywhere** on the board. If none does, the run ends.
+After each placement, and after each tray refill, check whether **any** remaining tray piece —
+or the piece parked in the hold slot, if there is one — fits **anywhere** on the board. If none
+does, the run ends.
 
 This check is also what powers the "no moves" hint state, so it must be cheap enough to run
 every placement.
@@ -267,6 +268,39 @@ Cleared cells score as a normal clear but **do not** advance the combo streak �
 should not be a way to farm multipliers. A power-up that clears nothing scores nothing,
 including a joker that only fills a cell. Bomb and Color Cleanser both pay per cell cleared,
 since neither has a fixed region size; Row Clear/Column Clear pay the flat one-line rate.
+
+## Hold slot (pocket)
+
+Separate from the five power-ups above: the Hold slot is not earned, has no charge or count,
+is never armed, and never touches the board. It is always available, for the whole run.
+
+A single extra slot sits beside the tray. The player drags a tray piece onto it to **park**
+that piece:
+
+- Parking into an **empty** pocket moves the piece there and empties its tray slot. The
+  piece's shape and orientation are carried over unchanged (pieces are never rotated).
+- Parking while the pocket is **occupied** **swaps** the two: the parked piece drops into the
+  tray slot the dragged piece just left, and the dragged piece takes its place in the pocket.
+  The swap is atomic — one piece in, one piece out, so the tray slot count never moves.
+
+That swap is the only way a parked piece comes back, and it is enough: there is no separate
+"take it out" gesture, and none is needed.
+
+Parking is **not a placement**. Nothing lands on the board, so nothing scores, no line can
+clear, and the combo streak is neither advanced nor broken. The pieces involved were already
+drawn; they are merely somewhere else now.
+
+The pocket is invisible to the refill rule: a refill is triggered by all **three tray slots**
+being consumed, and a parked piece is not in a tray slot. A full pocket can never hold a
+refill off.
+
+Parking the **last** remaining tray piece into an empty pocket is refused. The pocket is only
+ever fed from the tray and only ever emptied by the swap that refills it, so a tray emptied by
+parking could never be restocked — a refill is a placement's consequence — and the run would
+be stuck with nothing to drag. A swap can never hit this case.
+
+The parked piece **does** count for the game-over check: swapping it back into a tray slot is
+always legal and costs nothing, so a board that only the parked piece fits is not a dead end.
 
 ## Earning undo and power-ups
 

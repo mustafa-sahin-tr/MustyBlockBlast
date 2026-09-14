@@ -24,6 +24,11 @@ namespace MustyBlockBlast.Presentation.Views
     /// here rather than by an EventSystem — this scene has none, and every UI Image in it has its
     /// raycast target off.
     /// </para>
+    /// <para>
+    /// A piece drag has a second destination besides the board: released over <see cref="HoldSlotView"/>
+    /// it is parked in the pocket instead of placed. That branch is decided while dragging, not on
+    /// release, so the highlight the player sees and the drop they get are always the same thing.
+    /// </para>
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class BoardInputView : MonoBehaviour
@@ -56,6 +61,7 @@ namespace MustyBlockBlast.Presentation.Views
         private ThemeDefinition _currentTheme;
         private BoardView _boardView;
         private PieceTrayView _trayView;
+        private HoldSlotView _holdSlotView;
         private SettingsButtonView _settingsButtonView;
         private SettingsPanelView _settingsPanelView;
         private LevelPathButtonView _levelPathButtonView;
@@ -68,6 +74,10 @@ namespace MustyBlockBlast.Presentation.Views
         private int _draggedSlot = -1;
         private GridPosition _currentAnchor;
         private bool _hasAnchor;
+
+        /// <summary>Whether this drag frame's ghost sits over the Hold slot. Resolved during the drag
+        /// rather than on release, so the drop and the highlight can never disagree about the target.</summary>
+        private bool _isOverHoldSlot;
 
         private bool _isAimingPowerUp;
         private GridPosition _powerUpTargetCell;
@@ -83,6 +93,7 @@ namespace MustyBlockBlast.Presentation.Views
             PowerUpSystem powerUpSystem,
             BoardView boardView,
             PieceTrayView trayView,
+            HoldSlotView holdSlotView,
             SettingsButtonView settingsButtonView,
             SettingsPanelView settingsPanelView,
             LevelPathButtonView levelPathButtonView,
@@ -100,6 +111,7 @@ namespace MustyBlockBlast.Presentation.Views
             _powerUpSystem = powerUpSystem;
             _boardView = boardView;
             _trayView = trayView;
+            _holdSlotView = holdSlotView;
             _settingsButtonView = settingsButtonView;
             _settingsPanelView = settingsPanelView;
             _levelPathButtonView = levelPathButtonView;
@@ -286,21 +298,30 @@ namespace MustyBlockBlast.Presentation.Views
 
             _boardView.ClearPreview();
             _boardView.ClearWouldClearHighlight();
+            _holdSlotView.SetHovered(false);
             DestroyGhost();
 
-            bool placed = _hasAnchor && _boardSystem.TryPlacePiece(slotIndex, _currentAnchor);
-            if (!placed)
+            // Dropping on the Hold slot is resolved before the board placement and is never ambiguous
+            // with it: UpdateDrag drops the board anchor for any frame over the pocket, so the two
+            // branches are mutually exclusive even where the pocket overlaps the board's preview margin.
+            bool consumed = _isOverHoldSlot
+                ? _boardSystem.TryHoldPiece(slotIndex)
+                : _hasAnchor && _boardSystem.TryPlacePiece(slotIndex, _currentAnchor);
+
+            if (!consumed)
             {
                 _trayView.SetSlotVisible(slotIndex, true);
             }
 
             _hasAnchor = false;
+            _isOverHoldSlot = false;
         }
 
         private void BeginDrag(int slotIndex, Vector2 screenPosition)
         {
             _draggedSlot = slotIndex;
             _hasAnchor = false;
+            _isOverHoldSlot = false;
             _boardSystem.BeginPlacementPreview();
             _trayView.SetSlotVisible(slotIndex, false);
             BuildGhost(_trayModel.GetPiece(slotIndex), _trayModel.GetColourId(slotIndex));
@@ -327,6 +348,23 @@ namespace MustyBlockBlast.Presentation.Views
             Piece piece = _trayModel.GetPiece(_draggedSlot);
             if (piece == null)
             {
+                // Nothing left to drop, so no drop target either: drop the pocket highlight rather than
+                // leave the last hovered frame's lit plate on screen for the rest of the drag.
+                _isOverHoldSlot = false;
+                _holdSlotView.SetHovered(false);
+                return;
+            }
+
+            // The pocket claims the frame outright. It sits close enough to the board to fall inside the
+            // board's generous preview-lead margin, so resolving it first is what keeps one pointer
+            // position from meaning two different drops.
+            _isOverHoldSlot = _holdSlotView.ContainsScreenPoint(targetScreen);
+            _holdSlotView.SetHovered(_isOverHoldSlot);
+            if (_isOverHoldSlot)
+            {
+                _hasAnchor = false;
+                _boardView.ClearPreview();
+                _boardView.ClearWouldClearHighlight();
                 return;
             }
 
