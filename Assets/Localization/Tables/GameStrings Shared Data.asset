@@ -199,6 +199,10 @@ MonoBehaviour:
     m_Key: objective.clutch_recovery_clear
     m_Metadata:
       m_Items: []
+  - m_Id: 228634777346048
+    m_Key: objective.at_least_line_clear
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

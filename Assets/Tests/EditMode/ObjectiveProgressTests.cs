@@ -311,6 +311,52 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.AreEqual(0, objective.CurrentValue);
         }
 
+        private static ObjectiveProgress AtLeastLineObjective(int requiredLineCount, int targetValue)
+        {
+            return new ObjectiveProgress(new ObjectiveDefinition(
+                "mega", ObjectiveType.AtLeastLineClear, ObjectiveScope.PerRun, targetValue,
+                requiredLineCount: requiredLineCount));
+        }
+
+        [Test]
+        public void AtLeastLineClear_ClearingExactlyTheRequiredCount_Qualifies()
+        {
+            ObjectiveProgress objective = AtLeastLineObjective(requiredLineCount: 4, targetValue: 1);
+
+            Assert.IsTrue(objective.ApplyPlacement(Placement(linesCleared: 4)));
+            Assert.AreEqual(1, objective.CurrentValue);
+        }
+
+        [Test]
+        public void AtLeastLineClear_ClearingMoreThanTheRequiredCount_AlsoQualifies()
+        {
+            // The entire reason this is a separate type from the exact-match one: more is fine here.
+            ObjectiveProgress objective = AtLeastLineObjective(requiredLineCount: 4, targetValue: 1);
+
+            Assert.IsTrue(objective.ApplyPlacement(Placement(linesCleared: 5)));
+            Assert.AreEqual(1, objective.CurrentValue);
+        }
+
+        [Test]
+        public void AtLeastLineClear_ClearingOneFewerThanRequired_DoesNotQualify()
+        {
+            ObjectiveProgress objective = AtLeastLineObjective(requiredLineCount: 4, targetValue: 1);
+
+            Assert.IsFalse(objective.ApplyPlacement(Placement(linesCleared: 3)));
+            Assert.AreEqual(0, objective.CurrentValue);
+        }
+
+        [Test]
+        public void SimultaneousLineClear_StaysExactMatchOnly_UnaffectedByTheNewType()
+        {
+            // Regression guard: adding AtLeastLineClear must not have loosened the existing type's
+            // exact-match rule (e.g. by an accidental shared branch or a >= creeping into its case).
+            ObjectiveProgress objective = LineClearObjective(requiredLineCount: 2, targetValue: 1);
+
+            Assert.IsFalse(objective.ApplyPlacement(Placement(linesCleared: 3)));
+            Assert.AreEqual(0, objective.CurrentValue);
+        }
+
         [TestCase(0)]
         [TestCase(-1)]
         public void Construction_RejectsANonPositiveTarget_BecauseItCanNeverComplete(int targetValue)

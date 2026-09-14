@@ -83,6 +83,7 @@ namespace MustyBlockBlast.Gameplay.Localization
         public const string OBJECTIVE_BOMB_INDUCED_LINE_CLEAR = "objective.bomb_induced_line_clear";
         public const string OBJECTIVE_ROW_AND_COLUMN_CROSS_CLEAR = "objective.row_and_column_cross_clear";
         public const string OBJECTIVE_CLUTCH_RECOVERY_CLEAR = "objective.clutch_recovery_clear";
+        public const string OBJECTIVE_AT_LEAST_LINE_CLEAR = "objective.at_least_line_clear";
 
         // Family names are their own entries rather than being baked into the template above, so a
         // new family is one row per language instead of one template per language.

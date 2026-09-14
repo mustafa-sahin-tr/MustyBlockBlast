@@ -32,7 +32,8 @@ namespace MustyBlockBlast.Gameplay.Settings
         [Tooltip("Value progress must reach to clear the level. Must be greater than zero.")]
         [SerializeField] private int _targetValue = 1;
 
-        [Tooltip("Exact simultaneous line count a placement must clear. Used by SimultaneousLineClear only.")]
+        [Tooltip("Line count a placement must clear. Exact match for SimultaneousLineClear, minimum " +
+            "(\"at least\") for AtLeastLineClear. Unused otherwise.")]
         [SerializeField] private int _requiredLineCount = 2;
 
         [Tooltip("Shape family a placed piece must belong to. Used by PieceFamilyCount only.")]
@@ -111,9 +112,11 @@ namespace MustyBlockBlast.Gameplay.Settings
                 return false;
             }
 
-            if (_objectiveType == ObjectiveType.SimultaneousLineClear && _requiredLineCount <= 0)
+            if ((_objectiveType == ObjectiveType.SimultaneousLineClear
+                    || _objectiveType == ObjectiveType.AtLeastLineClear)
+                && _requiredLineCount <= 0)
             {
-                error = "SimultaneousLineClear needs a required line count of 1 or more, or no placement can ever qualify.";
+                error = $"{_objectiveType} needs a required line count of 1 or more, or no placement can ever qualify.";
                 return false;
             }
 

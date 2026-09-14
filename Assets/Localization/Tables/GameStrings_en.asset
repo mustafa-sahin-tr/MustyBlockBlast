@@ -202,6 +202,10 @@ MonoBehaviour:
     m_Localized: Clear a line under pressure
     m_Metadata:
       m_Items: []
+  - m_Id: 228634777346048
+    m_Localized: Clear {0}+ lines at once
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []
