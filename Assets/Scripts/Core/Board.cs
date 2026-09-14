@@ -211,10 +211,92 @@ namespace MustyBlockBlast.Core
             return false;
         }
 
-        /// <summary>Marks (x, y) reachable and pushes it onto the flood-fill stack, when it is
-        /// in-bounds, empty, and not already marked. Returns the updated stack count so callers can
-        /// chain calls without a <c>ref</c> parameter.</summary>
-        private int SeedIfEmpty(int x, int y, bool[] reachable, int[] stack, int stackCount)
+        /// <summary>
+        /// Size of the largest connected component of empty cells (4-directional) — "how much room is
+        /// left in one piece", as distinct from <see cref="HasIsolatedEmptyCells"/>'s "is every empty
+        /// cell reachable from the edge". Both flood-fill with the same explicit int-array stack (never
+        /// recursion, which an 8x8 fill would drive 64 frames deep), but they seed differently: this one
+        /// treats <em>every</em> unvisited empty cell as the root of a new component and keeps the
+        /// largest count found, rather than seeding only from the border and asking a yes/no question.
+        /// <para>
+        /// Zero on a board with no empty cell at all.
+        /// </para>
+        /// <para>
+        /// The two scratch arrays are supplied by the caller rather than allocated here: the Ghost Fit
+        /// search calls this once per legal candidate placement (up to three dock pieces x 64 anchors),
+        /// so a per-call allocation would turn one tap into a burst of garbage. Both must be at least
+        /// <see cref="SIZE"/> x <see cref="SIZE"/> long; their contents on entry are irrelevant.
+        /// </para>
+        /// </summary>
+        public int LargestEmptyRegionSize(bool[] visitedBuffer, int[] stackBuffer)
+        {
+            if (visitedBuffer == null)
+            {
+                throw new ArgumentNullException(nameof(visitedBuffer));
+            }
+
+            if (stackBuffer == null)
+            {
+                throw new ArgumentNullException(nameof(stackBuffer));
+            }
+
+            // Named separately so the exception points at the buffer that is actually too short: a
+            // caller that sized one of the two wrong is told which one.
+            if (visitedBuffer.Length < SIZE * SIZE)
+            {
+                throw new ArgumentException(
+                    $"Scratch buffers must hold at least {SIZE * SIZE} entries.", nameof(visitedBuffer));
+            }
+
+            if (stackBuffer.Length < SIZE * SIZE)
+            {
+                throw new ArgumentException(
+                    $"Scratch buffers must hold at least {SIZE * SIZE} entries.", nameof(stackBuffer));
+            }
+
+            Array.Clear(visitedBuffer, 0, SIZE * SIZE);
+
+            int largest = 0;
+
+            for (int rootIndex = 0; rootIndex < SIZE * SIZE; rootIndex++)
+            {
+                if (_cells[rootIndex] != EMPTY || visitedBuffer[rootIndex])
+                {
+                    continue;
+                }
+
+                int stackCount = SeedIfEmpty(rootIndex % SIZE, rootIndex / SIZE, visitedBuffer, stackBuffer, 0);
+                int componentSize = 0;
+
+                while (stackCount > 0)
+                {
+                    stackCount--;
+                    int index = stackBuffer[stackCount];
+                    componentSize++;
+
+                    int x = index % SIZE;
+                    int y = index / SIZE;
+
+                    stackCount = SeedIfEmpty(x - 1, y, visitedBuffer, stackBuffer, stackCount);
+                    stackCount = SeedIfEmpty(x + 1, y, visitedBuffer, stackBuffer, stackCount);
+                    stackCount = SeedIfEmpty(x, y - 1, visitedBuffer, stackBuffer, stackCount);
+                    stackCount = SeedIfEmpty(x, y + 1, visitedBuffer, stackBuffer, stackCount);
+                }
+
+                if (componentSize > largest)
+                {
+                    largest = componentSize;
+                }
+            }
+
+            return largest;
+        }
+
+        /// <summary>Marks (x, y) visited and pushes it onto the flood-fill stack, when it is in-bounds,
+        /// empty, and not already marked. Returns the updated stack count so callers can chain calls
+        /// without a <c>ref</c> parameter. Shared by both flood-fills above, which differ only in how
+        /// they seed and what they count — never in what "an empty neighbour" means.</summary>
+        private int SeedIfEmpty(int x, int y, bool[] visited, int[] stack, int stackCount)
         {
             if (x < 0 || x >= SIZE || y < 0 || y >= SIZE)
             {
@@ -222,12 +304,12 @@ namespace MustyBlockBlast.Core
             }
 
             int index = (y * SIZE) + x;
-            if (_cells[index] != EMPTY || reachable[index])
+            if (_cells[index] != EMPTY || visited[index])
             {
                 return stackCount;
             }
 
-            reachable[index] = true;
+            visited[index] = true;
             stack[stackCount] = index;
             return stackCount + 1;
         }

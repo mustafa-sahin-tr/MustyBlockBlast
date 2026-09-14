@@ -247,6 +247,10 @@ MonoBehaviour:
     m_Key: powerup.double_multiplier_active
     m_Metadata:
       m_Items: []
+  - m_Id: 288624816939009
+    m_Key: powerup.ghost_fit_no_placements
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

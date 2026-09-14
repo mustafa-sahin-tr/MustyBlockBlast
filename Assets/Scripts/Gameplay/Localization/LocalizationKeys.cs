@@ -27,6 +27,10 @@ namespace MustyBlockBlast.Gameplay.Localization
         /// supplies the "2x"/"x2"/"kat" idiom, which differs by language unlike a bare symbol.</summary>
         public const string POWERUP_DOUBLE_MULTIPLIER_ACTIVE = "powerup.double_multiplier_active";
 
+        /// <summary>Ghost Fit's answer when its search found no legal placement for any dock piece.
+        /// Shown instead of a suggestion, and nothing is charged for it.</summary>
+        public const string POWERUP_GHOST_FIT_NO_PLACEMENTS = "powerup.ghost_fit_no_placements";
+
         // --- Splash ---
 
         public const string SPLASH_SKIP_HINT = "splash.skip_hint";

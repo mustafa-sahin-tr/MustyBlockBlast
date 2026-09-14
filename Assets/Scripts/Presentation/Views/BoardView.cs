@@ -46,6 +46,10 @@ namespace MustyBlockBlast.Presentation.Views
 
         private readonly GridPosition[] _previewCells = new GridPosition[16];
 
+        // Its own claim set, kept apart from the drag preview's: the silhouette and a drag can be on
+        // screen together, so neither may restore the other's cells.
+        private readonly GridPosition[] _ghostFitCells = new GridPosition[16];
+
         // A power-up never targets more than a full line or a 3x3 block, but the array is sized to
         // the board so a future kind with a wider footprint cannot silently truncate its preview.
         private readonly GridPosition[] _powerUpTargetCells = new GridPosition[Board.SIZE * Board.SIZE];
@@ -82,6 +86,7 @@ namespace MustyBlockBlast.Presentation.Views
 
         private CancellationToken _destroyToken;
         private int _previewCount;
+        private int _ghostFitCount;
         private int _powerUpTargetCount;
         private float _gridExtent;
         private bool _isDestroyed;
@@ -312,6 +317,62 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         /// <summary>
+        /// Projects the Ghost Fit silhouette: the cells the suggested piece would occupy, tinted at
+        /// <paramref name="pulse"/> of the way from an empty cell's own fill to the valid-placement
+        /// tint. The caller drives <paramref name="pulse"/> (0..1) every frame, so the animation lives
+        /// with the thing that owns the suggestion and this stays a stateless "draw it like this".
+        /// <para>
+        /// A separate claim set from <see cref="ShowPreview"/>'s, so the two can be up at once — which
+        /// they are whenever the player drags the very piece being suggested. Where they overlap, each
+        /// repaints every frame, so the worst case is one frame of the other's tint.
+        /// </para>
+        /// </summary>
+        internal void ShowGhostFitSilhouette(Piece piece, GridPosition anchor, float pulse)
+        {
+            ClearGhostFitSilhouette();
+
+            if (piece == null || _currentTheme == null || _cells == null)
+            {
+                return;
+            }
+
+            Color tint = Color.Lerp(
+                _currentTheme.EmptyCellFill, _currentTheme.ValidPreview, Mathf.Clamp01(pulse));
+
+            for (int i = 0; i < piece.Offsets.Count && _ghostFitCount < _ghostFitCells.Length; i++)
+            {
+                GridPosition cell = anchor + piece.Offsets[i];
+                if (!Board.IsInside(cell))
+                {
+                    continue;
+                }
+
+                int index = CellIndex(cell);
+
+                // Same reason as ShowPreview: a cell still fading out from a clear must drop the fade
+                // the instant the tint claims it, or the tint would be drawn at partial alpha.
+                CancelFade(index);
+
+                _cells[index].SetColours(tint, tint);
+                _ghostFitCells[_ghostFitCount] = cell;
+                _ghostFitCount++;
+            }
+        }
+
+        /// <summary>Restores every cell the silhouette claimed. Called when the suggestion is dismissed,
+        /// and whenever the run is rebuilt underneath it.</summary>
+        internal void ClearGhostFitSilhouette()
+        {
+            for (int i = 0; i < _ghostFitCount; i++)
+            {
+                GridPosition cell = _ghostFitCells[i];
+                ApplyCellColour(cell, _boardModel != null ? _boardModel.GetCell(cell) : Board.EMPTY);
+            }
+
+            _ghostFitCount = 0;
+        }
+
+        /// <summary>
         /// Outlines every cell of the rows/columns the in-flight drag would clear — filled cells and
         /// the empty ones the piece would occupy alike. Safe to call every frame: it diffs against
         /// what is already outlined, so an unchanged set costs nothing and a line that stopped
@@ -449,6 +510,7 @@ namespace MustyBlockBlast.Presentation.Views
             // so nothing either of them tinted or outlined may survive it.
             ClearWouldClearHighlight();
             _powerUpTargetCount = 0;
+            _ghostFitCount = 0;
 
             for (int y = 0; y < Board.SIZE; y++)
             {

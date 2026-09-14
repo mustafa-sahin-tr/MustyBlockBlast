@@ -26,6 +26,18 @@ namespace MustyBlockBlast.Tests.EditMode
         private DoubleMultiplierModel _doubleMultiplierModel;
         private DoubleMultiplierSystem _doubleMultiplierSystem;
 
+        /// <summary>The Ghost Fit suggestion the system under test drives. Kept as a field for the same
+        /// reason as the frenzy window: a test reads the hint without reaching back through the system.
+        /// Assigned by <c>CreateSystem</c>, which is the only place that knows the board and tray it has
+        /// to be built against.</summary>
+        private GhostFitModel _ghostFitModel;
+        private GhostFitSystem _ghostFitSystem;
+
+        /// <summary>The placement channel the Ghost Fit suggestion listens on. Created per test in
+        /// <see cref="ClearPersistedInventory"/> so a test can announce a placement and assert the hint
+        /// came down with it.</summary>
+        private TestMessageBroker<PiecePlacedMessage> _piecePlacedBroker;
+
         /// <summary>PowerUpSystem loads the inventory in its constructor, so a count left behind by a
         /// previous test would silently decide whether the next one can spend anything.</summary>
         [SetUp]
@@ -34,6 +46,7 @@ namespace MustyBlockBlast.Tests.EditMode
             DeleteInventoryKeys();
             _appliedBroker = new TestMessageBroker<PowerUpAppliedMessage>();
             _grantedBroker = new TestMessageBroker<PowerUpGrantedMessage>();
+            _piecePlacedBroker = new TestMessageBroker<PiecePlacedMessage>();
             _doubleMultiplierModel = new DoubleMultiplierModel();
             _doubleMultiplierSystem = new DoubleMultiplierSystem(
                 _doubleMultiplierModel,
@@ -965,6 +978,177 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.AreEqual(3, model.DoubleMultiplierCount.Value);
         }
 
+        [Test]
+        public void TryApplyGhostFit_WithNoneHeld_ChangesNothing()
+        {
+            PowerUpModel model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, new BoardModel(), TrayWithASinglePiece());
+
+            bool applied = system.TryApplyGhostFit();
+
+            Assert.IsFalse(applied);
+            Assert.AreEqual(0, model.GhostFitCount.Value);
+            Assert.AreEqual(GhostFitHintState.None, _ghostFitModel.Hint.Value.State);
+            Assert.AreEqual(0, _appliedBroker.Published.Count);
+        }
+
+        [Test]
+        public void TryApplyGhostFit_WithOneHeld_SpendsItAndSuggestsAMove()
+        {
+            PersistCount(PowerUpKind.GhostFit, 2);
+            PowerUpModel model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, new BoardModel(), TrayWithASinglePiece());
+
+            bool applied = system.TryApplyGhostFit();
+
+            Assert.IsTrue(applied);
+            Assert.AreEqual(1, model.GhostFitCount.Value);
+            Assert.AreEqual(GhostFitHintState.Suggested, _ghostFitModel.Hint.Value.State);
+            Assert.AreEqual(1, _ghostFitModel.SuggestedSlotIndex);
+        }
+
+        /// <summary>The suggestion describes a board that no longer exists once a piece lands on it, so
+        /// the placement takes it down. This is also what ends the one case the input View deliberately
+        /// keeps alive: dragging the suggested piece leaves the silhouette up to aim at, and the drop is
+        /// what finally clears it.</summary>
+        [Test]
+        public void APlacement_DismissesTheGhostFitSuggestion()
+        {
+            PersistCount(PowerUpKind.GhostFit, 1);
+            PowerUpSystem system = CreateSystem(new PowerUpModel(), new BoardModel(), TrayWithASinglePiece());
+            system.TryApplyGhostFit();
+            Assert.AreEqual(GhostFitHintState.Suggested, _ghostFitModel.Hint.Value.State);
+
+            _piecePlacedBroker.Publish(APlacementOf("single"));
+
+            Assert.AreEqual(GhostFitHintState.None, _ghostFitModel.Hint.Value.State);
+        }
+
+        /// <summary>
+        /// Acceptance criterion 3's distinction, at the System boundary the input View calls into:
+        /// reaching for the suggested piece is the player acting on the hint, so the silhouette stays up
+        /// for them to aim at.
+        /// </summary>
+        [Test]
+        public void DismissUnlessSuggestedSlot_WithTheSuggestedSlot_KeepsTheSuggestion()
+        {
+            PersistCount(PowerUpKind.GhostFit, 1);
+            PowerUpSystem system = CreateSystem(new PowerUpModel(), new BoardModel(), TrayWithASinglePiece());
+            system.TryApplyGhostFit();
+            int suggestedSlot = _ghostFitModel.SuggestedSlotIndex;
+
+            _ghostFitSystem.DismissUnlessSuggestedSlot(suggestedSlot);
+
+            Assert.AreEqual(GhostFitHintState.Suggested, _ghostFitModel.Hint.Value.State);
+            Assert.AreEqual(suggestedSlot, _ghostFitModel.SuggestedSlotIndex);
+        }
+
+        /// <summary>The other half of the same criterion: picking up any <em>other</em> piece is the
+        /// player ignoring the hint, and drops it at once.</summary>
+        [Test]
+        public void DismissUnlessSuggestedSlot_WithAnyOtherSlot_DropsTheSuggestion()
+        {
+            PersistCount(PowerUpKind.GhostFit, 1);
+            PowerUpSystem system = CreateSystem(new PowerUpModel(), new BoardModel(), TrayWithASinglePiece());
+            system.TryApplyGhostFit();
+            int suggestedSlot = _ghostFitModel.SuggestedSlotIndex;
+
+            _ghostFitSystem.DismissUnlessSuggestedSlot(suggestedSlot == 0 ? 1 : 0);
+
+            Assert.AreEqual(GhostFitHintState.None, _ghostFitModel.Hint.Value.State);
+        }
+
+        /// <summary>The badge counter that tracks "power-ups used" has to see this kind too, even though
+        /// it changes nothing at all — the same contract Rotate, Reroll and Double Multiplier follow.</summary>
+        [Test]
+        public void TryApplyGhostFit_PublishesAnApplicationThatClearedNothing()
+        {
+            PersistCount(PowerUpKind.GhostFit, 1);
+            PowerUpSystem system = CreateSystem(new PowerUpModel(), new BoardModel(), TrayWithASinglePiece());
+
+            system.TryApplyGhostFit();
+
+            Assert.AreEqual(1, _appliedBroker.Published.Count);
+            Assert.AreEqual(PowerUpKind.GhostFit, _appliedBroker.Published[0].Kind);
+            Assert.AreEqual(0, _appliedBroker.Published[0].ClearedCellCount);
+        }
+
+        /// <summary>The negative case: a dock with no legal placement anywhere is reported as such, and
+        /// the player is not charged for being told so.</summary>
+        [Test]
+        public void TryApplyGhostFit_WithNoLegalPlacementAnywhere_ReportsItAndSpendsNothing()
+        {
+            PersistCount(PowerUpKind.GhostFit, 1);
+            var boardModel = new BoardModel();
+            for (int y = 0; y < Board.SIZE; y++)
+            {
+                for (int x = 0; x < Board.SIZE; x++)
+                {
+                    boardModel.Occupy(new GridPosition(x, y), 1);
+                }
+            }
+
+            PowerUpModel model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, boardModel, TrayWithASinglePiece());
+
+            bool applied = system.TryApplyGhostFit();
+
+            Assert.IsFalse(applied);
+            Assert.AreEqual(1, model.GhostFitCount.Value);
+            Assert.AreEqual(GhostFitHintState.NoPlacements, _ghostFitModel.Hint.Value.State);
+            Assert.AreEqual(0, _appliedBroker.Published.Count);
+        }
+
+        /// <summary>A second tap on the icon takes the suggestion back down, the same way tapping an
+        /// armed kind's icon cancels it — and costs nothing.</summary>
+        [Test]
+        public void TryApplyGhostFit_WhileAlreadySuggesting_DismissesAndSpendsNothing()
+        {
+            PersistCount(PowerUpKind.GhostFit, 2);
+            PowerUpModel model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, new BoardModel(), TrayWithASinglePiece());
+            system.TryApplyGhostFit();
+
+            bool applied = system.TryApplyGhostFit();
+
+            Assert.IsFalse(applied);
+            Assert.AreEqual(1, model.GhostFitCount.Value);
+            Assert.AreEqual(GhostFitHintState.None, _ghostFitModel.Hint.Value.State);
+            Assert.AreEqual(1, _appliedBroker.Published.Count);
+        }
+
+        /// <summary>Another power-up's application changed the board or the dock the suggestion was
+        /// computed from, so the suggestion goes with it rather than pointing at a board that moved.</summary>
+        [Test]
+        public void ApplyingAnotherPowerUp_DismissesTheGhostFitSuggestion()
+        {
+            PersistCount(PowerUpKind.GhostFit, 1);
+            PersistCount(PowerUpKind.Bomb, 1);
+            var boardModel = new BoardModel();
+            boardModel.Occupy(new GridPosition(4, 4), 1);
+            PowerUpSystem system = CreateSystem(new PowerUpModel(), boardModel, TrayWithASinglePiece());
+            system.TryApplyGhostFit();
+
+            system.TryApplyBomb(new GridPosition(4, 4));
+
+            Assert.AreEqual(GhostFitHintState.None, _ghostFitModel.Hint.Value.State);
+        }
+
+        /// <summary>Targetless, so it is never an armed selection — exactly like the reroll and the
+        /// double multiplier.</summary>
+        [Test]
+        public void Arm_GhostFit_IsRefusedEvenWhenHeld()
+        {
+            PersistCount(PowerUpKind.GhostFit, 3);
+            PowerUpModel model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, new BoardModel(), TrayWithASinglePiece());
+
+            system.Arm(PowerUpKind.GhostFit);
+
+            Assert.IsNull(model.Armed.Value);
+            Assert.AreEqual(3, model.GhostFitCount.Value);
+        }
+
         /// <summary>Re-activating restarts the window rather than stacking: the power-up is a doubling,
         /// not a multiplier that compounds with itself.</summary>
         [Test]
@@ -1068,6 +1252,21 @@ namespace MustyBlockBlast.Tests.EditMode
             IRewardSource rewardSource,
             BoardSystem boardSystem)
         {
+            _ghostFitModel = new GhostFitModel();
+            _ghostFitSystem = new GhostFitSystem(
+                _ghostFitModel,
+                boardModel,
+                trayModel,
+                new ScoreModel(),
+                new TestMessageBroker<RunStartedMessage>(),
+                new TestMessageBroker<GameOverMessage>(),
+                // Held on a field so a test can publish a placement through it and watch the suggestion
+                // go down, which is how the run-of-play dismissal is observed without a scene.
+                _piecePlacedBroker,
+                // The very broker the system under test publishes through, so "another power-up was
+                // applied, drop the suggestion" is live here rather than stubbed out.
+                _appliedBroker);
+
             return new PowerUpSystem(
                 model,
                 boardModel,
@@ -1075,6 +1274,8 @@ namespace MustyBlockBlast.Tests.EditMode
                 boardSystem,
                 CreateTimerRunSystem(boardSystem),
                 _doubleMultiplierSystem,
+                _ghostFitSystem,
+                _ghostFitModel,
                 rewardSource,
                 _appliedBroker,
                 _grantedBroker,
@@ -1167,6 +1368,35 @@ namespace MustyBlockBlast.Tests.EditMode
                 new TestMessageBroker<GameOverMessage>());
         }
 
+        /// <summary>A dock holding one piece, in the middle slot, so a suggestion that names slot 1 can
+        /// only have come from searching the dock rather than defaulting to the first slot.</summary>
+        /// <summary>A placement announcement with everything but the piece id at its default. Nothing
+        /// subscribed here reads the rest, and spelling all fourteen arguments out at each call site
+        /// would bury what the test is actually about.</summary>
+        private static PiecePlacedMessage APlacementOf(string pieceId)
+            => new PiecePlacedMessage(
+                pieceId,
+                new GridPosition(0, 0),
+                PieceFamily.Single,
+                cellCount: 1,
+                colourId: 1,
+                linesCleared: 0,
+                rowsCleared: 0,
+                columnsCleared: 0,
+                monochromeLineCount: 0,
+                boardEmptyAfterPlacement: false,
+                occupiedCellCountBeforeClear: 1,
+                anyCornerCleared: false,
+                centerCoreEmptyAfterPlacement: true,
+                hasIsolatedHolesAfterPlacement: false);
+
+        private static TrayModel TrayWithASinglePiece()
+        {
+            var trayModel = new TrayModel();
+            trayModel.SetSlot(1, new Piece("single", new[] { new GridPosition(0, 0) }), colourId: 2);
+            return trayModel;
+        }
+
         private static void PersistCount(PowerUpKind kind, int count)
         {
             PlayerPrefs.SetInt(PowerUpInventoryKey.For(kind), count);
@@ -1182,6 +1412,7 @@ namespace MustyBlockBlast.Tests.EditMode
             PlayerPrefs.DeleteKey(PowerUpInventoryKey.For(PowerUpKind.Rotate));
             PlayerPrefs.DeleteKey(PowerUpInventoryKey.For(PowerUpKind.Reroll));
             PlayerPrefs.DeleteKey(PowerUpInventoryKey.For(PowerUpKind.DoubleMultiplier));
+            PlayerPrefs.DeleteKey(PowerUpInventoryKey.For(PowerUpKind.GhostFit));
         }
 
         private static Piece FindPiece(string id)

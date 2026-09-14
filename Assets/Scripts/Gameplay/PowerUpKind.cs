@@ -2,8 +2,9 @@ namespace MustyBlockBlast.Gameplay
 {
     /// <summary>
     /// The power-ups. Each is earned separately and kept in its own inventory slot, so the kind is the
-    /// identity used by persistence, messaging and scoring alike. All but <see cref="Rotate"/> and
-    /// <see cref="Reroll"/> mutate the board; those two act on the tray instead.
+    /// identity used by persistence, messaging and scoring alike. The first five mutate the board;
+    /// <see cref="Rotate"/> and <see cref="Reroll"/> act on the tray instead, and
+    /// <see cref="DoubleMultiplier"/> and <see cref="GhostFit"/> touch neither.
     /// <para>
     /// Values are persisted by name (see <c>PowerUpInventoryKey</c>), so members may be appended but
     /// never reordered or renamed.
@@ -60,5 +61,15 @@ namespace MustyBlockBlast.Gameplay
         /// happens for the next few seconds (see <c>DoubleMultiplierModel</c>).
         /// </summary>
         DoubleMultiplier,
+
+        /// <summary>
+        /// Searches every dock piece against every board anchor and points at the best move it finds,
+        /// projecting a pulsing silhouette on the target cells and pulsing the dock piece that belongs
+        /// there. Targetless like <see cref="Reroll"/> and <see cref="DoubleMultiplier"/>, and like them
+        /// it touches no cell — but it is the only kind that changes no game state whatsoever: its whole
+        /// effect is a suggestion on screen (see <c>GhostFitModel</c>), which the player is free to
+        /// ignore. Refused, and charged nothing, when there is no legal placement to point at.
+        /// </summary>
+        GhostFit,
     }
 }

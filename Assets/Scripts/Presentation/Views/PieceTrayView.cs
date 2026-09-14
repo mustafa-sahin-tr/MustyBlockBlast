@@ -49,6 +49,9 @@ namespace MustyBlockBlast.Presentation.Views
 
         /// <summary>The slot currently lifted as a Rotate target, or -1 for none.</summary>
         private int _aimedSlot = -1;
+
+        /// <summary>The slot currently pulsing as a Ghost Fit suggestion, or -1 for none.</summary>
+        private int _hintedSlot = -1;
         private Canvas _canvas;
         private TrayModel _trayModel;
         private SettingsModel _settingsModel;
@@ -157,6 +160,40 @@ namespace MustyBlockBlast.Presentation.Views
                 _slotContentRects[_aimedSlot].localScale =
                     new Vector3(_aimedSlotScale, _aimedSlotScale, 1f);
             }
+        }
+
+        /// <summary>
+        /// Pulses one dock slot as the piece a Ghost Fit suggestion points at, or -1 for none.
+        /// <paramref name="pulse"/> runs 0..1 and is driven by the caller's animation, so this stays a
+        /// pure "draw it this big" instruction with no clock of its own.
+        /// <para>
+        /// Shares <see cref="SetAimedSlot"/>'s scale trick and, deliberately, its scale ceiling, so a
+        /// lifted slot reads the same however it was lifted and still clears its neighbours at the
+        /// widest piece. The two can never fight over the same slot: a suggestion is dismissed by the
+        /// press that arms anything, so no Rotate can be aimed while one is up.
+        /// </para>
+        /// </summary>
+        internal void SetHintedSlot(int slotIndex, float pulse)
+        {
+            if (_slotContentRects == null)
+            {
+                return;
+            }
+
+            if (_hintedSlot >= 0 && _hintedSlot != slotIndex)
+            {
+                _slotContentRects[_hintedSlot].localScale = Vector3.one;
+            }
+
+            _hintedSlot = slotIndex;
+
+            if (_hintedSlot < 0)
+            {
+                return;
+            }
+
+            float scale = Mathf.Lerp(1f, _aimedSlotScale, Mathf.Clamp01(pulse));
+            _slotContentRects[_hintedSlot].localScale = new Vector3(scale, scale, 1f);
         }
 
         internal void SetSlotVisible(int slotIndex, bool isVisible)

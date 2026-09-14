@@ -275,8 +275,8 @@ score and streak are therefore plain data in `Core`, not scattered MonoBehaviour
 
 ## Power-ups
 
-All but Rotate, Reroll and Double Multiplier are applied as a board mutation before the
-next placement:
+All but Rotate, Reroll, Double Multiplier and Ghost Fit are applied as a board mutation
+before the next placement:
 
 | Power-up | Effect |
 |---|---|
@@ -288,6 +288,7 @@ next placement:
 | Rotate | Player taps a **dock piece**; turns it 90° clockwise, in place, in its slot |
 | Reroll | Player taps the icon; discards all three dock pieces and draws three new ones, at least one of which fits the board |
 | Double Multiplier | Player taps the icon; every score gain in the run is worth **2×** for the next 15 seconds |
+| Ghost Fit | Player taps the icon; the best available move is shown as a pulsing silhouette on the board and a pulsing dock piece |
 
 The first three force-clear their region whether or not it is full. The joker is the
 exception: it adds a cell rather than removing any, and clears only on the condition a
@@ -315,7 +316,7 @@ is scoped deliberately narrowly:
   it: a rotation that leaves nothing placeable ends the run, exactly as the placement that
   exhausted the board would.
 
-Reroll is the first of the two power-ups with **no target**. There is nothing to aim it at — the whole dock is
+Reroll is the first of the three power-ups with **no target**. There is nothing to aim it at — the whole dock is
 the subject — so it is applied on the tap that selects it rather than armed and then aimed, and it
 is never an armed selection. Its other distinguishing rules:
 
@@ -354,6 +355,34 @@ everything it does happens inside that window.
   it is spent — opening the window never pays the player for opening it.
 - The window belongs to the run it was opened in: it does not survive game over or a restart.
 
+Ghost Fit (the "smart hint") is the third targetless power-up and the only one that changes
+**nothing** — not a cell, not a dock slot, not the score. What it buys is information: an exact
+search over every dock piece against every board anchor (an 8×8 board and three pieces is 192
+candidates, so this is the true optimum and not a heuristic), shown as a pulsing silhouette on
+the cells the suggested piece would fill plus a pulse on the dock piece it belongs to.
+
+- The move is ranked by, in strict order: (1) **most simultaneous lines cleared**; (2) **combo
+  preservation** — among placements tied on (1), one that clears at least one line is preferred
+  while the streak is running; (3) **most remaining contiguous open cells**, measured on the
+  board as it stands *after* the placement and any clears it triggers have resolved, so a move
+  that opens the board up is credited for that and not just for its own footprint. Ties that
+  survive all three go to the first candidate in scan order, so the same board always produces
+  the same suggestion and the silhouette never flickers between equally good moves.
+- Criterion (2) cannot actually change the outcome as stated, since (1) is a strict maximisation
+  and two placements tied on it clear the same number of lines. It is kept as its own ranking
+  term regardless, so combo preservation is guaranteed by construction rather than by accident.
+- The suggestion has **no timer**. Unlike the 2× window it is a statement about the board as it
+  stands, so it lasts until it stops being true: the player touching any cell, aiming any
+  power-up, or picking up a dock piece **other than** the suggested one takes it down at once, as
+  does any placement, any other power-up's application, and either run boundary. Picking up the
+  *suggested* piece is the exception — that is the player acting on the hint, so the silhouette
+  stays up to aim at.
+- Tapping the icon again while a suggestion is showing is the **dismiss** gesture and costs
+  nothing, mirroring how tapping an armed kind's icon cancels it.
+- If **no dock piece fits anywhere**, there is no move to point at: it says so ("no placements
+  possible") and **nothing is spent** — the same "an illegal application is free" rule Joker,
+  Color Cleanser and Rotate follow.
+
 Cleared cells score as a normal clear but **do not** advance the combo streak — power-ups
 should not be a way to farm multipliers. A power-up that clears nothing scores nothing,
 including a joker that only fills a cell. Bomb and Color Cleanser both pay per cell cleared,
@@ -361,7 +390,7 @@ since neither has a fixed region size; Row Clear/Column Clear pay the flat one-l
 
 ## Hold slot (pocket)
 
-Separate from the eight power-ups above: the Hold slot is not earned, has no charge or count,
+Separate from the nine power-ups above: the Hold slot is not earned, has no charge or count,
 is never armed, and never touches the board. It is always available, for the whole run.
 
 A single extra slot sits beside the tray. The player drags a tray piece onto it to **park**

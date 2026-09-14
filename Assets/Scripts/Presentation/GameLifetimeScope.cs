@@ -50,6 +50,10 @@ namespace MustyBlockBlast.Presentation
                 container.Resolve<SettingsSystem>();
                 container.Resolve<SfxSystem>();
                 container.Resolve<LocalizationSystem>();
+                // Subscribes in its constructor, so it must be listening before the first placement
+                // rather than waiting for a lazy resolve. PowerUpSystem depends on it and would
+                // construct it anyway; resolving it here says so rather than relying on that.
+                container.Resolve<GhostFitSystem>();
                 container.Resolve<PowerUpSystem>();
                 container.Resolve<PowerUpScoreSystem>();
 
@@ -119,6 +123,7 @@ namespace MustyBlockBlast.Presentation
             builder.Register<LocalizationModel>(Lifetime.Singleton);
             builder.Register<PowerUpModel>(Lifetime.Singleton);
             builder.Register<DoubleMultiplierModel>(Lifetime.Singleton);
+            builder.Register<GhostFitModel>(Lifetime.Singleton);
             builder.Register<ObjectiveModel>(Lifetime.Singleton);
             builder.Register<LevelProgressionModel>(Lifetime.Singleton);
             builder.Register<BadgeStatsModel>(Lifetime.Singleton);
@@ -203,6 +208,9 @@ namespace MustyBlockBlast.Presentation
 
             // Always-granting stub until a rewarded-ad SDK is wired up; swapping it is one line here.
             builder.Register<DeterministicRewardSource>(Lifetime.Singleton).As<IRewardSource>().AsSelf();
+            // Before PowerUpSystem only for readability — PowerUpSystem takes it as a constructor
+            // dependency, so the container orders the two itself.
+            builder.Register<GhostFitSystem>(Lifetime.Singleton).AsSelf();
             builder.Register<PowerUpSystem>(Lifetime.Singleton).AsSelf();
             builder.Register<PowerUpScoreSystem>(Lifetime.Singleton).AsSelf();
             builder.Register<ObjectiveSystem>(Lifetime.Singleton);
@@ -234,6 +242,7 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterComponentInHierarchy<ScoreView>();
             builder.RegisterComponentInHierarchy<TimerHudView>();
             builder.RegisterComponentInHierarchy<DoubleMultiplierHudView>();
+            builder.RegisterComponentInHierarchy<GhostFitView>();
             builder.RegisterComponentInHierarchy<LineClearBurstView>();
             builder.RegisterComponentInHierarchy<BonusFeedbackView>();
             builder.RegisterComponentInHierarchy<PowerUpInventoryView>();
