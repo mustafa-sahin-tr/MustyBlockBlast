@@ -46,8 +46,9 @@ namespace MustyBlockBlast.Core
         /// <summary>Value <see cref="ObjectiveProgress.CurrentValue"/> must reach for the objective to complete.</summary>
         public int TargetValue { get; }
 
-        /// <summary>Exact simultaneous line count a placement must clear to qualify. Meaningful only when
-        /// <see cref="Type"/> is <see cref="ObjectiveType.SimultaneousLineClear"/>.</summary>
+        /// <summary>Line count a placement must clear to qualify — exact match when <see cref="Type"/>
+        /// is <see cref="ObjectiveType.SimultaneousLineClear"/>, a minimum ("at least") when it is
+        /// <see cref="ObjectiveType.AtLeastLineClear"/>. Meaningless for every other type.</summary>
         public int RequiredLineCount { get; }
 
         /// <summary>Shape family a placed piece must belong to in order to qualify. Meaningful only when

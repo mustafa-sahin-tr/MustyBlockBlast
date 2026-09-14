@@ -36,5 +36,12 @@ namespace MustyBlockBlast.Core
         /// that clear, held at least <see cref="ObjectiveDefinition.RequiredOccupancyThreshold"/>
         /// occupied cells — a "clutch recovery" under pressure.</summary>
         ClutchRecoveryClear = 7,
+
+        /// <summary>Count placements that clear AT LEAST <see cref="ObjectiveDefinition.RequiredLineCount"/>
+        /// lines at once — a "mega clear" goal. Deliberately a separate type from
+        /// <see cref="SimultaneousLineClear"/>, which is exact-match only: a 4-line clear does not
+        /// retroactively satisfy a "clear exactly 2" objective, so "at least" needs its own type
+        /// rather than a flag on the existing one.</summary>
+        AtLeastLineClear = 8,
     }
 }

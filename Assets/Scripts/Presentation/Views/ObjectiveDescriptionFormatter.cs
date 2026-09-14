@@ -53,6 +53,11 @@ namespace MustyBlockBlast.Presentation.Views
                 case ObjectiveType.ClutchRecoveryClear:
                     return localization.Translate(LocalizationKeys.OBJECTIVE_CLUTCH_RECOVERY_CLEAR);
 
+                case ObjectiveType.AtLeastLineClear:
+                    return localization.Format(
+                        LocalizationKeys.OBJECTIVE_AT_LEAST_LINE_CLEAR,
+                        definition.RequiredLineCount.ToString());
+
                 default:
                     return string.Empty;
             }

@@ -77,6 +77,16 @@ namespace MustyBlockBlast.Core
 
                     break;
 
+                case ObjectiveType.AtLeastLineClear:
+                    // "At least", not exact: deliberately the opposite rule from SimultaneousLineClear
+                    // above, which is why this is its own type rather than a flag on that one.
+                    if (context.LinesCleared >= Definition.RequiredLineCount)
+                    {
+                        CurrentValue = Math.Min(CurrentValue + 1, Definition.TargetValue);
+                    }
+
+                    break;
+
                 case ObjectiveType.ClutchRecoveryClear:
                     if (context.LinesCleared >= 1
                         && context.OccupiedCellCountBeforeClear >= Definition.RequiredOccupancyThreshold)

@@ -92,6 +92,7 @@ alter them.
 | Bomb-induced line clear | A Bomb power-up clear leaves a row or column completely empty | +1 per qualifying Bomb use |
 | Row and column cross-clear | A placement clears at least one row AND at least one column simultaneously | +1 per qualifying placement |
 | Clutch recovery clear | A placement clears at least one line while the board held at least the configured occupied-cell threshold immediately beforehand | +1 per qualifying placement |
+| At-least line clear ("mega clear") | A placement clears **at least** the required number of lines at once | +1 per qualifying placement |
 
 The line-clear objective matches exactly, not "at least": a 3-line clear does not satisfy a
 "clear 2 lines at once" objective — that is a separate, harder goal. Shape families are
@@ -123,6 +124,11 @@ Clutch recovery clear reads the board's occupancy **immediately after the piece 
 its own clears resolve** — the "how full was it right before this rescued it" moment. A packed
 board that clears nothing does not qualify: pressure alone isn't the goal, clearing under
 pressure is.
+
+At-least line clear is the deliberate opposite of the exact-match line-clear objective: it is a
+genuinely separate type, not a flag on `Simultaneous line clear`, so a level can ask for "clear
+exactly 2" and a different level can ask for "clear 4 or more" without either rule bleeding into
+the other.
 
 Lifetime "how many pieces has the player ever placed" goals are covered by the Badges system's
 `TotalPiecesPlaced` stat, not a separate objective type — a level goal and a lifetime achievement
