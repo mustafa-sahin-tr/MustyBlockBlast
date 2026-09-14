@@ -58,8 +58,47 @@ namespace MustyBlockBlast.Presentation.Views
                         LocalizationKeys.OBJECTIVE_AT_LEAST_LINE_CLEAR,
                         definition.RequiredLineCount.ToString());
 
+                case ObjectiveType.PieceIdCount:
+                    return localization.Format(
+                        LocalizationKeys.OBJECTIVE_PIECE_ID_COUNT, PieceIdDisplayName(definition.RequiredPieceId, localization));
+
+                case ObjectiveType.PieceIdLineClear:
+                    return localization.Format(
+                        LocalizationKeys.OBJECTIVE_PIECE_ID_LINE_CLEAR, PieceIdDisplayName(definition.RequiredPieceId, localization));
+
                 default:
                     return string.Empty;
+            }
+        }
+
+        /// <summary>
+        /// Translated display name for a catalog piece id, when <see cref="PieceIdNameKey"/> has one
+        /// authored; the raw id otherwise. Not every catalog piece needs a name — only the ones an
+        /// authored objective actually references — so a piece nobody has named yet degrades to a
+        /// functional (if unpolished) raw id rather than blank text.
+        /// </summary>
+        private static string PieceIdDisplayName(string pieceId, LocalizationSystem localization)
+        {
+            string key = PieceIdNameKey(pieceId);
+            return key != null ? localization.Translate(key) : pieceId;
+        }
+
+        /// <summary>
+        /// Localization key for one catalog piece's display name. Add a case here plus the
+        /// corresponding GameStrings row to name a piece a new objective references — this is
+        /// deliberately incremental, not a full 27-piece table built up front.
+        /// </summary>
+        private static string PieceIdNameKey(string pieceId)
+        {
+            switch (pieceId)
+            {
+                case "square_3x3":
+                    return LocalizationKeys.OBJECTIVE_PIECE_NAME_SQUARE_3X3;
+                case "line_h5":
+                case "line_v5":
+                    return LocalizationKeys.OBJECTIVE_PIECE_NAME_LINE_5;
+                default:
+                    return null;
             }
         }
 

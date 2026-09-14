@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using MustyBlockBlast.Core;
 using UnityEngine;
 
@@ -43,6 +44,10 @@ namespace MustyBlockBlast.Gameplay.Settings
             "ClutchRecoveryClear only.")]
         [SerializeField] private int _requiredOccupancyThreshold = 52;
 
+        [Tooltip("Exact catalog piece id (e.g. \"square_3x3\", \"line_h5\") a placement must use. " +
+            "Used by PieceIdCount and PieceIdLineClear only.")]
+        [SerializeField] private string _requiredPieceId = "square_3x3";
+
         [Tooltip("Grant a power-up when this level is completed. Off by default — milestone levels " +
             "are the reward levels, not every level.")]
         [SerializeField] private bool _grantsLevelUpReward;
@@ -84,7 +89,8 @@ namespace MustyBlockBlast.Gameplay.Settings
                 _targetValue,
                 _requiredLineCount,
                 _requiredPieceFamily,
-                _requiredOccupancyThreshold);
+                _requiredOccupancyThreshold,
+                _requiredPieceId);
         }
 
         /// <summary>
@@ -127,8 +133,37 @@ namespace MustyBlockBlast.Gameplay.Settings
                 return false;
             }
 
+            if (_objectiveType == ObjectiveType.PieceIdCount || _objectiveType == ObjectiveType.PieceIdLineClear)
+            {
+                if (string.IsNullOrEmpty(_requiredPieceId))
+                {
+                    error = $"{_objectiveType} needs a required piece id.";
+                    return false;
+                }
+
+                if (!PieceIdExistsInCatalog(_requiredPieceId))
+                {
+                    error = $"\"{_requiredPieceId}\" is not a piece id in PieceCatalog — check for a typo.";
+                    return false;
+                }
+            }
+
             error = null;
             return true;
+        }
+
+        private static bool PieceIdExistsInCatalog(string pieceId)
+        {
+            IReadOnlyList<Piece> allPieces = PieceCatalog.AllPieces;
+            for (int pieceIndex = 0; pieceIndex < allPieces.Count; pieceIndex++)
+            {
+                if (allPieces[pieceIndex].Id == pieceId)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
 #if UNITY_EDITOR

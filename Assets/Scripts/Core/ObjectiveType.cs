@@ -43,5 +43,15 @@ namespace MustyBlockBlast.Core
         /// retroactively satisfy a "clear exactly 2" objective, so "at least" needs its own type
         /// rather than a flag on the existing one.</summary>
         AtLeastLineClear = 8,
+
+        /// <summary>Count placements of the exact catalog piece named by
+        /// <see cref="ObjectiveDefinition.RequiredPieceId"/> — finer-grained than
+        /// <see cref="PieceFamilyCount"/>, which cannot distinguish a 2x2 square from a 3x3 one.</summary>
+        PieceIdCount = 9,
+
+        /// <summary>Count placements of the exact catalog piece named by
+        /// <see cref="ObjectiveDefinition.RequiredPieceId"/> that ALSO cleared at least one line —
+        /// e.g. "clear a line using the I5 pentomino".</summary>
+        PieceIdLineClear = 10,
     }
 }

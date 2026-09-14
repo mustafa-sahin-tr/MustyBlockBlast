@@ -87,6 +87,22 @@ namespace MustyBlockBlast.Core
 
                     break;
 
+                case ObjectiveType.PieceIdCount:
+                    if (context.PieceId == Definition.RequiredPieceId)
+                    {
+                        CurrentValue = Math.Min(CurrentValue + 1, Definition.TargetValue);
+                    }
+
+                    break;
+
+                case ObjectiveType.PieceIdLineClear:
+                    if (context.PieceId == Definition.RequiredPieceId && context.LinesCleared >= 1)
+                    {
+                        CurrentValue = Math.Min(CurrentValue + 1, Definition.TargetValue);
+                    }
+
+                    break;
+
                 case ObjectiveType.ClutchRecoveryClear:
                     if (context.LinesCleared >= 1
                         && context.OccupiedCellCountBeforeClear >= Definition.RequiredOccupancyThreshold)

@@ -206,6 +206,22 @@ MonoBehaviour:
     m_Localized: Clear {0}+ lines at once
     m_Metadata:
       m_Items: []
+  - m_Id: 230162711961600
+    m_Localized: Place a {0} piece
+    m_Metadata:
+      m_Items: []
+  - m_Id: 230162825207808
+    m_Localized: Clear a line with a {0} piece
+    m_Metadata:
+      m_Items: []
+  - m_Id: 234786474942464
+    m_Localized: 3x3 block
+    m_Metadata:
+      m_Items: []
+  - m_Id: 234786563022848
+    m_Localized: 5-long line
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []
