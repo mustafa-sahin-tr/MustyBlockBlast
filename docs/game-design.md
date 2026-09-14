@@ -90,6 +90,7 @@ alter them.
 | Board wipe | A placement leaves the board completely empty | +1 per qualifying placement |
 | Streak threshold | — | Tracks the best combo streak reached this run (high-water mark) |
 | Bomb-induced line clear | A Bomb power-up clear leaves a row or column completely empty | +1 per qualifying Bomb use |
+| Row and column cross-clear | A placement clears at least one row AND at least one column simultaneously | +1 per qualifying placement |
 
 The line-clear objective matches exactly, not "at least": a 3-line clear does not satisfy a
 "clear 2 lines at once" objective — that is a separate, harder goal. Shape families are
@@ -111,6 +112,11 @@ from a normal line clear (which fires on a row becoming **full**, not empty), an
 deliberately scoped to Bomb only — Row Clear/Column Clear always empty their own target line by
 design, so that would never be a "surprise" worth an objective. It also never advances the streak
 or combo counters, matching every other power-up clear.
+
+Row and column cross-clear is deliberately distinct from just checking `Simultaneous line
+clear`'s total: two rows clearing at once and one row plus one column clearing at once both
+sum to 2 lines cleared, but only the second is a "cross" — the objective needs the row/column
+split, not just the total, to tell them apart.
 
 Lifetime "how many pieces has the player ever placed" goals are covered by the Badges system's
 `TotalPiecesPlaced` stat, not a separate objective type — a level goal and a lifetime achievement

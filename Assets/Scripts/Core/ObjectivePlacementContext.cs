@@ -10,12 +10,16 @@ namespace MustyBlockBlast.Core
     {
         public ObjectivePlacementContext(
             int linesCleared,
+            int rowsCleared,
+            int columnsCleared,
             PieceFamily pieceFamily,
             int currentRunScore,
             bool boardEmptyAfterPlacement,
             int currentStreak)
         {
             LinesCleared = linesCleared;
+            RowsCleared = rowsCleared;
+            ColumnsCleared = columnsCleared;
             PieceFamily = pieceFamily;
             CurrentRunScore = currentRunScore;
             BoardEmptyAfterPlacement = boardEmptyAfterPlacement;
@@ -24,6 +28,13 @@ namespace MustyBlockBlast.Core
 
         /// <summary>Rows plus columns cleared by this placement; zero when nothing cleared.</summary>
         public int LinesCleared { get; }
+
+        /// <summary>Of <see cref="LinesCleared"/>, how many were rows. Split out from the summed total
+        /// so an objective can tell "2 rows" apart from "1 row + 1 column".</summary>
+        public int RowsCleared { get; }
+
+        /// <summary>Of <see cref="LinesCleared"/>, how many were columns.</summary>
+        public int ColumnsCleared { get; }
 
         /// <summary>Shape family of the piece that was just placed.</summary>
         public PieceFamily PieceFamily { get; }

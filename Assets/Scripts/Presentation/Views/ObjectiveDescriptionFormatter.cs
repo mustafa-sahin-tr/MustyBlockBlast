@@ -47,6 +47,9 @@ namespace MustyBlockBlast.Presentation.Views
                 case ObjectiveType.BombInducedLineClear:
                     return localization.Translate(LocalizationKeys.OBJECTIVE_BOMB_INDUCED_LINE_CLEAR);
 
+                case ObjectiveType.RowAndColumnCrossClear:
+                    return localization.Translate(LocalizationKeys.OBJECTIVE_ROW_AND_COLUMN_CROSS_CLEAR);
+
                 default:
                     return string.Empty;
             }

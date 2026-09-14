@@ -13,6 +13,8 @@ namespace MustyBlockBlast.Gameplay.Messages
             int cellCount,
             int colourId,
             int linesCleared,
+            int rowsCleared,
+            int columnsCleared,
             int monochromeLineCount,
             bool boardEmptyAfterPlacement)
         {
@@ -22,6 +24,8 @@ namespace MustyBlockBlast.Gameplay.Messages
             CellCount = cellCount;
             ColourId = colourId;
             LinesCleared = linesCleared;
+            RowsCleared = rowsCleared;
+            ColumnsCleared = columnsCleared;
             MonochromeLineCount = monochromeLineCount;
             BoardEmptyAfterPlacement = boardEmptyAfterPlacement;
         }
@@ -38,7 +42,17 @@ namespace MustyBlockBlast.Gameplay.Messages
 
         public int ColourId { get; }
 
+        /// <summary>Rows plus columns cleared by this placement — <see cref="RowsCleared"/> +
+        /// <see cref="ColumnsCleared"/>.</summary>
         public int LinesCleared { get; }
+
+        /// <summary>Of <see cref="LinesCleared"/>, how many were rows. Split out from the summed total
+        /// so an objective can tell "2 rows" apart from "1 row + 1 column", which the summed count
+        /// alone cannot.</summary>
+        public int RowsCleared { get; }
+
+        /// <summary>Of <see cref="LinesCleared"/>, how many were columns.</summary>
+        public int ColumnsCleared { get; }
 
         /// <summary>Of <see cref="LinesCleared"/>, how many were entirely one colour.</summary>
         public int MonochromeLineCount { get; }

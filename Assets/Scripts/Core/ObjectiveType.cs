@@ -26,5 +26,10 @@ namespace MustyBlockBlast.Core
         /// empty. Never advanced by <see cref="ObjectiveProgress.ApplyPlacement"/> — a distinct,
         /// power-up-sourced event, folded in only via <see cref="ObjectiveProgress.ApplyPowerUpLineEmptied"/>.</summary>
         BombInducedLineClear = 5,
+
+        /// <summary>Count placements that clear at least one row AND at least one column
+        /// simultaneously — distinct from clearing two rows, which <see cref="ObjectivePlacementContext.LinesCleared"/>
+        /// alone cannot tell apart from this.</summary>
+        RowAndColumnCrossClear = 6,
     }
 }

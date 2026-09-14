@@ -194,6 +194,10 @@ MonoBehaviour:
     m_Localized: "Vac\xEDa una l\xEDnea con una Bomba"
     m_Metadata:
       m_Items: []
+  - m_Id: 225277056638976
+    m_Localized: Despeja una fila y una columna a la vez
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

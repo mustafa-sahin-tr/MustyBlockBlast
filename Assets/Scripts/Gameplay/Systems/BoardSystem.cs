@@ -165,7 +165,8 @@ namespace MustyBlockBlast.Gameplay.Systems
 
             _piecePlacedPublisher.Publish(new PiecePlacedMessage(
                 piece.Id, anchor, PieceFamilyClassifier.Classify(piece.Id), piece.CellCount, colourId,
-                clearResult.LineCount, clearResult.MonochromeLineCount, _boardModel.Board.IsEmpty()));
+                clearResult.LineCount, clearResult.ClearedRows.Count, clearResult.ClearedColumns.Count,
+                clearResult.MonochromeLineCount, _boardModel.Board.IsEmpty()));
 
             if (clearResult.AnyCleared)
             {
