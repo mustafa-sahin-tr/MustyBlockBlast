@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace MustyBlockBlast.Core
@@ -93,8 +94,44 @@ namespace MustyBlockBlast.Core
             return new LineClearResult(resultRows, resultColumns, clearedCellCount, 0);
         }
 
+        /// <summary>Clears every currently-full row and column, once. Deliberately single-pass: it
+        /// resolves the board exactly as it stands and never chains. Chaining is
+        /// <see cref="CascadeClearResolver"/>'s job, which layers on top of this and is used only for a
+        /// real placement — a drag preview must keep seeing "what is full right now", nothing more.</summary>
         public static LineClearResult ResolveClears(Board board)
+            => ResolveClears(board, null, null);
+
+        /// <summary>
+        /// As <see cref="ResolveClears(Board)"/>, additionally reporting what this pass destroyed.
+        /// Both buffers are optional (pass null to skip that bookkeeping) and are cleared before use.
+        /// <para>
+        /// <paramref name="destroyedCells"/> receives each distinct emptied cell exactly once — a
+        /// cleared row/column intersection is listed by the row pass only, matching the
+        /// "count intersections once" rule <see cref="LineClearResult.ClearedCellCount"/> uses.
+        /// <paramref name="triggeredSpecials"/> receives the special cells among them, collected
+        /// through <see cref="SpecialCellDetection"/> before anything is cleared — the one moment the
+        /// kinds are still readable.
+        /// </para>
+        /// <para>
+        /// Internal because only <see cref="CascadeClearResolver"/> needs it: it exists so the cascade
+        /// does not re-implement "find the full lines and clear them", which is the one behaviour AC3
+        /// requires to stay bit-identical.
+        /// </para>
+        /// </summary>
+        internal static LineClearResult ResolveClears(
+            Board board, List<GridPosition> destroyedCells, List<SpecialCellTrigger> triggeredSpecials)
         {
+            // Validated up front, before anything is read, written or handed back: detection reads the
+            // destroyed-cell list, so the two buffers are supplied together or not at all rather than
+            // this method quietly allocating a hidden one. Checking here rather than at the point of
+            // use means a caller that got the pairing wrong never sees a half-processed buffer.
+            if (triggeredSpecials != null && destroyedCells == null)
+            {
+                throw new ArgumentException(
+                    "A destroyed-cell buffer is required to collect triggered specials.",
+                    nameof(destroyedCells));
+            }
+
             var clearedRows = new List<int>();
             var clearedColumns = new List<int>();
 
@@ -136,6 +173,19 @@ namespace MustyBlockBlast.Core
                 }
             }
 
+            // Both must also run before any clearing: the cell list is built from the lines as they
+            // still stand, and a cell's special kind is wiped by Board.Clear along with its colour.
+            if (destroyedCells != null)
+            {
+                CollectDestroyedCells(board, clearedRows, clearedColumns, destroyedCells);
+            }
+
+            if (triggeredSpecials != null)
+            {
+                triggeredSpecials.Clear();
+                SpecialCellDetection.CollectTriggered(board, destroyedCells, triggeredSpecials);
+            }
+
             for (int i = 0; i < clearedRows.Count; i++)
             {
                 ClearRow(board, clearedRows[i]);
@@ -147,6 +197,61 @@ namespace MustyBlockBlast.Core
             }
 
             return new LineClearResult(clearedRows, clearedColumns, clearedCellCount, monochromeLineCount);
+        }
+
+        /// <summary>Fills <paramref name="results"/> with every distinct cell the given lines cover.
+        /// Column cells sitting in an already-listed row are skipped, so an intersection appears once.
+        /// The cells of a line come from the board itself rather than a <see cref="Board.SIZE"/> loop
+        /// here, so a board with a different shape has one place to change.</summary>
+        private static void CollectDestroyedCells(
+            Board board,
+            IReadOnlyList<int> clearedRows,
+            IReadOnlyList<int> clearedColumns,
+            List<GridPosition> results)
+        {
+            results.Clear();
+
+            for (int i = 0; i < clearedRows.Count; i++)
+            {
+                board.CollectRowCells(clearedRows[i], results);
+            }
+
+            int cellCountFromRows = results.Count;
+
+            for (int i = 0; i < clearedColumns.Count; i++)
+            {
+                board.CollectColumnCells(clearedColumns[i], results);
+            }
+
+            // Walk only the cells the column pass just appended and drop the ones a cleared row
+            // already contributed. Compacting in place beats a HashSet: this runs once per placement
+            // over at most a few dozen cells, and allocates nothing.
+            int writeIndex = cellCountFromRows;
+            for (int readIndex = cellCountFromRows; readIndex < results.Count; readIndex++)
+            {
+                if (ContainsIndex(clearedRows, results[readIndex].Y))
+                {
+                    continue;
+                }
+
+                results[writeIndex] = results[readIndex];
+                writeIndex++;
+            }
+
+            results.RemoveRange(writeIndex, results.Count - writeIndex);
+        }
+
+        private static bool ContainsIndex(IReadOnlyList<int> indices, int value)
+        {
+            for (int i = 0; i < indices.Count; i++)
+            {
+                if (indices[i] == value)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         /// <summary>True when every cell of row <paramref name="y"/> holds the same non-empty colour.</summary>

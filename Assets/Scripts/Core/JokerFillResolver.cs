@@ -13,18 +13,22 @@ namespace MustyBlockBlast.Core
         private static readonly int[] NoLines = new int[0];
         private static readonly GridPosition[] NoCells = new GridPosition[0];
 
+        private static readonly SpecialCellTrigger[] NoTriggers = new SpecialCellTrigger[0];
+
         internal JokerFillResult(
             bool filled,
             GridPosition position,
             IReadOnlyList<int> clearedRows,
             IReadOnlyList<int> clearedColumns,
-            IReadOnlyList<GridPosition> clearedCells)
+            IReadOnlyList<GridPosition> clearedCells,
+            IReadOnlyList<SpecialCellTrigger> triggeredSpecials)
         {
             Filled = filled;
             Position = position;
             ClearedRows = clearedRows;
             ClearedColumns = clearedColumns;
             ClearedCells = clearedCells;
+            TriggeredSpecials = triggeredSpecials;
         }
 
         /// <summary>Whether the cell was actually filled. False means nothing on the board changed —
@@ -52,9 +56,20 @@ namespace MustyBlockBlast.Core
 
         public bool AnyCleared => LineCount > 0;
 
+        /// <summary>
+        /// The special cells this fill's clear destroyed, found through the same
+        /// <see cref="SpecialCellDetection"/> pass a placement's or a power-up's clear uses — a joker
+        /// completing a line destroys a special cell exactly as any other clear does. Always empty
+        /// while every kind is <see cref="SpecialCellKind.None"/>. Reported rather than applied here,
+        /// same as <see cref="PowerUpClearResult.TriggeredSpecials"/>: whether a joker's triggers feed
+        /// <see cref="CascadeClearResolver"/>'s loop is a decision for the first sub-issue that ships a
+        /// real effect.
+        /// </summary>
+        public IReadOnlyList<SpecialCellTrigger> TriggeredSpecials { get; }
+
         /// <summary>A target that could not be filled: nothing was read, written or cleared.</summary>
         internal static JokerFillResult Rejected(GridPosition position)
-            => new JokerFillResult(false, position, NoLines, NoLines, NoCells);
+            => new JokerFillResult(false, position, NoLines, NoLines, NoCells, NoTriggers);
     }
 
     /// <summary>
@@ -137,6 +152,11 @@ namespace MustyBlockBlast.Core
                 }
             }
 
+            // Collected before anything is cleared, same as clearedCells above: once a cell is cleared
+            // its special kind is reset (Board.Clear), so detection has to read it first.
+            var triggeredSpecials = new List<SpecialCellTrigger>();
+            SpecialCellDetection.CollectTriggered(board, clearedCells, triggeredSpecials);
+
             for (int i = 0; i < clearedRows.Count; i++)
             {
                 LineClearResolver.ClearRow(board, clearedRows[i]);
@@ -147,7 +167,7 @@ namespace MustyBlockBlast.Core
                 LineClearResolver.ClearColumn(board, clearedColumns[i]);
             }
 
-            return new JokerFillResult(true, target, clearedRows, clearedColumns, clearedCells);
+            return new JokerFillResult(true, target, clearedRows, clearedColumns, clearedCells, triggeredSpecials);
         }
     }
 }

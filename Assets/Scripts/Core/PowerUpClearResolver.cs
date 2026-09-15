@@ -11,11 +11,13 @@ namespace MustyBlockBlast.Core
         public PowerUpClearResult(
             IReadOnlyList<GridPosition> clearedCells,
             IReadOnlyList<int> emptiedRows,
-            IReadOnlyList<int> emptiedColumns)
+            IReadOnlyList<int> emptiedColumns,
+            IReadOnlyList<SpecialCellTrigger> triggeredSpecials)
         {
             ClearedCells = clearedCells;
             EmptiedRows = emptiedRows;
             EmptiedColumns = emptiedColumns;
+            TriggeredSpecials = triggeredSpecials;
         }
 
         /// <summary>Exactly the cells that held a colour before the clear — cells that were already
@@ -32,6 +34,20 @@ namespace MustyBlockBlast.Core
 
         /// <summary>Columns that had at least one cleared cell and, after clearing, are fully empty.</summary>
         public IReadOnlyList<int> EmptiedColumns { get; }
+
+        /// <summary>
+        /// The special cells this clear destroyed, found through the same
+        /// <see cref="SpecialCellDetection"/> pass a placement's line clear uses — a special block is
+        /// destroyed by a Bomb exactly as it is by a completed line, and neither resolver gets its own
+        /// idea of what counts as destroying one.
+        /// <para>
+        /// Always empty while every kind is <see cref="SpecialCellKind.None"/>. Reported rather than
+        /// applied here: a power-up clear is not a placement, so whether its triggers feed
+        /// <see cref="CascadeClearResolver"/>'s loop is a decision for the first sub-issue that ships
+        /// a real effect, made by the calling System with a real effect in hand.
+        /// </para>
+        /// </summary>
+        public IReadOnlyList<SpecialCellTrigger> TriggeredSpecials { get; }
 
         public int ClearedCellCount => ClearedCells.Count;
 
@@ -59,6 +75,7 @@ namespace MustyBlockBlast.Core
         /// call — avoids allocating a fresh empty list for the common "tapped nothing" case.</summary>
         private static readonly GridPosition[] EmptyCells = new GridPosition[0];
         private static readonly int[] EmptyLines = new int[0];
+        private static readonly SpecialCellTrigger[] EmptyTriggers = new SpecialCellTrigger[0];
 
         /// <summary>Clears the 3x3 area centred on <paramref name="center"/>, clamped to the board — a
         /// corner centre therefore affects 4 cells and an edge centre 6.</summary>
@@ -104,7 +121,7 @@ namespace MustyBlockBlast.Core
             int colourId = board[target];
             if (colourId == Board.EMPTY)
             {
-                return new PowerUpClearResult(EmptyCells, EmptyLines, EmptyLines);
+                return new PowerUpClearResult(EmptyCells, EmptyLines, EmptyLines, EmptyTriggers);
             }
 
             var matchingCells = new List<GridPosition>();
@@ -146,6 +163,11 @@ namespace MustyBlockBlast.Core
         /// resolve method so the emptied-line computation has exactly one implementation.</summary>
         private static PowerUpClearResult ClearAndReport(Board board, List<GridPosition> clearedCells)
         {
+            // Before ClearAll, for the same reason occupancy was read before it: Board.Clear resets a
+            // cell's special kind along with its colour, so this is the last moment the kinds exist.
+            var triggeredSpecials = new List<SpecialCellTrigger>();
+            SpecialCellDetection.CollectTriggered(board, clearedCells, triggeredSpecials);
+
             ClearAll(board, clearedCells);
 
             // Only rows/columns a cleared cell actually belonged to can have changed emptiness — no
@@ -169,7 +191,7 @@ namespace MustyBlockBlast.Core
                 }
             }
 
-            return new PowerUpClearResult(clearedCells, emptiedRows, emptiedColumns);
+            return new PowerUpClearResult(clearedCells, emptiedRows, emptiedColumns, triggeredSpecials);
         }
 
         private static void ClearAll(Board board, List<GridPosition> cells)

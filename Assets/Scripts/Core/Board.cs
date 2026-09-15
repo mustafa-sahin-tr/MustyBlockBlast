@@ -1,10 +1,16 @@
 using System;
+using System.Collections.Generic;
 
 namespace MustyBlockBlast.Core
 {
     /// <summary>
     /// The 8x8 playing field. Cells hold a colour id; <see cref="EMPTY"/> means unoccupied.
     /// Colour is cosmetic and never affects placement or clearing.
+    /// <para>
+    /// Each cell additionally carries a <see cref="SpecialCellKind"/> — metadata about what happens
+    /// when that cell is destroyed. It is orthogonal to occupancy: no occupancy, fullness or
+    /// flood-fill query on this class reads it.
+    /// </para>
     /// </summary>
     public sealed class Board
     {
@@ -16,14 +22,22 @@ namespace MustyBlockBlast.Core
 
         private readonly int[] _cells;
 
+        /// <summary>Per-cell special kind, indexed exactly like <see cref="_cells"/>. Deliberately a
+        /// second array rather than extra bits packed into the colour id: the two are independent
+        /// (a cell can be empty, occupied, or occupied-and-special) and every existing read of
+        /// <see cref="_cells"/> must keep meaning "is this cell occupied, and in which colour".</summary>
+        private readonly SpecialCellKind[] _specialKinds;
+
         public Board()
         {
             _cells = new int[SIZE * SIZE];
+            _specialKinds = new SpecialCellKind[SIZE * SIZE];
         }
 
-        private Board(int[] cells)
+        private Board(int[] cells, SpecialCellKind[] specialKinds)
         {
             _cells = cells;
+            _specialKinds = specialKinds;
         }
 
         public static bool IsInside(GridPosition position)
@@ -54,7 +68,59 @@ namespace MustyBlockBlast.Core
             _cells[Index(position)] = colourId;
         }
 
-        public void Clear(GridPosition position) => _cells[Index(position)] = EMPTY;
+        /// <summary>Empties a cell. Also resets its <see cref="SpecialCellKind"/>: the special
+        /// behaviour belonged to the block that was standing there, so leaving it behind would hand it
+        /// to whatever piece happens to land on the cell next. Any caller that needs to know what was
+        /// destroyed must read the kind <em>before</em> clearing — see
+        /// <see cref="SpecialCellDetection.CollectTriggered"/>.</summary>
+        public void Clear(GridPosition position)
+        {
+            int index = Index(position);
+            _cells[index] = EMPTY;
+            _specialKinds[index] = SpecialCellKind.None;
+        }
+
+        /// <summary>The special behaviour the block on <paramref name="position"/> carries.
+        /// <see cref="SpecialCellKind.None"/> for an ordinary or empty cell.</summary>
+        public SpecialCellKind GetSpecialKind(GridPosition position) => _specialKinds[Index(position)];
+
+        /// <summary>Tags <paramref name="position"/> with a special behaviour. Independent of
+        /// <see cref="Occupy"/>, which deliberately leaves the kind alone so a spawner can occupy a
+        /// cell and then tag it in two steps; the tag is reset only by <see cref="Clear"/>.</summary>
+        public void SetSpecialKind(GridPosition position, SpecialCellKind kind)
+            => _specialKinds[Index(position)] = kind;
+
+        /// <summary>Appends every cell of row <paramref name="y"/> to <paramref name="results"/>
+        /// (which is not cleared first). Exists so callers that need the cells of a line — rather than
+        /// just its index — go through the board instead of re-deriving the geometry from
+        /// <see cref="SIZE"/> themselves, which is what a non-rectangular board would have to change.</summary>
+        public void CollectRowCells(int y, List<GridPosition> results)
+        {
+            if (results == null)
+            {
+                throw new ArgumentNullException(nameof(results));
+            }
+
+            for (int x = 0; x < SIZE; x++)
+            {
+                results.Add(new GridPosition(x, y));
+            }
+        }
+
+        /// <summary>Appends every cell of column <paramref name="x"/> to <paramref name="results"/>.
+        /// Counterpart to <see cref="CollectRowCells"/>, and shape-agnostic for the same reason.</summary>
+        public void CollectColumnCells(int x, List<GridPosition> results)
+        {
+            if (results == null)
+            {
+                throw new ArgumentNullException(nameof(results));
+            }
+
+            for (int y = 0; y < SIZE; y++)
+            {
+                results.Add(new GridPosition(x, y));
+            }
+        }
 
         public bool IsRowFull(int y)
         {
@@ -314,19 +380,27 @@ namespace MustyBlockBlast.Core
             return stackCount + 1;
         }
 
-        /// <summary>Deep copy, used for undo snapshots.</summary>
+        /// <summary>Deep copy, used for undo snapshots. Copies the special-cell kinds as well as the
+        /// colours — a snapshot that restored the colours but not the kinds would silently strip every
+        /// special block on the board.</summary>
         public Board Clone()
         {
             int[] copy = new int[_cells.Length];
             Array.Copy(_cells, copy, _cells.Length);
-            return new Board(copy);
+
+            var specialCopy = new SpecialCellKind[_specialKinds.Length];
+            Array.Copy(_specialKinds, specialCopy, _specialKinds.Length);
+
+            return new Board(copy, specialCopy);
         }
 
         /// <summary>Overwrites this board's cells with <paramref name="source"/>'s. Used to reuse a scratch
-        /// board across preview queries without allocating a new board each call.</summary>
+        /// board across preview queries without allocating a new board each call. Copies the
+        /// special-cell kinds too, for the same reason <see cref="Clone"/> does.</summary>
         public void CopyFrom(Board source)
         {
             Array.Copy(source._cells, _cells, _cells.Length);
+            Array.Copy(source._specialKinds, _specialKinds, _specialKinds.Length);
         }
 
         private static int Index(GridPosition position)
