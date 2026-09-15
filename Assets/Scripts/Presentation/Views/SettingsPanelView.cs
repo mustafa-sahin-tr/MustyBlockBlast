@@ -24,8 +24,9 @@ namespace MustyBlockBlast.Presentation.Views
     /// <item>Theme — the swatch grid; picking one calls <see cref="SettingsSystem.SetTheme"/> and
     /// returns to the settings screen. The recolour itself is handled by the existing reactive theme
     /// subscriptions in every other View, so nothing else happens here.</item>
-    /// <item>Mode — the two mode cards. Picking the active mode just returns; picking the other one
-    /// steps to the confirmation screen, because switching restarts the run.</item>
+    /// <item>Mode — one card per entry in <see cref="SelectableModes"/>. Picking the active mode just
+    /// returns; picking any other steps to the confirmation screen, because switching restarts the
+    /// run.</item>
     /// <item>ModeConfirm — the "this restarts your run" prompt. Confirming calls
     /// <see cref="GameModeSystem.SelectMode"/>, which owns the restart.</item>
     /// </list>
@@ -85,6 +86,24 @@ namespace MustyBlockBlast.Presentation.Views
         private static readonly Vector2 ConfirmButtonSize = new Vector2(340f, 96f);
         private const float MODE_OPTION_SPACING_X = 360f;
 
+        /// <summary>Columns in the mode grid. Two, because a mode card is 320pt wide and three of them
+        /// would not fit the 880pt card.</summary>
+        private const int MODE_COLUMN_COUNT = 2;
+
+        private const float MODE_OPTION_SPACING_Y = 216f;
+
+        /// <summary>
+        /// Every mode the picker offers, in display order. The single source of "which modes exist to
+        /// choose from": adding one here is all the picker needs, and the layout centres whatever
+        /// count it finds.
+        /// </summary>
+        private static readonly GameMode[] SelectableModes =
+        {
+            GameMode.Endless,
+            GameMode.Timed,
+            GameMode.Path,
+        };
+
         private const int DURATION_COLUMN_COUNT = 3;
         private static readonly Vector2 DurationOptionSize = new Vector2(200f, 130f);
         private static readonly Vector2 DurationOptionSpacing = new Vector2(232f, 162f);
@@ -101,7 +120,7 @@ namespace MustyBlockBlast.Presentation.Views
 
         private readonly CompositeDisposable _disposables = new CompositeDisposable();
         private readonly List<ThemeOption> _options = new List<ThemeOption>(4);
-        private readonly List<ModeOption> _modeOptions = new List<ModeOption>(2);
+        private readonly List<ModeOption> _modeOptions = new List<ModeOption>(SelectableModes.Length);
         private readonly List<DurationOption> _durationOptions = new List<DurationOption>(6);
         private readonly List<LanguageOption> _languageOptions = new List<LanguageOption>(3);
         private readonly StringBuilder _stringBuilder = new StringBuilder(8);
@@ -772,7 +791,12 @@ namespace MustyBlockBlast.Presentation.Views
 
         private static string ModeNameKey(GameMode mode)
         {
-            return mode == GameMode.Timed ? LocalizationKeys.MODE_TIMED : LocalizationKeys.MODE_ENDLESS;
+            return mode switch
+            {
+                GameMode.Timed => LocalizationKeys.MODE_TIMED,
+                GameMode.Path => LocalizationKeys.MODE_PATH,
+                _ => LocalizationKeys.MODE_ENDLESS,
+            };
         }
 
         /// <summary>
@@ -1367,13 +1391,24 @@ namespace MustyBlockBlast.Presentation.Views
             _inkTexts.Add(title);
             RegisterLocalized(title, LocalizationKeys.SETTINGS_MODE_SCREEN_TITLE);
 
-            // Two options only, so the same column-centring the theme grid uses collapses to one
-            // centred row.
-            for (int modeIndex = 0; modeIndex < 2; modeIndex++)
+            // A genuine N-way picker over SelectableModes rather than a hardcoded pair, so shipping a
+            // mode is one entry in that array plus its String Table row — nothing here moves. Laid out
+            // on the same centred grid as the theme swatches and duration chips, with the trailing
+            // partial row centred on its own count so an odd number of modes does not sit lopsided.
+            int rowCount = Mathf.Max(
+                1, Mathf.CeilToInt(SelectableModes.Length / (float)MODE_COLUMN_COUNT));
+
+            for (int modeIndex = 0; modeIndex < SelectableModes.Length; modeIndex++)
             {
-                GameMode mode = modeIndex == 0 ? GameMode.Endless : GameMode.Timed;
-                float x = (modeIndex - ((COLUMN_COUNT - 1) * 0.5f)) * MODE_OPTION_SPACING_X;
-                _modeOptions.Add(BuildModeOption(root, mode, new Vector2(x, 0f)));
+                int column = modeIndex % MODE_COLUMN_COUNT;
+                int row = modeIndex / MODE_COLUMN_COUNT;
+                int columnsInRow = Mathf.Min(
+                    MODE_COLUMN_COUNT, SelectableModes.Length - (row * MODE_COLUMN_COUNT));
+
+                float x = (column - ((columnsInRow - 1) * 0.5f)) * MODE_OPTION_SPACING_X;
+                float y = (((rowCount - 1) * 0.5f) - row) * MODE_OPTION_SPACING_Y;
+
+                _modeOptions.Add(BuildModeOption(root, SelectableModes[modeIndex], new Vector2(x, y)));
             }
         }
 

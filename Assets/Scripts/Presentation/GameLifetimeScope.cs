@@ -58,9 +58,20 @@ namespace MustyBlockBlast.Presentation
                 container.Resolve<PowerUpSystem>();
                 container.Resolve<PowerUpScoreSystem>();
 
-                // Subscribes in its constructor, like the systems above. ObjectiveSystem reads the run
-                // score from ScoreChangedMessage rather than ScoreModel directly, so unlike the others
-                // its correctness does not depend on resolve order relative to ScoreSystem.
+                // Subscribes in its constructor, like the systems above.
+                //
+                // DO NOT MOVE THIS ABOVE ScoreSystem. Both subscribe to PiecePlacedMessage, and
+                // MessagePipe invokes handlers in subscription order — which, because both subscribe in
+                // their constructors, is exactly the resolve order written here. ObjectiveSystem
+                // publishes ObjectiveCompletedMessage from inside its own PiecePlacedMessage handler,
+                // and GameMode.Path ends the run on that message with ScoreModel.Score as the run's
+                // final figure (LevelProgressionSystem.CompletePathLevel). If ObjectiveSystem ran
+                // first, that figure would be missing the very placement that completed the level, and
+                // both the end-of-run card and the path total would be quietly short by it. Nothing
+                // enforces this at compile time, but it is covered at runtime by
+                // LevelProgressionSystemPathModeTests.
+                // ARealPlacementThatCompletesTheLevel_BanksTheFullScoreIncludingThePlacementsOwnPoints,
+                // which constructs the two systems in this same order and fails if it is reversed.
                 container.Resolve<ObjectiveSystem>();
 
                 // Must come after ObjectiveSystem: it loads the saved level and writes the current
@@ -127,6 +138,7 @@ namespace MustyBlockBlast.Presentation
             builder.Register<GhostFitModel>(Lifetime.Singleton);
             builder.Register<ObjectiveModel>(Lifetime.Singleton);
             builder.Register<LevelProgressionModel>(Lifetime.Singleton);
+            builder.Register<PathRunModel>(Lifetime.Singleton);
             builder.Register<BadgeStatsModel>(Lifetime.Singleton);
             builder.Register<BadgeModel>(Lifetime.Singleton);
         }

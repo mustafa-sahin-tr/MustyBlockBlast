@@ -254,6 +254,26 @@ MonoBehaviour:
     m_Localized: No hay colocaciones posibles
     m_Metadata:
       m_Items: []
+  - m_Id: 781257783894016
+    m_Localized: "\xA1Nivel completado!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 781257951666176
+    m_Localized: "Nivel {0} \xB7 Ruta {1}"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 781257951666177
+    m_Localized: Ruta
+    m_Metadata:
+      m_Items: []
+  - m_Id: 781257951666178
+    m_Localized: 'Total de la ruta: {0}'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 781257951666179
+    m_Localized: Toca un nivel desbloqueado para jugarlo
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

@@ -55,6 +55,12 @@ namespace MustyBlockBlast.Gameplay.Settings
         [Tooltip("Power-up granted on completing this level. Used only when Grants Level Up Reward is on.")]
         [SerializeField] private PowerUpKind _levelUpReward = PowerUpKind.RowClear;
 
+        [Tooltip("Score paid into the run's own score when this level is completed in Path mode. " +
+            "0 (the default) means the level pays nothing, which is what every level authored before " +
+            "this field existed does. Ignored in Endless and Timed, where completing a level does not " +
+            "end a run.")]
+        [SerializeField] private int _completionScoreBonus;
+
         [Tooltip("Width of the rolling window in seconds for RollingLineClearWindow, or the deadline in " +
             "seconds from run start for EarlyScoreRush. Unused otherwise.")]
         [SerializeField] private float _windowSeconds = 15f;
@@ -78,6 +84,18 @@ namespace MustyBlockBlast.Gameplay.Settings
         /// <summary>The power-up completing this level grants. Meaningless unless
         /// <see cref="GrantsLevelUpReward"/> is true.</summary>
         public PowerUpKind LevelUpReward => _levelUpReward;
+
+        /// <summary>
+        /// Points completing this level adds to that run's score in <see cref="GameMode.Path"/>. Zero
+        /// for a level that pays nothing.
+        /// <para>
+        /// Authored per level rather than computed from the level number, matching
+        /// <see cref="GrantsLevelUpReward"/>'s philosophy: which levels pay, and how much, is content
+        /// to be tuned in the catalog asset, not a formula in C#. Defaulting to zero is what keeps
+        /// every level authored before this field existed behaving exactly as it did.
+        /// </para>
+        /// </summary>
+        public int CompletionScoreBonus => _completionScoreBonus;
 
         /// <summary>
         /// Builds the immutable Core definition for this level. Throws the same way
@@ -114,6 +132,12 @@ namespace MustyBlockBlast.Gameplay.Settings
             if (_targetValue <= 0)
             {
                 error = "Target value must be greater than zero — an objective with a non-positive target can never complete.";
+                return false;
+            }
+
+            if (_completionScoreBonus < 0)
+            {
+                error = "Completion score bonus cannot be negative — a level must never charge the player for clearing it.";
                 return false;
             }
 
@@ -200,6 +224,7 @@ namespace MustyBlockBlast.Gameplay.Settings
             _requiredLineCount = Mathf.Max(1, _requiredLineCount);
             _requiredOccupancyThreshold = Mathf.Clamp(_requiredOccupancyThreshold, 1, Board.SIZE * Board.SIZE);
             _windowSeconds = Mathf.Max(1f, _windowSeconds);
+            _completionScoreBonus = Mathf.Max(0, _completionScoreBonus);
         }
 #endif
     }

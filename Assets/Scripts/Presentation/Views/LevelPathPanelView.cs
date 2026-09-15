@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Text;
 using MustyBlockBlast.Core;
+using MustyBlockBlast.Gameplay;
 using MustyBlockBlast.Gameplay.Localization;
 using MustyBlockBlast.Gameplay.Models;
 using MustyBlockBlast.Gameplay.Reactive;
@@ -14,8 +15,15 @@ namespace MustyBlockBlast.Presentation.Views
 {
     /// <summary>
     /// The level path overlay: the whole authored ladder as a gated sequence of numbered nodes, with
-    /// the player's own position highlighted. Read-only in this slice — a node is a status light, not
-    /// a button, so tapping one deliberately does nothing.
+    /// the player's own position highlighted.
+    /// <para>
+    /// Whether a node is a button is a property of the mode, not of this card. In
+    /// <see cref="GameMode.Path"/> a run is bounded to one level and the player picks which, so an
+    /// unlocked node starts a run there; in Endless and Timed there is no such thing as "playing one
+    /// level", so a node stays exactly what it has always been — a status light whose tap is a
+    /// deliberate no-op. The View states neither rule itself: it asks
+    /// <see cref="LevelProgressionSystem.TryStartPathLevel"/>, which refuses outside Path mode.
+    /// </para>
     /// <para>
     /// Paged rather than scrolled: this scene has no EventSystem (taps arrive through
     /// <see cref="BoardInputView"/>'s pointer action) and therefore no ScrollRect, so a hundred nodes
@@ -50,6 +58,14 @@ namespace MustyBlockBlast.Presentation.Views
         private const float SIDE_INSET = 60f;
         private const float ICON_BUTTON_SIZE = 92f;
         private const float GRID_TOP_INSET = 194f;
+
+        /// <summary>Card top edge to the Path-mode running-total line — the band between the header
+        /// and the first row of nodes.</summary>
+        private const float PATH_TOTAL_INSET = 152f;
+
+        /// <summary>Smaller than the other labels on this line: the hint is a sentence rather than a
+        /// value, and it shares its line with the running total.</summary>
+        private const int TAP_HINT_FONT_SIZE = 28;
 
         private const float NODE_SIZE = 160f;
         private const float NODE_SPACING_X = 200f;
@@ -89,10 +105,13 @@ namespace MustyBlockBlast.Presentation.Views
         [SerializeField] private Color _scrimColour = new Color(0.17f, 0.15f, 0.20f, 0.55f);
 
         private LevelProgressionModel _levelProgressionModel;
+        private PathRunModel _pathRunModel;
         private LevelCatalog _levelCatalog;
         private SettingsModel _settingsModel;
         private LocalizationModel _localizationModel;
         private LocalizationSystem _localizationSystem;
+        private LevelProgressionSystem _levelProgressionSystem;
+        private GameModeSystem _gameModeSystem;
         private TimerRunSystem _timerRunSystem;
 
         private Canvas _canvas;
@@ -107,6 +126,8 @@ namespace MustyBlockBlast.Presentation.Views
         private Text _headerText;
         private Text _descriptionText;
         private Text _pageText;
+        private Text _pathTotalText;
+        private Text _tapHintText;
 
         private ThemeDefinition _currentTheme;
         private int _pageIndex;
@@ -137,17 +158,23 @@ namespace MustyBlockBlast.Presentation.Views
         [Inject]
         public void Construct(
             LevelProgressionModel levelProgressionModel,
+            PathRunModel pathRunModel,
             LevelCatalog levelCatalog,
             SettingsModel settingsModel,
             LocalizationModel localizationModel,
             LocalizationSystem localizationSystem,
+            LevelProgressionSystem levelProgressionSystem,
+            GameModeSystem gameModeSystem,
             TimerRunSystem timerRunSystem)
         {
             _levelProgressionModel = levelProgressionModel;
+            _pathRunModel = pathRunModel;
             _levelCatalog = levelCatalog;
             _settingsModel = settingsModel;
             _localizationModel = localizationModel;
             _localizationSystem = localizationSystem;
+            _levelProgressionSystem = levelProgressionSystem;
+            _gameModeSystem = gameModeSystem;
             _timerRunSystem = timerRunSystem;
         }
 
@@ -158,8 +185,9 @@ namespace MustyBlockBlast.Presentation.Views
 
         private void Start()
         {
-            if (_levelProgressionModel == null || _levelCatalog == null || _settingsModel == null
-                || _localizationModel == null || _localizationSystem == null || _timerRunSystem == null)
+            if (_levelProgressionModel == null || _pathRunModel == null || _levelCatalog == null
+                || _settingsModel == null || _localizationModel == null || _localizationSystem == null
+                || _levelProgressionSystem == null || _gameModeSystem == null || _timerRunSystem == null)
             {
                 Debug.LogError(
                     $"{nameof(LevelPathPanelView)} was not injected. Is it registered in the LifetimeScope?", this);
@@ -177,6 +205,11 @@ namespace MustyBlockBlast.Presentation.Views
             // The ladder can advance while the card is closed; repainting from the model keeps a
             // reopened card truthful without any "is it stale" bookkeeping.
             _levelProgressionModel.CurrentLevelNumber.Subscribe(OnCurrentLevelChanged).AddTo(_disposables);
+
+            // Same reason for both: the walk's tally moves and the mode changes while the card is
+            // hidden, and each decides something the card renders.
+            _pathRunModel.PathTotalScore.Subscribe(OnPathTotalChanged).AddTo(_disposables);
+            _gameModeSystem.CurrentMode.Subscribe(OnModeChanged).AddTo(_disposables);
         }
 
         private void OnDestroy() => _disposables.Dispose();
@@ -207,9 +240,15 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         /// <summary>
-        /// Routes a tap while the panel is open. The two pagers and the close cross are tested first;
-        /// the card then swallows anything else — a node is read-only in this slice, so landing on one
-        /// is a deliberate no-op rather than a dismissal. Only the scrim outside the card closes.
+        /// Routes a tap while the panel is open. The two pagers and the close cross are tested first,
+        /// then the nodes; the card swallows anything else, and only the scrim outside it closes.
+        /// <para>
+        /// A node tap is offered to <see cref="LevelProgressionSystem.TryStartPathLevel"/> rather than
+        /// gated on the mode here. The System already has to refuse a locked or unauthored level, so
+        /// letting it also own "and only in Path mode" keeps one answer to "may this level be started"
+        /// instead of two that can drift. A refusal leaves the card open and unchanged, which is
+        /// exactly the read-only no-op Endless and Timed have always had.
+        /// </para>
         /// </summary>
         internal void HandleTap(Vector2 screenPosition)
         {
@@ -240,12 +279,51 @@ namespace MustyBlockBlast.Presentation.Views
                 return;
             }
 
+            if (TryHandleNodeTap(screenPosition, eventCamera))
+            {
+                return;
+            }
+
             if (RectTransformUtility.RectangleContainsScreenPoint(_cardRect, screenPosition, eventCamera))
             {
                 return;
             }
 
             Close();
+        }
+
+        /// <summary>
+        /// Starts a run at the tapped node's level when the active mode allows it. Returns true when
+        /// the tap landed on a node at all — including one the System refused — so a tap on an inert
+        /// node is swallowed by the card rather than falling through to the scrim and dismissing it.
+        /// </summary>
+        private bool TryHandleNodeTap(Vector2 screenPosition, Camera eventCamera)
+        {
+            for (int nodeIndex = 0; nodeIndex < _nodes.Length; nodeIndex++)
+            {
+                LevelNode node = _nodes[nodeIndex];
+                if (!node.Root.gameObject.activeSelf
+                    || !RectTransformUtility.RectangleContainsScreenPoint(node.Root, screenPosition, eventCamera))
+                {
+                    continue;
+                }
+
+                // The node's level is its position, not stored state: the grid is repainted per page
+                // rather than rebuilt, so the widget at this index means a different level on every
+                // page and deriving it is the only way it can never be stale.
+                int levelNumber = (_pageIndex * PAGE_SIZE) + nodeIndex + 1;
+
+                if (_levelProgressionSystem.TryStartPathLevel(levelNumber))
+                {
+                    // Closing is part of starting: the run is under this card, and leaving a modal
+                    // open over a run that has just begun would also leave the countdown held.
+                    Close();
+                }
+
+                return true;
+            }
+
+            return false;
         }
 
         private void Close()
@@ -286,6 +364,10 @@ namespace MustyBlockBlast.Presentation.Views
 
         private void OnCurrentLevelChanged(int levelNumber) => Refresh();
 
+        private void OnPathTotalChanged(int pathTotal) => Refresh();
+
+        private void OnModeChanged(GameMode mode) => Refresh();
+
         /// <summary>Repaints the whole card from the models: header, nodes, description and pager.</summary>
         private void Refresh()
         {
@@ -313,6 +395,25 @@ namespace MustyBlockBlast.Presentation.Views
 
             _descriptionText.color = _currentTheme.SoftInk;
             _descriptionText.text = DescribeLevel(currentLevel);
+
+            // Both lines are Path-mode-only facts: a total across levels, and a nudge that the nodes
+            // are tappable. Hidden rather than blanked in the other modes, so the card keeps the exact
+            // layout it has always had there.
+            bool isPathMode = _gameModeSystem.CurrentMode.Value == GameMode.Path;
+            _pathTotalText.gameObject.SetActive(isPathMode);
+            _tapHintText.gameObject.SetActive(isPathMode);
+
+            if (isPathMode)
+            {
+                _pathTotalText.color = _currentTheme.Ink;
+                _stringBuilder.Clear();
+                _stringBuilder.Append(_pathRunModel.PathTotalScore.Value);
+                _pathTotalText.text = _localizationSystem.Format(
+                    LocalizationKeys.LEVEL_PATH_TOTAL, _stringBuilder.ToString());
+
+                _tapHintText.color = _currentTheme.SoftInk;
+                _tapHintText.text = _localizationSystem.Translate(LocalizationKeys.LEVEL_PATH_TAP_HINT);
+            }
 
             for (int nodeIndex = 0; nodeIndex < _nodes.Length; nodeIndex++)
             {
@@ -433,6 +534,18 @@ namespace MustyBlockBlast.Presentation.Views
 
             BuildCloseButton(
                 _cardRect, new Vector2(cardHalfWidth - SIDE_INSET - (ICON_BUTTON_SIZE * 0.5f), headerY));
+
+            // Both sit in the band between the header line and the top of the node grid — the one
+            // strip of the card that is otherwise empty. The foot of the card is not an option: the
+            // level description and the pager already share it, and a third line there would crowd
+            // the last row of nodes.
+            _pathTotalText = CreateLabel(
+                _cardRect, "PathTotal", _descriptionFontSize, FontStyle.Bold, TextAnchor.MiddleLeft,
+                new Vector2(-cardHalfWidth + SIDE_INSET, cardHalfHeight - PATH_TOTAL_INSET));
+
+            _tapHintText = CreateLabel(
+                _cardRect, "TapHint", TAP_HINT_FONT_SIZE, FontStyle.Normal, TextAnchor.MiddleRight,
+                new Vector2(cardHalfWidth - SIDE_INSET, cardHalfHeight - PATH_TOTAL_INSET));
 
             BuildGrid(cardHalfHeight);
 

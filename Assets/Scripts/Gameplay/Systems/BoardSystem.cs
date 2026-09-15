@@ -272,8 +272,9 @@ namespace MustyBlockBlast.Gameplay.Systems
         }
 
         /// <summary>
-        /// Ends the run for a reason the board cannot detect itself — currently only the timed-mode
-        /// clock expiring — with the caller supplying that reason. Kept here so the game-over
+        /// Ends the run for a reason the board cannot detect itself — the timed-mode clock expiring, or
+        /// a Path-mode level's objective being met — with the caller supplying that reason. Kept here
+        /// so the game-over
         /// invariant has exactly one owner; callers must never set their own end-of-run state.
         /// Already-over runs are a no-op.
         /// </summary>
@@ -413,6 +414,17 @@ namespace MustyBlockBlast.Gameplay.Systems
 
         private void CheckGameOver()
         {
+            // A run that is already over stays over, for the reason it was ended with. Load-bearing
+            // only for Path mode, where a level completing mid-placement ends the run through
+            // ForceGameOver from inside the PiecePlacedMessage publish — the tail of TryPlacePiece then
+            // still reaches here, and without this guard a board that also happens to have no legal
+            // move left would publish a second, contradicting GameOverMessage over the success one.
+            // Inert for Endless and Timed: nothing ends a run of theirs part-way through a placement.
+            if (IsGameOver)
+            {
+                return;
+            }
+
             _trayModel.CollectRemaining(_remainingBuffer);
 
             // The parked piece counts as a move the player still has. Swapping it back into a dock slot
