@@ -162,5 +162,65 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.IsTrue(board.IsOccupied(new GridPosition(1, 1)));
             Assert.IsTrue(board.IsOccupied(target));
         }
+
+        /// <summary>Stands in for the first real special kind, which a later sub-issue names.</summary>
+        private const SpecialCellKind StubKind = (SpecialCellKind)1;
+
+        /// <summary>
+        /// A joker completing a line must destroy a special cell exactly as a placement's or a
+        /// power-up's clear does — it goes through the same <see cref="SpecialCellDetection"/> pass,
+        /// not a third, independent notion of "destroyed".
+        /// </summary>
+        [Test]
+        public void FillThatCompletesARow_OverASpecialCell_ReportsItAsTriggered()
+        {
+            Board board = new Board();
+            int row = 3;
+            for (int x = 0; x < Board.SIZE; x++)
+            {
+                if (x == 5)
+                {
+                    continue;
+                }
+
+                board.Occupy(new GridPosition(x, row), COLOUR);
+            }
+
+            var specialPosition = new GridPosition(2, row);
+            board.SetSpecialKind(specialPosition, StubKind);
+
+            JokerFillResult result = JokerFillResolver.ResolveFill(board, new GridPosition(5, row), COLOUR);
+
+            Assert.AreEqual(1, result.TriggeredSpecials.Count);
+            Assert.AreEqual(specialPosition, result.TriggeredSpecials[0].Position);
+            Assert.AreEqual(StubKind, result.TriggeredSpecials[0].Kind);
+            Assert.AreEqual(SpecialCellKind.None, board.GetSpecialKind(specialPosition), "Clearing resets the kind.");
+        }
+
+        [Test]
+        public void FillThatClearsNothing_ReportsNoTriggers()
+        {
+            Board board = new Board();
+            board.SetSpecialKind(new GridPosition(0, 0), StubKind);
+
+            JokerFillResult result = JokerFillResolver.ResolveFill(board, new GridPosition(4, 4), COLOUR);
+
+            Assert.IsFalse(result.AnyCleared);
+            Assert.AreEqual(0, result.TriggeredSpecials.Count);
+        }
+
+        [Test]
+        public void RejectedFill_ReportsNoTriggers()
+        {
+            Board board = new Board();
+            GridPosition target = new GridPosition(2, 2);
+            board.Occupy(target, COLOUR);
+            board.SetSpecialKind(target, StubKind);
+
+            JokerFillResult result = JokerFillResolver.ResolveFill(board, target, COLOUR + 1);
+
+            Assert.IsFalse(result.Filled);
+            Assert.AreEqual(0, result.TriggeredSpecials.Count);
+        }
     }
 }

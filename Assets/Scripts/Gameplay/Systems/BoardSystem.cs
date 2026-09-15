@@ -166,14 +166,38 @@ namespace MustyBlockBlast.Gameplay.Systems
 
             _trayModel.ConsumeSlot(slotIndex);
 
-            // Read before ResolveClears mutates the board — once a line clears, its cells are gone and
+            // Read before the resolver mutates the board — once a line clears, its cells are gone and
             // "how full was the board under this placement" can no longer be answered.
             int occupiedCellCountBeforeClear = _boardModel.Board.OccupiedCellCount();
 
-            LineClearResult clearResult = LineClearResolver.ResolveClears(_boardModel.Board);
-            if (clearResult.AnyCleared)
+            // The cascading resolver, not the single-pass one: a cleared special cell may complete
+            // further lines, and this is the one call site where that chaining is allowed to happen
+            // (a drag preview still uses LineClearResolver directly, via GetWouldClearLines). It is
+            // synchronous and resolves state only — spacing the phases out visually is Presentation's
+            // job, and CascadeClearResult.Phases is the ordered list it will replay.
+            //
+            // No effect implementation is passed because none exists: every SpecialCellKind is None,
+            // so this resolves exactly one phase and Primary is bit-for-bit what the old single-pass
+            // call returned.
+            CascadeClearResult cascade = CascadeClearResolver.ResolveCascade(_boardModel.Board);
+
+            // Everything published below reports the PRIMARY phase only — the clear this placement
+            // itself caused. Clears a special cell's effect went on to cause are deliberately not
+            // summed into it: the player did not line them up, so folding them in would inflate the
+            // combo streak and every line-count objective, and the reward policy for cascades is a
+            // decision the first sub-issue with a real effect should make explicitly rather than
+            // inherit from a summation here. Today the distinction is moot — CascadePhaseCount is
+            // always 0 — which is exactly why it is safe to fix the contract now.
+            LineClearResult clearResult = cascade.Primary;
+
+            // Every phase repaints, though: the View has to be told about cells any phase emptied.
+            for (int phaseIndex = 0; phaseIndex < cascade.Phases.Count; phaseIndex++)
             {
-                _boardModel.NotifyCleared(clearResult);
+                LineClearResult phase = cascade.Phases[phaseIndex];
+                if (phase.AnyCleared)
+                {
+                    _boardModel.NotifyCleared(phase);
+                }
             }
 
             bool anyCornerCleared = AnyCornerTouched(clearResult.ClearedRows, clearResult.ClearedColumns);
