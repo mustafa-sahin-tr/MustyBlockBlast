@@ -47,6 +47,10 @@ namespace MustyBlockBlast.Gameplay.Localization
 
         public const string GAME_OVER_TITLE_NO_MOVES = "gameover.title.no_moves";
         public const string GAME_OVER_TITLE_TIME_UP = "gameover.title.time_up";
+
+        /// <summary>Title shown when a Path-mode run ended because its level was cleared — the one
+        /// end-of-run card that is a congratulation rather than a commiseration.</summary>
+        public const string GAME_OVER_TITLE_LEVEL_COMPLETE = "gameover.title.level_complete";
         public const string GAME_OVER_HINT = "gameover.hint";
         public const string GAME_OVER_CHANGE_MODE = "gameover.change_mode";
 
@@ -56,10 +60,26 @@ namespace MustyBlockBlast.Gameplay.Localization
         /// <summary><c>{0}</c> is the final score, <c>{1}</c> the best score.</summary>
         public const string GAME_OVER_SCORE_AND_BEST = "gameover.score_and_best";
 
+        /// <summary>Path mode's score line. <c>{0}</c> is this level's own score, <c>{1}</c> the
+        /// running total for the whole walk of the path — both, because a level resets the first and
+        /// only ever adds to the second.</summary>
+        public const string GAME_OVER_SCORE_AND_PATH_TOTAL = "gameover.score_and_path_total";
+
         // --- Game modes ---
 
         public const string MODE_ENDLESS = "mode.endless";
         public const string MODE_TIMED = "mode.timed";
+        public const string MODE_PATH = "mode.path";
+
+        // --- Level path overlay ---
+
+        /// <summary>The walk's running total on the level path card. <c>{0}</c> is the total. Shown
+        /// only in Path mode, where a total across levels is a thing that exists.</summary>
+        public const string LEVEL_PATH_TOTAL = "level_path.total";
+
+        /// <summary>Hint under the node grid in Path mode, telling the player the nodes are tappable —
+        /// they are inert status lights in every other mode, so the affordance has to be stated.</summary>
+        public const string LEVEL_PATH_TAP_HINT = "level_path.tap_hint";
 
         // --- Settings panel ---
 

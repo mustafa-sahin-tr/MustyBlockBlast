@@ -254,6 +254,26 @@ MonoBehaviour:
     m_Localized: No placements possible
     m_Metadata:
       m_Items: []
+  - m_Id: 781257783894016
+    m_Localized: Level complete!
+    m_Metadata:
+      m_Items: []
+  - m_Id: 781257951666176
+    m_Localized: "Level {0} \xB7 Path {1}"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 781257951666177
+    m_Localized: Path
+    m_Metadata:
+      m_Items: []
+  - m_Id: 781257951666178
+    m_Localized: 'Path total: {0}'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 781257951666179
+    m_Localized: Tap an unlocked level to play it
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

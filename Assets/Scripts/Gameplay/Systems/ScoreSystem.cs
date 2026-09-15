@@ -69,6 +69,41 @@ namespace MustyBlockBlast.Gameplay.Systems
 
         public void Dispose() => _subscriptions.Dispose();
 
+        /// <summary>
+        /// Adds a <see cref="GameMode.Path"/> level-completion bonus to the run in progress and returns
+        /// the run's new total.
+        /// <para>
+        /// A method rather than a rule because it is not one: <see cref="IScoreRule"/> scores a
+        /// placement, and this is paid for clearing a level — there is no placement context to hand a
+        /// rule, and the payment happens once per run rather than once per piece.
+        /// </para>
+        /// <para>
+        /// Deliberately leaves both streaks alone: a bonus is not a placement, so it neither extends
+        /// nor breaks a combo. Equally deliberately, it is not doubled by the 2x frenzy — the level
+        /// reward is a fixed authored figure, not points the player played for.
+        /// </para>
+        /// <para>
+        /// The Endless high score is untouched, which needs no branch here: this is only ever called in
+        /// Path mode, and the persisted best is only written from the Endless branch of
+        /// <see cref="OnPiecePlaced"/>.
+        /// </para>
+        /// Returns the current total unchanged for a zero (or negative) bonus, so an unauthored level
+        /// publishes nothing.
+        /// </summary>
+        internal int AddLevelCompletionBonus(int amount)
+        {
+            if (amount <= 0)
+            {
+                return _scoreModel.Score.Value;
+            }
+
+            _scoreModel.Score.Value += amount;
+            _scoreChangedPublisher.Publish(new ScoreChangedMessage(
+                _scoreModel.Score.Value, amount, _scoreModel.Streak.Value));
+
+            return _scoreModel.Score.Value;
+        }
+
         private void OnRunStarted(RunStartedMessage message)
         {
             _scoreModel.Score.Value = 0;

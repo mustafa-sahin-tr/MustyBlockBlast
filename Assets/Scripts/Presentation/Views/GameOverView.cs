@@ -30,6 +30,7 @@ namespace MustyBlockBlast.Presentation.Views
         private readonly StringBuilder _stringBuilder = new StringBuilder(32);
 
         private ScoreModel _scoreModel;
+        private PathRunModel _pathRunModel;
         private TimedHighScoreModel _timedHighScoreModel;
         private SettingsModel _settingsModel;
         private LocalizationModel _localizationModel;
@@ -56,6 +57,7 @@ namespace MustyBlockBlast.Presentation.Views
         [Inject]
         public void Construct(
             ScoreModel scoreModel,
+            PathRunModel pathRunModel,
             TimedHighScoreModel timedHighScoreModel,
             SettingsModel settingsModel,
             LocalizationModel localizationModel,
@@ -66,6 +68,7 @@ namespace MustyBlockBlast.Presentation.Views
             ISubscriber<RunStartedMessage> runStartedSubscriber)
         {
             _scoreModel = scoreModel;
+            _pathRunModel = pathRunModel;
             _timedHighScoreModel = timedHighScoreModel;
             _settingsModel = settingsModel;
             _localizationModel = localizationModel;
@@ -205,17 +208,42 @@ namespace MustyBlockBlast.Presentation.Views
             transform.SetAsLastSibling();
         }
 
+        /// <summary>
+        /// Words the card from the reason the run ended, which is the only thing that separates a
+        /// Path-mode success from a Path-mode failure — both show this same card, so the reason has to
+        /// carry the difference rather than a second screen doing it.
+        /// </summary>
         private void RefreshTitle()
         {
-            string key = _lastGameOverReason == GameOverReason.TimeUp
-                ? LocalizationKeys.GAME_OVER_TITLE_TIME_UP
-                : LocalizationKeys.GAME_OVER_TITLE_NO_MOVES;
+            string key = _lastGameOverReason switch
+            {
+                GameOverReason.TimeUp => LocalizationKeys.GAME_OVER_TITLE_TIME_UP,
+                GameOverReason.LevelCompleted => LocalizationKeys.GAME_OVER_TITLE_LEVEL_COMPLETE,
+                _ => LocalizationKeys.GAME_OVER_TITLE_NO_MOVES,
+            };
 
             _titleText.text = _localizationSystem.Translate(key);
         }
 
         private void RefreshScoreLine()
         {
+            if (_gameModeSystem.CurrentMode.Value == GameMode.Path)
+            {
+                // Both figures, because a Path run resets the first and only ever adds to the second:
+                // showing the level's score alone would hide the walk, and the walk alone would hide
+                // what this level was worth.
+                _stringBuilder.Clear();
+                _stringBuilder.Append(_scoreModel.Score.Value);
+                string levelScore = _stringBuilder.ToString();
+
+                _stringBuilder.Clear();
+                _stringBuilder.Append(_pathRunModel.PathTotalScore.Value);
+
+                _scoreText.text = _localizationSystem.Format(
+                    LocalizationKeys.GAME_OVER_SCORE_AND_PATH_TOTAL, levelScore, _stringBuilder.ToString());
+                return;
+            }
+
             if (_gameModeSystem.CurrentMode.Value == GameMode.Timed)
             {
                 // Timed bests are per round length, so the length has to be named or the number is

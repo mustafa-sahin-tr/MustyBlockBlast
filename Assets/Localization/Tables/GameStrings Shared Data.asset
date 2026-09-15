@@ -251,6 +251,26 @@ MonoBehaviour:
     m_Key: powerup.ghost_fit_no_placements
     m_Metadata:
       m_Items: []
+  - m_Id: 781257783894016
+    m_Key: gameover.title.level_complete
+    m_Metadata:
+      m_Items: []
+  - m_Id: 781257951666176
+    m_Key: gameover.score_and_path_total
+    m_Metadata:
+      m_Items: []
+  - m_Id: 781257951666177
+    m_Key: mode.path
+    m_Metadata:
+      m_Items: []
+  - m_Id: 781257951666178
+    m_Key: level_path.total
+    m_Metadata:
+      m_Items: []
+  - m_Id: 781257951666179
+    m_Key: level_path.tap_hint
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

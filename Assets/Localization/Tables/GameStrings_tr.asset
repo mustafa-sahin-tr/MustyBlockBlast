@@ -254,6 +254,26 @@ MonoBehaviour:
     m_Localized: "Yerle\u015Ftirilebilecek yer yok"
     m_Metadata:
       m_Items: []
+  - m_Id: 781257783894016
+    m_Localized: "B\xF6l\xFCm tamamland\u0131!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 781257951666176
+    m_Localized: "B\xF6l\xFCm {0} \xB7 Yol {1}"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 781257951666177
+    m_Localized: Yol
+    m_Metadata:
+      m_Items: []
+  - m_Id: 781257951666178
+    m_Localized: "Yol toplam\u0131: {0}"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 781257951666179
+    m_Localized: "Oynamak i\xE7in a\xE7\u0131lm\u0131\u015F bir b\xF6l\xFCme dokun"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []
