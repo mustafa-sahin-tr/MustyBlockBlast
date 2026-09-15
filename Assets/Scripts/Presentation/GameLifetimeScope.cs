@@ -7,6 +7,7 @@ using MustyBlockBlast.Gameplay.Models;
 using MustyBlockBlast.Gameplay.Settings;
 using MustyBlockBlast.Gameplay.Systems;
 using MustyBlockBlast.Presentation.Localization;
+using MustyBlockBlast.Presentation.Services;
 using MustyBlockBlast.Presentation.Views;
 using UnityEngine;
 using VContainer;
@@ -205,6 +206,13 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterEntryPoint<BoardSystem>(Lifetime.Singleton).AsSelf();
             builder.Register<GameModeSystem>(Lifetime.Singleton);
             builder.Register<TimedModeSystem>(Lifetime.Singleton);
+
+            // Registered here as well as in SplashLifetimeScope, for the same reason the language and
+            // audio stacks are: the two scenes are loadable independently and share no container, and
+            // this one is the scene a developer presses Play on. Signing in twice costs nothing — the
+            // UGS session is process-wide, so whichever scene gets there second short-circuits.
+            builder.Register<UnityAuthService>(Lifetime.Singleton).As<IAuthService>();
+            builder.RegisterEntryPoint<AuthBootSystem>(Lifetime.Singleton);
 
             // Always-granting stub until a rewarded-ad SDK is wired up; swapping it is one line here.
             builder.Register<DeterministicRewardSource>(Lifetime.Singleton).As<IRewardSource>().AsSelf();
