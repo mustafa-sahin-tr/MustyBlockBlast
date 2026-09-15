@@ -5,6 +5,7 @@ using MustyBlockBlast.Gameplay.Messages;
 using MustyBlockBlast.Gameplay.Models;
 using MustyBlockBlast.Gameplay.Systems;
 using MustyBlockBlast.Presentation.Localization;
+using MustyBlockBlast.Presentation.Services;
 using MustyBlockBlast.Presentation.Views;
 using UnityEngine;
 using VContainer;
@@ -25,6 +26,7 @@ namespace MustyBlockBlast.Presentation
             RegisterMessaging(builder);
             RegisterAudio(builder);
             RegisterLocalization(builder);
+            RegisterAuth(builder);
             RegisterSplash(builder);
             RegisterDecor(builder);
 
@@ -48,6 +50,18 @@ namespace MustyBlockBlast.Presentation
             builder.Register<LocalizationModel>(Lifetime.Singleton);
             builder.Register<UnityLocalizedStringSource>(Lifetime.Singleton).As<ILocalizedStringSource>();
             builder.Register<LocalizationSystem>(Lifetime.Singleton);
+        }
+
+        /// <summary>
+        /// Signing in during the splash puts the wait behind an animation the player is already
+        /// watching. Nothing here blocks the transition: if the scene unloads first, the gameplay
+        /// scene's own <see cref="AuthBootSystem"/> picks up where this one left off — the UGS session
+        /// is process-wide, so the second attempt short-circuits on an existing sign-in.
+        /// </summary>
+        private static void RegisterAuth(IContainerBuilder builder)
+        {
+            builder.Register<UnityAuthService>(Lifetime.Singleton).As<IAuthService>();
+            builder.RegisterEntryPoint<AuthBootSystem>(Lifetime.Singleton);
         }
 
         private static void RegisterMessaging(IContainerBuilder builder)

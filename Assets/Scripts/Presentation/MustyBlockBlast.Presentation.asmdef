@@ -10,6 +10,8 @@
         "VContainer",
         "Unity.InputSystem",
         "Unity.Localization",
+        "Unity.Services.Authentication",
+        "Unity.Services.Core",
         "Unity.ResourceManager",
         "UnityEngine.UI"
     ],
