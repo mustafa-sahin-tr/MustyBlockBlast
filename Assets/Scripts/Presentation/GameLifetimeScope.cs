@@ -39,7 +39,9 @@ namespace MustyBlockBlast.Presentation
             RegisterViews(builder);
 
             // ScoreSystem and TimedHighScoreSystem subscribe in their constructors, so they must exist
-            // before the first run starts. SettingsSystem, SfxSystem and LocalizationSystem load their
+            // before the first run starts, and LeaderboardSystem likewise subscribes in its constructor
+            // and must be listening before the first game over rather than being constructed by one.
+            // SettingsSystem, SfxSystem and LocalizationSystem load their
             // persisted settings in their constructors, so they must exist before any View subscribes
             // to SettingsModel/SfxModel/LocalizationModel in Start(). PowerUpSystem loads the persisted
             // inventory in its constructor and PowerUpScoreSystem subscribes in its own, so neither may
@@ -48,6 +50,7 @@ namespace MustyBlockBlast.Presentation
             {
                 container.Resolve<ScoreSystem>();
                 container.Resolve<TimedHighScoreSystem>();
+                container.Resolve<LeaderboardSystem>();
                 container.Resolve<SettingsSystem>();
                 container.Resolve<SfxSystem>();
                 container.Resolve<LocalizationSystem>();
@@ -210,6 +213,7 @@ namespace MustyBlockBlast.Presentation
             builder.Register<BoardWipeScoreRule>(Lifetime.Singleton).As<IScoreRule>();
             builder.Register<ScoreSystem>(Lifetime.Singleton);
             builder.Register<TimedHighScoreSystem>(Lifetime.Singleton);
+            builder.Register<LeaderboardSystem>(Lifetime.Singleton);
             builder.Register<SfxSystem>(Lifetime.Singleton).As<ISfxService>().AsSelf();
             builder.Register<MusicSystem>(Lifetime.Singleton).As<IMusicService>().AsSelf();
             builder.Register<SettingsSystem>(Lifetime.Singleton);
@@ -225,6 +229,10 @@ namespace MustyBlockBlast.Presentation
             // UGS session is process-wide, so whichever scene gets there second short-circuits.
             builder.Register<UnityAuthService>(Lifetime.Singleton).As<IAuthService>();
             builder.RegisterEntryPoint<AuthBootSystem>(Lifetime.Singleton);
+
+            // Submission needs the identity above, so it is bound next to it. LeaderboardSystem is
+            // registered with the other score systems — this is only the backend it talks through.
+            builder.Register<UnityLeaderboardsService>(Lifetime.Singleton).As<ILeaderboardsService>();
 
             // Always-granting stub until a rewarded-ad SDK is wired up; swapping it is one line here.
             builder.Register<DeterministicRewardSource>(Lifetime.Singleton).As<IRewardSource>().AsSelf();
