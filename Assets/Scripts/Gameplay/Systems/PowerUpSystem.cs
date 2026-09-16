@@ -22,6 +22,12 @@ namespace MustyBlockBlast.Gameplay.Systems
     /// <see cref="ScoreSystem"/> — which is also what keeps power-up scoring out of the streak logic.
     /// </para>
     /// <para>
+    /// Every arm and every application is also gated on the player's level (see
+    /// <see cref="PowerUpUnlockLevels"/>), checked exactly where "holds none of it" is and refused just
+    /// as completely. The gate is read, never written: it can refuse to spend an inventory but never
+    /// takes one away.
+    /// </para>
+    /// <para>
     /// Spending is charged for a valid target even when the target turns out to be empty: the player
     /// made a deliberate, legal application. Only holding none of the power-up is a true no-op — except
     /// for the three kinds that have illegal targets at all and charge nothing for one:
@@ -50,6 +56,7 @@ namespace MustyBlockBlast.Gameplay.Systems
         private const int JOKER_FILL_COLOUR_ID = 1;
 
         private readonly PowerUpModel _powerUpModel;
+        private readonly LevelProgressionModel _levelProgressionModel;
         private readonly BoardModel _boardModel;
         private readonly TrayModel _trayModel;
         private readonly BoardSystem _boardSystem;
@@ -65,6 +72,7 @@ namespace MustyBlockBlast.Gameplay.Systems
 
         public PowerUpSystem(
             PowerUpModel powerUpModel,
+            LevelProgressionModel levelProgressionModel,
             BoardModel boardModel,
             TrayModel trayModel,
             BoardSystem boardSystem,
@@ -79,6 +87,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             ISubscriber<GameOverMessage> gameOverSubscriber)
         {
             _powerUpModel = powerUpModel;
+            _levelProgressionModel = levelProgressionModel;
             _boardModel = boardModel;
             _trayModel = trayModel;
             _boardSystem = boardSystem;
@@ -109,8 +118,9 @@ namespace MustyBlockBlast.Gameplay.Systems
 
         /// <summary>
         /// Selects <paramref name="kind"/> and aims it at the board immediately, holding the run's
-        /// clock until it is applied or cancelled. Holding none of that kind, or a run that is already
-        /// over, is a no-op: neither arms, so neither can be spent by a follow-up tap.
+        /// clock until it is applied or cancelled. Holding none of that kind, a kind still behind its
+        /// level gate (see <see cref="PowerUpUnlockLevels"/>), or a run that is already over, is a
+        /// no-op: none arms, so none can be spent by a follow-up tap.
         /// <para>
         /// <see cref="PowerUpKind.Reroll"/>, <see cref="PowerUpKind.DoubleMultiplier"/> and
         /// <see cref="PowerUpKind.GhostFit"/> are refused outright, however many the player holds: none
@@ -123,7 +133,7 @@ namespace MustyBlockBlast.Gameplay.Systems
         {
             if (kind == PowerUpKind.Reroll || kind == PowerUpKind.DoubleMultiplier
                 || kind == PowerUpKind.GhostFit
-                || _boardSystem.IsGameOver || CountOf(kind).Value <= 0)
+                || _boardSystem.IsGameOver || IsLocked(kind) || CountOf(kind).Value <= 0)
             {
                 return;
             }
@@ -147,7 +157,7 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// player holds none or the target is off the board — nothing is changed in either case.</summary>
         public bool TryApplyBomb(GridPosition center)
         {
-            if (!Board.IsInside(center) || !TrySpend(PowerUpKind.Bomb))
+            if (!Board.IsInside(center) || IsLocked(PowerUpKind.Bomb) || !TrySpend(PowerUpKind.Bomb))
             {
                 return false;
             }
@@ -160,7 +170,7 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// <summary>Spends one row clear on <paramref name="row"/>, full or not.</summary>
         public bool TryApplyRowClear(int row)
         {
-            if (!IsValidLineIndex(row) || !TrySpend(PowerUpKind.RowClear))
+            if (!IsValidLineIndex(row) || IsLocked(PowerUpKind.RowClear) || !TrySpend(PowerUpKind.RowClear))
             {
                 return false;
             }
@@ -173,7 +183,8 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// <summary>Spends one column clear on <paramref name="column"/>, full or not.</summary>
         public bool TryApplyColumnClear(int column)
         {
-            if (!IsValidLineIndex(column) || !TrySpend(PowerUpKind.ColumnClear))
+            if (!IsValidLineIndex(column) || IsLocked(PowerUpKind.ColumnClear)
+                || !TrySpend(PowerUpKind.ColumnClear))
             {
                 return false;
             }
@@ -197,7 +208,7 @@ namespace MustyBlockBlast.Gameplay.Systems
         {
             // Peeked rather than spent: the fill below decides whether this tap is legal at all, and
             // an illegal one must leave the inventory exactly as it found it.
-            if (CountOf(PowerUpKind.Joker).Value <= 0)
+            if (IsLocked(PowerUpKind.Joker) || CountOf(PowerUpKind.Joker).Value <= 0)
             {
                 return false;
             }
@@ -236,7 +247,8 @@ namespace MustyBlockBlast.Gameplay.Systems
         {
             // Peeked rather than spent, mirroring TryApplyJoker: legality here is "does the resolver
             // find a colour to clear", and that must be checked before a single count is touched.
-            if (!Board.IsInside(target) || CountOf(PowerUpKind.ColorCleanser).Value <= 0)
+            if (!Board.IsInside(target) || IsLocked(PowerUpKind.ColorCleanser)
+                || CountOf(PowerUpKind.ColorCleanser).Value <= 0)
             {
                 return false;
             }
@@ -271,7 +283,7 @@ namespace MustyBlockBlast.Gameplay.Systems
         public bool TryApplyRotate(int slotIndex)
         {
             if (slotIndex < 0 || slotIndex >= TrayModel.SLOT_COUNT
-                || CountOf(PowerUpKind.Rotate).Value <= 0)
+                || IsLocked(PowerUpKind.Rotate) || CountOf(PowerUpKind.Rotate).Value <= 0)
             {
                 return false;
             }
@@ -322,7 +334,8 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// </summary>
         public bool TryApplyReroll()
         {
-            if (_boardSystem.IsGameOver || CountOf(PowerUpKind.Reroll).Value <= 0)
+            if (_boardSystem.IsGameOver || IsLocked(PowerUpKind.Reroll)
+                || CountOf(PowerUpKind.Reroll).Value <= 0)
             {
                 return false;
             }
@@ -369,7 +382,8 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// </summary>
         public bool TryApplyDoubleMultiplier()
         {
-            if (_boardSystem.IsGameOver || CountOf(PowerUpKind.DoubleMultiplier).Value <= 0)
+            if (_boardSystem.IsGameOver || IsLocked(PowerUpKind.DoubleMultiplier)
+                || CountOf(PowerUpKind.DoubleMultiplier).Value <= 0)
             {
                 return false;
             }
@@ -413,7 +427,8 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// </summary>
         public bool TryApplyGhostFit()
         {
-            if (_boardSystem.IsGameOver || CountOf(PowerUpKind.GhostFit).Value <= 0)
+            if (_boardSystem.IsGameOver || IsLocked(PowerUpKind.GhostFit)
+                || CountOf(PowerUpKind.GhostFit).Value <= 0)
             {
                 return false;
             }
@@ -488,6 +503,20 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// <summary>Delegates to Core so the index a power-up will accept and the geometry the preview
         /// draws for it can never disagree about which rows/columns exist.</summary>
         private static bool IsValidLineIndex(int index) => PowerUpTargetCells.IsValidLineIndex(index);
+
+        /// <summary>
+        /// Whether <paramref name="kind"/> is still behind its level gate (see
+        /// <see cref="PowerUpUnlockLevels"/>). Guarded alongside "holds none" in every arm and apply
+        /// path, so a kind the player has not reached yet is refused even when they somehow hold one —
+        /// a grant is not a licence, and the two conditions must be equally hard to get past.
+        /// <para>
+        /// Read only. Nothing here writes <see cref="PowerUpModel"/>, so a gate raised above the
+        /// player's level can never discard a count they have already earned: it only refuses to spend
+        /// it until they get there.
+        /// </para>
+        /// </summary>
+        private bool IsLocked(PowerUpKind kind)
+            => !PowerUpUnlockLevels.IsUnlockedAt(kind, _levelProgressionModel.CurrentLevelNumber.Value);
 
         /// <summary>
         /// The one and only way a power-up enters the inventory: increment, persist, announce. Every

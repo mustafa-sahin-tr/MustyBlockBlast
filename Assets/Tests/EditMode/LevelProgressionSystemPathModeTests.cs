@@ -808,6 +808,7 @@ namespace MustyBlockBlast.Tests.EditMode
 
             return new PowerUpSystem(
                 new PowerUpModel(),
+                _progressionModel,
                 _boardModel,
                 _trayModel,
                 _boardSystem,

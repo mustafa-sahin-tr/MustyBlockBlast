@@ -38,12 +38,25 @@ namespace MustyBlockBlast.Tests.EditMode
         /// came down with it.</summary>
         private TestMessageBroker<PiecePlacedMessage> _piecePlacedBroker;
 
+        /// <summary>
+        /// The progression frontier the level gate reads (see <c>PowerUpUnlockLevels</c>). Held on a
+        /// field and opened at <see cref="ALL_KINDS_UNLOCKED_LEVEL"/> by default, so every test about
+        /// the inventory contract exercises exactly what it did before the gate existed; the gating
+        /// tests lower it themselves.
+        /// </summary>
+        private LevelProgressionModel _levelProgressionModel;
+
+        /// <summary>A frontier past the last gate in the table, so no kind is withheld.</summary>
+        private const int ALL_KINDS_UNLOCKED_LEVEL = 99;
+
         /// <summary>PowerUpSystem loads the inventory in its constructor, so a count left behind by a
         /// previous test would silently decide whether the next one can spend anything.</summary>
         [SetUp]
         public void ClearPersistedInventory()
         {
             DeleteInventoryKeys();
+            _levelProgressionModel = new LevelProgressionModel();
+            _levelProgressionModel.CurrentLevelNumber.Value = ALL_KINDS_UNLOCKED_LEVEL;
             _appliedBroker = new TestMessageBroker<PowerUpAppliedMessage>();
             _grantedBroker = new TestMessageBroker<PowerUpGrantedMessage>();
             _piecePlacedBroker = new TestMessageBroker<PiecePlacedMessage>();
@@ -1186,6 +1199,152 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.IsFalse(_doubleMultiplierModel.IsActive);
         }
 
+        /// <summary>
+        /// A kind behind its level gate is refused exactly as one the player holds none of is: the
+        /// inventory is irrelevant, so this deliberately stocks three of them first. Joker unlocks at
+        /// level 5 (<see cref="PowerUpUnlockLevels"/>), so a frontier of 4 is one short.
+        /// </summary>
+        [Test]
+        public void Arm_WithAKindBelowItsUnlockLevel_IsRefusedEvenWhenHeld()
+        {
+            PersistCount(PowerUpKind.Joker, 3);
+            _levelProgressionModel.CurrentLevelNumber.Value = 4;
+            PowerUpModel model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, new BoardModel());
+
+            system.Arm(PowerUpKind.Joker);
+
+            Assert.IsNull(model.Armed.Value);
+            Assert.AreEqual(3, model.JokerCount.Value);
+        }
+
+        [Test]
+        public void Arm_WithAKindAtItsUnlockLevel_Arms()
+        {
+            PersistCount(PowerUpKind.Joker, 1);
+            _levelProgressionModel.CurrentLevelNumber.Value = 5;
+            PowerUpModel model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, new BoardModel());
+
+            system.Arm(PowerUpKind.Joker);
+
+            Assert.AreEqual(PowerUpKind.Joker, model.Armed.Value);
+        }
+
+        /// <summary>The starter three carry no gate at all, so a fresh install's level 1 is enough.</summary>
+        [Test]
+        public void Arm_WithAnUngatedKind_ArmsAtTheFirstLevel()
+        {
+            PersistCount(PowerUpKind.Bomb, 1);
+            _levelProgressionModel.CurrentLevelNumber.Value = 1;
+            PowerUpModel model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, new BoardModel());
+
+            system.Arm(PowerUpKind.Bomb);
+
+            Assert.AreEqual(PowerUpKind.Bomb, model.Armed.Value);
+        }
+
+        /// <summary>
+        /// The gate is enforced at the point of spending too, not only at arming: a targeted
+        /// application that somehow arrives for a locked kind must change nothing and charge nothing.
+        /// </summary>
+        [Test]
+        public void TryApplyJoker_WithTheKindBelowItsUnlockLevel_ChangesNothing()
+        {
+            PersistCount(PowerUpKind.Joker, 2);
+            _levelProgressionModel.CurrentLevelNumber.Value = 4;
+            var boardModel = new BoardModel();
+            PowerUpModel model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, boardModel);
+
+            bool applied = system.TryApplyJoker(new GridPosition(3, 3));
+
+            Assert.IsFalse(applied);
+            Assert.AreEqual(2, model.JokerCount.Value);
+            Assert.AreEqual(Board.EMPTY, boardModel.GetCell(new GridPosition(3, 3)));
+            Assert.AreEqual(0, _appliedBroker.Published.Count);
+        }
+
+        /// <summary>The targetless kinds go through the same gate as the aimed ones.</summary>
+        [Test]
+        public void TryApplyDoubleMultiplier_WithTheKindBelowItsUnlockLevel_ChangesNothing()
+        {
+            PersistCount(PowerUpKind.DoubleMultiplier, 1);
+            _levelProgressionModel.CurrentLevelNumber.Value = 24;
+            PowerUpModel model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, new BoardModel());
+
+            bool applied = system.TryApplyDoubleMultiplier();
+
+            Assert.IsFalse(applied);
+            Assert.AreEqual(1, model.DoubleMultiplierCount.Value);
+            Assert.IsFalse(_doubleMultiplierModel.IsActive);
+            Assert.AreEqual(0, _appliedBroker.Published.Count);
+        }
+
+        [Test]
+        public void TryApplyBomb_WithAnUngatedKind_AppliesAtTheFirstLevel()
+        {
+            PersistCount(PowerUpKind.Bomb, 1);
+            _levelProgressionModel.CurrentLevelNumber.Value = 1;
+            var boardModel = new BoardModel();
+            boardModel.Occupy(new GridPosition(4, 4), 1);
+            PowerUpModel model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, boardModel);
+
+            Assert.IsTrue(system.TryApplyBomb(new GridPosition(4, 4)));
+            Assert.AreEqual(Board.EMPTY, boardModel.GetCell(new GridPosition(4, 4)));
+        }
+
+        /// <summary>
+        /// AC3, at the system layer: the gate is read live, so crossing a kind's unlock level makes it
+        /// usable in the same session. Nothing is rebuilt or reloaded between the refusal and the
+        /// acceptance below — the only thing that changes is the frontier.
+        /// </summary>
+        [Test]
+        public void ReachingTheUnlockLevel_MakesTheKindUsableWithoutRebuildingAnything()
+        {
+            PersistCount(PowerUpKind.Joker, 1);
+            _levelProgressionModel.CurrentLevelNumber.Value = 4;
+            var boardModel = new BoardModel();
+            PowerUpModel model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, boardModel);
+
+            Assert.IsFalse(system.TryApplyJoker(new GridPosition(3, 3)), "locked before the level up");
+
+            _levelProgressionModel.CurrentLevelNumber.Value = 5;
+
+            Assert.IsTrue(system.TryApplyJoker(new GridPosition(3, 3)), "unlocked by the level up alone");
+            Assert.AreEqual(0, model.JokerCount.Value);
+        }
+
+        /// <summary>
+        /// AC4's negative case. A kind held while its gate is ahead of the player keeps every one of
+        /// its counts: the gate refuses to spend an inventory, it never confiscates one — not on
+        /// construction (which loads the persisted counts), not on a refused arm, not on a refused
+        /// apply, and not when the frontier moves backwards under it.
+        /// </summary>
+        [Test]
+        public void AKindHeldBelowItsUnlockLevel_KeepsItsCountThroughEveryRefusal()
+        {
+            PersistCount(PowerUpKind.GhostFit, 4);
+            _levelProgressionModel.CurrentLevelNumber.Value = 1;
+            PowerUpModel model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, new BoardModel());
+
+            Assert.AreEqual(4, model.GhostFitCount.Value, "loaded despite the gate");
+
+            system.Arm(PowerUpKind.GhostFit);
+            system.TryApplyGhostFit();
+
+            Assert.AreEqual(4, model.GhostFitCount.Value, "untouched by the refusals");
+            Assert.AreEqual(
+                4,
+                PlayerPrefs.GetInt(PowerUpInventoryKey.For(PowerUpKind.GhostFit), 0),
+                "and never rewritten behind them");
+        }
+
         /// <summary>Builds a system whose reroll draws are reproducible, and hands back the brokers and
         /// board system the reroll tests need to observe.</summary>
         private PowerUpSystem CreateRerollSystem(
@@ -1269,6 +1428,7 @@ namespace MustyBlockBlast.Tests.EditMode
 
             return new PowerUpSystem(
                 model,
+                _levelProgressionModel,
                 boardModel,
                 trayModel,
                 boardSystem,
