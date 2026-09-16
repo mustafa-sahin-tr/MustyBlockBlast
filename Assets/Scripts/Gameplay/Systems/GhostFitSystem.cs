@@ -80,7 +80,14 @@ namespace MustyBlockBlast.Gameplay.Systems
         {
             for (int slotIndex = 0; slotIndex < TrayModel.SLOT_COUNT; slotIndex++)
             {
-                _dockBuffer[slotIndex] = _trayModel.GetPiece(slotIndex);
+                // A hammer is aimed at an occupied cell, never dropped on the board, and
+                // BoardSystem.CanPlace refuses it outright — so offering it as the best move would be a
+                // suggestion the player cannot act on. Handed to the search as an empty slot instead,
+                // which it already knows to skip.
+                _dockBuffer[slotIndex] =
+                    _trayModel.GetSpecialKind(slotIndex) == SpecialPieceKind.DemolitionHammer
+                        ? null
+                        : _trayModel.GetPiece(slotIndex);
             }
 
             // The streak, not the score: ranking criterion (2) is about a combo that is currently

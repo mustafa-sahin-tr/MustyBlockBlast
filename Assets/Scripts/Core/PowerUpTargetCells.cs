@@ -136,6 +136,26 @@ namespace MustyBlockBlast.Core
             return buffer;
         }
 
+        /// <summary>
+        /// The single cell a <see cref="SpecialPieceKind.DemolitionHammer"/> tap aims at. Not a
+        /// power-up — the hammer is a dock piece and never enters the inventory — but it is armed and
+        /// aimed exactly as one is, so its reticle belongs with the others rather than being a second
+        /// definition of "one cell" somewhere in Presentation. An off-board target yields nothing.
+        /// </summary>
+        public static IReadOnlyList<GridPosition> ForDemolitionHammer(
+            GridPosition target, List<GridPosition> buffer)
+        {
+            Prepare(buffer);
+
+            if (!Board.IsInside(target))
+            {
+                return buffer;
+            }
+
+            buffer.Add(target);
+            return buffer;
+        }
+
         /// <summary>True when <paramref name="index"/> names a row/column that exists.</summary>
         public static bool IsValidLineIndex(int index) => index >= 0 && index < Board.SIZE;
 

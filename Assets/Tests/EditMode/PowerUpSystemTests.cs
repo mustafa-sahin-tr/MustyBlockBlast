@@ -621,8 +621,16 @@ namespace MustyBlockBlast.Tests.EditMode
             PersistCount(PowerUpKind.Rotate, 1);
             var boardModel = new BoardModel();
 
-            // Everything filled but one horizontal two-cell gap: line_h2 fits it, line_v2 cannot.
-            FillBoardExcept(boardModel, new GridPosition(0, 0), new GridPosition(1, 0));
+            // One horizontal two-cell gap — line_h2 fits it, line_v2 cannot — plus five scattered
+            // single-cell gaps, none of them vertically adjacent to anything, so line_v2 still fits
+            // nowhere. The extra gaps exist only to hold the board under the 90% occupancy that would
+            // otherwise earn a demolition hammer (issue #129) and reprieve the run this test is about
+            // ending: 57 of 64 cells occupied is 89%.
+            FillBoardExcept(
+                boardModel,
+                new GridPosition(0, 0), new GridPosition(1, 0),
+                new GridPosition(3, 2), new GridPosition(5, 2), new GridPosition(7, 2),
+                new GridPosition(0, 4), new GridPosition(2, 4));
 
             var trayModel = new TrayModel();
             trayModel.SetSlot(0, FindPiece("line_h2"), colourId: 1);
@@ -879,11 +887,12 @@ namespace MustyBlockBlast.Tests.EditMode
         /// <summary>
         /// AC5, end to end: on a full board no set can satisfy the guarantee, so the bounded draw gives
         /// up and hands back its last attempt. The player still gets three real pieces and is still
-        /// charged for the reroll, and the re-check ends the run exactly as an exhausted board would —
-        /// the same contract as a rotate that leaves nothing placeable.
+        /// charged for the reroll, and the re-check runs exactly as an exhausted board would make it —
+        /// the same contract as a rotate that leaves nothing placeable. Since issue #129 that re-check
+        /// reprieves a board this full with a demolition hammer rather than ending the run.
         /// </summary>
         [Test]
-        public void TryApplyReroll_OnABoardNoPieceFits_IsStillSpentAndEndsTheRun()
+        public void TryApplyReroll_OnABoardNoPieceFits_IsStillSpentAndEarnsTheDemolitionHammer()
         {
             PersistCount(PowerUpKind.Reroll, 1);
             var boardModel = new BoardModel();
@@ -908,8 +917,14 @@ namespace MustyBlockBlast.Tests.EditMode
                 Assert.IsNotNull(trayModel.GetPiece(slotIndex), "The fallback must still restock the dock.");
             }
 
-            Assert.AreEqual(1, gameOverBroker.Published.Count);
-            Assert.AreEqual(GameOverReason.NoMovesLeft, gameOverBroker.Published[0].Reason);
+            // Issue #129: a dead board that is also at least 90% full no longer ends the run outright —
+            // it earns a one-off demolition hammer instead, injected into the dock as a last-resort
+            // life-line. The reroll is still spent and the dock is still restocked (this test's real
+            // subject); what changes is that the verdict is deferred rather than published.
+            Assert.AreEqual(0, gameOverBroker.Published.Count);
+            Assert.IsTrue(
+                trayModel.GetSpecialKind(0) == SpecialPieceKind.DemolitionHammer,
+                "The dead board should have been reprieved by a demolition hammer.");
         }
 
         /// <summary>Issue #95 AC1: the dock has zero legal placements before the reroll, and the
@@ -1649,7 +1664,8 @@ namespace MustyBlockBlast.Tests.EditMode
                 gameOverBroker,
                 trayRefilledBroker,
                 new TestMessageBroker<ExplosiveCoreDetonatedMessage>(),
-                new TestMessageBroker<LaserFiredMessage>());
+                new TestMessageBroker<LaserFiredMessage>(),
+                new TestMessageBroker<PiercingRocketFiredMessage>());
         }
 
         /// <summary>Occupies every board cell except the ones named, so a test can state the one gap it

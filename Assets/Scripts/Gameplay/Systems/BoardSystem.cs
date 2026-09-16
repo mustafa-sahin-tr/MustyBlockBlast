@@ -19,6 +19,15 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// placement when the raw pointer anchor itself is illegal.</summary>
         private const int SnapSearchRadius = 2;
 
+        /// <summary>How full the board must be before a <see cref="SpecialPieceKind.DemolitionHammer"/>
+        /// is injected as a last resort. Checked alongside "no legal move left", never on its own: a
+        /// crowded board the player can still play on has not earned a life-line.</summary>
+        private const float HAMMER_OCCUPANCY_THRESHOLD = 0.9f;
+
+        /// <summary>How many lines one move must clear to earn a
+        /// <see cref="SpecialPieceKind.PiercingRocket"/> on the next refill.</summary>
+        private const int ROCKET_TRIGGER_LINE_COUNT = 3;
+
         private readonly BoardModel _boardModel;
         private readonly TrayModel _trayModel;
         private readonly PerfectRoundModel _perfectRoundModel;
@@ -31,11 +40,17 @@ namespace MustyBlockBlast.Gameplay.Systems
         private readonly IPublisher<TrayRefilledMessage> _trayRefilledPublisher;
         private readonly IPublisher<ExplosiveCoreDetonatedMessage> _explosiveCoreDetonatedPublisher;
         private readonly IPublisher<LaserFiredMessage> _laserFiredPublisher;
+        private readonly IPublisher<PiercingRocketFiredMessage> _piercingRocketFiredPublisher;
 
         // One long-lived effect per kind, reset per placement rather than reallocated — each owns the
         // buffer its destroyed cells are reported through.
         private readonly ExplosiveCoreEffect _explosiveCoreEffect = new ExplosiveCoreEffect();
         private readonly LaserEffect _laserEffect = new LaserEffect();
+
+        /// <summary>The piercing rocket's wipe. Not part of <see cref="_specialCellEffects"/>: it is
+        /// driven by a <em>piece</em> being placed rather than by a cell being destroyed, so it has no
+        /// <see cref="SpecialCellTrigger"/> to be dispatched on and the cascade loop never sees it.</summary>
+        private readonly PiercingRocketEffect _piercingRocketEffect = new PiercingRocketEffect();
 
         /// <summary>The odd one out: it changes nothing on the board and only counts the gems this
         /// placement's resolution destroyed, because the cascade loop keeps its triggers to itself and
@@ -63,6 +78,47 @@ namespace MustyBlockBlast.Gameplay.Systems
         private readonly List<int> _previewRowsBuffer = new List<int>(Board.SIZE);
         private readonly List<int> _previewColumnsBuffer = new List<int>(Board.SIZE);
 
+        /// <summary>Holds the one cell a demolition hammer destroys, so announcing it reuses the same
+        /// "here is a list of emptied cells" seam every other non-line destruction does. Owned and
+        /// reused, so a hammer costs no allocation.</summary>
+        private readonly List<GridPosition> _hammerClearedBuffer = new List<GridPosition>(1);
+
+        /// <summary>The triggers a hammer's single destroyed cell produced — at most one. Reused for the
+        /// same reason <see cref="_hammerClearedBuffer"/> is.</summary>
+        private readonly List<SpecialCellTrigger> _hammerTriggerBuffer = new List<SpecialCellTrigger>(1);
+
+        /// <summary>
+        /// Dock injections owed to the next refill: a golden 1x1 earned by a five-long combo streak
+        /// (armed by <see cref="GoldenPieceTriggerSystem"/>) and a piercing rocket earned by a move that
+        /// cleared <see cref="ROCKET_TRIGGER_LINE_COUNT"/> lines at once.
+        /// <para>
+        /// Plain bools rather than a queue: each is earned again by earning its trigger again, so two
+        /// golden pieces owed at once is not a thing that can happen — the flag is set by the one event
+        /// that can set it and cleared by the one refill that pays it.
+        /// </para>
+        /// <para>
+        /// Run-bound, exactly as the pieces are: <see cref="StartNewRun"/> drops both, so nothing earned
+        /// in one run can be handed to the next (AC2).
+        /// </para>
+        /// </summary>
+        private bool _goldenInjectionPending;
+        private bool _piercingRocketInjectionPending;
+
+        /// <summary>
+        /// Whether this run has already been handed its <see cref="SpecialPieceKind.DemolitionHammer"/>.
+        /// <para>
+        /// Load-bearing, not a nicety. A hammer destroys one cell, which leaves a hole the smallest
+        /// piece fits — so the very next dead end on the same crowded board would meet the trigger's two
+        /// conditions all over again and hand out another, and a run that qualifies once could never end
+        /// at all. One reprieve per run is what keeps "no moves left" a real ending.
+        /// </para>
+        /// <para>
+        /// Run-bound like the two flags above: <see cref="StartNewRun"/> clears it, so every run gets its
+        /// own life-line and none inherits a spent one (AC2).
+        /// </para>
+        /// </summary>
+        private bool _hammerGrantedThisRun;
+
         /// <summary>DI entry point — VContainer must not pick the seeded constructor.</summary>
         [Inject]
         public BoardSystem(
@@ -76,11 +132,13 @@ namespace MustyBlockBlast.Gameplay.Systems
             IPublisher<GameOverMessage> gameOverPublisher,
             IPublisher<TrayRefilledMessage> trayRefilledPublisher,
             IPublisher<ExplosiveCoreDetonatedMessage> explosiveCoreDetonatedPublisher,
-            IPublisher<LaserFiredMessage> laserFiredPublisher)
+            IPublisher<LaserFiredMessage> laserFiredPublisher,
+            IPublisher<PiercingRocketFiredMessage> piercingRocketFiredPublisher)
             : this(
                 boardModel, trayModel, perfectRoundModel, pieceDraw, runStartedPublisher,
                 piecePlacedPublisher, linesClearedPublisher, gameOverPublisher, trayRefilledPublisher,
-                explosiveCoreDetonatedPublisher, laserFiredPublisher, Environment.TickCount)
+                explosiveCoreDetonatedPublisher, laserFiredPublisher, piercingRocketFiredPublisher,
+                Environment.TickCount)
         {
         }
 
@@ -96,11 +154,13 @@ namespace MustyBlockBlast.Gameplay.Systems
             IPublisher<TrayRefilledMessage> trayRefilledPublisher,
             IPublisher<ExplosiveCoreDetonatedMessage> explosiveCoreDetonatedPublisher,
             IPublisher<LaserFiredMessage> laserFiredPublisher,
+            IPublisher<PiercingRocketFiredMessage> piercingRocketFiredPublisher,
             int seed)
         {
             _random = new Random(seed);
             _explosiveCoreDetonatedPublisher = explosiveCoreDetonatedPublisher;
             _laserFiredPublisher = laserFiredPublisher;
+            _piercingRocketFiredPublisher = piercingRocketFiredPublisher;
             _specialCellEffects = new CompositeSpecialCellEffect(
                 _explosiveCoreEffect, _laserEffect, _scoreGemEffect);
             _boardModel = boardModel;
@@ -122,6 +182,13 @@ namespace MustyBlockBlast.Gameplay.Systems
         {
             _boardModel.ClearAll();
 
+            // Dropped before the refill below, which is the thing that would otherwise pay them: a
+            // special piece is earned by the run that triggered it and must never be handed to the next
+            // one (AC2).
+            _goldenInjectionPending = false;
+            _piercingRocketInjectionPending = false;
+            _hammerGrantedThisRun = false;
+
             // A parked piece belongs to the run that parked it; carrying it into the next one would
             // hand the player a free piece they never drew.
             _trayModel.ClearHold();
@@ -142,6 +209,14 @@ namespace MustyBlockBlast.Gameplay.Systems
 
             Piece piece = _trayModel.GetPiece(slotIndex);
             if (piece == null)
+            {
+                return false;
+            }
+
+            // The one dock piece that is never dropped on the board: a hammer is aimed at an occupied
+            // cell and destroys it (see TryUseDemolitionHammer). Refused here rather than only in
+            // TryPlacePiece, so the drag preview refuses it for the same reason the placement does.
+            if (_trayModel.GetSpecialKind(slotIndex) == SpecialPieceKind.DemolitionHammer)
             {
                 return false;
             }
@@ -216,6 +291,10 @@ namespace MustyBlockBlast.Gameplay.Systems
             Piece piece = _trayModel.GetPiece(slotIndex);
             int colourId = _trayModel.GetColourId(slotIndex);
 
+            // Read before the slot is consumed, which resets it: this is the last moment the piece about
+            // to be placed is known to be a special one.
+            SpecialPieceKind pieceKind = _trayModel.GetSpecialKind(slotIndex);
+
             for (int i = 0; i < piece.Offsets.Count; i++)
             {
                 _boardModel.Occupy(anchor + piece.Offsets[i], colourId);
@@ -239,6 +318,16 @@ namespace MustyBlockBlast.Gameplay.Systems
             _explosiveCoreEffect.BeginResolution();
             _laserEffect.BeginResolution();
             _scoreGemEffect.BeginResolution();
+            _piercingRocketEffect.BeginResolution();
+
+            // Before the cascade, deliberately. The rocket empties its row and column whether or not
+            // either was full, so running it first is what keeps a cell from being removed by the wipe
+            // *and* counted by a completed line — the cascade re-reads fullness on the board the wipe
+            // left behind, which is also how a wipe that completes a new line still chains.
+            if (pieceKind == SpecialPieceKind.PiercingRocket)
+            {
+                ApplyPiercingRocket(anchor);
+            }
 
             CascadeClearResult cascade = CascadeClearResolver.ResolveCascade(
                 _boardModel.Board, _specialCellEffects);
@@ -281,6 +370,15 @@ namespace MustyBlockBlast.Gameplay.Systems
                 _boardModel.NotifyPowerUpCleared(wipedCells);
             }
 
+            // A rocket's wipe is announced the same way and for the same reason as a laser's: it empties
+            // two lines whether or not they were full, so no LinesClearedMessage describes it.
+            IReadOnlyList<GridPosition> rocketWipedCells = _piercingRocketEffect.WipedCells;
+            bool anyRocketWiped = rocketWipedCells.Count > 0;
+            if (anyRocketWiped)
+            {
+                _boardModel.NotifyPowerUpCleared(rocketWipedCells);
+            }
+
             bool anyCornerCleared = AnyCornerTouched(clearResult.ClearedRows, clearResult.ClearedColumns);
 
             _piecePlacedPublisher.Publish(new PiecePlacedMessage(
@@ -310,12 +408,28 @@ namespace MustyBlockBlast.Gameplay.Systems
                 _laserFiredPublisher.Publish(new LaserFiredMessage(wipedCells.Count));
             }
 
+            if (anyRocketWiped)
+            {
+                _piercingRocketFiredPublisher.Publish(
+                    new PiercingRocketFiredMessage(rocketWipedCells.Count));
+            }
+
             // Last of all, and deliberately after PiecePlacedMessage: the spawn occupies a cell, and
             // that message reports whether this placement emptied the board, cleared the centre core
             // and so on. Spawning first would quietly cost the player every perfect-clear reward they
             // just earned. It also reads the board as the whole cascade left it, not mid-cascade: what
             // matters is whether the intersection is free once everything has settled.
             TrySpawnExplosiveCore(clearResult, colourId);
+
+            // Armed in the same section and for the same reason as the spawn above: it is this
+            // placement's reward, read off the placement's own (primary) clear rather than off the whole
+            // cascade, because the reward is for the lines the player lined up. Unlike a core it is not
+            // put on the board — it is owed to the next refill, which is where a dock injection can
+            // happen at all.
+            if (clearResult.LineCount >= ROCKET_TRIGGER_LINE_COUNT)
+            {
+                _piercingRocketInjectionPending = true;
+            }
 
             // Recorded after the placement has been fully reported, for the same reason the spawn above
             // is: this is bookkeeping about the round, and nothing that reads the placement should see
@@ -365,6 +479,13 @@ namespace MustyBlockBlast.Gameplay.Systems
                 return false;
             }
 
+            // A hammer is not a piece to park: it is never dragged anywhere, and pocketing it would take
+            // the life-line out of the dock the game-over check reads it from.
+            if (_trayModel.GetSpecialKind(slotIndex) == SpecialPieceKind.DemolitionHammer)
+            {
+                return false;
+            }
+
             if (!_trayModel.IsHoldOccupied && _trayModel.OccupiedSlotCount == 1)
             {
                 return false;
@@ -372,9 +493,13 @@ namespace MustyBlockBlast.Gameplay.Systems
 
             Piece previouslyHeld = _trayModel.HeldPiece;
             int previouslyHeldColourId = _trayModel.HeldColourId;
+            SpecialPieceKind previouslyHeldKind = _trayModel.HeldSpecialKind;
 
-            _trayModel.SetHeld(piece, _trayModel.GetColourId(slotIndex));
-            _trayModel.SetSlot(slotIndex, previouslyHeld, previouslyHeldColourId);
+            // The kind travels with the piece in both directions. A golden 1x1 set aside and taken back
+            // out is the same golden 1x1 — dropping the tag on the way through the pocket would quietly
+            // demote a piece the player earned.
+            _trayModel.SetHeld(piece, _trayModel.GetColourId(slotIndex), _trayModel.GetSpecialKind(slotIndex));
+            _trayModel.SetSlot(slotIndex, previouslyHeld, previouslyHeldColourId, previouslyHeldKind);
 
             // No game-over re-check: a park only permutes pieces between the dock and the pocket, so
             // the set of pieces the player can still play is exactly the one CheckGameOver last found
@@ -455,6 +580,77 @@ namespace MustyBlockBlast.Gameplay.Systems
             }
 
             wasClutchSave = hadNoLegalMoves && MoveAvailability.HasAnyMove(_boardModel.Board, _rerollPieceBuffer);
+
+            RecheckGameOver();
+            return true;
+        }
+
+        /// <summary>
+        /// Arms a <see cref="SpecialPieceKind.Golden"/> injection for the next refill, on behalf of
+        /// <see cref="GoldenPieceTriggerSystem"/> — whose trigger is the combo streak, a score concept
+        /// this System deliberately never reads.
+        /// <para>
+        /// A request, not a write: the dock belongs to this System, and a refill is the only moment a
+        /// slot can be overridden, so the caller says "the player earned one" and this decides when it
+        /// lands. Arming twice before a refill is idempotent, which is the intended reading — the reward
+        /// is one piece, not a queue of them.
+        /// </para>
+        /// </summary>
+        internal void RequestGoldenPieceInjection() => _goldenInjectionPending = true;
+
+        /// <summary>
+        /// Spends the <see cref="SpecialPieceKind.DemolitionHammer"/> in <paramref name="slotIndex"/> on
+        /// <paramref name="target"/>, destroying that one occupied cell and nothing else.
+        /// <para>
+        /// The one dock piece that is used rather than placed, so it has its own entry point instead of
+        /// going through <see cref="TryPlacePiece"/>: there is no shape to fit and no anchor to snap —
+        /// the player arms the slot and taps a cell, exactly as they aim a power-up. It is nonetheless
+        /// <em>not</em> a <see cref="Gameplay.PowerUpKind"/> and never enters the inventory: it is
+        /// injected by a board condition, consumed by this call, and gone (AC2, AC7).
+        /// </para>
+        /// <para>
+        /// Follows the "peek before spend" contract <see cref="PowerUpSystem.TryApplyJoker"/> sets: an
+        /// empty target, an off-board one, a slot holding something else and an already-over run are all
+        /// refused outright — nothing is destroyed and nothing is consumed, so a misplaced tap does not
+        /// cost the player their life-line.
+        /// </para>
+        /// </summary>
+        public bool TryUseDemolitionHammer(int slotIndex, GridPosition target)
+        {
+            if (IsGameOver || !IsValidSlot(slotIndex)
+                || _trayModel.GetSpecialKind(slotIndex) != SpecialPieceKind.DemolitionHammer
+                || !Board.IsInside(target)
+                || !_boardModel.Board.IsOccupied(target))
+            {
+                return false;
+            }
+
+            // Read before the cell is cleared, which resets its kind: a special block destroyed by a
+            // hammer fires exactly as one destroyed by a completed line does, so this goes through the
+            // same detection pass every other destroying path uses. No axis — a single cell is not a
+            // line, so a laser caught here has no opposite to compute and wipes both ways.
+            _hammerClearedBuffer.Clear();
+            _hammerClearedBuffer.Add(target);
+            _hammerTriggerBuffer.Clear();
+            SpecialCellDetection.CollectTriggered(
+                _boardModel.Board, _hammerClearedBuffer, _hammerTriggerBuffer);
+
+            _boardModel.Board.Clear(target);
+            _boardModel.NotifyPowerUpCleared(_hammerClearedBuffer);
+
+            // Consumed before the effects below can end the run, so AC7 holds whatever they go on to do:
+            // the hammer is spent exactly once, at the moment it was used.
+            _trayModel.ConsumeSlot(slotIndex);
+
+            ApplyHammerTriggeredSpecials();
+
+            // Destroying a cell can never complete a line, so there is nothing to cascade — but the dock
+            // may now be empty, and a hammer is not a placement, so nothing else would refill it. Without
+            // this the run would end on the very next check with an empty dock.
+            if (_trayModel.IsEmpty)
+            {
+                RefillTray();
+            }
 
             RecheckGameOver();
             return true;
@@ -577,12 +773,119 @@ namespace MustyBlockBlast.Gameplay.Systems
             _boardModel.SetSpecialKind(spawn.Value, SpecialCellKind.ScoreGem);
         }
 
+        /// <summary>
+        /// Fires the piercing rocket just placed at <paramref name="origin"/>: its row and its column
+        /// are emptied whole, and any special cell they took out fires in turn through the same effects
+        /// a completed line's would.
+        /// <para>
+        /// The rocket's own cell is on both lines and goes with them — that is the self-destruct, and it
+        /// needs no separate step.
+        /// </para>
+        /// </summary>
+        private void ApplyPiercingRocket(GridPosition origin)
+        {
+            _piercingRocketEffect.Apply(_boardModel.Board, origin);
+
+            IReadOnlyList<SpecialCellTrigger> triggers = _piercingRocketEffect.TriggeredSpecials;
+            for (int i = 0; i < triggers.Count; i++)
+            {
+                // No kind filter: each installed effect's own guard is the filter, exactly as it is for
+                // the cascade loop — and these effects are mid-resolution already (BeginResolution ran
+                // just above), so whatever they blast is folded into the same placement's report.
+                _specialCellEffects.Apply(_boardModel.Board, triggers[i]);
+            }
+        }
+
+        /// <summary>
+        /// Detonates the special cell a hammer's single destroyed cell was, if it was one. Its own
+        /// resolution rather than a placement's: a hammer is not a placement, so nothing here feeds the
+        /// line-clear report — the blasts and wipes are announced on their own, exactly as
+        /// <see cref="PowerUpSystem"/> announces a power-up's.
+        /// </summary>
+        private void ApplyHammerTriggeredSpecials()
+        {
+            if (_hammerTriggerBuffer.Count == 0)
+            {
+                return;
+            }
+
+            _explosiveCoreEffect.BeginResolution();
+            _laserEffect.BeginResolution();
+
+            for (int i = 0; i < _hammerTriggerBuffer.Count; i++)
+            {
+                _explosiveCoreEffect.Apply(_boardModel.Board, _hammerTriggerBuffer[i]);
+                _laserEffect.Apply(_boardModel.Board, _hammerTriggerBuffer[i]);
+            }
+
+            IReadOnlyList<GridPosition> blastedCells = _explosiveCoreEffect.BlastedCells;
+            if (blastedCells.Count > 0)
+            {
+                _boardModel.NotifyPowerUpCleared(blastedCells);
+                _explosiveCoreDetonatedPublisher.Publish(
+                    new ExplosiveCoreDetonatedMessage(blastedCells.Count));
+            }
+
+            IReadOnlyList<GridPosition> wipedCells = _laserEffect.WipedCells;
+            if (wipedCells.Count > 0)
+            {
+                _boardModel.NotifyPowerUpCleared(wipedCells);
+                _laserFiredPublisher.Publish(new LaserFiredMessage(wipedCells.Count));
+            }
+        }
+
+        /// <summary>
+        /// Overwrites the dock slots this refill owes a special piece with that piece, after the ordinary
+        /// draw has filled all three. Overwriting rather than drawing differently is what satisfies AC3:
+        /// only the triggered slots are replaced, and every other slot is still exactly what
+        /// <see cref="WeightedPieceDraw"/> weighted it to be.
+        /// <para>
+        /// Slots are claimed from 0 upwards, so two rewards owed at the same refill never land on the
+        /// same slot and at least one normally drawn piece always survives.
+        /// </para>
+        /// <para>
+        /// Deliberately outside <see cref="WeightedPieceDraw.TryDrawSolvableSet"/>'s guarantee (AC4):
+        /// that method is scoped to the Reroll power-up, and an injected piece is an override applied
+        /// after the draw, so a dock containing one carries no solvability promise. The 1x1 every kind is
+        /// offered on is in any case the piece most likely to fit.
+        /// </para>
+        /// </summary>
+        private void ApplyPendingInjections()
+        {
+            int nextSlot = 0;
+
+            if (_goldenInjectionPending)
+            {
+                InjectSpecialPiece(nextSlot, SpecialPieceKind.Golden);
+                nextSlot++;
+                _goldenInjectionPending = false;
+            }
+
+            if (_piercingRocketInjectionPending)
+            {
+                InjectSpecialPiece(nextSlot, SpecialPieceKind.PiercingRocket);
+                _piercingRocketInjectionPending = false;
+            }
+        }
+
+        /// <summary>Writes one special piece into a dock slot. Every kind is offered on the ordinary
+        /// 1x1, so the tag is the whole difference — and the colour is drawn exactly as a normal piece's
+        /// is, because colour is cosmetic and the icon is what marks the piece as special.</summary>
+        private void InjectSpecialPiece(int slotIndex, SpecialPieceKind kind)
+        {
+            _trayModel.SetSlot(slotIndex, PieceCatalog.SingleCell, _pieceDraw.DrawColourId(), kind);
+        }
+
         private void RefillTray()
         {
             for (int i = 0; i < TrayModel.SLOT_COUNT; i++)
             {
                 _trayModel.SetSlot(i, _pieceDraw.DrawPiece(), _pieceDraw.DrawColourId());
             }
+
+            // After the ordinary draw, never instead of it: the injection overrides the slots it claims
+            // and leaves the rest weighted exactly as they were drawn (AC3).
+            ApplyPendingInjections();
 
             // Every refill starts a fresh round, whether or not the one that just ended earned anything
             // — and a run start goes through here too (StartNewRun refills), so no round state can
@@ -607,6 +910,16 @@ namespace MustyBlockBlast.Gameplay.Systems
                 return;
             }
 
+            // An unused hammer is a move, and one no board shape can refuse: it destroys an occupied
+            // cell rather than fitting into an empty region, so MoveAvailability — which only ever asks
+            // "does this shape fit" — would answer for its 1x1 and get the wrong question. Checked
+            // before that call rather than folded into it, so the run cannot be declared over on the
+            // very next check while the life-line it was just handed is still sitting in the dock.
+            if (_trayModel.HasSpecialPiece(SpecialPieceKind.DemolitionHammer))
+            {
+                return;
+            }
+
             _trayModel.CollectRemaining(_remainingBuffer);
 
             // The parked piece counts as a move the player still has. Swapping it back into a dock slot
@@ -623,8 +936,52 @@ namespace MustyBlockBlast.Gameplay.Systems
                 return;
             }
 
+            // The last thing tried before the run ends: a board this full with nothing left to play has
+            // earned the life-line, and handing it over here — rather than at some future refill, of
+            // which there may be none — is the only moment it can still save the run.
+            if (TryInjectDemolitionHammer())
+            {
+                return;
+            }
+
             IsGameOver = true;
             _gameOverPublisher.Publish(new GameOverMessage(GameOverReason.NoMovesLeft));
+        }
+
+        /// <summary>
+        /// Injects a <see cref="SpecialPieceKind.DemolitionHammer"/> into the dock when the board is at
+        /// least <see cref="HAMMER_OCCUPANCY_THRESHOLD"/> full. Called only from
+        /// <see cref="CheckGameOver"/>, with "no legal move left" already established, so the two
+        /// conditions the issue names are both in hand. Returns whether the run was saved.
+        /// <para>
+        /// "No hammer already in the dock" needs no check of its own: the caller returns early on
+        /// exactly that condition, so reaching here means there is none — which is what makes the
+        /// injection happen once per trigger rather than once per check.
+        /// </para>
+        /// <para>
+        /// It takes an empty slot when there is one and slot 0 otherwise. Overwriting costs the player
+        /// nothing: every piece in the dock was just found to be unplaceable, so the one discarded was a
+        /// piece they could not have used.
+        /// </para>
+        /// </summary>
+        private bool TryInjectDemolitionHammer()
+        {
+            if (_hammerGrantedThisRun)
+            {
+                return false;
+            }
+
+            float occupancy =
+                _boardModel.Board.OccupiedCellCount() / (float)(Board.SIZE * Board.SIZE);
+            if (occupancy < HAMMER_OCCUPANCY_THRESHOLD)
+            {
+                return false;
+            }
+
+            int emptySlot = _trayModel.FindFirstEmptySlot();
+            InjectSpecialPiece(emptySlot >= 0 ? emptySlot : 0, SpecialPieceKind.DemolitionHammer);
+            _hammerGrantedThisRun = true;
+            return true;
         }
     }
 }

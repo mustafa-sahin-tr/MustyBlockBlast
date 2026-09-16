@@ -40,6 +40,12 @@ namespace MustyBlockBlast.Presentation.Views
     /// silhouette stays up to aim at and the placement itself takes it down.
     /// </para>
     /// <para>
+    /// A dock slot holding a <see cref="SpecialPieceKind.DemolitionHammer"/> is the one slot a press does
+    /// not start a drag on: it arms instead, and the next press is aimed at the board exactly as an armed
+    /// power-up is. That arm is this View's own state and never enters
+    /// <see cref="PowerUpModel.Armed"/> — the hammer is not an inventory item.
+    /// </para>
+    /// <para>
     /// A piece drag has a second destination besides the board: released over <see cref="HoldSlotView"/>
     /// it is parked in the pocket instead of placed. That branch is decided while dragging, not on
     /// release, so the highlight the player sees and the drop they get are always the same thing.
@@ -102,6 +108,24 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>Dock slot the armed Rotate is over this aim frame, or -1. Rotate is the one kind
         /// aimed at the tray rather than the board, so it resolves to a slot index instead of a cell.</summary>
         private int _powerUpTargetSlot = -1;
+
+        /// <summary>
+        /// Dock slot holding the armed <see cref="SpecialPieceKind.DemolitionHammer"/>, or -1 for none.
+        /// <para>
+        /// Deliberately a field on this View rather than an entry in <see cref="PowerUpModel.Armed"/>:
+        /// the hammer is never an inventory item (it is injected by a board condition and consumed by
+        /// its one use), so riding the power-up arm model would make it one. There is no System-side
+        /// arm state to cancel either, which is why the cancel gesture is implemented here.
+        /// </para>
+        /// </summary>
+        private int _armedHammerSlot = -1;
+
+        /// <summary>Whether the armed hammer is currently being aimed — the hammer's own mirror of
+        /// <see cref="_isAimingPowerUp"/>, and mutually exclusive with it and with a drag.</summary>
+        private bool _isAimingHammer;
+
+        private GridPosition _hammerTargetCell;
+        private bool _hasHammerTarget;
 
         [Inject]
         public void Construct(
@@ -167,6 +191,11 @@ namespace MustyBlockBlast.Presentation.Views
             _pointerPressAction.canceled -= OnPressReleased;
             _pointerPressAction.Disable();
             _pointerPositionAction.Disable();
+
+            // The arm lives on this View and is driven entirely by presses, so a disabled View can
+            // never receive the release that would end it: drop it here, with its reticle and its
+            // lifted dock plate, rather than leave a highlight on screen with nothing able to clear it.
+            CancelHammerArm();
         }
 
         private void Start()
@@ -192,6 +221,12 @@ namespace MustyBlockBlast.Presentation.Views
             if (_isAimingPowerUp)
             {
                 UpdatePowerUpAim(_pointerPositionAction.ReadValue<Vector2>());
+                return;
+            }
+
+            if (_isAimingHammer)
+            {
+                UpdateHammerAim(_pointerPositionAction.ReadValue<Vector2>());
                 return;
             }
 
@@ -238,6 +273,15 @@ namespace MustyBlockBlast.Presentation.Views
         /// </summary>
         private void OnTraySlotChanged(int slotIndex)
         {
+            // Same invariant as the drag below, one gesture up: the armed slot changed underneath the
+            // arm. Covers the hammer being spent, a new run rewriting the dock, and anything else that
+            // could leave the player aiming a slot that no longer holds a hammer.
+            if (_armedHammerSlot == slotIndex
+                && _trayModel.GetSpecialKind(slotIndex) != SpecialPieceKind.DemolitionHammer)
+            {
+                CancelHammerArm();
+            }
+
             if (_draggedSlot != slotIndex)
             {
                 return;
@@ -332,6 +376,10 @@ namespace MustyBlockBlast.Presentation.Views
             // cancel gesture, not an attempt to aim it at whatever is behind the icon.
             if (_powerUpInventoryView.TryHandleTap(screenPosition))
             {
+                // Reaching for the power-up strip is reaching for something else: drop any armed hammer
+                // rather than leave it armed behind an aim flow that would clear its slot highlight and
+                // make it invisible.
+                CancelHammerArm();
                 return;
             }
 
@@ -348,6 +396,40 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             int slotIndex = _trayView.GetSlotIndexAt(screenPosition);
+
+            // An armed hammer owns the next press: it is aimed at the board like a power-up, so it has
+            // to be resolved before the press can be read as picking a piece up.
+            if (_armedHammerSlot >= 0)
+            {
+                // Tapping the armed slot again is the cancel gesture, mirroring PowerUpSystem.CancelArm
+                // — implemented here because the arm state lives here and nowhere else.
+                if (slotIndex == _armedHammerSlot)
+                {
+                    CancelHammerArm();
+                    return;
+                }
+
+                if (slotIndex < 0)
+                {
+                    _ghostFitSystem.Dismiss();
+                    BeginHammerAim(screenPosition);
+                    return;
+                }
+
+                // Reaching for another dock piece: drop the arm and let the press be handled as the
+                // ordinary pick-up it is, rather than swallowing it.
+                CancelHammerArm();
+            }
+            else if (slotIndex >= 0
+                && _trayModel.GetSpecialKind(slotIndex) == SpecialPieceKind.DemolitionHammer)
+            {
+                // The one dock piece that is never dragged. Arming instead of dragging is what keeps a
+                // hammer from ever entering a drag the System would only refuse to place.
+                _ghostFitSystem.Dismiss();
+                ArmHammer(slotIndex);
+                return;
+            }
+
             if (slotIndex < 0 || _trayModel.GetPiece(slotIndex) == null)
             {
                 // A press on the board itself, or on nothing — the acceptance criterion's "touches any
@@ -368,6 +450,12 @@ namespace MustyBlockBlast.Presentation.Views
             if (_isAimingPowerUp)
             {
                 ReleasePowerUpAim();
+                return;
+            }
+
+            if (_isAimingHammer)
+            {
+                ReleaseHammerAim();
                 return;
             }
 
@@ -407,7 +495,10 @@ namespace MustyBlockBlast.Presentation.Views
             _isOverHoldSlot = false;
             _boardSystem.BeginPlacementPreview();
             _trayView.SetSlotVisible(slotIndex, false);
-            BuildGhost(_trayModel.GetPiece(slotIndex), _trayModel.GetColourId(slotIndex));
+            BuildGhost(
+                _trayModel.GetPiece(slotIndex),
+                _trayModel.GetColourId(slotIndex),
+                _trayModel.GetSpecialKind(slotIndex));
             UpdateDrag(screenPosition);
         }
 
@@ -640,6 +731,116 @@ namespace MustyBlockBlast.Presentation.Views
             }
         }
 
+        /// <summary>
+        /// Arms the hammer sitting in <paramref name="slotIndex"/> and lifts its dock plate, so the
+        /// player can see which slot the next board tap will spend. No System is told: there is nothing
+        /// to reserve, because <see cref="BoardSystem.TryUseDemolitionHammer"/> peeks before it spends
+        /// and refuses a slot that is no longer a hammer.
+        /// </summary>
+        private void ArmHammer(int slotIndex)
+        {
+            _armedHammerSlot = slotIndex;
+            _isAimingHammer = false;
+            _hasHammerTarget = false;
+            _trayView.SetAimedSlot(slotIndex);
+        }
+
+        /// <summary>Drops the arm and everything drawn for it. A no-op when nothing is armed, so every
+        /// path that could end an arm can call it unconditionally.</summary>
+        private void CancelHammerArm()
+        {
+            if (_armedHammerSlot < 0)
+            {
+                return;
+            }
+
+            _armedHammerSlot = -1;
+            _isAimingHammer = false;
+            _hasHammerTarget = false;
+
+            // Called from OnDisable as well, which also runs on the way to destruction — by then the
+            // other Views may already be gone.
+            if (_boardView != null)
+            {
+                _boardView.ClearPowerUpTargetHighlight();
+            }
+
+            if (_trayView != null)
+            {
+                _trayView.SetAimedSlot(-1);
+            }
+        }
+
+        private void BeginHammerAim(Vector2 screenPosition)
+        {
+            _isAimingHammer = true;
+            _hasHammerTarget = false;
+            UpdateHammerAim(screenPosition);
+        }
+
+        /// <summary>
+        /// Previews the one cell the armed hammer would destroy. Shares the power-up aim's reticle and
+        /// its valid/invalid tint so "this tap will do nothing" reads the same whatever is being aimed,
+        /// and applies no screen offset for the same reason that flow does not: there is no ghost for a
+        /// finger to cover.
+        /// <para>
+        /// Legality here is <see cref="PowerUpKind.ColorCleanser"/>'s, not the joker's: the hammer
+        /// destroys an occupied cell, so an empty one is the dead tap.
+        /// </para>
+        /// </summary>
+        private void UpdateHammerAim(Vector2 screenPosition)
+        {
+            // The slot can stop being a hammer mid-aim — spent, or rewritten by a new run underneath
+            // the finger. Aiming nothing is aiming nothing.
+            if (_armedHammerSlot < 0
+                || _trayModel.GetSpecialKind(_armedHammerSlot) != SpecialPieceKind.DemolitionHammer)
+            {
+                CancelHammerArm();
+                return;
+            }
+
+            if (!_boardView.TryGetCell(screenPosition, out GridPosition pointerCell))
+            {
+                _hasHammerTarget = false;
+                _boardView.ClearPowerUpTargetHighlight();
+                return;
+            }
+
+            _hammerTargetCell = pointerCell;
+            _hasHammerTarget = true;
+            _boardView.ShowPowerUpTargetHighlight(
+                PowerUpTargetCells.ForDemolitionHammer(pointerCell, _powerUpTargetBuffer),
+                _boardModel != null && _boardModel.GetCell(pointerCell) != Board.EMPTY);
+        }
+
+        /// <summary>
+        /// Spends the armed hammer on the cell under the pointer. A refusal — an empty target, or a
+        /// release off the board — leaves the hammer armed and its slot still lifted, so the player
+        /// simply aims again rather than having to re-arm a life-line they were only ever given once.
+        /// That mirrors how a refused joker stays armed.
+        /// <para>
+        /// A successful use consumes the slot, which raises <see cref="TrayModel.SlotChanged"/> and
+        /// drops the arm through <see cref="OnTraySlotChanged"/> — so the arm is cleared by the slot
+        /// actually emptying rather than by this method assuming it did.
+        /// </para>
+        /// </summary>
+        private void ReleaseHammerAim()
+        {
+            _isAimingHammer = false;
+
+            bool hasTarget = _hasHammerTarget;
+            GridPosition target = _hammerTargetCell;
+            _hasHammerTarget = false;
+            _boardView.ClearPowerUpTargetHighlight();
+
+            if (!hasTarget || _armedHammerSlot < 0)
+            {
+                return;
+            }
+
+            _boardSystem.TryUseDemolitionHammer(_armedHammerSlot, target);
+        }
+
         /// <summary>The cells <paramref name="kind"/> would hit at <paramref name="cell"/>, straight
         /// from the Core geometry the application itself uses — so the preview can never over-promise a
         /// region the application would not touch, notably where a bomb's 3x3 is clamped at a board
@@ -677,7 +878,10 @@ namespace MustyBlockBlast.Presentation.Views
             _dragLayer.SetAsLastSibling();
         }
 
-        private void BuildGhost(Piece piece, int colourId)
+        /// <summary>Builds the dragged piece's ghost. Painted through the same seam the dock plate is,
+        /// so a special piece looks like itself while it is in the air — a golden 1x1 that turned
+        /// ordinary the moment it was picked up would read as having been lost.</summary>
+        private void BuildGhost(Piece piece, int colourId, SpecialPieceKind specialKind)
         {
             if (_currentTheme == null)
             {
@@ -708,10 +912,10 @@ namespace MustyBlockBlast.Presentation.Views
                     _boardView.CellBevelThickness);
                 var rect = (RectTransform)cell.transform;
                 rect.anchoredPosition = new Vector2(offsetX + (offset.X * pitch), offsetY + (offset.Y * pitch));
-                cell.SetEmbossedColours(
-                    _currentTheme.GetFill(colourId),
-                    _currentTheme.GetHighlight(colourId),
-                    _currentTheme.GetShade(colourId));
+                SpecialPieceVisuals.Apply(cell, specialKind, _currentTheme, colourId);
+
+                // After the colours, never before: SetAlpha writes every layer the look just painted,
+                // including the special glyph, so the ghost fades as one block.
                 cell.SetAlpha(_ghostAlpha);
                 _ghostCells.Add(cell);
             }

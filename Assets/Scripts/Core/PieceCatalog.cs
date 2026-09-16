@@ -14,12 +14,24 @@ namespace MustyBlockBlast.Core
     /// </summary>
     public static class PieceCatalog
     {
+        /// <summary>
+        /// The 1x1. Named rather than found by id because it is the shape every
+        /// <see cref="SpecialPieceKind"/> is offered on: a dock injection needs the piece itself, and
+        /// looking it up by string would put that id in two places.
+        /// <para>
+        /// Declared before <see cref="AllPieces"/> on purpose — static field initialisers run in
+        /// declaration order, and <see cref="BuildAllPieces"/> reads this.
+        /// </para>
+        /// </summary>
+        public static Piece SingleCell { get; } =
+            new Piece("single_1x1", new[] { new GridPosition(0, 0) });
+
         public static IReadOnlyList<Piece> AllPieces { get; } = BuildAllPieces();
 
         private static Piece[] BuildAllPieces()
         {
             var pieces = new List<Piece>();
-            pieces.Add(Single());
+            pieces.Add(SingleCell);
             pieces.AddRange(Lines());
             pieces.AddRange(Squares());
             pieces.AddRange(Corners2X2());
@@ -27,9 +39,6 @@ namespace MustyBlockBlast.Core
             pieces.AddRange(Tetrominoes());
             return pieces.ToArray();
         }
-
-        private static Piece Single()
-            => new Piece("single_1x1", new[] { new GridPosition(0, 0) });
 
         private static IEnumerable<Piece> Lines()
         {

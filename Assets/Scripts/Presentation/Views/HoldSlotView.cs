@@ -157,9 +157,15 @@ namespace MustyBlockBlast.Presentation.Views
             RefreshPlate();
 
             int colourId = _trayModel != null ? _trayModel.HeldColourId : Board.EMPTY;
+
+            // Re-read rather than cached, for the reason PieceTrayView re-reads it: a golden piece is
+            // painted gold instead of in the theme's colours, and a repaint that ignored the kind would
+            // quietly demote it on the next theme switch.
+            SpecialPieceKind specialKind =
+                _trayModel != null ? _trayModel.HeldSpecialKind : SpecialPieceKind.None;
             for (int i = 0; i < _pieceCells.Count; i++)
             {
-                ApplyCellColour(_pieceCells[i], colourId);
+                ApplyCellLook(_pieceCells[i], colourId, specialKind);
             }
         }
 
@@ -189,17 +195,18 @@ namespace MustyBlockBlast.Presentation.Views
             _rectTransform.localScale = new Vector3(scale, scale, 1f);
         }
 
-        private void ApplyCellColour(CellView cell, int colourId)
+        /// <summary>Paints one cell of the parked piece. A special piece keeps its look through the
+        /// pocket — the kind travels with the piece in both directions (see
+        /// <c>BoardSystem.TryHoldPiece</c>), so parking a golden 1x1 must not make it look ordinary.
+        /// A hammer can never get here: parking one is refused.</summary>
+        private void ApplyCellLook(CellView cell, int colourId, SpecialPieceKind specialKind)
         {
             if (_currentTheme == null)
             {
                 return;
             }
 
-            cell.SetEmbossedColours(
-                _currentTheme.GetFill(colourId),
-                _currentTheme.GetHighlight(colourId),
-                _currentTheme.GetShade(colourId));
+            SpecialPieceVisuals.Apply(cell, specialKind, _currentTheme, colourId);
         }
 
         private void RebuildHeldPiece()
@@ -219,6 +226,7 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             int colourId = _trayModel.HeldColourId;
+            SpecialPieceKind specialKind = _trayModel.HeldSpecialKind;
             PieceLayout.GetBounds(piece, out int width, out int height);
 
             // Scaled to fit rather than drawn at one fixed cell size: the pocket is a single small
@@ -238,7 +246,7 @@ namespace MustyBlockBlast.Presentation.Views
                     _pieceRoot, $"HoldCell_{i}", cellSize, _cellInset, _cellBevelThickness);
                 var rect = (RectTransform)cell.transform;
                 rect.anchoredPosition = new Vector2(offsetX + (offset.X * pitch), offsetY + (offset.Y * pitch));
-                ApplyCellColour(cell, colourId);
+                ApplyCellLook(cell, colourId, specialKind);
                 _pieceCells.Add(cell);
             }
 

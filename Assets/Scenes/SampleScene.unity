@@ -984,6 +984,51 @@ MonoBehaviour:
   _cellInset: 2
   _cellBevelThickness: 6
   _aimedSlotScale: 1.06
+--- !u!1 &1102059201
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1102059203}
+  - component: {fileID: 1102059202}
+  m_Layer: 0
+  m_Name: PiercingRocketSfx
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1102059202
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1102059201}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 47b92699917934c209de4ff37e611dda, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.PiercingRocketSfxView
+  _rocketClip: {fileID: 8300000, guid: eb79945ff12f44d2eb69bcc7591edfd2, type: 3}
+--- !u!4 &1102059203
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1102059201}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1186743024
 GameObject:
   m_ObjectHideFlags: 0
@@ -1988,3 +2033,4 @@ SceneRoots:
   - {fileID: 2141778598}
   - {fileID: 1462423336}
   - {fileID: 1186743026}
+  - {fileID: 1102059203}
