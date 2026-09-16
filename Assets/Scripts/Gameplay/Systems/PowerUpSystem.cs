@@ -175,7 +175,7 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// player holds none or the target is off the board — nothing is changed in either case.</summary>
         public bool TryApplyBomb(GridPosition center)
         {
-            if (!Board.IsInside(center) || IsLocked(PowerUpKind.Bomb) || !TrySpend(PowerUpKind.Bomb))
+            if (!_boardModel.Board.IsInside(center) || IsLocked(PowerUpKind.Bomb) || !TrySpend(PowerUpKind.Bomb))
             {
                 return false;
             }
@@ -188,7 +188,7 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// <summary>Spends one row clear on <paramref name="row"/>, full or not.</summary>
         public bool TryApplyRowClear(int row)
         {
-            if (!IsValidLineIndex(row) || IsLocked(PowerUpKind.RowClear) || !TrySpend(PowerUpKind.RowClear))
+            if (!IsValidRowIndex(row) || IsLocked(PowerUpKind.RowClear) || !TrySpend(PowerUpKind.RowClear))
             {
                 return false;
             }
@@ -201,7 +201,7 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// <summary>Spends one column clear on <paramref name="column"/>, full or not.</summary>
         public bool TryApplyColumnClear(int column)
         {
-            if (!IsValidLineIndex(column) || IsLocked(PowerUpKind.ColumnClear)
+            if (!IsValidColumnIndex(column) || IsLocked(PowerUpKind.ColumnClear)
                 || !TrySpend(PowerUpKind.ColumnClear))
             {
                 return false;
@@ -275,7 +275,7 @@ namespace MustyBlockBlast.Gameplay.Systems
         {
             // Peeked rather than spent, mirroring TryApplyJoker: legality here is "does the resolver
             // find a colour to clear", and that must be checked before a single count is touched.
-            if (!Board.IsInside(target) || IsLocked(PowerUpKind.ColorCleanser)
+            if (!_boardModel.Board.IsPlayable(target) || IsLocked(PowerUpKind.ColorCleanser)
                 || CountOf(PowerUpKind.ColorCleanser).Value <= 0)
             {
                 return false;
@@ -530,7 +530,11 @@ namespace MustyBlockBlast.Gameplay.Systems
 
         /// <summary>Delegates to Core so the index a power-up will accept and the geometry the preview
         /// draws for it can never disagree about which rows/columns exist.</summary>
-        private static bool IsValidLineIndex(int index) => PowerUpTargetCells.IsValidLineIndex(index);
+        private bool IsValidRowIndex(int index)
+            => PowerUpTargetCells.IsValidRowIndex(_boardModel.Shape, index);
+
+        private bool IsValidColumnIndex(int index)
+            => PowerUpTargetCells.IsValidColumnIndex(_boardModel.Shape, index);
 
         /// <summary>
         /// Whether <paramref name="kind"/> is still behind its level gate (see

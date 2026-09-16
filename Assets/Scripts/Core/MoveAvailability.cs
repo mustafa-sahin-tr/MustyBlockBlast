@@ -15,9 +15,9 @@ namespace MustyBlockBlast.Core
                 throw new ArgumentNullException(nameof(board));
             }
 
-            for (int y = 0; y < Board.SIZE; y++)
+            for (int y = 0; y < board.Height; y++)
             {
-                for (int x = 0; x < Board.SIZE; x++)
+                for (int x = 0; x < board.Width; x++)
                 {
                     if (PlacementRules.CanPlace(board, piece, new GridPosition(x, y)))
                     {

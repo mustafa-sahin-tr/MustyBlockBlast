@@ -25,73 +25,77 @@ namespace MustyBlockBlast.Core
         private const int BOMB_CELL_COUNT = ((BOMB_RADIUS * 2) + 1) * ((BOMB_RADIUS * 2) + 1);
 
         /// <summary>
-        /// The most cells any one power-up can target — the larger of a full line and an unclamped
-        /// bomb. Buffers passed to these methods should be created with at least this capacity, or the
-        /// first call that exceeds their capacity grows the list: an allocation on the per-frame aim
-        /// path, which the caller-owned-buffer design exists to avoid.
+        /// The nominal capacity a target buffer should be created with — the larger of a standard-board
+        /// line and an unclamped bomb. A hint, not a bound: <see cref="List{T}"/> grows, so a board
+        /// wider than this costs one growth on the first aim frame of that level and nothing after.
+        /// Nothing is ever truncated to it.
         /// </summary>
         public const int MAX_TARGET_CELLS = BOMB_CELL_COUNT > Board.SIZE ? BOMB_CELL_COUNT : Board.SIZE;
 
         /// <summary>
-        /// The 3x3 area centred on <paramref name="center"/>, clamped to the board — a corner centre
-        /// therefore yields 4 cells and an edge centre 6. An off-board centre yields nothing.
+        /// The 3x3 area centred on <paramref name="center"/>, clamped to the board and with hole cells
+        /// dropped — a corner centre therefore yields 4 cells and an edge centre 6. An off-board centre
+        /// yields nothing.
         /// </summary>
-        public static IReadOnlyList<GridPosition> ForBomb(GridPosition center, List<GridPosition> buffer)
+        public static IReadOnlyList<GridPosition> ForBomb(
+            BoardShape shape, GridPosition center, List<GridPosition> buffer)
         {
-            Prepare(buffer);
+            Prepare(shape, buffer);
 
-            if (!Board.IsInside(center))
+            if (!shape.IsInside(center))
             {
                 return buffer;
             }
 
             int minX = Math.Max(0, center.X - BOMB_RADIUS);
-            int maxX = Math.Min(Board.SIZE - 1, center.X + BOMB_RADIUS);
+            int maxX = Math.Min(shape.Width - 1, center.X + BOMB_RADIUS);
             int minY = Math.Max(0, center.Y - BOMB_RADIUS);
-            int maxY = Math.Min(Board.SIZE - 1, center.Y + BOMB_RADIUS);
+            int maxY = Math.Min(shape.Height - 1, center.Y + BOMB_RADIUS);
 
             for (int y = minY; y <= maxY; y++)
             {
                 for (int x = minX; x <= maxX; x++)
                 {
-                    buffer.Add(new GridPosition(x, y));
+                    AddIfPlayable(shape, new GridPosition(x, y), buffer);
                 }
             }
 
             return buffer;
         }
 
-        /// <summary>Every cell of <paramref name="row"/>. An off-board row yields nothing.</summary>
-        public static IReadOnlyList<GridPosition> ForRow(int row, List<GridPosition> buffer)
+        /// <summary>Every playable cell of <paramref name="row"/>. An off-board row yields nothing.</summary>
+        public static IReadOnlyList<GridPosition> ForRow(
+            BoardShape shape, int row, List<GridPosition> buffer)
         {
-            Prepare(buffer);
+            Prepare(shape, buffer);
 
-            if (!IsValidLineIndex(row))
+            if (!IsValidRowIndex(shape, row))
             {
                 return buffer;
             }
 
-            for (int x = 0; x < Board.SIZE; x++)
+            for (int x = 0; x < shape.Width; x++)
             {
-                buffer.Add(new GridPosition(x, row));
+                AddIfPlayable(shape, new GridPosition(x, row), buffer);
             }
 
             return buffer;
         }
 
-        /// <summary>Every cell of <paramref name="column"/>. An off-board column yields nothing.</summary>
-        public static IReadOnlyList<GridPosition> ForColumn(int column, List<GridPosition> buffer)
+        /// <summary>Every playable cell of <paramref name="column"/>. An off-board column yields nothing.</summary>
+        public static IReadOnlyList<GridPosition> ForColumn(
+            BoardShape shape, int column, List<GridPosition> buffer)
         {
-            Prepare(buffer);
+            Prepare(shape, buffer);
 
-            if (!IsValidLineIndex(column))
+            if (!IsValidColumnIndex(shape, column))
             {
                 return buffer;
             }
 
-            for (int y = 0; y < Board.SIZE; y++)
+            for (int y = 0; y < shape.Height; y++)
             {
-                buffer.Add(new GridPosition(column, y));
+                AddIfPlayable(shape, new GridPosition(column, y), buffer);
             }
 
             return buffer;
@@ -102,16 +106,11 @@ namespace MustyBlockBlast.Core
         /// kinds so the aim preview has one uniform way to ask "what does the armed power-up hit?".
         /// An off-board target yields nothing.
         /// </summary>
-        public static IReadOnlyList<GridPosition> ForJoker(GridPosition target, List<GridPosition> buffer)
+        public static IReadOnlyList<GridPosition> ForJoker(
+            BoardShape shape, GridPosition target, List<GridPosition> buffer)
         {
-            Prepare(buffer);
-
-            if (!Board.IsInside(target))
-            {
-                return buffer;
-            }
-
-            buffer.Add(target);
+            Prepare(shape, buffer);
+            AddIfPlayable(shape, target, buffer);
             return buffer;
         }
 
@@ -123,16 +122,11 @@ namespace MustyBlockBlast.Core
         /// lightweight aim reticle, not a full preview; <see cref="PowerUpClearResolver.ResolveColorCleanser"/>
         /// is still the sole authority on what actually clears when the tap lands.
         /// </summary>
-        public static IReadOnlyList<GridPosition> ForColorCleanser(GridPosition target, List<GridPosition> buffer)
+        public static IReadOnlyList<GridPosition> ForColorCleanser(
+            BoardShape shape, GridPosition target, List<GridPosition> buffer)
         {
-            Prepare(buffer);
-
-            if (!Board.IsInside(target))
-            {
-                return buffer;
-            }
-
-            buffer.Add(target);
+            Prepare(shape, buffer);
+            AddIfPlayable(shape, target, buffer);
             return buffer;
         }
 
@@ -143,24 +137,57 @@ namespace MustyBlockBlast.Core
         /// definition of "one cell" somewhere in Presentation. An off-board target yields nothing.
         /// </summary>
         public static IReadOnlyList<GridPosition> ForDemolitionHammer(
-            GridPosition target, List<GridPosition> buffer)
+            BoardShape shape, GridPosition target, List<GridPosition> buffer)
         {
-            Prepare(buffer);
-
-            if (!Board.IsInside(target))
-            {
-                return buffer;
-            }
-
-            buffer.Add(target);
+            Prepare(shape, buffer);
+            AddIfPlayable(shape, target, buffer);
             return buffer;
         }
 
-        /// <summary>True when <paramref name="index"/> names a row/column that exists.</summary>
-        public static bool IsValidLineIndex(int index) => index >= 0 && index < Board.SIZE;
-
-        private static void Prepare(List<GridPosition> buffer)
+        /// <summary>True when <paramref name="index"/> names a row that exists on
+        /// <paramref name="shape"/>.</summary>
+        public static bool IsValidRowIndex(BoardShape shape, int index)
         {
+            if (shape == null)
+            {
+                throw new ArgumentNullException(nameof(shape));
+            }
+
+            return index >= 0 && index < shape.Height;
+        }
+
+        /// <summary>True when <paramref name="index"/> names a column that exists on
+        /// <paramref name="shape"/>. Separate from <see cref="IsValidRowIndex"/> because a board need
+        /// not be square.</summary>
+        public static bool IsValidColumnIndex(BoardShape shape, int index)
+        {
+            if (shape == null)
+            {
+                throw new ArgumentNullException(nameof(shape));
+            }
+
+            return index >= 0 && index < shape.Width;
+        }
+
+        /// <summary>Appends <paramref name="cell"/> unless it is off the board or a hole. Every kind
+        /// funnels through this, so no aim preview can ever tint a cell the application would refuse.</summary>
+        private static void AddIfPlayable(BoardShape shape, GridPosition cell, List<GridPosition> buffer)
+        {
+            if (!shape.IsPlayable(cell))
+            {
+                return;
+            }
+
+            buffer.Add(cell);
+        }
+
+        private static void Prepare(BoardShape shape, List<GridPosition> buffer)
+        {
+            if (shape == null)
+            {
+                throw new ArgumentNullException(nameof(shape));
+            }
+
             if (buffer == null)
             {
                 throw new ArgumentNullException(nameof(buffer));

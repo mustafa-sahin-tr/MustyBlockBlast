@@ -6,7 +6,8 @@ namespace MustyBlockBlast.Core
     public static class PlacementRules
     {
         /// <summary>True when every cell the piece would occupy, anchored at <paramref name="anchor"/>,
-        /// is inside the board and currently empty.</summary>
+        /// is part of the board's playable shape and currently empty. A hole is refused exactly as an
+        /// off-board cell is: neither is somewhere a block can ever stand.</summary>
         public static bool CanPlace(Board board, Piece piece, GridPosition anchor)
         {
             if (board == null)
@@ -22,7 +23,7 @@ namespace MustyBlockBlast.Core
             for (int i = 0; i < piece.Offsets.Count; i++)
             {
                 GridPosition cell = anchor + piece.Offsets[i];
-                if (!Board.IsInside(cell) || board.IsOccupied(cell))
+                if (!board.IsPlayable(cell) || board.IsOccupied(cell))
                 {
                     return false;
                 }
