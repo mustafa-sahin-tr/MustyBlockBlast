@@ -290,6 +290,35 @@ before the next placement:
 | Double Multiplier | Player taps the icon; every score gain in the run is worth **2×** for the next 15 seconds |
 | Ghost Fit | Player taps the icon; the best available move is shown as a pulsing silhouette on the board and a pulsing dock piece |
 
+### Unlock levels
+
+Power-ups arrive gradually rather than all at once. The first three are available from a
+fresh install; the remaining six unlock one every five levels, keyed off the player's
+**level frontier** (the linear progression level — not whichever level a Path run happens
+to be replaying):
+
+| Power-up | Unlocks at level |
+|---|---|
+| Bomb | — (from the start) |
+| Row clear | — (from the start) |
+| Column clear | — (from the start) |
+| Joker | 5 |
+| Color Cleanser | 10 |
+| Rotate | 15 |
+| Reroll | 20 |
+| Double Multiplier | 25 |
+| Ghost Fit | 30 |
+
+A locked power-up keeps its fixed place in the inventory strip — the strip never reflows as
+kinds unlock — and is shown with a padlock and the level it needs, distinctly from an
+unlocked-but-empty slot (which is the "earn one" offer). A locked slot's tap does nothing at
+all: it cannot be armed, applied, or used to request a reward. Reaching the unlock level
+reveals the slot immediately, with no restart.
+
+The gate governs **visibility and use only**. It never touches the inventory: a power-up
+already held is kept in full even if its kind is locked, and simply becomes usable when the
+player reaches its level.
+
 The first three force-clear their region whether or not it is full. The joker is the
 exception: it adds a cell rather than removing any, and clears only on the condition a
 normal placement clears on — the line genuinely became full. Tapping an occupied cell is
