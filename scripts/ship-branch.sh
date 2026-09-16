@@ -2,10 +2,13 @@
 # ship-branch.sh — commit + push + PR + merge + update local main, tek komutla.
 #
 # Kullanım:
-#   scripts/ship-branch.sh <branch-name> [commit-message]
+#   scripts/ship-branch.sh [branch-name] [commit-message]
+#
+# branch-name verilmezse, script çalıştırıldığı anda checkout'ta olan branch kullanılır.
 #
 # Örnek:
 #   scripts/ship-branch.sh issue-127-vortex-magnet-tile "feat: spawn Vortex tile (#127)"
+#   scripts/ship-branch.sh                                # mevcut branch'i ship eder
 #
 # commit-message verilmezse, git commit mesajı için varsayılan editörü açar.
 # PR başlığı/gövdesi otomatik olarak branch'teki commit'lerden (gh pr create --fill) türetilir.
@@ -24,13 +27,17 @@ set -euo pipefail
 BRANCH="${1:-}"
 COMMIT_MESSAGE="${2:-}"
 
-if [[ -z "$BRANCH" ]]; then
-  echo "Kullanım: $0 <branch-name> [commit-message]" >&2
-  exit 1
-fi
-
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT"
+
+if [[ -z "$BRANCH" ]]; then
+  BRANCH="$(git branch --show-current)"
+  if [[ -z "$BRANCH" ]]; then
+    echo "Hata: mevcut branch tespit edilemedi (detached HEAD olabilir). Kullanım: $0 <branch-name> [commit-message]" >&2
+    exit 1
+  fi
+  echo "-> branch belirtilmedi, mevcut branch kullanılıyor: $BRANCH"
+fi
 
 confirm() {
   local prompt="$1"

@@ -335,7 +335,8 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterComponentInHierarchy<LineClearBurstView>();
             builder.RegisterComponentInHierarchy<BonusFeedbackView>();
             builder.RegisterComponentInHierarchy<PowerUpInventoryView>();
-            builder.RegisterComponentInHierarchy<ObjectiveHudView>();
+            builder.RegisterComponentInHierarchy<ObjectiveIconContainerView>();
+            builder.RegisterComponentInHierarchy<ObjectiveInfoPopupView>();
             builder.RegisterComponentInHierarchy<GameOverView>();
             builder.RegisterComponentInHierarchy<BoardInputView>();
             builder.RegisterComponentInHierarchy<SfxPlayerView>();

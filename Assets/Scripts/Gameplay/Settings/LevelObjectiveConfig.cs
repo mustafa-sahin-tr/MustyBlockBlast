@@ -21,6 +21,10 @@ namespace MustyBlockBlast.Gameplay.Settings
         /// everything except the level number, which is what the save data keys cumulative progress on.</summary>
         private const string OBJECTIVE_ID_PREFIX = "level_";
 
+        /// <summary>Separator between the level number and the objective's index within that level,
+        /// e.g. <c>level_7_1</c> for a level's second objective. Never appended to the first one.</summary>
+        private const string OBJECTIVE_ID_INDEX_SEPARATOR = "_";
+
         [Tooltip("1-based level number. This is the identity of the level, not its position in the list.")]
         [SerializeField] private int _levelNumber = 1;
 
@@ -141,11 +145,20 @@ namespace MustyBlockBlast.Gameplay.Settings
         /// Builds the immutable Core definition for this level. Throws the same way
         /// <see cref="ObjectiveDefinition"/> does on an invalid combination — see
         /// <see cref="IsValid"/> for a non-throwing check.
+        /// <para>
+        /// <paramref name="objectiveIndexInLevel"/> is this row's position among the rows authored for
+        /// the same level number, and exists only to keep the generated ids unique now that a level may
+        /// carry several objectives at once. Index 0 — every level authored before multi-objective
+        /// levels existed, and the primary row of every one authored since — keeps the bare
+        /// <c>level_7</c> id it has always had, so no shipped level's persisted cumulative progress
+        /// (which is keyed by objective id) is orphaned by this. Later rows get <c>level_7_1</c>,
+        /// <c>level_7_2</c>, and so on.
+        /// </para>
         /// </summary>
-        public ObjectiveDefinition ToObjectiveDefinition()
+        public ObjectiveDefinition ToObjectiveDefinition(int objectiveIndexInLevel = 0)
         {
             return new ObjectiveDefinition(
-                OBJECTIVE_ID_PREFIX + _levelNumber,
+                BuildObjectiveId(objectiveIndexInLevel),
                 _objectiveType,
                 _scope,
                 _targetValue,
@@ -154,6 +167,20 @@ namespace MustyBlockBlast.Gameplay.Settings
                 _requiredOccupancyThreshold,
                 _requiredPieceId,
                 _windowSeconds);
+        }
+
+        /// <summary>
+        /// The id <see cref="ToObjectiveDefinition"/> stamps on this row. Suffixed only from the second
+        /// row of a level onwards — see that method for why index 0 must stay bare.
+        /// </summary>
+        private string BuildObjectiveId(int objectiveIndexInLevel)
+        {
+            if (objectiveIndexInLevel <= 0)
+            {
+                return OBJECTIVE_ID_PREFIX + _levelNumber;
+            }
+
+            return OBJECTIVE_ID_PREFIX + _levelNumber + OBJECTIVE_ID_INDEX_SEPARATOR + objectiveIndexInLevel;
         }
 
         /// <summary>

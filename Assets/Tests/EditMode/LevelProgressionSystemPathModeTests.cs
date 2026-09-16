@@ -675,7 +675,144 @@ namespace MustyBlockBlast.Tests.EditMode
                 "Only the best score per level counts — a mid-range replay changes nothing.");
         }
 
+        // --- Multi-objective levels: a level may be authored as several rows sharing one level number ---
+
+        [Test]
+        public void ALevelAuthoredWithTwoObjectives_TracksBothOfThem()
+        {
+            LevelProgressionSystem system = CreateSystem(
+                ACatalogOf(Level(1), Level(1, objectiveType: ObjectiveType.BoardWipeCount), Level(2)));
+            Assert.IsNotNull(system);
+
+            Assert.AreEqual(2, _objectiveModel.TrackedObjectives.Count);
+        }
+
+        [Test]
+        public void ALevelsFirstObjective_KeepsTheUnsuffixedId_AndLaterOnesAreSuffixed()
+        {
+            // The id is the save key for cumulative progress, so the first row's id must be byte
+            // identical to what a single-objective level has always produced — anything else orphans
+            // every shipped player's saved progress for that level.
+            LevelProgressionSystem system = CreateSystem(ACatalogOf(
+                Level(1),
+                Level(1, objectiveType: ObjectiveType.BoardWipeCount),
+                Level(1, objectiveType: ObjectiveType.RowAndColumnCrossClear),
+                Level(2)));
+            Assert.IsNotNull(system);
+
+            IReadOnlyList<ObjectiveProgress> tracked = _objectiveModel.TrackedObjectives;
+            Assert.AreEqual(3, tracked.Count);
+            Assert.AreEqual("level_1", tracked[0].Definition.Id);
+            Assert.AreEqual("level_1_1", tracked[1].Definition.Id);
+            Assert.AreEqual("level_1_2", tracked[2].Definition.Id);
+        }
+
+        [Test]
+        public void ASingleObjectiveLevel_StillProducesTheBareId()
+        {
+            LevelProgressionSystem system = CreateSystem(ACatalogOf(Level(1), Level(2)));
+            Assert.IsNotNull(system);
+
+            Assert.AreEqual("level_1", _objectiveModel.CurrentObjective.Definition.Id);
+        }
+
+        [Test]
+        public void CompletingOnlyOneOfTwoObjectives_DoesNotAdvanceTheLevel()
+        {
+            LevelProgressionSystem system = CreateSystem(
+                ACatalogOf(Level(1), Level(1, objectiveType: ObjectiveType.BoardWipeCount), Level(2)));
+            Assert.IsNotNull(system);
+
+            CompleteObjectiveAt(0);
+
+            Assert.AreEqual(
+                1,
+                _progressionModel.CurrentLevelNumber.Value,
+                "A level asking for two objectives is cleared by the last of them, not the first.");
+            Assert.AreEqual(0, _levelAdvancedBroker.Published.Count);
+        }
+
+        [Test]
+        public void CompletingBothObjectives_AdvancesTheLevelOnce()
+        {
+            LevelProgressionSystem system = CreateSystem(
+                ACatalogOf(Level(1), Level(1, objectiveType: ObjectiveType.BoardWipeCount), Level(2)));
+            Assert.IsNotNull(system);
+
+            CompleteObjectiveAt(0);
+            CompleteObjectiveAt(1);
+
+            Assert.AreEqual(2, _progressionModel.CurrentLevelNumber.Value);
+            Assert.AreEqual(1, _levelAdvancedBroker.Published.Count);
+        }
+
+        [Test]
+        public void CompletingBothObjectives_InPathMode_EndsTheRunOnlyOnTheSecond()
+        {
+            LevelProgressionSystem system = CreateSystem(
+                ACatalogOf(Level(1), Level(1, objectiveType: ObjectiveType.BoardWipeCount), Level(2)));
+            Assert.IsNotNull(system);
+            _gameModeSystem.SelectMode(GameMode.Path);
+
+            CompleteObjectiveAt(0);
+            Assert.IsFalse(_boardSystem.IsGameOver, "One of two objectives is not a cleared level.");
+
+            CompleteObjectiveAt(1);
+            Assert.IsTrue(_boardSystem.IsGameOver);
+            Assert.AreEqual(
+                GameOverReason.LevelCompleted,
+                _gameOverBroker.Published[_gameOverBroker.Published.Count - 1].Reason);
+        }
+
+        [Test]
+        public void SetObjectives_ReplacesTheTrackedList_AndIsNullAndEmptySafe()
+        {
+            var model = new ObjectiveModel();
+            ObjectiveProgress first = AnObjective("a");
+            ObjectiveProgress second = AnObjective("b");
+
+            model.SetObjectives(new List<ObjectiveProgress> { first, second });
+            Assert.AreEqual(2, model.TrackedObjectives.Count);
+            Assert.AreSame(first, model.CurrentObjective);
+
+            // Replaces wholesale rather than appending — otherwise the previous level's objectives
+            // would go on collecting placements.
+            model.SetObjectives(new List<ObjectiveProgress> { second });
+            Assert.AreEqual(1, model.TrackedObjectives.Count);
+            Assert.AreSame(second, model.TrackedObjectives[0]);
+
+            model.SetObjectives(new List<ObjectiveProgress>());
+            Assert.AreEqual(0, model.TrackedObjectives.Count);
+            Assert.IsNull(model.CurrentObjective);
+
+            model.SetObjectives(new List<ObjectiveProgress> { first });
+            model.SetObjectives(null);
+            Assert.AreEqual(0, model.TrackedObjectives.Count);
+
+            // A null entry is dropped rather than stored: everything downstream dereferences Definition.
+            model.SetObjectives(new List<ObjectiveProgress> { null, first, null });
+            Assert.AreEqual(1, model.TrackedObjectives.Count);
+            Assert.AreSame(first, model.TrackedObjectives[0]);
+        }
+
         // --- Fixture helpers ---
+
+        private static ObjectiveProgress AnObjective(string id)
+        {
+            return new ObjectiveProgress(new ObjectiveDefinition(
+                id, ObjectiveType.BoardWipeCount, ObjectiveScope.PerRun, targetValue: 1));
+        }
+
+        /// <summary>Announces the completion of the tracked objective at <paramref name="objectiveIndex"/>,
+        /// the multi-objective form of <see cref="CompleteCurrentObjective"/>.</summary>
+        private void CompleteObjectiveAt(int objectiveIndex)
+        {
+            IReadOnlyList<ObjectiveProgress> tracked = _objectiveModel.TrackedObjectives;
+            Assert.Greater(tracked.Count, objectiveIndex, "Fewer objectives are tracked than expected.");
+
+            _objectiveCompletedBroker.Publish(
+                new ObjectiveCompletedMessage(tracked[objectiveIndex].Definition.Id));
+        }
 
         /// <summary>
         /// Drives the objective the system is tracking to completion and announces it, standing in for
@@ -850,16 +987,18 @@ namespace MustyBlockBlast.Tests.EditMode
             return catalog;
         }
 
-        /// <summary>One authored level, clearable by a single one-line clear.</summary>
+        /// <summary>One authored objective row, clearable by a single one-line clear by default. Two
+        /// rows sharing a level number is how a level asks for two objectives at once.</summary>
         private static string Level(
             int levelNumber,
             int completionScoreBonus = 0,
             bool grantsLevelUpReward = false,
-            ObjectiveScope scope = ObjectiveScope.PerRun)
+            ObjectiveScope scope = ObjectiveScope.PerRun,
+            ObjectiveType objectiveType = ObjectiveType.SimultaneousLineClear)
         {
             return "{"
                 + $"\"_levelNumber\":{levelNumber},"
-                + $"\"_objectiveType\":{(int)ObjectiveType.SimultaneousLineClear},"
+                + $"\"_objectiveType\":{(int)objectiveType},"
                 + $"\"_scope\":{(int)scope},"
                 + "\"_targetValue\":1,"
                 + "\"_requiredLineCount\":1,"

@@ -17,8 +17,9 @@ namespace MustyBlockBlast.Presentation.Views
     /// and consequences are decided by the System.
     /// <para>
     /// A press is resolved by a single ordered gate chain, so exactly one claimant handles it: the
-    /// five modal overlays (settings, level path, badges, profile, leaderboard), game over, the
-    /// settings icon, the level path icon, the badges icon, the profile icon, the leaderboard icon, a
+    /// six modal overlays (settings, level path, badges, profile, leaderboard, objective info), game
+    /// over, the settings icon, the level path icon, the badges icon, the profile icon, the
+    /// leaderboard icon, an objective icon, a
     /// power-up inventory icon, an armed power-up being aimed at the board, and finally a tray piece
     /// being picked up. HUD icons are resolved
     /// here rather than by an EventSystem — this scene has none, and every UI Image in it has its
@@ -97,6 +98,8 @@ namespace MustyBlockBlast.Presentation.Views
         private LeaderboardPanelView _leaderboardPanelView;
         private GameOverView _gameOverView;
         private PowerUpInventoryView _powerUpInventoryView;
+        private ObjectiveIconContainerView _objectiveIconContainerView;
+        private ObjectiveInfoPopupView _objectiveInfoPopupView;
 
         private int _draggedSlot = -1;
         private GridPosition _currentAnchor;
@@ -156,7 +159,9 @@ namespace MustyBlockBlast.Presentation.Views
             LeaderboardButtonView leaderboardButtonView,
             LeaderboardPanelView leaderboardPanelView,
             GameOverView gameOverView,
-            PowerUpInventoryView powerUpInventoryView)
+            PowerUpInventoryView powerUpInventoryView,
+            ObjectiveIconContainerView objectiveIconContainerView,
+            ObjectiveInfoPopupView objectiveInfoPopupView)
         {
             _boardSystem = boardSystem;
             _boardModel = boardModel;
@@ -181,6 +186,8 @@ namespace MustyBlockBlast.Presentation.Views
             _leaderboardPanelView = leaderboardPanelView;
             _gameOverView = gameOverView;
             _powerUpInventoryView = powerUpInventoryView;
+            _objectiveIconContainerView = objectiveIconContainerView;
+            _objectiveInfoPopupView = objectiveInfoPopupView;
         }
 
         private void Awake()
@@ -329,12 +336,12 @@ namespace MustyBlockBlast.Presentation.Views
         {
             Vector2 screenPosition = _pointerPositionAction.ReadValue<Vector2>();
 
-            // While any overlay is open it is modal and swallows every tap. These five gates are also
+            // While any overlay is open it is modal and swallows every tap. These six gates are also
             // what keeps the overlays mutually exclusive, and the argument scales with their number
             // rather than pairing them off: *every* "is a panel open, route the tap into it" gate sits
             // above *every* "tapped an icon, open that panel" gate, so an icon tap is only ever reached
-            // with all five panels closed. No panel can therefore stack on another, and the single
-            // TimerRunSystem menu-pause flag all four share can never be held by two owners at once.
+            // with all six panels closed. No panel can therefore stack on another, and the single
+            // TimerRunSystem menu-pause flag they all share can never be held by two owners at once.
             if (_settingsPanelView.IsOpen)
             {
                 _settingsPanelView.HandleTap(screenPosition);
@@ -362,6 +369,12 @@ namespace MustyBlockBlast.Presentation.Views
             if (_leaderboardPanelView.IsOpen)
             {
                 _leaderboardPanelView.HandleTap(screenPosition);
+                return;
+            }
+
+            if (_objectiveInfoPopupView.IsOpen)
+            {
+                _objectiveInfoPopupView.HandleTap(screenPosition);
                 return;
             }
 
@@ -417,6 +430,15 @@ namespace MustyBlockBlast.Presentation.Views
             if (_leaderboardButtonView.ContainsScreenPoint(screenPosition))
             {
                 _leaderboardPanelView.Open();
+                return;
+            }
+
+            // Same tier as the five icons above: a HUD widget that answers "was I tapped" and opens an
+            // overlay. Resolved per slot rather than per widget, because the objective row draws one
+            // hotspot per tracked objective and the popup has to know which one.
+            if (_objectiveIconContainerView.TryGetTappedObjectiveIndex(screenPosition, out int objectiveIndex))
+            {
+                _objectiveInfoPopupView.Open(objectiveIndex);
                 return;
             }
 

@@ -4,7 +4,8 @@ namespace MustyBlockBlast.Presentation.Views
 {
     /// <summary>
     /// Generates the handful of placeholder sprites the prototype needs (rounded square, circle,
-    /// bevel facet, glow, starburst, dock icons, vertical gradient) so no art assets are required. Each
+    /// bevel facet, glow, starburst, dock icons, check mark, vertical gradient) so no art assets are
+    /// required. Each
     /// sprite is created once and shared by every
     /// Image, so all cells keep batching into a single draw call.
     /// </summary>
@@ -25,6 +26,8 @@ namespace MustyBlockBlast.Presentation.Views
         private const int STARBURST_SIZE = 128;
 
         private const int REFRESH_ICON_SIZE = 128;
+
+        private const int CHECK_MARK_SIZE = 128;
 
         /// <summary>Angle range (degrees, measured from the +x axis) left unringed on
         /// <see cref="RefreshIcon"/> for its arrowhead.</summary>
@@ -53,6 +56,7 @@ namespace MustyBlockBlast.Presentation.Views
         private static Sprite _rocketIcon;
         private static Sprite _hammerIcon;
         private static Sprite _refreshIcon;
+        private static Sprite _checkMark;
 
         /// <summary>9-sliced rounded square, white. Tint via <see cref="UnityEngine.UI.Image.color"/>.</summary>
         internal static Sprite RoundedSquare
@@ -188,6 +192,26 @@ namespace MustyBlockBlast.Presentation.Views
                 }
 
                 return _refreshIcon;
+            }
+        }
+
+        /// <summary>
+        /// A tick — two thick strokes meeting at a point, white — the "this one is done" mark an
+        /// objective icon wears. The one silhouette the existing primitives genuinely cannot fake: a
+        /// rotated bar reads as a slash and a pair of them as a cross, both of which already mean
+        /// something else in this UI ("close"). Tint via Image.color and use <c>Image.Type.Simple</c> —
+        /// it must not be sliced.
+        /// </summary>
+        internal static Sprite CheckMark
+        {
+            get
+            {
+                if (_checkMark == null)
+                {
+                    _checkMark = CreateCheckMark(CHECK_MARK_SIZE);
+                }
+
+                return _checkMark;
             }
         }
 
@@ -464,6 +488,78 @@ namespace MustyBlockBlast.Presentation.Views
             sprite.name = "MustyBlockBlast_RefreshIconSprite";
             sprite.hideFlags = HideFlags.HideAndDontSave;
             return sprite;
+        }
+
+        /// <summary>
+        /// Draws the tick as two round-capped strokes — a short one down to the elbow and a long one up
+        /// to the tip — using a distance-to-segment coverage test, so both strokes anti-alias uniformly
+        /// and their join is seamless without any polygon work.
+        /// </summary>
+        private static Sprite CreateCheckMark(int size)
+        {
+            var texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
+            {
+                name = "MustyBlockBlast_CheckMark",
+                wrapMode = TextureWrapMode.Clamp,
+                filterMode = FilterMode.Bilinear,
+                hideFlags = HideFlags.HideAndDontSave,
+            };
+
+            var pixels = new Color32[size * size];
+
+            float halfThickness = size * 0.085f;
+
+            // Texture space is y-up, so the elbow is the lowest of the three points.
+            var strokeStart = new Vector2(size * 0.20f, size * 0.54f);
+            var elbow = new Vector2(size * 0.42f, size * 0.28f);
+            var tip = new Vector2(size * 0.82f, size * 0.76f);
+
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float pixelX = x + 0.5f;
+                    float pixelY = y + 0.5f;
+
+                    float shortStroke = SegmentCoverage(
+                        pixelX, pixelY, strokeStart, elbow, halfThickness);
+                    float longStroke = SegmentCoverage(pixelX, pixelY, elbow, tip, halfThickness);
+
+                    WritePixel(pixels, size, x, y, Mathf.Max(shortStroke, longStroke));
+                }
+            }
+
+            texture.SetPixels32(pixels);
+            texture.Apply(false, true);
+
+            Sprite sprite = Sprite.Create(
+                texture, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect);
+            sprite.name = "MustyBlockBlast_CheckMarkSprite";
+            sprite.hideFlags = HideFlags.HideAndDontSave;
+            return sprite;
+        }
+
+        /// <summary>Anti-aliased coverage of one pixel by a round-capped stroke of
+        /// <paramref name="halfThickness"/> running from <paramref name="from"/> to <paramref name="to"/>.</summary>
+        private static float SegmentCoverage(
+            float pixelX, float pixelY, Vector2 from, Vector2 to, float halfThickness)
+        {
+            float edgeX = to.x - from.x;
+            float edgeY = to.y - from.y;
+            float lengthSquared = (edgeX * edgeX) + (edgeY * edgeY);
+            if (lengthSquared <= 0f)
+            {
+                return 0f;
+            }
+
+            float travel = Mathf.Clamp01(
+                (((pixelX - from.x) * edgeX) + ((pixelY - from.y) * edgeY)) / lengthSquared);
+
+            float dx = pixelX - (from.x + (travel * edgeX));
+            float dy = pixelY - (from.y + (travel * edgeY));
+            float distance = Mathf.Sqrt((dx * dx) + (dy * dy));
+
+            return Mathf.Clamp01(halfThickness + 0.5f - distance);
         }
 
         private static void EnsureDockIcons()
