@@ -42,6 +42,10 @@ namespace MustyBlockBlast.Presentation.Views
         [Tooltip("Seconds of white flash on a cell that sits on both a cleared row and a cleared column.")]
         [SerializeField] private float _intersectionFlashDuration = 0.08f;
 
+        [Header("Vortex Pull")]
+        [Tooltip("Seconds a block dragged by a vortex takes to slide the one cell it was pulled.")]
+        [SerializeField] private float _pullDuration = 0.18f;
+
         private static readonly Color FlashTint = Color.white;
 
         /// <summary>Colour the special-cell icon is drawn in. Fixed rather than themed: it is a
@@ -62,6 +66,20 @@ namespace MustyBlockBlast.Presentation.Views
         /// </para>
         /// </summary>
         private static readonly Color ScoreGemIconTint = new Color(0.44f, 1f, 0.72f, 1f);
+
+        /// <summary>
+        /// Colour a <see cref="SpecialCellKind.Vortex"/>'s icon is drawn in. Fixed and unthemed, and a
+        /// third distinct hue, for the reasons <see cref="ScoreGemIconTint"/> is: a vortex neither blows
+        /// a hole in the board nor multiplies a score — it rearranges what is already there — so it has
+        /// to be told apart at a glance from both. A cool violet, as far from the warm near-white of the
+        /// destructive kinds and the green of the gem as the palette allows.
+        /// <para>
+        /// The sprite is shared with every other kind on purpose (<c>UiSpriteFactory.Starburst</c>): one
+        /// sprite for every icon is what keeps an icon on any number of cells batching with the rest of
+        /// the board, so the kinds are separated by tint rather than by a second texture.
+        /// </para>
+        /// </summary>
+        private static readonly Color VortexIconTint = new Color(0.62f, 0.66f, 1f, 1f);
 
         /// <summary>
         /// How far a hole cell's fill is pushed towards black relative to an empty cell's, and how far
@@ -140,6 +158,13 @@ namespace MustyBlockBlast.Presentation.Views
         private ISubscriber<PowerUpAppliedMessage> _powerUpAppliedSubscriber;
         private ISubscriber<ExplosiveCoreDetonatedMessage> _explosiveCoreDetonatedSubscriber;
         private ISubscriber<LaserFiredMessage> _laserFiredSubscriber;
+        private ISubscriber<VortexPulledMessage> _vortexPulledSubscriber;
+
+        /// <summary>The grid's layout origin and pitch, kept from <see cref="BuildCells"/> so the pull
+        /// animation can work out where a cell one step away sits without re-deriving the layout.</summary>
+        private float _cellOriginX;
+        private float _cellOriginY;
+        private float _cellPitch;
 
         private CancellationToken _destroyToken;
         private int _previewCount;
@@ -157,10 +182,12 @@ namespace MustyBlockBlast.Presentation.Views
             ISubscriber<RunStartedMessage> runStartedSubscriber,
             ISubscriber<PowerUpAppliedMessage> powerUpAppliedSubscriber,
             ISubscriber<ExplosiveCoreDetonatedMessage> explosiveCoreDetonatedSubscriber,
-            ISubscriber<LaserFiredMessage> laserFiredSubscriber)
+            ISubscriber<LaserFiredMessage> laserFiredSubscriber,
+            ISubscriber<VortexPulledMessage> vortexPulledSubscriber)
         {
             _explosiveCoreDetonatedSubscriber = explosiveCoreDetonatedSubscriber;
             _laserFiredSubscriber = laserFiredSubscriber;
+            _vortexPulledSubscriber = vortexPulledSubscriber;
             _boardModel = boardModel;
             _settingsModel = settingsModel;
             _linesClearedSubscriber = linesClearedSubscriber;
@@ -267,6 +294,10 @@ namespace MustyBlockBlast.Presentation.Views
             // Same again for a laser's wipe, which empties a line whether or not it was full — so no
             // LinesClearedMessage describes it either.
             _laserFiredSubscriber.Subscribe(OnLaserFired).AddTo(_disposables);
+
+            // Not a sweep, unlike the three above: a vortex destroys nothing, so there is no cell to
+            // fade — each of its moves is a block sliding from one cell to the next.
+            _vortexPulledSubscriber.Subscribe(OnVortexPulled).AddTo(_disposables);
 
             RedrawAll();
         }
@@ -647,6 +678,12 @@ namespace MustyBlockBlast.Presentation.Views
             float originX = (-((_width * _cellSize) + ((_width - 1) * _cellSpacing)) * 0.5f) + (_cellSize * 0.5f);
             float originY = (-((_height * _cellSize) + ((_height - 1) * _cellSpacing)) * 0.5f) + (_cellSize * 0.5f);
 
+            // Kept so the pull animation can place a cell at a neighbour's position without re-deriving
+            // the layout — and so there is exactly one definition of where a cell sits.
+            _cellPitch = pitch;
+            _cellOriginX = originX;
+            _cellOriginY = originY;
+
             for (int y = 0; y < _height; y++)
             {
                 for (int x = 0; x < _width; x++)
@@ -866,6 +903,119 @@ namespace MustyBlockBlast.Presentation.Views
         /// follows it.</summary>
         private void OnLaserFired(LaserFiredMessage message) => SweepPendingCells(message.WipedCellCount);
 
+        /// <summary>
+        /// A vortex dragged blocks inwards. Deliberately not a sweep: nothing was destroyed, so nothing
+        /// may fade — a block that slid away and then faded out would read as a block that was
+        /// destroyed, which is the opposite of what happened.
+        /// <para>
+        /// The model has already announced both ends of every move by the time this runs (the source
+        /// empty, the destination filled), so each cell is showing its final state and the only thing
+        /// left is the travel: the source is settled empty at once, and the destination is drawn one
+        /// cell back and slid into place.
+        /// </para>
+        /// </summary>
+        private void OnVortexPulled(VortexPulledMessage message)
+        {
+            if (_cells == null || message.Pulls == null)
+            {
+                return;
+            }
+
+            IReadOnlyList<VortexPull> pulls = message.Pulls;
+            for (int i = 0; i < pulls.Count; i++)
+            {
+                VortexPull pull = pulls[i];
+                if (!IsPlayableCell(pull.From) || !IsPlayableCell(pull.To))
+                {
+                    continue;
+                }
+
+                SettleVacatedCell(pull.From);
+
+                int toIndex = CellIndex(pull.To);
+
+                // Empty means a later cascade phase cleared the block after it arrived. It is already
+                // claimed by that phase's fade, and sliding it in first would make a cell that is
+                // fading out travel across the board while it does so.
+                if (_cellColourIds[toIndex] == Board.EMPTY)
+                {
+                    continue;
+                }
+
+                PlayPullAsync(pull.From, pull.To, toIndex, ++_cellGenerations[toIndex]).Forget();
+            }
+        }
+
+        /// <summary>Settles a cell a block slid out of: empty, opaque, no icon, and with any fade that
+        /// had claimed it invalidated. <see cref="OnCellChanged"/> holds an emptied cell's old look on
+        /// screen waiting for whoever emptied it to start a fade, and there is no fade coming here —
+        /// the block did not die, it left.</summary>
+        private void SettleVacatedCell(GridPosition cell)
+        {
+            int index = CellIndex(cell);
+
+            _cellPending[index] = false;
+            _cellGenerations[index]++;
+
+            ApplyCellColour(cell, _cellColourIds[index]);
+            ApplyCellIcon(index, _cellSpecialKinds[index]);
+            _cells[index].SetAlpha(1f);
+        }
+
+        /// <summary>
+        /// Slides the cell at <paramref name="to"/> in from <paramref name="from"/>'s position.
+        /// <para>
+        /// The destination cell's own rect is what moves — no second object is spawned and nothing is
+        /// reparented, so the slide costs no allocation and the block that arrives is the one that was
+        /// already drawn there. The rect is snapped back to its layout position on every exit path,
+        /// including a cancelled or superseded one: the position is layout, owned by nothing else, so
+        /// restoring it is always the correct thing to do.
+        /// </para>
+        /// </summary>
+        private async UniTaskVoid PlayPullAsync(GridPosition from, GridPosition to, int index, int generation)
+        {
+            var rect = (RectTransform)_cells[index].transform;
+            Vector2 target = CellAnchoredPosition(to);
+            Vector2 start = CellAnchoredPosition(from);
+
+            try
+            {
+                float duration = Mathf.Max(0.01f, _pullDuration);
+                float elapsed = 0f;
+
+                while (elapsed < duration)
+                {
+                    if (_cellGenerations[index] != generation)
+                    {
+                        break;
+                    }
+
+                    rect.anchoredPosition = Vector2.LerpUnclamped(
+                        start, target, EaseOutCubic(elapsed / duration));
+
+                    await UniTask.Yield(PlayerLoopTiming.Update, _destroyToken);
+                    elapsed += Time.unscaledDeltaTime;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // The board view was destroyed mid-slide — the rect is going with it.
+                return;
+            }
+
+            if (_isDestroyed)
+            {
+                return;
+            }
+
+            rect.anchoredPosition = target;
+        }
+
+        /// <summary>Where one cell's rect sits in the grid — the same arithmetic
+        /// <see cref="BuildCells"/> laid it out with, reusing the origin and pitch it recorded.</summary>
+        private Vector2 CellAnchoredPosition(GridPosition cell)
+            => new Vector2(_cellOriginX + (cell.X * _cellPitch), _cellOriginY + (cell.Y * _cellPitch));
+
         /// <summary>Pushes <see cref="_pendingHighlightMask"/> to the cells, touching only the ones
         /// whose state actually changed, and adopts it as the current mask.</summary>
         private void ApplyHighlightMask()
@@ -1081,8 +1231,22 @@ namespace MustyBlockBlast.Presentation.Views
                 return;
             }
 
-            _cells[index].SetSpecialIcon(
-                kind == SpecialCellKind.ScoreGem ? ScoreGemIconTint : SpecialIconTint);
+            _cells[index].SetSpecialIcon(IconTint(kind));
+        }
+
+        /// <summary>The tint one kind's icon is drawn in. Stated once, as a switch rather than a chain
+        /// of conditionals, so a new kind is one line here and nothing else.</summary>
+        private static Color IconTint(SpecialCellKind kind)
+        {
+            switch (kind)
+            {
+                case SpecialCellKind.ScoreGem:
+                    return ScoreGemIconTint;
+                case SpecialCellKind.Vortex:
+                    return VortexIconTint;
+                default:
+                    return SpecialIconTint;
+            }
         }
 
         /// <summary>Draws a clearing cell blended towards the flash tint, keeping it on the same

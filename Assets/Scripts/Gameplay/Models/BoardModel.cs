@@ -152,6 +152,41 @@ namespace MustyBlockBlast.Gameplay.Models
             }
         }
 
+        /// <summary>
+        /// Raises change notifications for the blocks a vortex dragged inwards. The Core effect has
+        /// already mutated the board when this is called, so both ends are read back off it rather than
+        /// assumed: a cell a later cascade phase went on to clear reports as empty, which is what it is.
+        /// <para>
+        /// Three notifications per move, in the order a View has to receive them: the source empties,
+        /// the destination fills, and — only when the block that moved carried one — the destination
+        /// regains its special kind. The kind needs its own signal because
+        /// <see cref="SpecialKindChanged"/> is an "added" signal and a View drops a cell's icon whenever
+        /// that cell empties; the move empties the source, so the icon has to be re-announced at the
+        /// destination rather than assumed to have travelled with it.
+        /// </para>
+        /// </summary>
+        internal void NotifyPulled(IReadOnlyList<VortexPull> pulls)
+        {
+            if (pulls == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < pulls.Count; i++)
+            {
+                VortexPull pull = pulls[i];
+
+                CellChanged?.Invoke(pull.From, Board.EMPTY);
+                CellChanged?.Invoke(pull.To, _board[pull.To]);
+
+                SpecialCellKind kind = _board.GetSpecialKind(pull.To);
+                if (kind != SpecialCellKind.None)
+                {
+                    SpecialKindChanged?.Invoke(pull.To, kind);
+                }
+            }
+        }
+
         internal void ClearAll()
         {
             for (int y = 0; y < _board.Height; y++)

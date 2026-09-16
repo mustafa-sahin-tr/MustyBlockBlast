@@ -41,11 +41,17 @@ namespace MustyBlockBlast.Gameplay.Systems
         private readonly IPublisher<ExplosiveCoreDetonatedMessage> _explosiveCoreDetonatedPublisher;
         private readonly IPublisher<LaserFiredMessage> _laserFiredPublisher;
         private readonly IPublisher<PiercingRocketFiredMessage> _piercingRocketFiredPublisher;
+        private readonly IPublisher<VortexPulledMessage> _vortexPulledPublisher;
 
         // One long-lived effect per kind, reset per placement rather than reallocated — each owns the
         // buffer its destroyed cells are reported through.
         private readonly ExplosiveCoreEffect _explosiveCoreEffect = new ExplosiveCoreEffect();
         private readonly LaserEffect _laserEffect = new LaserEffect();
+
+        /// <summary>The odd one out among the board-mutating effects: it moves blocks instead of
+        /// destroying them, so what it reports is a list of moves rather than a count of emptied
+        /// cells.</summary>
+        private readonly VortexEffect _vortexEffect = new VortexEffect();
 
         /// <summary>The piercing rocket's wipe. Not part of <see cref="_specialCellEffects"/>: it is
         /// driven by a <em>piece</em> being placed rather than by a cell being destroyed, so it has no
@@ -133,12 +139,13 @@ namespace MustyBlockBlast.Gameplay.Systems
             IPublisher<TrayRefilledMessage> trayRefilledPublisher,
             IPublisher<ExplosiveCoreDetonatedMessage> explosiveCoreDetonatedPublisher,
             IPublisher<LaserFiredMessage> laserFiredPublisher,
-            IPublisher<PiercingRocketFiredMessage> piercingRocketFiredPublisher)
+            IPublisher<PiercingRocketFiredMessage> piercingRocketFiredPublisher,
+            IPublisher<VortexPulledMessage> vortexPulledPublisher)
             : this(
                 boardModel, trayModel, perfectRoundModel, pieceDraw, runStartedPublisher,
                 piecePlacedPublisher, linesClearedPublisher, gameOverPublisher, trayRefilledPublisher,
                 explosiveCoreDetonatedPublisher, laserFiredPublisher, piercingRocketFiredPublisher,
-                Environment.TickCount)
+                vortexPulledPublisher, Environment.TickCount)
         {
         }
 
@@ -155,6 +162,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             IPublisher<ExplosiveCoreDetonatedMessage> explosiveCoreDetonatedPublisher,
             IPublisher<LaserFiredMessage> laserFiredPublisher,
             IPublisher<PiercingRocketFiredMessage> piercingRocketFiredPublisher,
+            IPublisher<VortexPulledMessage> vortexPulledPublisher,
             int seed)
         {
             _random = new Random(seed);
@@ -165,8 +173,9 @@ namespace MustyBlockBlast.Gameplay.Systems
             _explosiveCoreDetonatedPublisher = explosiveCoreDetonatedPublisher;
             _laserFiredPublisher = laserFiredPublisher;
             _piercingRocketFiredPublisher = piercingRocketFiredPublisher;
+            _vortexPulledPublisher = vortexPulledPublisher;
             _specialCellEffects = new CompositeSpecialCellEffect(
-                _explosiveCoreEffect, _laserEffect, _scoreGemEffect);
+                _explosiveCoreEffect, _laserEffect, _scoreGemEffect, _vortexEffect);
             _boardModel = boardModel;
             _trayModel = trayModel;
             _perfectRoundModel = perfectRoundModel;
@@ -323,6 +332,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             _laserEffect.BeginResolution();
             _scoreGemEffect.BeginResolution();
             _piercingRocketEffect.BeginResolution();
+            _vortexEffect.BeginResolution();
 
             // Before the cascade, deliberately. The rocket empties its row and column whether or not
             // either was full, so running it first is what keeps a cell from being removed by the wipe
@@ -383,6 +393,17 @@ namespace MustyBlockBlast.Gameplay.Systems
                 _boardModel.NotifyPowerUpCleared(rocketWipedCells);
             }
 
+            // A vortex's pulls are announced through their own seam rather than the cleared-cells one:
+            // nothing was destroyed, so there is no cell to fade — each move empties one cell and fills
+            // another, and both ends have to reach the View together or a block would appear to
+            // duplicate itself.
+            IReadOnlyList<VortexPull> pulls = _vortexEffect.Pulls;
+            bool anyPulled = pulls.Count > 0;
+            if (anyPulled)
+            {
+                _boardModel.NotifyPulled(pulls);
+            }
+
             bool anyCornerCleared = AnyCornerTouched(
                 _boardModel.Board, clearResult.ClearedRows, clearResult.ClearedColumns);
 
@@ -419,12 +440,27 @@ namespace MustyBlockBlast.Gameplay.Systems
                     new PiercingRocketFiredMessage(rocketWipedCells.Count));
             }
 
+            if (anyPulled)
+            {
+                // Copied, unlike every count above: the effect's list is a buffer it overwrites on the
+                // next placement, and a subscriber animating the slide over several frames would
+                // otherwise be reading next move's data halfway through. One small list per placement
+                // that pulled something — never per frame.
+                _vortexPulledPublisher.Publish(new VortexPulledMessage(new List<VortexPull>(pulls)));
+            }
+
             // Last of all, and deliberately after PiecePlacedMessage: the spawn occupies a cell, and
             // that message reports whether this placement emptied the board, cleared the centre core
             // and so on. Spawning first would quietly cost the player every perfect-clear reward they
             // just earned. It also reads the board as the whole cascade left it, not mid-cascade: what
             // matters is whether the intersection is free once everything has settled.
             TrySpawnExplosiveCore(clearResult, colourId);
+
+            // Same section, same reasons, and deliberately after the core: the two rewards can be
+            // earned by one placement, and the core picks its cell first so a vortex can never take the
+            // intersection the core's rule is defined on. The occupancy handed over is the pre-clear
+            // one already read above, not a second reading — see TrySpawnVortex.
+            TrySpawnVortex(clearResult, colourId, occupiedCellCountBeforeClear);
 
             // Armed in the same section and for the same reason as the spawn above: it is this
             // placement's reward, read off the placement's own (primary) clear rather than off the whole
@@ -751,6 +787,48 @@ namespace MustyBlockBlast.Gameplay.Systems
             // After any occupancy write, so the View is told the cell is filled before it is told what
             // the filled cell is.
             _boardModel.SetSpecialKind(position, SpecialCellKind.ExplosiveCore);
+        }
+
+        /// <summary>
+        /// Spawns this placement's <see cref="SpecialCellKind.Vortex"/> reward, when it earned one: a
+        /// placement that cleared at least one line on a board that was more than
+        /// <see cref="VortexSpawnSelector.OCCUPANCY_THRESHOLD"/>-full always does, with no probability
+        /// roll (see <see cref="VortexSpawnSelector"/>). A placement that earned none, or one whose
+        /// cleared lines hold no valid cell, is silently skipped — not an error state.
+        /// <para>
+        /// <paramref name="occupiedCellCountBeforeClear"/> is the reading taken in
+        /// <see cref="TryPlacePiece"/> the moment the piece landed, and is threaded through rather than
+        /// re-measured here: by now the clear has already emptied the very cells that made the board
+        /// crowded, so a second reading would answer a different question and the reward would never
+        /// fire. It is the same value <see cref="PiecePlacedMessage"/> reports, so the vortex and the
+        /// clutch-recovery objective can never disagree about how full the board was.
+        /// </para>
+        /// <para>
+        /// Reads <paramref name="clearResult"/>, the placement's own (primary) clear, rather than the
+        /// whole cascade, exactly as the explosive core's rule does: the reward is for the line the
+        /// player lined up.
+        /// </para>
+        /// </summary>
+        private void TrySpawnVortex(LineClearResult clearResult, int colourId, int occupiedCellCountBeforeClear)
+        {
+            GridPosition? spawn = VortexSpawnSelector.SelectSpawnPosition(
+                _boardModel.Board, clearResult.ClearedRows, clearResult.ClearedColumns,
+                occupiedCellCountBeforeClear);
+            if (spawn == null)
+            {
+                return;
+            }
+
+            GridPosition position = spawn.Value;
+
+            // The cell was emptied by this very clear, so the tile needs a block to sit on. It borrows
+            // the placed piece's colour for the reason a core does: the icon is what marks it special,
+            // not a bespoke colour id no theme defines.
+            _boardModel.Occupy(position, colourId);
+
+            // After the occupancy write, so the View is told the cell is filled before it is told what
+            // the filled cell is.
+            _boardModel.SetSpecialKind(position, SpecialCellKind.Vortex);
         }
 
         /// <summary>

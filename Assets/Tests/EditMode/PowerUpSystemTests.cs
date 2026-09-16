@@ -1665,7 +1665,8 @@ namespace MustyBlockBlast.Tests.EditMode
                 trayRefilledBroker,
                 new TestMessageBroker<ExplosiveCoreDetonatedMessage>(),
                 new TestMessageBroker<LaserFiredMessage>(),
-                new TestMessageBroker<PiercingRocketFiredMessage>());
+                new TestMessageBroker<PiercingRocketFiredMessage>(),
+                new TestMessageBroker<VortexPulledMessage>());
         }
 
         /// <summary>Occupies every board cell except the ones named, so a test can state the one gap it
