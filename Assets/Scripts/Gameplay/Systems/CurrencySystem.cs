@@ -26,9 +26,12 @@ namespace MustyBlockBlast.Gameplay.Systems
     /// <see cref="ProfileModel.TotalScoreEarned"/> and nothing else happens — no coins are minted, no
     /// pool is drained. What the player may convert is the subtraction
     /// <see cref="AvailableToConvert"/>, and only an explicit <see cref="ConvertScoreToCoins"/> moves
-    /// it. The consequence is worth stating plainly: coins are never granted automatically, mid-run or
-    /// at the end of one. There are exactly two ways one comes into existence, and both are a deliberate
-    /// player action — a conversion, or a watched rewarded ad.
+    /// it. The consequence is worth stating plainly: coins are never granted merely for playing, and
+    /// never at the end of a run. There are exactly three ways one comes into existence, and all three
+    /// are something the player did — a conversion, a watched rewarded ad, or a destroyed
+    /// <see cref="MustyBlockBlast.Core.SpecialCellKind.Coin"/> cell. The third is the only one that
+    /// happens mid-run, and it is still earned: the coin cell had to be cleared, and one left standing
+    /// when the run ends pays nothing.
     /// </para>
     /// <para>
     /// Persistence is flat PlayerPrefs keys, one per field, exactly as <see cref="ProfileSystem"/> and
@@ -63,6 +66,7 @@ namespace MustyBlockBlast.Gameplay.Systems
         private readonly IPublisher<ScoreConvertedToCoinsMessage> _convertedPublisher;
         private readonly IPublisher<CoinsGrantedFromAdMessage> _adGrantPublisher;
         private readonly IDisposable _gameOverSubscription;
+        private readonly IDisposable _coinCellsSubscription;
 
         public CurrencySystem(
             ProfileModel profileModel,
@@ -74,7 +78,8 @@ namespace MustyBlockBlast.Gameplay.Systems
             ICoinRewardSource coinRewardSource,
             IPublisher<ScoreConvertedToCoinsMessage> convertedPublisher,
             IPublisher<CoinsGrantedFromAdMessage> adGrantPublisher,
-            ISubscriber<GameOverMessage> gameOverSubscriber)
+            ISubscriber<GameOverMessage> gameOverSubscriber,
+            ISubscriber<CoinCellsClearedMessage> coinCellsClearedSubscriber)
         {
             _profileModel = profileModel;
             _scoreModel = scoreModel;
@@ -91,6 +96,12 @@ namespace MustyBlockBlast.Gameplay.Systems
             // The run's score is only readable while the run is the current one, so the pool has to be
             // topped up on the message that ends it rather than looked up later.
             _gameOverSubscription = gameOverSubscriber.Subscribe(OnGameOver);
+
+            // The third way a coin comes into existence, and the first that is not an explicit player
+            // action at a screen: destroying a coin cell. It is still earned rather than granted — the
+            // player had to clear the cell — and it is credited here rather than by whichever System
+            // resolved the destruction, because this class is the one and only writer of the balance.
+            _coinCellsSubscription = coinCellsClearedSubscriber.Subscribe(OnCoinCellsCleared);
         }
 
         /// <summary>
@@ -276,6 +287,32 @@ namespace MustyBlockBlast.Gameplay.Systems
         public void Dispose()
         {
             _gameOverSubscription.Dispose();
+            _coinCellsSubscription.Dispose();
+        }
+
+        /// <summary>
+        /// Banks the coins a resolution's destroyed coin cells earned. Goes through the same
+        /// <see cref="CreditCoins"/> the other two faucets do, then flushes — one write, so one flush,
+        /// exactly as the ad grant does.
+        /// <para>
+        /// A non-positive total is a no-op. The publishers only announce a real payout, so this cannot
+        /// legitimately arrive; crediting it anyway would mean a zero-coin "earn" writing PlayerPrefs on
+        /// every placement, and a negative one would silently fine the player.
+        /// </para>
+        /// <para>
+        /// Takes nothing out of the convertible pool and does not touch it, exactly as an ad grant does
+        /// not: the player has not sold any score here, they have cleared a coin cell.
+        /// </para>
+        /// </summary>
+        private void OnCoinCellsCleared(CoinCellsClearedMessage message)
+        {
+            if (message.TotalCoins <= 0)
+            {
+                return;
+            }
+
+            CreditCoins(message.TotalCoins);
+            PlayerPrefs.Save();
         }
 
         /// <summary>

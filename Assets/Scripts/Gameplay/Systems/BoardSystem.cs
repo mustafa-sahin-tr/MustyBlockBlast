@@ -4,6 +4,7 @@ using MessagePipe;
 using MustyBlockBlast.Core;
 using MustyBlockBlast.Gameplay.Messages;
 using MustyBlockBlast.Gameplay.Models;
+using MustyBlockBlast.Gameplay.Settings;
 using VContainer;
 using VContainer.Unity;
 
@@ -43,6 +44,7 @@ namespace MustyBlockBlast.Gameplay.Systems
         private readonly IPublisher<PiercingRocketFiredMessage> _piercingRocketFiredPublisher;
         private readonly IPublisher<VortexPulledMessage> _vortexPulledPublisher;
         private readonly IPublisher<ChainLightningTriggeredMessage> _chainLightningTriggeredPublisher;
+        private readonly IPublisher<CoinCellsClearedMessage> _coinCellsClearedPublisher;
 
         // One long-lived effect per kind, reset per placement rather than reallocated — each owns the
         // buffer its destroyed cells are reported through.
@@ -70,6 +72,12 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// placement's resolution destroyed, because the cascade loop keeps its triggers to itself and
         /// this is the one seam through which that count can be learned.</summary>
         private readonly ScoreGemEffect _scoreGemEffect = new ScoreGemEffect();
+
+        /// <summary>The other effect that changes nothing on the board: it only totals what the coin
+        /// cells this placement's resolution destroyed are worth. Built in the constructor rather than
+        /// here because the per-cell payout is an economy number read from
+        /// <see cref="Gameplay.Settings.CurrencyConfig"/>, which Core must not know about.</summary>
+        private readonly CoinEffect _coinEffect;
 
         /// <summary>Every installed effect, presented to the cascade loop as the one effect it takes.
         /// Each effect ignores a trigger of a kind that is not its own, so a trigger reaching both of
@@ -149,12 +157,15 @@ namespace MustyBlockBlast.Gameplay.Systems
             IPublisher<LaserFiredMessage> laserFiredPublisher,
             IPublisher<PiercingRocketFiredMessage> piercingRocketFiredPublisher,
             IPublisher<VortexPulledMessage> vortexPulledPublisher,
-            IPublisher<ChainLightningTriggeredMessage> chainLightningTriggeredPublisher)
+            IPublisher<ChainLightningTriggeredMessage> chainLightningTriggeredPublisher,
+            IPublisher<CoinCellsClearedMessage> coinCellsClearedPublisher,
+            CurrencyConfig currencyConfig)
             : this(
                 boardModel, trayModel, perfectRoundModel, pieceDraw, runStartedPublisher,
                 piecePlacedPublisher, linesClearedPublisher, gameOverPublisher, trayRefilledPublisher,
                 explosiveCoreDetonatedPublisher, laserFiredPublisher, piercingRocketFiredPublisher,
-                vortexPulledPublisher, chainLightningTriggeredPublisher, Environment.TickCount)
+                vortexPulledPublisher, chainLightningTriggeredPublisher, coinCellsClearedPublisher,
+                currencyConfig, Environment.TickCount)
         {
         }
 
@@ -173,6 +184,8 @@ namespace MustyBlockBlast.Gameplay.Systems
             IPublisher<PiercingRocketFiredMessage> piercingRocketFiredPublisher,
             IPublisher<VortexPulledMessage> vortexPulledPublisher,
             IPublisher<ChainLightningTriggeredMessage> chainLightningTriggeredPublisher,
+            IPublisher<CoinCellsClearedMessage> coinCellsClearedPublisher,
+            CurrencyConfig currencyConfig,
             int seed)
         {
             _random = new Random(seed);
@@ -189,8 +202,11 @@ namespace MustyBlockBlast.Gameplay.Systems
             _piercingRocketFiredPublisher = piercingRocketFiredPublisher;
             _vortexPulledPublisher = vortexPulledPublisher;
             _chainLightningTriggeredPublisher = chainLightningTriggeredPublisher;
+            _coinCellsClearedPublisher = coinCellsClearedPublisher;
+            _coinEffect = new CoinEffect(currencyConfig.CoinCellPayout);
             _specialCellEffects = new CompositeSpecialCellEffect(
-                _explosiveCoreEffect, _laserEffect, _scoreGemEffect, _vortexEffect, _chainLightningEffect);
+                _explosiveCoreEffect, _laserEffect, _scoreGemEffect, _vortexEffect, _chainLightningEffect,
+                _coinEffect);
             _boardModel = boardModel;
             _trayModel = trayModel;
             _perfectRoundModel = perfectRoundModel;
@@ -349,6 +365,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             _piercingRocketEffect.BeginResolution();
             _vortexEffect.BeginResolution();
             _chainLightningEffect.BeginResolution();
+            _coinEffect.BeginResolution();
 
             // Before the cascade, deliberately. The rocket empties its row and column whether or not
             // either was full, so running it first is what keeps a cell from being removed by the wipe
@@ -483,6 +500,14 @@ namespace MustyBlockBlast.Gameplay.Systems
                 // that pulled something — never per frame.
                 _vortexPulledPublisher.Publish(new VortexPulledMessage(new List<VortexPull>(pulls)));
             }
+
+            // Announced last of all, and on its own channel: a coin cell changed nothing on the board, so
+            // there is no cell to repaint and no clear this could be folded into. A total rather than a
+            // count, because the intersection doubling is already applied — and a message rather than a
+            // write, because CurrencySystem is the one and only writer of the coin balance. Read off the
+            // whole resolution, not just the primary phase: a coin destroyed by a cascade, or by the
+            // rocket wipe that ran before it, was destroyed just the same and is owed just the same.
+            PublishCoinsAwarded();
 
             // Last of all, and deliberately after PiecePlacedMessage: the spawn occupies a cell, and
             // that message reports whether this placement emptied the board, cleared the centre core
@@ -979,10 +1004,17 @@ namespace MustyBlockBlast.Gameplay.Systems
             _explosiveCoreEffect.BeginResolution();
             _laserEffect.BeginResolution();
 
+            // The coin effect goes with them for the same reason they are here at all: a coin cell a
+            // hammer destroys was destroyed, so it pays exactly as one taken out by a completed line
+            // does. A hammer is a single cell and so never an intersection, which the effect reads off
+            // the trigger's ClearAxis.None on its own.
+            _coinEffect.BeginResolution();
+
             for (int i = 0; i < _hammerTriggerBuffer.Count; i++)
             {
                 _explosiveCoreEffect.Apply(_boardModel.Board, _hammerTriggerBuffer[i]);
                 _laserEffect.Apply(_boardModel.Board, _hammerTriggerBuffer[i]);
+                _coinEffect.Apply(_boardModel.Board, _hammerTriggerBuffer[i]);
             }
 
             IReadOnlyList<GridPosition> blastedCells = _explosiveCoreEffect.BlastedCells;
@@ -999,6 +1031,29 @@ namespace MustyBlockBlast.Gameplay.Systems
                 _boardModel.NotifyPowerUpCleared(wipedCells);
                 _laserFiredPublisher.Publish(new LaserFiredMessage(wipedCells.Count));
             }
+
+            PublishCoinsAwarded();
+        }
+
+        /// <summary>
+        /// Announces what the coin cells the current resolution destroyed are worth, when it destroyed
+        /// any. Shared by the two resolutions this System runs — a placement's cascade and a hammer's
+        /// single cell — so "a coin cell pays, whatever destroyed it" has one statement rather than two
+        /// copies of it.
+        /// <para>
+        /// Silent on zero, which is the overwhelmingly common case: a resolution that destroyed no coin
+        /// cell is not an event, so no subscriber ever has to handle a nil payout.
+        /// </para>
+        /// </summary>
+        private void PublishCoinsAwarded()
+        {
+            int coinsAwarded = _coinEffect.TotalCoinsAwarded;
+            if (coinsAwarded <= 0)
+            {
+                return;
+            }
+
+            _coinCellsClearedPublisher.Publish(new CoinCellsClearedMessage(coinsAwarded));
         }
 
         /// <summary>

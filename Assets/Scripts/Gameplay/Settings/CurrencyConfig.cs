@@ -21,6 +21,11 @@ namespace MustyBlockBlast.Gameplay.Settings
         [Tooltip("Coins one rewarded ad grants. Separate from the conversion rate — an ad grant is not a conversion.")]
         [SerializeField] private int _adRewardCoins = 25;
 
+        [Header("Coin cells")]
+        [Tooltip("Coins one destroyed Coin cell pays. Doubled when the cell is destroyed at the " +
+            "intersection of a cleared row and a cleared column.")]
+        [SerializeField] private int _coinCellPayout = 5;
+
         /// <summary>
         /// Coins per point of converted score. Never negative: a negative rate would make conversion a
         /// way to lose coins, and the clamp is here rather than at the call site so every reader gets it.
@@ -29,5 +34,16 @@ namespace MustyBlockBlast.Gameplay.Settings
 
         /// <summary>Coins one rewarded ad is worth. Clamped for the reason the rate is.</summary>
         public int AdRewardCoins => Mathf.Max(0, _adRewardCoins);
+
+        /// <summary>
+        /// Coins one destroyed <see cref="MustyBlockBlast.Core.SpecialCellKind.Coin"/> cell pays, before
+        /// the doubling an intersection destruction earns. A placeholder figure like the rate above:
+        /// what matters is that the faucet has exactly one home, so retuning it is an asset edit.
+        /// <para>
+        /// Clamped for the reason the two above are: a negative payout would turn destroying a coin cell
+        /// into a fine, and the clamp is here rather than at the call site so every reader gets it.
+        /// </para>
+        /// </summary>
+        public int CoinCellPayout => Mathf.Max(0, _coinCellPayout);
     }
 }

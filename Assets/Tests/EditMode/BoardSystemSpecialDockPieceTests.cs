@@ -1,8 +1,10 @@
 using MustyBlockBlast.Core;
 using MustyBlockBlast.Gameplay.Messages;
 using MustyBlockBlast.Gameplay.Models;
+using MustyBlockBlast.Gameplay.Settings;
 using MustyBlockBlast.Gameplay.Systems;
 using NUnit.Framework;
+using UnityEngine;
 
 namespace MustyBlockBlast.Tests.EditMode
 {
@@ -44,6 +46,8 @@ namespace MustyBlockBlast.Tests.EditMode
                 _rocketFiredBroker,
                 new TestMessageBroker<VortexPulledMessage>(),
                 new TestMessageBroker<ChainLightningTriggeredMessage>(),
+                new TestMessageBroker<CoinCellsClearedMessage>(),
+                ScriptableObject.CreateInstance<CurrencyConfig>(),
                 seed: 1);
         }
 

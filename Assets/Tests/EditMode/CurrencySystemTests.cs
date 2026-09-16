@@ -30,6 +30,7 @@ namespace MustyBlockBlast.Tests.EditMode
         private TestMessageBroker<ScoreConvertedToCoinsMessage> _convertedBroker;
         private TestMessageBroker<CoinsGrantedFromAdMessage> _adGrantBroker;
         private TestMessageBroker<GameOverMessage> _gameOverBroker;
+        private TestMessageBroker<CoinCellsClearedMessage> _coinCellsBroker;
         private TestMessageBroker<PowerUpAppliedMessage> _appliedBroker;
         private TestMessageBroker<PowerUpGrantedMessage> _grantedBroker;
         private CurrencyConfig _config;
@@ -62,6 +63,7 @@ namespace MustyBlockBlast.Tests.EditMode
             _convertedBroker = new TestMessageBroker<ScoreConvertedToCoinsMessage>();
             _adGrantBroker = new TestMessageBroker<CoinsGrantedFromAdMessage>();
             _gameOverBroker = new TestMessageBroker<GameOverMessage>();
+            _coinCellsBroker = new TestMessageBroker<CoinCellsClearedMessage>();
             _appliedBroker = new TestMessageBroker<PowerUpAppliedMessage>();
             _grantedBroker = new TestMessageBroker<PowerUpGrantedMessage>();
             _config = ScriptableObject.CreateInstance<CurrencyConfig>();
@@ -735,6 +737,172 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.AreEqual(1000, profileModel.ScoreConverted.Value);
         }
 
+        // --- Issue #166: coin cells ---
+
+        /// <summary>
+        /// Pins the placeholder payout. Not a claim about the economy — the number is expected to be
+        /// retuned in the asset — only that a fresh config pays something, so a destroyed coin cell is
+        /// worth more than nothing out of the box.
+        /// </summary>
+        [Test]
+        public void CoinCellPayout_OnAFreshConfig_IsPositive()
+        {
+            Assert.Greater(_config.CoinCellPayout, 0);
+        }
+
+        /// <summary>
+        /// AC2/AC3's crediting half: the announced payout lands in the balance exactly as announced, and
+        /// reaches the disk with it. Deliberately not recomputed from the config here — whatever decided
+        /// the doubling decided the figure, and this system's job is to bank what it was told.
+        /// </summary>
+        [Test]
+        public void OnCoinCellsCleared_CreditsTheAnnouncedAmountAndPersistsIt()
+        {
+            var profileModel = new ProfileModel();
+            CurrencySystem unused = CreateSystem(profileModel, new ScoreModel());
+
+            _coinCellsBroker.Publish(new CoinCellsClearedMessage(12));
+
+            Assert.AreEqual(12, profileModel.CoinBalance.Value);
+            Assert.AreEqual(12, PlayerPrefs.GetInt(COIN_BALANCE_KEY, 0));
+        }
+
+        /// <summary>AC4: every destruction pays, so repeated payouts stack rather than replacing each
+        /// other or being deduplicated.</summary>
+        [Test]
+        public void OnCoinCellsCleared_SeveralTimesOver_AccumulatesEveryPayout()
+        {
+            var profileModel = new ProfileModel();
+            CurrencySystem unused = CreateSystem(profileModel, new ScoreModel());
+
+            _coinCellsBroker.Publish(new CoinCellsClearedMessage(5));
+            _coinCellsBroker.Publish(new CoinCellsClearedMessage(10));
+            _coinCellsBroker.Publish(new CoinCellsClearedMessage(5));
+
+            Assert.AreEqual(20, profileModel.CoinBalance.Value);
+        }
+
+        /// <summary>A coin cell is not a score conversion: it takes nothing out of the convertible pool
+        /// and leaves both counters behind it exactly as it found them.</summary>
+        [Test]
+        public void OnCoinCellsCleared_LeavesTheConvertiblePoolAlone()
+        {
+            var profileModel = new ProfileModel();
+            CurrencySystem system = CreateSystemWithPool(profileModel, pool: 100);
+
+            _coinCellsBroker.Publish(new CoinCellsClearedMessage(7));
+
+            Assert.AreEqual(7, profileModel.CoinBalance.Value);
+            Assert.AreEqual(100, system.AvailableToConvert);
+            Assert.AreEqual(0, profileModel.ScoreConverted.Value);
+            Assert.AreEqual(0, _convertedBroker.Published.Count);
+            Assert.AreEqual(0, _adGrantBroker.Published.Count);
+        }
+
+        [TestCase(0)]
+        [TestCase(-5)]
+        public void OnCoinCellsCleared_WithANonPositiveAmount_ChangesNothing(int totalCoins)
+        {
+            var profileModel = new ProfileModel();
+            CurrencySystem unused = CreateSystem(profileModel, new ScoreModel());
+
+            _coinCellsBroker.Publish(new CoinCellsClearedMessage(totalCoins));
+
+            Assert.AreEqual(0, profileModel.CoinBalance.Value);
+        }
+
+        /// <summary>Coin-cell coins go through the same bookkeeping the other two faucets do, so they
+        /// survive a restart the same way.</summary>
+        [Test]
+        public void OnCoinCellsCleared_ThenANewSystem_LoadsTheCreditedBalance()
+        {
+            CurrencySystem unused = CreateSystem(new ProfileModel(), new ScoreModel());
+            _coinCellsBroker.Publish(new CoinCellsClearedMessage(18));
+
+            var reloadedModel = new ProfileModel();
+            CurrencySystem reloaded = CreateSystem(reloadedModel, new ScoreModel());
+
+            Assert.AreEqual(18, reloadedModel.CoinBalance.Value);
+            Assert.AreEqual(0, reloaded.AvailableToConvert, "A coin cell earns no convertible score.");
+        }
+
+        /// <summary>Coin-cell coins are coins: they buy power-ups exactly as converted or ad-granted
+        /// ones do, which is the whole point of paying into the same balance.</summary>
+        [Test]
+        public void OnCoinCellsCleared_TheCreditedCoinsCanBuyAPowerUp()
+        {
+            var profileModel = new ProfileModel();
+            CurrencySystem system = CreateSystem(profileModel, new ScoreModel());
+            int price = (int)system.QuotePriceFor(PowerUpKind.Bomb, 1);
+
+            _coinCellsBroker.Publish(new CoinCellsClearedMessage(price));
+
+            Assert.AreEqual(PowerUpPurchaseResult.Success, system.TryPurchasePowerUp(PowerUpKind.Bomb, 1));
+            Assert.AreEqual(0, profileModel.CoinBalance.Value);
+            Assert.AreEqual(1, CountOf(PowerUpKind.Bomb));
+        }
+
+        /// <summary>
+        /// The whole chain, end to end and through no stub at all: a real placement completes a row
+        /// holding a real coin cell, the real <see cref="BoardSystem"/> resolves it, and the balance on
+        /// <see cref="ProfileModel"/> grows by the configured payout. The one test that would fail if
+        /// any link — the effect, the composite wiring, the message, the subscription — were missing.
+        /// </summary>
+        [Test]
+        public void ARealPlacementDestroyingACoinCell_CreditsTheConfiguredPayoutToTheBalance()
+        {
+            var profileModel = new ProfileModel();
+            CurrencySystem unused = CreateSystem(profileModel, new ScoreModel());
+
+            var boardModel = new BoardModel();
+            var trayModel = new TrayModel();
+            BoardSystem boardSystem = CreateBoardSystemPayingCoins(boardModel, trayModel);
+
+            var gap = new GridPosition(3, 5);
+            for (int x = 0; x < Board.SIZE; x++)
+            {
+                var position = new GridPosition(x, 5);
+                if (!position.Equals(gap))
+                {
+                    boardModel.Occupy(position, 1);
+                }
+            }
+
+            boardModel.SetSpecialKind(new GridPosition(0, 5), SpecialCellKind.Coin);
+            trayModel.SetSlot(0, PieceCatalog.SingleCell, 1);
+
+            Assert.IsTrue(boardSystem.TryPlacePiece(0, gap));
+
+            Assert.AreEqual(_config.CoinCellPayout, profileModel.CoinBalance.Value);
+            Assert.AreEqual(_config.CoinCellPayout, PlayerPrefs.GetInt(COIN_BALANCE_KEY, 0));
+        }
+
+        /// <summary>
+        /// A real, unstarted <see cref="BoardSystem"/> wired to the same coin channel and the same config
+        /// the system under test reads, so the payout it announces is the one this fixture's
+        /// <see cref="CurrencySystem"/> hears and the figure it quotes is the one that was configured.
+        /// </summary>
+        private BoardSystem CreateBoardSystemPayingCoins(BoardModel boardModel, TrayModel trayModel)
+        {
+            return new BoardSystem(
+                boardModel,
+                trayModel,
+                new PerfectRoundModel(),
+                new WeightedPieceDraw(),
+                new TestMessageBroker<RunStartedMessage>(),
+                new TestMessageBroker<PiecePlacedMessage>(),
+                new TestMessageBroker<LinesClearedMessage>(),
+                new TestMessageBroker<GameOverMessage>(),
+                new TestMessageBroker<TrayRefilledMessage>(),
+                new TestMessageBroker<ExplosiveCoreDetonatedMessage>(),
+                new TestMessageBroker<LaserFiredMessage>(),
+                new TestMessageBroker<PiercingRocketFiredMessage>(),
+                new TestMessageBroker<VortexPulledMessage>(),
+                new TestMessageBroker<ChainLightningTriggeredMessage>(),
+                _coinCellsBroker,
+                _config);
+        }
+
         /// <summary>
         /// Builds a system whose balance already holds <paramref name="coins"/>, banked through the real
         /// ad-grant path rather than a direct write — so every purchase test starts from a balance that
@@ -790,7 +958,8 @@ namespace MustyBlockBlast.Tests.EditMode
                 coinRewardSource ?? new StubCoinRewardSource(granted: true),
                 _convertedBroker,
                 _adGrantBroker,
-                _gameOverBroker);
+                _gameOverBroker,
+                _coinCellsBroker);
         }
 
         /// <summary>
@@ -835,6 +1004,8 @@ namespace MustyBlockBlast.Tests.EditMode
                 _grantedBroker,
                 new TestMessageBroker<ExplosiveCoreDetonatedMessage>(),
                 new TestMessageBroker<LaserFiredMessage>(),
+                new TestMessageBroker<CoinCellsClearedMessage>(),
+                ScriptableObject.CreateInstance<CurrencyConfig>(),
                 new TestMessageBroker<RunStartedMessage>(),
                 new TestMessageBroker<GameOverMessage>());
 
@@ -860,7 +1031,9 @@ namespace MustyBlockBlast.Tests.EditMode
                 new TestMessageBroker<LaserFiredMessage>(),
                 new TestMessageBroker<PiercingRocketFiredMessage>(),
                 new TestMessageBroker<VortexPulledMessage>(),
-                new TestMessageBroker<ChainLightningTriggeredMessage>());
+                new TestMessageBroker<ChainLightningTriggeredMessage>(),
+                new TestMessageBroker<CoinCellsClearedMessage>(),
+                ScriptableObject.CreateInstance<CurrencyConfig>());
         }
 
         /// <summary>Only ever asked to hold and release the countdown by the paths under test here, and

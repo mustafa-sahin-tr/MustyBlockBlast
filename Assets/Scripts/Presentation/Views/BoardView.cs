@@ -96,6 +96,23 @@ namespace MustyBlockBlast.Presentation.Views
         private static readonly Color ChainLightningIconTint = new Color(1f, 0.85f, 0.29f, 1f);
 
         /// <summary>
+        /// Colour a <see cref="SpecialCellKind.Coin"/>'s icon is drawn in. A fifth distinct hue, for the
+        /// reason the others are distinct: a coin destroys nothing and does not even multiply the run's
+        /// score — it pays into a balance that outlives the run — so it must be told apart at a glance
+        /// from the destructive kinds and from the gem alike. Gold, which is the one colour a player
+        /// reads as currency without being told, and the same tint
+        /// <see cref="CoinTotalHudView"/> paints the HUD total with so the cell and the counter it feeds
+        /// are recognisably the same thing.
+        /// <para>
+        /// The sprite is shared with every other kind on purpose (<c>UiSpriteFactory.Starburst</c>): one
+        /// sprite for every icon is what keeps an icon on any number of cells batching with the rest of
+        /// the board, so the kinds are separated by tint rather than by a second texture — which is also
+        /// why a coin cell needs no sprite asset and no atlas of its own.
+        /// </para>
+        /// </summary>
+        private static readonly Color CoinIconTint = new Color(1f, 0.82f, 0.25f, 1f);
+
+        /// <summary>
         /// How far a hole cell's fill is pushed towards black relative to an empty cell's, and how far
         /// its alpha is pulled down. Derived from the active theme rather than authored per theme, and
         /// deliberately a placeholder: a hole is "not part of the board", and until it has real art it
@@ -1275,6 +1292,8 @@ namespace MustyBlockBlast.Presentation.Views
                     return VortexIconTint;
                 case SpecialCellKind.ChainLightning:
                     return ChainLightningIconTint;
+                case SpecialCellKind.Coin:
+                    return CoinIconTint;
                 default:
                     return SpecialIconTint;
             }

@@ -65,6 +65,10 @@ namespace MustyBlockBlast.Gameplay.Settings
             "end a run.")]
         [SerializeField] private int _completionScoreBonus;
 
+        [Tooltip("Coin cells this level seeds onto its board. 0 (the default) means the level seeds " +
+            "none, which is what every level authored before this field existed does.")]
+        [SerializeField] private int _coinCellCount;
+
         [Tooltip("Width of the rolling window in seconds for RollingLineClearWindow, or the deadline in " +
             "seconds from run start for EarlyScoreRush. Unused otherwise.")]
         [SerializeField] private float _windowSeconds = 15f;
@@ -112,6 +116,19 @@ namespace MustyBlockBlast.Gameplay.Settings
         /// </para>
         /// </summary>
         public int CompletionScoreBonus => _completionScoreBonus;
+
+        /// <summary>
+        /// How many <see cref="MustyBlockBlast.Core.SpecialCellKind.Coin"/> cells this level puts on the
+        /// board for the player to destroy. Zero for a level that seeds none.
+        /// <para>
+        /// Authored per level rather than derived from the level number, matching
+        /// <see cref="GrantsLevelUpReward"/>'s and <see cref="CompletionScoreBonus"/>'s philosophy: which
+        /// levels are worth coins, and how many, is content to be tuned in the catalog asset rather than a
+        /// formula in C#. Defaulting to zero is what keeps every level authored before this field existed
+        /// behaving exactly as it did.
+        /// </para>
+        /// </summary>
+        public int CoinCellCount => _coinCellCount;
 
         /// <summary>
         /// Builds this level's board outline. Returns the shared <see cref="BoardShape.Standard"/>
@@ -342,6 +359,7 @@ namespace MustyBlockBlast.Gameplay.Settings
             _requiredOccupancyThreshold = Mathf.Clamp(_requiredOccupancyThreshold, 1, MaxPlayableCellCount());
             _windowSeconds = Mathf.Max(1f, _windowSeconds);
             _completionScoreBonus = Mathf.Max(0, _completionScoreBonus);
+            _coinCellCount = Mathf.Max(0, _coinCellCount);
         }
 #endif
     }

@@ -883,7 +883,9 @@ namespace MustyBlockBlast.Tests.EditMode
                 new TestMessageBroker<LaserFiredMessage>(),
                 new TestMessageBroker<PiercingRocketFiredMessage>(),
                 new TestMessageBroker<VortexPulledMessage>(),
-                new TestMessageBroker<ChainLightningTriggeredMessage>());
+                new TestMessageBroker<ChainLightningTriggeredMessage>(),
+                new TestMessageBroker<CoinCellsClearedMessage>(),
+                ScriptableObject.CreateInstance<CurrencyConfig>());
 
             _gameModeSystem = new GameModeSystem(new GameModeModel(), _boardSystem);
 
@@ -971,6 +973,8 @@ namespace MustyBlockBlast.Tests.EditMode
                 _powerUpGrantedBroker,
                 new TestMessageBroker<ExplosiveCoreDetonatedMessage>(),
                 new TestMessageBroker<LaserFiredMessage>(),
+                new TestMessageBroker<CoinCellsClearedMessage>(),
+                ScriptableObject.CreateInstance<CurrencyConfig>(),
                 _runStartedBroker,
                 _gameOverBroker);
         }

@@ -71,5 +71,21 @@ namespace MustyBlockBlast.Core
         /// (see <see cref="ChainLightningSpawnSelector"/>).
         /// </summary>
         ChainLightning = 5,
+
+        /// <summary>
+        /// A "coin": the second kind that destroys nothing at all. Destroying it pays a fixed number of
+        /// coins into the player's wallet, doubled when it was destroyed at <see cref="ClearAxis.Both"/>
+        /// — the intersection of a row and a column closed at once, the one destruction the player had to
+        /// set up twice over. Because the payout is off-board there is deliberately no
+        /// <see cref="ISpecialCellEffect"/> implementation that mutates anything for it;
+        /// <see cref="CoinEffect"/> exists only to total what one resolution's coins are worth, and the
+        /// crediting itself happens in the currency Systems.
+        /// <para>
+        /// Unlike <see cref="ScoreGem"/>, which multiplies a run-bound score, this pays into a balance
+        /// that outlives the run — so every instance pays every time it is destroyed, and a coin cell
+        /// left standing when the run ends pays nothing at all.
+        /// </para>
+        /// </summary>
+        Coin = 6,
     }
 }

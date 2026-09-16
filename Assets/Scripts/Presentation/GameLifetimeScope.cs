@@ -92,6 +92,13 @@ namespace MustyBlockBlast.Presentation
                 // nothing else would ever construct it.
                 container.Resolve<GoldenPieceTriggerSystem>();
 
+                // Same reason again: it watches the streak for the coin cell's trigger.
+                container.Resolve<CoinStreakTriggerSystem>();
+
+                // Subscribes to RunStartedMessage and PiecePlacedMessage in its constructor, so it must
+                // be listening before the first run opens — nothing else resolves it either.
+                container.Resolve<LevelCoinCellSeedSystem>();
+
                 // Subscribes in its constructor, like the systems above.
                 //
                 // DO NOT MOVE THIS ABOVE ScoreSystem. Both subscribe to PiecePlacedMessage, and
@@ -147,6 +154,7 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterMessageBroker<LevelAdvancedMessage>(options);
             builder.RegisterMessageBroker<ScoreConvertedToCoinsMessage>(options);
             builder.RegisterMessageBroker<CoinsGrantedFromAdMessage>(options);
+            builder.RegisterMessageBroker<CoinCellsClearedMessage>(options);
         }
 
         // Instance method: the theme list and the timed-mode config are scene-configured on this
@@ -372,6 +380,15 @@ namespace MustyBlockBlast.Presentation
 
             // Watches the combo streak and asks BoardSystem to inject a golden 1x1 at the next refill.
             builder.Register<GoldenPieceTriggerSystem>(Lifetime.Singleton).AsSelf();
+
+            // The third streak watcher: it converts an occupied cell into a coin cell. Its own System
+            // for the reason LaserSpawnSystem is — the trigger is a score concept BoardSystem never
+            // reads.
+            builder.Register<CoinStreakTriggerSystem>(Lifetime.Singleton).AsSelf();
+
+            // Puts a level's authored coin cells on the board. Separate from LevelProgressionSystem,
+            // which owns which level is played but deliberately never writes to the board.
+            builder.Register<LevelCoinCellSeedSystem>(Lifetime.Singleton).AsSelf();
             builder.Register<ObjectiveSystem>(Lifetime.Singleton);
             builder.Register<LevelProgressionSystem>(Lifetime.Singleton);
             builder.Register<BadgeStatsSystem>(Lifetime.Singleton);
@@ -407,6 +424,7 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterComponentInHierarchy<ScoreView>();
             builder.RegisterComponentInHierarchy<TimerHudView>();
             builder.RegisterComponentInHierarchy<DoubleMultiplierHudView>();
+            builder.RegisterComponentInHierarchy<CoinTotalHudView>();
             builder.RegisterComponentInHierarchy<GhostFitView>();
             builder.RegisterComponentInHierarchy<LineClearBurstView>();
             builder.RegisterComponentInHierarchy<BonusFeedbackView>();

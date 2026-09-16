@@ -1,8 +1,10 @@
 using MustyBlockBlast.Core;
 using MustyBlockBlast.Gameplay.Messages;
 using MustyBlockBlast.Gameplay.Models;
+using MustyBlockBlast.Gameplay.Settings;
 using MustyBlockBlast.Gameplay.Systems;
 using NUnit.Framework;
+using UnityEngine;
 
 namespace MustyBlockBlast.Tests.EditMode
 {
@@ -47,6 +49,8 @@ namespace MustyBlockBlast.Tests.EditMode
                 new TestMessageBroker<PiercingRocketFiredMessage>(),
                 _pulledBroker,
                 new TestMessageBroker<ChainLightningTriggeredMessage>(),
+                new TestMessageBroker<CoinCellsClearedMessage>(),
+                ScriptableObject.CreateInstance<CurrencyConfig>(),
                 seed: 1);
 
             // All three slots filled, unlike the laser and core tests: these placements must not empty
