@@ -28,6 +28,15 @@ namespace MustyBlockBlast.Presentation.Views
     /// from the same arithmetic rather than two copies of it.
     /// </para>
     /// <para>
+    /// That is also how a live promotion reaches this card: the quote it already asks for arrives
+    /// discounted, so nothing here knows a campaign exists. Whether to <em>say</em> so — the dimmed
+    /// standard price struck through above the sale one — is decided by comparing that quote against
+    /// <see cref="PowerUpPriceConfig.GetPrice"/>, rather than by reading
+    /// <see cref="PromotionConfig"/> directly: which campaign applies, whether two of them stack and
+    /// when a window closes are all the System's answers, and a View holding its own copy of that logic
+    /// could only ever disagree with the price it is drawing.
+    /// </para>
+    /// <para>
     /// A row has the same three states a strip slot does — locked, held, empty — and locked wins
     /// outright for the same reason: a kind behind its level gate is not an offer. It is dimmed and its
     /// tap does nothing but say so, because coins never open that gate (the System refuses it too, so
@@ -80,6 +89,25 @@ namespace MustyBlockBlast.Presentation.Views
         private const float SIDE_INSET = 48f;
         private const float HEADER_INSET = 84f;
 
+        /// <summary>Alpha applied to the struck-through standard price on a discounted row. Well under
+        /// the sale price's, so the eye lands on what the player would pay rather than on what they
+        /// would have paid.</summary>
+        private const float WAS_PRICE_ALPHA = 0.45f;
+
+        /// <summary>Thickness of the line drawn through the standard price, in canvas reference pixels.
+        /// A thin <see cref="Image"/> bar, the same primitive the close cross is built from, rather than
+        /// a rich-text tag: this card draws with <see cref="Text"/>, which has no strikethrough.</summary>
+        private const float STRIKETHROUGH_THICKNESS = 3f;
+
+        /// <summary>How far the sale price drops from a row's centre line to make room for the standard
+        /// price above it. Applied only on a discounted row — an undiscounted one keeps its single price
+        /// centred, exactly as before.</summary>
+        private const float DISCOUNTED_PRICE_DROP = 0.17f;
+
+        /// <summary>Where the struck-through standard price sits, as a fraction of the row height above
+        /// the centre line.</summary>
+        private const float WAS_PRICE_RISE = 0.26f;
+
         /// <summary>Alpha applied to a row whose kind is still behind its level gate, matching
         /// <see cref="PowerUpInventoryView"/>'s locked slots so "locked" reads the same in both places.</summary>
         private const float LOCKED_ROW_ALPHA = 0.35f;
@@ -99,6 +127,13 @@ namespace MustyBlockBlast.Presentation.Views
         private const string INSUFFICIENT_COINS_MESSAGE = "Not enough coins.";
         private const string LOCKED_MESSAGE = "Locked — level up to unlock this.";
         private const string OPENING_MESSAGE = "Tap a power-up to buy one.";
+        private const string COINS_SUFFIX_TEXT = " coins";
+
+        /// <summary>The price column's centre and width, as fractions of a row's width. Named because
+        /// three things are now placed in that column — the price, the standard price above it and the
+        /// bar through that — and three copies of the same two numbers would be three chances to drift.</summary>
+        private const float PRICE_COLUMN_X_FRACTION = 0.11f;
+        private const float PRICE_COLUMN_WIDTH_FRACTION = 0.34f;
 
         private static readonly Vector2 BuyButtonSize = new Vector2(150f, 60f);
 
@@ -108,6 +143,7 @@ namespace MustyBlockBlast.Presentation.Views
         [SerializeField] private int _balanceFontSize = 44;
         [SerializeField] private int _bodyFontSize = 32;
         [SerializeField] private int _buttonFontSize = 28;
+        [SerializeField] private int _wasPriceFontSize = 24;
 
         [Header("Palette")]
         [SerializeField] private Color _scrimColour = new Color(0.17f, 0.15f, 0.20f, 0.55f);
@@ -121,6 +157,13 @@ namespace MustyBlockBlast.Presentation.Views
         private readonly Text[] _buyTexts = new Text[RowCount];
         private readonly Image[] _buyPlates = new Image[RowCount];
 
+        /// <summary>The standard price of a discounted row, and the bar drawn through it. Built for
+        /// every row and shown on none of them by default: a campaign can start or end between two
+        /// openings of this card, so the "was" figure has to be one repaint away rather than one
+        /// instantiation away.</summary>
+        private readonly Text[] _wasPriceTexts = new Text[RowCount];
+        private readonly Image[] _strikethroughBars = new Image[RowCount];
+
         /// <summary>Held counts, mirrored from <see cref="PowerUpModel"/> so a repaint never has to
         /// reach back through the model. Written only by the count subscriptions.</summary>
         private readonly int[] _counts = new int[RowCount];
@@ -131,6 +174,10 @@ namespace MustyBlockBlast.Presentation.Views
         private CurrencySystem _currencySystem;
         private TimerRunSystem _timerRunSystem;
         private SettingsModel _settingsModel;
+
+        /// <summary>Read for one purpose only: the standard price to strike through when the System's
+        /// quote comes back lower than it. Never used to charge or to quote.</summary>
+        private PowerUpPriceConfig _priceConfig;
 
         private Canvas _canvas;
         private GameObject _panel;
@@ -164,8 +211,10 @@ namespace MustyBlockBlast.Presentation.Views
             LevelProgressionModel levelProgressionModel,
             CurrencySystem currencySystem,
             TimerRunSystem timerRunSystem,
-            SettingsModel settingsModel)
+            SettingsModel settingsModel,
+            PowerUpPriceConfig priceConfig)
         {
+            _priceConfig = priceConfig;
             _profileModel = profileModel;
             _powerUpModel = powerUpModel;
             _levelProgressionModel = levelProgressionModel;
@@ -184,7 +233,8 @@ namespace MustyBlockBlast.Presentation.Views
         private void Start()
         {
             if (_profileModel == null || _powerUpModel == null || _levelProgressionModel == null
-                || _currencySystem == null || _timerRunSystem == null || _settingsModel == null)
+                || _currencySystem == null || _timerRunSystem == null || _settingsModel == null
+                || _priceConfig == null)
             {
                 Debug.LogError(
                     $"{nameof(PowerUpShopView)} was not injected. Is it registered in the LifetimeScope?",
@@ -408,6 +458,12 @@ namespace MustyBlockBlast.Presentation.Views
         /// Repaints one row. Three mutually exclusive states in priority order, mirroring the strip's:
         /// locked wins outright, then affordable, then "not enough coins" — the last two differing only
         /// in alpha, because an unaffordable row is still a real offer and a locked one is not.
+        /// <para>
+        /// A discount is a fourth, orthogonal thing rather than a fifth state: it decorates whichever of
+        /// the three the row is already in, because a power-up on sale can still be unaffordable and one
+        /// behind its gate is not on offer at any price. A locked row therefore shows no "was" figure at
+        /// all, for the reason it shows no price — there is nothing there to discount.
+        /// </para>
         /// </summary>
         private void RefreshRow(int rowIndex)
         {
@@ -416,12 +472,22 @@ namespace MustyBlockBlast.Presentation.Views
             long price = _currencySystem.QuotePriceFor(kind, PURCHASE_QUANTITY);
             bool isAffordable = !isLocked && price <= _profileModel.CoinBalance.Value;
 
+            // The System's quote coming in under the standard price is the only evidence this card
+            // needs, and wants, that a campaign is live. PURCHASE_QUANTITY is one, so the two figures
+            // are directly comparable without re-deriving a line total.
+            int standardPrice = _priceConfig.GetPrice(kind);
+            bool isDiscounted = !isLocked && price < standardPrice;
+
             float alpha = isLocked
                 ? LOCKED_ROW_ALPHA
                 : (isAffordable ? 1f : UNAFFORDABLE_ROW_ALPHA);
 
             _nameTexts[rowIndex].color = WithAlpha(_currentTheme.Ink, alpha);
-            _priceTexts[rowIndex].color = WithAlpha(_currentTheme.SoftInk, alpha);
+
+            // A sale price is painted in the accent the BUY plate uses rather than the body's soft ink,
+            // so "this is cheaper than usual" reads at a glance without a badge or a banner.
+            _priceTexts[rowIndex].color = WithAlpha(
+                isDiscounted ? _currentTheme.Accent : _currentTheme.SoftInk, alpha);
             _buyPlates[rowIndex].color = WithAlpha(
                 isAffordable ? _currentTheme.Accent : _currentTheme.Ink, alpha * 0.9f);
             _buyTexts[rowIndex].color = WithAlpha(_currentTheme.CardBackground, alpha);
@@ -443,10 +509,56 @@ namespace MustyBlockBlast.Presentation.Views
             else
             {
                 _stringBuilder.Append(price);
-                _stringBuilder.Append(" coins");
+                _stringBuilder.Append(COINS_SUFFIX_TEXT);
             }
 
             _priceTexts[rowIndex].text = _stringBuilder.ToString();
+
+            // Dropped only while a "was" figure sits above it, so an undiscounted row keeps the single
+            // centred price this card has always drawn.
+            ((RectTransform)_priceTexts[rowIndex].transform).anchoredPosition = new Vector2(
+                PriceColumnX(), isDiscounted ? -ROW_HEIGHT * DISCOUNTED_PRICE_DROP : 0f);
+
+            RefreshWasPrice(rowIndex, standardPrice, isDiscounted, alpha);
+        }
+
+        /// <summary>
+        /// Paints — or hides — the struck-through standard price above a discounted row's sale price.
+        /// <para>
+        /// Hidden by emptying the text and disabling the bar rather than by deactivating either
+        /// GameObject: both are built once in <see cref="BuildPanel"/> and toggled on every repaint, and
+        /// a <see cref="GameObject.SetActive(bool)"/> pair would dirty the canvas layout for no gain
+        /// over a component that draws nothing.
+        /// </para>
+        /// <para>
+        /// The bar is sized from <see cref="Text.preferredWidth"/> rather than from the rect it lives in,
+        /// because the text is right-aligned inside a fixed-width column: a bar the width of the column
+        /// would run out past "50 coins" into empty space. Read after the text is assigned, which is the
+        /// only order in which it reports the new string's width.
+        /// </para>
+        /// </summary>
+        private void RefreshWasPrice(int rowIndex, int standardPrice, bool isDiscounted, float alpha)
+        {
+            Text wasPriceText = _wasPriceTexts[rowIndex];
+            Image strikethroughBar = _strikethroughBars[rowIndex];
+
+            if (!isDiscounted)
+            {
+                wasPriceText.text = string.Empty;
+                strikethroughBar.enabled = false;
+                return;
+            }
+
+            _stringBuilder.Clear();
+            _stringBuilder.Append(standardPrice);
+            _stringBuilder.Append(COINS_SUFFIX_TEXT);
+            wasPriceText.text = _stringBuilder.ToString();
+            wasPriceText.color = WithAlpha(_currentTheme.SoftInk, alpha * WAS_PRICE_ALPHA);
+
+            strikethroughBar.enabled = true;
+            strikethroughBar.color = WithAlpha(_currentTheme.SoftInk, alpha * WAS_PRICE_ALPHA);
+            ((RectTransform)strikethroughBar.transform).sizeDelta = new Vector2(
+                wasPriceText.preferredWidth, STRIKETHROUGH_THICKNESS);
         }
 
         /// <summary>
@@ -539,7 +651,7 @@ namespace MustyBlockBlast.Presentation.Views
         /// </summary>
         private void BuildRow(int rowIndex, float y)
         {
-            float rowWidth = _cardSize.x - (SIDE_INSET * 2f);
+            float rowWidth = RowWidth;
 
             var rowObject = new GameObject($"ShopRow_{RowKinds[rowIndex]}", typeof(RectTransform));
             var rowRect = (RectTransform)rowObject.transform;
@@ -560,9 +672,11 @@ namespace MustyBlockBlast.Presentation.Views
                 rowRect, "Price", _bodyFontSize, FontStyle.Normal, Color.clear);
             priceText.alignment = TextAnchor.MiddleRight;
             var priceRect = (RectTransform)priceText.transform;
-            priceRect.sizeDelta = new Vector2(rowWidth * 0.34f, ROW_HEIGHT);
-            priceRect.anchoredPosition = new Vector2(rowWidth * 0.11f, 0f);
+            priceRect.sizeDelta = new Vector2(rowWidth * PRICE_COLUMN_WIDTH_FRACTION, ROW_HEIGHT);
+            priceRect.anchoredPosition = new Vector2(PriceColumnX(), 0f);
             _priceTexts[rowIndex] = priceText;
+
+            BuildWasPrice(rowIndex, rowRect, rowWidth);
 
             var plateObject = new GameObject("BuyPlate", typeof(RectTransform), typeof(Image));
             var plateRect = (RectTransform)plateObject.transform;
@@ -583,6 +697,55 @@ namespace MustyBlockBlast.Presentation.Views
             buyText.text = BUY_BUTTON_TEXT;
             _buyTexts[rowIndex] = buyText;
         }
+
+        /// <summary>
+        /// The standard price of a discounted row and the line drawn through it, stacked above the sale
+        /// price in the same column and at a smaller size. Built for every row and shown on none until a
+        /// repaint says otherwise.
+        /// <para>
+        /// Stacked rather than set beside the sale price because the row is already three columns wide —
+        /// name, price, BUY plate — and squeezing a fourth in would have narrowed the name column past
+        /// "Colour Cleanser". The vertical pair is also the shape a shopper reads without a legend.
+        /// </para>
+        /// <para>
+        /// The bar is anchored to the column's right edge, matching the right-aligned text it crosses
+        /// out, so only its width has to be recomputed when the figure changes.
+        /// </para>
+        /// </summary>
+        private void BuildWasPrice(int rowIndex, RectTransform rowRect, float rowWidth)
+        {
+            Text wasPriceText = UiTextFactory.Create(
+                rowRect, "WasPrice", _wasPriceFontSize, FontStyle.Normal, Color.clear);
+            wasPriceText.alignment = TextAnchor.MiddleRight;
+            var wasPriceRect = (RectTransform)wasPriceText.transform;
+            wasPriceRect.sizeDelta = new Vector2(
+                rowWidth * PRICE_COLUMN_WIDTH_FRACTION, ROW_HEIGHT * 0.5f);
+            wasPriceRect.anchoredPosition = new Vector2(
+                PriceColumnX(), ROW_HEIGHT * WAS_PRICE_RISE);
+            _wasPriceTexts[rowIndex] = wasPriceText;
+
+            var barObject = new GameObject("Strikethrough", typeof(RectTransform), typeof(Image));
+            var barRect = (RectTransform)barObject.transform;
+            barRect.SetParent(wasPriceRect, false);
+            barRect.anchorMin = new Vector2(1f, 0.5f);
+            barRect.anchorMax = new Vector2(1f, 0.5f);
+            barRect.pivot = new Vector2(1f, 0.5f);
+            barRect.sizeDelta = new Vector2(0f, STRIKETHROUGH_THICKNESS);
+            barRect.anchoredPosition = Vector2.zero;
+
+            var barImage = barObject.GetComponent<Image>();
+            barImage.color = Color.clear;
+            barImage.raycastTarget = false;
+            barImage.enabled = false;
+            _strikethroughBars[rowIndex] = barImage;
+        }
+
+        /// <summary>A row's width inside the card's side insets. Derived rather than stored so it cannot
+        /// go stale against <see cref="_cardSize"/>.</summary>
+        private float RowWidth => _cardSize.x - (SIDE_INSET * 2f);
+
+        /// <summary>The price column's centre, in a row's local space.</summary>
+        private float PriceColumnX() => RowWidth * PRICE_COLUMN_X_FRACTION;
 
         /// <summary>The close cross, drawn as two rotated bars so it needs no glyph asset — the same
         /// treatment the other cards give theirs.</summary>

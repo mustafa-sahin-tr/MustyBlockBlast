@@ -41,6 +41,10 @@ namespace MustyBlockBlast.Presentation
             + "storefront has nothing to sell and no purchase can be priced.")]
         [SerializeField] private CoinBundleConfig _coinBundleConfig;
 
+        [Tooltip("Time-limited discounts on power-up prices. Optional — an unassigned or empty config "
+            + "simply means no sale is running and every kind costs its standard price.")]
+        [SerializeField] private PromotionConfig _promotionConfig;
+
         protected override void Configure(IContainerBuilder builder)
         {
             RegisterMessaging(builder);
@@ -174,6 +178,7 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterInstance(ResolveCurrencyConfig());
             builder.RegisterInstance(ResolvePowerUpPriceConfig());
             builder.RegisterInstance(ResolveCoinBundleConfig());
+            builder.RegisterInstance(ResolvePromotionConfig());
 
             // Languages come from the project's Locale assets rather than a scene field: a new
             // language is a Locale asset plus a String Table column, with no scene edit.
@@ -259,6 +264,18 @@ namespace MustyBlockBlast.Presentation
                 "Coin bundle purchases are falling back to the built-in placeholder line-up.", this);
             return ScriptableObject.CreateInstance<CoinBundleConfig>();
         }
+
+        /// <summary>
+        /// The same defensive shape as <see cref="ResolveCoinBundleConfig"/> with one difference: no
+        /// error is logged. Every other config here is load-bearing, so its absence is a misconfigured
+        /// scene worth shouting about; a promotion config's absence is an ordinary state — no campaign
+        /// is running. A default instance is still registered rather than a null, because the container
+        /// must hand <see cref="CurrencySystem"/> something to ask; it carries
+        /// <see cref="PromotionConfig"/>'s demonstration rows, which is why the field should be assigned
+        /// — the asset, not the fallback, is where a real campaign is authored.
+        /// </summary>
+        private PromotionConfig ResolvePromotionConfig()
+            => _promotionConfig != null ? _promotionConfig : ScriptableObject.CreateInstance<PromotionConfig>();
 
         /// <summary>
         /// Same defensive shape as <see cref="ResolveLevelCatalog"/>: an empty catalog boots the scene
