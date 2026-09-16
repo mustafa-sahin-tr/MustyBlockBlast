@@ -606,7 +606,7 @@ namespace MustyBlockBlast.Presentation.Views
                 return;
             }
 
-            if (!_boardView.TryGetCell(screenPosition, out GridPosition pointerCell))
+            if (_boardModel == null || !_boardView.TryGetCell(screenPosition, out GridPosition pointerCell))
             {
                 _hasPowerUpTarget = false;
                 _boardView.ClearPowerUpTargetHighlight();
@@ -656,14 +656,21 @@ namespace MustyBlockBlast.Presentation.Views
         /// </summary>
         private bool IsLegalTarget(PowerUpKind kind, GridPosition cell)
         {
+            if (_boardModel == null || !_boardModel.IsPlayable(cell))
+            {
+                // A hole is never a legal target for anything: nothing stands on one, so there is
+                // nothing to fill, cleanse or destroy there.
+                return false;
+            }
+
             if (kind == PowerUpKind.Joker)
             {
-                return _boardModel != null && _boardModel.GetCell(cell) == Board.EMPTY;
+                return _boardModel.GetCell(cell) == Board.EMPTY;
             }
 
             if (kind == PowerUpKind.ColorCleanser)
             {
-                return _boardModel != null && _boardModel.GetCell(cell) != Board.EMPTY;
+                return _boardModel.GetCell(cell) != Board.EMPTY;
             }
 
             return true;
@@ -792,7 +799,7 @@ namespace MustyBlockBlast.Presentation.Views
         {
             // The slot can stop being a hammer mid-aim — spent, or rewritten by a new run underneath
             // the finger. Aiming nothing is aiming nothing.
-            if (_armedHammerSlot < 0
+            if (_boardModel == null || _armedHammerSlot < 0
                 || _trayModel.GetSpecialKind(_armedHammerSlot) != SpecialPieceKind.DemolitionHammer)
             {
                 CancelHammerArm();
@@ -809,8 +816,9 @@ namespace MustyBlockBlast.Presentation.Views
             _hammerTargetCell = pointerCell;
             _hasHammerTarget = true;
             _boardView.ShowPowerUpTargetHighlight(
-                PowerUpTargetCells.ForDemolitionHammer(pointerCell, _powerUpTargetBuffer),
-                _boardModel != null && _boardModel.GetCell(pointerCell) != Board.EMPTY);
+                PowerUpTargetCells.ForDemolitionHammer(
+                    _boardModel.Shape, pointerCell, _powerUpTargetBuffer),
+                _boardModel.GetCell(pointerCell) != Board.EMPTY);
         }
 
         /// <summary>
@@ -852,15 +860,15 @@ namespace MustyBlockBlast.Presentation.Views
             switch (kind)
             {
                 case PowerUpKind.RowClear:
-                    return PowerUpTargetCells.ForRow(cell.Y, _powerUpTargetBuffer);
+                    return PowerUpTargetCells.ForRow(_boardModel.Shape, cell.Y, _powerUpTargetBuffer);
                 case PowerUpKind.ColumnClear:
-                    return PowerUpTargetCells.ForColumn(cell.X, _powerUpTargetBuffer);
+                    return PowerUpTargetCells.ForColumn(_boardModel.Shape, cell.X, _powerUpTargetBuffer);
                 case PowerUpKind.Joker:
-                    return PowerUpTargetCells.ForJoker(cell, _powerUpTargetBuffer);
+                    return PowerUpTargetCells.ForJoker(_boardModel.Shape, cell, _powerUpTargetBuffer);
                 case PowerUpKind.ColorCleanser:
-                    return PowerUpTargetCells.ForColorCleanser(cell, _powerUpTargetBuffer);
+                    return PowerUpTargetCells.ForColorCleanser(_boardModel.Shape, cell, _powerUpTargetBuffer);
                 default:
-                    return PowerUpTargetCells.ForBomb(cell, _powerUpTargetBuffer);
+                    return PowerUpTargetCells.ForBomb(_boardModel.Shape, cell, _powerUpTargetBuffer);
             }
         }
 

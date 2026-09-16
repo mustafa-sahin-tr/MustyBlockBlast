@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using MustyBlockBlast.Core;
+using VContainer;
 
 namespace MustyBlockBlast.Gameplay.Models
 {
@@ -11,7 +12,27 @@ namespace MustyBlockBlast.Gameplay.Models
     /// </summary>
     public sealed class BoardModel
     {
-        private readonly Board _board = new Board();
+        private readonly Board _board;
+
+        /// <summary>The standard 8x8 hole-free board — what every level authored so far uses. Marked
+        /// for injection explicitly so VContainer can never pick the shape-taking overload, which it has
+        /// no shape to supply for.</summary>
+        [Inject]
+        public BoardModel()
+            : this(BoardShape.Standard)
+        {
+        }
+
+        /// <summary>
+        /// Builds the model around an explicit board outline. Not yet wired to level data: per-level
+        /// shape selection is a later sub-issue of the board-shapes epic, and this exists so the shape
+        /// a board is built with has one owner when that lands, rather than the model hardcoding a
+        /// square forever.
+        /// </summary>
+        internal BoardModel(BoardShape shape)
+        {
+            _board = new Board(shape);
+        }
 
         /// <summary>Raised for every cell whose colour id changed. Args: position, new colour id
         /// (<see cref="Core.Board.EMPTY"/> when the cell became empty).</summary>
@@ -31,7 +52,20 @@ namespace MustyBlockBlast.Gameplay.Models
         /// </summary>
         public event Action<GridPosition, SpecialCellKind> SpecialKindChanged;
 
-        public int Size => Board.SIZE;
+        /// <summary>The board's outline. Read-only and immutable — a View reads width, height and hole
+        /// cells off it to lay itself out and to render the holes.</summary>
+        public BoardShape Shape => _board.Shape;
+
+        public int Width => _board.Width;
+
+        public int Height => _board.Height;
+
+        /// <summary>True when <paramref name="position"/> is inside the board but permanently
+        /// unplayable, so a View can draw it as a gap rather than an empty cell.</summary>
+        public bool IsHole(GridPosition position) => _board.IsHole(position);
+
+        /// <summary>True when a piece could ever occupy <paramref name="position"/>.</summary>
+        public bool IsPlayable(GridPosition position) => _board.IsPlayable(position);
 
         /// <summary>Read-only access for Views.</summary>
         public int GetCell(GridPosition position) => _board[position];
@@ -66,18 +100,30 @@ namespace MustyBlockBlast.Gameplay.Models
             for (int i = 0; i < result.ClearedRows.Count; i++)
             {
                 int y = result.ClearedRows[i];
-                for (int x = 0; x < Board.SIZE; x++)
+                for (int x = 0; x < _board.Width; x++)
                 {
-                    CellChanged?.Invoke(new GridPosition(x, y), Board.EMPTY);
+                    var position = new GridPosition(x, y);
+                    if (_board.IsHole(position))
+                    {
+                        continue;
+                    }
+
+                    CellChanged?.Invoke(position, Board.EMPTY);
                 }
             }
 
             for (int i = 0; i < result.ClearedColumns.Count; i++)
             {
                 int x = result.ClearedColumns[i];
-                for (int y = 0; y < Board.SIZE; y++)
+                for (int y = 0; y < _board.Height; y++)
                 {
-                    CellChanged?.Invoke(new GridPosition(x, y), Board.EMPTY);
+                    var position = new GridPosition(x, y);
+                    if (_board.IsHole(position))
+                    {
+                        continue;
+                    }
+
+                    CellChanged?.Invoke(position, Board.EMPTY);
                 }
             }
         }
@@ -108,9 +154,9 @@ namespace MustyBlockBlast.Gameplay.Models
 
         internal void ClearAll()
         {
-            for (int y = 0; y < Board.SIZE; y++)
+            for (int y = 0; y < _board.Height; y++)
             {
-                for (int x = 0; x < Board.SIZE; x++)
+                for (int x = 0; x < _board.Width; x++)
                 {
                     var position = new GridPosition(x, y);
                     if (_board[position] == Board.EMPTY)

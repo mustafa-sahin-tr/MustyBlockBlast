@@ -55,9 +55,9 @@ namespace MustyBlockBlast.Core
             int chosen = random.Next(candidateCount);
             int seen = 0;
 
-            for (int y = 0; y < Board.SIZE; y++)
+            for (int y = 0; y < board.Height; y++)
             {
-                for (int x = 0; x < Board.SIZE; x++)
+                for (int x = 0; x < board.Width; x++)
                 {
                     var candidate = new GridPosition(x, y);
                     if (!board.IsOccupied(candidate))

@@ -140,7 +140,7 @@ namespace MustyBlockBlast.Tests.EditMode
 
                 Assert.IsTrue(spawn.HasValue);
                 Assert.AreNotEqual(intersection, spawn.Value);
-                Assert.IsTrue(Board.IsInside(spawn.Value));
+                Assert.IsTrue(board.IsInside(spawn.Value));
                 Assert.IsTrue(board.IsOccupied(spawn.Value));
             }
         }

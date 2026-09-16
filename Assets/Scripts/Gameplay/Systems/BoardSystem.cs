@@ -70,7 +70,7 @@ namespace MustyBlockBlast.Gameplay.Systems
         private readonly Random _random;
         // Sized for the three dock slots plus the parked piece, which CheckGameOver appends.
         private readonly List<Piece> _remainingBuffer = new List<Piece>(TrayModel.SLOT_COUNT + 1);
-        private readonly Board _previewScratchBoard = new Board();
+        private readonly Board _previewScratchBoard;
         // Reroll draws a whole set at once and only then writes it to the tray, so a draw that has to
         // be retried never touches a slot. Owned here and reused, so a reroll allocates nothing.
         private readonly Piece[] _rerollPieceBuffer = new Piece[TrayModel.SLOT_COUNT];
@@ -158,6 +158,10 @@ namespace MustyBlockBlast.Gameplay.Systems
             int seed)
         {
             _random = new Random(seed);
+
+            // Built from the live board's own outline, not from a default square: a scratch board that
+            // disagreed with the real one about geometry could not be copied onto at all.
+            _previewScratchBoard = new Board(boardModel.Shape);
             _explosiveCoreDetonatedPublisher = explosiveCoreDetonatedPublisher;
             _laserFiredPublisher = laserFiredPublisher;
             _piercingRocketFiredPublisher = piercingRocketFiredPublisher;
@@ -379,7 +383,8 @@ namespace MustyBlockBlast.Gameplay.Systems
                 _boardModel.NotifyPowerUpCleared(rocketWipedCells);
             }
 
-            bool anyCornerCleared = AnyCornerTouched(clearResult.ClearedRows, clearResult.ClearedColumns);
+            bool anyCornerCleared = AnyCornerTouched(
+                _boardModel.Board, clearResult.ClearedRows, clearResult.ClearedColumns);
 
             _piecePlacedPublisher.Publish(new PiecePlacedMessage(
                 piece.Id, anchor, PieceFamilyClassifier.Classify(piece.Id), piece.CellCount, colourId,
@@ -619,7 +624,7 @@ namespace MustyBlockBlast.Gameplay.Systems
         {
             if (IsGameOver || !IsValidSlot(slotIndex)
                 || _trayModel.GetSpecialKind(slotIndex) != SpecialPieceKind.DemolitionHammer
-                || !Board.IsInside(target)
+                || !_boardModel.Board.IsPlayable(target)
                 || !_boardModel.Board.IsOccupied(target))
             {
                 return false;
@@ -689,16 +694,20 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// symmetrically for column 0/SIZE-1 — so checking membership of just these four indices,
         /// without cross-referencing specific (row, column) pairs, is sufficient.
         /// </summary>
-        private static bool AnyCornerTouched(IReadOnlyList<int> clearedRows, IReadOnlyList<int> clearedColumns)
+        private static bool AnyCornerTouched(
+            Board board, IReadOnlyList<int> clearedRows, IReadOnlyList<int> clearedColumns)
         {
-            return ContainsEdgeIndex(clearedRows) || ContainsEdgeIndex(clearedColumns);
+            // The last row index is the board's height and the last column index its width, which are
+            // the same number only on a square board.
+            return ContainsEdgeIndex(clearedRows, board.Height - 1)
+                || ContainsEdgeIndex(clearedColumns, board.Width - 1);
         }
 
-        private static bool ContainsEdgeIndex(IReadOnlyList<int> indices)
+        private static bool ContainsEdgeIndex(IReadOnlyList<int> indices, int lastIndex)
         {
             for (int indexPosition = 0; indexPosition < indices.Count; indexPosition++)
             {
-                if (indices[indexPosition] == 0 || indices[indexPosition] == Board.SIZE - 1)
+                if (indices[indexPosition] == 0 || indices[indexPosition] == lastIndex)
                 {
                     return true;
                 }
@@ -971,8 +980,10 @@ namespace MustyBlockBlast.Gameplay.Systems
                 return false;
             }
 
+            // Measured against the cells a block could actually stand on, so a shape's holes do not
+            // make a board look permanently un-crowded. Identical to SIZE * SIZE on the standard board.
             float occupancy =
-                _boardModel.Board.OccupiedCellCount() / (float)(Board.SIZE * Board.SIZE);
+                _boardModel.Board.OccupiedCellCount() / (float)_boardModel.Board.PlayableCellCount;
             if (occupancy < HAMMER_OCCUPANCY_THRESHOLD)
             {
                 return false;

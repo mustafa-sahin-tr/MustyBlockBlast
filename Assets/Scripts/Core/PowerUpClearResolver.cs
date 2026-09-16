@@ -86,36 +86,41 @@ namespace MustyBlockBlast.Core
         /// corner centre therefore affects 4 cells and an edge centre 6.</summary>
         public static PowerUpClearResult ResolveBombClear(Board board, GridPosition center)
         {
-            if (!Board.IsInside(center))
+            RequireBoard(board);
+
+            if (!board.IsInside(center))
             {
                 throw new ArgumentOutOfRangeException(nameof(center), center, "Outside the board.");
             }
 
             // No axis: a 3x3 is not a line, so a special cell destroyed by it has no "opposite"
             // direction to be given and must not be handed a made-up one.
-            return ClearTargeted(board, PowerUpTargetCells.ForBomb(center, TargetBuffer), null, null);
+            return ClearTargeted(
+                board, PowerUpTargetCells.ForBomb(board.Shape, center, TargetBuffer), null, null);
         }
 
         /// <summary>Clears every occupied cell of <paramref name="row"/>, whether or not the row is full.</summary>
         public static PowerUpClearResult ResolveRowClear(Board board, int row)
         {
-            RequireInRange(row, nameof(row));
+            RequireBoard(board);
+            RequireInRange(PowerUpTargetCells.IsValidRowIndex(board.Shape, row), row, nameof(row));
 
             // Reported as a row clear, exactly as a completed row is: a special cell cares about what
             // destroyed it, never about whether the line happened to be full at the time.
             AxisLineBuffer[0] = row;
             return ClearTargeted(
-                board, PowerUpTargetCells.ForRow(row, TargetBuffer), AxisLineBuffer, null);
+                board, PowerUpTargetCells.ForRow(board.Shape, row, TargetBuffer), AxisLineBuffer, null);
         }
 
         /// <summary>Clears every occupied cell of <paramref name="column"/>, whether or not it is full.</summary>
         public static PowerUpClearResult ResolveColumnClear(Board board, int column)
         {
-            RequireInRange(column, nameof(column));
+            RequireBoard(board);
+            RequireInRange(PowerUpTargetCells.IsValidColumnIndex(board.Shape, column), column, nameof(column));
 
             AxisLineBuffer[0] = column;
             return ClearTargeted(
-                board, PowerUpTargetCells.ForColumn(column, TargetBuffer), null, AxisLineBuffer);
+                board, PowerUpTargetCells.ForColumn(board.Shape, column, TargetBuffer), null, AxisLineBuffer);
         }
 
         /// <summary>
@@ -128,7 +133,9 @@ namespace MustyBlockBlast.Core
         /// </summary>
         public static PowerUpClearResult ResolveColorCleanser(Board board, GridPosition target)
         {
-            if (!Board.IsInside(target))
+            RequireBoard(board);
+
+            if (!board.IsInside(target))
             {
                 throw new ArgumentOutOfRangeException(nameof(target), target, "Outside the board.");
             }
@@ -140,9 +147,9 @@ namespace MustyBlockBlast.Core
             }
 
             var matchingCells = new List<GridPosition>();
-            for (int y = 0; y < Board.SIZE; y++)
+            for (int y = 0; y < board.Height; y++)
             {
-                for (int x = 0; x < Board.SIZE; x++)
+                for (int x = 0; x < board.Width; x++)
                 {
                     GridPosition position = new GridPosition(x, y);
                     if (board[position] == colourId)
@@ -233,9 +240,17 @@ namespace MustyBlockBlast.Core
             }
         }
 
-        private static void RequireInRange(int index, string parameterName)
+        private static void RequireBoard(Board board)
         {
-            if (index < 0 || index >= Board.SIZE)
+            if (board == null)
+            {
+                throw new ArgumentNullException(nameof(board));
+            }
+        }
+
+        private static void RequireInRange(bool isInRange, int index, string parameterName)
+        {
+            if (!isInRange)
             {
                 throw new ArgumentOutOfRangeException(parameterName, index, "Outside the board.");
             }

@@ -29,8 +29,10 @@ namespace MustyBlockBlast.Core
         private readonly List<GridPosition> _pendingCenters = new List<GridPosition>(Board.SIZE * Board.SIZE);
 
         /// <summary>Which cells have already been used as a blast centre in the current chain, so a
-        /// core caught in its own neighbour's blast cannot be detonated twice.</summary>
-        private readonly bool[] _detonated = new bool[Board.SIZE * Board.SIZE];
+        /// core caught in its own neighbour's blast cannot be detonated twice. Indexed exactly as the
+        /// board indexes its own cells, and grown to fit a board bigger than the standard one the first
+        /// time such a board is seen — never per call, and never shrunk.</summary>
+        private bool[] _detonated = new bool[Board.SIZE * Board.SIZE];
 
         /// <summary>Every cell this effect emptied since the last <see cref="BeginResolution"/>, in the
         /// order it emptied them. Only cells that actually held a block are listed: an already-empty
@@ -75,9 +77,14 @@ namespace MustyBlockBlast.Core
                 throw new ArgumentNullException(nameof(board));
             }
 
-            if (trigger.Kind != SpecialCellKind.ExplosiveCore || !Board.IsInside(trigger.Position))
+            if (trigger.Kind != SpecialCellKind.ExplosiveCore || !board.IsInside(trigger.Position))
             {
                 return;
+            }
+
+            if (_detonated.Length < board.CellCount)
+            {
+                _detonated = new bool[board.CellCount];
             }
 
             _pendingCenters.Clear();
@@ -86,7 +93,7 @@ namespace MustyBlockBlast.Core
             // A cell that is already empty can never be detonated (only occupied cells are read), so
             // marking the trigger's own — already emptied — position costs nothing and keeps the guard
             // uniform: every centre in the queue was marked on the way in.
-            MarkDetonated(trigger.Position);
+            MarkDetonated(board, trigger.Position);
             _pendingCenters.Add(trigger.Position);
 
             for (int centerIndex = 0; centerIndex < _pendingCenters.Count; centerIndex++)
@@ -107,7 +114,8 @@ namespace MustyBlockBlast.Core
         /// from an ordinary block.</summary>
         private void BlastAround(Board board, GridPosition center)
         {
-            IReadOnlyList<GridPosition> footprint = PowerUpTargetCells.ForBomb(center, _targetBuffer);
+            IReadOnlyList<GridPosition> footprint =
+                PowerUpTargetCells.ForBomb(board.Shape, center, _targetBuffer);
 
             for (int i = 0; i < footprint.Count; i++)
             {
@@ -121,16 +129,16 @@ namespace MustyBlockBlast.Core
                 board.Clear(cell);
                 _blastedCells.Add(cell);
 
-                if (kind == SpecialCellKind.ExplosiveCore && !IsDetonated(cell))
+                if (kind == SpecialCellKind.ExplosiveCore && !IsDetonated(board, cell))
                 {
-                    MarkDetonated(cell);
+                    MarkDetonated(board, cell);
                     _pendingCenters.Add(cell);
                 }
             }
         }
 
-        private bool IsDetonated(GridPosition position) => _detonated[(position.Y * Board.SIZE) + position.X];
+        private bool IsDetonated(Board board, GridPosition position) => _detonated[board.Index(position)];
 
-        private void MarkDetonated(GridPosition position) => _detonated[(position.Y * Board.SIZE) + position.X] = true;
+        private void MarkDetonated(Board board, GridPosition position) => _detonated[board.Index(position)] = true;
     }
 }

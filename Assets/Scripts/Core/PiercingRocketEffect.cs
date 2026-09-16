@@ -79,13 +79,17 @@ namespace MustyBlockBlast.Core
                 throw new ArgumentNullException(nameof(board));
             }
 
-            if (!Board.IsInside(origin))
+            if (!board.IsInside(origin))
             {
                 throw new ArgumentOutOfRangeException(nameof(origin), origin, "Outside the board.");
             }
 
             _lineBuffer.Clear();
             board.CollectRowCells(origin.Y, _lineBuffer);
+
+            // How many cells the row pass contributed, read back rather than assumed to be the board's
+            // width: holes are not part of a line, so a row shortened by them contributes fewer.
+            int rowCellCount = _lineBuffer.Count;
             board.CollectColumnCells(origin.X, _lineBuffer);
 
             // The occupied cells are picked out — and the special kinds among them read — before a
@@ -98,7 +102,7 @@ namespace MustyBlockBlast.Core
 
                 // The column pass re-walks the intersection the row pass already listed. Skipping it by
                 // row index rather than by searching the results keeps this O(line length).
-                if (i >= Board.SIZE && cell.Y == origin.Y)
+                if (i >= rowCellCount && cell.Y == origin.Y)
                 {
                     continue;
                 }

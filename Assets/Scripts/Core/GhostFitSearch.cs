@@ -44,8 +44,10 @@ namespace MustyBlockBlast.Core
 
     /// <summary>
     /// The exact search behind the Ghost Fit power-up: every dock piece against every board anchor,
-    /// ranked, best one wins. An 8x8 board and three pieces cap this at 192 candidate placements, so
-    /// there is no heuristic and no pruning — the answer really is the optimum over the whole space.
+    /// ranked, best one wins. There is no heuristic and no pruning — the answer really is the optimum
+    /// over the whole space. The board's own dimensions bound the anchor scan, so the standard 8x8
+    /// board and three pieces still cap it at 192 candidate placements; a shape with holes only ever
+    /// makes it cheaper, because a hole fails the legality check before anything is projected.
     /// <para>
     /// Ranking, in strict priority order:
     /// </para>
@@ -81,12 +83,22 @@ namespace MustyBlockBlast.Core
         /// placement or clearing, and nothing reads this board back — only its empty/occupied shape.</summary>
         private const int PROJECTION_COLOUR_ID = 1;
 
-        private readonly Board _previewBoard = new Board();
-        private readonly Board _projectionBoard = new Board();
         private readonly List<int> _rowsBuffer = new List<int>(Board.SIZE);
         private readonly List<int> _columnsBuffer = new List<int>(Board.SIZE);
-        private readonly bool[] _visitedBuffer = new bool[Board.SIZE * Board.SIZE];
-        private readonly int[] _stackBuffer = new int[Board.SIZE * Board.SIZE];
+
+        /// <summary>
+        /// Scratch state, rebuilt only when the board being searched has a different shape from the one
+        /// the last search saw. An instance of this class outlives any single level, so it cannot be
+        /// sized at construction time against a shape it has not been shown yet — but a shape changes
+        /// at most once per level and never mid-drag, so "grow when the shape changes, reuse otherwise"
+        /// keeps every repeated search on the same board allocation-free, which is the property the
+        /// caller-owned-buffer design exists to give.
+        /// </summary>
+        private BoardShape _scratchShape;
+        private Board _previewBoard;
+        private Board _projectionBoard;
+        private bool[] _visitedBuffer = new bool[Board.SIZE * Board.SIZE];
+        private int[] _stackBuffer = new int[Board.SIZE * Board.SIZE];
 
         /// <summary>
         /// Finds the best placement over <paramref name="dockPieces"/> and every board anchor. Null
@@ -112,6 +124,8 @@ namespace MustyBlockBlast.Core
                 throw new ArgumentNullException(nameof(dockPieces));
             }
 
+            EnsureScratchFor(board);
+
             bestMove = default;
             bool hasBest = false;
             bool bestPreservesStreak = false;
@@ -124,9 +138,9 @@ namespace MustyBlockBlast.Core
                     continue;
                 }
 
-                for (int y = 0; y < Board.SIZE; y++)
+                for (int y = 0; y < board.Height; y++)
                 {
-                    for (int x = 0; x < Board.SIZE; x++)
+                    for (int x = 0; x < board.Width; x++)
                     {
                         var anchor = new GridPosition(x, y);
                         if (!PlacementRules.CanPlace(board, piece, anchor))
@@ -157,6 +171,26 @@ namespace MustyBlockBlast.Core
             }
 
             return hasBest;
+        }
+
+        /// <summary>Points the scratch boards and flood-fill buffers at <paramref name="board"/>'s
+        /// shape, rebuilding them only when that shape is not the one they were last built for. The
+        /// buffers are never shrunk — a search that moves between two shapes repeatedly should keep
+        /// whichever is bigger rather than reallocate each way.</summary>
+        private void EnsureScratchFor(Board board)
+        {
+            if (!ReferenceEquals(_scratchShape, board.Shape))
+            {
+                _scratchShape = board.Shape;
+                _previewBoard = new Board(_scratchShape);
+                _projectionBoard = new Board(_scratchShape);
+            }
+
+            if (_visitedBuffer.Length < board.CellCount)
+            {
+                _visitedBuffer = new bool[board.CellCount];
+                _stackBuffer = new int[board.CellCount];
+            }
         }
 
         /// <summary>The three ranking criteria, applied in order. Strictly greater on purpose: an

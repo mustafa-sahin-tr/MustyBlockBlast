@@ -62,7 +62,7 @@ namespace MustyBlockBlast.Core
             }
 
             var intersection = new GridPosition(clearedColumns[0], clearedRows[0]);
-            if (!Board.IsInside(intersection))
+            if (!board.IsPlayable(intersection))
             {
                 return null;
             }
@@ -143,7 +143,7 @@ namespace MustyBlockBlast.Core
                 return false;
             }
 
-            return Board.IsInside(candidate) && board.IsOccupied(candidate);
+            return board.IsPlayable(candidate) && board.IsOccupied(candidate);
         }
     }
 }

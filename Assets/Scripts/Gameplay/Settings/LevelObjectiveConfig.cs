@@ -65,6 +65,18 @@ namespace MustyBlockBlast.Gameplay.Settings
             "seconds from run start for EarlyScoreRush. Unused otherwise.")]
         [SerializeField] private float _windowSeconds = 15f;
 
+        [Header("Board shape")]
+        [Tooltip("Columns on this level's board. 8 (the default) is the standard square board every " +
+            "level authored before board shapes existed uses.")]
+        [SerializeField] private int _boardWidth = Board.SIZE;
+
+        [Tooltip("Rows on this level's board. 8 (the default) is the standard square board.")]
+        [SerializeField] private int _boardHeight = Board.SIZE;
+
+        [Tooltip("Cells inside the board rectangle that are permanently unplayable. Empty (the " +
+            "default) means a plain rectangle with no holes.")]
+        [SerializeField] private List<BoardHoleCell> _boardHoles = new List<BoardHoleCell>();
+
         /// <summary>1-based level number; <see cref="LevelCatalog"/> looks levels up by this, not by index.</summary>
         public int LevelNumber => _levelNumber;
 
@@ -96,6 +108,34 @@ namespace MustyBlockBlast.Gameplay.Settings
         /// </para>
         /// </summary>
         public int CompletionScoreBonus => _completionScoreBonus;
+
+        /// <summary>
+        /// Builds this level's board outline. Returns the shared <see cref="BoardShape.Standard"/>
+        /// instance — never a fresh equivalent — whenever the authored fields describe the plain 8x8
+        /// square, so every level authored before this field existed keeps pointing at exactly the
+        /// shape the game has always used rather than an equal-but-different one.
+        /// <para>
+        /// Not yet read by <see cref="LevelCatalog"/> or <c>BoardSystem</c>: wiring a level's shape into
+        /// the board it runs on is a later sub-issue of the board-shapes epic. This lands the authoring
+        /// side so a level <em>can</em> be given a shape, with a default that changes nothing.
+        /// </para>
+        /// </summary>
+        public BoardShape ToBoardShape()
+        {
+            if (_boardWidth == Board.SIZE && _boardHeight == Board.SIZE
+                && (_boardHoles == null || _boardHoles.Count == 0))
+            {
+                return BoardShape.Standard;
+            }
+
+            var holes = new List<GridPosition>(_boardHoles.Count);
+            for (int i = 0; i < _boardHoles.Count; i++)
+            {
+                holes.Add(_boardHoles[i].ToGridPosition());
+            }
+
+            return new BoardShape(_boardWidth, _boardHeight, holes);
+        }
 
         /// <summary>
         /// Builds the immutable Core definition for this level. Throws the same way
@@ -155,10 +195,29 @@ namespace MustyBlockBlast.Gameplay.Settings
                 return false;
             }
 
-            if (_objectiveType == ObjectiveType.ClutchRecoveryClear
-                && (_requiredOccupancyThreshold <= 0 || _requiredOccupancyThreshold > Board.SIZE * Board.SIZE))
+            if (_boardWidth <= 0 || _boardHeight <= 0)
             {
-                error = $"ClutchRecoveryClear needs an occupancy threshold between 1 and {Board.SIZE * Board.SIZE}.";
+                error = "Board width and height must both be 1 or greater.";
+                return false;
+            }
+
+            for (int i = 0; i < _boardHoles.Count; i++)
+            {
+                GridPosition hole = _boardHoles[i].ToGridPosition();
+                if (hole.X < 0 || hole.X >= _boardWidth || hole.Y < 0 || hole.Y >= _boardHeight)
+                {
+                    error = $"Hole cell {hole} is outside this level's {_boardWidth}x{_boardHeight} board.";
+                    return false;
+                }
+            }
+
+            // Bounded by the cells a block could actually stand on, so a shaped board's threshold cannot
+            // be authored above an occupancy it can never reach. Identical to 64 on the standard board.
+            int playableCellCount = MaxPlayableCellCount();
+            if (_objectiveType == ObjectiveType.ClutchRecoveryClear
+                && (_requiredOccupancyThreshold <= 0 || _requiredOccupancyThreshold > playableCellCount))
+            {
+                error = $"ClutchRecoveryClear needs an occupancy threshold between 1 and {playableCellCount}.";
                 return false;
             }
 
@@ -196,6 +255,35 @@ namespace MustyBlockBlast.Gameplay.Settings
             return true;
         }
 
+        /// <summary>Playable cells on this level's board, counted from the authored fields without
+        /// building a <see cref="BoardShape"/> — validation runs on entries that may not yet be legal
+        /// enough to build one from. Duplicate hole entries are tolerated by de-duplicating on the
+        /// bounding rectangle, so a repeated cell cannot push the count negative.</summary>
+        private int MaxPlayableCellCount()
+        {
+            int holeCount = 0;
+            for (int i = 0; i < _boardHoles.Count; i++)
+            {
+                GridPosition hole = _boardHoles[i].ToGridPosition();
+                bool alreadyCounted = false;
+                for (int earlier = 0; earlier < i; earlier++)
+                {
+                    if (_boardHoles[earlier].ToGridPosition().Equals(hole))
+                    {
+                        alreadyCounted = true;
+                        break;
+                    }
+                }
+
+                if (!alreadyCounted)
+                {
+                    holeCount++;
+                }
+            }
+
+            return Mathf.Max(1, (_boardWidth * _boardHeight) - holeCount);
+        }
+
         private static bool PieceIdExistsInCatalog(string pieceId)
         {
             IReadOnlyList<Piece> allPieces = PieceCatalog.AllPieces;
@@ -222,7 +310,9 @@ namespace MustyBlockBlast.Gameplay.Settings
             _levelNumber = Mathf.Max(1, _levelNumber);
             _targetValue = Mathf.Max(1, _targetValue);
             _requiredLineCount = Mathf.Max(1, _requiredLineCount);
-            _requiredOccupancyThreshold = Mathf.Clamp(_requiredOccupancyThreshold, 1, Board.SIZE * Board.SIZE);
+            _boardWidth = Mathf.Max(1, _boardWidth);
+            _boardHeight = Mathf.Max(1, _boardHeight);
+            _requiredOccupancyThreshold = Mathf.Clamp(_requiredOccupancyThreshold, 1, MaxPlayableCellCount());
             _windowSeconds = Mathf.Max(1f, _windowSeconds);
             _completionScoreBonus = Mathf.Max(0, _completionScoreBonus);
         }

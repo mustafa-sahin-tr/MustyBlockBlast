@@ -16,8 +16,8 @@ namespace MustyBlockBlast.Core
     /// </para>
     /// <para>
     /// The cells of a line come from <see cref="Board.CollectRowCells"/>/<see cref="Board.CollectColumnCells"/>
-    /// rather than a <see cref="Board.SIZE"/> loop here, so line geometry stays defined in exactly one
-    /// place and a differently shaped board has one thing to change.
+    /// rather than a width/height loop here, so line geometry — including which cells of a line are
+    /// holes and therefore not there at all — stays defined in exactly one place.
     /// </para>
     /// <para>
     /// Fullness is irrelevant: a wipe clears every occupied cell of the line whether or not the line
@@ -51,8 +51,10 @@ namespace MustyBlockBlast.Core
         private readonly List<ClearAxis> _pendingAxes = new List<ClearAxis>(Board.SIZE * Board.SIZE);
 
         /// <summary>Which cells have already fired in the current chain, so a laser caught in the wipe
-        /// of a laser it itself caught cannot fire twice.</summary>
-        private readonly bool[] _fired = new bool[Board.SIZE * Board.SIZE];
+        /// of a laser it itself caught cannot fire twice. Indexed exactly as the board indexes its own
+        /// cells, and grown to fit a board bigger than the standard one the first time such a board is
+        /// seen — never per call, and never shrunk.</summary>
+        private bool[] _fired = new bool[Board.SIZE * Board.SIZE];
 
         /// <summary>Every cell this effect emptied since the last <see cref="BeginResolution"/>, in the
         /// order it emptied them. Only cells that actually held a block are listed: an already-empty
@@ -97,9 +99,14 @@ namespace MustyBlockBlast.Core
                 throw new ArgumentNullException(nameof(board));
             }
 
-            if (trigger.Kind != SpecialCellKind.Laser || !Board.IsInside(trigger.Position))
+            if (trigger.Kind != SpecialCellKind.Laser || !board.IsInside(trigger.Position))
             {
                 return;
+            }
+
+            if (_fired.Length < board.CellCount)
+            {
+                _fired = new bool[board.CellCount];
             }
 
             _pendingOrigins.Clear();
@@ -109,7 +116,7 @@ namespace MustyBlockBlast.Core
             // A cell that is already empty can never be wiped (only occupied cells are read), so marking
             // the trigger's own — already emptied — position costs nothing and keeps the guard uniform:
             // every origin in the queue was marked on the way in.
-            MarkFired(trigger.Position);
+            MarkFired(board, trigger.Position);
             _pendingOrigins.Add(trigger.Position);
             _pendingAxes.Add(trigger.Axis);
 
@@ -172,17 +179,17 @@ namespace MustyBlockBlast.Core
                 board.Clear(cell);
                 _wipedCells.Add(cell);
 
-                if (kind == SpecialCellKind.Laser && !IsFired(cell))
+                if (kind == SpecialCellKind.Laser && !IsFired(board, cell))
                 {
-                    MarkFired(cell);
+                    MarkFired(board, cell);
                     _pendingOrigins.Add(cell);
                     _pendingAxes.Add(destroyedBy);
                 }
             }
         }
 
-        private bool IsFired(GridPosition position) => _fired[(position.Y * Board.SIZE) + position.X];
+        private bool IsFired(Board board, GridPosition position) => _fired[board.Index(position)];
 
-        private void MarkFired(GridPosition position) => _fired[(position.Y * Board.SIZE) + position.X] = true;
+        private void MarkFired(Board board, GridPosition position) => _fired[board.Index(position)] = true;
     }
 }

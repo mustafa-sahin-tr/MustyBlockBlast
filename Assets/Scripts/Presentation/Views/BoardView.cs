@@ -63,27 +63,57 @@ namespace MustyBlockBlast.Presentation.Views
         /// </summary>
         private static readonly Color ScoreGemIconTint = new Color(0.44f, 1f, 0.72f, 1f);
 
+        /// <summary>
+        /// How far a hole cell's fill is pushed towards black relative to an empty cell's, and how far
+        /// its alpha is pulled down. Derived from the active theme rather than authored per theme, and
+        /// deliberately a placeholder: a hole is "not part of the board", and until it has real art it
+        /// reads as a recessed gap that no theme has to author a colour for and none can make look
+        /// mistakable for a cell a piece could be dropped on.
+        /// <para>
+        /// See the Developer Action Required note in this issue's report: replacing this with a proper
+        /// hole sprite is an Editor asset job an agent cannot do, and this keeps the code path complete
+        /// and testable until it is done.
+        /// </para>
+        /// </summary>
+        private const float HOLE_DARKEN = 0.62f;
+        private const float HOLE_ALPHA = 0.55f;
+
         private readonly GridPosition[] _previewCells = new GridPosition[16];
 
         // Its own claim set, kept apart from the drag preview's: the silhouette and a drag can be on
         // screen together, so neither may restore the other's cells.
         private readonly GridPosition[] _ghostFitCells = new GridPosition[16];
 
-        // A power-up never targets more than a full line or a 3x3 block, but the array is sized to
-        // the board so a future kind with a wider footprint cannot silently truncate its preview.
-        private readonly GridPosition[] _powerUpTargetCells = new GridPosition[Board.SIZE * Board.SIZE];
         private readonly CompositeDisposable _disposables = new CompositeDisposable();
 
-        private readonly bool[] _rowClearMask = new bool[Board.SIZE];
-        private readonly bool[] _columnClearMask = new bool[Board.SIZE];
+        // A power-up never targets more than a full line or a 3x3 block, but the array is sized to
+        // the board so a future kind with a wider footprint cannot silently truncate its preview.
+        // Allocated with the grid (see BuildCells), because the board's dimensions are not known until
+        // the model has been injected.
+        private GridPosition[] _powerUpTargetCells;
+
+        private bool[] _rowClearMask;
+        private bool[] _columnClearMask;
 
         // Which cells currently wear the would-clear outline, and the set being built for this
         // frame. Two fixed masks so the per-frame update is a diff against what is already on
         // screen: no allocation, and only the cells that actually changed are touched.
-        private readonly bool[] _highlightMask = new bool[Board.SIZE * Board.SIZE];
-        private readonly bool[] _pendingHighlightMask = new bool[Board.SIZE * Board.SIZE];
+        private bool[] _highlightMask;
+        private bool[] _pendingHighlightMask;
+
+        /// <summary>Which cells are holes, mirrored from the model's shape once at build time and
+        /// indexed like every other per-cell array. Mirrored rather than re-queried per repaint because
+        /// the shape cannot change while the grid it built exists, and a repaint touches every cell.</summary>
+        private bool[] _holeMask;
+
+        /// <summary>The board's dimensions, taken from the model. Default to the standard square only
+        /// so a grid built before injection has something to build; <see cref="EnsureBuilt"/> rebuilds
+        /// the grid if the model turns out to describe a different shape.</summary>
+        private int _width = Board.SIZE;
+        private int _height = Board.SIZE;
 
         private RectTransform _rectTransform;
+        private RectTransform _cardRoot;
         private Canvas _canvas;
         private CellView[] _cells;
         private Image _cardImage;
@@ -153,7 +183,44 @@ namespace MustyBlockBlast.Presentation.Views
             _rectTransform = (RectTransform)transform;
             _canvas = GetComponentInParent<Canvas>();
 
-            _gridExtent = (Board.SIZE * _cellSize) + ((Board.SIZE - 1) * _cellSpacing);
+            EnsureBuilt();
+        }
+
+        /// <summary>
+        /// Builds the card and the cell grid for the model's board shape, once.
+        /// <para>
+        /// Called from <c>Awake</c> and again from <c>Start</c> because injection order against
+        /// <c>Awake</c> is not guaranteed: the first call may have to fall back to the standard square,
+        /// and the second — which always has the model — rebuilds only if the real shape turns out to
+        /// differ. On the standard board the second call is a no-op, so nothing about the existing
+        /// build path changes.
+        /// </para>
+        /// </summary>
+        private void EnsureBuilt()
+        {
+            int width = _boardModel != null ? _boardModel.Width : Board.SIZE;
+            int height = _boardModel != null ? _boardModel.Height : Board.SIZE;
+
+            if (_cells != null && _width == width && _height == height)
+            {
+                return;
+            }
+
+            if (_cardRoot != null)
+            {
+                Destroy(_cardRoot.gameObject);
+                _cardRoot = null;
+            }
+
+            _width = width;
+            _height = height;
+
+            float gridWidth = (_width * _cellSize) + ((_width - 1) * _cellSpacing);
+            float gridHeight = (_height * _cellSize) + ((_height - 1) * _cellSpacing);
+
+            // One extent for both axes on a square board, which is every board today. A non-square one
+            // takes the larger, so the card still frames the whole grid.
+            _gridExtent = Mathf.Max(gridWidth, gridHeight);
             float cardExtent = _gridExtent + (_cardPadding * 2f);
 
             _rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
@@ -162,14 +229,14 @@ namespace MustyBlockBlast.Presentation.Views
             _rectTransform.sizeDelta = new Vector2(cardExtent, cardExtent);
             _rectTransform.anchoredPosition = _anchoredPosition;
 
-            RectTransform card = CellFactory.CreateCard(
+            _cardRoot = CellFactory.CreateCard(
                 _rectTransform,
                 "BoardCard",
                 new Vector2(cardExtent, cardExtent),
                 out _cardImage,
                 out _cardShadowImage);
 
-            BuildCells(BuildCellLayer(card));
+            BuildCells(BuildCellLayer(_cardRoot));
         }
 
         private void Start()
@@ -179,6 +246,10 @@ namespace MustyBlockBlast.Presentation.Views
                 Debug.LogError($"{nameof(BoardView)} was not injected. Is it registered in the LifetimeScope?", this);
                 return;
             }
+
+            // The model is guaranteed injected by now, so this adopts the real board shape if Awake
+            // had to guess at it.
+            EnsureBuilt();
 
             // Subscribed first so _currentTheme is set before anything below paints a cell.
             _settingsModel.CurrentTheme.Subscribe(OnThemeChanged).AddTo(_disposables);
@@ -243,8 +314,8 @@ namespace MustyBlockBlast.Presentation.Views
             float originX = local.x + halfExtent;
             float originY = local.y + halfExtent;
 
-            int x = Mathf.Clamp(Mathf.FloorToInt(originX / pitch), 0, Board.SIZE - 1);
-            int y = Mathf.Clamp(Mathf.FloorToInt(originY / pitch), 0, Board.SIZE - 1);
+            int x = Mathf.Clamp(Mathf.FloorToInt(originX / pitch), 0, _width - 1);
+            int y = Mathf.Clamp(Mathf.FloorToInt(originY / pitch), 0, _height - 1);
 
             cell = new GridPosition(x, y);
             return true;
@@ -268,7 +339,10 @@ namespace MustyBlockBlast.Presentation.Views
             for (int i = 0; i < piece.Offsets.Count && _previewCount < _previewCells.Length; i++)
             {
                 GridPosition cell = anchor + piece.Offsets[i];
-                if (!Board.IsInside(cell))
+
+                // A hole is refused here exactly as an off-board cell is, so no legality feedback can
+                // ever paint the valid-placement tint over one (AC4).
+                if (!IsPlayableCell(cell))
                 {
                     continue;
                 }
@@ -327,7 +401,7 @@ namespace MustyBlockBlast.Presentation.Views
             for (int i = 0; i < cells.Count && _powerUpTargetCount < _powerUpTargetCells.Length; i++)
             {
                 GridPosition cell = cells[i];
-                if (!Board.IsInside(cell))
+                if (!IsPlayableCell(cell))
                 {
                     continue;
                 }
@@ -383,7 +457,7 @@ namespace MustyBlockBlast.Presentation.Views
             for (int i = 0; i < piece.Offsets.Count && _ghostFitCount < _ghostFitCells.Length; i++)
             {
                 GridPosition cell = anchor + piece.Offsets[i];
-                if (!Board.IsInside(cell))
+                if (!IsPlayableCell(cell))
                 {
                     continue;
                 }
@@ -440,14 +514,20 @@ namespace MustyBlockBlast.Presentation.Views
                 for (int i = 0; i < rows.Count; i++)
                 {
                     int y = rows[i];
-                    if (y < 0 || y >= Board.SIZE)
+                    if (y < 0 || y >= _height)
                     {
                         continue;
                     }
 
-                    for (int x = 0; x < Board.SIZE; x++)
+                    for (int x = 0; x < _width; x++)
                     {
-                        _pendingHighlightMask[(y * Board.SIZE) + x] = true;
+                        int index = (y * _width) + x;
+                        if (_holeMask[index])
+                        {
+                            continue;
+                        }
+
+                        _pendingHighlightMask[index] = true;
                     }
                 }
             }
@@ -457,14 +537,20 @@ namespace MustyBlockBlast.Presentation.Views
                 for (int i = 0; i < columns.Count; i++)
                 {
                     int x = columns[i];
-                    if (x < 0 || x >= Board.SIZE)
+                    if (x < 0 || x >= _width)
                     {
                         continue;
                     }
 
-                    for (int y = 0; y < Board.SIZE; y++)
+                    for (int y = 0; y < _height; y++)
                     {
-                        _pendingHighlightMask[(y * Board.SIZE) + x] = true;
+                        int index = (y * _width) + x;
+                        if (_holeMask[index])
+                        {
+                            continue;
+                        }
+
+                        _pendingHighlightMask[index] = true;
                     }
                 }
             }
@@ -485,7 +571,33 @@ namespace MustyBlockBlast.Presentation.Views
             ApplyHighlightMask();
         }
 
-        private static int CellIndex(GridPosition cell) => (cell.Y * Board.SIZE) + cell.X;
+        private int CellIndex(GridPosition cell) => (cell.Y * _width) + cell.X;
+
+        /// <summary>True when <paramref name="cell"/> is on the board and not a hole — the one gate
+        /// every legality-feedback path (drag preview, ghost-fit silhouette, power-up target highlight)
+        /// passes through, so none of them can tint a cell a piece could never occupy.</summary>
+        private bool IsPlayableCell(GridPosition cell)
+        {
+            if (cell.X < 0 || cell.X >= _width || cell.Y < 0 || cell.Y >= _height)
+            {
+                return false;
+            }
+
+            return !_holeMask[(cell.Y * _width) + cell.X];
+        }
+
+        /// <summary>A hole's fill: the theme's empty-cell fill pushed towards black and made partly
+        /// transparent, so the card shows through and the cell reads as a gap in the board.</summary>
+        private static Color HoleFill(ThemeDefinition theme) => Recess(theme.EmptyCellFill);
+
+        private static Color HoleOutline(ThemeDefinition theme) => Recess(theme.EmptyCellOutline);
+
+        private static Color Recess(Color source)
+            => new Color(
+                source.r * HOLE_DARKEN,
+                source.g * HOLE_DARKEN,
+                source.b * HOLE_DARKEN,
+                source.a * HOLE_ALPHA);
 
         private static float EaseOutCubic(float t)
         {
@@ -510,8 +622,14 @@ namespace MustyBlockBlast.Presentation.Views
 
         private void BuildCells(RectTransform parent)
         {
-            int cellCount = Board.SIZE * Board.SIZE;
+            int cellCount = _width * _height;
             _cells = new CellView[cellCount];
+            _powerUpTargetCells = new GridPosition[cellCount];
+            _rowClearMask = new bool[_height];
+            _columnClearMask = new bool[_width];
+            _highlightMask = new bool[cellCount];
+            _pendingHighlightMask = new bool[cellCount];
+            _holeMask = new bool[cellCount];
             _cellColourIds = new int[cellCount];
             _cellGenerations = new int[cellCount];
             _pendingColourIds = new int[cellCount];
@@ -526,21 +644,26 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             float pitch = _cellSize + _cellSpacing;
-            float origin = (-_gridExtent * 0.5f) + (_cellSize * 0.5f);
+            float originX = (-((_width * _cellSize) + ((_width - 1) * _cellSpacing)) * 0.5f) + (_cellSize * 0.5f);
+            float originY = (-((_height * _cellSize) + ((_height - 1) * _cellSpacing)) * 0.5f) + (_cellSize * 0.5f);
 
-            for (int y = 0; y < Board.SIZE; y++)
+            for (int y = 0; y < _height; y++)
             {
-                for (int x = 0; x < Board.SIZE; x++)
+                for (int x = 0; x < _width; x++)
                 {
+                    var position = new GridPosition(x, y);
+                    int index = (y * _width) + x;
+                    _holeMask[index] = _boardModel != null && _boardModel.IsHole(position);
+
                     CellView cell = CellFactory.CreateCell(
                         parent, $"Cell_{x}_{y}", _cellSize, _cellInset, _cellBevelThickness);
                     var rect = (RectTransform)cell.transform;
-                    rect.anchoredPosition = new Vector2(origin + (x * pitch), origin + (y * pitch));
+                    rect.anchoredPosition = new Vector2(originX + (x * pitch), originY + (y * pitch));
 
                     // Cells are built in Awake, before the theme is known; the theme subscription in
                     // Start paints them (and repaints them on every later theme switch).
                     cell.SetColours(Color.clear, Color.clear);
-                    _cells[(y * Board.SIZE) + x] = cell;
+                    _cells[index] = cell;
                 }
             }
         }
@@ -554,9 +677,9 @@ namespace MustyBlockBlast.Presentation.Views
             _powerUpTargetCount = 0;
             _ghostFitCount = 0;
 
-            for (int y = 0; y < Board.SIZE; y++)
+            for (int y = 0; y < _height; y++)
             {
-                for (int x = 0; x < Board.SIZE; x++)
+                for (int x = 0; x < _width; x++)
                 {
                     var cell = new GridPosition(x, y);
                     int index = CellIndex(cell);
@@ -628,7 +751,7 @@ namespace MustyBlockBlast.Presentation.Views
             for (int i = 0; i < rows.Count; i++)
             {
                 int y = rows[i];
-                if (y >= 0 && y < Board.SIZE)
+                if (y >= 0 && y < _height)
                 {
                     _rowClearMask[y] = true;
                 }
@@ -638,15 +761,15 @@ namespace MustyBlockBlast.Presentation.Views
             for (int i = 0; i < columns.Count; i++)
             {
                 int x = columns[i];
-                if (x >= 0 && x < Board.SIZE)
+                if (x >= 0 && x < _width)
                 {
                     _columnClearMask[x] = true;
                 }
             }
 
-            for (int y = 0; y < Board.SIZE; y++)
+            for (int y = 0; y < _height; y++)
             {
-                for (int x = 0; x < Board.SIZE; x++)
+                for (int x = 0; x < _width; x++)
                 {
                     bool inRow = _rowClearMask[y];
                     bool inColumn = _columnClearMask[x];
@@ -655,7 +778,7 @@ namespace MustyBlockBlast.Presentation.Views
                         continue;
                     }
 
-                    int index = (y * Board.SIZE) + x;
+                    int index = (y * _width) + x;
                     if (!_cellPending[index] || _pendingGenerations[index] != _cellGenerations[index])
                     {
                         continue;
@@ -711,7 +834,7 @@ namespace MustyBlockBlast.Presentation.Views
                 // tick instead.
                 _cellGenerations[index]++;
 
-                var cell = new GridPosition(index % Board.SIZE, index / Board.SIZE);
+                var cell = new GridPosition(index % _width, index / _width);
                 PlayClearAsync(cell, index, _cellGenerations[index], false).Forget();
             }
         }
@@ -903,11 +1026,11 @@ namespace MustyBlockBlast.Presentation.Views
 
         private void RepaintCells()
         {
-            for (int y = 0; y < Board.SIZE; y++)
+            for (int y = 0; y < _height; y++)
             {
-                for (int x = 0; x < Board.SIZE; x++)
+                for (int x = 0; x < _width; x++)
                 {
-                    int index = (y * Board.SIZE) + x;
+                    int index = (y * _width) + x;
 
                     // A cell fading out from a line clear still shows its pre-clear colour; repaint
                     // that one instead of the (already empty) settled colour. The fade in flight
@@ -925,7 +1048,17 @@ namespace MustyBlockBlast.Presentation.Views
                 return;
             }
 
-            CellView view = _cells[CellIndex(cell)];
+            int index = CellIndex(cell);
+            CellView view = _cells[index];
+
+            // Checked before occupancy, and before the empty-cell look: a hole is never occupied, and
+            // drawing it like an empty cell would tell the player they could drop a piece there.
+            if (_holeMask[index])
+            {
+                view.SetColours(HoleFill(_currentTheme), HoleOutline(_currentTheme));
+                return;
+            }
+
             if (colourId == Board.EMPTY)
             {
                 view.SetColours(_currentTheme.EmptyCellFill, _currentTheme.EmptyCellOutline);

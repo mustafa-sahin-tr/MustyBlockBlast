@@ -69,7 +69,7 @@ namespace MustyBlockBlast.Core
                 scratchBoard.Occupy(anchor + piece.Offsets[i], PreviewColourId);
             }
 
-            for (int y = 0; y < Board.SIZE; y++)
+            for (int y = 0; y < scratchBoard.Height; y++)
             {
                 if (scratchBoard.IsRowFull(y))
                 {
@@ -77,7 +77,7 @@ namespace MustyBlockBlast.Core
                 }
             }
 
-            for (int x = 0; x < Board.SIZE; x++)
+            for (int x = 0; x < scratchBoard.Width; x++)
             {
                 if (scratchBoard.IsColumnFull(x))
                 {
@@ -85,9 +85,7 @@ namespace MustyBlockBlast.Core
                 }
             }
 
-            int clearedCellCount = (resultRows.Count * Board.SIZE)
-                + (resultColumns.Count * Board.SIZE)
-                - (resultRows.Count * resultColumns.Count);
+            int clearedCellCount = CountClearedCells(scratchBoard, resultRows, resultColumns);
 
             // Always 0: the previewed piece is stamped with the placeholder PreviewColourId rather than its
             // real colour, so per-line colour uniformity cannot be judged here. No UI surfaces it yet.
@@ -135,7 +133,7 @@ namespace MustyBlockBlast.Core
             var clearedRows = new List<int>();
             var clearedColumns = new List<int>();
 
-            for (int y = 0; y < Board.SIZE; y++)
+            for (int y = 0; y < board.Height; y++)
             {
                 if (board.IsRowFull(y))
                 {
@@ -143,7 +141,7 @@ namespace MustyBlockBlast.Core
                 }
             }
 
-            for (int x = 0; x < Board.SIZE; x++)
+            for (int x = 0; x < board.Width; x++)
             {
                 if (board.IsColumnFull(x))
                 {
@@ -151,9 +149,7 @@ namespace MustyBlockBlast.Core
                 }
             }
 
-            int clearedCellCount = (clearedRows.Count * Board.SIZE)
-                + (clearedColumns.Count * Board.SIZE)
-                - (clearedRows.Count * clearedColumns.Count);
+            int clearedCellCount = CountClearedCells(board, clearedRows, clearedColumns);
 
             // Must run before any clearing — once cleared, the colour data is gone.
             int monochromeLineCount = 0;
@@ -202,6 +198,45 @@ namespace MustyBlockBlast.Core
             }
 
             return new LineClearResult(clearedRows, clearedColumns, clearedCellCount, monochromeLineCount);
+        }
+
+        /// <summary>
+        /// How many distinct cells the given lines empty, counting each row/column intersection once.
+        /// <para>
+        /// Counted from the board's playable cells rather than from its width and height: a line
+        /// shortened by holes empties fewer cells than a full-width one, and the intersection of a
+        /// cleared row and a cleared column is only double-counted when that cell is itself playable.
+        /// On a hole-free board this is exactly the old
+        /// <c>(rows * SIZE) + (columns * SIZE) - (rows * columns)</c>.
+        /// </para>
+        /// </summary>
+        private static int CountClearedCells(
+            Board board, IReadOnlyList<int> clearedRows, IReadOnlyList<int> clearedColumns)
+        {
+            int count = 0;
+
+            for (int i = 0; i < clearedRows.Count; i++)
+            {
+                count += board.PlayableCountInRow(clearedRows[i]);
+            }
+
+            for (int i = 0; i < clearedColumns.Count; i++)
+            {
+                count += board.PlayableCountInColumn(clearedColumns[i]);
+            }
+
+            for (int rowIndex = 0; rowIndex < clearedRows.Count; rowIndex++)
+            {
+                for (int columnIndex = 0; columnIndex < clearedColumns.Count; columnIndex++)
+                {
+                    if (board.IsPlayable(new GridPosition(clearedColumns[columnIndex], clearedRows[rowIndex])))
+                    {
+                        count--;
+                    }
+                }
+            }
+
+            return count;
         }
 
         /// <summary>Fills <paramref name="results"/> with every distinct cell the given lines cover.
@@ -259,44 +294,74 @@ namespace MustyBlockBlast.Core
             return false;
         }
 
-        /// <summary>True when every cell of row <paramref name="y"/> holds the same non-empty colour.</summary>
+        /// <summary>True when every playable cell of row <paramref name="y"/> holds the same non-empty
+        /// colour. Holes carry no colour and are skipped rather than counted as a mismatch.</summary>
         private static bool IsRowMonochrome(Board board, int y)
         {
-            int firstColourId = board[new GridPosition(0, y)];
-            if (firstColourId == Board.EMPTY)
-            {
-                return false;
-            }
+            int firstColourId = Board.EMPTY;
 
-            for (int x = 1; x < Board.SIZE; x++)
+            for (int x = 0; x < board.Width; x++)
             {
-                if (board[new GridPosition(x, y)] != firstColourId)
+                var position = new GridPosition(x, y);
+                if (board.IsHole(position))
+                {
+                    continue;
+                }
+
+                int colourId = board[position];
+                if (colourId == Board.EMPTY)
+                {
+                    return false;
+                }
+
+                if (firstColourId == Board.EMPTY)
+                {
+                    firstColourId = colourId;
+                    continue;
+                }
+
+                if (colourId != firstColourId)
                 {
                     return false;
                 }
             }
 
-            return true;
+            return firstColourId != Board.EMPTY;
         }
 
-        /// <summary>True when every cell of column <paramref name="x"/> holds the same non-empty colour.</summary>
+        /// <summary>True when every playable cell of column <paramref name="x"/> holds the same
+        /// non-empty colour.</summary>
         private static bool IsColumnMonochrome(Board board, int x)
         {
-            int firstColourId = board[new GridPosition(x, 0)];
-            if (firstColourId == Board.EMPTY)
-            {
-                return false;
-            }
+            int firstColourId = Board.EMPTY;
 
-            for (int y = 1; y < Board.SIZE; y++)
+            for (int y = 0; y < board.Height; y++)
             {
-                if (board[new GridPosition(x, y)] != firstColourId)
+                var position = new GridPosition(x, y);
+                if (board.IsHole(position))
+                {
+                    continue;
+                }
+
+                int colourId = board[position];
+                if (colourId == Board.EMPTY)
+                {
+                    return false;
+                }
+
+                if (firstColourId == Board.EMPTY)
+                {
+                    firstColourId = colourId;
+                    continue;
+                }
+
+                if (colourId != firstColourId)
                 {
                     return false;
                 }
             }
 
-            return true;
+            return firstColourId != Board.EMPTY;
         }
 
         /// <summary>Empties row <paramref name="y"/>. Internal so <see cref="JokerFillResolver"/>
@@ -304,9 +369,15 @@ namespace MustyBlockBlast.Core
         /// carrying a second definition of "clear this line".</summary>
         internal static void ClearRow(Board board, int y)
         {
-            for (int x = 0; x < Board.SIZE; x++)
+            for (int x = 0; x < board.Width; x++)
             {
-                board.Clear(new GridPosition(x, y));
+                var position = new GridPosition(x, y);
+                if (board.IsHole(position))
+                {
+                    continue;
+                }
+
+                board.Clear(position);
             }
         }
 
@@ -314,9 +385,15 @@ namespace MustyBlockBlast.Core
         /// <see cref="ClearRow"/>.</summary>
         internal static void ClearColumn(Board board, int x)
         {
-            for (int y = 0; y < Board.SIZE; y++)
+            for (int y = 0; y < board.Height; y++)
             {
-                board.Clear(new GridPosition(x, y));
+                var position = new GridPosition(x, y);
+                if (board.IsHole(position))
+                {
+                    continue;
+                }
+
+                board.Clear(position);
             }
         }
     }

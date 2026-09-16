@@ -104,7 +104,9 @@ namespace MustyBlockBlast.Core
 
             // Occupancy is the legality rule, and it lives here rather than in the caller so the check
             // and the fill cannot drift apart: whatever decides a target is legal is what fills it.
-            if (!Board.IsInside(target) || board.IsOccupied(target))
+            // A hole is refused exactly as an off-board target is: a joker fills a cell a block could
+            // have been placed on, and nothing can ever stand on a hole.
+            if (!board.IsPlayable(target) || board.IsOccupied(target))
             {
                 return JokerFillResult.Rejected(target);
             }
@@ -127,28 +129,30 @@ namespace MustyBlockBlast.Core
             // Collected before anything is cleared: afterwards an emptied cell is indistinguishable
             // from one that was already empty. Every cell of a full line is occupied by definition, so
             // no occupancy filter is needed — only the intersection needs skipping.
-            var clearedCells = new List<GridPosition>(Board.SIZE * 2);
+            var clearedCells = new List<GridPosition>(board.Width + board.Height);
 
             if (clearedRows.Count > 0)
             {
-                for (int x = 0; x < Board.SIZE; x++)
-                {
-                    clearedCells.Add(new GridPosition(x, target.Y));
-                }
+                // Through the board's own line geometry, so holes are skipped in exactly one place.
+                board.CollectRowCells(target.Y, clearedCells);
             }
 
             if (clearedColumns.Count > 0)
             {
-                for (int y = 0; y < Board.SIZE; y++)
-                {
-                    // The intersection of the two cleared lines is the filled cell itself, and the row
-                    // pass above already listed it.
-                    if (clearedRows.Count > 0 && y == target.Y)
-                    {
-                        continue;
-                    }
+                int firstColumnCell = clearedCells.Count;
+                board.CollectColumnCells(target.X, clearedCells);
 
-                    clearedCells.Add(new GridPosition(target.X, y));
+                // The intersection of the two cleared lines is the filled cell itself, and the row
+                // pass above already listed it.
+                if (clearedRows.Count > 0)
+                {
+                    for (int i = clearedCells.Count - 1; i >= firstColumnCell; i--)
+                    {
+                        if (clearedCells[i].Y == target.Y)
+                        {
+                            clearedCells.RemoveAt(i);
+                        }
+                    }
                 }
             }
 
