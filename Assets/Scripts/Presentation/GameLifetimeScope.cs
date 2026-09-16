@@ -167,6 +167,7 @@ namespace MustyBlockBlast.Presentation
             builder.Register<BadgeModel>(Lifetime.Singleton);
             builder.Register<PendingScoreModel>(Lifetime.Singleton);
             builder.Register<ProfileModel>(Lifetime.Singleton);
+            builder.Register<LeaderboardModel>(Lifetime.Singleton);
         }
 
         /// <summary>
@@ -262,6 +263,12 @@ namespace MustyBlockBlast.Presentation
             // registered with the other score systems — this is only the backend it talks through.
             builder.Register<UnityLeaderboardsService>(Lifetime.Singleton).As<ILeaderboardsService>();
 
+            // The read half of the same backend. Not resolved eagerly: it subscribes to nothing and
+            // starts no work of its own, so the first open of the leaderboard card is exactly when it
+            // needs to exist. AsSelf because LeaderboardPanelView asks for the concrete system — there
+            // is no second implementation to hide behind an interface.
+            builder.Register<LeaderboardQuerySystem>(Lifetime.Singleton).AsSelf();
+
             // Owns the player's public identity and is the only writer of it, so it is bound next to the
             // auth service it publishes the name through. AsSelf because ProfilePanelView asks for the
             // concrete system — there is no second implementation to hide behind an interface.
@@ -317,6 +324,8 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterComponentInHierarchy<BadgesPanelView>();
             builder.RegisterComponentInHierarchy<ProfileButtonView>();
             builder.RegisterComponentInHierarchy<ProfilePanelView>();
+            builder.RegisterComponentInHierarchy<LeaderboardButtonView>();
+            builder.RegisterComponentInHierarchy<LeaderboardPanelView>();
             builder.RegisterComponentInHierarchy<PieceTrayView>();
             builder.RegisterComponentInHierarchy<HoldSlotView>();
             builder.RegisterComponentInHierarchy<ScoreView>();

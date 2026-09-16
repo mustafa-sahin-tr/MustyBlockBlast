@@ -17,8 +17,8 @@ namespace MustyBlockBlast.Presentation.Views
     /// and consequences are decided by the System.
     /// <para>
     /// A press is resolved by a single ordered gate chain, so exactly one claimant handles it: the
-    /// four modal overlays (settings, level path, badges, profile), game over, the settings icon, the
-    /// level path icon, the badges icon, the profile icon, a
+    /// five modal overlays (settings, level path, badges, profile, leaderboard), game over, the
+    /// settings icon, the level path icon, the badges icon, the profile icon, the leaderboard icon, a
     /// power-up inventory icon, an armed power-up being aimed at the board, and finally a tray piece
     /// being picked up. HUD icons are resolved
     /// here rather than by an EventSystem — this scene has none, and every UI Image in it has its
@@ -92,6 +92,8 @@ namespace MustyBlockBlast.Presentation.Views
         private BadgesPanelView _badgesPanelView;
         private ProfileButtonView _profileButtonView;
         private ProfilePanelView _profilePanelView;
+        private LeaderboardButtonView _leaderboardButtonView;
+        private LeaderboardPanelView _leaderboardPanelView;
         private GameOverView _gameOverView;
         private PowerUpInventoryView _powerUpInventoryView;
 
@@ -149,6 +151,8 @@ namespace MustyBlockBlast.Presentation.Views
             BadgesPanelView badgesPanelView,
             ProfileButtonView profileButtonView,
             ProfilePanelView profilePanelView,
+            LeaderboardButtonView leaderboardButtonView,
+            LeaderboardPanelView leaderboardPanelView,
             GameOverView gameOverView,
             PowerUpInventoryView powerUpInventoryView)
         {
@@ -170,6 +174,8 @@ namespace MustyBlockBlast.Presentation.Views
             _badgesPanelView = badgesPanelView;
             _profileButtonView = profileButtonView;
             _profilePanelView = profilePanelView;
+            _leaderboardButtonView = leaderboardButtonView;
+            _leaderboardPanelView = leaderboardPanelView;
             _gameOverView = gameOverView;
             _powerUpInventoryView = powerUpInventoryView;
         }
@@ -320,11 +326,11 @@ namespace MustyBlockBlast.Presentation.Views
         {
             Vector2 screenPosition = _pointerPositionAction.ReadValue<Vector2>();
 
-            // While any overlay is open it is modal and swallows every tap. These four gates are also
+            // While any overlay is open it is modal and swallows every tap. These five gates are also
             // what keeps the overlays mutually exclusive, and the argument scales with their number
             // rather than pairing them off: *every* "is a panel open, route the tap into it" gate sits
             // above *every* "tapped an icon, open that panel" gate, so an icon tap is only ever reached
-            // with all four panels closed. No panel can therefore stack on another, and the single
+            // with all five panels closed. No panel can therefore stack on another, and the single
             // TimerRunSystem menu-pause flag all four share can never be held by two owners at once.
             if (_settingsPanelView.IsOpen)
             {
@@ -347,6 +353,12 @@ namespace MustyBlockBlast.Presentation.Views
             if (_profilePanelView.IsOpen)
             {
                 _profilePanelView.HandleTap(screenPosition);
+                return;
+            }
+
+            if (_leaderboardPanelView.IsOpen)
+            {
+                _leaderboardPanelView.HandleTap(screenPosition);
                 return;
             }
 
@@ -387,6 +399,12 @@ namespace MustyBlockBlast.Presentation.Views
             if (_profileButtonView.ContainsScreenPoint(screenPosition))
             {
                 _profilePanelView.Open();
+                return;
+            }
+
+            if (_leaderboardButtonView.ContainsScreenPoint(screenPosition))
+            {
+                _leaderboardPanelView.Open();
                 return;
             }
 
