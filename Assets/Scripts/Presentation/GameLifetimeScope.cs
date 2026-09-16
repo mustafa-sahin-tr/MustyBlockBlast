@@ -165,6 +165,7 @@ namespace MustyBlockBlast.Presentation
             builder.Register<PathRunModel>(Lifetime.Singleton);
             builder.Register<BadgeStatsModel>(Lifetime.Singleton);
             builder.Register<BadgeModel>(Lifetime.Singleton);
+            builder.Register<PendingScoreModel>(Lifetime.Singleton);
         }
 
         /// <summary>
@@ -235,6 +236,11 @@ namespace MustyBlockBlast.Presentation
             builder.Register<ScoreSystem>(Lifetime.Singleton);
             builder.Register<TimedHighScoreSystem>(Lifetime.Singleton);
             builder.Register<LeaderboardSystem>(Lifetime.Singleton);
+
+            // Not resolved eagerly in the build callback on purpose: it is a constructor dependency of
+            // LeaderboardSystem, which is, so the container builds it — and with it restores and starts
+            // draining the previous session's backlog — before the first game over regardless.
+            builder.Register<PendingScoreQueueSystem>(Lifetime.Singleton);
             builder.Register<SfxSystem>(Lifetime.Singleton).As<ISfxService>().AsSelf();
             builder.Register<MusicSystem>(Lifetime.Singleton).As<IMusicService>().AsSelf();
             builder.Register<SettingsSystem>(Lifetime.Singleton);
@@ -254,6 +260,10 @@ namespace MustyBlockBlast.Presentation
             // Submission needs the identity above, so it is bound next to it. LeaderboardSystem is
             // registered with the other score systems — this is only the backend it talks through.
             builder.Register<UnityLeaderboardsService>(Lifetime.Singleton).As<ILeaderboardsService>();
+
+            // Decides whether a finished run's score is submitted now or banked for later, so it is
+            // bound next to the backend it guards.
+            builder.Register<UnityConnectivityService>(Lifetime.Singleton).As<IConnectivityService>();
 
             // Always-granting stub until a rewarded-ad SDK is wired up; swapping it is one line here.
             builder.Register<DeterministicRewardSource>(Lifetime.Singleton).As<IRewardSource>().AsSelf();
