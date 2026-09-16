@@ -35,7 +35,7 @@ namespace MustyBlockBlast.Tests.EditMode
             var model = new PendingScoreModel();
 
             using (var system = new PendingScoreQueueSystem(
-                model, leaderboards, new FakeAuthService(), connectivity))
+                model, leaderboards, new FakeAuthService(), connectivity, new ProfileModel()))
             {
                 system.Enqueue(GameMode.Endless, 1234);
             }
@@ -57,7 +57,8 @@ namespace MustyBlockBlast.Tests.EditMode
                 new PendingScoreModel(),
                 new FakeLeaderboardsService(),
                 new FakeAuthService(),
-                new FakeConnectivityService { IsOffline = true }))
+                new FakeConnectivityService { IsOffline = true },
+                new ProfileModel()))
             {
                 first.Enqueue(GameMode.Timed, 777);
             }
@@ -67,7 +68,8 @@ namespace MustyBlockBlast.Tests.EditMode
                 restoredModel,
                 new FakeLeaderboardsService(),
                 new FakeAuthService(),
-                new FakeConnectivityService { IsOffline = true }))
+                new FakeConnectivityService { IsOffline = true },
+                new ProfileModel()))
             {
                 Assert.AreEqual(1, restoredModel.Entries.Count);
                 Assert.AreEqual(GameMode.Timed, restoredModel.Entries[0].Mode);
@@ -83,7 +85,7 @@ namespace MustyBlockBlast.Tests.EditMode
             var model = new PendingScoreModel();
 
             using (var system = new PendingScoreQueueSystem(
-                model, leaderboards, new FakeAuthService(), connectivity))
+                model, leaderboards, new FakeAuthService(), connectivity, new ProfileModel()))
             {
                 system.Enqueue(GameMode.Endless, 42);
                 connectivity.IsOffline = false;
@@ -95,6 +97,11 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.AreEqual("endless_all_time", leaderboards.Submissions[0]);
             Assert.AreEqual("endless_weekly", leaderboards.Submissions[1]);
             Assert.IsEmpty(model.Entries);
+
+            // A queued score must land looking like one that went straight out, avatar included —
+            // otherwise a run finished on a plane ranks as a faceless row.
+            Assert.IsNotNull(leaderboards.LastMetadata);
+            Assert.IsTrue(leaderboards.LastMetadata.ContainsKey(LeaderboardMetadataKeys.AVATAR_ID));
         }
 
         [Test]
@@ -105,7 +112,7 @@ namespace MustyBlockBlast.Tests.EditMode
             var model = new PendingScoreModel();
 
             using (var system = new PendingScoreQueueSystem(
-                model, leaderboards, new FakeAuthService(), connectivity))
+                model, leaderboards, new FakeAuthService(), connectivity, new ProfileModel()))
             {
                 system.Enqueue(GameMode.Endless, 99);
                 connectivity.IsOffline = false;
@@ -127,7 +134,7 @@ namespace MustyBlockBlast.Tests.EditMode
             var model = new PendingScoreModel();
 
             using (var system = new PendingScoreQueueSystem(
-                model, leaderboards, new FakeAuthService(), connectivity))
+                model, leaderboards, new FakeAuthService(), connectivity, new ProfileModel()))
             {
                 system.Enqueue(GameMode.Endless, 5);
                 system.FlushAsync(CancellationToken.None).GetAwaiter().GetResult();
@@ -166,9 +173,17 @@ namespace MustyBlockBlast.Tests.EditMode
         {
             public List<string> Submissions { get; } = new List<string>();
 
+            /// <summary>Metadata of the most recent submission, so a test can assert a queued score is
+            /// filed with the same avatar a live one would be.</summary>
+            public IReadOnlyDictionary<string, string> LastMetadata { get; private set; }
+
             public bool ShouldFail { get; set; }
 
-            public UniTask AddPlayerScoreAsync(string leaderboardId, int score, CancellationToken cancellationToken)
+            public UniTask AddPlayerScoreAsync(
+                string leaderboardId,
+                int score,
+                IReadOnlyDictionary<string, string> metadata,
+                CancellationToken cancellationToken)
             {
                 if (ShouldFail)
                 {
@@ -176,7 +191,18 @@ namespace MustyBlockBlast.Tests.EditMode
                 }
 
                 Submissions.Add(leaderboardId);
+                LastMetadata = metadata;
                 return UniTask.CompletedTask;
+            }
+
+            public UniTask<IReadOnlyList<LeaderboardEntryData>> GetScoresAsync(
+                string leaderboardId,
+                int limit,
+                CancellationToken cancellationToken)
+            {
+                // The queue never reads a board — it only files what it banked.
+                return UniTask.FromResult<IReadOnlyList<LeaderboardEntryData>>(
+                    Array.Empty<LeaderboardEntryData>());
             }
         }
     }

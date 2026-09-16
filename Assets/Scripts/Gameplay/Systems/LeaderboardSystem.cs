@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Globalization;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using MessagePipe;
@@ -36,7 +38,14 @@ namespace MustyBlockBlast.Gameplay.Systems
         private readonly PendingScoreQueueSystem _pendingScoreQueueSystem;
         private readonly ScoreModel _scoreModel;
         private readonly GameModeSystem _gameModeSystem;
+        private readonly ProfileModel _profileModel;
         private readonly IDisposable _subscriptions;
+
+        /// <summary>
+        /// Reused metadata map, rewritten per submission. One dictionary for the life of the system
+        /// rather than one per game over, because the keys never change — only the values do.
+        /// </summary>
+        private readonly Dictionary<string, string> _metadata = new Dictionary<string, string>(1);
 
         /// <summary>
         /// Cancels submissions still in flight when the scope goes away, so an await never resumes into
@@ -51,6 +60,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             PendingScoreQueueSystem pendingScoreQueueSystem,
             ScoreModel scoreModel,
             GameModeSystem gameModeSystem,
+            ProfileModel profileModel,
             ISubscriber<GameOverMessage> gameOverSubscriber)
         {
             _leaderboardsService = leaderboardsService;
@@ -59,6 +69,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             _pendingScoreQueueSystem = pendingScoreQueueSystem;
             _scoreModel = scoreModel;
             _gameModeSystem = gameModeSystem;
+            _profileModel = profileModel;
 
             DisposableBagBuilder bag = DisposableBag.CreateBuilder();
             gameOverSubscriber.Subscribe(OnGameOver).AddTo(bag);
@@ -110,11 +121,15 @@ namespace MustyBlockBlast.Gameplay.Systems
 
             try
             {
+                // Built once for both boards: the same run by the same player, so an entry that differed
+                // between the two would be two identities for one person.
+                IReadOnlyDictionary<string, string> metadata = BuildMetadata();
+
                 // In parallel: the two boards are independent, and a game-over card should not wait out
                 // two sequential round trips.
                 await UniTask.WhenAll(
-                    _leaderboardsService.AddPlayerScoreAsync(boards.AllTimeId, score, _cts.Token),
-                    _leaderboardsService.AddPlayerScoreAsync(boards.WeeklyId, score, _cts.Token));
+                    _leaderboardsService.AddPlayerScoreAsync(boards.AllTimeId, score, metadata, _cts.Token),
+                    _leaderboardsService.AddPlayerScoreAsync(boards.WeeklyId, score, metadata, _cts.Token));
             }
             catch (OperationCanceledException)
             {
@@ -124,6 +139,25 @@ namespace MustyBlockBlast.Gameplay.Systems
             {
                 Debug.LogError($"Leaderboard submission failed for {mode}: {exception.Message}");
             }
+        }
+
+        /// <summary>
+        /// Everything a rendered row needs that the backend does not already know. The player's name is
+        /// deliberately absent: it is published to the identity service by <see cref="ProfileSystem"/>
+        /// and comes back on the entry itself, so carrying a second copy here would let a renamed player
+        /// show two different names on two boards.
+        /// <para>
+        /// Read at submission time rather than cached, so a player who changes avatar between runs is
+        /// filed under the one they are wearing now.
+        /// </para>
+        /// </summary>
+        private IReadOnlyDictionary<string, string> BuildMetadata()
+        {
+            // Invariant culture so a device locale cannot change the digits another player's client
+            // parses back — see UnityLeaderboardsService's reader, which parses with the same culture.
+            _metadata[LeaderboardMetadataKeys.AVATAR_ID] =
+                _profileModel.AvatarId.Value.ToString(CultureInfo.InvariantCulture);
+            return _metadata;
         }
 
         private void OnGameOver(GameOverMessage message)

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Text;
 using System.Threading;
 using Cysharp.Threading.Tasks;
@@ -47,6 +48,14 @@ namespace MustyBlockBlast.Gameplay.Systems
         private readonly ILeaderboardsService _leaderboardsService;
         private readonly IAuthService _authService;
         private readonly IConnectivityService _connectivityService;
+        private readonly ProfileModel _profileModel;
+
+        /// <summary>
+        /// Reused metadata map, rewritten per submission — the same shape
+        /// <see cref="LeaderboardSystem"/> builds, because a queued score must land looking exactly like
+        /// one that went straight out.
+        /// </summary>
+        private readonly Dictionary<string, string> _metadata = new Dictionary<string, string>(1);
 
         /// <summary>
         /// Cancels the retry loop and any submission still in flight when the scope goes away, so an
@@ -68,12 +77,14 @@ namespace MustyBlockBlast.Gameplay.Systems
             PendingScoreModel pendingScoreModel,
             ILeaderboardsService leaderboardsService,
             IAuthService authService,
-            IConnectivityService connectivityService)
+            IConnectivityService connectivityService,
+            ProfileModel profileModel)
         {
             _pendingScoreModel = pendingScoreModel;
             _leaderboardsService = leaderboardsService;
             _authService = authService;
             _connectivityService = connectivityService;
+            _profileModel = profileModel;
 
             _saveData = Load();
             _pendingScoreModel.ReplaceAll(ToEntries(_saveData));
@@ -138,6 +149,11 @@ namespace MustyBlockBlast.Gameplay.Systems
 
             bool anyRemoved = false;
 
+            // Built once for the whole drain: every entry is this player's, and the avatar they are
+            // wearing now is the one the entries should carry — a score banked weeks ago is still filed
+            // by the player standing here today.
+            IReadOnlyDictionary<string, string> metadata = BuildMetadata();
+
             for (int bufferIndex = 0; bufferIndex < _flushBuffer.Count; bufferIndex++)
             {
                 PendingScoreEntry entry = _flushBuffer[bufferIndex];
@@ -154,8 +170,10 @@ namespace MustyBlockBlast.Gameplay.Systems
                 {
                     // In parallel, exactly as LeaderboardSystem submits: the two boards are independent.
                     await UniTask.WhenAll(
-                        _leaderboardsService.AddPlayerScoreAsync(boards.AllTimeId, entry.Score, cancellationToken),
-                        _leaderboardsService.AddPlayerScoreAsync(boards.WeeklyId, entry.Score, cancellationToken));
+                        _leaderboardsService.AddPlayerScoreAsync(
+                            boards.AllTimeId, entry.Score, metadata, cancellationToken),
+                        _leaderboardsService.AddPlayerScoreAsync(
+                            boards.WeeklyId, entry.Score, metadata, cancellationToken));
 
                     anyRemoved |= TryRemove(entry);
                 }
@@ -186,6 +204,20 @@ namespace MustyBlockBlast.Gameplay.Systems
             {
                 Save();
             }
+        }
+
+        /// <summary>
+        /// The metadata a queued entry is filed with — the same map, built the same way, that
+        /// <c>LeaderboardSystem.BuildMetadata</c> attaches to a live submission. Duplicated
+        /// rather than shared because the two systems own their own reused dictionaries, and the one
+        /// thing that must not drift — the key — is stated once in
+        /// <see cref="LeaderboardMetadataKeys"/>.
+        /// </summary>
+        private IReadOnlyDictionary<string, string> BuildMetadata()
+        {
+            _metadata[LeaderboardMetadataKeys.AVATAR_ID] =
+                _profileModel.AvatarId.Value.ToString(CultureInfo.InvariantCulture);
+            return _metadata;
         }
 
         /// <summary>
