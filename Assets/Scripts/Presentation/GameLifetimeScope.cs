@@ -37,6 +37,10 @@ namespace MustyBlockBlast.Presentation
         [Tooltip("Coin price of each power-up kind. Required — without it the shop has nothing to charge.")]
         [SerializeField] private PowerUpPriceConfig _powerUpPriceConfig;
 
+        [Tooltip("Coin bundles buyable with real money, and what each pays. Required — without it the "
+            + "storefront has nothing to sell and no purchase can be priced.")]
+        [SerializeField] private CoinBundleConfig _coinBundleConfig;
+
         protected override void Configure(IContainerBuilder builder)
         {
             RegisterMessaging(builder);
@@ -155,6 +159,7 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterMessageBroker<ScoreConvertedToCoinsMessage>(options);
             builder.RegisterMessageBroker<CoinsGrantedFromAdMessage>(options);
             builder.RegisterMessageBroker<CoinCellsClearedMessage>(options);
+            builder.RegisterMessageBroker<CoinsGrantedFromPurchaseMessage>(options);
         }
 
         // Instance method: the theme list and the timed-mode config are scene-configured on this
@@ -168,6 +173,7 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterInstance(ResolveBadgeCatalog());
             builder.RegisterInstance(ResolveCurrencyConfig());
             builder.RegisterInstance(ResolvePowerUpPriceConfig());
+            builder.RegisterInstance(ResolveCoinBundleConfig());
 
             // Languages come from the project's Locale assets rather than a scene field: a new
             // language is a Locale asset plus a String Table column, with no scene edit.
@@ -233,6 +239,25 @@ namespace MustyBlockBlast.Presentation
                 $"{nameof(GameLifetimeScope)} has no {nameof(PowerUpPriceConfig)} assigned. " +
                 "The power-up shop is falling back to the built-in default prices.", this);
             return ScriptableObject.CreateInstance<PowerUpPriceConfig>();
+        }
+
+        /// <summary>
+        /// Same defensive shape as <see cref="ResolvePowerUpPriceConfig"/>: a default-valued instance
+        /// boots the scene on the built-in placeholder line-up — which describes four sellable bundles,
+        /// so the storefront still works — and one readable error, which beats an opaque container
+        /// failure deep inside a null instance registration.
+        /// </summary>
+        private CoinBundleConfig ResolveCoinBundleConfig()
+        {
+            if (_coinBundleConfig != null)
+            {
+                return _coinBundleConfig;
+            }
+
+            Debug.LogError(
+                $"{nameof(GameLifetimeScope)} has no {nameof(CoinBundleConfig)} assigned. " +
+                "Coin bundle purchases are falling back to the built-in placeholder line-up.", this);
+            return ScriptableObject.CreateInstance<CoinBundleConfig>();
         }
 
         /// <summary>
@@ -356,6 +381,18 @@ namespace MustyBlockBlast.Presentation
             // a power-up are different offers with different outcomes, so they get different interfaces.
             builder.Register<DeterministicCoinRewardSource>(Lifetime.Singleton)
                 .As<ICoinRewardSource>().AsSelf();
+
+            // The real-money half, and the one binding here that is not a stub: this is the actual
+            // Unity IAP integration, and the only type in the project that touches that SDK.
+            builder.Register<UnityCoinPurchaseService>(Lifetime.Singleton).As<ICoinPurchaseService>();
+
+            // DO NOT SHIP THIS BINDING. It approves every receipt on the device's word alone — see the
+            // class doc. It is registered because no validation backend exists yet, on the same
+            // explicit-placeholder footing as the two ad stubs above, and swapping it for a real
+            // server-backed validator is this one line. Until that line changes, no real money should
+            // be taken from a real player.
+            builder.Register<DeterministicPurchaseReceiptValidator>(Lifetime.Singleton)
+                .As<IPurchaseReceiptValidator>().AsSelf();
 
             // Before PowerUpSystem only for readability — PowerUpSystem takes it as a constructor
             // dependency, so the container orders the two itself.

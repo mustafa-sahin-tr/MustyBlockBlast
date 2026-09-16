@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5ee4491cae53341bdbddd922216dffd2, type: 3}
+  m_Name: CoinBundleConfig
+  m_EditorClassIdentifier: MustyBlockBlast.Gameplay::MustyBlockBlast.Gameplay.Settings.CoinBundleConfig
+  _bundles:
+  - _sku: coins_small
+    _displayName: Handful of Coins
+    _coinAmount: 500
+  - _sku: coins_medium
+    _displayName: Bag of Coins
+    _coinAmount: 1200
+  - _sku: coins_large
+    _displayName: Chest of Coins
+    _coinAmount: 2800
+  - _sku: coins_xl
+    _displayName: Vault of Coins
+    _coinAmount: 6000
