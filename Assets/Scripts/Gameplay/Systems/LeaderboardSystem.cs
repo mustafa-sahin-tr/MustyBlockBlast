@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using MessagePipe;
@@ -19,6 +18,11 @@ namespace MustyBlockBlast.Gameplay.Systems
     /// truth that could disagree with the server after a reinstall or a device swap.
     /// </para>
     /// <para>
+    /// A run that ends with no connection is not dropped: the score goes to
+    /// <see cref="PendingScoreQueueSystem"/>, which persists it and files it once the backend is
+    /// reachable again. A leaderboard being unreachable must never cost the player a score they earned.
+    /// </para>
+    /// <para>
     /// Subscribes in its constructor like <see cref="TimedHighScoreSystem"/>, so it must be resolved
     /// eagerly by the LifetimeScope rather than waiting for a first lazy resolve that may never come
     /// before the first game over.
@@ -26,22 +30,10 @@ namespace MustyBlockBlast.Gameplay.Systems
     /// </summary>
     public sealed class LeaderboardSystem : IDisposable
     {
-        /// <summary>
-        /// Board ids per mode, exactly as configured on the UGS Dashboard. Absence is meaningful:
-        /// <see cref="GameMode.Path"/> has no entry because a path run is bound to one authored level, so
-        /// its score measures the level rather than the player and ranking it against other players'
-        /// runs would compare unlike things. Any mode added later is likewise a no-op until it is
-        /// deliberately given boards here.
-        /// </summary>
-        private static readonly Dictionary<GameMode, (string AllTimeId, string WeeklyId)> BoardIds =
-            new Dictionary<GameMode, (string AllTimeId, string WeeklyId)>
-            {
-                { GameMode.Endless, ("endless_all_time", "endless_weekly") },
-                { GameMode.Timed, ("timed_all_time", "timed_weekly") },
-            };
-
         private readonly ILeaderboardsService _leaderboardsService;
         private readonly IAuthService _authService;
+        private readonly IConnectivityService _connectivityService;
+        private readonly PendingScoreQueueSystem _pendingScoreQueueSystem;
         private readonly ScoreModel _scoreModel;
         private readonly GameModeSystem _gameModeSystem;
         private readonly IDisposable _subscriptions;
@@ -55,12 +47,16 @@ namespace MustyBlockBlast.Gameplay.Systems
         public LeaderboardSystem(
             ILeaderboardsService leaderboardsService,
             IAuthService authService,
+            IConnectivityService connectivityService,
+            PendingScoreQueueSystem pendingScoreQueueSystem,
             ScoreModel scoreModel,
             GameModeSystem gameModeSystem,
             ISubscriber<GameOverMessage> gameOverSubscriber)
         {
             _leaderboardsService = leaderboardsService;
             _authService = authService;
+            _connectivityService = connectivityService;
+            _pendingScoreQueueSystem = pendingScoreQueueSystem;
             _scoreModel = scoreModel;
             _gameModeSystem = gameModeSystem;
 
@@ -89,7 +85,7 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// </summary>
         public async UniTask SendScore(GameMode mode, int score)
         {
-            if (!BoardIds.TryGetValue(mode, out (string AllTimeId, string WeeklyId) boards))
+            if (!LeaderboardBoardIds.TryGetBoards(mode, out (string AllTimeId, string WeeklyId) boards))
             {
                 return;
             }
@@ -100,6 +96,15 @@ namespace MustyBlockBlast.Gameplay.Systems
             // optional.
             if (!_authService.IsSignedIn)
             {
+                return;
+            }
+
+            // Bank it instead of attempting a submission that cannot succeed. Deliberately before the
+            // try rather than inside it: a known-offline device would otherwise spend a round trip to
+            // fail, and the queue drains itself as soon as the connection is back.
+            if (_connectivityService.IsOffline)
+            {
+                _pendingScoreQueueSystem.Enqueue(mode, score);
                 return;
             }
 
