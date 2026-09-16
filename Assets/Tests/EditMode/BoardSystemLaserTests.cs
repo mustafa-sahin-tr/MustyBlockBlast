@@ -43,6 +43,7 @@ namespace MustyBlockBlast.Tests.EditMode
                 _laserFiredBroker,
                 new TestMessageBroker<PiercingRocketFiredMessage>(),
                 new TestMessageBroker<VortexPulledMessage>(),
+                new TestMessageBroker<ChainLightningTriggeredMessage>(),
                 seed: 1);
 
             _trayModel.SetSlot(0, Single, 1);

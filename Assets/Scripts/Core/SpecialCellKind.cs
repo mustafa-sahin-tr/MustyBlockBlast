@@ -58,5 +58,18 @@ namespace MustyBlockBlast.Core
         /// clears it through the ordinary cascade, not through the effect.
         /// </summary>
         Vortex = 4,
+
+        /// <summary>
+        /// A "chain lightning": destroying it arcs to up to
+        /// <see cref="ChainLightningEffect.MAX_TARGETS_PER_STRIKE"/> occupied cells drawn at random from
+        /// anywhere on the board — never a neighbourhood, never a line — and vaporizes them where they
+        /// stand. The one kind whose footprint cannot be read off the board before it fires: every
+        /// other kind's is geometry, and this one's is a sample, bounded by however many cells are
+        /// actually occupied. A second chain lightning caught in a strike fires in turn; see
+        /// <see cref="ChainLightningEffect"/>, which owns that chain. Earned by the one move that is
+        /// hard to make on a crowded board — landing a 3x3 square or a 1x5 bar that also clears a line
+        /// (see <see cref="ChainLightningSpawnSelector"/>).
+        /// </summary>
+        ChainLightning = 5,
     }
 }

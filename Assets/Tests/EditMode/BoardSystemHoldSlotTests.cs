@@ -58,7 +58,8 @@ namespace MustyBlockBlast.Tests.EditMode
                 new TestMessageBroker<ExplosiveCoreDetonatedMessage>(),
                 new TestMessageBroker<LaserFiredMessage>(),
                 new TestMessageBroker<PiercingRocketFiredMessage>(),
-                new TestMessageBroker<VortexPulledMessage>());
+                new TestMessageBroker<VortexPulledMessage>(),
+                new TestMessageBroker<ChainLightningTriggeredMessage>());
         }
 
         // --- AC1: parking into an empty pocket ---
