@@ -24,6 +24,13 @@ namespace MustyBlockBlast.Presentation.Views
 
         private const int STARBURST_SIZE = 128;
 
+        private const int REFRESH_ICON_SIZE = 128;
+
+        /// <summary>Angle range (degrees, measured from the +x axis) left unringed on
+        /// <see cref="RefreshIcon"/> for its arrowhead.</summary>
+        private const float REFRESH_ICON_GAP_START_DEG = -35f;
+        private const float REFRESH_ICON_GAP_END_DEG = 35f;
+
         /// <summary>Side of one glyph cell on the dock-icon sheet (see <see cref="RocketIcon"/>).</summary>
         private const int DOCK_ICON_SIZE = 128;
 
@@ -45,6 +52,7 @@ namespace MustyBlockBlast.Presentation.Views
         private static Sprite _starburst;
         private static Sprite _rocketIcon;
         private static Sprite _hammerIcon;
+        private static Sprite _refreshIcon;
 
         /// <summary>9-sliced rounded square, white. Tint via <see cref="UnityEngine.UI.Image.color"/>.</summary>
         internal static Sprite RoundedSquare
@@ -162,6 +170,24 @@ namespace MustyBlockBlast.Presentation.Views
             {
                 EnsureDockIcons();
                 return _hammerIcon;
+            }
+        }
+
+        /// <summary>
+        /// An open ring with an arrowhead at one end, chasing its own tail — the "restart" mark the
+        /// Path-mode game-over card wears on its "Play Again" button. Tint via Image.color and use
+        /// <c>Image.Type.Simple</c> — it must not be sliced.
+        /// </summary>
+        internal static Sprite RefreshIcon
+        {
+            get
+            {
+                if (_refreshIcon == null)
+                {
+                    _refreshIcon = CreateRefreshIcon(REFRESH_ICON_SIZE);
+                }
+
+                return _refreshIcon;
             }
         }
 
@@ -358,6 +384,84 @@ namespace MustyBlockBlast.Presentation.Views
             Sprite sprite = Sprite.Create(
                 texture, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect);
             sprite.name = "MustyBlockBlast_StarburstSprite";
+            sprite.hideFlags = HideFlags.HideAndDontSave;
+            return sprite;
+        }
+
+        /// <summary>
+        /// Draws the ring first (a radial in/out coverage test with a wedge of degrees left empty for
+        /// the arrowhead), then the arrowhead as a triangle rooted where the ring resumes and pointing
+        /// tangentially back into the gap — the same "chasing its tail" shape every refresh glyph uses.
+        /// </summary>
+        private static Sprite CreateRefreshIcon(int size)
+        {
+            var texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
+            {
+                name = "MustyBlockBlast_Refresh",
+                wrapMode = TextureWrapMode.Clamp,
+                filterMode = FilterMode.Bilinear,
+                hideFlags = HideFlags.HideAndDontSave,
+            };
+
+            var pixels = new Color32[size * size];
+            float centre = size * 0.5f;
+            float outerRadius = centre * 0.72f;
+            float thickness = size * 0.16f;
+            float innerRadius = outerRadius - thickness;
+
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float pixelX = x + 0.5f;
+                    float pixelY = y + 0.5f;
+                    float dx = pixelX - centre;
+                    float dy = pixelY - centre;
+                    float distance = Mathf.Sqrt((dx * dx) + (dy * dy));
+
+                    float radialCoverage =
+                        Mathf.Clamp01(Mathf.Min(distance - innerRadius, outerRadius - distance) + 0.5f);
+
+                    float angleDeg = Mathf.Atan2(dy, dx) * Mathf.Rad2Deg;
+                    bool inGap = angleDeg > REFRESH_ICON_GAP_START_DEG && angleDeg < REFRESH_ICON_GAP_END_DEG;
+
+                    WritePixel(pixels, size, x, y, inGap ? 0f : radialCoverage);
+                }
+            }
+
+            // The arrowhead sits at the ring's edge where the gap ends, its base along the radial
+            // direction there and its tip extending tangentially back into the gap.
+            float midRadius = (innerRadius + outerRadius) * 0.5f;
+            float edgeAngleRad = REFRESH_ICON_GAP_END_DEG * Mathf.Deg2Rad;
+            var edgePoint = new Vector2(
+                centre + (midRadius * Mathf.Cos(edgeAngleRad)), centre + (midRadius * Mathf.Sin(edgeAngleRad)));
+            var radialDirection = new Vector2(Mathf.Cos(edgeAngleRad), Mathf.Sin(edgeAngleRad));
+            var tangentDirection = new Vector2(-Mathf.Sin(edgeAngleRad), Mathf.Cos(edgeAngleRad));
+
+            float arrowLength = thickness * 2f;
+            float arrowHalfWidth = thickness * 1.15f;
+            Vector2 tip = edgePoint - (tangentDirection * arrowLength);
+            Vector2 baseA = edgePoint + (radialDirection * arrowHalfWidth);
+            Vector2 baseB = edgePoint - (radialDirection * arrowHalfWidth);
+
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float pixelX = x + 0.5f;
+                    float pixelY = y + 0.5f;
+                    float alpha = TriangleCoverage(
+                        pixelX, pixelY, baseA.x, baseA.y, baseB.x, baseB.y, tip.x, tip.y);
+                    WritePixel(pixels, size, x, y, alpha);
+                }
+            }
+
+            texture.SetPixels32(pixels);
+            texture.Apply(false, true);
+
+            Sprite sprite = Sprite.Create(
+                texture, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect);
+            sprite.name = "MustyBlockBlast_RefreshIconSprite";
             sprite.hideFlags = HideFlags.HideAndDontSave;
             return sprite;
         }

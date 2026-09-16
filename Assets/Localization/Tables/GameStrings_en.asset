@@ -255,7 +255,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 781257783894016
-    m_Localized: Level complete!
+    m_Localized: Level {0} Complete!
     m_Metadata:
       m_Items: []
   - m_Id: 781257951666176
