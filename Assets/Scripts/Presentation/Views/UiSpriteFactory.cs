@@ -21,10 +21,21 @@ namespace MustyBlockBlast.Presentation.Views
         private const int TRIANGLE_SIZE = 128;
         private const int TRIANGLE_RADIUS = 6;
 
+        private const int STARBURST_SIZE = 128;
+
+        /// <summary>Spikes on <see cref="Starburst"/>. Six reads as a spark rather than as a snowflake
+        /// (eight) or an arrow cluster (four) at the size a board cell draws it.</summary>
+        private const int STARBURST_POINTS = 6;
+
+        /// <summary>Radius of the starburst between its spikes, as a fraction of the spike radius. A
+        /// fat enough waist that the shape keeps a solid core instead of reading as loose rays.</summary>
+        private const float STARBURST_INNER_RADIUS = 0.42f;
+
         private static Sprite _roundedSquare;
         private static Sprite _radialGlow;
         private static Sprite _triangleFacet;
         private static Sprite _circle;
+        private static Sprite _starburst;
 
         /// <summary>9-sliced rounded square, white. Tint via <see cref="UnityEngine.UI.Image.color"/>.</summary>
         internal static Sprite RoundedSquare
@@ -89,6 +100,25 @@ namespace MustyBlockBlast.Presentation.Views
                 }
 
                 return _circle;
+            }
+        }
+
+        /// <summary>
+        /// Six-pointed starburst, white, centred in the texture — the "explosive core" icon a special
+        /// board cell wears. One shared instance like every other sprite here, so an icon on any number
+        /// of cells still batches with the rest of the board. Tint via Image.color and use
+        /// <c>Image.Type.Simple</c> — it must not be sliced.
+        /// </summary>
+        internal static Sprite Starburst
+        {
+            get
+            {
+                if (_starburst == null)
+                {
+                    _starburst = CreateStarburst(STARBURST_SIZE, STARBURST_POINTS, STARBURST_INNER_RADIUS);
+                }
+
+                return _starburst;
             }
         }
 
@@ -234,6 +264,57 @@ namespace MustyBlockBlast.Presentation.Views
             Sprite sprite = Sprite.Create(
                 texture, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect);
             sprite.name = "MustyBlockBlast_CircleSprite";
+            sprite.hideFlags = HideFlags.HideAndDontSave;
+            return sprite;
+        }
+
+        /// <summary>
+        /// Draws a star whose radius sweeps between <paramref name="innerRadius"/> and the full radius
+        /// <paramref name="points"/> times around the circle, so the spikes and the waist between them
+        /// come from one continuous formula rather than from polygon edges — which keeps every spike
+        /// identical and the anti-aliasing uniform all the way round.
+        /// </summary>
+        private static Sprite CreateStarburst(int size, int points, float innerRadius)
+        {
+            var texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
+            {
+                name = "MustyBlockBlast_Starburst",
+                wrapMode = TextureWrapMode.Clamp,
+                filterMode = FilterMode.Bilinear,
+                hideFlags = HideFlags.HideAndDontSave,
+            };
+
+            var pixels = new Color32[size * size];
+            float centre = size * 0.5f;
+
+            // Half a pixel of inset, as in CreateCircle: the anti-aliased spike tips stay inside the
+            // texture, so scaling the sprite up never clips them against the border.
+            float radius = centre - 0.5f;
+
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float dx = (x + 0.5f) - centre;
+                    float dy = (y + 0.5f) - centre;
+                    float distance = Mathf.Sqrt((dx * dx) + (dy * dy));
+
+                    // Cos sweeps -1..1 `points` times around the circle; remapped to 0..1 it is how far
+                    // this angle is from the waist towards a spike tip.
+                    float spike = (Mathf.Cos(Mathf.Atan2(dy, dx) * points) + 1f) * 0.5f;
+                    float edge = Mathf.Lerp(innerRadius, 1f, spike) * radius;
+
+                    float alpha = Mathf.Clamp01(edge + 0.5f - distance);
+                    pixels[(y * size) + x] = new Color32(255, 255, 255, (byte)Mathf.RoundToInt(alpha * 255f));
+                }
+            }
+
+            texture.SetPixels32(pixels);
+            texture.Apply(false, true);
+
+            Sprite sprite = Sprite.Create(
+                texture, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect);
+            sprite.name = "MustyBlockBlast_StarburstSprite";
             sprite.hideFlags = HideFlags.HideAndDontSave;
             return sprite;
         }

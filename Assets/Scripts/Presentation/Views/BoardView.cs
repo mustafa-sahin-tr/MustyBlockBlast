@@ -44,6 +44,11 @@ namespace MustyBlockBlast.Presentation.Views
 
         private static readonly Color FlashTint = Color.white;
 
+        /// <summary>Colour the special-cell icon is drawn in. Fixed rather than themed: it is a
+        /// readability mark, not decoration, and a warm near-white reads on every theme's block fills
+        /// without each theme having to author (and keep legible) a colour for it.</summary>
+        private static readonly Color SpecialIconTint = new Color(1f, 0.95f, 0.72f, 1f);
+
         private readonly GridPosition[] _previewCells = new GridPosition[16];
 
         // Its own claim set, kept apart from the drag preview's: the silhouette and a drag can be on
@@ -77,12 +82,19 @@ namespace MustyBlockBlast.Presentation.Views
         private int[] _pendingGenerations;
         private bool[] _cellPending;
 
+        // The special kind each cell has settled on, parallel to the colour bookkeeping above. A cell
+        // that is fading out has already settled on None and keeps showing its icon until the fade
+        // ends, so the icon follows its block out instead of vanishing the instant the model empties
+        // the cell — which is why no "pending kind" counterpart is needed.
+        private SpecialCellKind[] _cellSpecialKinds;
+
         private BoardModel _boardModel;
         private SettingsModel _settingsModel;
         private ThemeDefinition _currentTheme;
         private ISubscriber<LinesClearedMessage> _linesClearedSubscriber;
         private ISubscriber<RunStartedMessage> _runStartedSubscriber;
         private ISubscriber<PowerUpAppliedMessage> _powerUpAppliedSubscriber;
+        private ISubscriber<ExplosiveCoreDetonatedMessage> _explosiveCoreDetonatedSubscriber;
 
         private CancellationToken _destroyToken;
         private int _previewCount;
@@ -98,8 +110,10 @@ namespace MustyBlockBlast.Presentation.Views
             SettingsModel settingsModel,
             ISubscriber<LinesClearedMessage> linesClearedSubscriber,
             ISubscriber<RunStartedMessage> runStartedSubscriber,
-            ISubscriber<PowerUpAppliedMessage> powerUpAppliedSubscriber)
+            ISubscriber<PowerUpAppliedMessage> powerUpAppliedSubscriber,
+            ISubscriber<ExplosiveCoreDetonatedMessage> explosiveCoreDetonatedSubscriber)
         {
+            _explosiveCoreDetonatedSubscriber = explosiveCoreDetonatedSubscriber;
             _boardModel = boardModel;
             _settingsModel = settingsModel;
             _linesClearedSubscriber = linesClearedSubscriber;
@@ -153,9 +167,14 @@ namespace MustyBlockBlast.Presentation.Views
             _settingsModel.CurrentTheme.Subscribe(OnThemeChanged).AddTo(_disposables);
 
             _boardModel.CellChanged += OnCellChanged;
+            _boardModel.SpecialKindChanged += OnSpecialKindChanged;
             _linesClearedSubscriber.Subscribe(OnLinesCleared).AddTo(_disposables);
             _runStartedSubscriber.Subscribe(OnRunStarted).AddTo(_disposables);
             _powerUpAppliedSubscriber.Subscribe(OnPowerUpApplied).AddTo(_disposables);
+
+            // Same handler as a power-up's: a blast empties a region rather than whole lines, so its
+            // cells need claiming exactly the way a power-up's cleared region does.
+            _explosiveCoreDetonatedSubscriber.Subscribe(OnExplosiveCoreDetonated).AddTo(_disposables);
 
             RedrawAll();
         }
@@ -168,6 +187,7 @@ namespace MustyBlockBlast.Presentation.Views
             if (_boardModel != null)
             {
                 _boardModel.CellChanged -= OnCellChanged;
+                _boardModel.SpecialKindChanged -= OnSpecialKindChanged;
             }
         }
 
@@ -476,6 +496,7 @@ namespace MustyBlockBlast.Presentation.Views
             _pendingColourIds = new int[cellCount];
             _pendingGenerations = new int[cellCount];
             _cellPending = new bool[cellCount];
+            _cellSpecialKinds = new SpecialCellKind[cellCount];
 
             for (int i = 0; i < cellCount; i++)
             {
@@ -525,6 +546,13 @@ namespace MustyBlockBlast.Presentation.Views
                     int colourId = _boardModel.GetCell(cell);
                     _cellColourIds[index] = colourId;
                     ApplyCellColour(cell, colourId);
+
+                    // Re-derived from the model, never carried over from the bookkeeping: a full
+                    // repaint must be able to correct any icon state a cancelled fade or a rebuilt run
+                    // left behind.
+                    _cellSpecialKinds[index] = _boardModel.GetSpecialKind(cell);
+                    ApplyCellIcon(index, _cellSpecialKinds[index]);
+
                     _cells[index].SetAlpha(1f);
                 }
             }
@@ -541,6 +569,12 @@ namespace MustyBlockBlast.Presentation.Views
                 _cellPending[index] = false;
                 _cellColourIds[index] = colourId;
                 ApplyCellColour(cell, colourId);
+
+                // Read back rather than assumed empty: this is also the notification a spawner raises
+                // when it occupies the cell it is about to tag, and the tag's own notification follows.
+                _cellSpecialKinds[index] = _boardModel.GetSpecialKind(cell);
+                ApplyCellIcon(index, _cellSpecialKinds[index]);
+
                 _cells[index].SetAlpha(1f);
                 return;
             }
@@ -558,6 +592,10 @@ namespace MustyBlockBlast.Presentation.Views
             _pendingColourIds[index] = _cellColourIds[index];
             _pendingGenerations[index] = ++_cellGenerations[index];
             _cellColourIds[index] = Board.EMPTY;
+
+            // The icon is left on screen and fades with the block it belongs to; the settled state is
+            // already "no kind", because Board.Clear resets a destroyed cell's kind with its colour.
+            _cellSpecialKinds[index] = SpecialCellKind.None;
         }
 
         private void OnLinesCleared(LinesClearedMessage message)
@@ -628,9 +666,13 @@ namespace MustyBlockBlast.Presentation.Views
         /// two-full-lines concept, and a power-up clears a region.
         /// </para>
         /// </summary>
-        private void OnPowerUpApplied(PowerUpAppliedMessage message)
+        private void OnPowerUpApplied(PowerUpAppliedMessage message) => SweepPendingCells(message.ClearedCellCount);
+
+        /// <summary>Starts a region-clear fade on every cell still waiting for one. Shared by the
+        /// power-up and explosive-core paths, which differ only in what emptied the cells.</summary>
+        private void SweepPendingCells(int clearedCellCount)
         {
-            if (message.ClearedCellCount <= 0 || _cells == null)
+            if (clearedCellCount <= 0 || _cells == null)
             {
                 return;
             }
@@ -656,6 +698,22 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>Safety net for <c>BoardModel.ClearAll</c>, which empties cells without ever
         /// publishing a <see cref="LinesClearedMessage"/> to claim them.</summary>
         private void OnRunStarted(RunStartedMessage message) => RedrawAll();
+
+        /// <summary>A cell became special — today, a placement that closed a row and a column spawning
+        /// an explosive core on their intersection. Losing a kind needs no counterpart: a cell only
+        /// loses one by being destroyed, which already arrives through <see cref="OnCellChanged"/>.</summary>
+        private void OnSpecialKindChanged(GridPosition cell, SpecialCellKind kind)
+        {
+            int index = CellIndex(cell);
+            _cellSpecialKinds[index] = kind;
+            ApplyCellIcon(index, kind);
+        }
+
+        /// <summary>An explosive core blasted a region. Claimed exactly as a power-up's cleared region
+        /// is, and for the same reason: no <see cref="LinesClearedMessage"/> follows a blast, so
+        /// without this the cells it emptied would sit showing their old colour.</summary>
+        private void OnExplosiveCoreDetonated(ExplosiveCoreDetonatedMessage message)
+            => SweepPendingCells(message.ClearedCellCount);
 
         /// <summary>Pushes <see cref="_pendingHighlightMask"/> to the cells, touching only the ones
         /// whose state actually changed, and adopts it as the current mask.</summary>
@@ -720,6 +778,10 @@ namespace MustyBlockBlast.Presentation.Views
 
             _cellPending[index] = false;
             _cellGenerations[index]++;
+
+            // The fade owned the icon that was still on screen; dropping the fade settles the cell on
+            // its post-clear state, which has no kind.
+            ApplyCellIcon(index, _cellSpecialKinds[index]);
             _cells[index].SetAlpha(1f);
         }
 
@@ -789,6 +851,7 @@ namespace MustyBlockBlast.Presentation.Views
 
             _cellPending[index] = false;
             ApplyCellColour(cell, Board.EMPTY);
+            ApplyCellIcon(index, _cellSpecialKinds[index]);
             view.SetAlpha(1f);
         }
 
@@ -845,6 +908,19 @@ namespace MustyBlockBlast.Presentation.Views
                 _currentTheme.GetFill(colourId),
                 _currentTheme.GetHighlight(colourId),
                 _currentTheme.GetShade(colourId));
+        }
+
+        /// <summary>Shows or hides one cell's special-cell icon. Allocation-free and idempotent, like
+        /// the outline toggle it mirrors, so every repaint path can call it unconditionally.</summary>
+        private void ApplyCellIcon(int index, SpecialCellKind kind)
+        {
+            if (kind == SpecialCellKind.None)
+            {
+                _cells[index].ClearSpecialIcon();
+                return;
+            }
+
+            _cells[index].SetSpecialIcon(SpecialIconTint);
         }
 
         /// <summary>Draws a clearing cell blended towards the flash tint, keeping it on the same

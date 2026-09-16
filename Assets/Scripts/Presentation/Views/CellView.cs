@@ -27,6 +27,11 @@ namespace MustyBlockBlast.Presentation.Views
         /// would-clear outline legible at a glance.</summary>
         private const float HighlightPixelsPerUnitMultiplier = 1.25f;
 
+        /// <summary>How many bevel thicknesses the special-cell icon is inset by, on top of the cell's
+        /// own inset. Two keeps the icon clear of the four bevel facets on every side, so it sits on
+        /// the block's flat face at any cell size.</summary>
+        private const float SPECIAL_ICON_BEVEL_INSET_MULTIPLIER = 2f;
+
         /// <summary>Facet index order, matching a -90 degree step per index from the top facet.</summary>
         private const int FACET_TOP = 0;
         private const int FACET_RIGHT = 1;
@@ -39,6 +44,7 @@ namespace MustyBlockBlast.Presentation.Views
         private Image _flatFaceImage;
         private GameObject _embossRoot;
         private Image _embossFaceImage;
+        private Image _specialIconImage;
         private Image _highlightImage;
 
         private void Awake() => CacheOuter();
@@ -80,6 +86,21 @@ namespace MustyBlockBlast.Presentation.Views
 
             _embossRoot.SetActive(false);
 
+            // Built after both looks so it draws on top of whichever is active. In practice only an
+            // occupied (embossed) cell ever wears one — a special kind belongs to the block standing on
+            // the cell — but it is parented to the cell rather than to the emboss root so toggling
+            // looks can never take the icon down with it. Inset well inside the bevel so it reads as a
+            // mark on the block's face rather than as a second silhouette.
+            _specialIconImage = CreateStretchedImage(transform, "SpecialIcon");
+            _specialIconImage.sprite = UiSpriteFactory.Starburst;
+            _specialIconImage.type = Image.Type.Simple;
+            _specialIconImage.raycastTarget = false;
+            _specialIconImage.color = Color.clear;
+
+            float iconInset = inset + (bevelThickness * SPECIAL_ICON_BEVEL_INSET_MULTIPLIER);
+            SetStretchInsets((RectTransform)_specialIconImage.transform, iconInset, iconInset, iconInset, iconInset);
+            _specialIconImage.gameObject.SetActive(false);
+
             // Built after the emboss root so it is the cell's last sibling and therefore draws over
             // whichever look is active. fillCenter is off, so the sliced sprite renders only its
             // nine-slice border: a constant-thickness rounded frame with a hollow middle. Reusing
@@ -119,6 +140,35 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             _highlightImage.gameObject.SetActive(false);
+        }
+
+        /// <summary>Shows the special-cell icon in <paramref name="colour"/>. Independent of both looks
+        /// and of the outline, exactly as <see cref="SetHighlight"/> is: it neither reads nor writes any
+        /// other layer, and allocates nothing, so it is safe on any repaint path.</summary>
+        internal void SetSpecialIcon(Color colour)
+        {
+            if (_specialIconImage == null)
+            {
+                return;
+            }
+
+            _specialIconImage.color = colour;
+
+            if (!_specialIconImage.gameObject.activeSelf)
+            {
+                _specialIconImage.gameObject.SetActive(true);
+            }
+        }
+
+        /// <summary>Hides the special-cell icon. Safe to call on a cell that never had one.</summary>
+        internal void ClearSpecialIcon()
+        {
+            if (_specialIconImage == null || !_specialIconImage.gameObject.activeSelf)
+            {
+                return;
+            }
+
+            _specialIconImage.gameObject.SetActive(false);
         }
 
         /// <summary>Flat two-layer look: empty cells and the drag preview tint.</summary>
@@ -176,6 +226,10 @@ namespace MustyBlockBlast.Presentation.Views
             // The outline fades with the rest so a highlighted cell cannot stay solid mid-fade. Its
             // own alpha is restored in full by the next SetHighlight call.
             ApplyAlpha(_highlightImage, alpha);
+
+            // The icon likewise: a destroyed special cell fades out as one block, never as a fading
+            // block with a solid mark left floating over it. Restored by the next SetSpecialIcon call.
+            ApplyAlpha(_specialIconImage, alpha);
 
             for (int facetIndex = 0; facetIndex < FACET_COUNT; facetIndex++)
             {

@@ -13,10 +13,10 @@ namespace MustyBlockBlast.Tests.EditMode
     /// </summary>
     public class CascadeClearResolverTests
     {
-        /// <summary>Stands in for the first real special kind, which a later sub-issue names. Detection
-        /// is "anything that is not None", so an unnamed value exercises the loop exactly as a real
-        /// kind will without adding a placeholder to the shipped enum.</summary>
-        private const SpecialCellKind StubKind = (SpecialCellKind)1;
+        /// <summary>Stands in for a real special kind. Detection is "anything that is not None", so an
+        /// unnamed value exercises the loop exactly as a real kind will — and deliberately names no
+        /// shipped kind, so these tests stay about the loop rather than about any one effect.</summary>
+        private const SpecialCellKind StubKind = (SpecialCellKind)99;
 
         [Test]
         public void ResolveCascade_EmptyBoard_ReportsOnePhaseThatClearedNothing()
