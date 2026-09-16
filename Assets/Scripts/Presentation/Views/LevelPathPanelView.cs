@@ -21,8 +21,13 @@ namespace MustyBlockBlast.Presentation.Views
     /// <see cref="GameMode.Path"/> a run is bounded to one level and the player picks which, so an
     /// unlocked node starts a run there; in Endless and Timed there is no such thing as "playing one
     /// level", so a node stays exactly what it has always been — a status light whose tap is a
-    /// deliberate no-op. The View states neither rule itself: it asks
+    /// deliberate no-op. The View states neither rule itself: it reaches
     /// <see cref="LevelProgressionSystem.TryStartPathLevel"/>, which refuses outside Path mode.
+    /// </para>
+    /// <para>
+    /// A node tap no longer starts that run directly. It opens <see cref="CoinSowerPickerView"/> for the
+    /// tapped level — the level-start screen where extra coin cells may be bought — and that card is
+    /// what asks the System to start the run once the player commits, with a purchase or without one.
     /// </para>
     /// <para>
     /// Scrolled rather than paged, which is why this is the one overlay in the scene driven by an
@@ -157,6 +162,11 @@ namespace MustyBlockBlast.Presentation.Views
         private GameModeSystem _gameModeSystem;
         private TimerRunSystem _timerRunSystem;
 
+        /// <summary>The level-start screen a node tap opens. A View dependency rather than a System one
+        /// because the insertion is entirely presentational: what a node tap does now is show another
+        /// card, which is what eventually starts the run.</summary>
+        private CoinSowerPickerView _coinSowerPickerView;
+
         private GameObject _panel;
         private RectTransform _cardRect;
         private Image _cardImage;
@@ -225,8 +235,10 @@ namespace MustyBlockBlast.Presentation.Views
             LocalizationSystem localizationSystem,
             LevelProgressionSystem levelProgressionSystem,
             GameModeSystem gameModeSystem,
-            TimerRunSystem timerRunSystem)
+            TimerRunSystem timerRunSystem,
+            CoinSowerPickerView coinSowerPickerView)
         {
+            _coinSowerPickerView = coinSowerPickerView;
             _levelProgressionModel = levelProgressionModel;
             _pathRunModel = pathRunModel;
             _levelCatalog = levelCatalog;
@@ -242,7 +254,8 @@ namespace MustyBlockBlast.Presentation.Views
         {
             if (_levelProgressionModel == null || _pathRunModel == null || _levelCatalog == null
                 || _settingsModel == null || _localizationModel == null || _localizationSystem == null
-                || _levelProgressionSystem == null || _gameModeSystem == null || _timerRunSystem == null)
+                || _levelProgressionSystem == null || _gameModeSystem == null || _timerRunSystem == null
+                || _coinSowerPickerView == null)
             {
                 Debug.LogError(
                     $"{nameof(LevelPathPanelView)} was not injected. Is it registered in the LifetimeScope?", this);
@@ -332,23 +345,29 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         /// <summary>
-        /// Starts a run at this node's level when the active mode allows it.
+        /// Hands this node's level to <see cref="CoinSowerPickerView"/>, which offers the level-start
+        /// purchase and is what goes on to ask
+        /// <see cref="LevelProgressionSystem.TryStartPathLevel"/> once the player has committed (see
+        /// issue #167).
         /// <para>
-        /// The tap is offered to <see cref="LevelProgressionSystem.TryStartPathLevel"/> rather than
-        /// gated on the mode or the unlock here. The System already has to refuse a locked or
-        /// unauthored level, so letting it also own "and only in Path mode" keeps one answer to "may
-        /// this level be started" instead of two that can drift. A refusal leaves the card open and
-        /// unchanged, which is exactly the read-only no-op Endless and Timed have always had.
+        /// The tap is still not gated on the mode or the unlock here, exactly as it was not when it
+        /// started the run directly: the System already has to refuse a locked or unauthored level, and
+        /// letting it also own "and only in Path mode" keeps one answer to "may this level be started"
+        /// instead of two that can drift. The picker simply asks later and reports a refusal on its own
+        /// card, so the read-only no-op Endless and Timed have always had costs one extra tap to dismiss
+        /// and still starts nothing.
+        /// </para>
+        /// <para>
+        /// This card is closed before the picker opens because the two are mutually exclusive overlays
+        /// and both hold the countdown through the same single <see cref="TimerRunSystem"/> flag — see
+        /// the gate chain in <see cref="BoardInputView"/>. Closing releases the hold this card took, and
+        /// the picker takes its own; leaving both open would give that flag two owners.
         /// </para>
         /// </summary>
         private void OnNodeClicked(int levelNumber)
         {
-            if (_levelProgressionSystem.TryStartPathLevel(levelNumber))
-            {
-                // Closing is part of starting: the run is under this card, and leaving a modal open
-                // over a run that has just begun would also leave the countdown held.
-                Close();
-            }
+            Close();
+            _coinSowerPickerView.Open(levelNumber);
         }
 
         private void OnThemeChanged(ThemeDefinition theme)

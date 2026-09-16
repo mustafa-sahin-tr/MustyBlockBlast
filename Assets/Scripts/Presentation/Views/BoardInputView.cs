@@ -17,8 +17,8 @@ namespace MustyBlockBlast.Presentation.Views
     /// and consequences are decided by the System.
     /// <para>
     /// A press is resolved by a single ordered gate chain, so exactly one claimant handles it: the
-    /// seven modal overlays (settings, level path, badges, profile, leaderboard, power-up shop,
-    /// objective info), game
+    /// eight modal overlays (settings, level path, badges, profile, leaderboard, power-up shop,
+    /// objective info, Coin Sower picker), game
     /// over, the settings icon, the level path icon, the badges icon, the profile icon, the
     /// leaderboard icon, the power-up shop icon, an objective icon, a
     /// power-up inventory icon, an armed power-up being aimed at the board, and finally a tray piece
@@ -105,6 +105,7 @@ namespace MustyBlockBlast.Presentation.Views
         private LeaderboardPanelView _leaderboardPanelView;
         private PowerUpShopButtonView _powerUpShopButtonView;
         private PowerUpShopView _powerUpShopView;
+        private CoinSowerPickerView _coinSowerPickerView;
         private GameOverView _gameOverView;
         private CoinConversionView _coinConversionView;
         private PowerUpInventoryView _powerUpInventoryView;
@@ -170,6 +171,7 @@ namespace MustyBlockBlast.Presentation.Views
             LeaderboardPanelView leaderboardPanelView,
             PowerUpShopButtonView powerUpShopButtonView,
             PowerUpShopView powerUpShopView,
+            CoinSowerPickerView coinSowerPickerView,
             GameOverView gameOverView,
             CoinConversionView coinConversionView,
             PowerUpInventoryView powerUpInventoryView,
@@ -199,6 +201,7 @@ namespace MustyBlockBlast.Presentation.Views
             _leaderboardPanelView = leaderboardPanelView;
             _powerUpShopButtonView = powerUpShopButtonView;
             _powerUpShopView = powerUpShopView;
+            _coinSowerPickerView = coinSowerPickerView;
             _gameOverView = gameOverView;
             _coinConversionView = coinConversionView;
             _powerUpInventoryView = powerUpInventoryView;
@@ -352,11 +355,11 @@ namespace MustyBlockBlast.Presentation.Views
         {
             Vector2 screenPosition = _pointerPositionAction.ReadValue<Vector2>();
 
-            // While any overlay is open it is modal and swallows every tap. These seven gates are also
+            // While any overlay is open it is modal and swallows every tap. These eight gates are also
             // what keeps the overlays mutually exclusive, and the argument scales with their number
             // rather than pairing them off: *every* "is a panel open, route the tap into it" gate sits
             // above *every* "tapped an icon, open that panel" gate, so an icon tap is only ever reached
-            // with all seven panels closed. No panel can therefore stack on another, and the single
+            // with all eight panels closed. No panel can therefore stack on another, and the single
             // TimerRunSystem menu-pause flag they all share can never be held by two owners at once.
             if (_settingsPanelView.IsOpen)
             {
@@ -400,6 +403,16 @@ namespace MustyBlockBlast.Presentation.Views
             if (_objectiveInfoPopupView.IsOpen)
             {
                 _objectiveInfoPopupView.HandleTap(screenPosition);
+                return;
+            }
+
+            // The level-start Coin Sower picker. Opened by a node tap in the level path panel rather than
+            // by a HUD icon, so it has no "tapped an icon, open that panel" gate below — but it is modal
+            // exactly like the others and holds the same single menu-pause flag, so it belongs in this
+            // tier. It opens only as the path panel closes, which is what keeps the two from stacking.
+            if (_coinSowerPickerView.IsOpen)
+            {
+                _coinSowerPickerView.HandleTap(screenPosition);
                 return;
             }
 

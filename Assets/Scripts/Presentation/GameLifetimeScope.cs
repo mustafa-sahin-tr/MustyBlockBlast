@@ -419,6 +419,10 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterComponentInHierarchy<LeaderboardPanelView>();
             builder.RegisterComponentInHierarchy<PowerUpShopButtonView>();
             builder.RegisterComponentInHierarchy<PowerUpShopView>();
+
+            // The level-start Coin Sower picker. Taken as a dependency by LevelPathPanelView, whose node
+            // tap opens this instead of starting the run itself (see CoinSowerPickerView).
+            builder.RegisterComponentInHierarchy<CoinSowerPickerView>();
             builder.RegisterComponentInHierarchy<PieceTrayView>();
             builder.RegisterComponentInHierarchy<HoldSlotView>();
             builder.RegisterComponentInHierarchy<ScoreView>();

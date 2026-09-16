@@ -201,6 +201,127 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.AreEqual(2, CountCoins());
         }
 
+        // --- Issue #167: coin cells bought at the level-start screen ---
+
+        /// <summary>AC3: the purchased quantity reaches the board on top of the level's own authored
+        /// count, not instead of it. Both numbers are non-zero and different, so a sum and either source
+        /// alone are three distinguishable answers.</summary>
+        [Test]
+        public void QueueExtraCoinCells_AddsToTheAuthoredCountRatherThanReplacingIt()
+        {
+            CreateSystem(coinCellCount: 2);
+
+            _system.QueueExtraCoinCells(3);
+            _runStartedBroker.Publish(new RunStartedMessage());
+            OccupyRow(4);
+            _piecePlacedBroker.Publish(APlacement());
+
+            Assert.AreEqual(5, CountCoins());
+        }
+
+        /// <summary>A purchase dresses the level it was bought for and no other: the queue is cleared by
+        /// the run that takes it up, so the next run gets the authored count alone.</summary>
+        [Test]
+        public void QueueExtraCoinCells_IsConsumedByExactlyOneRun()
+        {
+            CreateSystem(coinCellCount: 1);
+
+            _system.QueueExtraCoinCells(2);
+            _runStartedBroker.Publish(new RunStartedMessage());
+            OccupyRow(4);
+            _piecePlacedBroker.Publish(APlacement());
+            Assert.AreEqual(3, CountCoins(), "The bought cells belong to this run.");
+
+            _boardModel.ClearAll();
+            _runStartedBroker.Publish(new RunStartedMessage());
+            OccupyRow(4);
+            _piecePlacedBroker.Publish(APlacement());
+
+            Assert.AreEqual(1, CountCoins(), "The second run gets the authored count and nothing bought.");
+        }
+
+        /// <summary>AC4: declining sows nothing, and a level authoring none with nothing bought is a
+        /// completely bare board.</summary>
+        [Test]
+        public void QueueExtraCoinCells_WithZero_SeedsOnlyTheAuthoredCount()
+        {
+            CreateSystem(coinCellCount: 0);
+
+            _system.QueueExtraCoinCells(0);
+            _runStartedBroker.Publish(new RunStartedMessage());
+            OccupyRow(4);
+            _piecePlacedBroker.Publish(APlacement());
+
+            Assert.AreEqual(0, CountCoins());
+        }
+
+        /// <summary>A negative quantity cannot reach here through the picker, and if it did it must not
+        /// be able to subtract from the cells the level itself asked for.</summary>
+        [Test]
+        public void QueueExtraCoinCells_WithANegativeQuantity_LeavesTheAuthoredCountIntact()
+        {
+            CreateSystem(coinCellCount: 2);
+
+            _system.QueueExtraCoinCells(-5);
+            _runStartedBroker.Publish(new RunStartedMessage());
+            OccupyRow(4);
+            _piecePlacedBroker.Publish(APlacement());
+
+            Assert.AreEqual(2, CountCoins());
+        }
+
+        /// <summary>Re-committing at the level-start screen before any run has started offers the new
+        /// quantity, not the sum of both attempts.</summary>
+        [Test]
+        public void QueueExtraCoinCells_CalledTwiceBeforeARunStarts_ReplacesTheEarlierQuantity()
+        {
+            CreateSystem(coinCellCount: 0);
+
+            _system.QueueExtraCoinCells(4);
+            _system.QueueExtraCoinCells(1);
+            _runStartedBroker.Publish(new RunStartedMessage());
+            OccupyRow(4);
+            _piecePlacedBroker.Publish(APlacement());
+
+            Assert.AreEqual(1, CountCoins());
+        }
+
+        /// <summary>
+        /// AC6: asking for more cells than the board has blocks to carry can neither overflow the board
+        /// nor stack two coins onto one cell and call it two. The seeder's bounded re-rolls are what make
+        /// this true, and a purchase is the one thing that can ask for more cells than a level ever
+        /// would.
+        /// </summary>
+        [Test]
+        public void QueueExtraCoinCells_MoreThanTheBoardCanCarry_NeverOverflowsOrDoublesUp()
+        {
+            CreateSystem(coinCellCount: 0);
+
+            _system.QueueExtraCoinCells(20);
+            _runStartedBroker.Publish(new RunStartedMessage());
+
+            // Three blocks on the board, twenty coin cells owed: at most three cells can be coins.
+            for (int x = 0; x < 3; x++)
+            {
+                _boardModel.Occupy(new GridPosition(x, 4), 1);
+            }
+
+            _piecePlacedBroker.Publish(APlacement());
+
+            Assert.LessOrEqual(CountCoins(), 3);
+            for (int y = 0; y < Board.SIZE; y++)
+            {
+                for (int x = 0; x < Board.SIZE; x++)
+                {
+                    var position = new GridPosition(x, y);
+                    if (_boardModel.GetSpecialKind(position) == SpecialCellKind.Coin)
+                    {
+                        Assert.IsTrue(_boardModel.Board.IsOccupied(position), $"{position} holds no block.");
+                    }
+                }
+            }
+        }
+
         [Test]
         public void AfterDispose_SeedsNothing()
         {
