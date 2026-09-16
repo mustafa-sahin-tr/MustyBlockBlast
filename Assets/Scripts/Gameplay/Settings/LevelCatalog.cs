@@ -63,6 +63,40 @@ namespace MustyBlockBlast.Gameplay.Settings
             return null;
         }
 
+        /// <summary>
+        /// Every row authored for this level number, in list order; empty when none is. A level may be
+        /// authored as several rows — one per simultaneous objective — and their list order is what
+        /// decides the index each objective's id is suffixed with, so it is part of the save contract
+        /// rather than cosmetic. Reordering two rows of the same level swaps their ids; reordering rows
+        /// of different levels still changes nothing.
+        /// <para>
+        /// <see cref="Find"/> remains the right lookup for anything that belongs to the level rather
+        /// than to one of its objectives — the completion bonus and the level-up reward, which are paid
+        /// once per level however many objectives it asks for.
+        /// </para>
+        /// </summary>
+        public IReadOnlyList<LevelObjectiveConfig> FindAll(int levelNumber)
+        {
+            List<LevelObjectiveConfig> matches = null;
+
+            IReadOnlyList<LevelObjectiveConfig> levels = Levels;
+            for (int levelIndex = 0; levelIndex < levels.Count; levelIndex++)
+            {
+                LevelObjectiveConfig level = levels[levelIndex];
+                if (level == null || level.LevelNumber != levelNumber)
+                {
+                    continue;
+                }
+
+                // Allocated only once a match exists, so the common "level does not exist" answer costs
+                // nothing and the shared empty array is handed back instead.
+                matches ??= new List<LevelObjectiveConfig>(2);
+                matches.Add(level);
+            }
+
+            return matches ?? (IReadOnlyList<LevelObjectiveConfig>)EmptyLevels;
+        }
+
 #if UNITY_EDITOR
         /// <summary>
         /// Editor-time feedback for the developer authoring levels: clamps the numeric fields and logs

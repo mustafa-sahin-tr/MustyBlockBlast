@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using MessagePipe;
 using MustyBlockBlast.Core;
 using MustyBlockBlast.Gameplay.Messages;
@@ -66,6 +67,18 @@ namespace MustyBlockBlast.Gameplay.Systems
         private readonly IPublisher<LevelAdvancedMessage> _levelAdvancedPublisher;
         private readonly IDisposable _subscriptions;
         private readonly LevelProgressSaveData _saveData;
+
+        /// <summary>
+        /// Ids of the current level's objectives whose completion has already been announced. Cleared
+        /// whenever the tracked objectives are replaced, so it only ever describes the level in play —
+        /// see <see cref="AllTrackedObjectivesComplete"/> for why the announcement is remembered rather
+        /// than re-read off the model every time.
+        /// </summary>
+        private readonly HashSet<string> _completedObjectiveIds = new HashSet<string>();
+
+        /// <summary>Reused by <see cref="ApplyLevelObjective"/> so applying a level's objectives does
+        /// not allocate a list per level change.</summary>
+        private readonly List<ObjectiveProgress> _objectiveBuffer = new List<ObjectiveProgress>(2);
 
         /// <summary>
         /// Whether the mode the last <see cref="OnModeChanged"/> saw was <see cref="GameMode.Path"/>.
@@ -226,7 +239,18 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// </summary>
         private void OnObjectiveCompleted(ObjectiveCompletedMessage message)
         {
-            if (!IsCurrentLevelObjective(message.ObjectiveId))
+            if (!IsTrackedObjective(message.ObjectiveId))
+            {
+                return;
+            }
+
+            _completedObjectiveIds.Add(message.ObjectiveId);
+
+            // AND, not OR: a level asking for several objectives is cleared by the last of them, not by
+            // the first. Sited here rather than in ObjectiveSystem because "what counts as clearing a
+            // level" is progression's question — the rules engine only ever reports one objective at a
+            // time and has no idea they were authored together.
+            if (!AllTrackedObjectivesComplete())
             {
                 return;
             }
@@ -378,28 +402,80 @@ namespace MustyBlockBlast.Gameplay.Systems
                 return;
             }
 
-            ObjectiveProgress current = _objectiveModel.CurrentObjective;
-            if (current == null
-                || current.Definition.Id != message.ObjectiveId
-                || current.Definition.Scope != ObjectiveScope.Cumulative)
+            // Scanned across every tracked objective, not just the primary one: each of a level's
+            // objectives keeps its own save entry under its own id.
+            IReadOnlyList<ObjectiveProgress> tracked = _objectiveModel.TrackedObjectives;
+            for (int objectiveIndex = 0; objectiveIndex < tracked.Count; objectiveIndex++)
             {
+                ObjectiveProgress objective = tracked[objectiveIndex];
+                if (objective.Definition.Id != message.ObjectiveId
+                    || objective.Definition.Scope != ObjectiveScope.Cumulative)
+                {
+                    continue;
+                }
+
+                WriteCumulativeProgress(message.ObjectiveId, message.CurrentValue);
+                Save();
                 return;
             }
-
-            WriteCumulativeProgress(message.ObjectiveId, message.CurrentValue);
-            Save();
-        }
-
-        private bool IsCurrentLevelObjective(string objectiveId)
-        {
-            ObjectiveProgress current = _objectiveModel.CurrentObjective;
-            return current != null && current.Definition.Id == objectiveId;
         }
 
         /// <summary>
-        /// Builds <paramref name="levelNumber"/>'s objective from the catalog and hands it to
-        /// <see cref="ObjectiveModel"/> as the one tracked objective. An unauthored or invalid level
-        /// clears the tracking instead of throwing: a broken content row must not take the scene down.
+        /// Whether <paramref name="objectiveId"/> is one of the objectives the level currently being
+        /// played asks for. Membership of the whole tracked set rather than a match against the primary
+        /// one, now that a level may ask for several at once — checking only the first would make a
+        /// second objective's completion look exactly like a stale message from a previous level.
+        /// </summary>
+        private bool IsTrackedObjective(string objectiveId)
+        {
+            IReadOnlyList<ObjectiveProgress> tracked = _objectiveModel.TrackedObjectives;
+            for (int objectiveIndex = 0; objectiveIndex < tracked.Count; objectiveIndex++)
+            {
+                if (tracked[objectiveIndex].Definition.Id == objectiveId)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Whether every objective the current level asks for has been cleared — the AND that decides
+        /// when a multi-objective level is done.
+        /// <para>
+        /// An objective counts as cleared if its own progress says so <em>or</em> if its completion
+        /// message has already been seen this level. The second half matters because completion is
+        /// announced by <see cref="ObjectiveSystem"/> on the false-to-true edge and this system is one
+        /// of several subscribers: it must not depend on having been notified after the model was
+        /// written, and it must not care which subscriber ran first.
+        /// </para>
+        /// </summary>
+        private bool AllTrackedObjectivesComplete()
+        {
+            IReadOnlyList<ObjectiveProgress> tracked = _objectiveModel.TrackedObjectives;
+            if (tracked.Count == 0)
+            {
+                return false;
+            }
+
+            for (int objectiveIndex = 0; objectiveIndex < tracked.Count; objectiveIndex++)
+            {
+                ObjectiveProgress objective = tracked[objectiveIndex];
+                if (!objective.IsComplete && !_completedObjectiveIds.Contains(objective.Definition.Id))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Builds every objective <paramref name="levelNumber"/> is authored with — a level may ask for
+        /// several at once — and hands them to <see cref="ObjectiveModel"/> as the tracked set. An
+        /// unauthored level, or one whose every row is invalid, clears the tracking instead of throwing:
+        /// a broken content row must not take the scene down.
         /// <para>
         /// Takes the level as an argument rather than reading the frontier, because in Path mode the
         /// level being played and the frontier are two different numbers.
@@ -407,31 +483,47 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// </summary>
         private void ApplyLevelObjective(int levelNumber, bool restoreSavedProgress)
         {
-            LevelObjectiveConfig config = _levelCatalog.Find(levelNumber);
-            if (config == null)
+            // Every level change starts the completion bookkeeping over: ids from the level being left
+            // must not count towards the new one's AND, and a replayed level has to be cleared again.
+            _completedObjectiveIds.Clear();
+
+            IReadOnlyList<LevelObjectiveConfig> configs = _levelCatalog.FindAll(levelNumber);
+            if (configs.Count == 0)
             {
                 Debug.LogError(
                     $"{nameof(LevelCatalog)} has no level {levelNumber}. No objective will be shown until "
                     + "the catalog is fixed.");
-                _objectiveModel.SetCurrentObjective(null);
+                _objectiveModel.SetObjectives(null);
                 return;
             }
 
-            if (!config.IsValid(out string error))
+            _objectiveBuffer.Clear();
+
+            for (int configIndex = 0; configIndex < configs.Count; configIndex++)
             {
-                Debug.LogError($"Level {levelNumber} is misconfigured and was skipped: {error}");
-                _objectiveModel.SetCurrentObjective(null);
-                return;
+                LevelObjectiveConfig config = configs[configIndex];
+                if (!config.IsValid(out string error))
+                {
+                    // One bad row is skipped rather than taking the whole level down with it: the
+                    // level's other objectives are still playable, and a level left with none falls
+                    // through to the same cleared tracking an unauthored one gets.
+                    Debug.LogError($"Level {levelNumber} is misconfigured and was skipped: {error}");
+                    continue;
+                }
+
+                // The row's position among this level's rows is what keeps the generated ids unique —
+                // see LevelObjectiveConfig.ToObjectiveDefinition.
+                var progress = new ObjectiveProgress(config.ToObjectiveDefinition(configIndex));
+
+                if (restoreSavedProgress && config.Scope == ObjectiveScope.Cumulative)
+                {
+                    progress.RestoreProgress(ReadCumulativeProgress(progress.Definition.Id));
+                }
+
+                _objectiveBuffer.Add(progress);
             }
 
-            ObjectiveProgress progress = new ObjectiveProgress(config.ToObjectiveDefinition());
-
-            if (restoreSavedProgress && config.Scope == ObjectiveScope.Cumulative)
-            {
-                progress.RestoreProgress(ReadCumulativeProgress(progress.Definition.Id));
-            }
-
-            _objectiveModel.SetCurrentObjective(progress);
+            _objectiveModel.SetObjectives(_objectiveBuffer);
         }
 
         /// <summary>Keeps a saved level number inside what the catalog actually authors, so shrinking

@@ -15,10 +15,11 @@ namespace MustyBlockBlast.Gameplay.Models
         public IReadOnlyList<ObjectiveProgress> TrackedObjectives => _trackedObjectives;
 
         /// <summary>
-        /// The one objective the HUD shows. The first tracked objective is the active one while the
-        /// game runs a single objective at a time; null when nothing is tracked, which the HUD reads
-        /// as "hide myself". How a level picks and advances between several objectives is content
-        /// work, not model work, so that decision does not belong here yet.
+        /// The primary tracked objective — the first one — or null when nothing is tracked. A level may
+        /// now ask for several objectives at once, so this is no longer "the objective": the HUD draws
+        /// the whole of <see cref="TrackedObjectives"/>. Kept because a level's first row is still the
+        /// one that carries the level's identity (its id is the unsuffixed <c>level_N</c>), and callers
+        /// that genuinely mean "the primary one" should say so rather than index the list themselves.
         /// </summary>
         public ObjectiveProgress CurrentObjective
             => _trackedObjectives.Count > 0 ? _trackedObjectives[0] : null;
@@ -36,6 +37,37 @@ namespace MustyBlockBlast.Gameplay.Models
             if (progress != null)
             {
                 _trackedObjectives.Add(progress);
+            }
+        }
+
+        /// <summary>
+        /// Makes <paramref name="objectives"/> the tracked set, replacing whatever was there. The
+        /// multi-objective form of <see cref="SetCurrentObjective"/>, and replacing rather than
+        /// appending for the same reason: a level's objectives must not carry on collecting placements
+        /// once the player has moved past that level. A null or empty list clears the tracking, which
+        /// the HUD reads as "hide".
+        /// <para>
+        /// Null entries are skipped rather than stored: everything downstream dereferences
+        /// <see cref="ObjectiveProgress.Definition"/>, so one bad content row must not be able to put a
+        /// hole in the list every consumer would then have to guard.
+        /// </para>
+        /// </summary>
+        public void SetObjectives(IReadOnlyList<ObjectiveProgress> objectives)
+        {
+            _trackedObjectives.Clear();
+
+            if (objectives == null)
+            {
+                return;
+            }
+
+            for (int objectiveIndex = 0; objectiveIndex < objectives.Count; objectiveIndex++)
+            {
+                ObjectiveProgress progress = objectives[objectiveIndex];
+                if (progress != null)
+                {
+                    _trackedObjectives.Add(progress);
+                }
             }
         }
     }
