@@ -48,5 +48,15 @@ namespace MustyBlockBlast.Core
         /// multiplication itself happens in the scoring Systems.
         /// </summary>
         ScoreGem = 3,
+
+        /// <summary>
+        /// A "vortex": destroying it drags every <em>isolated</em> block — one whose four orthogonal
+        /// neighbours are all empty, holes or off the board — one cell towards where the vortex stood,
+        /// emptying the cell each of them leaves behind. The one kind that moves blocks rather than
+        /// destroying them, so a board it tidies holds exactly as many blocks afterwards as before; see
+        /// <see cref="VortexEffect"/>, which owns the scan and the move. A pull that completes a line
+        /// clears it through the ordinary cascade, not through the effect.
+        /// </summary>
+        Vortex = 4,
     }
 }

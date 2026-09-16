@@ -124,6 +124,7 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterMessageBroker<ExplosiveCoreDetonatedMessage>(options);
             builder.RegisterMessageBroker<LaserFiredMessage>(options);
             builder.RegisterMessageBroker<PiercingRocketFiredMessage>(options);
+            builder.RegisterMessageBroker<VortexPulledMessage>(options);
             builder.RegisterMessageBroker<ObjectiveProgressChangedMessage>(options);
             builder.RegisterMessageBroker<ObjectiveCompletedMessage>(options);
             builder.RegisterMessageBroker<LevelAdvancedMessage>(options);

@@ -744,7 +744,8 @@ namespace MustyBlockBlast.Tests.EditMode
                 new TestMessageBroker<TrayRefilledMessage>(),
                 new TestMessageBroker<ExplosiveCoreDetonatedMessage>(),
                 new TestMessageBroker<LaserFiredMessage>(),
-                new TestMessageBroker<PiercingRocketFiredMessage>());
+                new TestMessageBroker<PiercingRocketFiredMessage>(),
+                new TestMessageBroker<VortexPulledMessage>());
 
             _gameModeSystem = new GameModeSystem(new GameModeModel(), _boardSystem);
 

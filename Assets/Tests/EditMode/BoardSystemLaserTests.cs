@@ -42,6 +42,7 @@ namespace MustyBlockBlast.Tests.EditMode
                 new TestMessageBroker<ExplosiveCoreDetonatedMessage>(),
                 _laserFiredBroker,
                 new TestMessageBroker<PiercingRocketFiredMessage>(),
+                new TestMessageBroker<VortexPulledMessage>(),
                 seed: 1);
 
             _trayModel.SetSlot(0, Single, 1);
