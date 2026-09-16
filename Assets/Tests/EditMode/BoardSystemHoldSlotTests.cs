@@ -53,7 +53,8 @@ namespace MustyBlockBlast.Tests.EditMode
                 _piecePlacedBroker,
                 new TestMessageBroker<LinesClearedMessage>(),
                 _gameOverBroker,
-                _trayRefilledBroker);
+                _trayRefilledBroker,
+                new TestMessageBroker<ExplosiveCoreDetonatedMessage>());
         }
 
         // --- AC1: parking into an empty pocket ---

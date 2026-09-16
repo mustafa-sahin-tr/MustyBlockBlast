@@ -17,10 +17,28 @@ namespace MustyBlockBlast.Gameplay.Models
         /// (<see cref="Core.Board.EMPTY"/> when the cell became empty).</summary>
         public event Action<GridPosition, int> CellChanged;
 
+        /// <summary>
+        /// Raised when a cell gains a <see cref="SpecialCellKind"/>. Args: position, the new kind.
+        /// <para>
+        /// Deliberately an "added" signal only, and deliberately not folded into
+        /// <see cref="CellChanged"/>, whose args are "position, new colour id" and whose subscribers
+        /// all read it as exactly that. A kind being <em>lost</em> needs no signal of its own: a cell
+        /// only ever loses one by being destroyed (<see cref="Core.Board.Clear"/> resets the kind along
+        /// with the colour), and every path that destroys a cell already announces it through
+        /// <see cref="CellChanged"/> — so a View that drops a cell's special look whenever that cell is
+        /// emptied is already correct, with no second event to keep in step.
+        /// </para>
+        /// </summary>
+        public event Action<GridPosition, SpecialCellKind> SpecialKindChanged;
+
         public int Size => Board.SIZE;
 
         /// <summary>Read-only access for Views.</summary>
         public int GetCell(GridPosition position) => _board[position];
+
+        /// <summary>Read-only access for Views, so a full repaint can re-derive every cell's special
+        /// look from the model rather than trusting bookkeeping it accumulated from events.</summary>
+        public SpecialCellKind GetSpecialKind(GridPosition position) => _board.GetSpecialKind(position);
 
         /// <summary>Core board handed to the stateless Core rule helpers. Systems only.</summary>
         internal Board Board => _board;
@@ -29,6 +47,16 @@ namespace MustyBlockBlast.Gameplay.Models
         {
             _board.Occupy(position, colourId);
             CellChanged?.Invoke(position, colourId);
+        }
+
+        /// <summary>Tags a cell with a special behaviour and announces it. Separate from
+        /// <see cref="Occupy"/> exactly as <see cref="Core.Board.SetSpecialKind"/> is separate from
+        /// <see cref="Core.Board.Occupy"/>: a spawner occupies a cell and then tags it, and the two
+        /// steps notify independently.</summary>
+        internal void SetSpecialKind(GridPosition position, SpecialCellKind kind)
+        {
+            _board.SetSpecialKind(position, kind);
+            SpecialKindChanged?.Invoke(position, kind);
         }
 
         /// <summary>Raises change notifications for cells emptied by a resolver run. The Core

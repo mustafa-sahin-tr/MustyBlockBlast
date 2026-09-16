@@ -21,6 +21,10 @@ namespace MustyBlockBlast.Tests.EditMode
         private TestMessageBroker<PowerUpAppliedMessage> _appliedBroker;
         private TestMessageBroker<PowerUpGrantedMessage> _grantedBroker;
 
+        /// <summary>The blast channel a power-up fires when its clear destroys an explosive core. A
+        /// field rather than an inline broker so a test can assert the blast was announced.</summary>
+        private TestMessageBroker<ExplosiveCoreDetonatedMessage> _detonatedBroker;
+
         /// <summary>The frenzy window the double multiplier opens. Kept as a field so a test can read
         /// the model behind it without reaching back through the system under test.</summary>
         private DoubleMultiplierModel _doubleMultiplierModel;
@@ -59,6 +63,7 @@ namespace MustyBlockBlast.Tests.EditMode
             _levelProgressionModel.CurrentLevelNumber.Value = ALL_KINDS_UNLOCKED_LEVEL;
             _appliedBroker = new TestMessageBroker<PowerUpAppliedMessage>();
             _grantedBroker = new TestMessageBroker<PowerUpGrantedMessage>();
+            _detonatedBroker = new TestMessageBroker<ExplosiveCoreDetonatedMessage>();
             _piecePlacedBroker = new TestMessageBroker<PiecePlacedMessage>();
             _doubleMultiplierModel = new DoubleMultiplierModel();
             _doubleMultiplierSystem = new DoubleMultiplierSystem(
@@ -72,6 +77,55 @@ namespace MustyBlockBlast.Tests.EditMode
         public void ClearPersistedInventoryAfterwards()
         {
             DeleteInventoryKeys();
+        }
+
+        /// <summary>
+        /// AC6: a core destroyed by a spent power-up blasts exactly as one destroyed by a completed
+        /// line does. The bomb is deliberately not centred on the core — its own 3x3 would then cover
+        /// the whole blast and the chain would have nothing left to clear, so the test would pass
+        /// whether or not the blast ran at all.
+        /// </summary>
+        [Test]
+        public void TryApplyBomb_OverAnExplosiveCore_DetonatesItAndBlastsBeyondTheBombsOwnFootprint()
+        {
+            var boardModel = new BoardModel();
+            var core = new GridPosition(4, 4);
+            boardModel.Occupy(core, 1);
+            boardModel.SetSpecialKind(core, SpecialCellKind.ExplosiveCore);
+            boardModel.Occupy(new GridPosition(3, 3), 1);
+
+            // Inside the core's blast footprint but outside the bomb's, so only the chain can reach it.
+            var blastOnly = new GridPosition(5, 5);
+            boardModel.Occupy(blastOnly, 1);
+
+            PowerUpModel model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, boardModel);
+            system.GrantDirect(PowerUpKind.Bomb);
+
+            bool applied = system.TryApplyBomb(new GridPosition(3, 3));
+
+            Assert.IsTrue(applied);
+            Assert.AreEqual(Board.EMPTY, boardModel.GetCell(blastOnly), "The chained blast should reach here.");
+            Assert.AreEqual(1, _detonatedBroker.Published.Count);
+            Assert.AreEqual(1, _detonatedBroker.Published[0].ClearedCellCount);
+
+            // The bomb still reports only what the bomb itself cleared: the blast is its own event.
+            Assert.AreEqual(2, _appliedBroker.Published[0].ClearedCellCount);
+        }
+
+        /// <summary>A power-up that destroyed no special cell must publish no blast at all.</summary>
+        [Test]
+        public void TryApplyBomb_WithNoCoreInRange_PublishesNoDetonation()
+        {
+            var boardModel = new BoardModel();
+            boardModel.Occupy(new GridPosition(4, 4), 1);
+            PowerUpModel model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, boardModel);
+            system.GrantDirect(PowerUpKind.Bomb);
+
+            system.TryApplyBomb(new GridPosition(4, 4));
+
+            Assert.AreEqual(0, _detonatedBroker.Published.Count);
         }
 
         [Test]
@@ -1439,6 +1493,7 @@ namespace MustyBlockBlast.Tests.EditMode
                 rewardSource,
                 _appliedBroker,
                 _grantedBroker,
+                _detonatedBroker,
                 new TestMessageBroker<RunStartedMessage>(),
                 new TestMessageBroker<GameOverMessage>());
         }
@@ -1481,7 +1536,8 @@ namespace MustyBlockBlast.Tests.EditMode
                 new TestMessageBroker<PiecePlacedMessage>(),
                 new TestMessageBroker<LinesClearedMessage>(),
                 gameOverBroker,
-                trayRefilledBroker);
+                trayRefilledBroker,
+                new TestMessageBroker<ExplosiveCoreDetonatedMessage>());
         }
 
         /// <summary>Occupies every board cell except the ones named, so a test can state the one gap it

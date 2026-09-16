@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using MessagePipe;
@@ -67,8 +68,17 @@ namespace MustyBlockBlast.Gameplay.Systems
         private readonly IRewardSource _rewardSource;
         private readonly IPublisher<PowerUpAppliedMessage> _appliedPublisher;
         private readonly IPublisher<PowerUpGrantedMessage> _grantedPublisher;
+        private readonly IPublisher<ExplosiveCoreDetonatedMessage> _explosiveCoreDetonatedPublisher;
         private readonly IDisposable _runStartedSubscription;
         private readonly IDisposable _gameOverSubscription;
+
+        /// <summary>
+        /// Its own instance rather than the one <see cref="BoardSystem"/> owns. The two can never run
+        /// at once — a power-up is applied from an input callback, a placement's cascade from another,
+        /// and neither re-enters the other — so sharing would buy nothing, while a second instance
+        /// keeps each System's blast buffer meaning "the blast I just caused".
+        /// </summary>
+        private readonly ExplosiveCoreEffect _explosiveCoreEffect = new ExplosiveCoreEffect();
 
         public PowerUpSystem(
             PowerUpModel powerUpModel,
@@ -83,9 +93,11 @@ namespace MustyBlockBlast.Gameplay.Systems
             IRewardSource rewardSource,
             IPublisher<PowerUpAppliedMessage> appliedPublisher,
             IPublisher<PowerUpGrantedMessage> grantedPublisher,
+            IPublisher<ExplosiveCoreDetonatedMessage> explosiveCoreDetonatedPublisher,
             ISubscriber<RunStartedMessage> runStartedSubscriber,
             ISubscriber<GameOverMessage> gameOverSubscriber)
         {
+            _explosiveCoreDetonatedPublisher = explosiveCoreDetonatedPublisher;
             _powerUpModel = powerUpModel;
             _levelProgressionModel = levelProgressionModel;
             _boardModel = boardModel;
@@ -232,6 +244,11 @@ namespace MustyBlockBlast.Gameplay.Systems
 
             _appliedPublisher.Publish(new PowerUpAppliedMessage(
                 PowerUpKind.Joker, result.ClearedCellCount, result.LineCount));
+
+            // A joker completes lines rather than clearing a region, but a core standing in one of
+            // those lines is destroyed just the same — and a destroyed core blasts whatever destroyed
+            // it, so this path applies its triggers exactly as the region-clearing kinds do.
+            ApplyTriggeredSpecials(result.TriggeredSpecials);
 
             Disarm();
             return true;
@@ -554,6 +571,49 @@ namespace MustyBlockBlast.Gameplay.Systems
 
             _appliedPublisher.Publish(new PowerUpAppliedMessage(
                 kind, result.ClearedCellCount, clearedLineCount: 0, emptiedLineCount: result.EmptiedLineCount));
+
+            ApplyTriggeredSpecials(result.TriggeredSpecials);
+        }
+
+        /// <summary>
+        /// Detonates the special cells this power-up's clear destroyed. A special block behaves the
+        /// same whatever destroyed it, so a core taken out by a Bomb blasts exactly as one taken out by
+        /// a completed line does — <see cref="PowerUpClearResolver"/> detects them through the same
+        /// <see cref="SpecialCellDetection"/> pass a placement's clear uses, and this applies them
+        /// through the same <see cref="ExplosiveCoreEffect"/>.
+        /// <para>
+        /// Deliberately does <em>not</em> spawn a new core, however many lines the power-up emptied:
+        /// the reward is for a placement that closed a row and a column, and spending a power-up is not
+        /// a placement.
+        /// </para>
+        /// </summary>
+        private void ApplyTriggeredSpecials(IReadOnlyList<SpecialCellTrigger> triggers)
+        {
+            if (triggers == null || triggers.Count == 0)
+            {
+                return;
+            }
+
+            _explosiveCoreEffect.BeginResolution();
+
+            for (int i = 0; i < triggers.Count; i++)
+            {
+                if (triggers[i].Kind != SpecialCellKind.ExplosiveCore)
+                {
+                    continue;
+                }
+
+                _explosiveCoreEffect.Apply(_boardModel.Board, triggers[i]);
+            }
+
+            IReadOnlyList<GridPosition> blastedCells = _explosiveCoreEffect.BlastedCells;
+            if (blastedCells.Count == 0)
+            {
+                return;
+            }
+
+            _boardModel.NotifyPowerUpCleared(blastedCells);
+            _explosiveCoreDetonatedPublisher.Publish(new ExplosiveCoreDetonatedMessage(blastedCells.Count));
         }
 
         private ReactiveProperty<int> CountOf(PowerUpKind kind)

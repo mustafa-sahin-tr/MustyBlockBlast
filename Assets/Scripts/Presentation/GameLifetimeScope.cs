@@ -61,6 +61,10 @@ namespace MustyBlockBlast.Presentation
                 container.Resolve<PowerUpSystem>();
                 container.Resolve<PowerUpScoreSystem>();
 
+                // Subscribes in its constructor, like PowerUpScoreSystem: it must be listening before
+                // the first placement can detonate a core, not be constructed by one.
+                container.Resolve<ExplosiveCoreScoreSystem>();
+
                 // Subscribes in its constructor, like the systems above.
                 //
                 // DO NOT MOVE THIS ABOVE ScoreSystem. Both subscribe to PiecePlacedMessage, and
@@ -106,6 +110,7 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterMessageBroker<TrayRefilledMessage>(options);
             builder.RegisterMessageBroker<PowerUpAppliedMessage>(options);
             builder.RegisterMessageBroker<PowerUpGrantedMessage>(options);
+            builder.RegisterMessageBroker<ExplosiveCoreDetonatedMessage>(options);
             builder.RegisterMessageBroker<ObjectiveProgressChangedMessage>(options);
             builder.RegisterMessageBroker<ObjectiveCompletedMessage>(options);
             builder.RegisterMessageBroker<LevelAdvancedMessage>(options);
@@ -241,6 +246,7 @@ namespace MustyBlockBlast.Presentation
             builder.Register<GhostFitSystem>(Lifetime.Singleton).AsSelf();
             builder.Register<PowerUpSystem>(Lifetime.Singleton).AsSelf();
             builder.Register<PowerUpScoreSystem>(Lifetime.Singleton).AsSelf();
+            builder.Register<ExplosiveCoreScoreSystem>(Lifetime.Singleton).AsSelf();
             builder.Register<ObjectiveSystem>(Lifetime.Singleton);
             builder.Register<LevelProgressionSystem>(Lifetime.Singleton);
             builder.Register<BadgeStatsSystem>(Lifetime.Singleton);

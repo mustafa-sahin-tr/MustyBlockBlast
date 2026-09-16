@@ -4,6 +4,7 @@ using MessagePipe;
 using MustyBlockBlast.Core;
 using MustyBlockBlast.Gameplay.Messages;
 using MustyBlockBlast.Gameplay.Models;
+using VContainer;
 using VContainer.Unity;
 
 namespace MustyBlockBlast.Gameplay.Systems
@@ -27,6 +28,17 @@ namespace MustyBlockBlast.Gameplay.Systems
         private readonly IPublisher<LinesClearedMessage> _linesClearedPublisher;
         private readonly IPublisher<GameOverMessage> _gameOverPublisher;
         private readonly IPublisher<TrayRefilledMessage> _trayRefilledPublisher;
+        private readonly IPublisher<ExplosiveCoreDetonatedMessage> _explosiveCoreDetonatedPublisher;
+
+        // One long-lived effect, reset per placement rather than reallocated — it owns the buffer the
+        // blasted cells are reported through.
+        private readonly ExplosiveCoreEffect _explosiveCoreEffect = new ExplosiveCoreEffect();
+
+        /// <summary>Only ever used to break a tie between equally valid explosive-core spawn cells,
+        /// which cannot arise on the current board shape (see
+        /// <see cref="ExplosiveCoreSpawnSelector.SelectSpawnPosition"/>). Whether a qualifying placement
+        /// spawns one at all is fully deterministic and never touches this.</summary>
+        private readonly Random _random;
         // Sized for the three dock slots plus the parked piece, which CheckGameOver appends.
         private readonly List<Piece> _remainingBuffer = new List<Piece>(TrayModel.SLOT_COUNT + 1);
         private readonly Board _previewScratchBoard = new Board();
@@ -37,6 +49,8 @@ namespace MustyBlockBlast.Gameplay.Systems
         private readonly List<int> _previewRowsBuffer = new List<int>(Board.SIZE);
         private readonly List<int> _previewColumnsBuffer = new List<int>(Board.SIZE);
 
+        /// <summary>DI entry point — VContainer must not pick the seeded constructor.</summary>
+        [Inject]
         public BoardSystem(
             BoardModel boardModel,
             TrayModel trayModel,
@@ -45,8 +59,29 @@ namespace MustyBlockBlast.Gameplay.Systems
             IPublisher<PiecePlacedMessage> piecePlacedPublisher,
             IPublisher<LinesClearedMessage> linesClearedPublisher,
             IPublisher<GameOverMessage> gameOverPublisher,
-            IPublisher<TrayRefilledMessage> trayRefilledPublisher)
+            IPublisher<TrayRefilledMessage> trayRefilledPublisher,
+            IPublisher<ExplosiveCoreDetonatedMessage> explosiveCoreDetonatedPublisher)
+            : this(
+                boardModel, trayModel, pieceDraw, runStartedPublisher, piecePlacedPublisher,
+                linesClearedPublisher, gameOverPublisher, trayRefilledPublisher,
+                explosiveCoreDetonatedPublisher, Environment.TickCount)
         {
+        }
+
+        internal BoardSystem(
+            BoardModel boardModel,
+            TrayModel trayModel,
+            WeightedPieceDraw pieceDraw,
+            IPublisher<RunStartedMessage> runStartedPublisher,
+            IPublisher<PiecePlacedMessage> piecePlacedPublisher,
+            IPublisher<LinesClearedMessage> linesClearedPublisher,
+            IPublisher<GameOverMessage> gameOverPublisher,
+            IPublisher<TrayRefilledMessage> trayRefilledPublisher,
+            IPublisher<ExplosiveCoreDetonatedMessage> explosiveCoreDetonatedPublisher,
+            int seed)
+        {
+            _random = new Random(seed);
+            _explosiveCoreDetonatedPublisher = explosiveCoreDetonatedPublisher;
             _boardModel = boardModel;
             _trayModel = trayModel;
             _pieceDraw = pieceDraw;
@@ -176,10 +211,13 @@ namespace MustyBlockBlast.Gameplay.Systems
             // synchronous and resolves state only — spacing the phases out visually is Presentation's
             // job, and CascadeClearResult.Phases is the ordered list it will replay.
             //
-            // No effect implementation is passed because none exists: every SpecialCellKind is None,
-            // so this resolves exactly one phase and Primary is bit-for-bit what the old single-pass
-            // call returned.
-            CascadeClearResult cascade = CascadeClearResolver.ResolveCascade(_boardModel.Board);
+            // Reset before resolving, never after: the effect reports the cells it blasted through a
+            // buffer it owns, and this is what makes that buffer mean "this placement's blast" rather
+            // than "every blast since the run started".
+            _explosiveCoreEffect.BeginResolution();
+
+            CascadeClearResult cascade = CascadeClearResolver.ResolveCascade(
+                _boardModel.Board, _explosiveCoreEffect);
 
             // Everything published below reports the PRIMARY phase only — the clear this placement
             // itself caused. Clears a special cell's effect went on to cause are deliberately not
@@ -200,6 +238,16 @@ namespace MustyBlockBlast.Gameplay.Systems
                 }
             }
 
+            // A blast clears a region, not lines, so it is announced the way a power-up's region clear
+            // is rather than through the line-clear path — and before the messages below, so the
+            // board state they report already includes what the blast removed.
+            IReadOnlyList<GridPosition> blastedCells = _explosiveCoreEffect.BlastedCells;
+            bool anyBlasted = blastedCells.Count > 0;
+            if (anyBlasted)
+            {
+                _boardModel.NotifyPowerUpCleared(blastedCells);
+            }
+
             bool anyCornerCleared = AnyCornerTouched(clearResult.ClearedRows, clearResult.ClearedColumns);
 
             _piecePlacedPublisher.Publish(new PiecePlacedMessage(
@@ -213,6 +261,22 @@ namespace MustyBlockBlast.Gameplay.Systems
                 _linesClearedPublisher.Publish(new LinesClearedMessage(
                     clearResult.ClearedRows, clearResult.ClearedColumns, clearResult.ClearedCellCount));
             }
+
+            // Published after the two messages above so a subscriber that reacts to a blast sees a
+            // placement that has already been fully reported, and so the View's line-clear animation
+            // claims its own cells before the blast sweep does.
+            if (anyBlasted)
+            {
+                _explosiveCoreDetonatedPublisher.Publish(
+                    new ExplosiveCoreDetonatedMessage(blastedCells.Count));
+            }
+
+            // Last of all, and deliberately after PiecePlacedMessage: the spawn occupies a cell, and
+            // that message reports whether this placement emptied the board, cleared the centre core
+            // and so on. Spawning first would quietly cost the player every perfect-clear reward they
+            // just earned. It also reads the board as the whole cascade left it, not mid-cascade: what
+            // matters is whether the intersection is free once everything has settled.
+            TrySpawnExplosiveCore(clearResult, colourId);
 
             if (_trayModel.IsEmpty)
             {
@@ -398,6 +462,43 @@ namespace MustyBlockBlast.Gameplay.Systems
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// Spawns this placement's <see cref="SpecialCellKind.ExplosiveCore"/> reward, when it earned
+        /// one: a placement that cleared at least one row and at least one column always does, with no
+        /// probability roll (see <see cref="ExplosiveCoreSpawnSelector"/>). A placement that earned
+        /// none, or one whose intersection has no valid cell, is silently skipped — not an error state.
+        /// <para>
+        /// Reads <paramref name="clearResult"/>, the placement's own (primary) clear, rather than the
+        /// whole cascade: the reward is for the row and column the player lined up, exactly as scoring
+        /// and objectives read that same phase.
+        /// </para>
+        /// </summary>
+        private void TrySpawnExplosiveCore(LineClearResult clearResult, int colourId)
+        {
+            GridPosition? spawn = ExplosiveCoreSpawnSelector.SelectSpawnPosition(
+                _boardModel.Board, clearResult.ClearedRows, clearResult.ClearedColumns, _random);
+            if (spawn == null)
+            {
+                return;
+            }
+
+            GridPosition position = spawn.Value;
+
+            // The ordinary case: the intersection was emptied by this very clear, so the core needs a
+            // block to sit on. It borrows the placed piece's colour rather than introducing one of its
+            // own — the icon is what marks it as special, not a bespoke colour id no theme defines.
+            // The other case is the neighbour fallback, which lands on a cell that is already occupied:
+            // that block is converted into a core in place, so its colour and occupancy are left alone.
+            if (!_boardModel.Board.IsOccupied(position))
+            {
+                _boardModel.Occupy(position, colourId);
+            }
+
+            // After any occupancy write, so the View is told the cell is filled before it is told what
+            // the filled cell is.
+            _boardModel.SetSpecialKind(position, SpecialCellKind.ExplosiveCore);
         }
 
         private void RefillTray()
