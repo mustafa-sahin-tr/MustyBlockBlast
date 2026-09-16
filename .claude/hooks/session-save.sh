@@ -17,7 +17,8 @@ source "${SCRIPT_DIR}/_lib.sh"
 
 # Gather git state
 CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || echo "unknown")
-RECENT_COMMITS=$(git log --oneline -3 2>/dev/null | jq -Rs 'split("\n") | map(select(length > 0))' || echo '[]')
+GIT_LOG_OUTPUT="$(git log --oneline -3 2>/dev/null || true)"
+RECENT_COMMITS=$(printf '%s' "$GIT_LOG_OUTPUT" | jq -Rs 'split("\n") | map(select(length > 0))')
 
 # Gather modified files from session tracking
 MODIFIED_FILES="[]"
