@@ -14,7 +14,8 @@
         "Unity.Services.Core",
         "Unity.Services.Leaderboards",
         "Unity.ResourceManager",
-        "UnityEngine.UI"
+        "UnityEngine.UI",
+        "AppleAuth"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

@@ -43,5 +43,21 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// different backend identity.
         /// </summary>
         UniTask LinkWithGooglePlayGamesAsync(string authCode, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Publishes the player's display name to the backend so other players see it. Validation —
+        /// length, allowed characters, profanity — belongs to the caller: this seam only forwards a name
+        /// that has already been judged acceptable.
+        /// </summary>
+        UniTask UpdatePlayerNameAsync(string name, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Which platform credential, if any, is attached to the current session. Synchronous because it
+        /// reads session state the SDK already holds — no request is made, so a caller can ask on every
+        /// panel open without cost. Reports <see cref="AccountLinkStatus.Anonymous"/> while signed out,
+        /// which is also what an unlinked signed-in player gets: from the player's point of view those
+        /// are the same situation, "this account lives only on this device".
+        /// </summary>
+        AccountLinkStatus GetLinkStatus();
     }
 }

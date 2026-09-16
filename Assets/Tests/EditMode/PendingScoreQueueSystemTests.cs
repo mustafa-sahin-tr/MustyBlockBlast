@@ -155,6 +155,11 @@ namespace MustyBlockBlast.Tests.EditMode
 
             public UniTask LinkWithGooglePlayGamesAsync(string authCode, CancellationToken cancellationToken) =>
                 UniTask.CompletedTask;
+
+            public UniTask UpdatePlayerNameAsync(string name, CancellationToken cancellationToken) =>
+                UniTask.CompletedTask;
+
+            public AccountLinkStatus GetLinkStatus() => AccountLinkStatus.Anonymous;
         }
 
         private sealed class FakeLeaderboardsService : ILeaderboardsService
