@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Text;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using MessagePipe;
@@ -49,12 +51,29 @@ namespace MustyBlockBlast.Gameplay.Systems
     /// class already has with <see cref="ProfileSystem"/> — while the whole purchase still reaches the
     /// disk in one flush.
     /// </para>
+    /// <para>
+    /// The fourth and last faucet is the only one that costs real money:
+    /// <see cref="PurchaseCoinBundleAsync"/>. It is orchestrated here rather than anywhere nearer the
+    /// store for the reason every other credit is — this class is the one and only writer of the balance
+    /// — and it is the one faucet with a memory: the transaction ids it has already honoured are
+    /// persisted alongside the three counters, so a receipt the store replays after a crash, a restore
+    /// or a reinstall pays exactly once and never again.
+    /// </para>
     /// </summary>
     public sealed class CurrencySystem : IDisposable
     {
         private const string COIN_BALANCE_KEY = "Profile.CoinBalance";
         private const string TOTAL_SCORE_EARNED_KEY = "Profile.TotalScoreEarned";
         private const string SCORE_CONVERTED_KEY = "Profile.ScoreConverted";
+        private const string CONSUMED_TRANSACTION_IDS_KEY = "Profile.ConsumedTransactionIds";
+
+        /// <summary>
+        /// Separator for the persisted transaction-id list. A newline because store transaction ids are
+        /// opaque single-line tokens — Apple's are numeric, Google's are base64url purchase tokens — so
+        /// none of them can contain one, which is what lets a flat string stand in for a set without a
+        /// JSON dependency this class has never needed for the three counters beside it.
+        /// </summary>
+        private const char CONSUMED_ID_SEPARATOR = '\n';
 
         private readonly ProfileModel _profileModel;
         private readonly ScoreModel _scoreModel;
@@ -63,10 +82,20 @@ namespace MustyBlockBlast.Gameplay.Systems
         private readonly PowerUpPriceConfig _priceConfig;
         private readonly PowerUpSystem _powerUpSystem;
         private readonly ICoinRewardSource _coinRewardSource;
+        private readonly ICoinPurchaseService _coinPurchaseService;
+        private readonly IPurchaseReceiptValidator _receiptValidator;
         private readonly IPublisher<ScoreConvertedToCoinsMessage> _convertedPublisher;
         private readonly IPublisher<CoinsGrantedFromAdMessage> _adGrantPublisher;
+        private readonly IPublisher<CoinsGrantedFromPurchaseMessage> _purchaseGrantPublisher;
         private readonly IDisposable _gameOverSubscription;
         private readonly IDisposable _coinCellsSubscription;
+
+        /// <summary>
+        /// Every transaction id whose coins have already been banked. Held in memory for an O(1) check
+        /// on a path that must never miss one, and loaded once in the constructor alongside the three
+        /// counters — same lifetime, same single load, same single writer.
+        /// </summary>
+        private readonly HashSet<string> _consumedTransactionIds = new HashSet<string>();
 
         public CurrencySystem(
             ProfileModel profileModel,
@@ -76,8 +105,11 @@ namespace MustyBlockBlast.Gameplay.Systems
             PowerUpPriceConfig priceConfig,
             PowerUpSystem powerUpSystem,
             ICoinRewardSource coinRewardSource,
+            ICoinPurchaseService coinPurchaseService,
+            IPurchaseReceiptValidator receiptValidator,
             IPublisher<ScoreConvertedToCoinsMessage> convertedPublisher,
             IPublisher<CoinsGrantedFromAdMessage> adGrantPublisher,
+            IPublisher<CoinsGrantedFromPurchaseMessage> purchaseGrantPublisher,
             ISubscriber<GameOverMessage> gameOverSubscriber,
             ISubscriber<CoinCellsClearedMessage> coinCellsClearedSubscriber)
         {
@@ -88,8 +120,11 @@ namespace MustyBlockBlast.Gameplay.Systems
             _priceConfig = priceConfig;
             _powerUpSystem = powerUpSystem;
             _coinRewardSource = coinRewardSource;
+            _coinPurchaseService = coinPurchaseService;
+            _receiptValidator = receiptValidator;
             _convertedPublisher = convertedPublisher;
             _adGrantPublisher = adGrantPublisher;
+            _purchaseGrantPublisher = purchaseGrantPublisher;
 
             Load();
 
@@ -197,6 +232,97 @@ namespace MustyBlockBlast.Gameplay.Systems
             PlayerPrefs.Save();
 
             _adGrantPublisher.Publish(new CoinsGrantedFromAdMessage(result.Amount, newBalance));
+            return true;
+        }
+
+        /// <summary>
+        /// Buys <paramref name="sku"/> for real money and banks the coins it turns out to be worth.
+        /// Returns whether coins were credited; every refusal along the way leaves the balance exactly
+        /// as it found it.
+        /// <para>
+        /// Four gates, and no coin is minted until all four are passed. The store has to complete the
+        /// purchase; the transaction must not be one already honoured; a validator has to vouch for the
+        /// receipt; and the amount it vouches for has to be positive. A dismissal or a store failure
+        /// stops at the first (see <see cref="CoinPurchaseOutcome"/> — the caller can tell them apart for
+        /// its messaging, but both mean "credit nothing"), and the rest each stop where they are.
+        /// </para>
+        /// <para>
+        /// The amount credited is the validator's, never the SKU's as looked up here. That is the whole
+        /// point of the validation seam: the device's claim about what it bought is exactly the thing
+        /// being checked, so re-deriving the payout from that claim would make the check ornamental. This
+        /// class therefore does not consult <c>CoinBundleConfig</c> at all.
+        /// </para>
+        /// <para>
+        /// The duplicate check runs <em>before</em> validation on purpose. It is a local set lookup and
+        /// the validation behind it is a network round trip, so asking the cheap question first costs
+        /// nothing; more to the point, an already-honoured receipt has no question left to ask — a
+        /// validator that quite correctly approves it a second time must not be allowed to look like
+        /// permission to pay twice.
+        /// </para>
+        /// <para>
+        /// Then the ordering that makes the credit atomic, and it is deliberately the same one
+        /// <see cref="ConvertScoreToCoins"/> uses rather than the mark-first alternative: record the
+        /// transaction as consumed, credit the coins, flush <em>once</em>. Both writes are in-memory
+        /// until that single <see cref="PlayerPrefs.Save"/>, so they reach the disk together. A crash
+        /// can lose the whole credit or keep the whole credit; it cannot keep a transaction marked as
+        /// spent on a balance that never grew. Losing the whole credit is the recoverable half of that
+        /// pair — the store has not been told the goods were delivered yet (see the confirmation below),
+        /// so it replays the purchase and the player is paid on the retry. Marking first would invert
+        /// that into the one unrecoverable state: a receipt burned for coins nobody ever received.
+        /// </para>
+        /// <para>
+        /// The store is acknowledged last, after the coins are on the disk, for that same reason — see
+        /// <see cref="ICoinPurchaseService.CompletePurchase"/>. Confirming first would trade a
+        /// recoverable failure for a permanent one.
+        /// </para>
+        /// </summary>
+        public async UniTask<bool> PurchaseCoinBundleAsync(string sku, CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrEmpty(sku))
+            {
+                return false;
+            }
+
+            CoinPurchaseResult purchaseResult = await _coinPurchaseService.PurchaseAsync(
+                sku, cancellationToken);
+            if (!purchaseResult.Succeeded)
+            {
+                return false;
+            }
+
+            PurchaseReceipt receipt = purchaseResult.Receipt;
+
+            // No id means nothing can be deduped, and a credit that cannot be deduped is one a replay
+            // would pay again. Refused rather than credited on trust.
+            if (string.IsNullOrEmpty(receipt.TransactionId))
+            {
+                return false;
+            }
+
+            if (_consumedTransactionIds.Contains(receipt.TransactionId))
+            {
+                // Already paid for once. Still acknowledged, so the store stops replaying a transaction
+                // this install has already honoured.
+                _coinPurchaseService.CompletePurchase(receipt);
+                return false;
+            }
+
+            ValidatedPurchase validated = await _receiptValidator.ValidateAsync(
+                receipt, cancellationToken);
+            if (!validated.IsValid || validated.CoinAmount <= 0)
+            {
+                return false;
+            }
+
+            MarkTransactionConsumed(receipt.TransactionId);
+            int newBalance = CreditCoins(validated.CoinAmount);
+
+            PlayerPrefs.Save();
+
+            _coinPurchaseService.CompletePurchase(receipt);
+
+            _purchaseGrantPublisher.Publish(new CoinsGrantedFromPurchaseMessage(
+                receipt.Sku, validated.CoinAmount, newBalance));
             return true;
         }
 
@@ -357,6 +483,36 @@ namespace MustyBlockBlast.Gameplay.Systems
         }
 
         /// <summary>
+        /// Records <paramref name="transactionId"/> as honoured, in memory and in PlayerPrefs.
+        /// Deliberately does not flush, for the reason <see cref="CreditCoins"/> does not: the credit
+        /// beside it is the other half of one outcome, and the single flush belongs to the caller that
+        /// knows how many writes its outcome is made of.
+        /// <para>
+        /// The whole list is rewritten on each consumption rather than appended to, because PlayerPrefs
+        /// offers no append. It is a handful of tokens for a handful of lifetime purchases, written only
+        /// when one completes, so the cost is irrelevant and the alternative — a second key holding a
+        /// count, kept in step with a growing string — would be a second thing to get wrong.
+        /// </para>
+        /// </summary>
+        private void MarkTransactionConsumed(string transactionId)
+        {
+            _consumedTransactionIds.Add(transactionId);
+
+            var builder = new StringBuilder();
+            foreach (string consumedId in _consumedTransactionIds)
+            {
+                if (builder.Length > 0)
+                {
+                    builder.Append(CONSUMED_ID_SEPARATOR);
+                }
+
+                builder.Append(consumedId);
+            }
+
+            PlayerPrefs.SetString(CONSUMED_TRANSACTION_IDS_KEY, builder.ToString());
+        }
+
+        /// <summary>
         /// Reads the three counters back. Each is floored at zero for the reason
         /// <see cref="AvailableToConvert"/> is: a corrupt or hand-edited save must boot into a poor
         /// player, never an indebted one.
@@ -366,6 +522,39 @@ namespace MustyBlockBlast.Gameplay.Systems
             _profileModel.CoinBalance.Value = Mathf.Max(0, PlayerPrefs.GetInt(COIN_BALANCE_KEY, 0));
             _profileModel.TotalScoreEarned.Value = Mathf.Max(0, PlayerPrefs.GetInt(TOTAL_SCORE_EARNED_KEY, 0));
             _profileModel.ScoreConverted.Value = Mathf.Max(0, PlayerPrefs.GetInt(SCORE_CONVERTED_KEY, 0));
+
+            LoadConsumedTransactionIds();
+        }
+
+        /// <summary>
+        /// Reads back the transaction ids this install has already been paid for. Loaded here, with the
+        /// counters, because a purchase credit is as much this class's bookkeeping as the balance is —
+        /// and because a set that loaded late, or not at all, would silently turn every replayed receipt
+        /// into a second payout.
+        /// <para>
+        /// Empty entries are skipped rather than trusted: a missing key reads as an empty string, a
+        /// trailing separator would split into one, and an empty id would match the guard in
+        /// <see cref="PurchaseCoinBundleAsync"/> that already refuses receipts without one.
+        /// </para>
+        /// </summary>
+        private void LoadConsumedTransactionIds()
+        {
+            _consumedTransactionIds.Clear();
+
+            string persisted = PlayerPrefs.GetString(CONSUMED_TRANSACTION_IDS_KEY, string.Empty);
+            if (string.IsNullOrEmpty(persisted))
+            {
+                return;
+            }
+
+            string[] ids = persisted.Split(CONSUMED_ID_SEPARATOR);
+            for (int idIndex = 0; idIndex < ids.Length; idIndex++)
+            {
+                if (!string.IsNullOrEmpty(ids[idIndex]))
+                {
+                    _consumedTransactionIds.Add(ids[idIndex]);
+                }
+            }
         }
     }
 }

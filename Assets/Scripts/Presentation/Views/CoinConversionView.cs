@@ -45,8 +45,12 @@ namespace MustyBlockBlast.Presentation.Views
         private const float AMOUNT_ROW_Y = -40f;
         private const float AMOUNT_STEPPER_X = 250f;
         private const float QUOTE_Y = -116f;
-        private const float CONVERT_BUTTON_Y = -216f;
-        private const float AD_BUTTON_Y = -336f;
+        private const float CONVERT_BUTTON_Y = -206f;
+        private const float AD_BUTTON_Y = -326f;
+        private const float BUNDLE_LABEL_Y = -364f;
+        private const float BUNDLE_ROW_Y = -408f;
+        private const float BUNDLE_ROW_HEIGHT = 50f;
+        private const float BUNDLE_ROW_GAP = 14f;
         private const float STEPPER_SIZE = 96f;
         private const float ICON_BUTTON_SIZE = 92f;
         private const float SIDE_INSET = 60f;
@@ -72,6 +76,15 @@ namespace MustyBlockBlast.Presentation.Views
         private const string NOTHING_TO_CONVERT_TEXT = "Nothing left to convert — play on to earn more.";
         private const string CONVERT_BUTTON_TEXT = "CONVERT";
         private const string WATCH_AD_BUTTON_TEXT = "WATCH AD FOR COINS";
+        private const string BUNDLE_ROW_LABEL_TEXT = "or buy coins";
+
+        /// <summary>
+        /// Most bundle plates the strip will draw, whatever the config holds. A ceiling on the row
+        /// rather than on the line-up: the strip is one line across the bottom of an existing card, and
+        /// a fifth plate would be too narrow to read. A config with more bundles than this needs the
+        /// real storefront screen this strip is standing in for, not a thinner plate.
+        /// </summary>
+        private const int BUNDLE_ROW_MAX = 4;
 
         private readonly CompositeDisposable _disposables = new CompositeDisposable();
         private readonly StringBuilder _stringBuilder = new StringBuilder(48);
@@ -88,6 +101,7 @@ namespace MustyBlockBlast.Presentation.Views
 
         private ProfileModel _profileModel;
         private CurrencySystem _currencySystem;
+        private CoinBundleConfig _bundleConfig;
         private SettingsModel _settingsModel;
         private ISubscriber<GameOverMessage> _gameOverSubscriber;
         private ISubscriber<RunStartedMessage> _runStartedSubscriber;
@@ -115,6 +129,19 @@ namespace MustyBlockBlast.Presentation.Views
         private Text _plusText;
         private Text _convertButtonText;
         private Text _adButtonText;
+        private Text _bundleRowLabelText;
+
+        /// <summary>
+        /// The real-money bundle strip: one plate per offered SKU, built once from
+        /// <see cref="CoinBundleConfig"/> in Awake because the line-up is static config and cannot
+        /// change while the card is open. Parallel arrays rather than a small holder type, matching how
+        /// the rest of this card keeps its plates and captions — and the SKUs are kept alongside so a
+        /// tap resolves to a product id without re-reading the config.
+        /// </summary>
+        private RectTransform[] _bundleRects;
+        private Image[] _bundlePlates;
+        private Text[] _bundleTexts;
+        private string[] _bundleSkus;
 
         private RectTransform _minusRect;
         private RectTransform _plusRect;
@@ -137,16 +164,25 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>Guards the ad flow against a second tap while a request is already in flight.</summary>
         private bool _isRequestingAd;
 
+        /// <summary>
+        /// Guards the purchase flow the same way, and separately: a store prompt is modal and slow, and
+        /// a second tap behind it would ask the store for a second concurrent order that it would only
+        /// refuse.
+        /// </summary>
+        private bool _isPurchasingBundle;
+
         [Inject]
         public void Construct(
             ProfileModel profileModel,
             CurrencySystem currencySystem,
+            CoinBundleConfig bundleConfig,
             SettingsModel settingsModel,
             ISubscriber<GameOverMessage> gameOverSubscriber,
             ISubscriber<RunStartedMessage> runStartedSubscriber)
         {
             _profileModel = profileModel;
             _currencySystem = currencySystem;
+            _bundleConfig = bundleConfig;
             _settingsModel = settingsModel;
             _gameOverSubscriber = gameOverSubscriber;
             _runStartedSubscriber = runStartedSubscriber;
@@ -161,14 +197,19 @@ namespace MustyBlockBlast.Presentation.Views
 
         private void Start()
         {
-            if (_profileModel == null || _currencySystem == null || _settingsModel == null
-                || _gameOverSubscriber == null || _runStartedSubscriber == null)
+            if (_profileModel == null || _currencySystem == null || _bundleConfig == null
+                || _settingsModel == null || _gameOverSubscriber == null || _runStartedSubscriber == null)
             {
                 Debug.LogError(
                     $"{nameof(CoinConversionView)} was not injected. Is it registered in the LifetimeScope?",
                     this);
                 return;
             }
+
+            // Built here rather than in Awake with the rest of the card: it is the one part of the card
+            // whose shape comes from an injected config, and injection has only certainly happened by
+            // now. It must precede the theme subscription below, which paints what this creates.
+            BuildBundleRow();
 
             _settingsModel.CurrentTheme.Subscribe(OnThemeChanged).AddTo(_disposables);
 
@@ -245,6 +286,11 @@ namespace MustyBlockBlast.Presentation.Views
                 return;
             }
 
+            if (TryHandleBundleTap(screenPosition, eventCamera))
+            {
+                return;
+            }
+
             if (RectTransformUtility.RectangleContainsScreenPoint(_cardRect, screenPosition, eventCamera))
             {
                 return;
@@ -275,6 +321,65 @@ namespace MustyBlockBlast.Presentation.Views
             finally
             {
                 _isRequestingAd = false;
+            }
+        }
+
+        /// <summary>
+        /// Routes a tap to a bundle plate, if it landed on one. Returns whether it did, so the caller
+        /// can stop rather than fall through to the card's swallow-everything case.
+        /// <para>
+        /// An index loop rather than a per-plate handler, for the reason every other hit test on this
+        /// card is one: the card owns no EventSystem buttons at all, and a strip of four plates is not
+        /// worth a second input mechanism.
+        /// </para>
+        /// </summary>
+        private bool TryHandleBundleTap(Vector2 screenPosition, Camera eventCamera)
+        {
+            if (_bundleRects == null)
+            {
+                return false;
+            }
+
+            for (int bundleIndex = 0; bundleIndex < _bundleRects.Length; bundleIndex++)
+            {
+                if (RectTransformUtility.RectangleContainsScreenPoint(
+                        _bundleRects[bundleIndex], screenPosition, eventCamera))
+                {
+                    PurchaseBundle(_bundleSkus[bundleIndex]).Forget();
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Buys a coin bundle with real money. The fourth faucet, and the only one that is not free: like
+        /// the ad grant it takes nothing out of the convertible pool, and like the ad grant every
+        /// decision about whether and how much to credit belongs to the System — this only names the SKU
+        /// the player tapped.
+        /// <para>
+        /// A refusal is silent, as the Convert button's is: a dismissal needs no message (the player did
+        /// it), and the failure cases have no currency strings to say it with yet. The balance label
+        /// repaints itself on a success through the model subscription, which is the confirmation.
+        /// </para>
+        /// </summary>
+        private async UniTaskVoid PurchaseBundle(string sku)
+        {
+            if (_isPurchasingBundle)
+            {
+                return;
+            }
+
+            _isPurchasingBundle = true;
+            try
+            {
+                await _currencySystem.PurchaseCoinBundleAsync(
+                    sku, this.GetCancellationTokenOnDestroy());
+            }
+            finally
+            {
+                _isPurchasingBundle = false;
             }
         }
 
@@ -390,6 +495,93 @@ namespace MustyBlockBlast.Presentation.Views
 
             _closeBarA.color = theme.Ink;
             _closeBarB.color = theme.Ink;
+
+            if (_bundleRowLabelText != null)
+            {
+                _bundleRowLabelText.color = theme.SoftInk;
+            }
+
+            // The bundle plates take the neutral plate, not the accent: Convert is the card's one call
+            // to action, and a row of real-money buttons shouting louder than it would be a nudge this
+            // card has no business making.
+            if (_bundlePlates != null)
+            {
+                for (int bundleIndex = 0; bundleIndex < _bundlePlates.Length; bundleIndex++)
+                {
+                    _bundlePlates[bundleIndex].color = neutralPlate;
+                    _bundleTexts[bundleIndex].color = theme.Ink;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Builds the real-money bundle strip along the bottom of the card: one plate per offered SKU,
+        /// captioned with the coins it pays, sized to share the row evenly.
+        /// <para>
+        /// A strip on an existing card rather than a storefront of its own, deliberately and for now.
+        /// This is the screen a player already comes to when they want more coins, so it is where a
+        /// bundle belongs until there is a designed store to move it to — the same "functional slice,
+        /// not a final design pass" footing the power-up shop was built on.
+        /// </para>
+        /// <para>
+        /// Prices are not shown, because this card cannot know them: what a bundle costs in money lives
+        /// in the platform store and is read back from it, so a figure printed here would be a guess.
+        /// The store's own prompt is what quotes the price, which is also the only quote the player can
+        /// act on.
+        /// </para>
+        /// </summary>
+        private void BuildBundleRow()
+        {
+            int bundleCount = Mathf.Min(_bundleConfig.BundleCount, BUNDLE_ROW_MAX);
+            if (bundleCount <= 0)
+            {
+                return;
+            }
+
+            _bundleRowLabelText = UiTextFactory.Create(
+                _cardRect, "BundleRowLabel", _bodyFontSize, FontStyle.Normal, Color.clear);
+            ((RectTransform)_bundleRowLabelText.transform).anchoredPosition =
+                new Vector2(0f, BUNDLE_LABEL_Y);
+            _bundleRowLabelText.text = BUNDLE_ROW_LABEL_TEXT;
+
+            _bundleRects = new RectTransform[bundleCount];
+            _bundlePlates = new Image[bundleCount];
+            _bundleTexts = new Text[bundleCount];
+            _bundleSkus = new string[bundleCount];
+
+            float rowWidth = _cardSize.x - (SIDE_INSET * 2f);
+            float slotWidth = rowWidth / bundleCount;
+            float plateWidth = slotWidth - BUNDLE_ROW_GAP;
+            float firstSlotCentre = -(rowWidth * 0.5f) + (slotWidth * 0.5f);
+
+            for (int bundleIndex = 0; bundleIndex < bundleCount; bundleIndex++)
+            {
+                CoinBundle bundle = _bundleConfig.BundleAt(bundleIndex);
+                _bundleSkus[bundleIndex] = bundle.Sku;
+
+                var plateObject = new GameObject(
+                    "BundleButton" + bundleIndex, typeof(RectTransform), typeof(Image));
+                var plateRect = (RectTransform)plateObject.transform;
+                plateRect.SetParent(_cardRect, false);
+                Centre(plateRect, new Vector2(plateWidth, BUNDLE_ROW_HEIGHT));
+                plateRect.anchoredPosition = new Vector2(
+                    firstSlotCentre + (slotWidth * bundleIndex), BUNDLE_ROW_Y);
+
+                var plateImage = plateObject.GetComponent<Image>();
+                plateImage.sprite = UiSpriteFactory.RoundedSquare;
+                plateImage.type = Image.Type.Sliced;
+                plateImage.pixelsPerUnitMultiplier = 1.4f;
+                plateImage.color = Color.clear;
+                plateImage.raycastTarget = false;
+
+                Text captionText = UiTextFactory.Create(
+                    plateRect, "Caption", _bodyFontSize, FontStyle.Bold, Color.clear);
+                captionText.text = FormatInt(bundle.CoinAmount);
+
+                _bundleRects[bundleIndex] = plateRect;
+                _bundlePlates[bundleIndex] = plateImage;
+                _bundleTexts[bundleIndex] = captionText;
+            }
         }
 
         private void BuildPanel()

@@ -13,6 +13,7 @@
         "Unity.Services.Authentication",
         "Unity.Services.Core",
         "Unity.Services.Leaderboards",
+        "Unity.Purchasing",
         "Unity.ResourceManager",
         "UnityEngine.UI",
         "AppleAuth"

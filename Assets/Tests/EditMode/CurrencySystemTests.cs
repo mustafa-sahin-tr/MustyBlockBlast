@@ -1080,8 +1080,14 @@ namespace MustyBlockBlast.Tests.EditMode
                 _priceConfig,
                 CreatePowerUpSystem(),
                 coinRewardSource ?? new StubCoinRewardSource(granted: true),
+                // The real-money path is covered in full by CurrencySystemPurchaseTests. Here it is
+                // wired to a store that refuses everything, so nothing in this fixture can reach it by
+                // accident and quietly bank coins no test asked for.
+                new StubCoinPurchaseService(CoinPurchaseOutcome.Failed),
+                StubPurchaseReceiptValidator.Rejecting(),
                 _convertedBroker,
                 _adGrantBroker,
+                new TestMessageBroker<CoinsGrantedFromPurchaseMessage>(),
                 _gameOverBroker,
                 _coinCellsBroker);
         }
