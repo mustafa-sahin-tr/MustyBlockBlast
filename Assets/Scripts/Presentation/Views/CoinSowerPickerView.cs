@@ -425,7 +425,20 @@ namespace MustyBlockBlast.Presentation.Views
                 return ceiling;
             }
 
-            return Mathf.Min(ceiling, _profileModel.CoinBalance.Value / unitPrice);
+            int balance = _profileModel.CoinBalance.Value;
+            int quantity = Mathf.Min(ceiling, balance / unitPrice);
+
+            // The division above is only exact while the unit price is. Under a live promotion it is
+            // not: CurrencySystem discounts the line total and rounds once, so a floored unit price can
+            // divide into the balance one time more than the real total covers. Walked back down against
+            // the actual quote — at most a handful of steps, since the ceiling is a handful — so the
+            // picker can never offer a quantity the purchase would then refuse as unaffordable.
+            while (quantity > 0 && _currencySystem.QuotePriceFor(PowerUpKind.CoinSower, quantity) > balance)
+            {
+                quantity--;
+            }
+
+            return quantity;
         }
 
         /// <summary>Coins one coin cell costs. Quoted through <see cref="CurrencySystem.QuotePriceFor"/>

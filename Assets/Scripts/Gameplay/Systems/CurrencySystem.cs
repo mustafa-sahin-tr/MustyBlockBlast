@@ -80,6 +80,7 @@ namespace MustyBlockBlast.Gameplay.Systems
         private readonly LevelProgressionModel _levelProgressionModel;
         private readonly CurrencyConfig _config;
         private readonly PowerUpPriceConfig _priceConfig;
+        private readonly PromotionConfig _promotionConfig;
         private readonly PowerUpSystem _powerUpSystem;
         private readonly ICoinRewardSource _coinRewardSource;
         private readonly ICoinPurchaseService _coinPurchaseService;
@@ -97,12 +98,22 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// </summary>
         private readonly HashSet<string> _consumedTransactionIds = new HashSet<string>();
 
+        /// <summary>
+        /// Where "now" comes from when a promotion window is checked. Behind a delegate for the reason
+        /// <see cref="LaserSpawnSystem"/>'s random seed is: a date-driven price is untestable against a
+        /// clock nobody can move, and a test that had to wait for a window to open would be no test at
+        /// all. The public constructor wires the real clock; only a test reaches the seeded overload.
+        /// </summary>
+        private readonly Func<DateTime> _utcNowProvider;
+
+        /// <summary>DI entry point — VContainer must not pick the seeded-clock constructor.</summary>
         public CurrencySystem(
             ProfileModel profileModel,
             ScoreModel scoreModel,
             LevelProgressionModel levelProgressionModel,
             CurrencyConfig config,
             PowerUpPriceConfig priceConfig,
+            PromotionConfig promotionConfig,
             PowerUpSystem powerUpSystem,
             ICoinRewardSource coinRewardSource,
             ICoinPurchaseService coinPurchaseService,
@@ -112,7 +123,46 @@ namespace MustyBlockBlast.Gameplay.Systems
             IPublisher<CoinsGrantedFromPurchaseMessage> purchaseGrantPublisher,
             ISubscriber<GameOverMessage> gameOverSubscriber,
             ISubscriber<CoinCellsClearedMessage> coinCellsClearedSubscriber)
+            : this(
+                profileModel,
+                scoreModel,
+                levelProgressionModel,
+                config,
+                priceConfig,
+                promotionConfig,
+                powerUpSystem,
+                coinRewardSource,
+                coinPurchaseService,
+                receiptValidator,
+                convertedPublisher,
+                adGrantPublisher,
+                purchaseGrantPublisher,
+                gameOverSubscriber,
+                coinCellsClearedSubscriber,
+                UtcNow)
         {
+        }
+
+        internal CurrencySystem(
+            ProfileModel profileModel,
+            ScoreModel scoreModel,
+            LevelProgressionModel levelProgressionModel,
+            CurrencyConfig config,
+            PowerUpPriceConfig priceConfig,
+            PromotionConfig promotionConfig,
+            PowerUpSystem powerUpSystem,
+            ICoinRewardSource coinRewardSource,
+            ICoinPurchaseService coinPurchaseService,
+            IPurchaseReceiptValidator receiptValidator,
+            IPublisher<ScoreConvertedToCoinsMessage> convertedPublisher,
+            IPublisher<CoinsGrantedFromAdMessage> adGrantPublisher,
+            IPublisher<CoinsGrantedFromPurchaseMessage> purchaseGrantPublisher,
+            ISubscriber<GameOverMessage> gameOverSubscriber,
+            ISubscriber<CoinCellsClearedMessage> coinCellsClearedSubscriber,
+            Func<DateTime> utcNowProvider)
+        {
+            _promotionConfig = promotionConfig;
+            _utcNowProvider = utcNowProvider ?? UtcNow;
             _profileModel = profileModel;
             _scoreModel = scoreModel;
             _levelProgressionModel = levelProgressionModel;
@@ -337,9 +387,61 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// <c>int</c> round to a bargain. Nothing the player can afford ever leaves this range, so the
         /// only caller that sees a figure past <see cref="int.MaxValue"/> is the one about to refuse it.
         /// </para>
+        /// <para>
+        /// Any live campaign in <see cref="PromotionConfig"/> is applied <em>here</em>, and deliberately
+        /// nowhere else. This method is already the one place the shop quotes through and the one place
+        /// <see cref="TryPurchasePowerUp"/> reads the figure it charges, so discounting it discounts both
+        /// at once: there is no arrangement of a sale's start and end in which the price on the row and
+        /// the price taken off the balance could disagree, because there is only one calculation. The
+        /// alternative — a discounted quote beside an undiscounted charge — is the one bug in a
+        /// promotion system a player would certainly notice and never forgive.
+        /// </para>
+        /// <para>
+        /// Which campaign applies, and the fact that two overlapping ones do not stack, is
+        /// <see cref="PromotionConfig.GetActiveDiscountPercent"/>'s decision and not re-litigated here:
+        /// this method asks for one percentage and takes it. The window is checked against the device's
+        /// UTC clock on every quote rather than latched at construction, so a sale that ends while the
+        /// shop is open reverts on the next repaint, and a campaign is over when its end date says so
+        /// with no code change and no restart.
+        /// </para>
+        /// <para>
+        /// The discounted figure is rounded <em>down</em>, which is to say in the player's favour. The
+        /// mirror of <see cref="QuoteCoinsFor"/>, which rounds down in the game's favour for the same
+        /// underlying reason: rounding must never work against the party the arithmetic was advertised
+        /// to. A row that says "33% off 50" and charges 34 is off by a coin in the one direction a
+        /// player would rightly call a lie, so the price paid is the remaining fraction floored (33) and
+        /// never the base less a floored discount (34).
+        /// <para>
+        /// Taken off the line total rather than off each unit, and the multiply happens before the
+        /// divide, so the remainder is discarded exactly once however many are bought: 33% off three
+        /// 50-coin power-ups is 100, the floor of the real 100.5, rather than three separately-floored
+        /// 33s. The figure shown is therefore the honest reading of "33% off 150" and cannot drift
+        /// further from it as the quantity climbs, which repeated per-unit rounding would.
+        /// </para>
+        /// </para>
         /// </summary>
         public long QuotePriceFor(PowerUpKind kind, int quantity)
-            => quantity <= 0 ? 0L : (long)_priceConfig.GetPrice(kind) * quantity;
+        {
+            if (quantity <= 0)
+            {
+                return 0L;
+            }
+
+            long basePrice = (long)_priceConfig.GetPrice(kind) * quantity;
+
+            int discountPercent = _promotionConfig == null
+                ? 0
+                : _promotionConfig.GetActiveDiscountPercent(kind, _utcNowProvider());
+            if (discountPercent <= 0)
+            {
+                return basePrice;
+            }
+
+            // The remaining fraction, not the base less the discount. The two differ by a coin whenever
+            // the percentage does not divide the total, and only this one rounds the *price* down: the
+            // other floors the discount, which quietly rounds the price up.
+            return basePrice * (100 - discountPercent) / 100;
+        }
 
         /// <summary>
         /// Buys <paramref name="quantity"/> of <paramref name="kind"/> with coins: debits the balance
@@ -360,6 +462,13 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// (<see cref="LevelProgressionModel.CurrentLevelNumber"/>) — so a kind the player has not
         /// reached cannot be bought however many coins they hold. Currency is not a key: it buys a
         /// power-up the player has already unlocked, and nothing else.
+        /// </para>
+        /// <para>
+        /// The price is read through <see cref="QuotePriceFor"/> and nowhere else, which is what makes a
+        /// live promotion charge what the shop advertised: the discount lives in that one method, so this
+        /// path inherits it without knowing a campaign exists. There is deliberately no second lookup of
+        /// <see cref="PowerUpPriceConfig.GetPrice"/> here — a charge computed from the base price beside
+        /// a quote computed from the discounted one is exactly the disagreement the single seam prevents.
         /// </para>
         /// <para>
         /// The over-ask is refused rather than clamped down to what the balance covers, for the reason
@@ -415,6 +524,14 @@ namespace MustyBlockBlast.Gameplay.Systems
             _gameOverSubscription.Dispose();
             _coinCellsSubscription.Dispose();
         }
+
+        /// <summary>
+        /// The real clock, behind a named method rather than an inline lambda so the public constructor's
+        /// default is one readable thing and the delegate it allocates is created once per system rather
+        /// than captured from anywhere. UTC because <see cref="PromotionConfig"/> compares UTC instants —
+        /// a campaign's window is one moment worldwide, not one per timezone.
+        /// </summary>
+        private static DateTime UtcNow() => DateTime.UtcNow;
 
         /// <summary>
         /// Banks the coins a resolution's destroyed coin cells earned. Goes through the same

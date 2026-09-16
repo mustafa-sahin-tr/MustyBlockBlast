@@ -587,6 +587,9 @@ namespace MustyBlockBlast.Tests.EditMode
                 _levelProgressionModel,
                 _config,
                 _priceConfig,
+                // No campaign: these tests are about the real-money path, which has no promotional
+                // price of its own — a coin bundle's price lives in the store, not in this codebase.
+                ScriptableObject.CreateInstance<PromotionConfig>(),
                 CreatePowerUpSystem(),
                 new StubCoinRewardSource(),
                 coinPurchaseService,

@@ -1,3 +1,4 @@
+using System;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using MustyBlockBlast.Core;
@@ -27,6 +28,15 @@ namespace MustyBlockBlast.Tests.EditMode
         /// withheld from the purchase tests that are not about the gate.</summary>
         private const int ALL_KINDS_UNLOCKED_LEVEL = 99;
 
+        /// <summary>
+        /// The instant every test starts at. A fixed one rather than the machine's clock, so a
+        /// campaign's window can be authored relative to something that does not move: the tests below
+        /// place windows around this date, and "before the start" and "after the end" mean the same thing
+        /// whenever the suite is run.
+        /// </summary>
+        private static readonly DateTime DefaultNowUtc =
+            new DateTime(2026, 6, 15, 12, 0, 0, DateTimeKind.Utc);
+
         private TestMessageBroker<ScoreConvertedToCoinsMessage> _convertedBroker;
         private TestMessageBroker<CoinsGrantedFromAdMessage> _adGrantBroker;
         private TestMessageBroker<GameOverMessage> _gameOverBroker;
@@ -35,6 +45,21 @@ namespace MustyBlockBlast.Tests.EditMode
         private TestMessageBroker<PowerUpGrantedMessage> _grantedBroker;
         private CurrencyConfig _config;
         private PowerUpPriceConfig _priceConfig;
+
+        /// <summary>
+        /// The promotion table every system in this fixture quotes through. Empty by default, so every
+        /// test written before campaigns existed still asks for a standard price; the promotion tests
+        /// fill it themselves through <c>AddCampaignForTests</c>.
+        /// </summary>
+        private PromotionConfig _promotionConfig;
+
+        /// <summary>
+        /// The clock the promotion windows are compared against, injected rather than read off the
+        /// machine: a date-driven price tested against <see cref="DateTime.UtcNow"/> would pass today and
+        /// fail on the day a window happened to close. Held on a field so a test can move "now" either
+        /// side of a campaign it authored.
+        /// </summary>
+        private DateTime _utcNow;
 
         /// <summary>
         /// The progression frontier the purchase path's level gate reads. Held on a field and opened at
@@ -68,6 +93,8 @@ namespace MustyBlockBlast.Tests.EditMode
             _grantedBroker = new TestMessageBroker<PowerUpGrantedMessage>();
             _config = ScriptableObject.CreateInstance<CurrencyConfig>();
             _priceConfig = ScriptableObject.CreateInstance<PowerUpPriceConfig>();
+            _promotionConfig = ScriptableObject.CreateInstance<PromotionConfig>();
+            _utcNow = DefaultNowUtc;
             _levelProgressionModel = new LevelProgressionModel();
             _levelProgressionModel.CurrentLevelNumber.Value = ALL_KINDS_UNLOCKED_LEVEL;
         }
@@ -79,12 +106,17 @@ namespace MustyBlockBlast.Tests.EditMode
             DeleteInventoryKeys();
             if (_config != null)
             {
-                Object.DestroyImmediate(_config);
+                UnityEngine.Object.DestroyImmediate(_config);
             }
 
             if (_priceConfig != null)
             {
-                Object.DestroyImmediate(_priceConfig);
+                UnityEngine.Object.DestroyImmediate(_priceConfig);
+            }
+
+            if (_promotionConfig != null)
+            {
+                UnityEngine.Object.DestroyImmediate(_promotionConfig);
             }
         }
 
@@ -737,6 +769,346 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.AreEqual(1000, profileModel.ScoreConverted.Value);
         }
 
+        // --- Issue #165: time-limited power-up promotions ---
+        //
+        // Scoped to power-up prices, and deliberately not to coin bundles: a bundle's price lives in App
+        // Store Connect and the Play Console (see CoinBundleConfig, which holds coin amounts and no
+        // price at all), so there is nothing here for a bundle discount to discount.
+
+        /// <summary>
+        /// A fresh config runs no campaign at all. The default that matters most: every other test in
+        /// this fixture, and every scene whose config field is unassigned, quotes standard prices
+        /// because of it.
+        /// </summary>
+        [Test]
+        public void GetActiveDiscountPercent_OnAFreshConfig_IsZeroForEveryKind()
+        {
+            Assert.AreEqual(0, _promotionConfig.GetActiveDiscountPercent(PowerUpKind.Bomb, _utcNow));
+            Assert.AreEqual(0, _promotionConfig.GetActiveDiscountPercent(PowerUpKind.Joker, _utcNow));
+        }
+
+        /// <summary>AC1/AC2's config half: a window containing "now" yields the authored percentage.</summary>
+        [Test]
+        public void GetActiveDiscountPercent_InsideTheWindow_IsTheAuthoredPercentage()
+        {
+            AddCampaign(PowerUpKind.Bomb, 25, WindowAroundDefaultNow);
+
+            Assert.AreEqual(25, _promotionConfig.GetActiveDiscountPercent(PowerUpKind.Bomb, _utcNow));
+        }
+
+        /// <summary>AC4's first half: a campaign that has not opened yet discounts nothing.</summary>
+        [Test]
+        public void GetActiveDiscountPercent_BeforeTheStart_IsZero()
+        {
+            AddCampaign(PowerUpKind.Bomb, 25, FutureWindow);
+
+            Assert.AreEqual(0, _promotionConfig.GetActiveDiscountPercent(PowerUpKind.Bomb, _utcNow));
+        }
+
+        /// <summary>AC4's second half, and AC3: an ended campaign discounts nothing, with no code
+        /// change and nothing to switch off — the dates alone decided it.</summary>
+        [Test]
+        public void GetActiveDiscountPercent_AfterTheEnd_IsZero()
+        {
+            AddCampaign(PowerUpKind.Bomb, 25, ExpiredWindow);
+
+            Assert.AreEqual(0, _promotionConfig.GetActiveDiscountPercent(PowerUpKind.Bomb, _utcNow));
+        }
+
+        /// <summary>Both bounds are inclusive, which is the whole of what "runs until the 8th" has to
+        /// mean to a player looking at the shop on the 8th.</summary>
+        [Test]
+        public void GetActiveDiscountPercent_OnEitherBoundary_IsStillActive()
+        {
+            AddCampaign(PowerUpKind.Bomb, 25, WindowAroundDefaultNow);
+
+            DateTime start = new DateTime(2026, 6, 1, 0, 0, 0, DateTimeKind.Utc);
+            DateTime end = new DateTime(2026, 6, 30, 23, 59, 59, DateTimeKind.Utc);
+
+            Assert.AreEqual(25, _promotionConfig.GetActiveDiscountPercent(PowerUpKind.Bomb, start));
+            Assert.AreEqual(25, _promotionConfig.GetActiveDiscountPercent(PowerUpKind.Bomb, end));
+        }
+
+        /// <summary>A campaign discounts the kind it names and no other. The one mistake that would turn
+        /// a single sale into a storewide one.</summary>
+        [Test]
+        public void GetActiveDiscountPercent_ForAnUnrelatedKind_IsZero()
+        {
+            AddCampaign(PowerUpKind.Bomb, 25, WindowAroundDefaultNow);
+
+            Assert.AreEqual(0, _promotionConfig.GetActiveDiscountPercent(PowerUpKind.RowClear, _utcNow));
+            Assert.AreEqual(0, _promotionConfig.GetActiveDiscountPercent(PowerUpKind.Joker, _utcNow));
+        }
+
+        /// <summary>
+        /// The documented resolution rule for the authoring mistake that has no single correct answer:
+        /// two live rows for one kind resolve to the first, and the discounts do not stack. Asserted on
+        /// the smaller-first ordering on purpose — "largest wins" and "sum them" would both have picked
+        /// the second row here, so this pins array order as the tie-break rather than accidentally
+        /// agreeing with a rule nobody chose.
+        /// </summary>
+        [Test]
+        public void GetActiveDiscountPercent_WithTwoOverlappingCampaigns_TakesTheFirstAndDoesNotStack()
+        {
+            AddCampaign(PowerUpKind.Bomb, 10, WindowAroundDefaultNow);
+            AddCampaign(PowerUpKind.Bomb, 40, WindowAroundDefaultNow);
+
+            Assert.AreEqual(10, _promotionConfig.GetActiveDiscountPercent(PowerUpKind.Bomb, _utcNow));
+        }
+
+        /// <summary>
+        /// An expired row does not shadow a live one below it: "first match" means the first
+        /// <em>active</em> match, not the first row that happens to name the kind. Otherwise a campaign
+        /// nobody deleted would silently cancel every one authored after it.
+        /// </summary>
+        [Test]
+        public void GetActiveDiscountPercent_WithAnExpiredRowAboveALiveOne_TakesTheLiveOne()
+        {
+            AddCampaign(PowerUpKind.Bomb, 40, ExpiredWindow);
+            AddCampaign(PowerUpKind.Bomb, 15, WindowAroundDefaultNow);
+
+            Assert.AreEqual(15, _promotionConfig.GetActiveDiscountPercent(PowerUpKind.Bomb, _utcNow));
+        }
+
+        /// <summary>
+        /// A malformed or inverted window is read as no campaign rather than as an always-on one. An
+        /// authoring mistake must never resolve in the direction of giving stock away.
+        /// </summary>
+        [Test]
+        [TestCase("not a date", "2026-12-31T00:00:00Z")]
+        [TestCase("2026-01-01T00:00:00Z", "")]
+        [TestCase("2026-12-31T00:00:00Z", "2026-01-01T00:00:00Z")]
+        public void GetActiveDiscountPercent_WithAnUnusableWindow_IsZero(string startUtc, string endUtc)
+        {
+            _promotionConfig.AddCampaignForTests(PowerUpKind.Bomb, 25, startUtc, endUtc);
+
+            Assert.AreEqual(0, _promotionConfig.GetActiveDiscountPercent(PowerUpKind.Bomb, _utcNow));
+        }
+
+        /// <summary>A percentage outside 0-100 is clamped rather than trusted: a negative one would be a
+        /// surcharge and one past a hundred would pay the player to shop.</summary>
+        [Test]
+        [TestCase(-20, 0)]
+        [TestCase(140, 100)]
+        public void GetActiveDiscountPercent_WithAnOutOfRangePercentage_IsClamped(
+            int authored, int expected)
+        {
+            AddCampaign(PowerUpKind.Bomb, authored, WindowAroundDefaultNow);
+
+            Assert.AreEqual(
+                expected, _promotionConfig.GetActiveDiscountPercent(PowerUpKind.Bomb, _utcNow));
+        }
+
+        /// <summary>
+        /// AC2's quoting half: inside the window the shop is quoted the discounted figure. Asserted
+        /// against the standard price too, so this cannot pass on a config that priced Joker at 75 all
+        /// along.
+        /// </summary>
+        [Test]
+        public void QuotePriceFor_InsideAnActivePromotion_QuotesTheDiscountedPrice()
+        {
+            AddCampaign(PowerUpKind.Joker, 25, WindowAroundDefaultNow);
+            CurrencySystem system = CreateSystem(new ProfileModel(), new ScoreModel());
+
+            Assert.AreEqual(100, _priceConfig.GetPrice(PowerUpKind.Joker), "Price config changed.");
+            Assert.AreEqual(75L, system.QuotePriceFor(PowerUpKind.Joker, 1));
+        }
+
+        /// <summary>
+        /// Pins the rounding decision, in the direction it was decided: the price is the remaining
+        /// fraction floored (33), never the base less a floored discount (34). One coin, and the only
+        /// coin in this feature a player could catch the game taking.
+        /// </summary>
+        [Test]
+        public void QuotePriceFor_WithAPercentageThatDoesNotDivide_RoundsThePriceDown()
+        {
+            AddCampaign(PowerUpKind.Bomb, 33, WindowAroundDefaultNow);
+            CurrencySystem system = CreateSystem(new ProfileModel(), new ScoreModel());
+
+            Assert.AreEqual(50, _priceConfig.GetPrice(PowerUpKind.Bomb), "Price config changed.");
+            Assert.AreEqual(33L, system.QuotePriceFor(PowerUpKind.Bomb, 1));
+        }
+
+        /// <summary>
+        /// The discount is taken off the line total and rounded once, so three at a time is the floor of
+        /// the real 100.5 rather than three separately-floored 33s.
+        /// </summary>
+        [Test]
+        public void QuotePriceFor_WithAQuantity_DiscountsTheLineTotalOnce()
+        {
+            AddCampaign(PowerUpKind.Bomb, 33, WindowAroundDefaultNow);
+            CurrencySystem system = CreateSystem(new ProfileModel(), new ScoreModel());
+
+            Assert.AreEqual(100L, system.QuotePriceFor(PowerUpKind.Bomb, 3));
+        }
+
+        /// <summary>AC3: outside the window the quote is the standard price again, decided by the dates
+        /// alone.</summary>
+        [Test]
+        public void QuotePriceFor_OutsideTheWindow_QuotesTheStandardPrice()
+        {
+            AddCampaign(PowerUpKind.Joker, 25, ExpiredWindow);
+            AddCampaign(PowerUpKind.ColorCleanser, 50, FutureWindow);
+            CurrencySystem system = CreateSystem(new ProfileModel(), new ScoreModel());
+
+            Assert.AreEqual(100L, system.QuotePriceFor(PowerUpKind.Joker, 1));
+            Assert.AreEqual(150L, system.QuotePriceFor(PowerUpKind.ColorCleanser, 1));
+        }
+
+        /// <summary>
+        /// AC3 as the player meets it: the same system, the same config, the same campaign — and the
+        /// price reverts because the clock moved past the end date. Nothing was reconfigured and nothing
+        /// was restarted, which is the whole of "driven purely by the config's dates".
+        /// </summary>
+        [Test]
+        public void QuotePriceFor_OnceTheWindowCloses_RevertsWithoutAnythingBeingChanged()
+        {
+            AddCampaign(PowerUpKind.Joker, 25, WindowAroundDefaultNow);
+            CurrencySystem system = CreateSystem(new ProfileModel(), new ScoreModel());
+
+            Assert.AreEqual(75L, system.QuotePriceFor(PowerUpKind.Joker, 1));
+
+            _utcNow = new DateTime(2026, 7, 1, 0, 0, 0, DateTimeKind.Utc);
+
+            Assert.AreEqual(100L, system.QuotePriceFor(PowerUpKind.Joker, 1));
+        }
+
+        /// <summary>
+        /// AC2's charging half, and the bug this whole design exists to prevent: the balance is debited
+        /// the discounted figure, not the standard one. Read off <see cref="ProfileModel.CoinBalance"/>
+        /// rather than off the quote, so a purchase that quietly charged the base price would fail here
+        /// even though the shop showed the sale.
+        /// </summary>
+        [Test]
+        public void TryPurchasePowerUp_InsideAnActivePromotion_ChargesTheDiscountedPrice()
+        {
+            AddCampaign(PowerUpKind.Joker, 25, WindowAroundDefaultNow);
+            var profileModel = new ProfileModel();
+            CurrencySystem system = CreateSystemWithCoins(profileModel, coins: 200);
+
+            PowerUpPurchaseResult result = system.TryPurchasePowerUp(PowerUpKind.Joker, 1);
+
+            Assert.AreEqual(PowerUpPurchaseResult.Success, result);
+            Assert.AreEqual(125, profileModel.CoinBalance.Value, "The standard 100 was charged.");
+            Assert.AreEqual(125, PlayerPrefs.GetInt(COIN_BALANCE_KEY, 0));
+            Assert.AreEqual(1, CountOf(PowerUpKind.Joker));
+        }
+
+        /// <summary>
+        /// AC4 at the till, which is where it has to hold: an expired campaign charges the full standard
+        /// price. The negative case for the whole feature — a sale that outlives its end date is the one
+        /// failure that costs real money.
+        /// </summary>
+        [Test]
+        public void TryPurchasePowerUp_WithAnExpiredPromotion_ChargesTheFullStandardPrice()
+        {
+            AddCampaign(PowerUpKind.Joker, 25, ExpiredWindow);
+            var profileModel = new ProfileModel();
+            CurrencySystem system = CreateSystemWithCoins(profileModel, coins: 200);
+
+            PowerUpPurchaseResult result = system.TryPurchasePowerUp(PowerUpKind.Joker, 1);
+
+            Assert.AreEqual(PowerUpPurchaseResult.Success, result);
+            Assert.AreEqual(100, profileModel.CoinBalance.Value);
+        }
+
+        /// <summary>AC4's other half at the till: a campaign that has not opened yet charges standard
+        /// too.</summary>
+        [Test]
+        public void TryPurchasePowerUp_WithANotYetStartedPromotion_ChargesTheFullStandardPrice()
+        {
+            AddCampaign(PowerUpKind.Joker, 25, FutureWindow);
+            var profileModel = new ProfileModel();
+            CurrencySystem system = CreateSystemWithCoins(profileModel, coins: 200);
+
+            system.TryPurchasePowerUp(PowerUpKind.Joker, 1);
+
+            Assert.AreEqual(100, profileModel.CoinBalance.Value);
+        }
+
+        /// <summary>
+        /// The quote and the charge are the same number under a discount, exactly as they are without
+        /// one. The contract the shop's price label depends on, restated for the promotional path.
+        /// </summary>
+        [Test]
+        public void QuotePriceFor_UnderAPromotion_MatchesWhatAPurchaseActuallyCharges()
+        {
+            AddCampaign(PowerUpKind.ColorCleanser, 40, WindowAroundDefaultNow);
+            var profileModel = new ProfileModel();
+            CurrencySystem system = CreateSystemWithCoins(profileModel, coins: 400);
+
+            long quote = system.QuotePriceFor(PowerUpKind.ColorCleanser, 2);
+            system.TryPurchasePowerUp(PowerUpKind.ColorCleanser, 2);
+
+            Assert.AreEqual(quote, 400 - profileModel.CoinBalance.Value);
+        }
+
+        /// <summary>
+        /// A discount can only make a purchase possible, never impossible: a balance short of the
+        /// standard price still buys a discounted power-up, because the affordability check weighs the
+        /// figure the player is actually charged.
+        /// </summary>
+        [Test]
+        public void TryPurchasePowerUp_AffordableOnlyBecauseOfThePromotion_GoesThrough()
+        {
+            AddCampaign(PowerUpKind.Joker, 50, WindowAroundDefaultNow);
+            var profileModel = new ProfileModel();
+            CurrencySystem system = CreateSystemWithCoins(profileModel, coins: 60);
+
+            PowerUpPurchaseResult result = system.TryPurchasePowerUp(PowerUpKind.Joker, 1);
+
+            Assert.AreEqual(PowerUpPurchaseResult.Success, result);
+            Assert.AreEqual(10, profileModel.CoinBalance.Value);
+        }
+
+        /// <summary>
+        /// A sale does not open a level gate. Currency never did (see the gating tests above) and a
+        /// discount is still currency, so a locked kind is refused as locked however cheap it is.
+        /// </summary>
+        [Test]
+        public void TryPurchasePowerUp_ForALockedKindOnPromotion_IsStillRefusedAsLocked()
+        {
+            AddCampaign(PowerUpKind.Joker, 90, WindowAroundDefaultNow);
+            _levelProgressionModel.CurrentLevelNumber.Value = 1;
+            var profileModel = new ProfileModel();
+            CurrencySystem system = CreateSystemWithCoins(profileModel, coins: 500);
+
+            PowerUpPurchaseResult result = system.TryPurchasePowerUp(PowerUpKind.Joker, 1);
+
+            Assert.AreEqual(PowerUpPurchaseResult.Locked, result);
+            Assert.AreEqual(500, profileModel.CoinBalance.Value);
+        }
+
+        /// <summary>
+        /// A 100% campaign is authorable and is honoured at zero rather than clamped up to a coin. It is
+        /// pinned because the affordability check compares against the balance, and "free" is the one
+        /// price a broke player must still be able to pay.
+        /// </summary>
+        [Test]
+        public void TryPurchasePowerUp_UnderAFullDiscount_CostsNothingAndStillGrants()
+        {
+            AddCampaign(PowerUpKind.Joker, 100, WindowAroundDefaultNow);
+            var profileModel = new ProfileModel();
+            CurrencySystem system = CreateSystem(profileModel, new ScoreModel());
+
+            Assert.AreEqual(0L, system.QuotePriceFor(PowerUpKind.Joker, 1));
+            Assert.AreEqual(PowerUpPurchaseResult.Success, system.TryPurchasePowerUp(PowerUpKind.Joker, 1));
+            Assert.AreEqual(0, profileModel.CoinBalance.Value);
+            Assert.AreEqual(1, CountOf(PowerUpKind.Joker));
+        }
+
+        /// <summary>A non-positive quantity is still zero, discount or no discount: the guard runs before
+        /// anything is priced.</summary>
+        [Test]
+        public void QuotePriceFor_UnderAPromotionWithANonPositiveQuantity_IsZero()
+        {
+            AddCampaign(PowerUpKind.Bomb, 25, WindowAroundDefaultNow);
+            CurrencySystem system = CreateSystem(new ProfileModel(), new ScoreModel());
+
+            Assert.AreEqual(0L, system.QuotePriceFor(PowerUpKind.Bomb, 0));
+            Assert.AreEqual(0L, system.QuotePriceFor(PowerUpKind.Bomb, -3));
+        }
+
         // --- Issue #166: coin cells ---
 
         /// <summary>
@@ -1078,6 +1450,7 @@ namespace MustyBlockBlast.Tests.EditMode
                 _levelProgressionModel,
                 _config,
                 _priceConfig,
+                _promotionConfig,
                 CreatePowerUpSystem(),
                 coinRewardSource ?? new StubCoinRewardSource(granted: true),
                 // The real-money path is covered in full by CurrencySystemPurchaseTests. Here it is
@@ -1089,7 +1462,12 @@ namespace MustyBlockBlast.Tests.EditMode
                 _adGrantBroker,
                 new TestMessageBroker<CoinsGrantedFromPurchaseMessage>(),
                 _gameOverBroker,
-                _coinCellsBroker);
+                _coinCellsBroker,
+                // The seeded-clock overload, so every quote in this fixture is priced at an instant the
+                // test controls rather than at whenever the suite happens to run. Read through the
+                // lambda on each quote, not captured by value, so a test can move "now" after building
+                // the system — which is how the "reverts on its own" cases are written.
+                () => _utcNow);
         }
 
         /// <summary>
@@ -1217,6 +1595,47 @@ namespace MustyBlockBlast.Tests.EditMode
                 default:
                     return _powerUpModel.BombCount.Value;
             }
+        }
+
+        /// <summary>
+        /// A window straddling <see cref="DefaultNowUtc"/>, so a campaign authored with it is live at the
+        /// instant every test starts from.
+        /// </summary>
+        private static readonly TestWindow WindowAroundDefaultNow =
+            new TestWindow("2026-06-01T00:00:00Z", "2026-06-30T23:59:59Z");
+
+        /// <summary>A window that closed well before <see cref="DefaultNowUtc"/>. AC4's expired
+        /// campaign.</summary>
+        private static readonly TestWindow ExpiredWindow =
+            new TestWindow("2025-11-24T00:00:00Z", "2025-12-01T23:59:59Z");
+
+        /// <summary>A window that has not opened by <see cref="DefaultNowUtc"/>. AC4's other half.</summary>
+        private static readonly TestWindow FutureWindow =
+            new TestWindow("2027-01-01T00:00:00Z", "2027-01-08T23:59:59Z");
+
+        /// <summary>
+        /// Appends one campaign to the fixture's promotion table. A wrapper over the config's own test
+        /// seam purely so the windows above can be named rather than spelled out at twenty call sites —
+        /// a mistyped date would be a test that passes for the wrong reason.
+        /// </summary>
+        private void AddCampaign(PowerUpKind kind, int discountPercent, TestWindow window)
+        {
+            _promotionConfig.AddCampaignForTests(
+                kind, discountPercent, window.StartUtc, window.EndUtc);
+        }
+
+        /// <summary>A named pair of ISO-8601 bounds, in the shape the config's authoring seam takes.</summary>
+        private readonly struct TestWindow
+        {
+            internal TestWindow(string startUtc, string endUtc)
+            {
+                StartUtc = startUtc;
+                EndUtc = endUtc;
+            }
+
+            internal string StartUtc { get; }
+
+            internal string EndUtc { get; }
         }
 
         private static void DeleteCurrencyKeys()
