@@ -38,6 +38,13 @@
       "dependencies": {},
       "url": "https://package.openupm.com"
     },
+    "com.lupidan.apple-signin-unity": {
+      "version": "https://github.com/lupidan/apple-signin-unity.git?path=Source#1.5.0",
+      "depth": 0,
+      "source": "git",
+      "dependencies": {},
+      "hash": "1a2622d90f7bb8cd256b235e9a07eb270262a89a"
+    },
     "com.unity.2d.animation": {
       "version": "16.0.0",
       "depth": 0,
