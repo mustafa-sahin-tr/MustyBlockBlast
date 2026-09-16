@@ -38,6 +38,14 @@ namespace MustyBlockBlast.Gameplay.Systems
     /// deduction and the credit reach the disk together. A crash can lose the whole conversion or keep
     /// the whole conversion; it cannot keep half of one.
     /// </para>
+    /// <para>
+    /// It is also the one and only place a coin is <em>spent</em>. Today that means exactly one sink,
+    /// <see cref="TryPurchasePowerUp"/>: the debit lives here because the balance does, and the grant
+    /// it pays for is delegated to <see cref="PowerUpSystem"/>, which owns the inventory. That keeps
+    /// each half of a purchase behind its own single writer — the same one-writer-per-slice split this
+    /// class already has with <see cref="ProfileSystem"/> — while the whole purchase still reaches the
+    /// disk in one flush.
+    /// </para>
     /// </summary>
     public sealed class CurrencySystem : IDisposable
     {
@@ -47,7 +55,10 @@ namespace MustyBlockBlast.Gameplay.Systems
 
         private readonly ProfileModel _profileModel;
         private readonly ScoreModel _scoreModel;
+        private readonly LevelProgressionModel _levelProgressionModel;
         private readonly CurrencyConfig _config;
+        private readonly PowerUpPriceConfig _priceConfig;
+        private readonly PowerUpSystem _powerUpSystem;
         private readonly ICoinRewardSource _coinRewardSource;
         private readonly IPublisher<ScoreConvertedToCoinsMessage> _convertedPublisher;
         private readonly IPublisher<CoinsGrantedFromAdMessage> _adGrantPublisher;
@@ -56,7 +67,10 @@ namespace MustyBlockBlast.Gameplay.Systems
         public CurrencySystem(
             ProfileModel profileModel,
             ScoreModel scoreModel,
+            LevelProgressionModel levelProgressionModel,
             CurrencyConfig config,
+            PowerUpPriceConfig priceConfig,
+            PowerUpSystem powerUpSystem,
             ICoinRewardSource coinRewardSource,
             IPublisher<ScoreConvertedToCoinsMessage> convertedPublisher,
             IPublisher<CoinsGrantedFromAdMessage> adGrantPublisher,
@@ -64,7 +78,10 @@ namespace MustyBlockBlast.Gameplay.Systems
         {
             _profileModel = profileModel;
             _scoreModel = scoreModel;
+            _levelProgressionModel = levelProgressionModel;
             _config = config;
+            _priceConfig = priceConfig;
+            _powerUpSystem = powerUpSystem;
             _coinRewardSource = coinRewardSource;
             _convertedPublisher = convertedPublisher;
             _adGrantPublisher = adGrantPublisher;
@@ -170,6 +187,90 @@ namespace MustyBlockBlast.Gameplay.Systems
 
             _adGrantPublisher.Publish(new CoinsGrantedFromAdMessage(result.Amount, newBalance));
             return true;
+        }
+
+        /// <summary>
+        /// Coins <paramref name="quantity"/> of <paramref name="kind"/> would cost. What the shop
+        /// screen quotes before the player commits, so the price shown and the price charged come from
+        /// the same arithmetic rather than two copies of it — the same contract
+        /// <see cref="QuoteCoinsFor"/> has with the conversion screen.
+        /// <para>
+        /// A <c>long</c> because an unpriced kind is priced at <see cref="int.MaxValue"/> (see
+        /// <see cref="PowerUpPriceConfig"/>), and multiplying that by a quantity would wrap an
+        /// <c>int</c> round to a bargain. Nothing the player can afford ever leaves this range, so the
+        /// only caller that sees a figure past <see cref="int.MaxValue"/> is the one about to refuse it.
+        /// </para>
+        /// </summary>
+        public long QuotePriceFor(PowerUpKind kind, int quantity)
+            => quantity <= 0 ? 0L : (long)_priceConfig.GetPrice(kind) * quantity;
+
+        /// <summary>
+        /// Buys <paramref name="quantity"/> of <paramref name="kind"/> with coins: debits the balance
+        /// and grants the power-ups, or refuses and changes nothing at all. The returned
+        /// <see cref="PowerUpPurchaseResult"/> says which, and on a refusal says why — there is no
+        /// silent no-op here, because every refusal is something the shop has to tell the player.
+        /// <para>
+        /// Three guards, cheapest and most obviously-wrong first, and all three before a single
+        /// mutation. An empty ask cannot come from a player and is rejected without consulting
+        /// anything; the level gate is one comparison against a number already in hand; only then is
+        /// the price looked up and weighed against the balance. Ordering them this way also means the
+        /// answer the shop shows is the most specific true one: a locked kind reads as locked rather
+        /// than as unaffordable, even when the player could not have afforded it either.
+        /// </para>
+        /// <para>
+        /// The gate is checked through <see cref="PowerUpUnlockLevels.IsUnlockedAt"/>, the same public
+        /// seam <see cref="PowerUpSystem"/> reads it through and the same frontier
+        /// (<see cref="LevelProgressionModel.CurrentLevelNumber"/>) — so a kind the player has not
+        /// reached cannot be bought however many coins they hold. Currency is not a key: it buys a
+        /// power-up the player has already unlocked, and nothing else.
+        /// </para>
+        /// <para>
+        /// The over-ask is refused rather than clamped down to what the balance covers, for the reason
+        /// <see cref="ConvertScoreToCoins"/> refuses its own: the screen is built from the balance and
+        /// the price, so an unaffordable ask is a bug somewhere, and quietly buying a different
+        /// quantity than the caller named would hide it.
+        /// </para>
+        /// <para>
+        /// Then the ordering that makes a purchase atomic: debit, grant, flush — once, at the end.
+        /// Both halves write PlayerPrefs in memory only (this one directly, the grant through
+        /// <see cref="PowerUpSystem.GrantPurchased"/>, which persists and deliberately does not flush),
+        /// so the single <see cref="PlayerPrefs.Save"/> below is what puts them on the disk together. A
+        /// crash can lose the whole purchase or keep the whole purchase; it cannot take the coins
+        /// without handing over the power-ups, or the other way round.
+        /// </para>
+        /// </summary>
+        public PowerUpPurchaseResult TryPurchasePowerUp(PowerUpKind kind, int quantity)
+        {
+            if (quantity <= 0)
+            {
+                return PowerUpPurchaseResult.InvalidQuantity;
+            }
+
+            if (!PowerUpUnlockLevels.IsUnlockedAt(kind, _levelProgressionModel.CurrentLevelNumber.Value))
+            {
+                return PowerUpPurchaseResult.Locked;
+            }
+
+            long totalPrice = QuotePriceFor(kind, quantity);
+            if (totalPrice > _profileModel.CoinBalance.Value)
+            {
+                return PowerUpPurchaseResult.InsufficientCoins;
+            }
+
+            // Safe to narrow: the check above already proved this is no larger than the balance, which
+            // is an int.
+            int newBalance = _profileModel.CoinBalance.Value - (int)totalPrice;
+            _profileModel.CoinBalance.Value = newBalance;
+            PlayerPrefs.SetInt(COIN_BALANCE_KEY, newBalance);
+
+            // Charged first, then handed over: the debit is this class's own write and the grant is
+            // PowerUpSystem's, so paying before delivering is what keeps a granted power-up from ever
+            // existing without the coins for it having left the balance.
+            _powerUpSystem.GrantPurchased(kind, quantity);
+
+            PlayerPrefs.Save();
+
+            return PowerUpPurchaseResult.Success;
         }
 
         public void Dispose()

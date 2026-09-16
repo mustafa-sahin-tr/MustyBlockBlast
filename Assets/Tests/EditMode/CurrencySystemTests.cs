@@ -1,5 +1,7 @@
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using MustyBlockBlast.Core;
+using MustyBlockBlast.Gameplay;
 using MustyBlockBlast.Gameplay.Messages;
 using MustyBlockBlast.Gameplay.Models;
 using MustyBlockBlast.Gameplay.Settings;
@@ -12,7 +14,8 @@ namespace MustyBlockBlast.Tests.EditMode
     /// <summary>
     /// Covers the currency contract: a run's score is banked but never minted, conversion is partial and
     /// leaves the remainder alone, an empty pool is a complete no-op, the ad faucet is independent of the
-    /// pool entirely, and every change survives a restart.
+    /// pool entirely, a coin purchase is all-or-nothing and can never buy past a level gate, and every
+    /// change survives a restart.
     /// </summary>
     public class CurrencySystemTests
     {
@@ -20,30 +23,66 @@ namespace MustyBlockBlast.Tests.EditMode
         private const string TOTAL_SCORE_EARNED_KEY = "Profile.TotalScoreEarned";
         private const string SCORE_CONVERTED_KEY = "Profile.ScoreConverted";
 
+        /// <summary>A frontier past the last gate in <see cref="PowerUpUnlockLevels"/>, so no kind is
+        /// withheld from the purchase tests that are not about the gate.</summary>
+        private const int ALL_KINDS_UNLOCKED_LEVEL = 99;
+
         private TestMessageBroker<ScoreConvertedToCoinsMessage> _convertedBroker;
         private TestMessageBroker<CoinsGrantedFromAdMessage> _adGrantBroker;
         private TestMessageBroker<GameOverMessage> _gameOverBroker;
+        private TestMessageBroker<PowerUpAppliedMessage> _appliedBroker;
+        private TestMessageBroker<PowerUpGrantedMessage> _grantedBroker;
         private CurrencyConfig _config;
+        private PowerUpPriceConfig _priceConfig;
 
-        /// <summary>CurrencySystem loads the three counters in its constructor, so a balance left behind
-        /// by a previous test would silently decide what the next one can convert.</summary>
+        /// <summary>
+        /// The progression frontier the purchase path's level gate reads. Held on a field and opened at
+        /// <see cref="ALL_KINDS_UNLOCKED_LEVEL"/> by default, so every test that is not about the gate
+        /// can buy anything; the gating tests lower it themselves.
+        /// </summary>
+        private LevelProgressionModel _levelProgressionModel;
+
+        /// <summary>
+        /// The inventory the purchase path grants into, and the system that owns it. Both are rebuilt by
+        /// every <c>CreateSystem</c> call and held here so a test can read the granted count without
+        /// reaching back through the system under test — and so a "restart" test's second pair reads the
+        /// counts back out of PlayerPrefs exactly as a relaunch would.
+        /// </summary>
+        private PowerUpModel _powerUpModel;
+        private PowerUpSystem _powerUpSystem;
+
+        /// <summary>CurrencySystem loads the three counters in its constructor, and PowerUpSystem loads
+        /// the inventory in its own, so anything left behind by a previous test would silently decide
+        /// what the next one can convert or buy.</summary>
         [SetUp]
         public void ClearPersistedCurrency()
         {
             DeleteCurrencyKeys();
+            DeleteInventoryKeys();
             _convertedBroker = new TestMessageBroker<ScoreConvertedToCoinsMessage>();
             _adGrantBroker = new TestMessageBroker<CoinsGrantedFromAdMessage>();
             _gameOverBroker = new TestMessageBroker<GameOverMessage>();
+            _appliedBroker = new TestMessageBroker<PowerUpAppliedMessage>();
+            _grantedBroker = new TestMessageBroker<PowerUpGrantedMessage>();
             _config = ScriptableObject.CreateInstance<CurrencyConfig>();
+            _priceConfig = ScriptableObject.CreateInstance<PowerUpPriceConfig>();
+            _levelProgressionModel = new LevelProgressionModel();
+            _levelProgressionModel.CurrentLevelNumber.Value = ALL_KINDS_UNLOCKED_LEVEL;
         }
 
         [TearDown]
         public void ClearPersistedCurrencyAfterwards()
         {
             DeleteCurrencyKeys();
+            DeleteInventoryKeys();
             if (_config != null)
             {
                 Object.DestroyImmediate(_config);
+            }
+
+            if (_priceConfig != null)
+            {
+                Object.DestroyImmediate(_priceConfig);
             }
         }
 
@@ -444,6 +483,282 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.AreEqual(0, system.QuoteCoinsFor(amount));
         }
 
+        // --- Issue #163: buying power-ups with coins ---
+
+        /// <summary>
+        /// Pins the placeholder prices the purchase tests quote against. Not a claim about the economy —
+        /// the numbers are expected to be retuned in the asset — only that a freshly created config
+        /// prices every kind with a positive figure, so the shop is never a wall of unbuyable rows, and
+        /// that the starter three are no dearer than the gated six.
+        /// </summary>
+        [Test]
+        public void PowerUpPriceConfig_OnAFreshInstance_PricesEveryKindAbovePlaceholderZero()
+        {
+            int starterPrice = _priceConfig.GetPrice(PowerUpKind.Bomb);
+            Assert.Greater(starterPrice, 0);
+
+            PowerUpKind[] allKinds = (PowerUpKind[])System.Enum.GetValues(typeof(PowerUpKind));
+            for (int kindIndex = 0; kindIndex < allKinds.Length; kindIndex++)
+            {
+                int price = _priceConfig.GetPrice(allKinds[kindIndex]);
+                Assert.Greater(price, 0, $"{allKinds[kindIndex]} has no usable price.");
+                Assert.Less(price, int.MaxValue, $"{allKinds[kindIndex]} is priced as unbuyable.");
+
+                if (PowerUpUnlockLevels.LevelFor(allKinds[kindIndex]) > PowerUpUnlockLevels.ALWAYS_UNLOCKED)
+                {
+                    Assert.GreaterOrEqual(
+                        price, starterPrice, "A gated kind must not be cheaper than a starter one.");
+                }
+            }
+        }
+
+        /// <summary>
+        /// AC2 in full: the exact total price leaves the balance, the exact quantity arrives in the
+        /// inventory, and the result says so. The quantity is deliberately more than one, so a purchase
+        /// that granted a flat "+1" would fail here rather than pass by coincidence.
+        /// </summary>
+        [Test]
+        public void TryPurchasePowerUp_WithEnoughCoins_DebitsTheTotalAndGrantsTheQuantity()
+        {
+            var profileModel = new ProfileModel();
+            CurrencySystem system = CreateSystemWithCoins(profileModel, coins: 500);
+            long expectedPrice = system.QuotePriceFor(PowerUpKind.Bomb, 3);
+
+            PowerUpPurchaseResult result = system.TryPurchasePowerUp(PowerUpKind.Bomb, 3);
+
+            Assert.AreEqual(PowerUpPurchaseResult.Success, result);
+            Assert.AreEqual(500 - expectedPrice, profileModel.CoinBalance.Value);
+            Assert.AreEqual(3, CountOf(PowerUpKind.Bomb));
+        }
+
+        /// <summary>The quote the shop shows and the figure actually charged are the same arithmetic, not
+        /// two copies of it.</summary>
+        [Test]
+        public void QuotePriceFor_MatchesWhatAPurchaseActuallyCharges()
+        {
+            var profileModel = new ProfileModel();
+            CurrencySystem system = CreateSystemWithCoins(profileModel, coins: 1000);
+            long quoted = system.QuotePriceFor(PowerUpKind.Joker, 2);
+
+            system.TryPurchasePowerUp(PowerUpKind.Joker, 2);
+
+            Assert.AreEqual(1000 - quoted, profileModel.CoinBalance.Value);
+        }
+
+        [TestCase(0)]
+        [TestCase(-1)]
+        public void QuotePriceFor_WithANonPositiveQuantity_IsZero(int quantity)
+        {
+            CurrencySystem system = CreateSystem(new ProfileModel(), new ScoreModel());
+
+            Assert.AreEqual(0L, system.QuotePriceFor(PowerUpKind.Bomb, quantity));
+        }
+
+        /// <summary>
+        /// AC3: too few coins is a refusal, not a partial purchase and not a silent no-op. The ask is one
+        /// coin past the balance, so nothing but the comparison itself can explain the refusal.
+        /// </summary>
+        [Test]
+        public void TryPurchasePowerUp_WithTooFewCoins_ChangesNothingAndSaysWhy()
+        {
+            var profileModel = new ProfileModel();
+            CurrencySystem system = CreateSystem(profileModel, new ScoreModel());
+            int price = (int)system.QuotePriceFor(PowerUpKind.Bomb, 1);
+            GrantCoins(system, profileModel, price - 1);
+
+            PowerUpPurchaseResult result = system.TryPurchasePowerUp(PowerUpKind.Bomb, 1);
+
+            Assert.AreEqual(PowerUpPurchaseResult.InsufficientCoins, result);
+            Assert.AreEqual(price - 1, profileModel.CoinBalance.Value);
+            Assert.AreEqual(0, CountOf(PowerUpKind.Bomb));
+            Assert.AreEqual(0, _grantedBroker.Published.Count);
+        }
+
+        /// <summary>The over-ask is refused rather than clamped down to the two the player could afford:
+        /// they named a quantity, and buying a different one would be the worse surprise.</summary>
+        [Test]
+        public void TryPurchasePowerUp_AskingForMoreThanTheBalanceCovers_BuysNoneOfThem()
+        {
+            var profileModel = new ProfileModel();
+            CurrencySystem system = CreateSystem(profileModel, new ScoreModel());
+            int unitPrice = (int)system.QuotePriceFor(PowerUpKind.Bomb, 1);
+            GrantCoins(system, profileModel, unitPrice * 2);
+
+            PowerUpPurchaseResult result = system.TryPurchasePowerUp(PowerUpKind.Bomb, 3);
+
+            Assert.AreEqual(PowerUpPurchaseResult.InsufficientCoins, result);
+            Assert.AreEqual(unitPrice * 2, profileModel.CoinBalance.Value);
+            Assert.AreEqual(0, CountOf(PowerUpKind.Bomb));
+        }
+
+        /// <summary>
+        /// AC4, the one that matters most: the level gate is never openable with currency. The player is
+        /// given far more coins than the kind costs and is still refused — and refused as
+        /// <see cref="PowerUpPurchaseResult.Locked"/>, not as unaffordable, because "level up" and "earn
+        /// coins" are two different things to tell them.
+        /// </summary>
+        [Test]
+        public void TryPurchasePowerUp_ForALockedKind_IsRefusedEvenWithAmpleCoins()
+        {
+            var profileModel = new ProfileModel();
+            CurrencySystem system = CreateSystemWithCoins(profileModel, coins: 100000);
+
+            // One level below the gate, so nothing but the gate itself can explain the refusal.
+            _levelProgressionModel.CurrentLevelNumber.Value =
+                PowerUpUnlockLevels.LevelFor(PowerUpKind.GhostFit) - 1;
+
+            PowerUpPurchaseResult result = system.TryPurchasePowerUp(PowerUpKind.GhostFit, 1);
+
+            Assert.AreEqual(PowerUpPurchaseResult.Locked, result);
+            Assert.AreEqual(100000, profileModel.CoinBalance.Value);
+            Assert.AreEqual(0, CountOf(PowerUpKind.GhostFit));
+            Assert.AreEqual(0, _grantedBroker.Published.Count);
+        }
+
+        /// <summary>The gate is a gate, not a discount: reaching the level with the same coins in hand
+        /// lets the same purchase through, so the refusal above was the gate and nothing else.</summary>
+        [Test]
+        public void TryPurchasePowerUp_OnceTheGateIsReached_LetsTheSamePurchaseThrough()
+        {
+            var profileModel = new ProfileModel();
+            CurrencySystem system = CreateSystemWithCoins(profileModel, coins: 100000);
+            _levelProgressionModel.CurrentLevelNumber.Value =
+                PowerUpUnlockLevels.LevelFor(PowerUpKind.GhostFit);
+
+            PowerUpPurchaseResult result = system.TryPurchasePowerUp(PowerUpKind.GhostFit, 1);
+
+            Assert.AreEqual(PowerUpPurchaseResult.Success, result);
+            Assert.AreEqual(1, CountOf(PowerUpKind.GhostFit));
+        }
+
+        /// <summary>A locked kind is refused before the price is even consulted, so a player who cannot
+        /// afford it either is still told the true reason.</summary>
+        [Test]
+        public void TryPurchasePowerUp_ForALockedKindWithNoCoins_ReportsLockedRatherThanUnaffordable()
+        {
+            var profileModel = new ProfileModel();
+            CurrencySystem system = CreateSystem(profileModel, new ScoreModel());
+            _levelProgressionModel.CurrentLevelNumber.Value = 1;
+
+            PowerUpPurchaseResult result = system.TryPurchasePowerUp(PowerUpKind.Reroll, 1);
+
+            Assert.AreEqual(PowerUpPurchaseResult.Locked, result);
+            Assert.AreEqual(0, profileModel.CoinBalance.Value);
+        }
+
+        /// <summary>AC5: an empty or negative ask changes nothing and is reported as the nonsense it is,
+        /// rather than being read as "buy none" and passing quietly.</summary>
+        [TestCase(0)]
+        [TestCase(-1)]
+        [TestCase(-500)]
+        public void TryPurchasePowerUp_WithANonPositiveQuantity_ChangesNothing(int quantity)
+        {
+            var profileModel = new ProfileModel();
+            CurrencySystem system = CreateSystemWithCoins(profileModel, coins: 500);
+
+            PowerUpPurchaseResult result = system.TryPurchasePowerUp(PowerUpKind.Bomb, quantity);
+
+            Assert.AreEqual(PowerUpPurchaseResult.InvalidQuantity, result);
+            Assert.AreEqual(500, profileModel.CoinBalance.Value);
+            Assert.AreEqual(0, CountOf(PowerUpKind.Bomb));
+            Assert.AreEqual(0, _grantedBroker.Published.Count);
+        }
+
+        /// <summary>A purchase grants through the same <c>Grant</c> the ad and badge paths use, so it
+        /// announces itself on the same channel with the running count — once per unit bought.</summary>
+        [Test]
+        public void TryPurchasePowerUp_PublishesOneGrantPerUnitBought()
+        {
+            var profileModel = new ProfileModel();
+            CurrencySystem system = CreateSystemWithCoins(profileModel, coins: 500);
+
+            system.TryPurchasePowerUp(PowerUpKind.RowClear, 2);
+
+            Assert.AreEqual(2, _grantedBroker.Published.Count);
+            Assert.AreEqual(PowerUpKind.RowClear, _grantedBroker.Published[0].Kind);
+            Assert.AreEqual(1, _grantedBroker.Published[0].NewInventoryCount);
+            Assert.AreEqual(2, _grantedBroker.Published[1].NewInventoryCount);
+        }
+
+        /// <summary>AC6 as a regression check: the rewarded-ad earning path is untouched by the purchase
+        /// path sharing <c>Grant</c> with it. Covered in full by PowerUpSystemTests — this only pins that
+        /// the two still coexist behind one inventory.</summary>
+        [Test]
+        public void GrantRewardAsync_StillGrantsAfterAPurchaseOfTheSameKind()
+        {
+            var profileModel = new ProfileModel();
+            CurrencySystem system = CreateSystemWithCoins(profileModel, coins: 500);
+            system.TryPurchasePowerUp(PowerUpKind.Bomb, 1);
+
+            bool granted = _powerUpSystem.GrantRewardAsync(PowerUpKind.Bomb, CancellationToken.None)
+                .GetAwaiter().GetResult();
+
+            Assert.IsTrue(granted);
+            Assert.AreEqual(2, CountOf(PowerUpKind.Bomb), "An ad grant must still stack on a bought one.");
+        }
+
+        /// <summary>
+        /// AC2's persistence half: both sides of a purchase reach the disk together, so a fresh
+        /// model-and-system pair — i.e. a relaunch — reads back the debited balance and the granted
+        /// count. There is no state in which one survived and the other did not.
+        /// </summary>
+        [Test]
+        public void TryPurchasePowerUp_ThenANewSystem_LoadsBothTheDebitAndTheGrant()
+        {
+            var profileModel = new ProfileModel();
+            CurrencySystem system = CreateSystemWithCoins(profileModel, coins: 500);
+            system.TryPurchasePowerUp(PowerUpKind.ColumnClear, 2);
+            int expectedBalance = profileModel.CoinBalance.Value;
+
+            var reloadedModel = new ProfileModel();
+            CurrencySystem unused = CreateSystem(reloadedModel, new ScoreModel());
+
+            Assert.AreEqual(expectedBalance, reloadedModel.CoinBalance.Value);
+            Assert.AreEqual(2, CountOf(PowerUpKind.ColumnClear));
+            Assert.Less(expectedBalance, 500, "The purchase must actually have cost something.");
+        }
+
+        /// <summary>A purchase takes nothing out of the convertible pool: coins are the only thing spent,
+        /// and the score that bought them was already accounted for when it was converted.</summary>
+        [Test]
+        public void TryPurchasePowerUp_LeavesTheConvertiblePoolAlone()
+        {
+            var profileModel = new ProfileModel();
+            CurrencySystem system = CreateSystemWithPool(profileModel, pool: 1000);
+            system.ConvertScoreToCoins(1000);
+            int availableAfterConversion = system.AvailableToConvert;
+
+            system.TryPurchasePowerUp(PowerUpKind.Bomb, 1);
+
+            Assert.AreEqual(availableAfterConversion, system.AvailableToConvert);
+            Assert.AreEqual(1000, profileModel.TotalScoreEarned.Value);
+            Assert.AreEqual(1000, profileModel.ScoreConverted.Value);
+        }
+
+        /// <summary>
+        /// Builds a system whose balance already holds <paramref name="coins"/>, banked through the real
+        /// ad-grant path rather than a direct write — so every purchase test starts from a balance that
+        /// was filled the only way the game can fill one.
+        /// </summary>
+        private CurrencySystem CreateSystemWithCoins(ProfileModel profileModel, int coins)
+        {
+            CurrencySystem system = CreateSystem(
+                profileModel, new ScoreModel(), new StubCoinRewardSource(granted: true));
+            GrantCoins(system, profileModel, coins);
+            return system;
+        }
+
+        /// <summary>
+        /// Tops a balance up through the ad faucet: the purchase tests need coins, and this is one of
+        /// only two ways the game can mint one. Asserted rather than assumed, so a test that fails
+        /// downstream cannot be a setup that quietly banked nothing.
+        /// </summary>
+        private static void GrantCoins(CurrencySystem system, ProfileModel profileModel, int coins)
+        {
+            system.GrantCoinsFromAdAsync(coins, CancellationToken.None).GetAwaiter().GetResult();
+            Assert.AreEqual(coins, profileModel.CoinBalance.Value, "Test setup failed to bank the coins.");
+        }
+
         /// <summary>
         /// Builds a system whose pool already holds <paramref name="pool"/> points, by ending a run worth
         /// exactly that much. Routed through the real game-over path rather than a direct write, so every
@@ -468,11 +783,135 @@ namespace MustyBlockBlast.Tests.EditMode
             return new CurrencySystem(
                 profileModel,
                 scoreModel,
+                _levelProgressionModel,
                 _config,
+                _priceConfig,
+                CreatePowerUpSystem(),
                 coinRewardSource ?? new StubCoinRewardSource(granted: true),
                 _convertedBroker,
                 _adGrantBroker,
                 _gameOverBroker);
+        }
+
+        /// <summary>
+        /// A real <see cref="PowerUpSystem"/> over a fresh <see cref="PowerUpModel"/>, so a purchase
+        /// grants through the very code the ad and badge paths grant through rather than through a stub
+        /// that could agree with the test and disagree with the game. Both are stored on fields for the
+        /// test to read.
+        /// <para>
+        /// The board, tray and clock it takes are real but unstarted: the purchase path touches none of
+        /// them, and a stub of each would only be a second description of "does nothing".
+        /// </para>
+        /// </summary>
+        private PowerUpSystem CreatePowerUpSystem()
+        {
+            _powerUpModel = new PowerUpModel();
+
+            var boardModel = new BoardModel();
+            var trayModel = new TrayModel();
+            BoardSystem boardSystem = CreateBoardSystem(boardModel, trayModel);
+            var ghostFitModel = new GhostFitModel();
+
+            _powerUpSystem = new PowerUpSystem(
+                _powerUpModel,
+                _levelProgressionModel,
+                boardModel,
+                trayModel,
+                boardSystem,
+                CreateTimerRunSystem(boardSystem),
+                CreateDoubleMultiplierSystem(),
+                new GhostFitSystem(
+                    ghostFitModel,
+                    boardModel,
+                    trayModel,
+                    new ScoreModel(),
+                    new TestMessageBroker<RunStartedMessage>(),
+                    new TestMessageBroker<GameOverMessage>(),
+                    new TestMessageBroker<PiecePlacedMessage>(),
+                    _appliedBroker),
+                ghostFitModel,
+                new StubRewardSource(granted: true),
+                _appliedBroker,
+                _grantedBroker,
+                new TestMessageBroker<ExplosiveCoreDetonatedMessage>(),
+                new TestMessageBroker<LaserFiredMessage>(),
+                new TestMessageBroker<RunStartedMessage>(),
+                new TestMessageBroker<GameOverMessage>());
+
+            return _powerUpSystem;
+        }
+
+        /// <summary>A real, unstarted <see cref="BoardSystem"/>: the purchase path reads nothing from it,
+        /// and <c>PowerUpSystem</c> only reads its <c>IsGameOver</c> flag, which is false until a run is
+        /// started or checked.</summary>
+        private static BoardSystem CreateBoardSystem(BoardModel boardModel, TrayModel trayModel)
+        {
+            return new BoardSystem(
+                boardModel,
+                trayModel,
+                new PerfectRoundModel(),
+                new WeightedPieceDraw(),
+                new TestMessageBroker<RunStartedMessage>(),
+                new TestMessageBroker<PiecePlacedMessage>(),
+                new TestMessageBroker<LinesClearedMessage>(),
+                new TestMessageBroker<GameOverMessage>(),
+                new TestMessageBroker<TrayRefilledMessage>(),
+                new TestMessageBroker<ExplosiveCoreDetonatedMessage>(),
+                new TestMessageBroker<LaserFiredMessage>(),
+                new TestMessageBroker<PiercingRocketFiredMessage>(),
+                new TestMessageBroker<VortexPulledMessage>(),
+                new TestMessageBroker<ChainLightningTriggeredMessage>());
+        }
+
+        /// <summary>Only ever asked to hold and release the countdown by the paths under test here, and
+        /// never even that — it is never ticked.</summary>
+        private static TimerRunSystem CreateTimerRunSystem(BoardSystem boardSystem)
+        {
+            TimedModeConfig timedModeConfig = ScriptableObject.CreateInstance<TimedModeConfig>();
+            return new TimerRunSystem(
+                new TimerModel(),
+                new RunPauseModel(),
+                new GameModeSystem(new GameModeModel(), boardSystem),
+                new TimedModeSystem(new TimedModeModel(), timedModeConfig),
+                boardSystem,
+                new TestMessageBroker<TrayRefilledMessage>(),
+                new TestMessageBroker<GameOverMessage>());
+        }
+
+        private static DoubleMultiplierSystem CreateDoubleMultiplierSystem()
+        {
+            return new DoubleMultiplierSystem(
+                new DoubleMultiplierModel(),
+                new RunPauseModel(),
+                new TestMessageBroker<RunStartedMessage>(),
+                new TestMessageBroker<GameOverMessage>());
+        }
+
+        /// <summary>The inventory counter for one kind, read off the model the last-built
+        /// <see cref="PowerUpSystem"/> owns.</summary>
+        private int CountOf(PowerUpKind kind)
+        {
+            switch (kind)
+            {
+                case PowerUpKind.RowClear:
+                    return _powerUpModel.RowClearCount.Value;
+                case PowerUpKind.ColumnClear:
+                    return _powerUpModel.ColumnClearCount.Value;
+                case PowerUpKind.Joker:
+                    return _powerUpModel.JokerCount.Value;
+                case PowerUpKind.ColorCleanser:
+                    return _powerUpModel.ColorCleanserCount.Value;
+                case PowerUpKind.Rotate:
+                    return _powerUpModel.RotateCount.Value;
+                case PowerUpKind.Reroll:
+                    return _powerUpModel.RerollCount.Value;
+                case PowerUpKind.DoubleMultiplier:
+                    return _powerUpModel.DoubleMultiplierCount.Value;
+                case PowerUpKind.GhostFit:
+                    return _powerUpModel.GhostFitCount.Value;
+                default:
+                    return _powerUpModel.BombCount.Value;
+            }
         }
 
         private static void DeleteCurrencyKeys()
@@ -480,6 +919,19 @@ namespace MustyBlockBlast.Tests.EditMode
             PlayerPrefs.DeleteKey(COIN_BALANCE_KEY);
             PlayerPrefs.DeleteKey(TOTAL_SCORE_EARNED_KEY);
             PlayerPrefs.DeleteKey(SCORE_CONVERTED_KEY);
+        }
+
+        private static void DeleteInventoryKeys()
+        {
+            PlayerPrefs.DeleteKey(PowerUpInventoryKey.For(PowerUpKind.Bomb));
+            PlayerPrefs.DeleteKey(PowerUpInventoryKey.For(PowerUpKind.RowClear));
+            PlayerPrefs.DeleteKey(PowerUpInventoryKey.For(PowerUpKind.ColumnClear));
+            PlayerPrefs.DeleteKey(PowerUpInventoryKey.For(PowerUpKind.Joker));
+            PlayerPrefs.DeleteKey(PowerUpInventoryKey.For(PowerUpKind.ColorCleanser));
+            PlayerPrefs.DeleteKey(PowerUpInventoryKey.For(PowerUpKind.Rotate));
+            PlayerPrefs.DeleteKey(PowerUpInventoryKey.For(PowerUpKind.Reroll));
+            PlayerPrefs.DeleteKey(PowerUpInventoryKey.For(PowerUpKind.DoubleMultiplier));
+            PlayerPrefs.DeleteKey(PowerUpInventoryKey.For(PowerUpKind.GhostFit));
         }
 
         /// <summary>
@@ -502,6 +954,27 @@ namespace MustyBlockBlast.Tests.EditMode
             {
                 RequestCount++;
                 return UniTask.FromResult(new CoinRewardResult(amount, _granted));
+            }
+        }
+
+        /// <summary>
+        /// The power-up ad seam's stand-in, for the one regression test that checks the ad earning path
+        /// still works alongside a purchase. Grants on command, exactly as PowerUpSystemTests' own stub
+        /// does — the purchase path never reaches it.
+        /// </summary>
+        private sealed class StubRewardSource : IRewardSource
+        {
+            private readonly bool _granted;
+
+            internal StubRewardSource(bool granted)
+            {
+                _granted = granted;
+            }
+
+            public UniTask<RewardResult> RequestRewardAsync(
+                PowerUpKind kind, CancellationToken cancellationToken)
+            {
+                return UniTask.FromResult(new RewardResult(kind, _granted));
             }
         }
     }

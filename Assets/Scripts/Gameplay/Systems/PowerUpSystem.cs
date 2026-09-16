@@ -510,6 +510,38 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// </summary>
         public void GrantDirect(PowerUpKind kind) => Grant(kind);
 
+        /// <summary>
+        /// Banks <paramref name="quantity"/> of <paramref name="kind"/> for a purchase that has already
+        /// been paid for. Called by <see cref="CurrencySystem.TryPurchasePowerUp"/> and by nothing else:
+        /// it takes no payment and asks no question, so the coins must be debited before it is reached.
+        /// <para>
+        /// Shares <see cref="Grant"/> with <see cref="GrantDirect"/> and
+        /// <see cref="GrantRewardAsync"/>, so all three earning paths mutate, persist and publish
+        /// identically — a bought power-up is indistinguishable from an earned one once it is in the
+        /// inventory, which is exactly right: there is only one inventory.
+        /// </para>
+        /// <para>
+        /// Deliberately does not re-check the level gate. <see cref="IsLocked"/> is private to this
+        /// class and stays that way; <see cref="PowerUpUnlockLevels.IsUnlockedAt"/> is the public seam,
+        /// and the caller checks it there before a single coin is moved. Checking again here would put
+        /// the same gate in two places and invite them to disagree — and this path cannot honour a
+        /// refusal anyway, since by the time it runs the player has already been charged.
+        /// </para>
+        /// <para>
+        /// Loops rather than adding <paramref name="quantity"/> in one step, so a purchase of three
+        /// publishes three <see cref="PowerUpGrantedMessage"/>s with the running count in each. Anything
+        /// counting grants — the badge counters, a "+1" flourish — sees three grants because three were
+        /// granted, not one grant of three it would have to learn to read.
+        /// </para>
+        /// </summary>
+        public void GrantPurchased(PowerUpKind kind, int quantity)
+        {
+            for (int grantIndex = 0; grantIndex < quantity; grantIndex++)
+            {
+                Grant(kind);
+            }
+        }
+
         public void Dispose()
         {
             _runStartedSubscription.Dispose();
