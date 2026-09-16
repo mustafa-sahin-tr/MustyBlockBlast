@@ -103,6 +103,7 @@ namespace MustyBlockBlast.Presentation.Views
         private LeaderboardButtonView _leaderboardButtonView;
         private LeaderboardPanelView _leaderboardPanelView;
         private GameOverView _gameOverView;
+        private CoinConversionView _coinConversionView;
         private PowerUpInventoryView _powerUpInventoryView;
         private ObjectiveIconContainerView _objectiveIconContainerView;
         private ObjectiveInfoPopupView _objectiveInfoPopupView;
@@ -165,6 +166,7 @@ namespace MustyBlockBlast.Presentation.Views
             LeaderboardButtonView leaderboardButtonView,
             LeaderboardPanelView leaderboardPanelView,
             GameOverView gameOverView,
+            CoinConversionView coinConversionView,
             PowerUpInventoryView powerUpInventoryView,
             ObjectiveIconContainerView objectiveIconContainerView,
             ObjectiveInfoPopupView objectiveInfoPopupView)
@@ -191,6 +193,7 @@ namespace MustyBlockBlast.Presentation.Views
             _leaderboardButtonView = leaderboardButtonView;
             _leaderboardPanelView = leaderboardPanelView;
             _gameOverView = gameOverView;
+            _coinConversionView = coinConversionView;
             _powerUpInventoryView = powerUpInventoryView;
             _objectiveIconContainerView = objectiveIconContainerView;
             _objectiveInfoPopupView = objectiveInfoPopupView;
@@ -384,6 +387,17 @@ namespace MustyBlockBlast.Presentation.Views
             if (_objectiveInfoPopupView.IsOpen)
             {
                 _objectiveInfoPopupView.HandleTap(screenPosition);
+                return;
+            }
+
+            // Above the game-over gate below, not among the six panel gates: the conversion screen is
+            // the one overlay that opens *because* a run ended, so it is showing exactly when the
+            // card-wide restart tap is live underneath it. Routing into it first is what keeps a tap on
+            // "Convert" from also restarting the run. Its own scrim tap closes it and hands the next tap
+            // back to the card below, so the restart is one tap away rather than blocked.
+            if (_coinConversionView.IsOpen)
+            {
+                _coinConversionView.HandleTap(screenPosition);
                 return;
             }
 

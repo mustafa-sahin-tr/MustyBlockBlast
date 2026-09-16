@@ -36,5 +36,32 @@ namespace MustyBlockBlast.Gameplay.Models
 
         public ReactiveProperty<AccountLinkStatus> LinkStatus { get; } =
             new ReactiveProperty<AccountLinkStatus>(AccountLinkStatus.Anonymous);
+
+        /// <summary>
+        /// Coins the player holds. Account-bound rather than a wallet of its own: it is part of who the
+        /// player is, exactly as the name and the avatar are, and a later linked-account migration has
+        /// to carry it across with them rather than find it in a second place.
+        /// <para>
+        /// Owned, mutated and persisted by <see cref="CurrencySystem"/> — not by
+        /// <see cref="ProfileSystem"/>, which owns the identity half of this model. The split mirrors
+        /// <see cref="PowerUpModel"/>'s: one model, one system per slice of it, so there is exactly one
+        /// writer of each field.
+        /// </para>
+        /// </summary>
+        public ReactiveProperty<int> CoinBalance { get; } = new ReactiveProperty<int>(0);
+
+        /// <summary>
+        /// Every point the player has ever scored, summed across runs. The pool conversion draws from,
+        /// which is why it is a lifetime figure and not the run's score: a run's score is never reduced
+        /// or spent, it is only added here when the run ends.
+        /// </summary>
+        public ReactiveProperty<int> TotalScoreEarned { get; } = new ReactiveProperty<int>(0);
+
+        /// <summary>
+        /// How much of <see cref="TotalScoreEarned"/> has already been turned into coins. The two
+        /// together are what make "available to convert" a subtraction rather than a balance that has to
+        /// be kept in step with anything: conversion only ever adds to this counter.
+        /// </summary>
+        public ReactiveProperty<int> ScoreConverted { get; } = new ReactiveProperty<int>(0);
     }
 }
