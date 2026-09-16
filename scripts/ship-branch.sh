@@ -2,13 +2,15 @@
 # ship-branch.sh — commit + push + PR + merge + update local main, tek komutla.
 #
 # Kullanım:
-#   scripts/ship-branch.sh [branch-name] [commit-message]
+#   scripts/ship-branch.sh [-y|--yes] [branch-name] [commit-message]
 #
 # branch-name verilmezse, script çalıştırıldığı anda checkout'ta olan branch kullanılır.
+# -y/--yes verilirse tüm onay sorularına otomatik "evet" denir (dikkatli kullan).
 #
 # Örnek:
 #   scripts/ship-branch.sh issue-127-vortex-magnet-tile "feat: spawn Vortex tile (#127)"
 #   scripts/ship-branch.sh                                # mevcut branch'i ship eder
+#   scripts/ship-branch.sh -y                             # mevcut branch'i, sorusuz ship eder
 #
 # commit-message verilmezse, git commit mesajı için varsayılan editörü açar.
 # PR başlığı/gövdesi otomatik olarak branch'teki commit'lerden (gh pr create --fill) türetilir.
@@ -24,8 +26,21 @@
 
 set -euo pipefail
 
-BRANCH="${1:-}"
-COMMIT_MESSAGE="${2:-}"
+AUTO_YES=0
+ARGS=()
+for arg in "$@"; do
+  case "$arg" in
+    -y|--yes)
+      AUTO_YES=1
+      ;;
+    *)
+      ARGS+=("$arg")
+      ;;
+  esac
+done
+
+BRANCH="${ARGS[0]:-}"
+COMMIT_MESSAGE="${ARGS[1]:-}"
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT"
@@ -41,6 +56,10 @@ fi
 
 confirm() {
   local prompt="$1"
+  if [[ "$AUTO_YES" -eq 1 ]]; then
+    echo "$prompt [y/N] -> y (--yes)"
+    return 0
+  fi
   read -r -p "$prompt [y/N] " reply
   [[ "$reply" =~ ^[Yy]$ ]]
 }
