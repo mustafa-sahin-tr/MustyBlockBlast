@@ -65,11 +65,16 @@ namespace MustyBlockBlast.Presentation
                 // the first placement can detonate a core, not be constructed by one.
                 container.Resolve<ExplosiveCoreScoreSystem>();
                 container.Resolve<LaserScoreSystem>();
+                container.Resolve<PiercingRocketScoreSystem>();
 
                 // Subscribes to ScoreModel.Streak in its constructor, so it must be watching before the
                 // first placement can build a streak — nothing else resolves it, so without this line
                 // it would never be constructed at all.
                 container.Resolve<LaserSpawnSystem>();
+
+                // Same reason, same seam: it watches the streak for the golden piece's trigger and
+                // nothing else would ever construct it.
+                container.Resolve<GoldenPieceTriggerSystem>();
 
                 // Subscribes in its constructor, like the systems above.
                 //
@@ -118,6 +123,7 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterMessageBroker<PowerUpGrantedMessage>(options);
             builder.RegisterMessageBroker<ExplosiveCoreDetonatedMessage>(options);
             builder.RegisterMessageBroker<LaserFiredMessage>(options);
+            builder.RegisterMessageBroker<PiercingRocketFiredMessage>(options);
             builder.RegisterMessageBroker<ObjectiveProgressChangedMessage>(options);
             builder.RegisterMessageBroker<ObjectiveCompletedMessage>(options);
             builder.RegisterMessageBroker<LevelAdvancedMessage>(options);
@@ -256,7 +262,11 @@ namespace MustyBlockBlast.Presentation
             builder.Register<PowerUpScoreSystem>(Lifetime.Singleton).AsSelf();
             builder.Register<ExplosiveCoreScoreSystem>(Lifetime.Singleton).AsSelf();
             builder.Register<LaserScoreSystem>(Lifetime.Singleton).AsSelf();
+            builder.Register<PiercingRocketScoreSystem>(Lifetime.Singleton).AsSelf();
             builder.Register<LaserSpawnSystem>(Lifetime.Singleton).AsSelf();
+
+            // Watches the combo streak and asks BoardSystem to inject a golden 1x1 at the next refill.
+            builder.Register<GoldenPieceTriggerSystem>(Lifetime.Singleton).AsSelf();
             builder.Register<ObjectiveSystem>(Lifetime.Singleton);
             builder.Register<LevelProgressionSystem>(Lifetime.Singleton);
             builder.Register<BadgeStatsSystem>(Lifetime.Singleton);
@@ -301,6 +311,7 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterComponentInHierarchy<GameOverSfxView>();
             builder.RegisterComponentInHierarchy<NewRecordSfxView>();
             builder.RegisterComponentInHierarchy<BonusSfxView>();
+            builder.RegisterComponentInHierarchy<PiercingRocketSfxView>();
         }
     }
 }

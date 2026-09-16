@@ -366,8 +366,15 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.IsNotNull(system);
             _gameModeSystem.SelectMode(GameMode.Path);
 
-            // Every cell occupied: no shape the tray can hold fits anywhere.
-            FillBoard();
+            // An empty dock rather than a full board: with nothing left to place there is no move,
+            // whatever the board looks like. Stated this way since issue #129, because a board filled to
+            // the brim now earns a one-off demolition hammer instead of ending the run — and this test
+            // is about what Path mode does with a NoMovesLeft verdict, not about how one is reached.
+            for (int slotIndex = 0; slotIndex < TrayModel.SLOT_COUNT; slotIndex++)
+            {
+                _trayModel.SetSlot(slotIndex, null, Board.EMPTY);
+            }
+
             _boardSystem.RecheckGameOver();
 
             Assert.IsTrue(_boardSystem.IsGameOver);
@@ -736,7 +743,8 @@ namespace MustyBlockBlast.Tests.EditMode
                 _gameOverBroker,
                 new TestMessageBroker<TrayRefilledMessage>(),
                 new TestMessageBroker<ExplosiveCoreDetonatedMessage>(),
-                new TestMessageBroker<LaserFiredMessage>());
+                new TestMessageBroker<LaserFiredMessage>(),
+                new TestMessageBroker<PiercingRocketFiredMessage>());
 
             _gameModeSystem = new GameModeSystem(new GameModeModel(), _boardSystem);
 

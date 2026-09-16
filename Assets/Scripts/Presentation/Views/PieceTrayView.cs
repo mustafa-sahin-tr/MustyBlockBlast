@@ -12,6 +12,12 @@ namespace MustyBlockBlast.Presentation.Views
     /// Renders the three offered pieces in a card below the board. Reads <see cref="TrayModel"/>
     /// only; picking pieces up is the input View's job.
     /// <para>
+    /// A slot whose piece carries a <see cref="SpecialPieceKind"/> is painted through
+    /// <see cref="SpecialPieceVisuals"/> — gold for a golden 1x1, a glyph on an ordinary plate for the
+    /// rocket and the hammer — which is the same seam the pocket and the drag ghost paint through, so
+    /// one piece looks the same wherever it is.
+    /// </para>
+    /// <para>
     /// A slot is rebuilt from scratch whenever its piece changes, and the centring offsets are derived
     /// from that piece's own bounds each time — so a slot whose piece changed shape (the Rotate
     /// power-up swapping in another orientation) re-centres its new bounding box with no extra work.
@@ -260,24 +266,26 @@ namespace MustyBlockBlast.Presentation.Views
                 }
 
                 int colourId = _trayModel.GetColourId(slotIndex);
+
+                // Re-read rather than cached: a golden piece is painted gold instead of in the theme's
+                // colours, so a repaint that ignored the kind would quietly demote it to an ordinary
+                // block the next time the player switched theme.
+                SpecialPieceKind specialKind = _trayModel.GetSpecialKind(slotIndex);
                 for (int i = 0; i < cells.Count; i++)
                 {
-                    ApplyCellColour(cells[i], colourId);
+                    ApplyCellLook(cells[i], colourId, specialKind);
                 }
             }
         }
 
-        private void ApplyCellColour(CellView cell, int colourId)
+        private void ApplyCellLook(CellView cell, int colourId, SpecialPieceKind specialKind)
         {
             if (_currentTheme == null)
             {
                 return;
             }
 
-            cell.SetEmbossedColours(
-                _currentTheme.GetFill(colourId),
-                _currentTheme.GetHighlight(colourId),
-                _currentTheme.GetShade(colourId));
+            SpecialPieceVisuals.Apply(cell, specialKind, _currentTheme, colourId);
         }
 
         private void RebuildSlot(int slotIndex)
@@ -297,6 +305,7 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             int colourId = _trayModel.GetColourId(slotIndex);
+            SpecialPieceKind specialKind = _trayModel.GetSpecialKind(slotIndex);
             PieceLayout.GetBounds(piece, out int width, out int height);
 
             float pitch = _trayCellSize + _trayCellSpacing;
@@ -314,7 +323,7 @@ namespace MustyBlockBlast.Presentation.Views
                     _cellBevelThickness);
                 var rect = (RectTransform)cell.transform;
                 rect.anchoredPosition = new Vector2(offsetX + (offset.X * pitch), offsetY + (offset.Y * pitch));
-                ApplyCellColour(cell, colourId);
+                ApplyCellLook(cell, colourId, specialKind);
                 cells.Add(cell);
             }
         }

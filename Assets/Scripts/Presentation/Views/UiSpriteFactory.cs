@@ -4,7 +4,8 @@ namespace MustyBlockBlast.Presentation.Views
 {
     /// <summary>
     /// Generates the handful of placeholder sprites the prototype needs (rounded square, circle,
-    /// bevel facet, glow, vertical gradient) so no art assets are required. Each sprite is created once and shared by every
+    /// bevel facet, glow, starburst, dock icons, vertical gradient) so no art assets are required. Each
+    /// sprite is created once and shared by every
     /// Image, so all cells keep batching into a single draw call.
     /// </summary>
     internal static class UiSpriteFactory
@@ -23,6 +24,12 @@ namespace MustyBlockBlast.Presentation.Views
 
         private const int STARBURST_SIZE = 128;
 
+        /// <summary>Side of one glyph cell on the dock-icon sheet (see <see cref="RocketIcon"/>).</summary>
+        private const int DOCK_ICON_SIZE = 128;
+
+        /// <summary>Glyphs on the dock-icon sheet: rocket, then hammer.</summary>
+        private const int DOCK_ICON_COUNT = 2;
+
         /// <summary>Spikes on <see cref="Starburst"/>. Six reads as a spark rather than as a snowflake
         /// (eight) or an arrow cluster (four) at the size a board cell draws it.</summary>
         private const int STARBURST_POINTS = 6;
@@ -36,6 +43,8 @@ namespace MustyBlockBlast.Presentation.Views
         private static Sprite _triangleFacet;
         private static Sprite _circle;
         private static Sprite _starburst;
+        private static Sprite _rocketIcon;
+        private static Sprite _hammerIcon;
 
         /// <summary>9-sliced rounded square, white. Tint via <see cref="UnityEngine.UI.Image.color"/>.</summary>
         internal static Sprite RoundedSquare
@@ -119,6 +128,40 @@ namespace MustyBlockBlast.Presentation.Views
                 }
 
                 return _starburst;
+            }
+        }
+
+        /// <summary>
+        /// Upward arrow, white — the <see cref="MustyBlockBlast.Core.SpecialPieceKind.PiercingRocket"/>
+        /// mark a dock plate wears. Tint via Image.color and use <c>Image.Type.Simple</c> — it must not
+        /// be sliced.
+        /// <para>
+        /// Shares one texture with <see cref="HammerIcon"/> (see <see cref="BuildDockIconSheet"/>), so
+        /// the two dock marks batch with each other rather than costing a draw call apiece.
+        /// </para>
+        /// </summary>
+        internal static Sprite RocketIcon
+        {
+            get
+            {
+                EnsureDockIcons();
+                return _rocketIcon;
+            }
+        }
+
+        /// <summary>
+        /// Upright hammer (wide head over a narrow handle), white — the
+        /// <see cref="MustyBlockBlast.Core.SpecialPieceKind.DemolitionHammer"/> mark a dock plate wears.
+        /// Deliberately nothing like <see cref="RocketIcon"/>'s arrow: the hammer is the one dock piece
+        /// that is tapped rather than dragged, so it has to be told apart at a glance. Tint via
+        /// Image.color and use <c>Image.Type.Simple</c>.
+        /// </summary>
+        internal static Sprite HammerIcon
+        {
+            get
+            {
+                EnsureDockIcons();
+                return _hammerIcon;
             }
         }
 
@@ -317,6 +360,181 @@ namespace MustyBlockBlast.Presentation.Views
             sprite.name = "MustyBlockBlast_StarburstSprite";
             sprite.hideFlags = HideFlags.HideAndDontSave;
             return sprite;
+        }
+
+        private static void EnsureDockIcons()
+        {
+            // Both sprites come off one texture, so either one being gone means the sheet has to be
+            // rebuilt for both — they are never created apart.
+            if (_rocketIcon != null && _hammerIcon != null)
+            {
+                return;
+            }
+
+            BuildDockIconSheet();
+        }
+
+        /// <summary>
+        /// Draws both dock glyphs side by side into a single texture and cuts one sprite out of each
+        /// half. One texture rather than two for the reason every other sprite here is shared: a second
+        /// texture would break the dock's batch the moment a special piece appeared in it.
+        /// </summary>
+        private static void BuildDockIconSheet()
+        {
+            int width = DOCK_ICON_SIZE * DOCK_ICON_COUNT;
+            const int HEIGHT = DOCK_ICON_SIZE;
+
+            var texture = new Texture2D(width, HEIGHT, TextureFormat.RGBA32, false)
+            {
+                name = "MustyBlockBlast_DockIcons",
+                wrapMode = TextureWrapMode.Clamp,
+                filterMode = FilterMode.Bilinear,
+                hideFlags = HideFlags.HideAndDontSave,
+            };
+
+            // Color32's default is a fully transparent black, so only the glyphs themselves are written.
+            var pixels = new Color32[width * HEIGHT];
+            DrawRocket(pixels, width, 0);
+            DrawHammer(pixels, width, DOCK_ICON_SIZE);
+
+            texture.SetPixels32(pixels);
+            texture.Apply(false, true);
+
+            _rocketIcon = CreateDockIconSprite(texture, 0, "Rocket");
+            _hammerIcon = CreateDockIconSprite(texture, DOCK_ICON_SIZE, "Hammer");
+        }
+
+        private static Sprite CreateDockIconSprite(Texture2D sheet, int originX, string glyphName)
+        {
+            Sprite sprite = Sprite.Create(
+                sheet,
+                new Rect(originX, 0f, DOCK_ICON_SIZE, DOCK_ICON_SIZE),
+                new Vector2(0.5f, 0.5f),
+                100f,
+                0,
+                SpriteMeshType.FullRect);
+            sprite.name = $"MustyBlockBlast_{glyphName}IconSprite";
+            sprite.hideFlags = HideFlags.HideAndDontSave;
+            return sprite;
+        }
+
+        /// <summary>An arrow pointing up: a triangular head over a straight shaft. "Piercing" reads as
+        /// direction, so the glyph is a direction rather than a picture of a rocket.</summary>
+        private static void DrawRocket(Color32[] pixels, int stride, int originX)
+        {
+            const float SIZE = DOCK_ICON_SIZE;
+
+            float apexX = 0.5f * SIZE;
+            float apexY = 0.97f * SIZE;
+            float baseLeftX = 0.16f * SIZE;
+            float baseRightX = 0.84f * SIZE;
+            float baseY = 0.52f * SIZE;
+
+            float shaftMinX = 0.40f * SIZE;
+            float shaftMaxX = 0.60f * SIZE;
+            float shaftMinY = 0.06f * SIZE;
+            float shaftMaxY = baseY;
+
+            for (int y = 0; y < DOCK_ICON_SIZE; y++)
+            {
+                for (int x = 0; x < DOCK_ICON_SIZE; x++)
+                {
+                    float pixelX = x + 0.5f;
+                    float pixelY = y + 0.5f;
+
+                    float head = TriangleCoverage(
+                        pixelX, pixelY, baseLeftX, baseY, baseRightX, baseY, apexX, apexY);
+                    float shaft = RectCoverage(
+                        pixelX, pixelY, shaftMinX, shaftMinY, shaftMaxX, shaftMaxY);
+
+                    WritePixel(pixels, stride, originX + x, y, Mathf.Max(head, shaft));
+                }
+            }
+        }
+
+        /// <summary>A hammer seen head-on: a wide head sitting on a narrow handle. Two rectangles, so
+        /// the silhouette stays legible at the size a dock plate draws it.</summary>
+        private static void DrawHammer(Color32[] pixels, int stride, int originX)
+        {
+            const float SIZE = DOCK_ICON_SIZE;
+
+            float headMinX = 0.12f * SIZE;
+            float headMaxX = 0.88f * SIZE;
+            float headMinY = 0.62f * SIZE;
+            float headMaxY = 0.92f * SIZE;
+
+            float handleMinX = 0.43f * SIZE;
+            float handleMaxX = 0.57f * SIZE;
+            float handleMinY = 0.08f * SIZE;
+            float handleMaxY = headMinY;
+
+            for (int y = 0; y < DOCK_ICON_SIZE; y++)
+            {
+                for (int x = 0; x < DOCK_ICON_SIZE; x++)
+                {
+                    float pixelX = x + 0.5f;
+                    float pixelY = y + 0.5f;
+
+                    float head = RectCoverage(pixelX, pixelY, headMinX, headMinY, headMaxX, headMaxY);
+                    float handle = RectCoverage(
+                        pixelX, pixelY, handleMinX, handleMinY, handleMaxX, handleMaxY);
+
+                    WritePixel(pixels, stride, originX + x, y, Mathf.Max(head, handle));
+                }
+            }
+        }
+
+        private static void WritePixel(Color32[] pixels, int stride, int x, int y, float alpha)
+        {
+            if (alpha <= 0f)
+            {
+                return;
+            }
+
+            pixels[(y * stride) + x] =
+                new Color32(255, 255, 255, (byte)Mathf.RoundToInt(Mathf.Clamp01(alpha) * 255f));
+        }
+
+        /// <summary>Anti-aliased coverage of one pixel by an axis-aligned rectangle.</summary>
+        private static float RectCoverage(
+            float pixelX, float pixelY, float minX, float minY, float maxX, float maxY)
+        {
+            float horizontal = Mathf.Clamp01(Mathf.Min(pixelX - minX, maxX - pixelX) + 0.5f);
+            float vertical = Mathf.Clamp01(Mathf.Min(pixelY - minY, maxY - pixelY) + 0.5f);
+            return horizontal * vertical;
+        }
+
+        /// <summary>
+        /// Anti-aliased coverage of one pixel by the triangle (a, b, c), which must be wound
+        /// counter-clockwise. Each edge contributes a signed distance clamped to a one-pixel ramp and
+        /// the smallest wins, which is the same half-plane trick <see cref="CreateTriangleFacet"/> uses
+        /// for its two diagonals.
+        /// </summary>
+        private static float TriangleCoverage(
+            float pixelX, float pixelY,
+            float ax, float ay, float bx, float by, float cx, float cy)
+        {
+            float ab = EdgeCoverage(pixelX, pixelY, ax, ay, bx, by);
+            float bc = EdgeCoverage(pixelX, pixelY, bx, by, cx, cy);
+            float ca = EdgeCoverage(pixelX, pixelY, cx, cy, ax, ay);
+            return Mathf.Min(Mathf.Min(ab, bc), ca);
+        }
+
+        /// <summary>How far inside the half-plane left of the directed edge the pixel sits, as a 0..1
+        /// ramp one pixel wide.</summary>
+        private static float EdgeCoverage(
+            float pixelX, float pixelY, float fromX, float fromY, float toX, float toY)
+        {
+            float edgeX = toX - fromX;
+            float edgeY = toY - fromY;
+            float length = Mathf.Sqrt((edgeX * edgeX) + (edgeY * edgeY));
+            if (length <= 0f)
+            {
+                return 0f;
+            }
+
+            float cross = (edgeX * (pixelY - fromY)) - (edgeY * (pixelX - fromX));
+            return Mathf.Clamp01((cross / length) + 0.5f);
         }
 
         private static Sprite CreateRadialGlow(int size)

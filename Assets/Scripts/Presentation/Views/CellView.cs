@@ -145,11 +145,25 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>Shows the special-cell icon in <paramref name="colour"/>. Independent of both looks
         /// and of the outline, exactly as <see cref="SetHighlight"/> is: it neither reads nor writes any
         /// other layer, and allocates nothing, so it is safe on any repaint path.</summary>
-        internal void SetSpecialIcon(Color colour)
+        internal void SetSpecialIcon(Color colour) => SetSpecialIcon(colour, UiSpriteFactory.Starburst);
+
+        /// <summary>
+        /// As <see cref="SetSpecialIcon(Color)"/>, but drawing <paramref name="sprite"/> instead of the
+        /// default starburst — the dock plates mark a
+        /// <see cref="MustyBlockBlast.Core.SpecialPieceKind"/> with its own glyph rather than with a
+        /// tint, because a piece that is tapped rather than dragged has to be told apart by shape.
+        /// Allocates nothing, so it is safe on any repaint path.
+        /// </summary>
+        internal void SetSpecialIcon(Color colour, Sprite sprite)
         {
             if (_specialIconImage == null)
             {
                 return;
+            }
+
+            if (sprite != null)
+            {
+                _specialIconImage.sprite = sprite;
             }
 
             _specialIconImage.color = colour;

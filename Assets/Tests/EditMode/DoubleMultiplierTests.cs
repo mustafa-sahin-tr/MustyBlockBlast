@@ -417,7 +417,8 @@ namespace MustyBlockBlast.Tests.EditMode
                 new TestMessageBroker<GameOverMessage>(),
                 new TestMessageBroker<TrayRefilledMessage>(),
                 new TestMessageBroker<ExplosiveCoreDetonatedMessage>(),
-                new TestMessageBroker<LaserFiredMessage>());
+                new TestMessageBroker<LaserFiredMessage>(),
+                new TestMessageBroker<PiercingRocketFiredMessage>());
         }
     }
 }
