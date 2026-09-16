@@ -13,6 +13,11 @@ namespace MustyBlockBlast.Presentation.Services
     /// </summary>
     public sealed class UnityAuthService : IAuthService
     {
+        // Provider names travel out on AccountAlreadyLinkedException, so they are fixed here rather than
+        // spelled inline at each throw site where a typo would reach the player as a broken message.
+        private const string APPLE_PROVIDER = "Apple";
+        private const string GOOGLE_PLAY_GAMES_PROVIDER = "GooglePlayGames";
+
         // AuthenticationService.Instance does not exist until core services are initialized, so every
         // read is gated on the initialization state rather than on the auth service alone.
         public bool IsSignedIn =>
@@ -53,6 +58,43 @@ namespace MustyBlockBlast.Presentation.Services
             await AuthenticationService.Instance.SignInAnonymouslyAsync()
                 .AsUniTask()
                 .AttachExternalCancellation(cancellationToken);
+        }
+
+        public async UniTask LinkWithAppleAsync(string identityToken, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            try
+            {
+                await AuthenticationService.Instance.LinkWithAppleAsync(identityToken)
+                    .AsUniTask()
+                    .AttachExternalCancellation(cancellationToken);
+            }
+            catch (AuthenticationException exception)
+                when (exception.ErrorCode == AuthenticationErrorCodes.AccountAlreadyLinked)
+            {
+                // Translated at the seam so callers never have to know the SDK's error-code table. Every
+                // other failure — expired token, no network, malformed request — is left alone on
+                // purpose: they all mean "try again later", which is the caller's generic error path.
+                throw new AccountAlreadyLinkedException(APPLE_PROVIDER, exception);
+            }
+        }
+
+        public async UniTask LinkWithGooglePlayGamesAsync(string authCode, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            try
+            {
+                await AuthenticationService.Instance.LinkWithGooglePlayGamesAsync(authCode)
+                    .AsUniTask()
+                    .AttachExternalCancellation(cancellationToken);
+            }
+            catch (AuthenticationException exception)
+                when (exception.ErrorCode == AuthenticationErrorCodes.AccountAlreadyLinked)
+            {
+                throw new AccountAlreadyLinkedException(GOOGLE_PLAY_GAMES_PROVIDER, exception);
+            }
         }
     }
 }

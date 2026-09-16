@@ -25,5 +25,23 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// call when already signed in — it completes immediately rather than starting a new session.
         /// </summary>
         UniTask SignInAnonymouslyAsync(CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Attaches an Apple identity to the current session so the player's progress survives a
+        /// reinstall or follows them to another device. The token is passed in rather than fetched here
+        /// because acquiring it needs a native iOS Sign in with Apple prompt, which is a View concern —
+        /// this seam only forwards the result. Throws
+        /// <see cref="AccountAlreadyLinkedException"/> when that Apple ID already owns a different
+        /// backend identity, so the caller can offer to switch accounts instead of retrying.
+        /// </summary>
+        UniTask LinkWithAppleAsync(string identityToken, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Android counterpart to <see cref="LinkWithAppleAsync"/>, taking the server auth code that
+        /// Google Play Games hands back after its native sign-in. Throws
+        /// <see cref="AccountAlreadyLinkedException"/> when that Play Games account already owns a
+        /// different backend identity.
+        /// </summary>
+        UniTask LinkWithGooglePlayGamesAsync(string authCode, CancellationToken cancellationToken);
     }
 }
