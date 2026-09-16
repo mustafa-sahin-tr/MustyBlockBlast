@@ -22,8 +22,14 @@ namespace MustyBlockBlast.Presentation.Views
     /// leaderboard icon, an objective icon, a
     /// power-up inventory icon, an armed power-up being aimed at the board, and finally a tray piece
     /// being picked up. HUD icons are resolved
-    /// here rather than by an EventSystem — this scene has none, and every UI Image in it has its
-    /// raycast target off.
+    /// here rather than by an EventSystem: the scene has one, but every UI Image outside
+    /// <see cref="LevelPathPanelView"/> has its raycast target off, so nothing else is reachable
+    /// through it.
+    /// </para>
+    /// <para>
+    /// That panel is therefore the one gate below that swallows its press instead of routing it: its
+    /// trail scrolls, which needs the EventSystem's drag handling, and the EventSystem reads the same
+    /// pointer this View does. Every other overlay still resolves its own taps here.
     /// </para>
     /// <para>
     /// An armed power-up is aimed at the board, with one exception: <see cref="PowerUpKind.Rotate"/> is
@@ -348,9 +354,12 @@ namespace MustyBlockBlast.Presentation.Views
                 return;
             }
 
+            // The level path panel is the one overlay this View does not route into: its trail scrolls,
+            // so it is driven by the scene's EventSystem, which reads the same physical pointer
+            // independently. Forwarding the press here as well would have both pipelines resolve it.
+            // Swallowing it is still this gate's job — that is what keeps the press off the board.
             if (_levelPathPanelView.IsOpen)
             {
-                _levelPathPanelView.HandleTap(screenPosition);
                 return;
             }
 

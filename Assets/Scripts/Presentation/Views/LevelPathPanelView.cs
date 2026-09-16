@@ -14,8 +14,8 @@ using VContainer;
 namespace MustyBlockBlast.Presentation.Views
 {
     /// <summary>
-    /// The level path overlay: the whole authored ladder as a gated sequence of numbered nodes, with
-    /// the player's own position highlighted.
+    /// The level path overlay: the whole authored ladder as a winding seasonal trail the player
+    /// scrolls, with their own position highlighted.
     /// <para>
     /// Whether a node is a button is a property of the mode, not of this card. In
     /// <see cref="GameMode.Path"/> a run is bounded to one level and the player picks which, so an
@@ -25,16 +25,25 @@ namespace MustyBlockBlast.Presentation.Views
     /// <see cref="LevelProgressionSystem.TryStartPathLevel"/>, which refuses outside Path mode.
     /// </para>
     /// <para>
-    /// Paged rather than scrolled: this scene has no EventSystem (taps arrive through
-    /// <see cref="BoardInputView"/>'s pointer action) and therefore no ScrollRect, so a hundred nodes
-    /// are shown a page at a time with two chevrons. <see cref="Open"/> jumps straight to the page
-    /// holding <see cref="LevelProgressionModel.CurrentLevelNumber"/>, so the player never has to page
-    /// -hunt for their own position.
+    /// Scrolled rather than paged, which is why this is the one overlay in the scene driven by an
+    /// EventSystem instead of by <see cref="BoardInputView"/>'s manual hit-testing: a ScrollRect needs
+    /// real drag events, and once drags are real the difference between a tap and the first frame of a
+    /// drag has to come from uGUI's drag threshold rather than from a hand-rolled guess (see
+    /// <see cref="LevelPathNodeButton"/>). <see cref="BoardInputView"/> therefore only swallows the
+    /// press while this panel is open; every interaction inside it belongs to the EventSystem.
     /// </para>
     /// <para>
-    /// Built once in <see cref="Start"/> and toggled with SetActive, the same way
-    /// <see cref="SettingsPanelView"/> is; the node widgets are built once too and repainted per page,
-    /// so paging allocates nothing beyond the page-indicator string.
+    /// The trail is drawn from the same primitives as the rest of this UI — rotated rounded-rect bars
+    /// between consecutive waypoints for the ribbon, circles for the seasonal specks — so no art asset
+    /// is needed and the whole card keeps batching. Its colours come from the active
+    /// <see cref="ThemeDefinition"/>'s trail fields, so Kış reads as snow and Sonbahar as leaf litter.
+    /// </para>
+    /// <para>
+    /// Built once in <see cref="Start"/> for the entire catalog and toggled with SetActive, the same
+    /// way <see cref="SettingsPanelView"/> is. Layout is computed once because it never changes; only
+    /// colours, node state and text are repainted, so scrolling instantiates nothing and allocates
+    /// nothing. <see cref="Open"/> jumps straight to the player's own node, so they never have to
+    /// scroll-hunt for their position.
     /// </para>
     /// <para>
     /// Modal like the settings card: while it is open it holds the timed countdown through
@@ -46,60 +55,94 @@ namespace MustyBlockBlast.Presentation.Views
     [DisallowMultipleComponent]
     public sealed class LevelPathPanelView : MonoBehaviour
     {
-        private const int PAGE_COLUMN_COUNT = 4;
-        private const int PAGE_ROW_COUNT = 5;
-
-        /// <summary>Nodes shown per page. A 4x5 grid fills the card width at a comfortable node size.</summary>
-        private const int PAGE_SIZE = PAGE_COLUMN_COUNT * PAGE_ROW_COUNT;
-
         // Layout, in canvas reference pixels, matching the settings card's 880pt width and its
         // header/side insets so the two overlays read as one family.
         private const float HEADER_INSET = 92f;
         private const float SIDE_INSET = 60f;
         private const float ICON_BUTTON_SIZE = 92f;
-        private const float GRID_TOP_INSET = 194f;
 
         /// <summary>Card top edge to the Path-mode running-total line — the band between the header
-        /// and the first row of nodes.</summary>
+        /// and the top of the trail.</summary>
         private const float PATH_TOTAL_INSET = 152f;
 
         /// <summary>Smaller than the other labels on this line: the hint is a sentence rather than a
         /// value, and it shares its line with the running total.</summary>
         private const int TAP_HINT_FONT_SIZE = 28;
 
-        private const float NODE_SIZE = 160f;
-        private const float NODE_SPACING_X = 200f;
-        private const float NODE_SPACING_Y = 190f;
-        private const float NODE_DOT_SIZE = 28f;
+        // The scrolling window: everything between the running-total line and the description at the
+        // foot of the card.
+        private const float TRAIL_TOP_INSET = 194f;
+        private const float TRAIL_BOTTOM_INSET = 150f;
+        private const float TRAIL_SIDE_INSET = 44f;
+
+        /// <summary>Card bottom edge to the current level's description.</summary>
+        private const float DESCRIPTION_INSET = 96f;
+
+        /// <summary>
+        /// Distance the trail's sweep keeps from either edge of the scroll content. A node is centred
+        /// on its waypoint, so this is its half-width plus a margin — which is what stops the outermost
+        /// nodes of the sweep being clipped by the viewport.
+        /// </summary>
+        private const float TRAIL_SWEEP_INSET = 170f;
+
+        /// <summary>Breathing room above the first node and below the last, so level 1 and the last
+        /// level do not sit flush against the clip edge at the ends of the scroll.</summary>
+        private const float TRAIL_VERTICAL_PADDING = 120f;
+
+        private const float RIBBON_THICKNESS = 22f;
+        private const float ACCENT_SIZE = 18f;
+
+        /// <summary>How far off the ribbon a seasonal speck sits, measured perpendicular to it.</summary>
+        private const float ACCENT_OFFSET = 34f;
+
+        /// <summary>One speck per this many gaps. Every gap reads as a dotted line rather than as
+        /// weather, and it would double the trail's object count for nothing.</summary>
+        private const int ACCENT_GAP_STRIDE = 2;
+
+        private const float NODE_SIZE = 124f;
+        private const float NODE_DOT_SIZE = 22f;
 
         /// <summary>Scale applied to the node the player is on, so "you are here" reads without new art.</summary>
         private const float CURRENT_NODE_SCALE = 1.08f;
 
         /// <summary>
-        /// Alpha applied to a locked node. Deliberately the same dim as
-        /// <see cref="PowerUpInventoryView"/>'s empty slot: "you cannot have this yet" is one visual
-        /// idea and should look identical wherever it appears.
+        /// Alpha applied to a locked node and to the stretch of trail leading to it. Deliberately the
+        /// same dim as <see cref="PowerUpInventoryView"/>'s empty slot: "you cannot have this yet" is
+        /// one visual idea and should look identical wherever it appears.
         /// </summary>
         private const float LOCKED_NODE_ALPHA = 0.35f;
 
-        /// <summary>Separator in the header and pager counters. A symbol, not a word — nothing here
-        /// for a translator to translate, so it stays out of the String Table.</summary>
+        /// <summary>How much of the trail's own colour is mixed into the card behind it, so the
+        /// scrolling band reads as this theme's ground rather than as bare card.</summary>
+        private const float TRAIL_BACKDROP_MIX = 0.38f;
+
+        /// <summary>Separator in the header counter. A symbol, not a word — nothing here for a
+        /// translator to translate, so it stays out of the String Table.</summary>
         private const string COUNTER_SEPARATOR = " / ";
 
         private readonly CompositeDisposable _disposables = new CompositeDisposable();
         private readonly StringBuilder _stringBuilder = new StringBuilder(16);
-        private readonly LevelNode[] _nodes = new LevelNode[PAGE_SIZE];
 
-        /// <summary>Repaint bucket: every Image that follows the theme's ink (the close cross, the two
-        /// pager chevrons), so a theme switch is one tight loop instead of a hierarchy walk.</summary>
-        private readonly List<Image> _inkImages = new List<Image>(8);
+        /// <summary>One widget per authored level, indexed by level number minus one. Sized from the
+        /// catalog in <see cref="BuildTrail"/>, so it is only allocated once the catalog is injected.</summary>
+        private LevelNode[] _nodes = System.Array.Empty<LevelNode>();
+
+        /// <summary>Repaint bucket: every Image that follows the theme's ink (the close cross), so a
+        /// theme switch is one tight loop instead of a hierarchy walk.</summary>
+        private readonly List<Image> _inkImages = new List<Image>(4);
+
+        /// <summary>The ribbon bars, in walk order. Each carries the level it leads to, so a locked
+        /// stretch dims with the node it ends at.</summary>
+        private readonly List<TrailPiece> _ribbonPieces = new List<TrailPiece>(128);
+
+        /// <summary>The seasonal specks, dimmed by the same rule as the ribbon under them.</summary>
+        private readonly List<TrailPiece> _accentPieces = new List<TrailPiece>(64);
 
         [Header("Layout")]
         [SerializeField] private Vector2 _cardSize = new Vector2(880f, 1336f);
         [SerializeField] private int _headerFontSize = 64;
-        [SerializeField] private int _nodeFontSize = 48;
+        [SerializeField] private int _nodeFontSize = 40;
         [SerializeField] private int _descriptionFontSize = 34;
-        [SerializeField] private int _pageFontSize = 38;
 
         [Header("Palette")]
         [SerializeField] private Color _scrimColour = new Color(0.17f, 0.15f, 0.20f, 0.55f);
@@ -114,25 +157,24 @@ namespace MustyBlockBlast.Presentation.Views
         private GameModeSystem _gameModeSystem;
         private TimerRunSystem _timerRunSystem;
 
-        private Canvas _canvas;
         private GameObject _panel;
         private RectTransform _cardRect;
         private Image _cardImage;
         private Image _cardShadowImage;
 
-        private RectTransform _closeButtonRect;
-        private RectTransform _previousPageRect;
-        private RectTransform _nextPageRect;
+        private ScrollRect _trailScroll;
+        private Image _trailBackdropImage;
+        private RectTransform _trailViewportRect;
+        private RectTransform _trailContentRect;
+
         private Text _headerText;
         private Text _descriptionText;
-        private Text _pageText;
         private Text _pathTotalText;
         private Text _tapHintText;
 
         private ThemeDefinition _currentTheme;
-        private int _pageIndex;
 
-        /// <summary>One built node widget. Rebuilt never, repainted on every page change.</summary>
+        /// <summary>One built node widget. Rebuilt never, repainted whenever the ladder or theme moves.</summary>
         private sealed class LevelNode
         {
             internal LevelNode(RectTransform root, Image plateImage, Image shadowImage, Image doneDot, Text numberText)
@@ -153,6 +195,24 @@ namespace MustyBlockBlast.Presentation.Views
             internal Image DoneDot { get; }
 
             internal Text NumberText { get; }
+        }
+
+        /// <summary>
+        /// One drawn scrap of trail — a ribbon bar or a seasonal speck — paired with the level it
+        /// belongs to. The pairing is what lets the trail dim exactly where the ladder stops instead of
+        /// being uniformly bright past the player's frontier.
+        /// </summary>
+        private sealed class TrailPiece
+        {
+            internal TrailPiece(Image image, int levelNumber)
+            {
+                Image = image;
+                LevelNumber = levelNumber;
+            }
+
+            internal Image Image { get; }
+
+            internal int LevelNumber { get; }
         }
 
         [Inject]
@@ -176,11 +236,6 @@ namespace MustyBlockBlast.Presentation.Views
             _levelProgressionSystem = levelProgressionSystem;
             _gameModeSystem = gameModeSystem;
             _timerRunSystem = timerRunSystem;
-        }
-
-        private void Awake()
-        {
-            _canvas = GetComponentInParent<Canvas>();
         }
 
         private void Start()
@@ -218,7 +273,7 @@ namespace MustyBlockBlast.Presentation.Views
         internal bool IsOpen => _panel != null && _panel.activeSelf;
 
         /// <summary>
-        /// Shows the panel, opened on the page that holds the player's current level. Re-opening never
+        /// Shows the panel, scrolled straight to the player's current level. Re-opening never
         /// double-pauses the clock: an already-open panel returns immediately.
         /// </summary>
         internal void Open()
@@ -228,102 +283,15 @@ namespace MustyBlockBlast.Presentation.Views
                 return;
             }
 
-            // Clamped like SetPage does: the progression never runs past the catalog today, but a page
-            // index derived from it must not be able to show an empty grid under a "6 / 5" counter.
-            _pageIndex = Mathf.Clamp(
-                PageIndexOf(_levelProgressionModel.CurrentLevelNumber.Value), 0, PageCount - 1);
             Refresh();
 
             _panel.SetActive(true);
             transform.SetAsLastSibling();
+
+            // After SetActive, so the ScrollRect's rects are live and the scroll it is handed sticks.
+            ScrollTo(_levelProgressionModel.CurrentLevelNumber.Value);
+
             _timerRunSystem.SetMenuPaused(true);
-        }
-
-        /// <summary>
-        /// Routes a tap while the panel is open. The two pagers and the close cross are tested first,
-        /// then the nodes; the card swallows anything else, and only the scrim outside it closes.
-        /// <para>
-        /// A node tap is offered to <see cref="LevelProgressionSystem.TryStartPathLevel"/> rather than
-        /// gated on the mode here. The System already has to refuse a locked or unauthored level, so
-        /// letting it also own "and only in Path mode" keeps one answer to "may this level be started"
-        /// instead of two that can drift. A refusal leaves the card open and unchanged, which is
-        /// exactly the read-only no-op Endless and Timed have always had.
-        /// </para>
-        /// </summary>
-        internal void HandleTap(Vector2 screenPosition)
-        {
-            if (!IsOpen)
-            {
-                return;
-            }
-
-            Camera eventCamera = _canvas != null && _canvas.renderMode != RenderMode.ScreenSpaceOverlay
-                ? _canvas.worldCamera
-                : null;
-
-            if (RectTransformUtility.RectangleContainsScreenPoint(_closeButtonRect, screenPosition, eventCamera))
-            {
-                Close();
-                return;
-            }
-
-            if (RectTransformUtility.RectangleContainsScreenPoint(_previousPageRect, screenPosition, eventCamera))
-            {
-                SetPage(_pageIndex - 1);
-                return;
-            }
-
-            if (RectTransformUtility.RectangleContainsScreenPoint(_nextPageRect, screenPosition, eventCamera))
-            {
-                SetPage(_pageIndex + 1);
-                return;
-            }
-
-            if (TryHandleNodeTap(screenPosition, eventCamera))
-            {
-                return;
-            }
-
-            if (RectTransformUtility.RectangleContainsScreenPoint(_cardRect, screenPosition, eventCamera))
-            {
-                return;
-            }
-
-            Close();
-        }
-
-        /// <summary>
-        /// Starts a run at the tapped node's level when the active mode allows it. Returns true when
-        /// the tap landed on a node at all — including one the System refused — so a tap on an inert
-        /// node is swallowed by the card rather than falling through to the scrim and dismissing it.
-        /// </summary>
-        private bool TryHandleNodeTap(Vector2 screenPosition, Camera eventCamera)
-        {
-            for (int nodeIndex = 0; nodeIndex < _nodes.Length; nodeIndex++)
-            {
-                LevelNode node = _nodes[nodeIndex];
-                if (!node.Root.gameObject.activeSelf
-                    || !RectTransformUtility.RectangleContainsScreenPoint(node.Root, screenPosition, eventCamera))
-                {
-                    continue;
-                }
-
-                // The node's level is its position, not stored state: the grid is repainted per page
-                // rather than rebuilt, so the widget at this index means a different level on every
-                // page and deriving it is the only way it can never be stale.
-                int levelNumber = (_pageIndex * PAGE_SIZE) + nodeIndex + 1;
-
-                if (_levelProgressionSystem.TryStartPathLevel(levelNumber))
-                {
-                    // Closing is part of starting: the run is under this card, and leaving a modal
-                    // open over a run that has just begun would also leave the countdown held.
-                    Close();
-                }
-
-                return true;
-            }
-
-            return false;
         }
 
         private void Close()
@@ -332,22 +300,56 @@ namespace MustyBlockBlast.Presentation.Views
             _timerRunSystem.SetMenuPaused(false);
         }
 
-        private void SetPage(int pageIndex)
+        /// <summary>
+        /// Centres the viewport on a level's node, clamped to the content so either end of the walk
+        /// stops at the last node rather than scrolling past it into empty trail.
+        /// <para>
+        /// The content position is written directly rather than through
+        /// <c>verticalNormalizedPosition</c>: the normalized form divides by the scrollable span, which
+        /// is zero for a catalog short enough to fit the viewport, and this way that case simply
+        /// resolves to the top.
+        /// </para>
+        /// </summary>
+        private void ScrollTo(int levelNumber)
         {
-            int clamped = Mathf.Clamp(pageIndex, 0, PageCount - 1);
-            if (clamped == _pageIndex)
+            if (_trailScroll == null)
             {
                 return;
             }
 
-            _pageIndex = clamped;
-            Refresh();
+            // Kills any inertia left over from the previous time the card was open, which would
+            // otherwise carry the trail away from the node we just aimed at.
+            _trailScroll.StopMovement();
+
+            float viewportHeight = _trailViewportRect.rect.height;
+            float scrollableHeight = Mathf.Max(0f, _trailContentRect.rect.height - viewportHeight);
+
+            int levelIndex = Mathf.Max(0, levelNumber - 1);
+            float nodeDepth = TRAIL_VERTICAL_PADDING + (levelIndex * LevelPathTrailLayout.ROW_SPACING);
+
+            float scroll = Mathf.Clamp(nodeDepth - (viewportHeight * 0.5f), 0f, scrollableHeight);
+            _trailContentRect.anchoredPosition = new Vector2(0f, scroll);
         }
 
-        /// <summary>Pages needed for the whole catalog; never zero, so an empty catalog still shows "1 / 1".</summary>
-        private int PageCount => Mathf.Max(1, Mathf.CeilToInt(_levelCatalog.MaxLevelNumber / (float)PAGE_SIZE));
-
-        private static int PageIndexOf(int levelNumber) => Mathf.Max(0, (levelNumber - 1) / PAGE_SIZE);
+        /// <summary>
+        /// Starts a run at this node's level when the active mode allows it.
+        /// <para>
+        /// The tap is offered to <see cref="LevelProgressionSystem.TryStartPathLevel"/> rather than
+        /// gated on the mode or the unlock here. The System already has to refuse a locked or
+        /// unauthored level, so letting it also own "and only in Path mode" keeps one answer to "may
+        /// this level be started" instead of two that can drift. A refusal leaves the card open and
+        /// unchanged, which is exactly the read-only no-op Endless and Timed have always had.
+        /// </para>
+        /// </summary>
+        private void OnNodeClicked(int levelNumber)
+        {
+            if (_levelProgressionSystem.TryStartPathLevel(levelNumber))
+            {
+                // Closing is part of starting: the run is under this card, and leaving a modal open
+                // over a run that has just begun would also leave the countdown held.
+                Close();
+            }
+        }
 
         private void OnThemeChanged(ThemeDefinition theme)
         {
@@ -368,7 +370,11 @@ namespace MustyBlockBlast.Presentation.Views
 
         private void OnModeChanged(GameMode mode) => Refresh();
 
-        /// <summary>Repaints the whole card from the models: header, nodes, description and pager.</summary>
+        /// <summary>
+        /// Repaints the whole card from the models: header, description, the trail's colours and every
+        /// node's state. Layout is never recomputed — the waypoints are a function of the level count
+        /// alone, which cannot change at runtime.
+        /// </summary>
         private void Refresh()
         {
             if (_panel == null || _currentTheme == null)
@@ -381,6 +387,8 @@ namespace MustyBlockBlast.Presentation.Views
 
             _cardImage.color = _currentTheme.CardBackground;
             _cardShadowImage.color = _currentTheme.CardShadow;
+            _trailBackdropImage.color = Color.Lerp(
+                _currentTheme.CardBackground, _currentTheme.TrailPathColor, TRAIL_BACKDROP_MIX);
 
             for (int inkIndex = 0; inkIndex < _inkImages.Count; inkIndex++)
             {
@@ -389,9 +397,6 @@ namespace MustyBlockBlast.Presentation.Views
 
             _headerText.color = _currentTheme.Ink;
             _headerText.text = FormatCounter(currentLevel, maxLevel);
-
-            _pageText.color = _currentTheme.SoftInk;
-            _pageText.text = FormatCounter(_pageIndex + 1, PageCount);
 
             _descriptionText.color = _currentTheme.SoftInk;
             _descriptionText.text = DescribeLevel(currentLevel);
@@ -415,43 +420,42 @@ namespace MustyBlockBlast.Presentation.Views
                 _tapHintText.text = _localizationSystem.Translate(LocalizationKeys.LEVEL_PATH_TAP_HINT);
             }
 
+            RefreshTrailPieces(_ribbonPieces, _currentTheme.TrailPathColor);
+            RefreshTrailPieces(_accentPieces, _currentTheme.TrailWeatherAccentColor);
+
             for (int nodeIndex = 0; nodeIndex < _nodes.Length; nodeIndex++)
             {
-                RefreshNode(nodeIndex, (_pageIndex * PAGE_SIZE) + nodeIndex + 1, currentLevel, maxLevel);
+                RefreshNode(_nodes[nodeIndex], nodeIndex + 1, currentLevel);
+            }
+        }
+
+        /// <summary>Tints one bucket of trail scraps, dimming the stretch that runs past the player's
+        /// frontier so the walk visibly stops where the ladder does.</summary>
+        private void RefreshTrailPieces(List<TrailPiece> pieces, Color colour)
+        {
+            for (int pieceIndex = 0; pieceIndex < pieces.Count; pieceIndex++)
+            {
+                TrailPiece piece = pieces[pieceIndex];
+                float alpha = _levelProgressionSystem.IsUnlocked(piece.LevelNumber) ? 1f : LOCKED_NODE_ALPHA;
+                piece.Image.color = WithAlpha(colour, alpha);
             }
         }
 
         /// <summary>
-        /// Paints one node in one of the three ladder states. Progression is strictly linear, so the
-        /// state is a comparison against the current level rather than a stored unlock set.
+        /// Paints one node in one of the three ladder states. Locked is asked of
+        /// <see cref="LevelProgressionSystem.IsUnlocked"/> rather than re-derived from the current
+        /// level here, so what the card draws as reachable and what it will actually let the player
+        /// start are the same rule.
         /// </summary>
-        private void RefreshNode(int nodeIndex, int levelNumber, int currentLevel, int maxLevel)
+        private void RefreshNode(LevelNode node, int levelNumber, int currentLevel)
         {
-            LevelNode node = _nodes[nodeIndex];
-
-            // The last page is rarely full; the surplus widgets are hidden rather than drawn empty.
-            bool exists = levelNumber <= maxLevel;
-            if (node.Root.gameObject.activeSelf != exists)
-            {
-                node.Root.gameObject.SetActive(exists);
-            }
-
-            if (!exists)
-            {
-                return;
-            }
-
             bool isCurrent = levelNumber == currentLevel;
-            bool isLocked = levelNumber > currentLevel;
+            bool isLocked = !_levelProgressionSystem.IsUnlocked(levelNumber);
             float alpha = isLocked ? LOCKED_NODE_ALPHA : 1f;
-
-            // Cleared nodes sit on the same neutral plate the settings list uses for its badges, which
-            // is derived from the Ink/CardBackground pair and so stays readable in every theme.
-            Color clearedPlate = Color.Lerp(_currentTheme.CardBackground, _currentTheme.Ink, 0.16f);
 
             // The current node inverts — accent plate, number punched out of it — the same way
             // PowerUpInventoryView marks the armed slot.
-            Color plateColour = isCurrent ? _currentTheme.Accent : clearedPlate;
+            Color plateColour = isCurrent ? _currentTheme.Accent : _currentTheme.TrailNodePlateColor;
             Color numberColour = isCurrent
                 ? _currentTheme.CardBackground
                 : (isLocked ? _currentTheme.SoftInk : _currentTheme.Ink);
@@ -466,10 +470,6 @@ namespace MustyBlockBlast.Presentation.Views
 
             float scale = isCurrent ? CURRENT_NODE_SCALE : 1f;
             node.Root.localScale = new Vector3(scale, scale, 1f);
-
-            _stringBuilder.Clear();
-            _stringBuilder.Append(levelNumber);
-            node.NumberText.text = _stringBuilder.ToString();
         }
 
         /// <summary>
@@ -509,7 +509,8 @@ namespace MustyBlockBlast.Presentation.Views
             rect.offsetMin = Vector2.zero;
             rect.offsetMax = Vector2.zero;
 
-            var panelObject = new GameObject("LevelPathPanel", typeof(RectTransform), typeof(Image));
+            var panelObject = new GameObject(
+                "LevelPathPanel", typeof(RectTransform), typeof(Image), typeof(LevelPathNodeButton));
             var panelRect = (RectTransform)panelObject.transform;
             panelRect.SetParent(rect, false);
             panelRect.anchorMin = Vector2.zero;
@@ -517,12 +518,18 @@ namespace MustyBlockBlast.Presentation.Views
             panelRect.offsetMin = Vector2.zero;
             panelRect.offsetMax = Vector2.zero;
 
-            var scrim = panelObject.GetComponent<Image>();
-            scrim.color = _scrimColour;
-            scrim.raycastTarget = false;
+            // The scrim is the "tapped outside the card" target. It is the only graphic under this
+            // panel that is allowed to close it, and the card's own background sits above it as a
+            // raycast blocker so a tap on the card never falls through — the standard uGUI modal
+            // sandwich, and the reason both of them take raycasts when nothing else in this scene does.
+            var scrimImage = panelObject.GetComponent<Image>();
+            scrimImage.color = _scrimColour;
+            scrimImage.raycastTarget = true;
+            panelObject.GetComponent<LevelPathNodeButton>().SetClicked(Close);
 
             _cardRect = CellFactory.CreateCard(
                 panelRect, "LevelPathCard", _cardSize, out _cardImage, out _cardShadowImage);
+            _cardImage.raycastTarget = true;
 
             float cardHalfHeight = _cardSize.y * 0.5f;
             float cardHalfWidth = _cardSize.x * 0.5f;
@@ -535,10 +542,9 @@ namespace MustyBlockBlast.Presentation.Views
             BuildCloseButton(
                 _cardRect, new Vector2(cardHalfWidth - SIDE_INSET - (ICON_BUTTON_SIZE * 0.5f), headerY));
 
-            // Both sit in the band between the header line and the top of the node grid — the one
-            // strip of the card that is otherwise empty. The foot of the card is not an option: the
-            // level description and the pager already share it, and a third line there would crowd
-            // the last row of nodes.
+            // Both sit in the band between the header line and the top of the trail — the one strip of
+            // the card that is otherwise empty. The foot of the card is not an option: the level
+            // description already has it, and a third line there would crowd the trail's clip edge.
             _pathTotalText = CreateLabel(
                 _cardRect, "PathTotal", _descriptionFontSize, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(-cardHalfWidth + SIDE_INSET, cardHalfHeight - PATH_TOTAL_INSET));
@@ -547,49 +553,172 @@ namespace MustyBlockBlast.Presentation.Views
                 _cardRect, "TapHint", TAP_HINT_FONT_SIZE, FontStyle.Normal, TextAnchor.MiddleRight,
                 new Vector2(cardHalfWidth - SIDE_INSET, cardHalfHeight - PATH_TOTAL_INSET));
 
-            BuildGrid(cardHalfHeight);
-
-            float pagerY = -cardHalfHeight + HEADER_INSET - 14f;
+            BuildTrail(cardHalfHeight);
 
             _descriptionText = CreateLabel(
                 _cardRect, "Description", _descriptionFontSize, FontStyle.Normal, TextAnchor.MiddleCenter,
-                new Vector2(0f, pagerY + 90f));
-
-            _pageText = CreateLabel(
-                _cardRect, "PageCounter", _pageFontSize, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(0f, pagerY));
-
-            float pagerX = cardHalfWidth - SIDE_INSET - (ICON_BUTTON_SIZE * 0.5f);
-            _previousPageRect = BuildChevronButton(_cardRect, "PreviousPage", new Vector2(-pagerX, pagerY), -1f);
-            _nextPageRect = BuildChevronButton(_cardRect, "NextPage", new Vector2(pagerX, pagerY), 1f);
+                new Vector2(0f, -cardHalfHeight + DESCRIPTION_INSET));
 
             _panel = panelObject;
         }
 
-        private void BuildGrid(float cardHalfHeight)
+        /// <summary>
+        /// Builds the scrolling trail: a clipped viewport, a content rect sized exactly to the authored
+        /// level count, then the ribbon, the seasonal specks and every node laid onto it.
+        /// <para>
+        /// The ribbon and specks are added before the nodes so sibling order draws them underneath,
+        /// which is also what keeps a node's plate — the only raycast target in here besides the
+        /// viewport — on top of the trail it sits on.
+        /// </para>
+        /// </summary>
+        private void BuildTrail(float cardHalfHeight)
         {
-            float gridHeight = ((PAGE_ROW_COUNT - 1) * NODE_SPACING_Y) + NODE_SIZE;
-            float gridCentreY = cardHalfHeight - GRID_TOP_INSET - (gridHeight * 0.5f);
+            float viewportWidth = _cardSize.x - (TRAIL_SIDE_INSET * 2f);
+            float viewportHeight = _cardSize.y - TRAIL_TOP_INSET - TRAIL_BOTTOM_INSET;
 
-            for (int nodeIndex = 0; nodeIndex < PAGE_SIZE; nodeIndex++)
+            var viewportObject = new GameObject(
+                "TrailViewport", typeof(RectTransform), typeof(Image), typeof(RectMask2D), typeof(ScrollRect));
+            _trailViewportRect = (RectTransform)viewportObject.transform;
+            _trailViewportRect.SetParent(_cardRect, false);
+            Centre(_trailViewportRect, new Vector2(viewportWidth, viewportHeight));
+            _trailViewportRect.anchoredPosition = new Vector2(
+                0f, cardHalfHeight - TRAIL_TOP_INSET - (viewportHeight * 0.5f));
+
+            // The backdrop doubles as the ScrollRect's own raycast target: a drag has to land on a
+            // graphic to reach the ScrollRect at all, and this is the one that covers the whole band,
+            // so the trail scrolls from anywhere inside it rather than only from a node.
+            _trailBackdropImage = viewportObject.GetComponent<Image>();
+            ConfigureRounded(_trailBackdropImage);
+            _trailBackdropImage.raycastTarget = true;
+
+            int levelCount = Mathf.Max(1, _levelCatalog.MaxLevelNumber);
+            float contentHeight = LevelPathTrailLayout.ContentHeight(levelCount, TRAIL_VERTICAL_PADDING);
+
+            var contentObject = new GameObject("TrailContent", typeof(RectTransform));
+            _trailContentRect = (RectTransform)contentObject.transform;
+            _trailContentRect.SetParent(_trailViewportRect, false);
+
+            // Anchored and pivoted at the top so anchoredPosition.y is simply "how far down the walk
+            // we are", which is the form ScrollTo clamps against the content height.
+            _trailContentRect.anchorMin = new Vector2(0.5f, 1f);
+            _trailContentRect.anchorMax = new Vector2(0.5f, 1f);
+            _trailContentRect.pivot = new Vector2(0.5f, 1f);
+            _trailContentRect.sizeDelta = new Vector2(viewportWidth, contentHeight);
+            _trailContentRect.anchoredPosition = Vector2.zero;
+
+            _trailScroll = viewportObject.GetComponent<ScrollRect>();
+            _trailScroll.horizontal = false;
+            _trailScroll.vertical = true;
+
+            // Clamped rather than elastic: the content is sized to the node extents, so there is
+            // nothing past either end worth bouncing into.
+            _trailScroll.movementType = ScrollRect.MovementType.Clamped;
+            _trailScroll.viewport = _trailViewportRect;
+            _trailScroll.content = _trailContentRect;
+
+            float amplitude = (viewportWidth * 0.5f) - TRAIL_SWEEP_INSET;
+
+            BuildRibbon(levelCount, amplitude);
+            BuildNodes(levelCount, amplitude);
+        }
+
+        /// <summary>
+        /// Draws the ribbon as one rotated rounded bar per gap between consecutive waypoints, with a
+        /// seasonal speck dropped beside every few of them. Bars rather than a single generated mesh so
+        /// the trail uses the same shared sprite as everything else on the card and costs no draw call
+        /// of its own.
+        /// </summary>
+        private void BuildRibbon(int levelCount, float amplitude)
+        {
+            for (int gapIndex = 0; gapIndex < levelCount - 1; gapIndex++)
             {
-                int column = nodeIndex % PAGE_COLUMN_COUNT;
-                int row = nodeIndex / PAGE_COLUMN_COUNT;
+                Vector2 from = LevelPathTrailLayout.WaypointOf(gapIndex, amplitude);
+                Vector2 to = LevelPathTrailLayout.WaypointOf(gapIndex + 1, amplitude);
+                Vector2 delta = to - from;
+                float length = delta.magnitude;
+                float angle = Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg;
 
-                float x = (column - ((PAGE_COLUMN_COUNT - 1) * 0.5f)) * NODE_SPACING_X;
-                float y = gridCentreY + ((((PAGE_ROW_COUNT - 1) * 0.5f) - row) * NODE_SPACING_Y);
+                // Overlapped by its own thickness so consecutive bars meet without a notch at the
+                // corner where the sweep turns.
+                Image barImage = CreateTrailImage(
+                    $"TrailSegment_{gapIndex}",
+                    new Vector2(length + RIBBON_THICKNESS, RIBBON_THICKNESS),
+                    (from + to) * 0.5f,
+                    angle,
+                    rounded: true);
 
-                _nodes[nodeIndex] = BuildNode(nodeIndex, new Vector2(x, y));
+                _ribbonPieces.Add(new TrailPiece(barImage, gapIndex + 2));
+
+                if (gapIndex % ACCENT_GAP_STRIDE != 0)
+                {
+                    continue;
+                }
+
+                // Alternating sides, so the specks scatter along the walk instead of hugging one edge.
+                float side = (gapIndex / ACCENT_GAP_STRIDE) % 2 == 0 ? 1f : -1f;
+                Vector2 perpendicular = length > 0f
+                    ? new Vector2(-delta.y, delta.x) / length
+                    : Vector2.right;
+
+                Vector2 accentCentre = LevelPathTrailLayout.PointBetween(gapIndex, 0.5f, amplitude)
+                    + (perpendicular * (side * ACCENT_OFFSET));
+
+                Image accentImage = CreateTrailImage(
+                    $"TrailAccent_{gapIndex}",
+                    new Vector2(ACCENT_SIZE, ACCENT_SIZE),
+                    accentCentre,
+                    0f,
+                    rounded: false);
+
+                _accentPieces.Add(new TrailPiece(accentImage, gapIndex + 2));
             }
         }
 
-        private LevelNode BuildNode(int nodeIndex, Vector2 anchoredPosition)
+        /// <summary>One decorative scrap of trail, parented to the scroll content and painted later
+        /// from the theme.</summary>
+        private Image CreateTrailImage(
+            string objectName, Vector2 size, Vector2 waypoint, float angle, bool rounded)
         {
-            var nodeObject = new GameObject($"LevelNode_{nodeIndex}", typeof(RectTransform));
+            var pieceObject = new GameObject(objectName, typeof(RectTransform), typeof(Image));
+            var pieceRect = (RectTransform)pieceObject.transform;
+            pieceRect.SetParent(_trailContentRect, false);
+            AnchorToContentTop(pieceRect, size, waypoint);
+            pieceRect.localRotation = Quaternion.Euler(0f, 0f, angle);
+
+            var pieceImage = pieceObject.GetComponent<Image>();
+            if (rounded)
+            {
+                ConfigureRounded(pieceImage);
+            }
+            else
+            {
+                ConfigureCircle(pieceImage);
+            }
+
+            return pieceImage;
+        }
+
+        private void BuildNodes(int levelCount, float amplitude)
+        {
+            _nodes = new LevelNode[levelCount];
+            for (int levelIndex = 0; levelIndex < levelCount; levelIndex++)
+            {
+                _nodes[levelIndex] = BuildNode(
+                    levelIndex + 1, LevelPathTrailLayout.WaypointOf(levelIndex, amplitude));
+            }
+        }
+
+        private LevelNode BuildNode(int levelNumber, Vector2 waypoint)
+        {
+            var nodeObject = new GameObject(
+                $"LevelNode_{levelNumber}", typeof(RectTransform), typeof(LevelPathNodeButton));
             var nodeRect = (RectTransform)nodeObject.transform;
-            nodeRect.SetParent(_cardRect, false);
-            Centre(nodeRect, new Vector2(NODE_SIZE, NODE_SIZE));
-            nodeRect.anchoredPosition = anchoredPosition;
+            nodeRect.SetParent(_trailContentRect, false);
+            AnchorToContentTop(nodeRect, new Vector2(NODE_SIZE, NODE_SIZE), waypoint);
+
+            // Closes over the level rather than deriving it from an index, because unlike the old paged
+            // grid this widget is this level for the panel's whole life.
+            nodeObject.GetComponent<LevelPathNodeButton>().SetClicked(() => OnNodeClicked(levelNumber));
 
             var shadowObject = new GameObject("Shadow", typeof(RectTransform), typeof(Image));
             var shadowRect = (RectTransform)shadowObject.transform;
@@ -606,6 +735,10 @@ namespace MustyBlockBlast.Presentation.Views
             var plateImage = plateObject.GetComponent<Image>();
             ConfigureRounded(plateImage);
 
+            // The plate is the node's hit area: the node root carries the click handler but no graphic
+            // of its own, and uGUI dispatches a click up the hierarchy from whatever graphic it hit.
+            plateImage.raycastTarget = true;
+
             Text numberText = UiTextFactory.Create(
                 nodeRect, "Number", _nodeFontSize, FontStyle.Bold, Color.clear);
 
@@ -616,30 +749,46 @@ namespace MustyBlockBlast.Presentation.Views
             dotRect.SetParent(nodeRect, false);
             Centre(dotRect, new Vector2(NODE_DOT_SIZE, NODE_DOT_SIZE));
             dotRect.anchoredPosition = new Vector2(
-                (NODE_SIZE * 0.5f) - 26f, (-NODE_SIZE * 0.5f) + 26f);
+                (NODE_SIZE * 0.5f) - 22f, (-NODE_SIZE * 0.5f) + 22f);
             var dotImage = dotObject.GetComponent<Image>();
             ConfigureCircle(dotImage);
+
+            // The number never changes for a given widget, so it is written here rather than in
+            // Refresh — one less string built per repaint, times the whole catalog.
+            _stringBuilder.Clear();
+            _stringBuilder.Append(levelNumber);
+            numberText.text = _stringBuilder.ToString();
 
             return new LevelNode(nodeRect, plateImage, shadowImage, dotImage, numberText);
         }
 
-        /// <summary>Two bars crossed at right angles — the close glyph, as on the settings card.</summary>
+        /// <summary>Two bars crossed at right angles — the close glyph, as on the settings card — over
+        /// an invisible plate that gives it something for the EventSystem to hit.</summary>
         private void BuildCloseButton(RectTransform root, Vector2 anchoredPosition)
         {
             const float CROSS_LENGTH = 46f;
             const float CROSS_THICKNESS = 8f;
 
-            var closeObject = new GameObject("CloseButton", typeof(RectTransform));
-            _closeButtonRect = (RectTransform)closeObject.transform;
-            _closeButtonRect.SetParent(root, false);
-            Centre(_closeButtonRect, new Vector2(ICON_BUTTON_SIZE, ICON_BUTTON_SIZE));
-            _closeButtonRect.anchoredPosition = anchoredPosition;
+            var closeObject = new GameObject(
+                "CloseButton", typeof(RectTransform), typeof(Image), typeof(LevelPathNodeButton));
+            var closeRect = (RectTransform)closeObject.transform;
+            closeRect.SetParent(root, false);
+            Centre(closeRect, new Vector2(ICON_BUTTON_SIZE, ICON_BUTTON_SIZE));
+            closeRect.anchoredPosition = anchoredPosition;
+
+            // Transparent but raycasting: the tap area is the whole button-sized square, not the two
+            // thin bars drawn in it.
+            var closeImage = closeObject.GetComponent<Image>();
+            ConfigureRounded(closeImage);
+            closeImage.raycastTarget = true;
+
+            closeObject.GetComponent<LevelPathNodeButton>().SetClicked(Close);
 
             for (int barIndex = 0; barIndex < 2; barIndex++)
             {
                 var barObject = new GameObject($"CloseBar_{barIndex}", typeof(RectTransform), typeof(Image));
                 var barRect = (RectTransform)barObject.transform;
-                barRect.SetParent(_closeButtonRect, false);
+                barRect.SetParent(closeRect, false);
                 Centre(barRect, new Vector2(CROSS_LENGTH, CROSS_THICKNESS));
                 barRect.localRotation = Quaternion.Euler(0f, 0f, barIndex == 0 ? 45f : -45f);
 
@@ -647,42 +796,6 @@ namespace MustyBlockBlast.Presentation.Views
                 ConfigureRounded(barImage);
                 _inkImages.Add(barImage);
             }
-        }
-
-        /// <summary>
-        /// One pager: an invisible tap rect with a chevron drawn in it. <paramref name="directionX"/>
-        /// is +1 for the next-page chevron, -1 for the previous-page one.
-        /// </summary>
-        private RectTransform BuildChevronButton(
-            RectTransform root, string objectName, Vector2 anchoredPosition, float directionX)
-        {
-            const float CHEVRON_HALF_SIZE = 16f;
-            const float CHEVRON_THICKNESS = 8f;
-
-            var buttonObject = new GameObject(objectName, typeof(RectTransform));
-            var buttonRect = (RectTransform)buttonObject.transform;
-            buttonRect.SetParent(root, false);
-            Centre(buttonRect, new Vector2(ICON_BUTTON_SIZE, ICON_BUTTON_SIZE));
-            buttonRect.anchoredPosition = anchoredPosition;
-
-            float armLength = (CHEVRON_HALF_SIZE * Mathf.Sqrt(2f)) + CHEVRON_THICKNESS;
-
-            for (int armIndex = 0; armIndex < 2; armIndex++)
-            {
-                float sign = armIndex == 0 ? 1f : -1f;
-                var armObject = new GameObject($"ChevronArm_{armIndex}", typeof(RectTransform), typeof(Image));
-                var armRect = (RectTransform)armObject.transform;
-                armRect.SetParent(buttonRect, false);
-                Centre(armRect, new Vector2(armLength, CHEVRON_THICKNESS));
-                armRect.anchoredPosition = new Vector2(0f, sign * CHEVRON_HALF_SIZE * 0.5f);
-                armRect.localRotation = Quaternion.Euler(0f, 0f, -45f * sign * directionX);
-
-                var armImage = armObject.GetComponent<Image>();
-                ConfigureRounded(armImage);
-                _inkImages.Add(armImage);
-            }
-
-            return buttonRect;
         }
 
         /// <summary>
@@ -711,6 +824,21 @@ namespace MustyBlockBlast.Presentation.Views
             return text;
         }
 
+        /// <summary>
+        /// Pins a trail widget to the top-centre of the scroll content, where
+        /// <see cref="LevelPathTrailLayout"/>'s origin is, offset down by the content's own padding.
+        /// Anchoring to the top rather than the centre is what keeps a waypoint's position independent
+        /// of how tall the content happens to be.
+        /// </summary>
+        private static void AnchorToContentTop(RectTransform rect, Vector2 size, Vector2 waypoint)
+        {
+            rect.anchorMin = new Vector2(0.5f, 1f);
+            rect.anchorMax = new Vector2(0.5f, 1f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.sizeDelta = size;
+            rect.anchoredPosition = new Vector2(waypoint.x, waypoint.y - TRAIL_VERTICAL_PADDING);
+        }
+
         private static void Centre(RectTransform rect, Vector2 size)
         {
             rect.anchorMin = new Vector2(0.5f, 0.5f);
@@ -720,8 +848,9 @@ namespace MustyBlockBlast.Presentation.Views
             rect.anchoredPosition = Vector2.zero;
         }
 
-        // Raycasts stay off everywhere: taps arrive through BoardInputView's pointer action, not
-        // through an EventSystem, and this scene has none.
+        // Raycasts default off and are turned back on one image at a time. This panel is the only
+        // thing in the scene an EventSystem may touch — everything else still takes its taps from
+        // BoardInputView — so a graphic here is a hit target only when it has been made one on purpose.
         private static void ConfigureRounded(Image image)
         {
             image.sprite = UiSpriteFactory.RoundedSquare;

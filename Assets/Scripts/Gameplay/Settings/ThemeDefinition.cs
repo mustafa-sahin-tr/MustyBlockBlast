@@ -71,6 +71,20 @@ namespace MustyBlockBlast.Gameplay.Settings
         [Tooltip("Score label highlight colour — distinct from Ink so the score reads as an accent, not flat body text.")]
         [SerializeField] private Color _accent = FromHex(0xE0A72E);
 
+        [Header("Level Path Trail")]
+        [Tooltip("The winding ribbon the level nodes sit on. This is the colour that carries the " +
+            "season on the level path card, so it should read as this theme's ground: snow, sand, " +
+            "leaf litter, new grass.")]
+        [SerializeField] private Color _trailPathColor = FromHex(0xD8D2E8);
+
+        [Tooltip("Small decorative specks scattered along the trail — snow, sun motes, falling " +
+            "leaves, blossom. Must read against TrailPathColor, since it is drawn on top of it.")]
+        [SerializeField] private Color _trailWeatherAccentColor = FromHex(0xFFFFFF);
+
+        [Tooltip("Plate behind a level node's number on the trail. Sits on TrailPathColor rather " +
+            "than on CardBackground, so it is authored per theme instead of derived from the card.")]
+        [SerializeField] private Color _trailNodePlateColor = FromHex(0xF2EFF8);
+
         [Header("Drag preview")]
         [SerializeField] private Color _validPreview = new Color(0.44f, 0.72f, 0.69f, 0.45f);
         [SerializeField] private Color _invalidPreview = new Color(0.91f, 0.47f, 0.35f, 0.35f);
@@ -103,6 +117,15 @@ namespace MustyBlockBlast.Gameplay.Settings
         public Color SoftInk => _softInk;
 
         public Color Accent => _accent;
+
+        /// <summary>Ribbon colour of the winding trail on the level path card.</summary>
+        public Color TrailPathColor => _trailPathColor;
+
+        /// <summary>Seasonal specks scattered along that trail.</summary>
+        public Color TrailWeatherAccentColor => _trailWeatherAccentColor;
+
+        /// <summary>Plate behind a level node's number on that trail.</summary>
+        public Color TrailNodePlateColor => _trailNodePlateColor;
 
         public Color ValidPreview => _validPreview;
 
