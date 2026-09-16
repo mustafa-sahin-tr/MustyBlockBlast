@@ -31,6 +31,9 @@ namespace MustyBlockBlast.Presentation
         [Tooltip("Authored badge content. Required — without it there are no badges to track or unlock.")]
         [SerializeField] private BadgeCatalog _badgeCatalog;
 
+        [Tooltip("Score-to-coin rate and the rewarded-ad coin grant. Required — without it there is no economy.")]
+        [SerializeField] private CurrencyConfig _currencyConfig;
+
         protected override void Configure(IContainerBuilder builder)
         {
             RegisterMessaging(builder);
@@ -60,6 +63,12 @@ namespace MustyBlockBlast.Presentation
                 container.Resolve<GhostFitSystem>();
                 container.Resolve<PowerUpSystem>();
                 container.Resolve<PowerUpScoreSystem>();
+
+                // Loads the persisted coin balance and score-conversion counters in its constructor,
+                // like PowerUpSystem, and subscribes to GameOverMessage there too — it must be listening
+                // before the first run ends, or that run's score would never reach the convertible pool
+                // and would be lost to the player for good.
+                container.Resolve<CurrencySystem>();
 
                 // Subscribes in its constructor, like PowerUpScoreSystem: it must be listening before
                 // the first placement can detonate a core, not be constructed by one.
@@ -129,6 +138,8 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterMessageBroker<ObjectiveProgressChangedMessage>(options);
             builder.RegisterMessageBroker<ObjectiveCompletedMessage>(options);
             builder.RegisterMessageBroker<LevelAdvancedMessage>(options);
+            builder.RegisterMessageBroker<ScoreConvertedToCoinsMessage>(options);
+            builder.RegisterMessageBroker<CoinsGrantedFromAdMessage>(options);
         }
 
         // Instance method: the theme list and the timed-mode config are scene-configured on this
@@ -140,6 +151,7 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterInstance(ResolveTimedModeConfig());
             builder.RegisterInstance(ResolveLevelCatalog());
             builder.RegisterInstance(ResolveBadgeCatalog());
+            builder.RegisterInstance(ResolveCurrencyConfig());
 
             // Languages come from the project's Locale assets rather than a scene field: a new
             // language is a Locale asset plus a String Table column, with no scene edit.
@@ -168,6 +180,24 @@ namespace MustyBlockBlast.Presentation
             builder.Register<PendingScoreModel>(Lifetime.Singleton);
             builder.Register<ProfileModel>(Lifetime.Singleton);
             builder.Register<LeaderboardModel>(Lifetime.Singleton);
+        }
+
+        /// <summary>
+        /// Same defensive shape as <see cref="ResolveTimedModeConfig"/>: a default-valued instance boots
+        /// the scene on the built-in placeholder rate and one readable error, which beats an opaque
+        /// container failure deep inside a null instance registration.
+        /// </summary>
+        private CurrencyConfig ResolveCurrencyConfig()
+        {
+            if (_currencyConfig != null)
+            {
+                return _currencyConfig;
+            }
+
+            Debug.LogError(
+                $"{nameof(GameLifetimeScope)} has no {nameof(CurrencyConfig)} assigned. " +
+                "Score conversion is falling back to the built-in default rate.", this);
+            return ScriptableObject.CreateInstance<CurrencyConfig>();
         }
 
         /// <summary>
@@ -286,6 +316,17 @@ namespace MustyBlockBlast.Presentation
 
             // Always-granting stub until a rewarded-ad SDK is wired up; swapping it is one line here.
             builder.Register<DeterministicRewardSource>(Lifetime.Singleton).As<IRewardSource>().AsSelf();
+
+            // The coin half of the same stub, on its own seam: an ad that pays coins and an ad that pays
+            // a power-up are different offers with different outcomes, so they get different interfaces.
+            builder.Register<DeterministicCoinRewardSource>(Lifetime.Singleton)
+                .As<ICoinRewardSource>().AsSelf();
+
+            // Owns the currency slice of ProfileModel and is the only writer of it, so it is bound next
+            // to the coin reward source it grants through. AsSelf because CoinConversionView asks for
+            // the concrete system — there is no second implementation to hide behind an interface.
+            builder.Register<CurrencySystem>(Lifetime.Singleton).AsSelf();
+
             // Before PowerUpSystem only for readability — PowerUpSystem takes it as a constructor
             // dependency, so the container orders the two itself.
             builder.Register<GhostFitSystem>(Lifetime.Singleton).AsSelf();
@@ -338,6 +379,7 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterComponentInHierarchy<ObjectiveIconContainerView>();
             builder.RegisterComponentInHierarchy<ObjectiveInfoPopupView>();
             builder.RegisterComponentInHierarchy<GameOverView>();
+            builder.RegisterComponentInHierarchy<CoinConversionView>();
             builder.RegisterComponentInHierarchy<BoardInputView>();
             builder.RegisterComponentInHierarchy<SfxPlayerView>();
             builder.RegisterComponentInHierarchy<MusicPlayerView>();
