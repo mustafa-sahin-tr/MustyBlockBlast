@@ -255,7 +255,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 781257783894016
-    m_Localized: "B\xF6l\xFCm tamamland\u0131!"
+    m_Localized: "B\xF6l\xFCm {0} Tamamland\u0131!"
     m_Metadata:
       m_Items: []
   - m_Id: 781257951666176

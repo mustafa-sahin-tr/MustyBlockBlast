@@ -49,7 +49,8 @@ namespace MustyBlockBlast.Gameplay.Localization
         public const string GAME_OVER_TITLE_TIME_UP = "gameover.title.time_up";
 
         /// <summary>Title shown when a Path-mode run ended because its level was cleared — the one
-        /// end-of-run card that is a congratulation rather than a commiseration.</summary>
+        /// end-of-run card that is a congratulation rather than a commiseration. <c>{0}</c> is the
+        /// completed level's number.</summary>
         public const string GAME_OVER_TITLE_LEVEL_COMPLETE = "gameover.title.level_complete";
         public const string GAME_OVER_HINT = "gameover.hint";
         public const string GAME_OVER_CHANGE_MODE = "gameover.change_mode";

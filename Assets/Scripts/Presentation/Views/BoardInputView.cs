@@ -80,6 +80,7 @@ namespace MustyBlockBlast.Presentation.Views
         private PowerUpModel _powerUpModel;
         private PowerUpSystem _powerUpSystem;
         private GhostFitSystem _ghostFitSystem;
+        private LevelProgressionSystem _levelProgressionSystem;
         private ThemeDefinition _currentTheme;
         private BoardView _boardView;
         private PieceTrayView _trayView;
@@ -140,6 +141,7 @@ namespace MustyBlockBlast.Presentation.Views
             PowerUpModel powerUpModel,
             PowerUpSystem powerUpSystem,
             GhostFitSystem ghostFitSystem,
+            LevelProgressionSystem levelProgressionSystem,
             BoardView boardView,
             PieceTrayView trayView,
             HoldSlotView holdSlotView,
@@ -163,6 +165,7 @@ namespace MustyBlockBlast.Presentation.Views
             _powerUpModel = powerUpModel;
             _powerUpSystem = powerUpSystem;
             _ghostFitSystem = ghostFitSystem;
+            _levelProgressionSystem = levelProgressionSystem;
             _boardView = boardView;
             _trayView = trayView;
             _holdSlotView = holdSlotView;
@@ -364,8 +367,8 @@ namespace MustyBlockBlast.Presentation.Views
 
             // Game over is checked before the HUD icon: the game-over card covers the whole screen,
             // so honouring a tap on the icon hidden underneath it would be a hidden hotspot. The
-            // "change mode" link is the one exception — it is drawn on the card itself, so it is
-            // visible and must win over the card-wide restart tap.
+            // "change mode" link, "Play Again" and "Next Level" are the exceptions — each is drawn on
+            // the card itself, so each is visible and must win over the card-wide restart tap.
             if (_boardSystem.IsGameOver)
             {
                 if (_gameOverView.ContainsChangeModeScreenPoint(screenPosition))
@@ -374,6 +377,15 @@ namespace MustyBlockBlast.Presentation.Views
                     return;
                 }
 
+                if (_gameOverView.ContainsNextLevelScreenPoint(screenPosition))
+                {
+                    _levelProgressionSystem.TryStartPathLevel(_gameOverView.NextLevelNumber);
+                    return;
+                }
+
+                // Reached either from an explicit tap on the "Play Again" button (two-button layout) or
+                // from anywhere else on the card (every other game-over reason) — both mean the same
+                // thing, so both fall through to the same restart.
                 _boardSystem.StartNewRun();
                 return;
             }
