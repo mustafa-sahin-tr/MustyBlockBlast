@@ -148,6 +148,107 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.AreEqual(lineClearTriggers[0].Kind, powerUpResult.TriggeredSpecials[0].Kind);
         }
 
+        // --- The axis each clear records, which is what an effect that fires relative to a line reads ---
+
+        /// <summary>A Row Clear destroys along a row, exactly as a completed row does — fullness is not
+        /// part of what a special cell was destroyed by.</summary>
+        [Test]
+        public void ResolveRowClear_OverASpecialCell_RecordsItAsDestroyedByARow()
+        {
+            var board = new Board();
+            FillBoard(board, colourId: 1);
+            board.SetSpecialKind(new GridPosition(2, 6), StubKind);
+
+            PowerUpClearResult result = PowerUpClearResolver.ResolveRowClear(board, 6);
+
+            Assert.AreEqual(1, result.TriggeredSpecials.Count);
+            Assert.AreEqual(ClearAxis.Row, result.TriggeredSpecials[0].Axis);
+        }
+
+        [Test]
+        public void ResolveColumnClear_OverASpecialCell_RecordsItAsDestroyedByAColumn()
+        {
+            var board = new Board();
+            FillBoard(board, colourId: 1);
+            board.SetSpecialKind(new GridPosition(6, 2), StubKind);
+
+            PowerUpClearResult result = PowerUpClearResolver.ResolveColumnClear(board, 6);
+
+            Assert.AreEqual(1, result.TriggeredSpecials.Count);
+            Assert.AreEqual(ClearAxis.Column, result.TriggeredSpecials[0].Axis);
+        }
+
+        /// <summary>A 3x3 is not a line, so there is no axis to report and none may be invented.</summary>
+        [Test]
+        public void ResolveBombClear_OverASpecialCell_RecordsNoAxis()
+        {
+            var board = new Board();
+            FillBoard(board, colourId: 1);
+            board.SetSpecialKind(new GridPosition(5, 5), StubKind);
+
+            PowerUpClearResult result = PowerUpClearResolver.ResolveBombClear(board, new GridPosition(4, 4));
+
+            Assert.AreEqual(1, result.TriggeredSpecials.Count);
+            Assert.AreEqual(ClearAxis.None, result.TriggeredSpecials[0].Axis);
+        }
+
+        /// <summary>A colour is not a line either.</summary>
+        [Test]
+        public void ResolveColorCleanser_OverASpecialCell_RecordsNoAxis()
+        {
+            var board = new Board();
+            board.Occupy(new GridPosition(0, 0), 1);
+            board.Occupy(new GridPosition(4, 6), 1);
+            board.SetSpecialKind(new GridPosition(4, 6), StubKind);
+
+            PowerUpClearResult result = PowerUpClearResolver.ResolveColorCleanser(board, new GridPosition(0, 0));
+
+            Assert.AreEqual(1, result.TriggeredSpecials.Count);
+            Assert.AreEqual(ClearAxis.None, result.TriggeredSpecials[0].Axis);
+        }
+
+        /// <summary>A placement that closes a row and a column at once destroys their intersection by
+        /// both of them, so neither is "the" axis and both are reported.</summary>
+        [Test]
+        public void ALineClear_OverTheIntersectionOfARowAndAColumn_RecordsBothAxes()
+        {
+            var board = new Board();
+            for (int i = 0; i < Board.SIZE; i++)
+            {
+                board.Occupy(new GridPosition(i, 4), 1);
+                board.Occupy(new GridPosition(6, i), 1);
+            }
+
+            var intersection = new GridPosition(6, 4);
+            board.SetSpecialKind(intersection, StubKind);
+
+            var recorder = new RecordingEffect();
+            CascadeClearResolver.ResolveCascade(board, recorder);
+
+            Assert.AreEqual(1, recorder.Triggers.Count);
+            Assert.AreEqual(intersection, recorder.Triggers[0].Position);
+            Assert.AreEqual(ClearAxis.Both, recorder.Triggers[0].Axis);
+        }
+
+        /// <summary>A completed row alone gives the cells it destroyed exactly one axis.</summary>
+        [Test]
+        public void ALineClear_OverACellInTheClearedRowOnly_RecordsTheRowAxis()
+        {
+            var board = new Board();
+            for (int x = 0; x < Board.SIZE; x++)
+            {
+                board.Occupy(new GridPosition(x, 4), 1);
+            }
+
+            board.SetSpecialKind(new GridPosition(2, 4), StubKind);
+
+            var recorder = new RecordingEffect();
+            CascadeClearResolver.ResolveCascade(board, recorder);
+
+            Assert.AreEqual(1, recorder.Triggers.Count);
+            Assert.AreEqual(ClearAxis.Row, recorder.Triggers[0].Axis);
+        }
+
         /// <summary>Observes what the cascade loop detected without touching the board.</summary>
         private sealed class RecordingEffect : ISpecialCellEffect
         {

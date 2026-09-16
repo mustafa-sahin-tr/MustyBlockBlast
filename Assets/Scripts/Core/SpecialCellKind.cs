@@ -29,5 +29,14 @@ namespace MustyBlockBlast.Core
         /// <see cref="ExplosiveCoreEffect"/>, which owns that chain.
         /// </summary>
         ExplosiveCore = 1,
+
+        /// <summary>
+        /// A "laser": destroying it wipes the full line running at right angles to whatever destroyed
+        /// it — taken out by a row clear it wipes its column, taken out by a column clear it wipes its
+        /// row. Destroyed by something with no line to it at all (a Bomb, a Colour Cleanser), there is
+        /// no opposite to compute and it wipes both. A second laser caught in a wipe fires in turn; see
+        /// <see cref="LaserEffect"/>, which owns that chain.
+        /// </summary>
+        Laser = 2,
     }
 }

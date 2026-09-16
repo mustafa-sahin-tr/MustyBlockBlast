@@ -29,10 +29,17 @@ namespace MustyBlockBlast.Gameplay.Systems
         private readonly IPublisher<GameOverMessage> _gameOverPublisher;
         private readonly IPublisher<TrayRefilledMessage> _trayRefilledPublisher;
         private readonly IPublisher<ExplosiveCoreDetonatedMessage> _explosiveCoreDetonatedPublisher;
+        private readonly IPublisher<LaserFiredMessage> _laserFiredPublisher;
 
-        // One long-lived effect, reset per placement rather than reallocated — it owns the buffer the
-        // blasted cells are reported through.
+        // One long-lived effect per kind, reset per placement rather than reallocated — each owns the
+        // buffer its destroyed cells are reported through.
         private readonly ExplosiveCoreEffect _explosiveCoreEffect = new ExplosiveCoreEffect();
+        private readonly LaserEffect _laserEffect = new LaserEffect();
+
+        /// <summary>Every installed effect, presented to the cascade loop as the one effect it takes.
+        /// Each effect ignores a trigger of a kind that is not its own, so a trigger reaching both of
+        /// them is exactly equivalent to dispatching on the kind.</summary>
+        private readonly ISpecialCellEffect _specialCellEffects;
 
         /// <summary>Only ever used to break a tie between equally valid explosive-core spawn cells,
         /// which cannot arise on the current board shape (see
@@ -60,11 +67,12 @@ namespace MustyBlockBlast.Gameplay.Systems
             IPublisher<LinesClearedMessage> linesClearedPublisher,
             IPublisher<GameOverMessage> gameOverPublisher,
             IPublisher<TrayRefilledMessage> trayRefilledPublisher,
-            IPublisher<ExplosiveCoreDetonatedMessage> explosiveCoreDetonatedPublisher)
+            IPublisher<ExplosiveCoreDetonatedMessage> explosiveCoreDetonatedPublisher,
+            IPublisher<LaserFiredMessage> laserFiredPublisher)
             : this(
                 boardModel, trayModel, pieceDraw, runStartedPublisher, piecePlacedPublisher,
                 linesClearedPublisher, gameOverPublisher, trayRefilledPublisher,
-                explosiveCoreDetonatedPublisher, Environment.TickCount)
+                explosiveCoreDetonatedPublisher, laserFiredPublisher, Environment.TickCount)
         {
         }
 
@@ -78,10 +86,13 @@ namespace MustyBlockBlast.Gameplay.Systems
             IPublisher<GameOverMessage> gameOverPublisher,
             IPublisher<TrayRefilledMessage> trayRefilledPublisher,
             IPublisher<ExplosiveCoreDetonatedMessage> explosiveCoreDetonatedPublisher,
+            IPublisher<LaserFiredMessage> laserFiredPublisher,
             int seed)
         {
             _random = new Random(seed);
             _explosiveCoreDetonatedPublisher = explosiveCoreDetonatedPublisher;
+            _laserFiredPublisher = laserFiredPublisher;
+            _specialCellEffects = new CompositeSpecialCellEffect(_explosiveCoreEffect, _laserEffect);
             _boardModel = boardModel;
             _trayModel = trayModel;
             _pieceDraw = pieceDraw;
@@ -215,9 +226,10 @@ namespace MustyBlockBlast.Gameplay.Systems
             // buffer it owns, and this is what makes that buffer mean "this placement's blast" rather
             // than "every blast since the run started".
             _explosiveCoreEffect.BeginResolution();
+            _laserEffect.BeginResolution();
 
             CascadeClearResult cascade = CascadeClearResolver.ResolveCascade(
-                _boardModel.Board, _explosiveCoreEffect);
+                _boardModel.Board, _specialCellEffects);
 
             // Everything published below reports the PRIMARY phase only — the clear this placement
             // itself caused. Clears a special cell's effect went on to cause are deliberately not
@@ -248,6 +260,15 @@ namespace MustyBlockBlast.Gameplay.Systems
                 _boardModel.NotifyPowerUpCleared(blastedCells);
             }
 
+            // A laser's wipe is announced the same way and for the same reason: it empties a line
+            // whether or not that line was full, so no LinesClearedMessage describes it.
+            IReadOnlyList<GridPosition> wipedCells = _laserEffect.WipedCells;
+            bool anyWiped = wipedCells.Count > 0;
+            if (anyWiped)
+            {
+                _boardModel.NotifyPowerUpCleared(wipedCells);
+            }
+
             bool anyCornerCleared = AnyCornerTouched(clearResult.ClearedRows, clearResult.ClearedColumns);
 
             _piecePlacedPublisher.Publish(new PiecePlacedMessage(
@@ -269,6 +290,11 @@ namespace MustyBlockBlast.Gameplay.Systems
             {
                 _explosiveCoreDetonatedPublisher.Publish(
                     new ExplosiveCoreDetonatedMessage(blastedCells.Count));
+            }
+
+            if (anyWiped)
+            {
+                _laserFiredPublisher.Publish(new LaserFiredMessage(wipedCells.Count));
             }
 
             // Last of all, and deliberately after PiecePlacedMessage: the spawn occupies a cell, and

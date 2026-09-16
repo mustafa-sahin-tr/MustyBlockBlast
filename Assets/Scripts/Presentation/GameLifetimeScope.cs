@@ -64,6 +64,12 @@ namespace MustyBlockBlast.Presentation
                 // Subscribes in its constructor, like PowerUpScoreSystem: it must be listening before
                 // the first placement can detonate a core, not be constructed by one.
                 container.Resolve<ExplosiveCoreScoreSystem>();
+                container.Resolve<LaserScoreSystem>();
+
+                // Subscribes to ScoreModel.Streak in its constructor, so it must be watching before the
+                // first placement can build a streak — nothing else resolves it, so without this line
+                // it would never be constructed at all.
+                container.Resolve<LaserSpawnSystem>();
 
                 // Subscribes in its constructor, like the systems above.
                 //
@@ -111,6 +117,7 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterMessageBroker<PowerUpAppliedMessage>(options);
             builder.RegisterMessageBroker<PowerUpGrantedMessage>(options);
             builder.RegisterMessageBroker<ExplosiveCoreDetonatedMessage>(options);
+            builder.RegisterMessageBroker<LaserFiredMessage>(options);
             builder.RegisterMessageBroker<ObjectiveProgressChangedMessage>(options);
             builder.RegisterMessageBroker<ObjectiveCompletedMessage>(options);
             builder.RegisterMessageBroker<LevelAdvancedMessage>(options);
@@ -247,6 +254,8 @@ namespace MustyBlockBlast.Presentation
             builder.Register<PowerUpSystem>(Lifetime.Singleton).AsSelf();
             builder.Register<PowerUpScoreSystem>(Lifetime.Singleton).AsSelf();
             builder.Register<ExplosiveCoreScoreSystem>(Lifetime.Singleton).AsSelf();
+            builder.Register<LaserScoreSystem>(Lifetime.Singleton).AsSelf();
+            builder.Register<LaserSpawnSystem>(Lifetime.Singleton).AsSelf();
             builder.Register<ObjectiveSystem>(Lifetime.Singleton);
             builder.Register<LevelProgressionSystem>(Lifetime.Singleton);
             builder.Register<BadgeStatsSystem>(Lifetime.Singleton);

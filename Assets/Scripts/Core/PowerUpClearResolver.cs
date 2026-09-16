@@ -77,6 +77,11 @@ namespace MustyBlockBlast.Core
         private static readonly int[] EmptyLines = new int[0];
         private static readonly SpecialCellTrigger[] EmptyTriggers = new SpecialCellTrigger[0];
 
+        /// <summary>Holds the single line index a Row Clear / Column Clear targeted, so detection can be
+        /// told which axis destroyed the cells. Reused rather than allocated per call for the same
+        /// reason <see cref="TargetBuffer"/> is, and equally never escapes a Resolve call.</summary>
+        private static readonly int[] AxisLineBuffer = new int[1];
+
         /// <summary>Clears the 3x3 area centred on <paramref name="center"/>, clamped to the board — a
         /// corner centre therefore affects 4 cells and an edge centre 6.</summary>
         public static PowerUpClearResult ResolveBombClear(Board board, GridPosition center)
@@ -86,21 +91,31 @@ namespace MustyBlockBlast.Core
                 throw new ArgumentOutOfRangeException(nameof(center), center, "Outside the board.");
             }
 
-            return ClearTargeted(board, PowerUpTargetCells.ForBomb(center, TargetBuffer));
+            // No axis: a 3x3 is not a line, so a special cell destroyed by it has no "opposite"
+            // direction to be given and must not be handed a made-up one.
+            return ClearTargeted(board, PowerUpTargetCells.ForBomb(center, TargetBuffer), null, null);
         }
 
         /// <summary>Clears every occupied cell of <paramref name="row"/>, whether or not the row is full.</summary>
         public static PowerUpClearResult ResolveRowClear(Board board, int row)
         {
             RequireInRange(row, nameof(row));
-            return ClearTargeted(board, PowerUpTargetCells.ForRow(row, TargetBuffer));
+
+            // Reported as a row clear, exactly as a completed row is: a special cell cares about what
+            // destroyed it, never about whether the line happened to be full at the time.
+            AxisLineBuffer[0] = row;
+            return ClearTargeted(
+                board, PowerUpTargetCells.ForRow(row, TargetBuffer), AxisLineBuffer, null);
         }
 
         /// <summary>Clears every occupied cell of <paramref name="column"/>, whether or not it is full.</summary>
         public static PowerUpClearResult ResolveColumnClear(Board board, int column)
         {
             RequireInRange(column, nameof(column));
-            return ClearTargeted(board, PowerUpTargetCells.ForColumn(column, TargetBuffer));
+
+            AxisLineBuffer[0] = column;
+            return ClearTargeted(
+                board, PowerUpTargetCells.ForColumn(column, TargetBuffer), null, AxisLineBuffer);
         }
 
         /// <summary>
@@ -137,13 +152,18 @@ namespace MustyBlockBlast.Core
                 }
             }
 
-            return ClearAndReport(board, matchingCells);
+            // No axis, for the reason a Bomb has none: a colour is not a line.
+            return ClearAndReport(board, matchingCells, null, null);
         }
 
         /// <summary>Clears whichever of <paramref name="targetedCells"/> hold a colour, and reports
         /// exactly those. Occupancy is read before anything is cleared: once cleared, a cell is
         /// indistinguishable from one that was already empty.</summary>
-        private static PowerUpClearResult ClearTargeted(Board board, IReadOnlyList<GridPosition> targetedCells)
+        private static PowerUpClearResult ClearTargeted(
+            Board board,
+            IReadOnlyList<GridPosition> targetedCells,
+            IReadOnlyList<int> axisRows,
+            IReadOnlyList<int> axisColumns)
         {
             var clearedCells = new List<GridPosition>();
             for (int i = 0; i < targetedCells.Count; i++)
@@ -155,18 +175,29 @@ namespace MustyBlockBlast.Core
                 }
             }
 
-            return ClearAndReport(board, clearedCells);
+            return ClearAndReport(board, clearedCells, axisRows, axisColumns);
         }
 
         /// <summary>Clears exactly <paramref name="clearedCells"/> (every entry is assumed already
         /// verified occupied) and reports which rows/columns that emptied out entirely. Shared by every
-        /// resolve method so the emptied-line computation has exactly one implementation.</summary>
-        private static PowerUpClearResult ClearAndReport(Board board, List<GridPosition> clearedCells)
+        /// resolve method so the emptied-line computation has exactly one implementation.
+        /// <para>
+        /// <paramref name="axisRows"/>/<paramref name="axisColumns"/> name the lines this clear was
+        /// aimed at, if any, so each triggered special records what destroyed it. Both null for the
+        /// kinds that target no line at all.
+        /// </para>
+        /// </summary>
+        private static PowerUpClearResult ClearAndReport(
+            Board board,
+            List<GridPosition> clearedCells,
+            IReadOnlyList<int> axisRows,
+            IReadOnlyList<int> axisColumns)
         {
             // Before ClearAll, for the same reason occupancy was read before it: Board.Clear resets a
             // cell's special kind along with its colour, so this is the last moment the kinds exist.
             var triggeredSpecials = new List<SpecialCellTrigger>();
-            SpecialCellDetection.CollectTriggered(board, clearedCells, triggeredSpecials);
+            SpecialCellDetection.CollectTriggered(
+                board, clearedCells, triggeredSpecials, axisRows, axisColumns);
 
             ClearAll(board, clearedCells);
 

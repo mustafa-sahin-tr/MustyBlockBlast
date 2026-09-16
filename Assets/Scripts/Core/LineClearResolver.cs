@@ -183,7 +183,12 @@ namespace MustyBlockBlast.Core
             if (triggeredSpecials != null)
             {
                 triggeredSpecials.Clear();
-                SpecialCellDetection.CollectTriggered(board, destroyedCells, triggeredSpecials);
+
+                // The cleared lines are passed along so each trigger records which of them destroyed
+                // it: an effect that fires relative to that line (a laser) needs to know, and this is
+                // the only point where "this cell went with that row/column" is still known.
+                SpecialCellDetection.CollectTriggered(
+                    board, destroyedCells, triggeredSpecials, clearedRows, clearedColumns);
             }
 
             for (int i = 0; i < clearedRows.Count; i++)
