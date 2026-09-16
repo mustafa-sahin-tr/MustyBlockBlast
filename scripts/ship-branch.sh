@@ -88,6 +88,17 @@ PR_URL="$(gh pr create --fill)"
 echo "$PR_URL"
 PR_NUMBER="$(echo "$PR_URL" | grep -oE '[0-9]+$')"
 
+# Branch adından issue numarasını çıkar (örn. issue-127-vortex-magnet-tile -> 127)
+# ve PR gövdesinde "Closes #<issue>" yoksa ekle, böylece merge'de issue otomatik kapanır.
+ISSUE_NUMBER="$(echo "$BRANCH" | grep -oE '^issue-[0-9]+' | grep -oE '[0-9]+' || true)"
+if [[ -n "$ISSUE_NUMBER" ]]; then
+  PR_BODY="$(gh pr view "$PR_NUMBER" --json body --jq .body)"
+  if ! echo "$PR_BODY" | grep -qiE '(close[sd]?|fix(e[sd])?|resolve[sd]?) #'"$ISSUE_NUMBER"'\b'; then
+    printf '%s\n\nCloses #%s\n' "$PR_BODY" "$ISSUE_NUMBER" | gh pr edit "$PR_NUMBER" --body-file -
+    echo "-> PR gövdesine 'Closes #$ISSUE_NUMBER' eklendi."
+  fi
+fi
+
 echo
 if ! confirm "PR #$PR_NUMBER merge edilip remote branch silinsin mi?"; then
   echo "Merge atlandı, script burada duruyor." >&2
