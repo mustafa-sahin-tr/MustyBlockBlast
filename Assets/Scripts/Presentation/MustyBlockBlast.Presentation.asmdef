@@ -12,6 +12,7 @@
         "Unity.Localization",
         "Unity.Services.Authentication",
         "Unity.Services.Core",
+        "Unity.Services.Leaderboards",
         "Unity.ResourceManager",
         "UnityEngine.UI"
     ],
