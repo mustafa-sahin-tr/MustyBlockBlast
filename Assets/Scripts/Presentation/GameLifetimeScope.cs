@@ -166,6 +166,7 @@ namespace MustyBlockBlast.Presentation
             builder.Register<BadgeStatsModel>(Lifetime.Singleton);
             builder.Register<BadgeModel>(Lifetime.Singleton);
             builder.Register<PendingScoreModel>(Lifetime.Singleton);
+            builder.Register<ProfileModel>(Lifetime.Singleton);
         }
 
         /// <summary>
@@ -261,6 +262,17 @@ namespace MustyBlockBlast.Presentation
             // registered with the other score systems — this is only the backend it talks through.
             builder.Register<UnityLeaderboardsService>(Lifetime.Singleton).As<ILeaderboardsService>();
 
+            // Owns the player's public identity and is the only writer of it, so it is bound next to the
+            // auth service it publishes the name through. AsSelf because ProfilePanelView asks for the
+            // concrete system — there is no second implementation to hide behind an interface.
+            builder.Register<ProfileSystem>(Lifetime.Singleton).AsSelf();
+
+            // Credential acquisition, one per store. Both are Presentation-side because both wrap a
+            // native plugin, and both compile to a throwing stub off their own platform — see their
+            // scripting defines.
+            builder.Register<AppleSignInProvider>(Lifetime.Singleton);
+            builder.Register<GooglePlayGamesSignInProvider>(Lifetime.Singleton);
+
             // Decides whether a finished run's score is submitted now or banked for later, so it is
             // bound next to the backend it guards.
             builder.Register<UnityConnectivityService>(Lifetime.Singleton).As<IConnectivityService>();
@@ -303,6 +315,8 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterComponentInHierarchy<LevelPathPanelView>();
             builder.RegisterComponentInHierarchy<BadgesButtonView>();
             builder.RegisterComponentInHierarchy<BadgesPanelView>();
+            builder.RegisterComponentInHierarchy<ProfileButtonView>();
+            builder.RegisterComponentInHierarchy<ProfilePanelView>();
             builder.RegisterComponentInHierarchy<PieceTrayView>();
             builder.RegisterComponentInHierarchy<HoldSlotView>();
             builder.RegisterComponentInHierarchy<ScoreView>();

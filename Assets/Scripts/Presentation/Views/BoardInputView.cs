@@ -17,8 +17,8 @@ namespace MustyBlockBlast.Presentation.Views
     /// and consequences are decided by the System.
     /// <para>
     /// A press is resolved by a single ordered gate chain, so exactly one claimant handles it: the
-    /// three modal overlays (settings, level path, badges), game over, the settings icon, the level
-    /// path icon, the badges icon, a
+    /// four modal overlays (settings, level path, badges, profile), game over, the settings icon, the
+    /// level path icon, the badges icon, the profile icon, a
     /// power-up inventory icon, an armed power-up being aimed at the board, and finally a tray piece
     /// being picked up. HUD icons are resolved
     /// here rather than by an EventSystem — this scene has none, and every UI Image in it has its
@@ -90,6 +90,8 @@ namespace MustyBlockBlast.Presentation.Views
         private LevelPathPanelView _levelPathPanelView;
         private BadgesButtonView _badgesButtonView;
         private BadgesPanelView _badgesPanelView;
+        private ProfileButtonView _profileButtonView;
+        private ProfilePanelView _profilePanelView;
         private GameOverView _gameOverView;
         private PowerUpInventoryView _powerUpInventoryView;
 
@@ -145,6 +147,8 @@ namespace MustyBlockBlast.Presentation.Views
             LevelPathPanelView levelPathPanelView,
             BadgesButtonView badgesButtonView,
             BadgesPanelView badgesPanelView,
+            ProfileButtonView profileButtonView,
+            ProfilePanelView profilePanelView,
             GameOverView gameOverView,
             PowerUpInventoryView powerUpInventoryView)
         {
@@ -164,6 +168,8 @@ namespace MustyBlockBlast.Presentation.Views
             _levelPathPanelView = levelPathPanelView;
             _badgesButtonView = badgesButtonView;
             _badgesPanelView = badgesPanelView;
+            _profileButtonView = profileButtonView;
+            _profilePanelView = profilePanelView;
             _gameOverView = gameOverView;
             _powerUpInventoryView = powerUpInventoryView;
         }
@@ -314,12 +320,12 @@ namespace MustyBlockBlast.Presentation.Views
         {
             Vector2 screenPosition = _pointerPositionAction.ReadValue<Vector2>();
 
-            // While any overlay is open it is modal and swallows every tap. These three gates are also
+            // While any overlay is open it is modal and swallows every tap. These four gates are also
             // what keeps the overlays mutually exclusive, and the argument scales with their number
             // rather than pairing them off: *every* "is a panel open, route the tap into it" gate sits
             // above *every* "tapped an icon, open that panel" gate, so an icon tap is only ever reached
-            // with all three panels closed. No panel can therefore stack on another, and the single
-            // TimerRunSystem menu-pause flag all three share can never be held by two owners at once.
+            // with all four panels closed. No panel can therefore stack on another, and the single
+            // TimerRunSystem menu-pause flag all four share can never be held by two owners at once.
             if (_settingsPanelView.IsOpen)
             {
                 _settingsPanelView.HandleTap(screenPosition);
@@ -335,6 +341,12 @@ namespace MustyBlockBlast.Presentation.Views
             if (_badgesPanelView.IsOpen)
             {
                 _badgesPanelView.HandleTap(screenPosition);
+                return;
+            }
+
+            if (_profilePanelView.IsOpen)
+            {
+                _profilePanelView.HandleTap(screenPosition);
                 return;
             }
 
@@ -369,6 +381,12 @@ namespace MustyBlockBlast.Presentation.Views
             if (_badgesButtonView.ContainsScreenPoint(screenPosition))
             {
                 _badgesPanelView.Open();
+                return;
+            }
+
+            if (_profileButtonView.ContainsScreenPoint(screenPosition))
+            {
+                _profilePanelView.Open();
                 return;
             }
 

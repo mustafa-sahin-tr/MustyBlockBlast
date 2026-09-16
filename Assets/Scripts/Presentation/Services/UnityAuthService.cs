@@ -96,5 +96,46 @@ namespace MustyBlockBlast.Presentation.Services
                 throw new AccountAlreadyLinkedException(GOOGLE_PLAY_GAMES_PROVIDER, exception);
             }
         }
+
+        public async UniTask UpdatePlayerNameAsync(string name, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            // The SDK hands back the stored name (with the "#1234" discriminator it appends) — dropped
+            // on purpose: IAuthService promises to publish a name, not to report one back, and the
+            // caller already holds the string it asked for.
+            await AuthenticationService.Instance.UpdatePlayerNameAsync(name)
+                .AsUniTask()
+                .AttachExternalCancellation(cancellationToken);
+        }
+
+        public AccountLinkStatus GetLinkStatus()
+        {
+            if (!IsSignedIn)
+            {
+                return AccountLinkStatus.Anonymous;
+            }
+
+            PlayerInfo playerInfo = AuthenticationService.Instance.PlayerInfo;
+            if (playerInfo == null)
+            {
+                return AccountLinkStatus.Anonymous;
+            }
+
+            // The SDK's own typed accessors rather than a scan of PlayerInfo.Identities for a provider
+            // string: the provider ids are an SDK implementation detail, and a typo in one spelled here
+            // would read as "not linked" forever rather than as a failure.
+            if (!string.IsNullOrEmpty(playerInfo.GetAppleId()))
+            {
+                return AccountLinkStatus.LinkedApple;
+            }
+
+            if (!string.IsNullOrEmpty(playerInfo.GetGooglePlayGamesId()))
+            {
+                return AccountLinkStatus.LinkedGoogle;
+            }
+
+            return AccountLinkStatus.Anonymous;
+        }
     }
 }
