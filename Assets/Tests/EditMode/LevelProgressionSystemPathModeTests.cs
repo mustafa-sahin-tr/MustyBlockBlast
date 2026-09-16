@@ -734,7 +734,8 @@ namespace MustyBlockBlast.Tests.EditMode
                 new TestMessageBroker<LinesClearedMessage>(),
                 _gameOverBroker,
                 new TestMessageBroker<TrayRefilledMessage>(),
-                new TestMessageBroker<ExplosiveCoreDetonatedMessage>());
+                new TestMessageBroker<ExplosiveCoreDetonatedMessage>(),
+                new TestMessageBroker<LaserFiredMessage>());
 
             _gameModeSystem = new GameModeSystem(new GameModeModel(), _boardSystem);
 
@@ -821,6 +822,7 @@ namespace MustyBlockBlast.Tests.EditMode
                 powerUpAppliedBroker,
                 _powerUpGrantedBroker,
                 new TestMessageBroker<ExplosiveCoreDetonatedMessage>(),
+                new TestMessageBroker<LaserFiredMessage>(),
                 _runStartedBroker,
                 _gameOverBroker);
         }

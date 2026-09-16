@@ -155,7 +155,8 @@ namespace MustyBlockBlast.Core
             // Collected before anything is cleared, same as clearedCells above: once a cell is cleared
             // its special kind is reset (Board.Clear), so detection has to read it first.
             var triggeredSpecials = new List<SpecialCellTrigger>();
-            SpecialCellDetection.CollectTriggered(board, clearedCells, triggeredSpecials);
+            SpecialCellDetection.CollectTriggered(
+                board, clearedCells, triggeredSpecials, clearedRows, clearedColumns);
 
             for (int i = 0; i < clearedRows.Count; i++)
             {

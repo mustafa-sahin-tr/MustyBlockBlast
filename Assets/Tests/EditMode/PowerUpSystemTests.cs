@@ -24,6 +24,7 @@ namespace MustyBlockBlast.Tests.EditMode
         /// <summary>The blast channel a power-up fires when its clear destroys an explosive core. A
         /// field rather than an inline broker so a test can assert the blast was announced.</summary>
         private TestMessageBroker<ExplosiveCoreDetonatedMessage> _detonatedBroker;
+        private TestMessageBroker<LaserFiredMessage> _laserFiredBroker;
 
         /// <summary>The frenzy window the double multiplier opens. Kept as a field so a test can read
         /// the model behind it without reaching back through the system under test.</summary>
@@ -64,6 +65,7 @@ namespace MustyBlockBlast.Tests.EditMode
             _appliedBroker = new TestMessageBroker<PowerUpAppliedMessage>();
             _grantedBroker = new TestMessageBroker<PowerUpGrantedMessage>();
             _detonatedBroker = new TestMessageBroker<ExplosiveCoreDetonatedMessage>();
+            _laserFiredBroker = new TestMessageBroker<LaserFiredMessage>();
             _piecePlacedBroker = new TestMessageBroker<PiecePlacedMessage>();
             _doubleMultiplierModel = new DoubleMultiplierModel();
             _doubleMultiplierSystem = new DoubleMultiplierSystem(
@@ -126,6 +128,113 @@ namespace MustyBlockBlast.Tests.EditMode
             system.TryApplyBomb(new GridPosition(4, 4));
 
             Assert.AreEqual(0, _detonatedBroker.Published.Count);
+        }
+
+        // --- Lasers destroyed by a spent power-up (issue #125, AC5) ---
+
+        /// <summary>
+        /// AC5: a laser taken out by a Row Clear fires exactly as one taken out by a completed row does
+        /// — the axis the resolver recorded is what decides the wipe, not which power-up was spent. The
+        /// column reaches far outside the row the power-up cleared, so only the wipe can explain it.
+        /// </summary>
+        [Test]
+        public void TryApplyRowClear_OverALaser_WipesTheLasersColumn()
+        {
+            var boardModel = new BoardModel();
+            var laser = new GridPosition(2, 3);
+            boardModel.Occupy(laser, 1);
+            boardModel.SetSpecialKind(laser, SpecialCellKind.Laser);
+
+            boardModel.Occupy(new GridPosition(2, 0), 1);
+            boardModel.Occupy(new GridPosition(2, 7), 1);
+            var survivor = new GridPosition(5, 5);
+            boardModel.Occupy(survivor, 1);
+
+            PowerUpSystem system = CreateSystem(new PowerUpModel(), boardModel);
+            system.GrantDirect(PowerUpKind.RowClear);
+
+            Assert.IsTrue(system.TryApplyRowClear(3));
+
+            Assert.AreEqual(Board.EMPTY, boardModel.GetCell(new GridPosition(2, 0)));
+            Assert.AreEqual(Board.EMPTY, boardModel.GetCell(new GridPosition(2, 7)));
+            Assert.AreNotEqual(Board.EMPTY, boardModel.GetCell(survivor), "Outside the wiped column.");
+
+            Assert.AreEqual(1, _laserFiredBroker.Published.Count);
+            Assert.AreEqual(2, _laserFiredBroker.Published[0].WipedCellCount);
+        }
+
+        /// <summary>AC5's other half: a Column Clear is a column clear, so the laser wipes its row.</summary>
+        [Test]
+        public void TryApplyColumnClear_OverALaser_WipesTheLasersRow()
+        {
+            var boardModel = new BoardModel();
+            var laser = new GridPosition(3, 2);
+            boardModel.Occupy(laser, 1);
+            boardModel.SetSpecialKind(laser, SpecialCellKind.Laser);
+
+            boardModel.Occupy(new GridPosition(0, 2), 1);
+            boardModel.Occupy(new GridPosition(7, 2), 1);
+            var survivor = new GridPosition(5, 5);
+            boardModel.Occupy(survivor, 1);
+
+            PowerUpSystem system = CreateSystem(new PowerUpModel(), boardModel);
+            system.GrantDirect(PowerUpKind.ColumnClear);
+
+            Assert.IsTrue(system.TryApplyColumnClear(3));
+
+            Assert.AreEqual(Board.EMPTY, boardModel.GetCell(new GridPosition(0, 2)));
+            Assert.AreEqual(Board.EMPTY, boardModel.GetCell(new GridPosition(7, 2)));
+            Assert.AreNotEqual(Board.EMPTY, boardModel.GetCell(survivor), "Outside the wiped row.");
+
+            Assert.AreEqual(1, _laserFiredBroker.Published.Count);
+            Assert.AreEqual(2, _laserFiredBroker.Published[0].WipedCellCount);
+        }
+
+        /// <summary>AC5 and the axis-less fallback: a Bomb is not a line, so there is no opposite to
+        /// compute and the laser wipes both of its lines.</summary>
+        [Test]
+        public void TryApplyBomb_OverALaser_WipesBothOfItsLines()
+        {
+            var boardModel = new BoardModel();
+            var laser = new GridPosition(4, 4);
+            boardModel.Occupy(laser, 1);
+            boardModel.SetSpecialKind(laser, SpecialCellKind.Laser);
+
+            // Both far outside the bomb's own clamped 3x3, so only the wipe can reach them.
+            boardModel.Occupy(new GridPosition(0, 4), 1);
+            boardModel.Occupy(new GridPosition(4, 0), 1);
+            var survivor = new GridPosition(0, 0);
+            boardModel.Occupy(survivor, 1);
+
+            PowerUpSystem system = CreateSystem(new PowerUpModel(), boardModel);
+            system.GrantDirect(PowerUpKind.Bomb);
+
+            Assert.IsTrue(system.TryApplyBomb(laser));
+
+            Assert.AreEqual(Board.EMPTY, boardModel.GetCell(new GridPosition(0, 4)), "Its row went.");
+            Assert.AreEqual(Board.EMPTY, boardModel.GetCell(new GridPosition(4, 0)), "Its column went.");
+            Assert.AreNotEqual(Board.EMPTY, boardModel.GetCell(survivor), "On neither line.");
+
+            Assert.AreEqual(1, _laserFiredBroker.Published.Count);
+            Assert.AreEqual(2, _laserFiredBroker.Published[0].WipedCellCount);
+
+            // The bomb still reports only what the bomb itself cleared: the wipe is its own event.
+            Assert.AreEqual(1, _appliedBroker.Published[0].ClearedCellCount);
+        }
+
+        /// <summary>A power-up that destroyed no laser must publish no wipe at all.</summary>
+        [Test]
+        public void TryApplyRowClear_WithNoLaserInTheRow_PublishesNothing()
+        {
+            var boardModel = new BoardModel();
+            boardModel.Occupy(new GridPosition(2, 3), 1);
+
+            PowerUpSystem system = CreateSystem(new PowerUpModel(), boardModel);
+            system.GrantDirect(PowerUpKind.RowClear);
+
+            system.TryApplyRowClear(3);
+
+            Assert.AreEqual(0, _laserFiredBroker.Published.Count);
         }
 
         [Test]
@@ -1494,6 +1603,7 @@ namespace MustyBlockBlast.Tests.EditMode
                 _appliedBroker,
                 _grantedBroker,
                 _detonatedBroker,
+                _laserFiredBroker,
                 new TestMessageBroker<RunStartedMessage>(),
                 new TestMessageBroker<GameOverMessage>());
         }
@@ -1537,7 +1647,8 @@ namespace MustyBlockBlast.Tests.EditMode
                 new TestMessageBroker<LinesClearedMessage>(),
                 gameOverBroker,
                 trayRefilledBroker,
-                new TestMessageBroker<ExplosiveCoreDetonatedMessage>());
+                new TestMessageBroker<ExplosiveCoreDetonatedMessage>(),
+                new TestMessageBroker<LaserFiredMessage>());
         }
 
         /// <summary>Occupies every board cell except the ones named, so a test can state the one gap it

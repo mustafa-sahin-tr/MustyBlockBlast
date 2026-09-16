@@ -69,6 +69,7 @@ namespace MustyBlockBlast.Gameplay.Systems
         private readonly IPublisher<PowerUpAppliedMessage> _appliedPublisher;
         private readonly IPublisher<PowerUpGrantedMessage> _grantedPublisher;
         private readonly IPublisher<ExplosiveCoreDetonatedMessage> _explosiveCoreDetonatedPublisher;
+        private readonly IPublisher<LaserFiredMessage> _laserFiredPublisher;
         private readonly IDisposable _runStartedSubscription;
         private readonly IDisposable _gameOverSubscription;
 
@@ -79,6 +80,9 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// keeps each System's blast buffer meaning "the blast I just caused".
         /// </summary>
         private readonly ExplosiveCoreEffect _explosiveCoreEffect = new ExplosiveCoreEffect();
+
+        /// <summary>Its own instance for the same reason <see cref="_explosiveCoreEffect"/> is.</summary>
+        private readonly LaserEffect _laserEffect = new LaserEffect();
 
         public PowerUpSystem(
             PowerUpModel powerUpModel,
@@ -94,10 +98,12 @@ namespace MustyBlockBlast.Gameplay.Systems
             IPublisher<PowerUpAppliedMessage> appliedPublisher,
             IPublisher<PowerUpGrantedMessage> grantedPublisher,
             IPublisher<ExplosiveCoreDetonatedMessage> explosiveCoreDetonatedPublisher,
+            IPublisher<LaserFiredMessage> laserFiredPublisher,
             ISubscriber<RunStartedMessage> runStartedSubscriber,
             ISubscriber<GameOverMessage> gameOverSubscriber)
         {
             _explosiveCoreDetonatedPublisher = explosiveCoreDetonatedPublisher;
+            _laserFiredPublisher = laserFiredPublisher;
             _powerUpModel = powerUpModel;
             _levelProgressionModel = levelProgressionModel;
             _boardModel = boardModel;
@@ -580,7 +586,12 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// same whatever destroyed it, so a core taken out by a Bomb blasts exactly as one taken out by
         /// a completed line does — <see cref="PowerUpClearResolver"/> detects them through the same
         /// <see cref="SpecialCellDetection"/> pass a placement's clear uses, and this applies them
-        /// through the same <see cref="ExplosiveCoreEffect"/>.
+        /// through the same effects.
+        /// <para>
+        /// Every installed effect sees every trigger and ignores the kinds that are not its own, so a
+        /// Row Clear that destroys a laser wipes that laser's column exactly as a completed row would —
+        /// the axis the resolver recorded is what decides it, not which power-up was spent.
+        /// </para>
         /// <para>
         /// Deliberately does <em>not</em> spawn a new core, however many lines the power-up emptied:
         /// the reward is for a placement that closed a row and a column, and spending a power-up is not
@@ -595,25 +606,29 @@ namespace MustyBlockBlast.Gameplay.Systems
             }
 
             _explosiveCoreEffect.BeginResolution();
+            _laserEffect.BeginResolution();
 
             for (int i = 0; i < triggers.Count; i++)
             {
-                if (triggers[i].Kind != SpecialCellKind.ExplosiveCore)
-                {
-                    continue;
-                }
-
+                // No kind filter here: each effect's own guard is the filter, so adding a kind is
+                // adding an effect rather than editing this loop.
                 _explosiveCoreEffect.Apply(_boardModel.Board, triggers[i]);
+                _laserEffect.Apply(_boardModel.Board, triggers[i]);
             }
 
             IReadOnlyList<GridPosition> blastedCells = _explosiveCoreEffect.BlastedCells;
-            if (blastedCells.Count == 0)
+            if (blastedCells.Count > 0)
             {
-                return;
+                _boardModel.NotifyPowerUpCleared(blastedCells);
+                _explosiveCoreDetonatedPublisher.Publish(new ExplosiveCoreDetonatedMessage(blastedCells.Count));
             }
 
-            _boardModel.NotifyPowerUpCleared(blastedCells);
-            _explosiveCoreDetonatedPublisher.Publish(new ExplosiveCoreDetonatedMessage(blastedCells.Count));
+            IReadOnlyList<GridPosition> wipedCells = _laserEffect.WipedCells;
+            if (wipedCells.Count > 0)
+            {
+                _boardModel.NotifyPowerUpCleared(wipedCells);
+                _laserFiredPublisher.Publish(new LaserFiredMessage(wipedCells.Count));
+            }
         }
 
         private ReactiveProperty<int> CountOf(PowerUpKind kind)

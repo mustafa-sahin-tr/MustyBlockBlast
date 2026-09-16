@@ -95,6 +95,7 @@ namespace MustyBlockBlast.Presentation.Views
         private ISubscriber<RunStartedMessage> _runStartedSubscriber;
         private ISubscriber<PowerUpAppliedMessage> _powerUpAppliedSubscriber;
         private ISubscriber<ExplosiveCoreDetonatedMessage> _explosiveCoreDetonatedSubscriber;
+        private ISubscriber<LaserFiredMessage> _laserFiredSubscriber;
 
         private CancellationToken _destroyToken;
         private int _previewCount;
@@ -111,9 +112,11 @@ namespace MustyBlockBlast.Presentation.Views
             ISubscriber<LinesClearedMessage> linesClearedSubscriber,
             ISubscriber<RunStartedMessage> runStartedSubscriber,
             ISubscriber<PowerUpAppliedMessage> powerUpAppliedSubscriber,
-            ISubscriber<ExplosiveCoreDetonatedMessage> explosiveCoreDetonatedSubscriber)
+            ISubscriber<ExplosiveCoreDetonatedMessage> explosiveCoreDetonatedSubscriber,
+            ISubscriber<LaserFiredMessage> laserFiredSubscriber)
         {
             _explosiveCoreDetonatedSubscriber = explosiveCoreDetonatedSubscriber;
+            _laserFiredSubscriber = laserFiredSubscriber;
             _boardModel = boardModel;
             _settingsModel = settingsModel;
             _linesClearedSubscriber = linesClearedSubscriber;
@@ -175,6 +178,10 @@ namespace MustyBlockBlast.Presentation.Views
             // Same handler as a power-up's: a blast empties a region rather than whole lines, so its
             // cells need claiming exactly the way a power-up's cleared region does.
             _explosiveCoreDetonatedSubscriber.Subscribe(OnExplosiveCoreDetonated).AddTo(_disposables);
+
+            // Same again for a laser's wipe, which empties a line whether or not it was full — so no
+            // LinesClearedMessage describes it either.
+            _laserFiredSubscriber.Subscribe(OnLaserFired).AddTo(_disposables);
 
             RedrawAll();
         }
@@ -699,8 +706,10 @@ namespace MustyBlockBlast.Presentation.Views
         /// publishing a <see cref="LinesClearedMessage"/> to claim them.</summary>
         private void OnRunStarted(RunStartedMessage message) => RedrawAll();
 
-        /// <summary>A cell became special — today, a placement that closed a row and a column spawning
-        /// an explosive core on their intersection. Losing a kind needs no counterpart: a cell only
+        /// <summary>A cell became special — a placement that closed a row and a column spawning an
+        /// explosive core on their intersection, or a combo streak converting a block into a laser. The
+        /// icon is drawn per kind, not per spawn rule, so a new kind needs nothing here. Losing a kind
+        /// needs no counterpart either: a cell only
         /// loses one by being destroyed, which already arrives through <see cref="OnCellChanged"/>.</summary>
         private void OnSpecialKindChanged(GridPosition cell, SpecialCellKind kind)
         {
@@ -714,6 +723,11 @@ namespace MustyBlockBlast.Presentation.Views
         /// without this the cells it emptied would sit showing their old colour.</summary>
         private void OnExplosiveCoreDetonated(ExplosiveCoreDetonatedMessage message)
             => SweepPendingCells(message.ClearedCellCount);
+
+        /// <summary>A laser wiped a line. Claimed exactly as a blast's cells are, and for the same
+        /// reason: a wipe does not need the line to be full, so no <see cref="LinesClearedMessage"/>
+        /// follows it.</summary>
+        private void OnLaserFired(LaserFiredMessage message) => SweepPendingCells(message.WipedCellCount);
 
         /// <summary>Pushes <see cref="_pendingHighlightMask"/> to the cells, touching only the ones
         /// whose state actually changed, and adopts it as the current mask.</summary>

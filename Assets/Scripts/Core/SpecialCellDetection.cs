@@ -3,21 +3,61 @@ using System.Collections.Generic;
 
 namespace MustyBlockBlast.Core
 {
-    /// <summary>One special cell that was destroyed and therefore owes an effect: where it stood and
-    /// what kind it was. The position is kept because every special effect that will exist is
-    /// positional (a blast radius, a row, a column), and once the cell is cleared the board no longer
-    /// knows where the kind came from.</summary>
+    /// <summary>
+    /// Along which line (if any) a cell was destroyed. An effect that cares about direction — today
+    /// <see cref="SpecialCellKind.Laser"/>, which fires at right angles to whatever took it out —
+    /// reads this rather than re-deriving it, because once the cell is cleared the board no longer
+    /// knows what removed it.
+    /// <para>
+    /// <see cref="None"/> is not "unknown": it is the honest answer for every destruction that has no
+    /// line to it at all — a Bomb's 3x3, a Colour Cleanser's colour sweep — and an effect must treat it
+    /// as such rather than guessing an axis.
+    /// </para>
+    /// </summary>
+    public enum ClearAxis
+    {
+        /// <summary>Destroyed by something with no row or column to it.</summary>
+        None = 0,
+
+        /// <summary>Destroyed as part of a row being cleared.</summary>
+        Row = 1,
+
+        /// <summary>Destroyed as part of a column being cleared.</summary>
+        Column = 2,
+
+        /// <summary>Sat at the intersection of a cleared row and a cleared column, both in the same
+        /// destruction — so it was destroyed by each of them at once.</summary>
+        Both = 3,
+    }
+
+    /// <summary>One special cell that was destroyed and therefore owes an effect: where it stood, what
+    /// kind it was, and along which line it went. The position is kept because every special effect
+    /// that will exist is positional (a blast radius, a row, a column), and once the cell is cleared
+    /// the board no longer knows where the kind came from.</summary>
     public readonly struct SpecialCellTrigger
     {
+        /// <summary>A destruction with no axis to it — a Bomb, a Colour Cleanser. Equivalent to
+        /// passing <see cref="ClearAxis.None"/>, and kept as its own overload so the callers that
+        /// genuinely have no axis say so by omission rather than by naming one.</summary>
         public SpecialCellTrigger(GridPosition position, SpecialCellKind kind)
+            : this(position, kind, ClearAxis.None)
+        {
+        }
+
+        public SpecialCellTrigger(GridPosition position, SpecialCellKind kind, ClearAxis axis)
         {
             Position = position;
             Kind = kind;
+            Axis = axis;
         }
 
         public GridPosition Position { get; }
 
         public SpecialCellKind Kind { get; }
+
+        /// <summary>The line this cell was destroyed along, or <see cref="ClearAxis.None"/> when
+        /// whatever destroyed it had none.</summary>
+        public ClearAxis Axis { get; }
     }
 
     /// <summary>
@@ -46,6 +86,26 @@ namespace MustyBlockBlast.Core
         /// </summary>
         public static void CollectTriggered(
             Board board, IReadOnlyList<GridPosition> destroyedCells, List<SpecialCellTrigger> results)
+            => CollectTriggered(board, destroyedCells, results, null, null);
+
+        /// <summary>
+        /// As <see cref="CollectTriggered(Board, IReadOnlyList{GridPosition}, List{SpecialCellTrigger})"/>,
+        /// additionally recording which line each destroyed cell went with.
+        /// <para>
+        /// <paramref name="clearedRows"/> and <paramref name="clearedColumns"/> are the line indices the
+        /// caller is in the middle of clearing; a destroyed cell whose row is among the former was
+        /// destroyed by a row clear, whose column is among the latter by a column clear, and one that
+        /// matches both sat at their intersection. A caller whose destruction has no lines to it (a
+        /// Bomb, a Colour Cleanser) passes null for both, and every trigger comes back
+        /// <see cref="ClearAxis.None"/>.
+        /// </para>
+        /// </summary>
+        public static void CollectTriggered(
+            Board board,
+            IReadOnlyList<GridPosition> destroyedCells,
+            List<SpecialCellTrigger> results,
+            IReadOnlyList<int> clearedRows,
+            IReadOnlyList<int> clearedColumns)
         {
             if (board == null)
             {
@@ -71,8 +131,48 @@ namespace MustyBlockBlast.Core
                     continue;
                 }
 
-                results.Add(new SpecialCellTrigger(position, kind));
+                results.Add(new SpecialCellTrigger(
+                    position, kind, ResolveAxis(position, clearedRows, clearedColumns)));
             }
+        }
+
+        private static ClearAxis ResolveAxis(
+            GridPosition position, IReadOnlyList<int> clearedRows, IReadOnlyList<int> clearedColumns)
+        {
+            bool byRow = Contains(clearedRows, position.Y);
+            bool byColumn = Contains(clearedColumns, position.X);
+
+            if (byRow && byColumn)
+            {
+                return ClearAxis.Both;
+            }
+
+            if (byRow)
+            {
+                return ClearAxis.Row;
+            }
+
+            return byColumn ? ClearAxis.Column : ClearAxis.None;
+        }
+
+        /// <summary>Linear scan rather than a set: a clear covers at most a handful of lines, this runs
+        /// once per destroyed cell in a once-per-placement path, and it allocates nothing.</summary>
+        private static bool Contains(IReadOnlyList<int> indices, int value)
+        {
+            if (indices == null)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < indices.Count; i++)
+            {
+                if (indices[i] == value)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 }
