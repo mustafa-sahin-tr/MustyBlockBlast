@@ -46,6 +46,7 @@ namespace MustyBlockBlast.Tests.EditMode
                 new TestMessageBroker<LaserFiredMessage>(),
                 new TestMessageBroker<PiercingRocketFiredMessage>(),
                 _pulledBroker,
+                new TestMessageBroker<ChainLightningTriggeredMessage>(),
                 seed: 1);
 
             // All three slots filled, unlike the laser and core tests: these placements must not empty

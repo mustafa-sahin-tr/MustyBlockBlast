@@ -82,6 +82,20 @@ namespace MustyBlockBlast.Presentation.Views
         private static readonly Color VortexIconTint = new Color(0.62f, 0.66f, 1f, 1f);
 
         /// <summary>
+        /// Colour a <see cref="SpecialCellKind.ChainLightning"/>'s icon is drawn in. A fourth distinct
+        /// hue, for the reason the two above are distinct: it is destructive like a core and a laser, but
+        /// its targets are scattered rather than shaped, so the player has to be able to tell at a glance
+        /// which of the destructive tiles they are looking at. A hot amber — the warm end of the palette,
+        /// as far from the vortex's violet and the gem's green as the destructive kinds allow.
+        /// <para>
+        /// The sprite is shared with every other kind on purpose (<c>UiSpriteFactory.Starburst</c>): one
+        /// sprite for every icon is what keeps an icon on any number of cells batching with the rest of
+        /// the board, so the kinds are separated by tint rather than by a second texture.
+        /// </para>
+        /// </summary>
+        private static readonly Color ChainLightningIconTint = new Color(1f, 0.85f, 0.29f, 1f);
+
+        /// <summary>
         /// How far a hole cell's fill is pushed towards black relative to an empty cell's, and how far
         /// its alpha is pulled down. Derived from the active theme rather than authored per theme, and
         /// deliberately a placeholder: a hole is "not part of the board", and until it has real art it
@@ -159,6 +173,7 @@ namespace MustyBlockBlast.Presentation.Views
         private ISubscriber<ExplosiveCoreDetonatedMessage> _explosiveCoreDetonatedSubscriber;
         private ISubscriber<LaserFiredMessage> _laserFiredSubscriber;
         private ISubscriber<VortexPulledMessage> _vortexPulledSubscriber;
+        private ISubscriber<ChainLightningTriggeredMessage> _chainLightningTriggeredSubscriber;
 
         /// <summary>The grid's layout origin and pitch, kept from <see cref="BuildCells"/> so the pull
         /// animation can work out where a cell one step away sits without re-deriving the layout.</summary>
@@ -183,11 +198,13 @@ namespace MustyBlockBlast.Presentation.Views
             ISubscriber<PowerUpAppliedMessage> powerUpAppliedSubscriber,
             ISubscriber<ExplosiveCoreDetonatedMessage> explosiveCoreDetonatedSubscriber,
             ISubscriber<LaserFiredMessage> laserFiredSubscriber,
-            ISubscriber<VortexPulledMessage> vortexPulledSubscriber)
+            ISubscriber<VortexPulledMessage> vortexPulledSubscriber,
+            ISubscriber<ChainLightningTriggeredMessage> chainLightningTriggeredSubscriber)
         {
             _explosiveCoreDetonatedSubscriber = explosiveCoreDetonatedSubscriber;
             _laserFiredSubscriber = laserFiredSubscriber;
             _vortexPulledSubscriber = vortexPulledSubscriber;
+            _chainLightningTriggeredSubscriber = chainLightningTriggeredSubscriber;
             _boardModel = boardModel;
             _settingsModel = settingsModel;
             _linesClearedSubscriber = linesClearedSubscriber;
@@ -298,6 +315,10 @@ namespace MustyBlockBlast.Presentation.Views
             // Not a sweep, unlike the three above: a vortex destroys nothing, so there is no cell to
             // fade — each of its moves is a block sliding from one cell to the next.
             _vortexPulledSubscriber.Subscribe(OnVortexPulled).AddTo(_disposables);
+
+            // Back to the sweep: a chain lightning strike destroys, and its cells are scattered rather
+            // than lined up, so nothing else would ever claim them.
+            _chainLightningTriggeredSubscriber.Subscribe(OnChainLightningTriggered).AddTo(_disposables);
 
             RedrawAll();
         }
@@ -903,6 +924,14 @@ namespace MustyBlockBlast.Presentation.Views
         /// follows it.</summary>
         private void OnLaserFired(LaserFiredMessage message) => SweepPendingCells(message.WipedCellCount);
 
+        /// <summary>A chain lightning arced across the board. Claimed exactly as a blast's cells are:
+        /// the cells it emptied are scattered rather than lined up, so no <see cref="LinesClearedMessage"/>
+        /// describes them and without this they would sit showing their old colour. The fade <em>is</em>
+        /// the zap — every struck cell flashes and dies in the same beat, which is what a strike looks
+        /// like — so there is no second animation to invent here.</summary>
+        private void OnChainLightningTriggered(ChainLightningTriggeredMessage message)
+            => SweepPendingCells(message.VaporizedCellCount);
+
         /// <summary>
         /// A vortex dragged blocks inwards. Deliberately not a sweep: nothing was destroyed, so nothing
         /// may fade — a block that slid away and then faded out would read as a block that was
@@ -1244,6 +1273,8 @@ namespace MustyBlockBlast.Presentation.Views
                     return ScoreGemIconTint;
                 case SpecialCellKind.Vortex:
                     return VortexIconTint;
+                case SpecialCellKind.ChainLightning:
+                    return ChainLightningIconTint;
                 default:
                     return SpecialIconTint;
             }

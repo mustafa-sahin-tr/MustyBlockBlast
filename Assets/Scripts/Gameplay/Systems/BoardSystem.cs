@@ -42,6 +42,7 @@ namespace MustyBlockBlast.Gameplay.Systems
         private readonly IPublisher<LaserFiredMessage> _laserFiredPublisher;
         private readonly IPublisher<PiercingRocketFiredMessage> _piercingRocketFiredPublisher;
         private readonly IPublisher<VortexPulledMessage> _vortexPulledPublisher;
+        private readonly IPublisher<ChainLightningTriggeredMessage> _chainLightningTriggeredPublisher;
 
         // One long-lived effect per kind, reset per placement rather than reallocated — each owns the
         // buffer its destroyed cells are reported through.
@@ -52,6 +53,13 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// destroying them, so what it reports is a list of moves rather than a count of emptied
         /// cells.</summary>
         private readonly VortexEffect _vortexEffect = new VortexEffect();
+
+        /// <summary>The one effect that needs a random stream to do its work — it picks the cells it
+        /// vaporizes rather than deriving them from geometry. Built in the constructor rather than here
+        /// because it takes <see cref="_random"/>, which a field initialiser would read before the
+        /// constructor body has assigned it; it shares that one stream deliberately, so a run has a
+        /// single seeded source of randomness and replays identically from it.</summary>
+        private readonly ChainLightningEffect _chainLightningEffect;
 
         /// <summary>The piercing rocket's wipe. Not part of <see cref="_specialCellEffects"/>: it is
         /// driven by a <em>piece</em> being placed rather than by a cell being destroyed, so it has no
@@ -140,12 +148,13 @@ namespace MustyBlockBlast.Gameplay.Systems
             IPublisher<ExplosiveCoreDetonatedMessage> explosiveCoreDetonatedPublisher,
             IPublisher<LaserFiredMessage> laserFiredPublisher,
             IPublisher<PiercingRocketFiredMessage> piercingRocketFiredPublisher,
-            IPublisher<VortexPulledMessage> vortexPulledPublisher)
+            IPublisher<VortexPulledMessage> vortexPulledPublisher,
+            IPublisher<ChainLightningTriggeredMessage> chainLightningTriggeredPublisher)
             : this(
                 boardModel, trayModel, perfectRoundModel, pieceDraw, runStartedPublisher,
                 piecePlacedPublisher, linesClearedPublisher, gameOverPublisher, trayRefilledPublisher,
                 explosiveCoreDetonatedPublisher, laserFiredPublisher, piercingRocketFiredPublisher,
-                vortexPulledPublisher, Environment.TickCount)
+                vortexPulledPublisher, chainLightningTriggeredPublisher, Environment.TickCount)
         {
         }
 
@@ -163,9 +172,14 @@ namespace MustyBlockBlast.Gameplay.Systems
             IPublisher<LaserFiredMessage> laserFiredPublisher,
             IPublisher<PiercingRocketFiredMessage> piercingRocketFiredPublisher,
             IPublisher<VortexPulledMessage> vortexPulledPublisher,
+            IPublisher<ChainLightningTriggeredMessage> chainLightningTriggeredPublisher,
             int seed)
         {
             _random = new Random(seed);
+
+            // After the stream it draws from, necessarily: the effect keeps the reference it is handed,
+            // and there is exactly one stream per run for every random decision to come out of.
+            _chainLightningEffect = new ChainLightningEffect(_random);
 
             // Built from the live board's own outline, not from a default square: a scratch board that
             // disagreed with the real one about geometry could not be copied onto at all.
@@ -174,8 +188,9 @@ namespace MustyBlockBlast.Gameplay.Systems
             _laserFiredPublisher = laserFiredPublisher;
             _piercingRocketFiredPublisher = piercingRocketFiredPublisher;
             _vortexPulledPublisher = vortexPulledPublisher;
+            _chainLightningTriggeredPublisher = chainLightningTriggeredPublisher;
             _specialCellEffects = new CompositeSpecialCellEffect(
-                _explosiveCoreEffect, _laserEffect, _scoreGemEffect, _vortexEffect);
+                _explosiveCoreEffect, _laserEffect, _scoreGemEffect, _vortexEffect, _chainLightningEffect);
             _boardModel = boardModel;
             _trayModel = trayModel;
             _perfectRoundModel = perfectRoundModel;
@@ -333,6 +348,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             _scoreGemEffect.BeginResolution();
             _piercingRocketEffect.BeginResolution();
             _vortexEffect.BeginResolution();
+            _chainLightningEffect.BeginResolution();
 
             // Before the cascade, deliberately. The rocket empties its row and column whether or not
             // either was full, so running it first is what keeps a cell from being removed by the wipe
@@ -393,6 +409,16 @@ namespace MustyBlockBlast.Gameplay.Systems
                 _boardModel.NotifyPowerUpCleared(rocketWipedCells);
             }
 
+            // A chain lightning's strike is announced the same way as a blast and a wipe: it empties
+            // cells scattered anywhere on the board, which is not a line and not a region, so no
+            // LinesClearedMessage could describe it either.
+            IReadOnlyList<GridPosition> vaporizedCells = _chainLightningEffect.VaporizedCells;
+            bool anyVaporized = vaporizedCells.Count > 0;
+            if (anyVaporized)
+            {
+                _boardModel.NotifyPowerUpCleared(vaporizedCells);
+            }
+
             // A vortex's pulls are announced through their own seam rather than the cleared-cells one:
             // nothing was destroyed, so there is no cell to fade — each move empties one cell and fills
             // another, and both ends have to reach the View together or a block would appear to
@@ -440,6 +466,15 @@ namespace MustyBlockBlast.Gameplay.Systems
                     new PiercingRocketFiredMessage(rocketWipedCells.Count));
             }
 
+            if (anyVaporized)
+            {
+                // A count, like the three above and unlike the pulls below: the cells it emptied have
+                // already reached the View through the ordinary "this cell is empty now" path, so there
+                // is nothing about them a list would add — and nothing to copy.
+                _chainLightningTriggeredPublisher.Publish(
+                    new ChainLightningTriggeredMessage(vaporizedCells.Count));
+            }
+
             if (anyPulled)
             {
                 // Copied, unlike every count above: the effect's list is a buffer it overwrites on the
@@ -461,6 +496,13 @@ namespace MustyBlockBlast.Gameplay.Systems
             // intersection the core's rule is defined on. The occupancy handed over is the pre-clear
             // one already read above, not a second reading — see TrySpawnVortex.
             TrySpawnVortex(clearResult, colourId, occupiedCellCountBeforeClear);
+
+            // Same section, same reasons, and last of the three: one placement can earn more than one
+            // reward, and each selector skips a cell that already carries a kind, so spawning in a fixed
+            // order is what keeps two rewards off the same cell. The shape that earned this one is read
+            // from the piece itself — the only spawn rule in the game that depends on what was placed
+            // rather than only on what cleared.
+            TrySpawnChainLightning(clearResult, colourId, piece.Id);
 
             // Armed in the same section and for the same reason as the spawn above: it is this
             // placement's reward, read off the placement's own (primary) clear rather than off the whole
@@ -829,6 +871,44 @@ namespace MustyBlockBlast.Gameplay.Systems
             // After the occupancy write, so the View is told the cell is filled before it is told what
             // the filled cell is.
             _boardModel.SetSpecialKind(position, SpecialCellKind.Vortex);
+        }
+
+        /// <summary>
+        /// Spawns this placement's <see cref="SpecialCellKind.ChainLightning"/> reward, when it earned
+        /// one: a placement of a 3x3 square or a 1x5 bar that also cleared at least one line always
+        /// does, with no probability roll (see <see cref="ChainLightningSpawnSelector"/>). A placement
+        /// that earned none, or one whose cleared lines hold no valid cell, is silently skipped — not an
+        /// error state (AC4).
+        /// <para>
+        /// <paramref name="pieceId"/> is the piece this placement actually put down, threaded through
+        /// rather than re-derived: the board cannot be asked afterwards which shape filled a line, and by
+        /// now the line in question has been cleared away entirely.
+        /// </para>
+        /// <para>
+        /// Reads <paramref name="clearResult"/>, the placement's own (primary) clear, rather than the
+        /// whole cascade, exactly as the core's and the vortex's rules do: the reward is for the line the
+        /// player lined up with that piece, not for one a special cell's effect went on to complete.
+        /// </para>
+        /// </summary>
+        private void TrySpawnChainLightning(LineClearResult clearResult, int colourId, string pieceId)
+        {
+            GridPosition? spawn = ChainLightningSpawnSelector.SelectSpawnPosition(
+                _boardModel.Board, clearResult.ClearedRows, clearResult.ClearedColumns, pieceId);
+            if (spawn == null)
+            {
+                return;
+            }
+
+            GridPosition position = spawn.Value;
+
+            // The cell was emptied by this very clear, so the tile needs a block to sit on. It borrows
+            // the placed piece's colour for the reason a core and a vortex do: the icon is what marks it
+            // special, not a bespoke colour id no theme defines.
+            _boardModel.Occupy(position, colourId);
+
+            // After the occupancy write, so the View is told the cell is filled before it is told what
+            // the filled cell is.
+            _boardModel.SetSpecialKind(position, SpecialCellKind.ChainLightning);
         }
 
         /// <summary>
