@@ -43,6 +43,21 @@ namespace MustyBlockBlast.Gameplay.Systems
     /// there is one, otherwise the linear frontier. A level the catalog does not author, or one
     /// authoring zero, seeds nothing.
     /// </para>
+    /// <para>
+    /// <b>The second source.</b> A level's coin cells are not all authored: the Coin Sower power-up lets
+    /// the player buy extra ones at the level-start screen, and those arrive through
+    /// <see cref="QueueExtraCoinCells"/> — called by that screen immediately before it asks
+    /// <see cref="LevelProgressionSystem.TryStartPathLevel"/> to open the run. The queued quantity is
+    /// <em>added</em> to the authored count by the next <c>RunStartedMessage</c> and cleared as it is
+    /// consumed, so it is sown exactly once: the run it was bought for, never the one after it.
+    /// </para>
+    /// <para>
+    /// Folded into this System rather than given one of its own on purpose. A second subscriber to the
+    /// same two messages would paint cells concurrently with this one, with neither holding the other's
+    /// list of cells to avoid, so the bounded re-rolls below would fight each other and a purchase of
+    /// three could visibly land as two. One owner of "coin cells owed this run" — whatever owes them —
+    /// is what makes the distinctness attempt mean anything.
+    /// </para>
     /// </summary>
     public sealed class LevelCoinCellSeedSystem : IDisposable
     {
@@ -67,6 +82,11 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// <summary>Coin cells this run still owes the board. Armed at run start and drained by the
         /// first placement that leaves something to paint them onto.</summary>
         private int _pendingCoinCells;
+
+        /// <summary>Coin cells bought at the level-start screen and not yet handed to a run. Waits here
+        /// only for the moment between the purchase and the <c>RunStartedMessage</c> the same tap causes,
+        /// which consumes and clears it.</summary>
+        private int _queuedExtraCoinCells;
 
         /// <summary>DI entry point — VContainer must not pick the seeded constructor.</summary>
         [Inject]
@@ -106,13 +126,43 @@ namespace MustyBlockBlast.Gameplay.Systems
 
         public void Dispose() => _subscriptions.Dispose();
 
-        /// <summary>Arms this run's debt, overwriting rather than adding to whatever the previous run
-        /// left owed: a coin cell is authored per level, so a run that ended before its cells were ever
-        /// painted must not hand them to the next one.</summary>
+        /// <summary>
+        /// Adds <paramref name="count"/> coin cells to whatever the next run starts owing, on top of the
+        /// level's own authored count. The Coin Sower power-up's whole board-side effect: the level-start
+        /// screen calls this for the quantity it has just bought and spent, then starts the level.
+        /// <para>
+        /// Replaces rather than accumulates, and is cleared by the run that consumes it, so a purchase
+        /// dresses exactly one run. The two halves of that are deliberately split: a second call before
+        /// any run starts is the same screen having been reopened and re-committed, which must offer the
+        /// new quantity and not the sum of both attempts.
+        /// </para>
+        /// <para>
+        /// A negative count is floored rather than trusted, for the reason the authored count is: it
+        /// could only ever subtract from the cells the level itself asked for.
+        /// </para>
+        /// </summary>
+        public void QueueExtraCoinCells(int count)
+        {
+            _queuedExtraCoinCells = Math.Max(0, count);
+        }
+
+        /// <summary>
+        /// Arms this run's debt from both sources — what the level authors and what the player bought —
+        /// overwriting rather than adding to whatever the previous run left owed: a coin cell is authored
+        /// per level, so a run that ended before its cells were ever painted must not hand them to the
+        /// next one.
+        /// <para>
+        /// The purchased quantity is cleared as it is taken up, which is what makes it a one-run debt:
+        /// the player paid for this level's cells, not for every level they go on to play.
+        /// </para>
+        /// </summary>
         private void OnRunStarted(RunStartedMessage message)
         {
             LevelObjectiveConfig level = _levelCatalog.Find(CurrentLevelNumber());
-            _pendingCoinCells = level != null ? Math.Max(0, level.CoinCellCount) : 0;
+            int authoredCount = level != null ? Math.Max(0, level.CoinCellCount) : 0;
+
+            _pendingCoinCells = authoredCount + _queuedExtraCoinCells;
+            _queuedExtraCoinCells = 0;
         }
 
         /// <summary>

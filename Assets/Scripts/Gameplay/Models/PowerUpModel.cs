@@ -25,6 +25,14 @@ namespace MustyBlockBlast.Gameplay.Models
         public ReactiveProperty<int> GhostFitCount { get; } = new ReactiveProperty<int>(0);
 
         /// <summary>
+        /// Coin Sower units bought but not yet sown. An ordinary inventory slot, persisted like the
+        /// others — the kind is bought at a level-start screen and spent there in the same breath, but it
+        /// still passes through the inventory rather than around it, because that is the one place a
+        /// power-up is ever earned or spent (see <c>PowerUpSystem</c>).
+        /// </summary>
+        public ReactiveProperty<int> CoinSowerCount { get; } = new ReactiveProperty<int>(0);
+
+        /// <summary>
         /// The power-up the player has selected and is now aiming — at the board, or at the tray for
         /// <see cref="PowerUpKind.Rotate"/> — or null when none is.
         /// Unlike the counts this is run state, not inventory: it is dropped on every run boundary and

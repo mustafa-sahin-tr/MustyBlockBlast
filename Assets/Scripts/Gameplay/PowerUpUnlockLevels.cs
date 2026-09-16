@@ -1,12 +1,12 @@
 namespace MustyBlockBlast.Gameplay
 {
     /// <summary>
-    /// The level each <see cref="PowerUpKind"/> becomes available at. Nine authored numbers that change
+    /// The level each <see cref="PowerUpKind"/> becomes available at. Ten authored numbers that change
     /// only when the roster does, so they live in code next to the enum they key off rather than in a
     /// ScriptableObject: there is nothing here for a designer to tune per scene or per build, and a
     /// switch cannot drift out of sync with the enum the way a hand-filled asset can.
     /// <para>
-    /// The first three kinds are available from a fresh install; the remaining six arrive one every
+    /// The first three kinds are available from a fresh install; the remaining seven arrive one every
     /// five levels. Level 0 means "never gated" — a fresh install starts at level 1, so a gate of 0
     /// is unlocked before the player has done anything at all.
     /// </para>
@@ -39,6 +39,8 @@ namespace MustyBlockBlast.Gameplay
                     return 25;
                 case PowerUpKind.GhostFit:
                     return 30;
+                case PowerUpKind.CoinSower:
+                    return 35;
                 default:
                     // Bomb, RowClear and ColumnClear: the starter three, offered from the first run.
                     return ALWAYS_UNLOCKED;

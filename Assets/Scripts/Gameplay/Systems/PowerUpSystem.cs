@@ -43,6 +43,13 @@ namespace MustyBlockBlast.Gameplay.Systems
     /// at, so none is ever armed and all three are applied on the tap that selects them.
     /// </para>
     /// <para>
+    /// <see cref="PowerUpKind.CoinSower"/> sits further out still: it is not spent during a run at all.
+    /// It is bought and sown at a level-start screen, before the run it dresses exists, so its only
+    /// interface here is <see cref="TrySpendCoinSowerBulk"/> — no arm, no target, no application
+    /// message. It is nonetheless earned and spent through this class's own <c>Grant</c>/<c>TrySpend</c>
+    /// pair, because "the one and only spender of the inventory" has no exceptions.
+    /// </para>
+    /// <para>
     /// It also owns the armed selection: selecting a power-up arms it immediately (there is no queue),
     /// and the run's clock is held for as long as it stays armed. Arming, cancelling and applying all
     /// leave through <see cref="Disarm"/>, so "armed" and "the clock is held for it" can never drift
@@ -141,6 +148,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             LoadPersistedCount(PowerUpKind.Reroll);
             LoadPersistedCount(PowerUpKind.DoubleMultiplier);
             LoadPersistedCount(PowerUpKind.GhostFit);
+            LoadPersistedCount(PowerUpKind.CoinSower);
 
             // An armed selection belongs to the run it was made in: it must not survive either end of
             // a run boundary, or the next run would open with a power-up already aimed and its clock
@@ -161,11 +169,18 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// nothing to it. <see cref="TryApplyReroll"/>, <see cref="TryApplyDoubleMultiplier"/> and
         /// <see cref="TryApplyGhostFit"/> are their whole interface.
         /// </para>
+        /// <para>
+        /// <see cref="PowerUpKind.CoinSower"/> is refused for a stronger reason still: it is never spent
+        /// during a run at all. It is bought and sown at a level-start screen through
+        /// <see cref="TrySpendCoinSowerBulk"/>, so there is no moment in a run at which arming it could
+        /// mean anything — and an armed one would be released onto a board cell by an aim path that falls
+        /// through to Bomb for every kind it does not name, spending a bomb for it.
+        /// </para>
         /// </summary>
         public void Arm(PowerUpKind kind)
         {
             if (kind == PowerUpKind.Reroll || kind == PowerUpKind.DoubleMultiplier
-                || kind == PowerUpKind.GhostFit
+                || kind == PowerUpKind.GhostFit || kind == PowerUpKind.CoinSower
                 || _boardSystem.IsGameOver || IsLocked(kind) || CountOf(kind).Value <= 0)
             {
                 return;
@@ -557,6 +572,45 @@ namespace MustyBlockBlast.Gameplay.Systems
             }
         }
 
+        /// <summary>
+        /// Spends <paramref name="quantity"/> Coin Sower units in one go — the whole interface of a kind
+        /// that has no armed-and-aimed lifecycle. Returns whether it was spent; a refusal leaves the
+        /// inventory exactly as it found it.
+        /// <para>
+        /// Checked in full before a single decrement, rather than decrementing until it runs dry. This is
+        /// the one spend that asks for several at once, so "not enough held" is a real answer here where
+        /// for every other kind it is a one-unit peek — and discovering the shortfall half way through
+        /// would leave the player having paid for cells that were never sown. Atomic or nothing.
+        /// </para>
+        /// <para>
+        /// Then a loop over the same single-unit <see cref="TrySpend"/> the other kinds use, mirroring
+        /// <see cref="GrantPurchased"/>'s loop over single-unit grants: each unit is decremented and
+        /// persisted through the one code path a spend has ever gone through, so a bulk spend cannot
+        /// drift from a single one.
+        /// </para>
+        /// <para>
+        /// Does not check the level gate, for the reason <see cref="GrantPurchased"/> does not: the
+        /// caller has already been charged coins for these units through
+        /// <see cref="CurrencySystem.TryPurchasePowerUp"/>, which checks the gate at the public
+        /// <see cref="PowerUpUnlockLevels.IsUnlockedAt"/> seam before a single coin moves. A refusal here
+        /// could not be honoured anyway.
+        /// </para>
+        /// </summary>
+        public bool TrySpendCoinSowerBulk(int quantity)
+        {
+            if (quantity <= 0 || _powerUpModel.CoinSowerCount.Value < quantity)
+            {
+                return false;
+            }
+
+            for (int spendIndex = 0; spendIndex < quantity; spendIndex++)
+            {
+                TrySpend(PowerUpKind.CoinSower);
+            }
+
+            return true;
+        }
+
         public void Dispose()
         {
             _runStartedSubscription.Dispose();
@@ -730,6 +784,8 @@ namespace MustyBlockBlast.Gameplay.Systems
                     return _powerUpModel.DoubleMultiplierCount;
                 case PowerUpKind.GhostFit:
                     return _powerUpModel.GhostFitCount;
+                case PowerUpKind.CoinSower:
+                    return _powerUpModel.CoinSowerCount;
                 default:
                     return _powerUpModel.BombCount;
             }

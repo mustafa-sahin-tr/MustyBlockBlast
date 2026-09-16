@@ -20,13 +20,14 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.AreEqual(PowerUpUnlockLevels.ALWAYS_UNLOCKED, PowerUpUnlockLevels.LevelFor(kind));
         }
 
-        /// <summary>The six gated kinds, one every five levels, in the authored order.</summary>
+        /// <summary>The seven gated kinds, one every five levels, in the authored order.</summary>
         [TestCase(PowerUpKind.Joker, 5)]
         [TestCase(PowerUpKind.ColorCleanser, 10)]
         [TestCase(PowerUpKind.Rotate, 15)]
         [TestCase(PowerUpKind.Reroll, 20)]
         [TestCase(PowerUpKind.DoubleMultiplier, 25)]
         [TestCase(PowerUpKind.GhostFit, 30)]
+        [TestCase(PowerUpKind.CoinSower, 35)]
         public void LevelFor_TheGatedKinds_MatchesTheAuthoredCadence(PowerUpKind kind, int expectedLevel)
         {
             Assert.AreEqual(expectedLevel, PowerUpUnlockLevels.LevelFor(kind));
@@ -40,8 +41,8 @@ namespace MustyBlockBlast.Tests.EditMode
         [Test]
         public void EveryKind_IsCoveredByTheTableTestsAbove()
         {
-            // The exact set, not just the count: replacing one kind with another keeps the count at
-            // nine, and the replacement would inherit the default silently.
+            // The exact set, not just the count: replacing one kind with another keeps the count the
+            // same, and the replacement would inherit the default silently.
             var covered = new[]
             {
                 PowerUpKind.Bomb,
@@ -53,6 +54,7 @@ namespace MustyBlockBlast.Tests.EditMode
                 PowerUpKind.Reroll,
                 PowerUpKind.DoubleMultiplier,
                 PowerUpKind.GhostFit,
+                PowerUpKind.CoinSower,
             };
 
             CollectionAssert.AreEquivalent(
@@ -77,6 +79,22 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.IsFalse(PowerUpUnlockLevels.IsUnlockedAt(PowerUpKind.Reroll, FRESH_INSTALL_LEVEL));
             Assert.IsFalse(PowerUpUnlockLevels.IsUnlockedAt(PowerUpKind.DoubleMultiplier, FRESH_INSTALL_LEVEL));
             Assert.IsFalse(PowerUpUnlockLevels.IsUnlockedAt(PowerUpKind.GhostFit, FRESH_INSTALL_LEVEL));
+            Assert.IsFalse(PowerUpUnlockLevels.IsUnlockedAt(PowerUpKind.CoinSower, FRESH_INSTALL_LEVEL));
+        }
+
+        /// <summary>
+        /// Issue #167's gate, stated on its own edges: the Coin Sower's level-start offer is closed at 34
+        /// and open from 35 on. Pinned separately from the cadence table above because this one is read by
+        /// a screen that exists to sell it — a gate quietly moved here would put a purchase in front of a
+        /// player who has not met the power-up.
+        /// </summary>
+        [Test]
+        public void IsUnlockedAt_ForCoinSower_OpensAtThirtyFive()
+        {
+            Assert.IsFalse(PowerUpUnlockLevels.IsUnlockedAt(PowerUpKind.CoinSower, 1));
+            Assert.IsFalse(PowerUpUnlockLevels.IsUnlockedAt(PowerUpKind.CoinSower, 34));
+            Assert.IsTrue(PowerUpUnlockLevels.IsUnlockedAt(PowerUpKind.CoinSower, 35));
+            Assert.IsTrue(PowerUpUnlockLevels.IsUnlockedAt(PowerUpKind.CoinSower, 36));
         }
 
         /// <summary>The gate opens on the level itself, not the one after it.</summary>
@@ -94,7 +112,7 @@ namespace MustyBlockBlast.Tests.EditMode
         {
             foreach (PowerUpKind kind in (PowerUpKind[])Enum.GetValues(typeof(PowerUpKind)))
             {
-                Assert.IsTrue(PowerUpUnlockLevels.IsUnlockedAt(kind, 30), kind.ToString());
+                Assert.IsTrue(PowerUpUnlockLevels.IsUnlockedAt(kind, 35), kind.ToString());
             }
         }
     }

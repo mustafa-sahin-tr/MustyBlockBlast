@@ -95,6 +95,107 @@ namespace MustyBlockBlast.Tests.EditMode
             }
         }
 
+        // --- The Coin Sower's bulk spend (issue #167) ---
+
+        /// <summary>The ordinary case: the player holds what the level-start screen just bought, and the
+        /// whole quantity is spent in one call.</summary>
+        [Test]
+        public void TrySpendCoinSowerBulk_WithEnoughHeld_SpendsExactlyThatMany()
+        {
+            PersistCount(PowerUpKind.CoinSower, 5);
+            var model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, new BoardModel());
+
+            bool spent = system.TrySpendCoinSowerBulk(3);
+
+            Assert.IsTrue(spent);
+            Assert.AreEqual(2, model.CoinSowerCount.Value);
+            Assert.AreEqual(2, PlayerPrefs.GetInt(PowerUpInventoryKey.For(PowerUpKind.CoinSower), -1));
+        }
+
+        [Test]
+        public void TrySpendCoinSowerBulk_ForEverythingHeld_LeavesTheSlotEmpty()
+        {
+            PersistCount(PowerUpKind.CoinSower, 4);
+            var model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, new BoardModel());
+
+            Assert.IsTrue(system.TrySpendCoinSowerBulk(4));
+            Assert.AreEqual(0, model.CoinSowerCount.Value);
+        }
+
+        /// <summary>
+        /// The atomicity guarantee, and the reason the count is checked in full before the first
+        /// decrement: asking for one more than is held must leave every unit where it was, not spend all
+        /// of them and report failure. A player charged for cells that were never sown is the failure
+        /// this rules out.
+        /// </summary>
+        [Test]
+        public void TrySpendCoinSowerBulk_WithTooFewHeld_SpendsNoneOfThem()
+        {
+            PersistCount(PowerUpKind.CoinSower, 2);
+            var model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, new BoardModel());
+
+            bool spent = system.TrySpendCoinSowerBulk(3);
+
+            Assert.IsFalse(spent);
+            Assert.AreEqual(2, model.CoinSowerCount.Value, "No partial decrement.");
+            Assert.AreEqual(2, PlayerPrefs.GetInt(PowerUpInventoryKey.For(PowerUpKind.CoinSower), -1));
+        }
+
+        [Test]
+        public void TrySpendCoinSowerBulk_WithNoneHeld_ChangesNothing()
+        {
+            var model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, new BoardModel());
+
+            Assert.IsFalse(system.TrySpendCoinSowerBulk(1));
+            Assert.AreEqual(0, model.CoinSowerCount.Value);
+        }
+
+        [TestCase(0)]
+        [TestCase(-1)]
+        public void TrySpendCoinSowerBulk_WithANonPositiveQuantity_ChangesNothing(int quantity)
+        {
+            PersistCount(PowerUpKind.CoinSower, 3);
+            var model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, new BoardModel());
+
+            Assert.IsFalse(system.TrySpendCoinSowerBulk(quantity));
+            Assert.AreEqual(3, model.CoinSowerCount.Value);
+        }
+
+        /// <summary>The slot is a persisted inventory slot like every other: units bought at one level
+        /// start and left unspent are still there after a relaunch.</summary>
+        [Test]
+        public void CoinSowerCount_IsLoadedFromPersistenceLikeEveryOtherKind()
+        {
+            PersistCount(PowerUpKind.CoinSower, 7);
+            var model = new PowerUpModel();
+            PowerUpSystem unused = CreateSystem(model, new BoardModel());
+
+            Assert.AreEqual(7, model.CoinSowerCount.Value);
+        }
+
+        /// <summary>
+        /// The kind has no in-run lifecycle at all, so it must not be armable even when held: an armed
+        /// Coin Sower would be released onto a board cell by an aim path that falls through to Bomb for
+        /// every kind it does not name, spending a bomb the player did not select.
+        /// </summary>
+        [Test]
+        public void Arm_CoinSower_IsRefusedEvenWhenHeld()
+        {
+            PersistCount(PowerUpKind.CoinSower, 3);
+            var model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, new BoardModel());
+
+            system.Arm(PowerUpKind.CoinSower);
+
+            Assert.IsNull(model.Armed.Value);
+            Assert.AreEqual(3, model.CoinSowerCount.Value);
+        }
+
         // --- Coin cells destroyed by a spent power-up (issue #166, AC3) ---
 
         /// <summary>AC3: a coin cell destroyed by a Bomb pays exactly as one destroyed by a completed
@@ -1853,6 +1954,7 @@ namespace MustyBlockBlast.Tests.EditMode
             PlayerPrefs.DeleteKey(PowerUpInventoryKey.For(PowerUpKind.Reroll));
             PlayerPrefs.DeleteKey(PowerUpInventoryKey.For(PowerUpKind.DoubleMultiplier));
             PlayerPrefs.DeleteKey(PowerUpInventoryKey.For(PowerUpKind.GhostFit));
+            PlayerPrefs.DeleteKey(PowerUpInventoryKey.For(PowerUpKind.CoinSower));
         }
 
         private static Piece FindPiece(string id)
