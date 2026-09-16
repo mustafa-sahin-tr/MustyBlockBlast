@@ -34,6 +34,9 @@ namespace MustyBlockBlast.Presentation
         [Tooltip("Score-to-coin rate and the rewarded-ad coin grant. Required — without it there is no economy.")]
         [SerializeField] private CurrencyConfig _currencyConfig;
 
+        [Tooltip("Coin price of each power-up kind. Required — without it the shop has nothing to charge.")]
+        [SerializeField] private PowerUpPriceConfig _powerUpPriceConfig;
+
         protected override void Configure(IContainerBuilder builder)
         {
             RegisterMessaging(builder);
@@ -68,6 +71,10 @@ namespace MustyBlockBlast.Presentation
                 // like PowerUpSystem, and subscribes to GameOverMessage there too — it must be listening
                 // before the first run ends, or that run's score would never reach the convertible pool
                 // and would be lost to the player for good.
+                //
+                // Must stay below PowerUpSystem: a coin purchase debits here and grants there, so it
+                // takes that system as a constructor dependency. The container would build it anyway;
+                // this order says so rather than relying on it.
                 container.Resolve<CurrencySystem>();
 
                 // Subscribes in its constructor, like PowerUpScoreSystem: it must be listening before
@@ -152,6 +159,7 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterInstance(ResolveLevelCatalog());
             builder.RegisterInstance(ResolveBadgeCatalog());
             builder.RegisterInstance(ResolveCurrencyConfig());
+            builder.RegisterInstance(ResolvePowerUpPriceConfig());
 
             // Languages come from the project's Locale assets rather than a scene field: a new
             // language is a Locale asset plus a String Table column, with no scene edit.
@@ -198,6 +206,25 @@ namespace MustyBlockBlast.Presentation
                 $"{nameof(GameLifetimeScope)} has no {nameof(CurrencyConfig)} assigned. " +
                 "Score conversion is falling back to the built-in default rate.", this);
             return ScriptableObject.CreateInstance<CurrencyConfig>();
+        }
+
+        /// <summary>
+        /// Same defensive shape as <see cref="ResolveCurrencyConfig"/>: a default-valued instance boots
+        /// the scene on the built-in placeholder prices — which price every kind, so the shop still
+        /// works — and one readable error, which beats an opaque container failure deep inside a null
+        /// instance registration.
+        /// </summary>
+        private PowerUpPriceConfig ResolvePowerUpPriceConfig()
+        {
+            if (_powerUpPriceConfig != null)
+            {
+                return _powerUpPriceConfig;
+            }
+
+            Debug.LogError(
+                $"{nameof(GameLifetimeScope)} has no {nameof(PowerUpPriceConfig)} assigned. " +
+                "The power-up shop is falling back to the built-in default prices.", this);
+            return ScriptableObject.CreateInstance<PowerUpPriceConfig>();
         }
 
         /// <summary>
@@ -322,15 +349,21 @@ namespace MustyBlockBlast.Presentation
             builder.Register<DeterministicCoinRewardSource>(Lifetime.Singleton)
                 .As<ICoinRewardSource>().AsSelf();
 
-            // Owns the currency slice of ProfileModel and is the only writer of it, so it is bound next
-            // to the coin reward source it grants through. AsSelf because CoinConversionView asks for
-            // the concrete system — there is no second implementation to hide behind an interface.
-            builder.Register<CurrencySystem>(Lifetime.Singleton).AsSelf();
-
             // Before PowerUpSystem only for readability — PowerUpSystem takes it as a constructor
             // dependency, so the container orders the two itself.
             builder.Register<GhostFitSystem>(Lifetime.Singleton).AsSelf();
             builder.Register<PowerUpSystem>(Lifetime.Singleton).AsSelf();
+
+            // Owns the currency slice of ProfileModel and is the only writer of it, so it is bound next
+            // to the coin reward source it grants through. AsSelf because CoinConversionView and
+            // PowerUpShopView both ask for the concrete system — there is no second implementation to
+            // hide behind an interface.
+            //
+            // After PowerUpSystem for the same readability reason: it takes that system as a
+            // constructor dependency (a coin purchase is a debit here and a grant there), so the
+            // container orders the two itself either way.
+            builder.Register<CurrencySystem>(Lifetime.Singleton).AsSelf();
+
             builder.Register<PowerUpScoreSystem>(Lifetime.Singleton).AsSelf();
             builder.Register<ExplosiveCoreScoreSystem>(Lifetime.Singleton).AsSelf();
             builder.Register<LaserScoreSystem>(Lifetime.Singleton).AsSelf();
@@ -367,6 +400,8 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterComponentInHierarchy<ProfilePanelView>();
             builder.RegisterComponentInHierarchy<LeaderboardButtonView>();
             builder.RegisterComponentInHierarchy<LeaderboardPanelView>();
+            builder.RegisterComponentInHierarchy<PowerUpShopButtonView>();
+            builder.RegisterComponentInHierarchy<PowerUpShopView>();
             builder.RegisterComponentInHierarchy<PieceTrayView>();
             builder.RegisterComponentInHierarchy<HoldSlotView>();
             builder.RegisterComponentInHierarchy<ScoreView>();

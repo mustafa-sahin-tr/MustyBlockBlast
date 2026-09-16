@@ -1,0 +1,33 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 58e5313a01e5548c797cf165bf7a16b7, type: 3}
+  m_Name: PowerUpPriceConfig
+  m_EditorClassIdentifier: MustyBlockBlast.Gameplay::MustyBlockBlast.Gameplay.Settings.PowerUpPriceConfig
+  _prices:
+  - _kind: 0
+    _coinPrice: 50
+  - _kind: 1
+    _coinPrice: 50
+  - _kind: 2
+    _coinPrice: 50
+  - _kind: 3
+    _coinPrice: 100
+  - _kind: 4
+    _coinPrice: 150
+  - _kind: 5
+    _coinPrice: 200
+  - _kind: 6
+    _coinPrice: 250
+  - _kind: 7
+    _coinPrice: 300
+  - _kind: 8
+    _coinPrice: 350
