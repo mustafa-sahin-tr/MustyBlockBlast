@@ -14,3 +14,4 @@ MonoBehaviour:
   m_EditorClassIdentifier: MustyBlockBlast.Gameplay::MustyBlockBlast.Gameplay.Settings.CurrencyConfig
   _scoreToCoinRate: 0.1
   _adRewardCoins: 25
+  _coinCellPayout: 5

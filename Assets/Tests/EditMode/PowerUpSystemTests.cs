@@ -26,6 +26,14 @@ namespace MustyBlockBlast.Tests.EditMode
         private TestMessageBroker<ExplosiveCoreDetonatedMessage> _detonatedBroker;
         private TestMessageBroker<LaserFiredMessage> _laserFiredBroker;
 
+        /// <summary>The coin channel a power-up fires when its clear destroys a coin cell. A field
+        /// rather than an inline broker so a test can assert the payout was announced.</summary>
+        private TestMessageBroker<CoinCellsClearedMessage> _coinCellsBroker;
+
+        /// <summary>The economy the coin payout is read from. Held on a field so a test can quote the
+        /// configured figure rather than restating it.</summary>
+        private CurrencyConfig _currencyConfig;
+
         /// <summary>The frenzy window the double multiplier opens. Kept as a field so a test can read
         /// the model behind it without reaching back through the system under test.</summary>
         private DoubleMultiplierModel _doubleMultiplierModel;
@@ -66,6 +74,8 @@ namespace MustyBlockBlast.Tests.EditMode
             _grantedBroker = new TestMessageBroker<PowerUpGrantedMessage>();
             _detonatedBroker = new TestMessageBroker<ExplosiveCoreDetonatedMessage>();
             _laserFiredBroker = new TestMessageBroker<LaserFiredMessage>();
+            _coinCellsBroker = new TestMessageBroker<CoinCellsClearedMessage>();
+            _currencyConfig = ScriptableObject.CreateInstance<CurrencyConfig>();
             _piecePlacedBroker = new TestMessageBroker<PiecePlacedMessage>();
             _doubleMultiplierModel = new DoubleMultiplierModel();
             _doubleMultiplierSystem = new DoubleMultiplierSystem(
@@ -79,6 +89,86 @@ namespace MustyBlockBlast.Tests.EditMode
         public void ClearPersistedInventoryAfterwards()
         {
             DeleteInventoryKeys();
+            if (_currencyConfig != null)
+            {
+                Object.DestroyImmediate(_currencyConfig);
+            }
+        }
+
+        // --- Coin cells destroyed by a spent power-up (issue #166, AC3) ---
+
+        /// <summary>AC3: a coin cell destroyed by a Bomb pays exactly as one destroyed by a completed
+        /// line does. A bomb's footprint has no line to it, so the payout is the base amount.</summary>
+        [Test]
+        public void TryApplyBomb_OverACoinCell_AnnouncesTheConfiguredPayout()
+        {
+            var boardModel = new BoardModel();
+            var coin = new GridPosition(4, 4);
+            boardModel.Occupy(coin, 1);
+            boardModel.SetSpecialKind(coin, SpecialCellKind.Coin);
+
+            PowerUpSystem system = CreateSystem(new PowerUpModel(), boardModel);
+            system.GrantDirect(PowerUpKind.Bomb);
+
+            Assert.IsTrue(system.TryApplyBomb(coin));
+
+            Assert.AreEqual(1, _coinCellsBroker.Published.Count);
+            Assert.AreEqual(_currencyConfig.CoinCellPayout, _coinCellsBroker.Published[0].TotalCoins);
+        }
+
+        /// <summary>Two coin cells inside one bomb's footprint are one payout, summed — the same
+        /// contract the placement path has.</summary>
+        [Test]
+        public void TryApplyBomb_OverTwoCoinCells_AnnouncesTheirSumOnce()
+        {
+            var boardModel = new BoardModel();
+            var first = new GridPosition(4, 4);
+            var second = new GridPosition(5, 5);
+            boardModel.Occupy(first, 1);
+            boardModel.Occupy(second, 1);
+            boardModel.SetSpecialKind(first, SpecialCellKind.Coin);
+            boardModel.SetSpecialKind(second, SpecialCellKind.Coin);
+
+            PowerUpSystem system = CreateSystem(new PowerUpModel(), boardModel);
+            system.GrantDirect(PowerUpKind.Bomb);
+
+            system.TryApplyBomb(first);
+
+            Assert.AreEqual(1, _coinCellsBroker.Published.Count);
+            Assert.AreEqual(_currencyConfig.CoinCellPayout * 2, _coinCellsBroker.Published[0].TotalCoins);
+        }
+
+        /// <summary>A Row Clear destroys along a row, so the axis is a single one and the payout is the
+        /// base amount: the doubling is for an intersection, which one emptied line never is.</summary>
+        [Test]
+        public void TryApplyRowClear_OverACoinCell_AnnouncesTheBasePayout()
+        {
+            var boardModel = new BoardModel();
+            var coin = new GridPosition(2, 3);
+            boardModel.Occupy(coin, 1);
+            boardModel.SetSpecialKind(coin, SpecialCellKind.Coin);
+
+            PowerUpSystem system = CreateSystem(new PowerUpModel(), boardModel);
+            system.GrantDirect(PowerUpKind.RowClear);
+
+            system.TryApplyRowClear(3);
+
+            Assert.AreEqual(1, _coinCellsBroker.Published.Count);
+            Assert.AreEqual(_currencyConfig.CoinCellPayout, _coinCellsBroker.Published[0].TotalCoins);
+        }
+
+        /// <summary>A power-up that destroyed no coin cell must announce no payout at all.</summary>
+        [Test]
+        public void TryApplyBomb_WithNoCoinCellInRange_AnnouncesNothing()
+        {
+            var boardModel = new BoardModel();
+            boardModel.Occupy(new GridPosition(4, 4), 1);
+            PowerUpSystem system = CreateSystem(new PowerUpModel(), boardModel);
+            system.GrantDirect(PowerUpKind.Bomb);
+
+            system.TryApplyBomb(new GridPosition(4, 4));
+
+            Assert.AreEqual(0, _coinCellsBroker.Published.Count);
         }
 
         /// <summary>
@@ -1619,6 +1709,8 @@ namespace MustyBlockBlast.Tests.EditMode
                 _grantedBroker,
                 _detonatedBroker,
                 _laserFiredBroker,
+                _coinCellsBroker,
+                _currencyConfig,
                 new TestMessageBroker<RunStartedMessage>(),
                 new TestMessageBroker<GameOverMessage>());
         }
@@ -1667,7 +1759,9 @@ namespace MustyBlockBlast.Tests.EditMode
                 new TestMessageBroker<LaserFiredMessage>(),
                 new TestMessageBroker<PiercingRocketFiredMessage>(),
                 new TestMessageBroker<VortexPulledMessage>(),
-                new TestMessageBroker<ChainLightningTriggeredMessage>());
+                new TestMessageBroker<ChainLightningTriggeredMessage>(),
+                new TestMessageBroker<CoinCellsClearedMessage>(),
+                ScriptableObject.CreateInstance<CurrencyConfig>());
         }
 
         /// <summary>Occupies every board cell except the ones named, so a test can state the one gap it

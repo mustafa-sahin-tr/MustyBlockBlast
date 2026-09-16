@@ -7,6 +7,7 @@ using MustyBlockBlast.Core;
 using MustyBlockBlast.Gameplay.Messages;
 using MustyBlockBlast.Gameplay.Models;
 using MustyBlockBlast.Gameplay.Reactive;
+using MustyBlockBlast.Gameplay.Settings;
 using UnityEngine;
 
 namespace MustyBlockBlast.Gameplay.Systems
@@ -84,6 +85,16 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// <summary>Its own instance for the same reason <see cref="_explosiveCoreEffect"/> is.</summary>
         private readonly LaserEffect _laserEffect = new LaserEffect();
 
+        /// <summary>
+        /// Its own instance for the same reason the two above are: its total has to mean "the coins the
+        /// power-up I just spent earned", never a running sum shared with whatever the last placement
+        /// resolved. Built in the constructor rather than here because the per-cell payout is an economy
+        /// number read from <see cref="CurrencyConfig"/>, which Core must not know about.
+        /// </summary>
+        private readonly CoinEffect _coinEffect;
+
+        private readonly IPublisher<CoinCellsClearedMessage> _coinCellsClearedPublisher;
+
         public PowerUpSystem(
             PowerUpModel powerUpModel,
             LevelProgressionModel levelProgressionModel,
@@ -99,11 +110,15 @@ namespace MustyBlockBlast.Gameplay.Systems
             IPublisher<PowerUpGrantedMessage> grantedPublisher,
             IPublisher<ExplosiveCoreDetonatedMessage> explosiveCoreDetonatedPublisher,
             IPublisher<LaserFiredMessage> laserFiredPublisher,
+            IPublisher<CoinCellsClearedMessage> coinCellsClearedPublisher,
+            CurrencyConfig currencyConfig,
             ISubscriber<RunStartedMessage> runStartedSubscriber,
             ISubscriber<GameOverMessage> gameOverSubscriber)
         {
             _explosiveCoreDetonatedPublisher = explosiveCoreDetonatedPublisher;
             _laserFiredPublisher = laserFiredPublisher;
+            _coinCellsClearedPublisher = coinCellsClearedPublisher;
+            _coinEffect = new CoinEffect(currencyConfig.CoinCellPayout);
             _powerUpModel = powerUpModel;
             _levelProgressionModel = levelProgressionModel;
             _boardModel = boardModel;
@@ -658,6 +673,7 @@ namespace MustyBlockBlast.Gameplay.Systems
 
             _explosiveCoreEffect.BeginResolution();
             _laserEffect.BeginResolution();
+            _coinEffect.BeginResolution();
 
             for (int i = 0; i < triggers.Count; i++)
             {
@@ -665,6 +681,7 @@ namespace MustyBlockBlast.Gameplay.Systems
                 // adding an effect rather than editing this loop.
                 _explosiveCoreEffect.Apply(_boardModel.Board, triggers[i]);
                 _laserEffect.Apply(_boardModel.Board, triggers[i]);
+                _coinEffect.Apply(_boardModel.Board, triggers[i]);
             }
 
             IReadOnlyList<GridPosition> blastedCells = _explosiveCoreEffect.BlastedCells;
@@ -679,6 +696,17 @@ namespace MustyBlockBlast.Gameplay.Systems
             {
                 _boardModel.NotifyPowerUpCleared(wipedCells);
                 _laserFiredPublisher.Publish(new LaserFiredMessage(wipedCells.Count));
+            }
+
+            // A coin cell a Bomb destroys pays exactly as one a completed line destroys does, which is
+            // the whole point of this method existing: a special block behaves the same whatever
+            // destroyed it. Nothing on the board changed for it, so unlike the two above there is no
+            // cell to repaint — only a payout to announce, which CurrencySystem (the one writer of the
+            // balance) credits.
+            int coinsAwarded = _coinEffect.TotalCoinsAwarded;
+            if (coinsAwarded > 0)
+            {
+                _coinCellsClearedPublisher.Publish(new CoinCellsClearedMessage(coinsAwarded));
             }
         }
 
