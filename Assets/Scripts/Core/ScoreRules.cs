@@ -20,6 +20,10 @@ namespace MustyBlockBlast.Core
 
         private const int BOARD_WIPE_BONUS = 200;
 
+        /// <summary>What one scoring event is multiplied by when it destroyed a
+        /// <see cref="SpecialCellKind.ScoreGem"/>.</summary>
+        public const int SCORE_GEM_FACTOR = 3;
+
         /// <summary>+1 point per cell of the piece just placed.</summary>
         public static int PlacementScore(int cellCount) => cellCount * POINTS_PER_PLACED_CELL;
 
@@ -92,6 +96,30 @@ namespace MustyBlockBlast.Core
 
             return BOARD_WIPE_BONUS;
         }
+
+        /// <summary>
+        /// <paramref name="points"/> as the event should actually be credited them once the
+        /// <see cref="SpecialCellKind.ScoreGem"/>s it destroyed are taken into account: tripled when it
+        /// destroyed at least one, untouched otherwise.
+        /// <para>
+        /// Applied to a finished event total rather than to any individual rule, so the whole additive
+        /// stack — placement, clears, streak and milestone bonuses — is computed exactly as it always
+        /// is and only its output is tripled. It composes with, rather than replaces, the 2x frenzy
+        /// window (<c>DoubleMultiplierModel.Multiply</c>): a gem destroyed inside a frenzy is worth 6x,
+        /// because each multiplier is applied to the running total in turn.
+        /// </para>
+        /// <para>
+        /// Deliberately has no floor, exactly as the frenzy's doubling has none: zero points tripled is
+        /// still zero, so an event that scored nothing scores nothing however many gems went with it.
+        /// </para>
+        /// <para>
+        /// Flat, not compounding: two gems in one event triple it once rather than nine-folding it.
+        /// The reward is for the event having reached a gem at all, and a compounding factor would make
+        /// a single lucky sweep worth more than the rest of a run put together.
+        /// </para>
+        /// </summary>
+        public static int ScoreGemMultiplied(int points, int destroyedScoreGemCount)
+            => destroyedScoreGemCount > 0 ? points * SCORE_GEM_FACTOR : points;
 
         /// <summary>10 x lines x (comboMultiplier(lines) + streakBonus(streak)). Zero when no lines cleared.</summary>
         public static int ClearScore(int lines, int streak)

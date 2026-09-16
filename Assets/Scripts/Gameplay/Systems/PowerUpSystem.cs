@@ -248,8 +248,13 @@ namespace MustyBlockBlast.Gameplay.Systems
                 _boardModel.NotifyPowerUpCleared(result.ClearedCells);
             }
 
+            // The gem count is read from the triggers rather than from the effects below, so it is known
+            // before the message that pays for this application is published — a gem multiplies the
+            // event that destroyed it, so the count has to be in hand at the moment that event scores.
             _appliedPublisher.Publish(new PowerUpAppliedMessage(
-                PowerUpKind.Joker, result.ClearedCellCount, result.LineCount));
+                PowerUpKind.Joker, result.ClearedCellCount, result.LineCount, emptiedLineCount: 0,
+                wasClutchSave: false,
+                destroyedScoreGemCount: ScoreGemEffect.CountDestroyed(result.TriggeredSpecials)));
 
             // A joker completes lines rather than clearing a region, but a core standing in one of
             // those lines is destroyed just the same — and a destroyed core blasts whatever destroyed
@@ -575,8 +580,13 @@ namespace MustyBlockBlast.Gameplay.Systems
                 _boardModel.NotifyPowerUpCleared(result.ClearedCells);
             }
 
+            // The gem count is read from the triggers rather than from the effects applied below, for the
+            // reason the joker path states: a gem multiplies the event that destroyed it, so the count
+            // has to be in hand at the moment that event scores — which is this publish.
             _appliedPublisher.Publish(new PowerUpAppliedMessage(
-                kind, result.ClearedCellCount, clearedLineCount: 0, emptiedLineCount: result.EmptiedLineCount));
+                kind, result.ClearedCellCount, clearedLineCount: 0,
+                emptiedLineCount: result.EmptiedLineCount, wasClutchSave: false,
+                destroyedScoreGemCount: ScoreGemEffect.CountDestroyed(result.TriggeredSpecials)));
 
             ApplyTriggeredSpecials(result.TriggeredSpecials);
         }
@@ -591,6 +601,11 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// Every installed effect sees every trigger and ignores the kinds that are not its own, so a
         /// Row Clear that destroys a laser wipes that laser's column exactly as a completed row would —
         /// the axis the resolver recorded is what decides it, not which power-up was spent.
+        /// </para>
+        /// <para>
+        /// <see cref="SpecialCellKind.ScoreGem"/> is deliberately absent from the loop: it destroys
+        /// nothing, so there is no board effect to apply, and its one consequence — tripling this
+        /// application's score — was already read off the same triggers and published above.
         /// </para>
         /// <para>
         /// Deliberately does <em>not</em> spawn a new core, however many lines the power-up emptied:

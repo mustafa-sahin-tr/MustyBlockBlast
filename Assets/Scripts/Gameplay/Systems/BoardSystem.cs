@@ -21,6 +21,7 @@ namespace MustyBlockBlast.Gameplay.Systems
 
         private readonly BoardModel _boardModel;
         private readonly TrayModel _trayModel;
+        private readonly PerfectRoundModel _perfectRoundModel;
         private readonly WeightedPieceDraw _pieceDraw;
         private readonly PlacementSnapper _placementSnapper = new PlacementSnapper();
         private readonly IPublisher<RunStartedMessage> _runStartedPublisher;
@@ -36,15 +37,21 @@ namespace MustyBlockBlast.Gameplay.Systems
         private readonly ExplosiveCoreEffect _explosiveCoreEffect = new ExplosiveCoreEffect();
         private readonly LaserEffect _laserEffect = new LaserEffect();
 
+        /// <summary>The odd one out: it changes nothing on the board and only counts the gems this
+        /// placement's resolution destroyed, because the cascade loop keeps its triggers to itself and
+        /// this is the one seam through which that count can be learned.</summary>
+        private readonly ScoreGemEffect _scoreGemEffect = new ScoreGemEffect();
+
         /// <summary>Every installed effect, presented to the cascade loop as the one effect it takes.
         /// Each effect ignores a trigger of a kind that is not its own, so a trigger reaching both of
         /// them is exactly equivalent to dispatching on the kind.</summary>
         private readonly ISpecialCellEffect _specialCellEffects;
 
-        /// <summary>Only ever used to break a tie between equally valid explosive-core spawn cells,
-        /// which cannot arise on the current board shape (see
-        /// <see cref="ExplosiveCoreSpawnSelector.SelectSpawnPosition"/>). Whether a qualifying placement
-        /// spawns one at all is fully deterministic and never touches this.</summary>
+        /// <summary>Used to break a tie between equally valid explosive-core spawn cells, which cannot
+        /// arise on the current board shape (see
+        /// <see cref="ExplosiveCoreSpawnSelector.SelectSpawnPosition"/>), and to pick which occupied
+        /// cell a perfect round's score gem lands on. Whether a qualifying placement or a qualifying
+        /// round spawns anything at all is fully deterministic and never touches this.</summary>
         private readonly Random _random;
         // Sized for the three dock slots plus the parked piece, which CheckGameOver appends.
         private readonly List<Piece> _remainingBuffer = new List<Piece>(TrayModel.SLOT_COUNT + 1);
@@ -61,6 +68,7 @@ namespace MustyBlockBlast.Gameplay.Systems
         public BoardSystem(
             BoardModel boardModel,
             TrayModel trayModel,
+            PerfectRoundModel perfectRoundModel,
             WeightedPieceDraw pieceDraw,
             IPublisher<RunStartedMessage> runStartedPublisher,
             IPublisher<PiecePlacedMessage> piecePlacedPublisher,
@@ -70,8 +78,8 @@ namespace MustyBlockBlast.Gameplay.Systems
             IPublisher<ExplosiveCoreDetonatedMessage> explosiveCoreDetonatedPublisher,
             IPublisher<LaserFiredMessage> laserFiredPublisher)
             : this(
-                boardModel, trayModel, pieceDraw, runStartedPublisher, piecePlacedPublisher,
-                linesClearedPublisher, gameOverPublisher, trayRefilledPublisher,
+                boardModel, trayModel, perfectRoundModel, pieceDraw, runStartedPublisher,
+                piecePlacedPublisher, linesClearedPublisher, gameOverPublisher, trayRefilledPublisher,
                 explosiveCoreDetonatedPublisher, laserFiredPublisher, Environment.TickCount)
         {
         }
@@ -79,6 +87,7 @@ namespace MustyBlockBlast.Gameplay.Systems
         internal BoardSystem(
             BoardModel boardModel,
             TrayModel trayModel,
+            PerfectRoundModel perfectRoundModel,
             WeightedPieceDraw pieceDraw,
             IPublisher<RunStartedMessage> runStartedPublisher,
             IPublisher<PiecePlacedMessage> piecePlacedPublisher,
@@ -92,9 +101,11 @@ namespace MustyBlockBlast.Gameplay.Systems
             _random = new Random(seed);
             _explosiveCoreDetonatedPublisher = explosiveCoreDetonatedPublisher;
             _laserFiredPublisher = laserFiredPublisher;
-            _specialCellEffects = new CompositeSpecialCellEffect(_explosiveCoreEffect, _laserEffect);
+            _specialCellEffects = new CompositeSpecialCellEffect(
+                _explosiveCoreEffect, _laserEffect, _scoreGemEffect);
             _boardModel = boardModel;
             _trayModel = trayModel;
+            _perfectRoundModel = perfectRoundModel;
             _pieceDraw = pieceDraw;
             _runStartedPublisher = runStartedPublisher;
             _piecePlacedPublisher = piecePlacedPublisher;
@@ -227,6 +238,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             // than "every blast since the run started".
             _explosiveCoreEffect.BeginResolution();
             _laserEffect.BeginResolution();
+            _scoreGemEffect.BeginResolution();
 
             CascadeClearResult cascade = CascadeClearResolver.ResolveCascade(
                 _boardModel.Board, _specialCellEffects);
@@ -275,7 +287,8 @@ namespace MustyBlockBlast.Gameplay.Systems
                 piece.Id, anchor, PieceFamilyClassifier.Classify(piece.Id), piece.CellCount, colourId,
                 clearResult.LineCount, clearResult.ClearedRows.Count, clearResult.ClearedColumns.Count,
                 clearResult.MonochromeLineCount, _boardModel.Board.IsEmpty(), occupiedCellCountBeforeClear,
-                anyCornerCleared, _boardModel.Board.IsCenterCoreEmpty(), _boardModel.Board.HasIsolatedEmptyCells()));
+                anyCornerCleared, _boardModel.Board.IsCenterCoreEmpty(), _boardModel.Board.HasIsolatedEmptyCells(),
+                _scoreGemEffect.DestroyedCount));
 
             if (clearResult.AnyCleared)
             {
@@ -304,8 +317,16 @@ namespace MustyBlockBlast.Gameplay.Systems
             // matters is whether the intersection is free once everything has settled.
             TrySpawnExplosiveCore(clearResult, colourId);
 
+            // Recorded after the placement has been fully reported, for the same reason the spawn above
+            // is: this is bookkeeping about the round, and nothing that reads the placement should see
+            // it half-updated.
+            _perfectRoundModel.RecordPlacement(clearResult.AnyCleared);
+
             if (_trayModel.IsEmpty)
             {
+                // Before the refill, which is what resets the round: this placement emptied the dock, so
+                // the cycle ends here and its reward — if it earned one — is owed now.
+                TrySpawnScoreGem();
                 RefillTray();
             }
 
@@ -527,12 +548,46 @@ namespace MustyBlockBlast.Gameplay.Systems
             _boardModel.SetSpecialKind(position, SpecialCellKind.ExplosiveCore);
         }
 
+        /// <summary>
+        /// Spawns the finished dock cycle's <see cref="SpecialCellKind.ScoreGem"/> reward, when it
+        /// earned one: a cycle in which every piece played cleared at least one line always does, with
+        /// no probability roll (see <see cref="ScoreGemSpawnSelector"/>). A cycle that earned none, or
+        /// one that ended with no block left on the board to convert, is silently skipped — not an
+        /// error state.
+        /// <para>
+        /// Converted in place, exactly as a laser is: the block keeps its colour and its occupancy, and
+        /// the icon is what marks it as special. Nothing is occupied here, so the placement that emptied
+        /// the board to finish the round cannot have that achievement quietly taken back by its own
+        /// reward.
+        /// </para>
+        /// </summary>
+        private void TrySpawnScoreGem()
+        {
+            if (!_perfectRoundModel.IsPerfectRound)
+            {
+                return;
+            }
+
+            GridPosition? spawn = ScoreGemSpawnSelector.SelectSpawnPosition(_boardModel.Board, _random);
+            if (spawn == null)
+            {
+                return;
+            }
+
+            _boardModel.SetSpecialKind(spawn.Value, SpecialCellKind.ScoreGem);
+        }
+
         private void RefillTray()
         {
             for (int i = 0; i < TrayModel.SLOT_COUNT; i++)
             {
                 _trayModel.SetSlot(i, _pieceDraw.DrawPiece(), _pieceDraw.DrawColourId());
             }
+
+            // Every refill starts a fresh round, whether or not the one that just ended earned anything
+            // — and a run start goes through here too (StartNewRun refills), so no round state can
+            // survive into the next run.
+            _perfectRoundModel.ResetCycle();
 
             // Published from here rather than from the two call sites, so the opening draw of a run
             // and every mid-run refill are indistinguishable to subscribers.

@@ -1641,6 +1641,7 @@ namespace MustyBlockBlast.Tests.EditMode
             return new BoardSystem(
                 boardModel,
                 trayModel,
+                new PerfectRoundModel(),
                 pieceDraw,
                 new TestMessageBroker<RunStartedMessage>(),
                 new TestMessageBroker<PiecePlacedMessage>(),

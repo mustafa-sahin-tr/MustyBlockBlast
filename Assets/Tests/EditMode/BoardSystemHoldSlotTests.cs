@@ -48,6 +48,7 @@ namespace MustyBlockBlast.Tests.EditMode
             _system = new BoardSystem(
                 _boardModel,
                 _trayModel,
+                new PerfectRoundModel(),
                 new WeightedPieceDraw(seed: 1),
                 _runStartedBroker,
                 _piecePlacedBroker,
