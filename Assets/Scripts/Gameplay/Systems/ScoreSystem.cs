@@ -153,6 +153,14 @@ namespace MustyBlockBlast.Gameplay.Systems
             gained = _doubleMultiplierModel.Multiply(gained);
             bonusGained = _doubleMultiplierModel.Multiply(bonusGained);
 
+            // Layered on top of the frenzy rather than replacing it: each multiplier is applied to the
+            // running total in turn, so a gem destroyed inside a 2x window is worth 6x. Zero stays zero
+            // here too — there is no floor — so a placement that scored nothing scores nothing however
+            // many gems it happened to sweep up. The bonus subtotal is tripled with it for the same
+            // reason it is doubled with it: the celebration must match the points actually credited.
+            gained = ScoreRules.ScoreGemMultiplied(gained, message.DestroyedScoreGemCount);
+            bonusGained = ScoreRules.ScoreGemMultiplied(bonusGained, message.DestroyedScoreGemCount);
+
             if (message.LinesCleared > 0)
             {
                 _scoreModel.Streak.Value += 1;

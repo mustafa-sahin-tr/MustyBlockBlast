@@ -38,5 +38,15 @@ namespace MustyBlockBlast.Core
         /// <see cref="LaserEffect"/>, which owns that chain.
         /// </summary>
         Laser = 2,
+
+        /// <summary>
+        /// A "score gem": the one kind that destroys nothing at all. Destroying it multiplies the
+        /// score of whatever destroyed it — the whole event, base and combo alike — by
+        /// <see cref="ScoreRules.SCORE_GEM_FACTOR"/>. Because it has no board effect there is
+        /// deliberately no <see cref="ISpecialCellEffect"/> implementation that mutates anything for it;
+        /// <see cref="ScoreGemEffect"/> exists only to count the gems one resolution destroyed, and the
+        /// multiplication itself happens in the scoring Systems.
+        /// </summary>
+        ScoreGem = 3,
     }
 }

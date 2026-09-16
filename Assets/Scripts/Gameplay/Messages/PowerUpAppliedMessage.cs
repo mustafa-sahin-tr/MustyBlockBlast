@@ -30,12 +30,22 @@ namespace MustyBlockBlast.Gameplay.Messages
         public PowerUpAppliedMessage(
             PowerUpKind kind, int clearedCellCount, int clearedLineCount, int emptiedLineCount,
             bool wasClutchSave)
+            : this(
+                kind, clearedCellCount, clearedLineCount, emptiedLineCount, wasClutchSave,
+                destroyedScoreGemCount: 0)
+        {
+        }
+
+        public PowerUpAppliedMessage(
+            PowerUpKind kind, int clearedCellCount, int clearedLineCount, int emptiedLineCount,
+            bool wasClutchSave, int destroyedScoreGemCount)
         {
             Kind = kind;
             ClearedCellCount = clearedCellCount;
             ClearedLineCount = clearedLineCount;
             EmptiedLineCount = emptiedLineCount;
             WasClutchSave = wasClutchSave;
+            DestroyedScoreGemCount = destroyedScoreGemCount;
         }
 
         public PowerUpKind Kind { get; }
@@ -68,5 +78,15 @@ namespace MustyBlockBlast.Gameplay.Messages
         /// other kind leaves this false.
         /// </summary>
         public bool WasClutchSave { get; }
+
+        /// <summary>
+        /// How many <see cref="MustyBlockBlast.Core.SpecialCellKind.ScoreGem"/>s this application's
+        /// clear destroyed. Read by
+        /// <see cref="MustyBlockBlast.Gameplay.Systems.PowerUpScoreSystem"/> only, which multiplies this
+        /// application's whole gain by <see cref="MustyBlockBlast.Core.ScoreRules.SCORE_GEM_FACTOR"/>
+        /// when it is non-zero — a gem pays out for the event that destroyed it whether that event was
+        /// a placement or a spent power-up.
+        /// </summary>
+        public int DestroyedScoreGemCount { get; }
     }
 }

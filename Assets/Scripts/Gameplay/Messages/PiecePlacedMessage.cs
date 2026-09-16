@@ -21,6 +21,30 @@ namespace MustyBlockBlast.Gameplay.Messages
             bool anyCornerCleared,
             bool centerCoreEmptyAfterPlacement,
             bool hasIsolatedHolesAfterPlacement)
+            : this(
+                pieceId, anchor, pieceFamily, cellCount, colourId, linesCleared, rowsCleared,
+                columnsCleared, monochromeLineCount, boardEmptyAfterPlacement,
+                occupiedCellCountBeforeClear, anyCornerCleared, centerCoreEmptyAfterPlacement,
+                hasIsolatedHolesAfterPlacement, destroyedScoreGemCount: 0)
+        {
+        }
+
+        public PiecePlacedMessage(
+            string pieceId,
+            GridPosition anchor,
+            PieceFamily pieceFamily,
+            int cellCount,
+            int colourId,
+            int linesCleared,
+            int rowsCleared,
+            int columnsCleared,
+            int monochromeLineCount,
+            bool boardEmptyAfterPlacement,
+            int occupiedCellCountBeforeClear,
+            bool anyCornerCleared,
+            bool centerCoreEmptyAfterPlacement,
+            bool hasIsolatedHolesAfterPlacement,
+            int destroyedScoreGemCount)
         {
             PieceId = pieceId;
             Anchor = anchor;
@@ -36,6 +60,7 @@ namespace MustyBlockBlast.Gameplay.Messages
             AnyCornerCleared = anyCornerCleared;
             CenterCoreEmptyAfterPlacement = centerCoreEmptyAfterPlacement;
             HasIsolatedHolesAfterPlacement = hasIsolatedHolesAfterPlacement;
+            DestroyedScoreGemCount = destroyedScoreGemCount;
         }
 
         public string PieceId { get; }
@@ -83,5 +108,16 @@ namespace MustyBlockBlast.Gameplay.Messages
         /// <summary>True when, after this placement's line clears resolved, at least one empty cell on
         /// the board is unreachable from the edge through other empty cells.</summary>
         public bool HasIsolatedHolesAfterPlacement { get; }
+
+        /// <summary>
+        /// How many <see cref="SpecialCellKind.ScoreGem"/>s this placement's whole resolution destroyed
+        /// — the primary clear and every cascaded phase alike, because a gem is a property of the event
+        /// that destroyed it rather than of the line the player happened to line up.
+        /// <para>
+        /// Read by <see cref="MustyBlockBlast.Gameplay.Systems.ScoreSystem"/> only, which multiplies
+        /// this placement's whole gain by <see cref="ScoreRules.SCORE_GEM_FACTOR"/> when it is non-zero.
+        /// </para>
+        /// </summary>
+        public int DestroyedScoreGemCount { get; }
     }
 }

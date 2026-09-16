@@ -49,6 +49,20 @@ namespace MustyBlockBlast.Presentation.Views
         /// without each theme having to author (and keep legible) a colour for it.</summary>
         private static readonly Color SpecialIconTint = new Color(1f, 0.95f, 0.72f, 1f);
 
+        /// <summary>
+        /// Colour a <see cref="SpecialCellKind.ScoreGem"/>'s icon is drawn in. Fixed and unthemed for
+        /// the reason <see cref="SpecialIconTint"/> is, but deliberately a different hue from it: a gem
+        /// destroys nothing and instead multiplies what the player scores, so it must be told apart at a
+        /// glance from the kinds that do blow a hole in the board — reaching for one is a very different
+        /// decision from reaching for a core or a laser.
+        /// <para>
+        /// The sprite is shared with them on purpose (<c>UiSpriteFactory.Starburst</c>): one sprite for
+        /// every icon is what keeps an icon on any number of cells batching with the rest of the board,
+        /// so the kinds are separated by tint rather than by a second texture.
+        /// </para>
+        /// </summary>
+        private static readonly Color ScoreGemIconTint = new Color(0.44f, 1f, 0.72f, 1f);
+
         private readonly GridPosition[] _previewCells = new GridPosition[16];
 
         // Its own claim set, kept apart from the drag preview's: the silhouette and a drag can be on
@@ -934,7 +948,8 @@ namespace MustyBlockBlast.Presentation.Views
                 return;
             }
 
-            _cells[index].SetSpecialIcon(SpecialIconTint);
+            _cells[index].SetSpecialIcon(
+                kind == SpecialCellKind.ScoreGem ? ScoreGemIconTint : SpecialIconTint);
         }
 
         /// <summary>Draws a clearing cell blended towards the flash tint, keeping it on the same

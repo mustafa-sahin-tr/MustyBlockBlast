@@ -139,6 +139,7 @@ namespace MustyBlockBlast.Presentation
 
             builder.Register<BoardModel>(Lifetime.Singleton);
             builder.Register<TrayModel>(Lifetime.Singleton);
+            builder.Register<PerfectRoundModel>(Lifetime.Singleton);
             builder.Register<ScoreModel>(Lifetime.Singleton);
             builder.Register<TimedHighScoreModel>(Lifetime.Singleton);
             builder.Register<GameModeModel>(Lifetime.Singleton);

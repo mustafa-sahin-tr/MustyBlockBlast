@@ -70,6 +70,12 @@ namespace MustyBlockBlast.Gameplay.Systems
             // was worth nothing, doubled or not.
             gained = _doubleMultiplierModel.Multiply(gained);
 
+            // Layered on top of the frenzy rather than replacing it, exactly as a placement's is: a gem
+            // destroyed by a spent power-up inside a 2x window is worth 6x. The zero case never reaches
+            // here — the early-out above already dropped it — so there is nothing for the (floorless)
+            // tripling to turn into points out of nowhere.
+            gained = ScoreRules.ScoreGemMultiplied(gained, message.DestroyedScoreGemCount);
+
             _scoreModel.Score.Value += gained;
 
             _scoreChangedPublisher.Publish(new ScoreChangedMessage(
