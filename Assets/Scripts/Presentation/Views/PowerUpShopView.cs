@@ -108,8 +108,10 @@ namespace MustyBlockBlast.Presentation.Views
         /// the centre line.</summary>
         private const float WAS_PRICE_RISE = 0.26f;
 
-        /// <summary>Alpha applied to a row whose kind is still behind its level gate, matching
-        /// <see cref="PowerUpInventoryView"/>'s locked slots so "locked" reads the same in both places.</summary>
+        /// <summary>Alpha applied to a row whose kind is still behind its level gate. Unlike
+        /// <see cref="PowerUpInventoryView"/>, which hides a locked kind's slot entirely, this is a full
+        /// catalog: every kind gets a row regardless of level, so "locked" has to be a visual state here
+        /// rather than an absence.</summary>
         private const float LOCKED_ROW_ALPHA = 0.35f;
 
         /// <summary>Alpha applied to a row the player cannot currently afford. Above the locked alpha on

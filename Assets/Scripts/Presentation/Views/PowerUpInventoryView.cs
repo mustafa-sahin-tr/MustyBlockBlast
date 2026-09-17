@@ -30,11 +30,12 @@ namespace MustyBlockBlast.Presentation.Views
     /// a random or chosen one — so the slots are also the rewarded placements.
     /// </para>
     /// <para>
-    /// A slot has three states, not two: locked (the kind's unlock level is ahead of the player, see
-    /// <see cref="PowerUpUnlockLevels"/>), held (a count) and empty (the earn offer). Locked is drawn
-    /// distinctly from empty and refuses its tap outright — an empty slot is an offer, a locked one is
-    /// not — and it keeps its exact position and size, so the strip never reflows as kinds unlock. The
-    /// level gate is a live subscription, so reaching a kind's level reveals it in the same run.
+    /// A slot has two states, not three: held (a count) and empty (the earn offer). A kind still
+    /// behind its level gate (see <see cref="PowerUpUnlockLevels"/>) is not drawn at all — no padlock,
+    /// no reserved space — so the strip is only ever as wide as the kinds the player can actually use,
+    /// and it reflows as kinds unlock. The level gate is a live subscription, so reaching a kind's
+    /// level reveals it in the same run; the reveal is animated rather than snapped, because the whole
+    /// strip shifts when it happens.
     /// </para>
     /// <para>
     /// Slot index and kind are bound in exactly one place, <see cref="SlotKinds"/>: every parallel
@@ -66,20 +67,29 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>Alpha applied to a slot the player holds none of, so "empty" reads at a glance.</summary>
         private const float EMPTY_SLOT_ALPHA = 0.35f;
 
+        /// <summary>Side of the count badge, as a fraction of the slot.</summary>
+        private const float BADGE_SIZE = 0.36f;
+
+        /// <summary>How far the badge is pushed past the plate's bottom-right corner. Sitting slightly
+        /// outside the plate is what makes it read as a chip stuck onto the slot rather than as part of
+        /// the icon.</summary>
+        private const float BADGE_CORNER_OVERLAP = 4f;
+
+        /// <summary>Fraction of the badge the count glyph may fill. The serialized font size is a
+        /// preference, not a promise: the badge is small enough that an unclamped size would spill off
+        /// the chip, and a number that overhangs its own badge reads as a glitch.</summary>
+        private const float BADGE_FONT_FILL = 0.66f;
+
         /// <summary>
-        /// Alpha applied to a slot whose kind has not been unlocked yet. Deliberately below
-        /// <see cref="EMPTY_SLOT_ALPHA"/>: "locked" and "empty but earnable" are two different offers —
-        /// one is a dead slot until the player levels up, the other is a tap away — and they must not
-        /// be mistakable for each other.
+        /// Divides the rounded square's baked 16px corner radius when the sprite is sliced: the lower
+        /// the multiplier, the larger the rendered radius. Tuned so the plate reads as a rounded pill
+        /// rather than as a softened square at <see cref="_slotSize"/>.
         /// </summary>
-        private const float LOCKED_SLOT_ALPHA = 0.18f;
+        private const float PLATE_CORNER_MULTIPLIER = 1.7f;
 
-        /// <summary>Side of the padlock's body, as a fraction of the slot. Drawn over the dimmed glyph
-        /// rather than replacing it, so the player can still see which kind is waiting for them.</summary>
-        private const float LOCK_BODY_SIZE = 0.30f;
-
-        /// <summary>The shackle above the padlock body, as a fraction of the slot.</summary>
-        private const float LOCK_SHACKLE_SIZE = 0.18f;
+        /// <summary>How long the strip takes to slide to its new width when a kind unlocks. Long enough
+        /// to be read as a reveal, short enough not to delay the tap that follows it.</summary>
+        private const float REFLOW_DURATION_SECONDS = 0.22f;
 
         /// <summary>Alpha of the whole strip once the run is over and nothing can be armed.</summary>
         private const float RUN_OVER_ALPHA = 0.4f;
@@ -87,10 +97,6 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>Drawn in place of the count on a slot the player holds none of: that slot's tap is
         /// the "earn one" gesture, so it reads as an offer rather than as a dead icon showing 0.</summary>
         private const string EARN_AFFORDANCE_LABEL = "+";
-
-        /// <summary>Prefixes the unlock level drawn where a locked slot would show its count, so the
-        /// number reads as "reach level 5" rather than as "you hold five of these".</summary>
-        private const string LOCKED_LEVEL_PREFIX = "Lv";
 
         /// <summary>Turns the joker's square glyph onto its point, so it is distinct from the bomb's
         /// disc and the two clear bars without needing a fourth sprite.</summary>
@@ -141,11 +147,13 @@ namespace MustyBlockBlast.Presentation.Views
         private readonly Text[] _countTexts = new Text[SlotCount];
         private readonly int[] _counts = new int[SlotCount];
 
-        /// <summary>The padlock drawn over a slot still behind its level gate: a body and the shackle
-        /// above it. Built once with every other slot part and simply hidden while unlocked, so a level
-        /// up never rebuilds the canvas mesh.</summary>
-        private readonly Image[] _lockBodyImages = new Image[SlotCount];
-        private readonly Image[] _lockShackleImages = new Image[SlotCount];
+        /// <summary>The chip the count (or the earn offer's "+") is drawn on, overlapping the plate's
+        /// bottom-right corner.</summary>
+        private readonly Image[] _badgeImages = new Image[SlotCount];
+
+        /// <summary>Where each slot sat when the current reflow started, so the animation can slide from
+        /// there. Pre-allocated because a reflow runs per frame and must not allocate.</summary>
+        private readonly float[] _reflowStartX = new float[SlotCount];
 
         /// <summary>Per slot: a reward request is in flight. Guards against a rapid double tap firing
         /// two concurrent requests and banking two power-ups for one watch.</summary>
@@ -166,8 +174,20 @@ namespace MustyBlockBlast.Presentation.Views
 
         /// <summary>The player's progression frontier, mirrored from
         /// <see cref="LevelProgressionModel.CurrentLevelNumber"/> so a repaint never has to reach back
-        /// through the model. Every slot's locked state is derived from this one number.</summary>
+        /// through the model. Which slots exist at all is derived from this one number.</summary>
         private int _currentLevelNumber;
+
+        /// <summary>How many leading slots are on screen. Everything the strip lays out — spacing, its
+        /// own width, which slots a tap may hit — is measured from this rather than from
+        /// <see cref="SlotCount"/>, so a locked kind costs no space.</summary>
+        private int _visibleCount;
+
+        /// <summary>Guards the very first level push (which seeds the opening paint) from animating: on
+        /// the first paint there is no previous layout to slide away from.</summary>
+        private bool _hasSeededLevel;
+
+        /// <summary>The running reflow, cancelled when a newer one starts or the View goes away.</summary>
+        private CancellationTokenSource _reflowCts;
 
         [Inject]
         public void Construct(
@@ -233,14 +253,18 @@ namespace MustyBlockBlast.Presentation.Views
             _gameOverSubscriber.Subscribe(OnGameOver).AddTo(_disposables);
         }
 
-        private void OnDestroy() => _disposables.Dispose();
+        private void OnDestroy()
+        {
+            CancelReflow();
+            _disposables.Dispose();
+        }
 
         /// <summary>
         /// Routes a tap that landed on one of the icons: arms that kind, cancels it when it is already
         /// the armed one, or — on a slot the player holds none of — asks for one to be earned. Returns
         /// false when the point is on no icon, so <see cref="BoardInputView"/> can carry on down its
-        /// gate chain. A tap on a locked slot is claimed but does nothing at all — no arm, no apply, no
-        /// earn request.
+        /// gate chain. Only the slots currently on screen are considered: a kind behind its level gate
+        /// is not drawn, so there is no point on the canvas that could resolve to it.
         /// <para>
         /// <see cref="PowerUpKind.Reroll"/> and <see cref="PowerUpKind.DoubleMultiplier"/> are the
         /// exceptions to the arm-then-aim flow: with no target to aim at there is no second tap to wait
@@ -254,7 +278,7 @@ namespace MustyBlockBlast.Presentation.Views
                 return false;
             }
 
-            for (int slotIndex = 0; slotIndex < SlotCount; slotIndex++)
+            for (int slotIndex = 0; slotIndex < _visibleCount; slotIndex++)
             {
                 if (!ContainsScreenPoint(slotIndex, screenPosition))
                 {
@@ -262,16 +286,6 @@ namespace MustyBlockBlast.Presentation.Views
                 }
 
                 PowerUpKind kind = SlotKinds[slotIndex];
-                if (IsSlotLocked(slotIndex))
-                {
-                    // A kind the player has not reached yet. Refused the same way an empty-but-unlocked
-                    // slot's arm is refused by the System — completely, before any branch below can
-                    // arm, apply or offer a reward for it. The tap is still claimed (returned true) so
-                    // it does not fall through to the board underneath: the icon is on screen and
-                    // occupying this point, locked or not.
-                    return true;
-                }
-
                 if (kind == PowerUpKind.Reroll && _counts[slotIndex] > 0)
                 {
                     // The kinds with no target: there is nothing to aim at, so the tap that would arm
@@ -410,10 +424,27 @@ namespace MustyBlockBlast.Presentation.Views
             RefreshSlot(slotIndex);
         }
 
-        /// <summary>Whether the slot's kind is still behind its level gate. Derived on demand from the
-        /// one mirrored level number, so "locked" has a single source and cannot go stale.</summary>
-        private bool IsSlotLocked(int slotIndex)
-            => !PowerUpUnlockLevels.IsUnlockedAt(SlotKinds[slotIndex], _currentLevelNumber);
+        /// <summary>
+        /// How many leading slots the mirrored level number unlocks. A single count is enough rather
+        /// than a flag per slot because <see cref="SlotKinds"/> is ordered by ascending unlock level,
+        /// so the unlocked kinds are always a prefix of it — the loop still asks the gate table for
+        /// every kind and stops at the first locked one rather than assuming that ordering silently.
+        /// </summary>
+        private int ResolveVisibleCount()
+        {
+            int visibleCount = 0;
+            for (int slotIndex = 0; slotIndex < SlotCount; slotIndex++)
+            {
+                if (!PowerUpUnlockLevels.IsUnlockedAt(SlotKinds[slotIndex], _currentLevelNumber))
+                {
+                    break;
+                }
+
+                visibleCount++;
+            }
+
+            return visibleCount;
+        }
 
         /// <summary>Every slot is repainted rather than only the one that just unlocked: which slots a
         /// level change affects is exactly what the gate table decides, and asking it nine times is
@@ -421,6 +452,16 @@ namespace MustyBlockBlast.Presentation.Views
         private void OnLevelChanged(int currentLevelNumber)
         {
             _currentLevelNumber = currentLevelNumber;
+
+            int visibleCount = ResolveVisibleCount();
+            if (visibleCount != _visibleCount)
+            {
+                bool animate = _hasSeededLevel;
+                _visibleCount = visibleCount;
+                ApplyLayout(animate);
+            }
+
+            _hasSeededLevel = true;
             RefreshAllSlots();
         }
 
@@ -449,22 +490,17 @@ namespace MustyBlockBlast.Presentation.Views
 
         private void RefreshAllSlots()
         {
-            for (int slotIndex = 0; slotIndex < SlotCount; slotIndex++)
+            for (int slotIndex = 0; slotIndex < _visibleCount; slotIndex++)
             {
                 RefreshSlot(slotIndex);
             }
         }
 
         /// <summary>
-        /// Repaints one slot from the four inputs that can change how it looks: the theme, the count
-        /// held, whether this kind is the armed one, and whether it is still behind its level gate.
-        /// <para>
-        /// Three mutually exclusive states, in priority order. Locked wins outright — a slot the player
-        /// cannot reach yet is neither armed nor an offer — then "holds some" (the count), then "holds
-        /// none" (the earn affordance). The slot keeps its position and size in all three: only colour,
-        /// the padlock's visibility and the label change, so nothing reflows and the strip's width math
-        /// never sees a locked slot at all.
-        /// </para>
+        /// Repaints one slot from the three inputs that can change how it looks: the theme, the count
+        /// held, and whether this kind is the armed one. A kind behind its level gate never reaches
+        /// here — it has no slot on screen at all — so there are two states, not three: "holds some"
+        /// (the count) and "holds none" (the earn affordance).
         /// </summary>
         private void RefreshSlot(int slotIndex)
         {
@@ -473,10 +509,9 @@ namespace MustyBlockBlast.Presentation.Views
                 return;
             }
 
-            bool isLocked = IsSlotLocked(slotIndex);
-            bool isArmed = !isLocked && _armed == SlotKinds[slotIndex];
-            bool isAvailable = !isLocked && _counts[slotIndex] > 0;
-            float alpha = isLocked ? LOCKED_SLOT_ALPHA : (isAvailable ? 1f : EMPTY_SLOT_ALPHA);
+            bool isArmed = _armed == SlotKinds[slotIndex];
+            bool isAvailable = _counts[slotIndex] > 0;
+            float alpha = isAvailable ? 1f : EMPTY_SLOT_ALPHA;
 
             // The armed slot inverts: the accent fills the plate and the glyph is punched out of it in
             // the plate's usual colour, which reads as "selected" without needing a second sprite.
@@ -492,29 +527,20 @@ namespace MustyBlockBlast.Presentation.Views
             _plateImages[slotIndex].color = WithAlpha(plateColour, alpha);
             _shadowImages[slotIndex].color = WithAlpha(_currentTheme.CardShadow, alpha);
             _glyphImages[slotIndex].color = WithAlpha(glyphColour, glyphAlpha);
-            // The locked label states the requirement, so it is exempt from the slot's dimming for the
-            // same reason the padlock is: dimming the one thing that explains the dimming would be
-            // self-defeating.
-            _countTexts[slotIndex].color = WithAlpha(_currentTheme.Ink, isLocked ? 1f : alpha);
 
-            // The padlock is drawn at full strength over the dimmed slot: the lock is the one thing on
-            // a locked slot that has to read clearly.
-            Color lockColour = isLocked ? _currentTheme.Ink : Color.clear;
-            _lockBodyImages[slotIndex].color = lockColour;
-            _lockShackleImages[slotIndex].color = lockColour;
+            // The badge is drawn at full strength over an otherwise dimmed empty slot, and is left out
+            // of the armed state's colour swap entirely: it is the one part of the slot that states a
+            // number, and a number has to be legible in every state the plate can take.
+            // Two tones, so the offer is never mistaken for a stock of one: the accent means "you hold
+            // this many", the softer ink means "tap to earn one".
+            _badgeImages[slotIndex].color = isAvailable ? _currentTheme.Accent : _currentTheme.SoftInk;
+            _countTexts[slotIndex].color = _currentTheme.CardBackground;
 
             float scale = isArmed ? _armedScale : 1f;
             _slotRects[slotIndex].localScale = new Vector3(scale, scale, 1f);
 
             _countBuilder.Clear();
-            if (isLocked)
-            {
-                // The level to reach, not a count: the prefix is what keeps "Lv5" from being read as
-                // five of them in stock.
-                _countBuilder.Append(LOCKED_LEVEL_PREFIX);
-                _countBuilder.Append(PowerUpUnlockLevels.LevelFor(SlotKinds[slotIndex]));
-            }
-            else if (isAvailable)
+            if (isAvailable)
             {
                 _countBuilder.Append(_counts[slotIndex]);
             }
@@ -529,52 +555,177 @@ namespace MustyBlockBlast.Presentation.Views
         private static Color WithAlpha(Color colour, float alphaScale)
             => new Color(colour.r, colour.g, colour.b, colour.a * alphaScale);
 
+        /// <summary>
+        /// Builds every slot up front, including the ones still behind their level gate, and then hands
+        /// the arrangement to <see cref="ApplyLayout"/>. Hidden slots are deactivated rather than never
+        /// created: unlocking mid-run then costs one SetActive instead of building a GameObject, and a
+        /// deactivated slot reserves no space and can catch no tap.
+        /// </summary>
         private void BuildSlots()
         {
             var rect = (RectTransform)transform;
             rect.anchorMin = new Vector2(0.5f, 0.5f);
             rect.anchorMax = new Vector2(0.5f, 0.5f);
             rect.pivot = new Vector2(0.5f, 0.5f);
-            float spacing = ResolveSlotSpacing();
-            rect.sizeDelta = new Vector2((spacing * (SlotCount - 1)) + _slotSize, _slotSize);
             rect.anchoredPosition = _anchoredPosition;
 
             // Every size here is in canvas reference units, so the strip owns its own scale rather
             // than inheriting whatever the scene object happened to be created with.
             rect.localScale = Vector3.one;
 
-            float originX = -spacing * ((SlotCount - 1) * 0.5f);
+            // The widest the strip can ever be, so the shadow padding a slot is built with does not
+            // have to be revised every time the strip reflows.
+            float spacing = SpacingFor(SlotCount);
 
             for (int slotIndex = 0; slotIndex < SlotCount; slotIndex++)
             {
-                BuildSlot(rect, slotIndex, originX + (slotIndex * spacing), spacing);
+                BuildSlot(rect, slotIndex, spacing);
             }
+
+            _visibleCount = ResolveVisibleCount();
+            ApplyLayout(animate: false);
         }
 
         /// <summary>
         /// The spacing the strip is actually laid out with: the preferred value, squeezed just enough
-        /// to keep the whole strip inside <see cref="_maxStripWidth"/>. Derived rather than authored so
-        /// adding a kind widens the gaps' arithmetic instead of pushing the outermost slot off screen —
-        /// the serialized spacing is already close to the canvas width at six slots.
+        /// to keep the whole strip inside <see cref="_maxStripWidth"/>. Measured from the slots on
+        /// screen rather than from <see cref="SlotCount"/>, so the strip only pays the squeeze once the
+        /// kinds that need it have actually unlocked.
         /// </summary>
-        private float ResolveSlotSpacing()
+        private float ResolveSlotSpacing() => SpacingFor(_visibleCount);
+
+        private float SpacingFor(int slotCount)
         {
-            if (SlotCount <= 1)
+            if (slotCount <= 1)
             {
                 return _slotSpacing;
             }
 
-            float maxSpacing = (_maxStripWidth - _slotSize) / (SlotCount - 1);
+            float maxSpacing = (_maxStripWidth - _slotSize) / (slotCount - 1);
             return _slotSpacing <= maxSpacing ? _slotSpacing : maxSpacing;
         }
 
-        private void BuildSlot(RectTransform parent, int slotIndex, float centreX, float spacing)
+        /// <summary>
+        /// Places the visible slots and sizes the strip around them. A growth is slid rather than
+        /// snapped: every slot already on screen shifts when one is revealed, and a whole strip jumping
+        /// sideways under the player's thumb reads as a glitch rather than as a reward.
+        /// </summary>
+        private void ApplyLayout(bool animate)
+        {
+            CancelReflow();
+
+            float spacing = ResolveSlotSpacing();
+            float originX = -spacing * ((_visibleCount - 1) * 0.5f);
+            float width = _visibleCount > 0 ? (spacing * (_visibleCount - 1)) + _slotSize : 0f;
+            var rect = (RectTransform)transform;
+
+            for (int slotIndex = 0; slotIndex < SlotCount; slotIndex++)
+            {
+                RectTransform slotRect = _slotRects[slotIndex];
+                if (slotRect == null)
+                {
+                    continue;
+                }
+
+                bool isVisible = slotIndex < _visibleCount;
+                _reflowStartX[slotIndex] = slotRect.gameObject.activeSelf
+                    ? slotRect.anchoredPosition.x
+                    : originX + (slotIndex * spacing);
+                slotRect.gameObject.SetActive(isVisible);
+            }
+
+            if (!animate)
+            {
+                rect.sizeDelta = new Vector2(width, _slotSize);
+                for (int slotIndex = 0; slotIndex < _visibleCount; slotIndex++)
+                {
+                    _slotRects[slotIndex].anchoredPosition = new Vector2(originX + (slotIndex * spacing), 0f);
+                }
+
+                return;
+            }
+
+            _reflowCts = CancellationTokenSource.CreateLinkedTokenSource(this.GetCancellationTokenOnDestroy());
+            ReflowAsync(rect, originX, spacing, width, _reflowCts.Token).Forget();
+        }
+
+        private async UniTaskVoid ReflowAsync(
+            RectTransform rect, float originX, float spacing, float width, CancellationToken cancellationToken)
+        {
+            float startWidth = rect.sizeDelta.x;
+            int animatedCount = _visibleCount;
+
+            try
+            {
+                float elapsed = 0f;
+                while (elapsed < REFLOW_DURATION_SECONDS)
+                {
+                    // Unscaled: the strip must still reveal itself while the run is paused behind a
+                    // level-up panel, which is exactly when a kind unlocks.
+                    float progress = EaseOutCubic(elapsed / REFLOW_DURATION_SECONDS);
+                    ApplyReflowFrame(rect, originX, spacing, width, startWidth, animatedCount, progress);
+                    await UniTask.Yield(PlayerLoopTiming.Update, cancellationToken);
+                    elapsed += Time.unscaledDeltaTime;
+                }
+
+                ApplyReflowFrame(rect, originX, spacing, width, startWidth, animatedCount, 1f);
+            }
+            catch (OperationCanceledException)
+            {
+                // Superseded by a newer reflow, which has already taken over the final positions, or
+                // the View went away.
+            }
+        }
+
+        private void ApplyReflowFrame(
+            RectTransform rect,
+            float originX,
+            float spacing,
+            float width,
+            float startWidth,
+            int animatedCount,
+            float progress)
+        {
+            rect.sizeDelta = new Vector2(Mathf.Lerp(startWidth, width, progress), _slotSize);
+
+            for (int slotIndex = 0; slotIndex < animatedCount; slotIndex++)
+            {
+                RectTransform slotRect = _slotRects[slotIndex];
+                if (slotRect == null)
+                {
+                    continue;
+                }
+
+                float targetX = originX + (slotIndex * spacing);
+                slotRect.anchoredPosition = new Vector2(
+                    Mathf.Lerp(_reflowStartX[slotIndex], targetX, progress), 0f);
+            }
+        }
+
+        private void CancelReflow()
+        {
+            if (_reflowCts == null)
+            {
+                return;
+            }
+
+            _reflowCts.Cancel();
+            _reflowCts.Dispose();
+            _reflowCts = null;
+        }
+
+        private static float EaseOutCubic(float t)
+        {
+            float inverse = 1f - t;
+            return 1f - (inverse * inverse * inverse);
+        }
+
+        private void BuildSlot(RectTransform parent, int slotIndex, float spacing)
         {
             var slotObject = new GameObject($"PowerUpSlot_{SlotKinds[slotIndex]}", typeof(RectTransform));
             var slotRect = (RectTransform)slotObject.transform;
             slotRect.SetParent(parent, false);
             Centre(slotRect, new Vector2(_slotSize, _slotSize));
-            slotRect.anchoredPosition = new Vector2(centreX, 0f);
             _slotRects[slotIndex] = slotRect;
 
             // The shadow reads as a drop shadow by being larger than the plate it sits behind — but at
@@ -596,51 +747,27 @@ namespace MustyBlockBlast.Presentation.Views
             _plateImages[slotIndex] = ConfigurePlate(plateObject.GetComponent<Image>());
 
             _glyphImages[slotIndex] = BuildGlyph(plateRect, SlotKinds[slotIndex]);
-            BuildLock(slotRect, slotIndex);
+
+            // The badge is a sibling of the plate rather than a child of it, and built after it, so it
+            // draws over both the plate and the glyph without inheriting the plate's colour.
+            float badgeSide = _slotSize * BADGE_SIZE;
+            var badgeObject = new GameObject("CountBadge", typeof(RectTransform), typeof(Image));
+            var badgeRect = (RectTransform)badgeObject.transform;
+            badgeRect.SetParent(slotRect, false);
+            badgeRect.anchorMin = new Vector2(1f, 0f);
+            badgeRect.anchorMax = new Vector2(1f, 0f);
+            badgeRect.pivot = new Vector2(0.5f, 0.5f);
+            badgeRect.sizeDelta = new Vector2(badgeSide, badgeSide);
+            badgeRect.anchoredPosition = new Vector2(BADGE_CORNER_OVERLAP, -BADGE_CORNER_OVERLAP);
+            _badgeImages[slotIndex] = ConfigureCircle(badgeObject.GetComponent<Image>());
 
             // Counts are built here, before the theme or the inventory is known; the subscriptions in
             // Start fill in both.
+            int fontSize = Mathf.Min(_countFontSize, Mathf.RoundToInt(badgeSide * BADGE_FONT_FILL));
             Text countText = UiTextFactory.Create(
-                slotRect, "Count", _countFontSize, FontStyle.Bold, Color.clear);
-            var countRect = (RectTransform)countText.transform;
-            countRect.anchorMin = new Vector2(1f, 0f);
-            countRect.anchorMax = new Vector2(1f, 0f);
-            countRect.pivot = new Vector2(1f, 0f);
-            countRect.anchoredPosition = new Vector2(4f, -10f);
-            countText.alignment = TextAnchor.LowerRight;
+                badgeRect, "Count", fontSize, FontStyle.Bold, Color.clear);
+            ((RectTransform)countText.transform).sizeDelta = new Vector2(badgeSide, badgeSide);
             _countTexts[slotIndex] = countText;
-        }
-
-        /// <summary>
-        /// The padlock shown over a slot still behind its level gate: the shared rounded square as the
-        /// body with the shared circle above it as the shackle — the tenth and eleventh use of the same
-        /// two sprites, so the lock costs no new art and stays in the strip's existing draw call.
-        /// <para>
-        /// Built for every slot up front and shown by colour alone (transparent while unlocked) rather
-        /// than by toggling the GameObject: unlocking mid-run would otherwise rebuild the shared canvas
-        /// mesh, which is the same reason <see cref="SetRunOver"/> dims the strip instead of
-        /// deactivating it. Its size and position are wholly inside the slot, so a locked slot occupies
-        /// exactly the space an unlocked one does and the strip's width and spacing never move.
-        /// </para>
-        /// </summary>
-        private void BuildLock(RectTransform slotRect, int slotIndex)
-        {
-            float bodySide = _slotSize * LOCK_BODY_SIZE;
-            float shackleSide = _slotSize * LOCK_SHACKLE_SIZE;
-
-            var shackleObject = new GameObject("LockShackle", typeof(RectTransform), typeof(Image));
-            var shackleRect = (RectTransform)shackleObject.transform;
-            shackleRect.SetParent(slotRect, false);
-            Centre(shackleRect, new Vector2(shackleSide, shackleSide));
-            shackleRect.anchoredPosition = new Vector2(0f, bodySide * 0.5f);
-            _lockShackleImages[slotIndex] = ConfigureCircle(shackleObject.GetComponent<Image>());
-
-            // The body last, so it draws over the shackle's lower half and leaves a ring above it.
-            var bodyObject = new GameObject("LockBody", typeof(RectTransform), typeof(Image));
-            var bodyRect = (RectTransform)bodyObject.transform;
-            bodyRect.SetParent(slotRect, false);
-            Centre(bodyRect, new Vector2(bodySide, bodySide));
-            _lockBodyImages[slotIndex] = ConfigurePlate(bodyObject.GetComponent<Image>());
         }
 
         /// <summary>
@@ -745,7 +872,7 @@ namespace MustyBlockBlast.Presentation.Views
         {
             image.sprite = UiSpriteFactory.RoundedSquare;
             image.type = Image.Type.Sliced;
-            image.pixelsPerUnitMultiplier = 3f;
+            image.pixelsPerUnitMultiplier = PLATE_CORNER_MULTIPLIER;
             image.color = Color.clear;
             image.raycastTarget = false;
             return image;
