@@ -422,6 +422,22 @@ MonoBehaviour:
     m_Localized: Elite Scorer
     m_Metadata:
       m_Items: []
+  - m_Id: 1371178030587920
+    m_Localized: RUN OVER
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587921
+    m_Localized: Score {0}
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587922
+    m_Localized: Total {0}
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587923
+    m_Localized: Tap to continue
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []
