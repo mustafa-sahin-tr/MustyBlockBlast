@@ -22,6 +22,10 @@ MonoBehaviour:
     m_Localized: '{0} sn'
     m_Metadata:
       m_Items: []
+  - m_Id: 1253490004320258
+    m_Localized: '{0} dk'
+    m_Metadata:
+      m_Items: []
   - m_Id: 762306560
     m_Localized: "Ge\xE7mek i\xE7in dokun"
     m_Metadata:

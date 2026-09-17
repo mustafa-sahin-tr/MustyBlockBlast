@@ -1558,7 +1558,7 @@ namespace MustyBlockBlast.Tests.EditMode
                 new GameModeSystem(new GameModeModel(), boardSystem),
                 new TimedModeSystem(new TimedModeModel(), timedModeConfig),
                 boardSystem,
-                new TestMessageBroker<TrayRefilledMessage>(),
+                new TestMessageBroker<RunStartedMessage>(),
                 new TestMessageBroker<GameOverMessage>());
         }
 

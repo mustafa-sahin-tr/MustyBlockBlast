@@ -22,10 +22,10 @@ namespace MustyBlockBlast.Gameplay.Settings
 
         [Header("Durations")]
         [Tooltip("Selectable round lengths in seconds, in display order.")]
-        [SerializeField] private float[] _durationsSeconds = { 5f, 10f, 15f, 20f, 25f };
+        [SerializeField] private float[] _durationsSeconds = { 180f, 300f, 600f };
 
         [Tooltip("Index into the list above that a fresh boot starts on. Clamped, so it is safe to shorten the list.")]
-        [SerializeField] private int _defaultDurationIndex = 2;
+        [SerializeField] private int _defaultDurationIndex = 1;
 
         /// <summary>Selectable round lengths in seconds, in display order. Never null.</summary>
         public IReadOnlyList<float> DurationsSeconds => _durationsSeconds ?? EmptyDurations;

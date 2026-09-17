@@ -950,14 +950,15 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         /// <summary>
-        /// Renders a round length through the shared seconds format, the same one the countdown HUD
-        /// and the game-over card use, so a length is spelled identically everywhere it appears.
+        /// Renders a round length through the shared minutes format, the same one the best-score suffix
+        /// and the game-over card use, so a length is spelled identically everywhere it is named. Round
+        /// lengths are whole minutes, so the countdown's own mm:ss clock is not reused here.
         /// </summary>
         private string FormatDuration(float seconds)
         {
             _stringBuilder.Clear();
-            _stringBuilder.Append(Mathf.RoundToInt(seconds));
-            return _localizationSystem.Format(LocalizationKeys.FORMAT_SECONDS, _stringBuilder.ToString());
+            _stringBuilder.Append(Mathf.RoundToInt(seconds / 60f));
+            return _localizationSystem.Format(LocalizationKeys.FORMAT_MINUTES, _stringBuilder.ToString());
         }
 
         /// <summary>Repaints the mode cards' selection outline. Shared by the theme and mode handlers.</summary>

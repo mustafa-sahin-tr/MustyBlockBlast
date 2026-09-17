@@ -22,6 +22,10 @@ MonoBehaviour:
     m_Localized: '{0} s'
     m_Metadata:
       m_Items: []
+  - m_Id: 1253490004320258
+    m_Localized: '{0} min'
+    m_Metadata:
+      m_Items: []
   - m_Id: 762306560
     m_Localized: Toca para omitir
     m_Metadata:

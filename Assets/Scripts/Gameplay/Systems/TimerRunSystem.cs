@@ -10,8 +10,8 @@ namespace MustyBlockBlast.Gameplay.Systems
     /// <summary>
     /// Drives the <see cref="GameMode.Timed"/> countdown. Owns <see cref="TimerModel"/>.
     /// <list type="bullet">
-    /// <item>Starts/resets to the selected duration on every tray refill — the opening draw of a run
-    /// and every later refill. Placing a single piece never resets it.</item>
+    /// <item>Starts once per run, at the selected match length, on <see cref="RunStartedMessage"/>.
+    /// Placing a piece and refilling the tray never reset it: the whole match shares one clock.</item>
     /// <item>Reaching zero ends the run through <see cref="BoardSystem.ForceGameOver"/>, so "the run
     /// is over" stays a single invariant owned by <see cref="BoardSystem"/>.</item>
     /// <item>Does nothing at all in endless runs, and is cleared when the mode leaves timed.</item>
@@ -26,12 +26,19 @@ namespace MustyBlockBlast.Gameplay.Systems
     /// </summary>
     public sealed class TimerRunSystem : ITickable, IDisposable
     {
+        /// <summary>
+        /// Remaining seconds at which the HUD switches to its low-time look. Ten seconds, which is
+        /// about one placement's worth of thinking time — long enough to act on, short enough that it
+        /// does not sit lit for most of a three-minute round.
+        /// </summary>
+        private const float LOW_TIME_WARNING_THRESHOLD_SECONDS = 10f;
+
         private readonly TimerModel _timerModel;
         private readonly RunPauseModel _runPauseModel;
         private readonly GameModeSystem _gameModeSystem;
         private readonly TimedModeSystem _timedModeSystem;
         private readonly BoardSystem _boardSystem;
-        private readonly IDisposable _trayRefilledSubscription;
+        private readonly IDisposable _runStartedSubscription;
         private readonly IDisposable _gameOverSubscription;
         private readonly IDisposable _modeSubscription;
 
@@ -45,7 +52,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             GameModeSystem gameModeSystem,
             TimedModeSystem timedModeSystem,
             BoardSystem boardSystem,
-            ISubscriber<TrayRefilledMessage> trayRefilledSubscriber,
+            ISubscriber<RunStartedMessage> runStartedSubscriber,
             ISubscriber<GameOverMessage> gameOverSubscriber)
         {
             _timerModel = timerModel;
@@ -54,7 +61,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             _timedModeSystem = timedModeSystem;
             _boardSystem = boardSystem;
 
-            _trayRefilledSubscription = trayRefilledSubscriber.Subscribe(OnTrayRefilled);
+            _runStartedSubscription = runStartedSubscriber.Subscribe(OnRunStarted);
             _gameOverSubscription = gameOverSubscriber.Subscribe(OnGameOver);
             _modeSubscription = _gameModeSystem.CurrentMode.Subscribe(OnModeChanged);
         }
@@ -113,6 +120,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             if (remaining > 0f)
             {
                 _timerModel.RemainingSeconds.Value = remaining;
+                _timerModel.IsLowTime.Value = remaining < LOW_TIME_WARNING_THRESHOLD_SECONDS;
                 return;
             }
 
@@ -123,12 +131,16 @@ namespace MustyBlockBlast.Gameplay.Systems
 
         public void Dispose()
         {
-            _trayRefilledSubscription.Dispose();
+            _runStartedSubscription.Dispose();
             _gameOverSubscription.Dispose();
             _modeSubscription.Dispose();
         }
 
-        private void OnTrayRefilled(TrayRefilledMessage message)
+        /// <summary>
+        /// Starts the one clock this run gets, at the selected match length. Fires once per run — the
+        /// board being emptied and the tray drawn — so later refills cannot hand out extra time.
+        /// </summary>
+        private void OnRunStarted(RunStartedMessage message)
         {
             if (_gameModeSystem.CurrentMode.Value != GameMode.Timed)
             {
@@ -140,11 +152,12 @@ namespace MustyBlockBlast.Gameplay.Systems
             _isPowerUpArmedPaused = false;
             _timerModel.RemainingSeconds.Value = _timedModeSystem.SelectedDuration.Value;
             _timerModel.IsRunning.Value = true;
+            _timerModel.IsLowTime.Value = false;
         }
 
         /// <summary>
         /// Stops the clock whichever way the run ended — expiring here, or running out of moves. Note
-        /// the restart path re-arms it: restarting refills the tray, which is the reset trigger.
+        /// the restart path re-arms it: restarting starts a fresh run, which is the reset trigger.
         /// </summary>
         private void OnGameOver(GameOverMessage message) => _timerModel.IsRunning.Value = false;
 
@@ -159,6 +172,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             // than merely paused.
             _timerModel.IsRunning.Value = false;
             _timerModel.RemainingSeconds.Value = 0f;
+            _timerModel.IsLowTime.Value = false;
         }
     }
 }

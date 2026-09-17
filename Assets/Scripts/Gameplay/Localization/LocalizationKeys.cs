@@ -20,6 +20,11 @@ namespace MustyBlockBlast.Gameplay.Localization
         /// they can never disagree on spelling or spacing.</summary>
         public const string FORMAT_SECONDS = "format.seconds";
 
+        /// <summary>A duration in whole minutes. <c>{0}</c> is the number. Used wherever a timed round
+        /// length is named — the duration picker, the best-score suffix and the game-over card — since
+        /// round lengths are minutes rather than seconds.</summary>
+        public const string FORMAT_MINUTES = "format.minutes";
+
         // --- Power-ups ---
 
         /// <summary>Double Multiplier's HUD banner while its window is open. <c>{0}</c> is the

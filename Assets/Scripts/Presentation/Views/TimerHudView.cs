@@ -29,6 +29,14 @@ namespace MustyBlockBlast.Presentation.Views
         [SerializeField] private Vector2 _anchoredPosition = new Vector2(0f, 634f);
         [SerializeField] private int _fontSize = 48;
 
+        // Not theme-derived: "you are nearly out of time" has to read the same in every theme, and a
+        // theme's Ink is the colour the countdown already wears when nothing is wrong.
+        [Header("Low Time Warning")]
+        [Tooltip("Countdown colour while there is plenty of time left. Left fully transparent to follow the active theme's ink.")]
+        [SerializeField] private Color _normalTimerColor = Color.clear;
+        [Tooltip("Countdown colour once the low-time threshold is crossed.")]
+        [SerializeField] private Color _lowTimeWarningColor = new Color(0.85f, 0.17f, 0.17f, 1f);
+
         private readonly CompositeDisposable _disposables = new CompositeDisposable();
         private readonly StringBuilder _stringBuilder = new StringBuilder(8);
 
@@ -42,6 +50,12 @@ namespace MustyBlockBlast.Presentation.Views
 
         /// <summary>Last value rendered, so a per-frame tick only touches the label when it changes.</summary>
         private int _displayedSeconds = -1;
+
+        /// <summary>Theme ink, kept so the countdown can fall back to it when the normal colour is unset.</summary>
+        private Color _themeInk = Color.clear;
+
+        /// <summary>Mirrors <see cref="TimerModel.IsLowTime"/>, so a theme switch repaints the right look.</summary>
+        private bool _isLowTime;
 
         [Inject]
         public void Construct(
@@ -87,6 +101,8 @@ namespace MustyBlockBlast.Presentation.Views
             _localizationModel.CurrentLocale.Subscribe(OnLocaleChanged).AddTo(_disposables);
             _gameModeSystem.CurrentMode.Subscribe(OnModeChanged).AddTo(_disposables);
 
+            _timerModel.IsLowTime.Subscribe(OnLowTimeChanged).AddTo(_disposables);
+
             // Last: it is the only subscription that renders the label, so it must run after the
             // locale is known.
             _timerModel.RemainingSeconds.Subscribe(OnRemainingChanged).AddTo(_disposables);
@@ -116,7 +132,31 @@ namespace MustyBlockBlast.Presentation.Views
                 return;
             }
 
-            _timerText.color = theme.Ink;
+            _themeInk = theme.Ink;
+            ApplyTimerColour();
+        }
+
+        private void OnLowTimeChanged(bool isLowTime)
+        {
+            _isLowTime = isLowTime;
+            ApplyTimerColour();
+        }
+
+        /// <summary>
+        /// The single writer of the countdown's colour, so the theme subscription and the low-time
+        /// subscription can never fight over it. An unset <see cref="_normalTimerColor"/> (fully
+        /// transparent, the serialized default) falls back to the theme's ink rather than rendering
+        /// the countdown invisible.
+        /// </summary>
+        private void ApplyTimerColour()
+        {
+            if (_isLowTime)
+            {
+                _timerText.color = _lowTimeWarningColor;
+                return;
+            }
+
+            _timerText.color = _normalTimerColor.a > 0f ? _normalTimerColor : _themeInk;
         }
 
         private void OnModeChanged(GameMode mode) => _timerText.gameObject.SetActive(mode == GameMode.Timed);
@@ -149,14 +189,32 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         /// <summary>
-        /// Paints <see cref="_displayedSeconds"/> through the shared seconds format, so the countdown
-        /// and the "best" suffix can never disagree on how a duration is spelled.
+        /// Paints <see cref="_displayedSeconds"/> as <c>mm:ss</c>. Deliberately not a String Table
+        /// entry: a zero-padded clock is a universal numeric format, not a phrase, so there is nothing
+        /// here for a translator to translate. Built on the cached builder rather than with
+        /// interpolation, so a per-second repaint stays free of throwaway strings.
         /// </summary>
         private void RenderCountdown()
         {
+            int minutes = _displayedSeconds / 60;
+            int seconds = _displayedSeconds % 60;
+
             _stringBuilder.Clear();
-            _stringBuilder.Append(_displayedSeconds);
-            _timerText.text = _localizationSystem.Format(LocalizationKeys.FORMAT_SECONDS, _stringBuilder.ToString());
+            AppendPadded(minutes);
+            _stringBuilder.Append(':');
+            AppendPadded(seconds);
+            _timerText.text = _stringBuilder.ToString();
+        }
+
+        /// <summary>Appends <paramref name="value"/> zero-padded to two digits.</summary>
+        private void AppendPadded(int value)
+        {
+            if (value < 10)
+            {
+                _stringBuilder.Append('0');
+            }
+
+            _stringBuilder.Append(value);
         }
     }
 }
