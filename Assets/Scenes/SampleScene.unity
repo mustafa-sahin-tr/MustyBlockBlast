@@ -809,7 +809,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3f3ac9e6aa63c435eb22ebfd1c34a8b6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.PathLevelBadgeView
-  _anchoredPosition: {x: 32, y: -188}
+  _anchoredPosition: {x: 26, y: -246}
   _badgeDiameter: 68
 --- !u!1 &680048523
 GameObject:
@@ -1023,7 +1023,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2fa247d31f9544a5dbae29ce994ca36e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.PowerUpInventoryView
-  _anchoredPosition: {x: 0, y: -430}
+  _anchoredPosition: {x: 0, y: -460}
   _slotSize: 104
   _slotSpacing: 180
   _maxStripWidth: 1000
@@ -1315,7 +1315,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ab665808a81b24e68aacd369faf71e14, type: 3}
   m_Name: 
   m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.HoldSlotView
-  _cornerOffset: {x: 60, y: -280}
+  _anchoredPosition: {x: 0, y: -897}
   _slotSize: 104
   _pieceAreaSize: 84
   _maxPieceCellSize: 26
@@ -1323,6 +1323,9 @@ MonoBehaviour:
   _cellInset: 1
   _cellBevelThickness: 2
   _hoverScale: 1.14
+  _emptyGlyphSize: 40
+  _emptyLabelFontSize: 20
+  _emptyLabelGap: 10
 --- !u!1 &1077023708
 GameObject:
   m_ObjectHideFlags: 0
@@ -1371,7 +1374,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 68ba96d3839704fa08f743580b834d0c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.PieceTrayView
-  _anchoredPosition: {x: 0, y: -640}
+  _anchoredPosition: {x: 0, y: -670}
   _cardSize: {x: 1000, y: 300}
   _slotWidth: 300
   _trayCellSize: 56
@@ -1636,7 +1639,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c8516e940a83147b4b944629e2f94172, type: 3}
   m_Name: 
   m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.ScoreView
-  _anchoredPosition: {x: 0, y: 780}
+  _anchoredPosition: {x: 0, y: 810}
   _scoreFontSize: 130
   _bestLabelFontSize: 36
   _bestValueFontSize: 96
@@ -2166,7 +2169,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d283a9361c4c94785852a8425936e6af, type: 3}
   m_Name: 
   m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.ObjectiveIconContainerView
-  _topOffset: {x: 0, y: -18}
+  _topOffset: {x: 0, y: -344}
   _slotSize: 76
   _slotSpacing: 88
   _progressFontSize: 24

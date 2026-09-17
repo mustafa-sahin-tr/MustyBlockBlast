@@ -24,7 +24,7 @@ namespace MustyBlockBlast.Presentation.Views
     public sealed class ScoreView : MonoBehaviour
     {
         [Header("Layout")]
-        [SerializeField] private Vector2 _anchoredPosition = new Vector2(0f, 780f);
+        [SerializeField] private Vector2 _anchoredPosition = new Vector2(0f, 810f);
         [SerializeField] private int _scoreFontSize = 130;
         [SerializeField] private int _bestLabelFontSize = 36;
         [SerializeField] private int _bestValueFontSize = 96;
