@@ -99,7 +99,7 @@ namespace MustyBlockBlast.Presentation.Views
         private const string EARN_AFFORDANCE_LABEL = "+";
 
         /// <summary>Side of a slot's icon glyph, as a fraction of the slot.</summary>
-        private const float GLYPH_SIZE_FRACTION = 0.56f;
+        private const float GLYPH_SIZE_FRACTION = 0.6f;
 
         /// <summary>Alpha of the Ghost Fit glyph, drawn semi-transparent so it reads as the ghost it is
         /// named after — kept from the placeholder era because it is still the right look for it.</summary>

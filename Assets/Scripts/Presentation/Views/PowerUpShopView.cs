@@ -82,24 +82,25 @@ namespace MustyBlockBlast.Presentation.Views
 
         // Layout, in canvas reference pixels, matching the other cards so they all read as one family.
         private const float HEADER_Y = 470f;
-        private const float BALANCE_Y = 390f;
-        private const float ROWS_TOP_Y = 300f;
+        private const float BALANCE_Y = 445f;
+        private const float ROWS_TOP_Y = 350f;
         private const float MESSAGE_Y = -462f;
         private const float ICON_BUTTON_SIZE = 92f;
         private const float SIDE_INSET = 48f;
         private const float HEADER_INSET = 84f;
 
-        // The row, as the design draws it (issue #207): its CSS px are used directly as reference px.
-        // A 40px icon tile with 10px of padding gives the row its height; rows sit 14px apart on their
-        // own tinted plates rather than as a bare list on the card.
-        private const float ROW_HEIGHT = 70f;
-        private const float ROW_GAP = 14f;
+        // The row, after the design (issue #207) and one round of on-device feedback: the design's
+        // 40px tile and 14px gap read too small on the 880-wide card, so the tile, the glyph and the
+        // type are scaled up and the gap tightened to keep nine rows on the card. The rows start where
+        // the card's own header used to be — HubPanelView hides that header, so the space is free.
+        private const float ROW_HEIGHT = 80f;
+        private const float ROW_GAP = 10f;
         private const float ROW_PITCH = ROW_HEIGHT + ROW_GAP;
         private const float ROW_PADDING = 10f;
         private const float ROW_CORNER_RADIUS = 14f;
-        private const float ICON_TILE_SIZE = 40f;
+        private const float ICON_TILE_SIZE = 64f;
         private const float ICON_TILE_CORNER_RADIUS = 12f;
-        private const float ICON_GLYPH_SIZE = 26f;
+        private const float ICON_GLYPH_SIZE = 50f;
         private const float ICON_TEXT_GAP = 12f;
 
         /// <summary>How far a row's plate is tinted from the card towards the ink. The design's beige on
@@ -108,8 +109,8 @@ namespace MustyBlockBlast.Presentation.Views
 
         /// <summary>Vertical offsets of the name and the description from the row's centre line, so the
         /// two stack as one label rather than two rows of text.</summary>
-        private const float NAME_RISE = 12f;
-        private const float DESCRIPTION_DROP = 13f;
+        private const float NAME_RISE = 15f;
+        private const float DESCRIPTION_DROP = 16f;
 
         /// <summary>Alpha applied to the struck-through standard price on a discounted row. Well under
         /// the sale price's, so the eye lands on what the player would pay rather than on what they
@@ -166,9 +167,9 @@ namespace MustyBlockBlast.Presentation.Views
         [SerializeField] private int _wasPriceFontSize = 24;
 
         [Header("Rows")]
-        [SerializeField] private int _rowNameFontSize = 26;
-        [SerializeField] private int _rowDescriptionFontSize = 20;
-        [SerializeField] private int _rowPriceFontSize = 26;
+        [SerializeField] private int _rowNameFontSize = 32;
+        [SerializeField] private int _rowDescriptionFontSize = 24;
+        [SerializeField] private int _rowPriceFontSize = 30;
 
         [Tooltip("White-on-transparent glyphs, one per shop row in display order (Bomb, Row Clear, Column "
             + "Clear, Joker, Colour Cleanser, Rotate, Reroll, Double Score, Ghost Fit). Tinted at runtime.")]
