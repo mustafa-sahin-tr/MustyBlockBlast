@@ -46,6 +46,19 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// </summary>
         private readonly LevelReinforcedCellSeeder _reinforcedCellSeeder;
 
+        /// <summary>
+        /// Read, never written, by <see cref="CheckGameOver"/>: a parked piece only counts as a move
+        /// the player still has while <see cref="PowerUpModel.HoldCount"/> can pay for the swap that
+        /// brings it back. Spending is <see cref="PowerUpSystem"/>'s alone — the Model rather than
+        /// that System is taken here because that System already depends on this one.
+        /// <para>
+        /// Nullable, and null in most unit tests, for the reason <see cref="_reinforcedCellSeeder"/>
+        /// is: a board exercised by hand has no inventory, and without one the parked piece is read
+        /// the way it was before Hold had a charge — always swappable back out.
+        /// </para>
+        /// </summary>
+        private readonly PowerUpModel _powerUpModel;
+
         private readonly PlacementSnapper _placementSnapper = new PlacementSnapper();
         private readonly IPublisher<RunStartedMessage> _runStartedPublisher;
         private readonly IPublisher<PiecePlacedMessage> _piecePlacedPublisher;
@@ -173,13 +186,14 @@ namespace MustyBlockBlast.Gameplay.Systems
             IPublisher<ChainLightningTriggeredMessage> chainLightningTriggeredPublisher,
             IPublisher<CoinCellsClearedMessage> coinCellsClearedPublisher,
             CurrencyConfig currencyConfig,
-            LevelReinforcedCellSeeder reinforcedCellSeeder)
+            LevelReinforcedCellSeeder reinforcedCellSeeder,
+            PowerUpModel powerUpModel = null)
             : this(
                 boardModel, trayModel, perfectRoundModel, pieceDraw, runStartedPublisher,
                 piecePlacedPublisher, linesClearedPublisher, gameOverPublisher, trayRefilledPublisher,
                 explosiveCoreDetonatedPublisher, laserFiredPublisher, piercingRocketFiredPublisher,
                 vortexPulledPublisher, chainLightningTriggeredPublisher, coinCellsClearedPublisher,
-                currencyConfig, Environment.TickCount, reinforcedCellSeeder)
+                currencyConfig, Environment.TickCount, reinforcedCellSeeder, powerUpModel)
         {
         }
 
@@ -201,9 +215,11 @@ namespace MustyBlockBlast.Gameplay.Systems
             IPublisher<CoinCellsClearedMessage> coinCellsClearedPublisher,
             CurrencyConfig currencyConfig,
             int seed,
-            LevelReinforcedCellSeeder reinforcedCellSeeder = null)
+            LevelReinforcedCellSeeder reinforcedCellSeeder = null,
+            PowerUpModel powerUpModel = null)
         {
             _reinforcedCellSeeder = reinforcedCellSeeder;
+            _powerUpModel = powerUpModel;
             _random = new Random(seed);
 
             // After the stream it draws from, necessarily: the effect keeps the reference it is handed,
@@ -594,6 +610,12 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// overwritten with the previously held piece (or emptied) in the same call, so no action can
         /// ever leave two pieces in one slot or the same piece in two places.
         /// <para>
+        /// The mechanism only. Whether the player may park at all is a Hold charge question, and that
+        /// gate — and the spend behind it — is <see cref="PowerUpSystem.TryApplyHold"/>'s, the one
+        /// caller outside tests. Internal, like <see cref="TryRerollTray"/>, for the same reason: a
+        /// View reaching this directly would park for free.
+        /// </para>
+        /// <para>
         /// This is explicitly <em>not</em> a placement. Nothing is put on the board, so nothing scores,
         /// no line can clear, the combo streak is neither advanced nor broken, and the tray is not
         /// refilled — the pieces involved were already drawn and are merely somewhere else now.
@@ -606,7 +628,7 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// </para>
         /// Returns false when nothing changed.
         /// </summary>
-        public bool TryHoldPiece(int slotIndex)
+        internal bool TryParkPiece(int slotIndex)
         {
             if (IsGameOver || !IsValidSlot(slotIndex))
             {
@@ -1206,11 +1228,13 @@ namespace MustyBlockBlast.Gameplay.Systems
 
             _trayModel.CollectRemaining(_remainingBuffer);
 
-            // The parked piece counts as a move the player still has. Swapping it back into a dock slot
-            // is always legal and costs nothing, so a board where only the parked piece fits is not a
-            // dead end — without this, pocketing the one piece that fits would end a run the player
-            // could still play on from.
-            if (_trayModel.HeldPiece != null)
+            // The parked piece counts as a move the player still has only while they can get it back.
+            // The swap that returns it costs a Hold charge (PowerUpSystem.TryApplyHold), so behind an
+            // empty inventory the piece is stuck and a board only it fits is a dead end after all —
+            // counting it there would leave the run alive with nothing the player can actually do.
+            // With a charge in hand the old reading holds: pocketing the one piece that fits must not
+            // end a run the player could still play on from.
+            if (_trayModel.HeldPiece != null && CanRetrieveHeldPiece())
             {
                 _remainingBuffer.Add(_trayModel.HeldPiece);
             }
@@ -1231,6 +1255,11 @@ namespace MustyBlockBlast.Gameplay.Systems
             IsGameOver = true;
             _gameOverPublisher.Publish(new GameOverMessage(GameOverReason.NoMovesLeft));
         }
+
+        /// <summary>Whether the swap that brings the parked piece back can be paid for. Without an
+        /// inventory to read (see <see cref="_powerUpModel"/>) the answer is the pre-charge one: yes.</summary>
+        private bool CanRetrieveHeldPiece()
+            => _powerUpModel == null || _powerUpModel.HoldCount.Value > 0;
 
         /// <summary>
         /// Injects a <see cref="SpecialPieceKind.DemolitionHammer"/> into the dock when the board is at

@@ -11,10 +11,14 @@ namespace MustyBlockBlast.Tests.EditMode
     /// </summary>
     public class PowerUpUnlockLevelsTests
     {
-        /// <summary>The starter three: available from a fresh install, before any level is cleared.</summary>
+        /// <summary>The starter three, and Hold: available from a fresh install, before any level is
+        /// cleared. Hold is ungated deliberately (issue #202) — it meters a pocket that was on screen
+        /// from the first run before it became a power-up, so rationing its charges must not also
+        /// take the pocket away.</summary>
         [TestCase(PowerUpKind.Bomb)]
         [TestCase(PowerUpKind.RowClear)]
         [TestCase(PowerUpKind.ColumnClear)]
+        [TestCase(PowerUpKind.Hold)]
         public void LevelFor_TheStarterKinds_IsAlwaysUnlocked(PowerUpKind kind)
         {
             Assert.AreEqual(PowerUpUnlockLevels.ALWAYS_UNLOCKED, PowerUpUnlockLevels.LevelFor(kind));
@@ -55,6 +59,7 @@ namespace MustyBlockBlast.Tests.EditMode
                 PowerUpKind.DoubleMultiplier,
                 PowerUpKind.GhostFit,
                 PowerUpKind.CoinSower,
+                PowerUpKind.Hold,
             };
 
             CollectionAssert.AreEquivalent(
@@ -63,15 +68,16 @@ namespace MustyBlockBlast.Tests.EditMode
                 "A kind was added, removed or replaced. Give it a gate level and a case above.");
         }
 
-        /// <summary>A fresh install sits at level 1, so only the starter three may be open there.</summary>
+        /// <summary>A fresh install sits at level 1, so only the starter three and Hold may be open there.</summary>
         [Test]
-        public void IsUnlockedAt_OnAFreshInstall_OpensExactlyTheStarterThree()
+        public void IsUnlockedAt_OnAFreshInstall_OpensExactlyTheStarterKinds()
         {
             const int FRESH_INSTALL_LEVEL = 1;
 
             Assert.IsTrue(PowerUpUnlockLevels.IsUnlockedAt(PowerUpKind.Bomb, FRESH_INSTALL_LEVEL));
             Assert.IsTrue(PowerUpUnlockLevels.IsUnlockedAt(PowerUpKind.RowClear, FRESH_INSTALL_LEVEL));
             Assert.IsTrue(PowerUpUnlockLevels.IsUnlockedAt(PowerUpKind.ColumnClear, FRESH_INSTALL_LEVEL));
+            Assert.IsTrue(PowerUpUnlockLevels.IsUnlockedAt(PowerUpKind.Hold, FRESH_INSTALL_LEVEL));
 
             Assert.IsFalse(PowerUpUnlockLevels.IsUnlockedAt(PowerUpKind.Joker, FRESH_INSTALL_LEVEL));
             Assert.IsFalse(PowerUpUnlockLevels.IsUnlockedAt(PowerUpKind.ColorCleanser, FRESH_INSTALL_LEVEL));

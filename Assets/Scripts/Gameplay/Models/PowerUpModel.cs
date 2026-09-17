@@ -33,6 +33,15 @@ namespace MustyBlockBlast.Gameplay.Models
         public ReactiveProperty<int> CoinSowerCount { get; } = new ReactiveProperty<int>(0);
 
         /// <summary>
+        /// Hold charges: one is spent every time a dock piece is parked into the pocket, whether it
+        /// was empty or already held a piece to swap out. An ordinary inventory slot, persisted like
+        /// the others. Read by <c>BoardSystem</c>'s game-over check as well as spent by
+        /// <c>PowerUpSystem.TryApplyHold</c>: a parked piece only counts as a move the player still
+        /// has while there is a charge left to swap it back out with.
+        /// </summary>
+        public ReactiveProperty<int> HoldCount { get; } = new ReactiveProperty<int>(0);
+
+        /// <summary>
         /// The power-up the player has selected and is now aiming — at the board, or at the tray for
         /// <see cref="PowerUpKind.Rotate"/> — or null when none is.
         /// Unlike the counts this is run state, not inventory: it is dropped on every run boundary and

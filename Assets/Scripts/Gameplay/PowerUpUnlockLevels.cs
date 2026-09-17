@@ -1,14 +1,16 @@
 namespace MustyBlockBlast.Gameplay
 {
     /// <summary>
-    /// The level each <see cref="PowerUpKind"/> becomes available at. Ten authored numbers that change
+    /// The level each <see cref="PowerUpKind"/> becomes available at. Authored numbers that change
     /// only when the roster does, so they live in code next to the enum they key off rather than in a
     /// ScriptableObject: there is nothing here for a designer to tune per scene or per build, and a
     /// switch cannot drift out of sync with the enum the way a hand-filled asset can.
     /// <para>
-    /// The first three kinds are available from a fresh install; the remaining seven arrive one every
-    /// five levels. Level 0 means "never gated" — a fresh install starts at level 1, so a gate of 0
-    /// is unlocked before the player has done anything at all.
+    /// The starter three (Bomb, Row Clear, Column Clear) and <see cref="PowerUpKind.Hold"/> are
+    /// available from a fresh install; the other seven arrive one every five levels. Hold is ungated
+    /// because it metered a slot that was always on screen before it became a power-up — what it
+    /// rations is charges, never the pocket itself. Level 0 means "never gated" — a fresh install
+    /// starts at level 1, so a gate of 0 is unlocked before the player has done anything at all.
     /// </para>
     /// <para>
     /// This is a visibility and usability gate only. It is read at display time and at spend time and
@@ -42,7 +44,8 @@ namespace MustyBlockBlast.Gameplay
                 case PowerUpKind.CoinSower:
                     return 35;
                 default:
-                    // Bomb, RowClear and ColumnClear: the starter three, offered from the first run.
+                    // Bomb, RowClear and ColumnClear — the starter three, offered from the first run —
+                    // and Hold, which meters a pocket that has been on screen since the first run.
                     return ALWAYS_UNLOCKED;
             }
         }

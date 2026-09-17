@@ -262,7 +262,7 @@ namespace MustyBlockBlast.Presentation.Views
 
         /// <summary>Paints one cell of the parked piece. A special piece keeps its look through the
         /// pocket — the kind travels with the piece in both directions (see
-        /// <c>BoardSystem.TryHoldPiece</c>), so parking a golden 1x1 must not make it look ordinary.
+        /// <c>BoardSystem.TryParkPiece</c>), so parking a golden 1x1 must not make it look ordinary.
         /// A hammer can never get here: parking one is refused.</summary>
         private void ApplyCellLook(CellView cell, int colourId, SpecialPieceKind specialKind)
         {

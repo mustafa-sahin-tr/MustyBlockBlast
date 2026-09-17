@@ -427,11 +427,16 @@ since neither has a fixed region size; Row Clear/Column Clear pay the flat one-l
 
 ## Hold slot (pocket)
 
-Separate from the nine power-ups above: the Hold slot is not earned, has no charge or count,
-is never armed, and never touches the board. It is always available, for the whole run.
+The tenth power-up, and the odd one out. Hold has a persisted charge count like the nine
+above, earned the same way (rewarded ads) and kept across runs — but it is never armed from
+the strip. It lives in its own slot beside the tray, always on screen from the first run
+(no level gate), and is invoked by a drag rather than a tap-and-aim. It never touches the
+board.
 
 A single extra slot sits beside the tray. The player drags a tray piece onto it to **park**
-that piece:
+that piece. **Every park costs one charge**, whether the pocket was empty or not; with no
+charge the drop is refused outright and the piece returns to its tray slot — a true no-op,
+nothing spent. The player can see the pocket, but not use it, until they earn a charge.
 
 - Parking into an **empty** pocket moves the piece there and empties its tray slot. The
   piece's shape and orientation are carried over unchanged (pieces are never rotated).
@@ -439,8 +444,10 @@ that piece:
   tray slot the dragged piece just left, and the dragged piece takes its place in the pocket.
   The swap is atomic — one piece in, one piece out, so the tray slot count never moves.
 
-That swap is the only way a parked piece comes back, and it is enough: there is no separate
-"take it out" gesture, and none is needed.
+That swap is the only way a parked piece comes back: there is no separate "take it out"
+gesture. Because a swap is a park, it costs a charge too — the pocket is never free to empty.
+A player who spends their last charge parking a piece therefore has it **stuck** in the pocket
+until they earn another; that is the deliberate cost of the mechanic, not a bug.
 
 Parking is **not a placement**. Nothing lands on the board, so nothing scores, no line can
 clear, and the combo streak is neither advanced nor broken. The pieces involved were already
@@ -450,13 +457,16 @@ The pocket is invisible to the refill rule: a refill is triggered by all **three
 being consumed, and a parked piece is not in a tray slot. A full pocket can never hold a
 refill off.
 
-Parking the **last** remaining tray piece into an empty pocket is refused. The pocket is only
-ever fed from the tray and only ever emptied by the swap that refills it, so a tray emptied by
-parking could never be restocked — a refill is a placement's consequence — and the run would
-be stuck with nothing to drag. A swap can never hit this case.
+Parking the **last** remaining tray piece into an empty pocket is refused, charge or no
+charge, and a refused park never spends. The pocket is only ever fed from the tray and only
+ever emptied by the swap that refills it, so a tray emptied by parking could never be
+restocked — a refill is a placement's consequence — and the run would be stuck with nothing to
+drag. A swap can never hit this case.
 
-The parked piece **does** count for the game-over check: swapping it back into a tray slot is
-always legal and costs nothing, so a board that only the parked piece fits is not a dead end.
+The parked piece counts for the game-over check **only while a charge is left to swap it back
+out with**. With one in hand, a board that only the parked piece fits is not a dead end. With
+none, the parked piece is stuck and is not a move the player can make, so the same board *is*
+a dead end — the run ends rather than sitting alive with nothing to do.
 
 ## Earning undo and power-ups
 
