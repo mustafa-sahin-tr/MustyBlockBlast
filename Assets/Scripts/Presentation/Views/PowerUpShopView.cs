@@ -83,6 +83,14 @@ namespace MustyBlockBlast.Presentation.Views
         // Layout, in canvas reference pixels, matching the other cards so they all read as one family.
         private const float HEADER_Y = 470f;
         private const float BALANCE_Y = 445f;
+
+        // The balance line is shared with the convert button (issue #219): balance on the left, the
+        // way into the conversion screen on the right, so the coins and the way to get more sit
+        // together and the nine rows below keep the height they have.
+        private const float BALANCE_X = -190f;
+        private const float CONVERT_BUTTON_X = 210f;
+        private const float CONVERT_BUTTON_CORNER_RADIUS = 14f;
+        private static readonly Vector2 ConvertButtonSize = new Vector2(360f, 64f);
         private const float ROWS_TOP_Y = 350f;
         private const float MESSAGE_Y = -462f;
         private const float ICON_BUTTON_SIZE = 92f;
@@ -151,6 +159,10 @@ namespace MustyBlockBlast.Presentation.Views
         private const string INSUFFICIENT_COINS_MESSAGE = "Not enough coins.";
         private const string LOCKED_MESSAGE = "Locked — level up to unlock this.";
         private const string OPENING_MESSAGE = "Tap a power-up to buy one.";
+
+        /// <summary>Label of the button that opens <see cref="CoinConversionView"/>. Authored text like
+        /// the header and the messages around it; the card has no string-table pass yet.</summary>
+        private const string CONVERT_BUTTON_TEXT = "CONVERT SCORE";
         private const string COINS_SUFFIX_TEXT = " coins";
 
         /// <summary>The price column's width as a fraction of a row's width. Named because three things
@@ -208,6 +220,7 @@ namespace MustyBlockBlast.Presentation.Views
         private SettingsModel _settingsModel;
         private LocalizationModel _localizationModel;
         private LocalizationSystem _localizationSystem;
+        private CoinConversionView _coinConversionView;
 
         /// <summary>Read for one purpose only: the standard price to strike through when the System's
         /// quote comes back lower than it. Never used to charge or to quote.</summary>
@@ -224,6 +237,9 @@ namespace MustyBlockBlast.Presentation.Views
         private Text _headerText;
         private Text _balanceText;
         private Text _messageText;
+        private RectTransform _convertButtonRect;
+        private Image _convertButtonPlate;
+        private Text _convertButtonText;
 
         private ThemeDefinition _currentTheme;
 
@@ -248,9 +264,11 @@ namespace MustyBlockBlast.Presentation.Views
             SettingsModel settingsModel,
             LocalizationModel localizationModel,
             LocalizationSystem localizationSystem,
-            PowerUpPriceConfig priceConfig)
+            PowerUpPriceConfig priceConfig,
+            CoinConversionView coinConversionView)
         {
             _priceConfig = priceConfig;
+            _coinConversionView = coinConversionView;
             _profileModel = profileModel;
             _powerUpModel = powerUpModel;
             _levelProgressionModel = levelProgressionModel;
@@ -272,7 +290,8 @@ namespace MustyBlockBlast.Presentation.Views
         {
             if (_profileModel == null || _powerUpModel == null || _levelProgressionModel == null
                 || _currencySystem == null || _timerRunSystem == null || _settingsModel == null
-                || _localizationModel == null || _localizationSystem == null || _priceConfig == null)
+                || _localizationModel == null || _localizationSystem == null || _priceConfig == null
+                || _coinConversionView == null)
             {
                 Debug.LogError(
                     $"{nameof(PowerUpShopView)} was not injected. Is it registered in the LifetimeScope?",
@@ -360,6 +379,14 @@ namespace MustyBlockBlast.Presentation.Views
             if (RectTransformUtility.RectangleContainsScreenPoint(_closeButtonRect, screenPosition, eventCamera))
             {
                 Close();
+                return;
+            }
+
+            // Opens over this card rather than replacing it: the hub stays open underneath, and the
+            // conversion card's own scrim tap brings the player back here.
+            if (RectTransformUtility.RectangleContainsScreenPoint(_convertButtonRect, screenPosition, eventCamera))
+            {
+                _coinConversionView.Open();
                 return;
             }
 
@@ -486,6 +513,8 @@ namespace MustyBlockBlast.Presentation.Views
             _headerText.color = theme.Ink;
             _balanceText.color = theme.Accent;
             _messageText.color = theme.SoftInk;
+            _convertButtonPlate.color = theme.Accent;
+            _convertButtonText.color = theme.CardBackground;
             _closeBarA.color = theme.Ink;
             _closeBarB.color = theme.Ink;
 
@@ -717,7 +746,9 @@ namespace MustyBlockBlast.Presentation.Views
 
             _balanceText = UiTextFactory.Create(
                 _cardRect, "Balance", _balanceFontSize, FontStyle.Bold, Color.clear);
-            ((RectTransform)_balanceText.transform).anchoredPosition = new Vector2(0f, BALANCE_Y);
+            ((RectTransform)_balanceText.transform).anchoredPosition = new Vector2(BALANCE_X, BALANCE_Y);
+
+            BuildConvertButton(new Vector2(CONVERT_BUTTON_X, BALANCE_Y));
 
             for (int rowIndex = 0; rowIndex < RowCount; rowIndex++)
             {
@@ -733,6 +764,29 @@ namespace MustyBlockBlast.Presentation.Views
             BuildCloseButton();
 
             _panel = panelObject;
+        }
+
+        /// <summary>
+        /// The accent pill that opens the conversion screen. Its own rect is the hit area, as a row's
+        /// is. Built transparent like everything else here and painted by the theme subscription.
+        /// </summary>
+        private void BuildConvertButton(Vector2 anchoredPosition)
+        {
+            var buttonObject = new GameObject("ConvertButton", typeof(RectTransform), typeof(Image));
+            _convertButtonRect = (RectTransform)buttonObject.transform;
+            _convertButtonRect.SetParent(_cardRect, false);
+            _convertButtonRect.anchorMin = new Vector2(0.5f, 0.5f);
+            _convertButtonRect.anchorMax = new Vector2(0.5f, 0.5f);
+            _convertButtonRect.pivot = new Vector2(0.5f, 0.5f);
+            _convertButtonRect.sizeDelta = ConvertButtonSize;
+            _convertButtonRect.anchoredPosition = anchoredPosition;
+
+            _convertButtonPlate = ConfigureRounded(
+                buttonObject.GetComponent<Image>(), CONVERT_BUTTON_CORNER_RADIUS);
+
+            _convertButtonText = UiTextFactory.Create(
+                _convertButtonRect, "Label", _bodyFontSize, FontStyle.Bold, Color.clear);
+            _convertButtonText.text = CONVERT_BUTTON_TEXT;
         }
 
         /// <summary>
