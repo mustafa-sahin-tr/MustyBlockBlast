@@ -26,6 +26,10 @@ namespace MustyBlockBlast.Tests.EditMode
         private TestMessageBroker<ExplosiveCoreDetonatedMessage> _detonatedBroker;
         private TestMessageBroker<LaserFiredMessage> _laserFiredBroker;
 
+        /// <summary>The pull channel a power-up fires when its clear destroys a vortex tile (issue #156).
+        /// A field rather than an inline broker so a test can assert both ends of every move.</summary>
+        private TestMessageBroker<VortexPulledMessage> _vortexPulledBroker;
+
         /// <summary>The coin channel a power-up fires when its clear destroys a coin cell. A field
         /// rather than an inline broker so a test can assert the payout was announced.</summary>
         private TestMessageBroker<CoinCellsClearedMessage> _coinCellsBroker;
@@ -74,6 +78,7 @@ namespace MustyBlockBlast.Tests.EditMode
             _grantedBroker = new TestMessageBroker<PowerUpGrantedMessage>();
             _detonatedBroker = new TestMessageBroker<ExplosiveCoreDetonatedMessage>();
             _laserFiredBroker = new TestMessageBroker<LaserFiredMessage>();
+            _vortexPulledBroker = new TestMessageBroker<VortexPulledMessage>();
             _coinCellsBroker = new TestMessageBroker<CoinCellsClearedMessage>();
             _currencyConfig = ScriptableObject.CreateInstance<CurrencyConfig>();
             _piecePlacedBroker = new TestMessageBroker<PiecePlacedMessage>();
@@ -426,6 +431,205 @@ namespace MustyBlockBlast.Tests.EditMode
             system.TryApplyRowClear(3);
 
             Assert.AreEqual(0, _laserFiredBroker.Published.Count);
+        }
+
+        // --- Vortex tiles destroyed by a spent power-up (issue #156, AC1) ---
+
+        /// <summary>
+        /// AC1: a vortex destroyed by a Bomb drags the board's isolated blocks inwards exactly as one
+        /// destroyed by a completed line does — the same pull, reported through the same seam. The stray
+        /// sits far outside the bomb's own 3x3, so only the pull can explain it having moved at all.
+        /// </summary>
+        [Test]
+        public void TryApplyBomb_OverAVortex_PullsTheIsolatedBlocksInwards()
+        {
+            var boardModel = new BoardModel();
+            var vortex = new GridPosition(4, 4);
+            boardModel.Occupy(vortex, 1);
+            boardModel.SetSpecialKind(vortex, SpecialCellKind.Vortex);
+
+            var stray = new GridPosition(0, 0);
+            boardModel.Occupy(stray, 2);
+
+            PowerUpSystem system = CreateSystem(new PowerUpModel(), boardModel);
+            system.GrantDirect(PowerUpKind.Bomb);
+
+            Assert.IsTrue(system.TryApplyBomb(vortex));
+
+            // The tie between the two equal distances goes to the horizontal, which is the rule
+            // VortexEffect fixes so the same board always resolves the same way.
+            var pulledTo = new GridPosition(1, 0);
+            Assert.AreEqual(Board.EMPTY, boardModel.GetCell(stray), "The cell it left is empty.");
+            Assert.AreNotEqual(Board.EMPTY, boardModel.GetCell(pulledTo), "One step inwards.");
+
+            Assert.AreEqual(1, _vortexPulledBroker.Published.Count);
+            Assert.AreEqual(1, _vortexPulledBroker.Published[0].Pulls.Count);
+            Assert.AreEqual(stray, _vortexPulledBroker.Published[0].Pulls[0].From);
+            Assert.AreEqual(pulledTo, _vortexPulledBroker.Published[0].Pulls[0].To);
+        }
+
+        /// <summary>AC1 through a line-shaped kind: which power-up was spent decides nothing about the
+        /// pull, exactly as it decides nothing about a laser's axis.</summary>
+        [Test]
+        public void TryApplyRowClear_OverAVortex_PullsTheIsolatedBlocksInwards()
+        {
+            var boardModel = new BoardModel();
+            var vortex = new GridPosition(2, 3);
+            boardModel.Occupy(vortex, 1);
+            boardModel.SetSpecialKind(vortex, SpecialCellKind.Vortex);
+
+            var stray = new GridPosition(7, 7);
+            boardModel.Occupy(stray, 2);
+
+            PowerUpSystem system = CreateSystem(new PowerUpModel(), boardModel);
+            system.GrantDirect(PowerUpKind.RowClear);
+
+            Assert.IsTrue(system.TryApplyRowClear(3));
+
+            // Five columns away and four rows away, so the larger gap — the horizontal — closes first.
+            var pulledTo = new GridPosition(6, 7);
+            Assert.AreEqual(Board.EMPTY, boardModel.GetCell(stray));
+            Assert.AreNotEqual(Board.EMPTY, boardModel.GetCell(pulledTo));
+
+            Assert.AreEqual(1, _vortexPulledBroker.Published.Count);
+            Assert.AreEqual(stray, _vortexPulledBroker.Published[0].Pulls[0].From);
+            Assert.AreEqual(pulledTo, _vortexPulledBroker.Published[0].Pulls[0].To);
+        }
+
+        /// <summary>A block with an occupied neighbour is not isolated, so a vortex that found nothing to
+        /// move publishes nothing at all — subscribers read the message itself as "blocks moved".</summary>
+        [Test]
+        public void TryApplyBomb_OverAVortexWithNothingIsolated_PublishesNothing()
+        {
+            var boardModel = new BoardModel();
+            var vortex = new GridPosition(4, 4);
+            boardModel.Occupy(vortex, 1);
+            boardModel.SetSpecialKind(vortex, SpecialCellKind.Vortex);
+
+            var left = new GridPosition(0, 0);
+            var right = new GridPosition(1, 0);
+            boardModel.Occupy(left, 2);
+            boardModel.Occupy(right, 2);
+
+            PowerUpSystem system = CreateSystem(new PowerUpModel(), boardModel);
+            system.GrantDirect(PowerUpKind.Bomb);
+
+            Assert.IsTrue(system.TryApplyBomb(vortex));
+
+            Assert.AreNotEqual(Board.EMPTY, boardModel.GetCell(left));
+            Assert.AreNotEqual(Board.EMPTY, boardModel.GetCell(right));
+            Assert.AreEqual(0, _vortexPulledBroker.Published.Count);
+        }
+
+        /// <summary>A power-up that destroyed no vortex must publish no pull at all.</summary>
+        [Test]
+        public void TryApplyBomb_WithNoVortexInRange_PublishesNothing()
+        {
+            var boardModel = new BoardModel();
+            boardModel.Occupy(new GridPosition(4, 4), 1);
+            boardModel.Occupy(new GridPosition(0, 0), 2);
+
+            PowerUpSystem system = CreateSystem(new PowerUpModel(), boardModel);
+            system.GrantDirect(PowerUpKind.Bomb);
+
+            system.TryApplyBomb(new GridPosition(4, 4));
+
+            Assert.AreEqual(0, _vortexPulledBroker.Published.Count);
+        }
+
+        /// <summary>
+        /// The buffer that reports the pulls belongs to this System's own effect instance, so two
+        /// applications in a row must report their own moves and never the sum of both — the reason the
+        /// resolution is begun afresh each time.
+        /// </summary>
+        [Test]
+        public void TryApplyBomb_OverASecondVortex_ReportsOnlyThatApplicationsPulls()
+        {
+            var boardModel = new BoardModel();
+            var firstVortex = new GridPosition(4, 4);
+            var secondVortex = new GridPosition(4, 0);
+            boardModel.Occupy(firstVortex, 1);
+            boardModel.Occupy(secondVortex, 1);
+            boardModel.SetSpecialKind(firstVortex, SpecialCellKind.Vortex);
+            boardModel.SetSpecialKind(secondVortex, SpecialCellKind.Vortex);
+
+            var stray = new GridPosition(0, 7);
+            boardModel.Occupy(stray, 2);
+
+            PowerUpSystem system = CreateSystem(new PowerUpModel(), boardModel);
+            system.GrantDirect(PowerUpKind.Bomb);
+            system.GrantDirect(PowerUpKind.Bomb);
+
+            Assert.IsTrue(system.TryApplyBomb(firstVortex));
+            Assert.IsTrue(system.TryApplyBomb(secondVortex));
+
+            Assert.AreEqual(2, _vortexPulledBroker.Published.Count);
+            Assert.AreEqual(
+                1,
+                _vortexPulledBroker.Published[1].Pulls.Count,
+                "The second application reports its own move, not both.");
+        }
+
+        // --- Score gems destroyed by a spent power-up (issue #156, AC3) ---
+
+        /// <summary>
+        /// AC3: a gem destroyed by a Bomb is counted on the message that pays for the application, which
+        /// is what <c>PowerUpScoreSystem</c> multiplies the whole gain by. Confirming cover for wiring
+        /// that already exists: the count is read straight off the triggers before the effects run,
+        /// precisely because a gem multiplies the event that destroyed it.
+        /// </summary>
+        [Test]
+        public void TryApplyBomb_OverAScoreGem_ReportsItOnTheAppliedMessage()
+        {
+            var boardModel = new BoardModel();
+            var gem = new GridPosition(4, 4);
+            boardModel.Occupy(gem, 1);
+            boardModel.SetSpecialKind(gem, SpecialCellKind.ScoreGem);
+
+            PowerUpSystem system = CreateSystem(new PowerUpModel(), boardModel);
+            system.GrantDirect(PowerUpKind.Bomb);
+
+            Assert.IsTrue(system.TryApplyBomb(gem));
+
+            Assert.AreEqual(1, _appliedBroker.Published.Count);
+            Assert.AreEqual(1, _appliedBroker.Published[0].DestroyedScoreGemCount);
+            Assert.AreEqual(1, _appliedBroker.Published[0].ClearedCellCount, "The gem destroyed nothing extra.");
+        }
+
+        /// <summary>AC3 through a line-shaped kind, and the count rather than the flag: two gems in the
+        /// cleared row are both counted.</summary>
+        [Test]
+        public void TryApplyRowClear_OverTwoScoreGems_ReportsBothOfThem()
+        {
+            var boardModel = new BoardModel();
+            var first = new GridPosition(1, 3);
+            var second = new GridPosition(5, 3);
+            boardModel.Occupy(first, 1);
+            boardModel.Occupy(second, 1);
+            boardModel.SetSpecialKind(first, SpecialCellKind.ScoreGem);
+            boardModel.SetSpecialKind(second, SpecialCellKind.ScoreGem);
+
+            PowerUpSystem system = CreateSystem(new PowerUpModel(), boardModel);
+            system.GrantDirect(PowerUpKind.RowClear);
+
+            Assert.IsTrue(system.TryApplyRowClear(3));
+
+            Assert.AreEqual(2, _appliedBroker.Published[0].DestroyedScoreGemCount);
+        }
+
+        /// <summary>A power-up that destroyed no gem reports none, so nothing is multiplied.</summary>
+        [Test]
+        public void TryApplyBomb_WithNoScoreGemInRange_ReportsNone()
+        {
+            var boardModel = new BoardModel();
+            boardModel.Occupy(new GridPosition(4, 4), 1);
+
+            PowerUpSystem system = CreateSystem(new PowerUpModel(), boardModel);
+            system.GrantDirect(PowerUpKind.Bomb);
+
+            system.TryApplyBomb(new GridPosition(4, 4));
+
+            Assert.AreEqual(0, _appliedBroker.Published[0].DestroyedScoreGemCount);
         }
 
         [Test]
@@ -1810,6 +2014,7 @@ namespace MustyBlockBlast.Tests.EditMode
                 _grantedBroker,
                 _detonatedBroker,
                 _laserFiredBroker,
+                _vortexPulledBroker,
                 _coinCellsBroker,
                 _currencyConfig,
                 new TestMessageBroker<RunStartedMessage>(),

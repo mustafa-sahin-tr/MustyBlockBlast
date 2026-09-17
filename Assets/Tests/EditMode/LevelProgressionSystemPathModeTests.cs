@@ -974,6 +974,7 @@ namespace MustyBlockBlast.Tests.EditMode
                 _powerUpGrantedBroker,
                 new TestMessageBroker<ExplosiveCoreDetonatedMessage>(),
                 new TestMessageBroker<LaserFiredMessage>(),
+                new TestMessageBroker<VortexPulledMessage>(),
                 new TestMessageBroker<CoinCellsClearedMessage>(),
                 ScriptableObject.CreateInstance<CurrencyConfig>(),
                 _runStartedBroker,

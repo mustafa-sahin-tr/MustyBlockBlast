@@ -1049,6 +1049,12 @@ namespace MustyBlockBlast.Gameplay.Systems
             _explosiveCoreEffect.BeginResolution();
             _laserEffect.BeginResolution();
 
+            // And the vortex, for the same reason: a vortex tile a hammer destroys drags the board's
+            // strays inwards exactly as one destroyed by a completed line does. A pull is not a
+            // destruction, so unlike the two above it can never chain into ending the run — it only
+            // rearranges what is already standing.
+            _vortexEffect.BeginResolution();
+
             // The coin effect goes with them for the same reason they are here at all: a coin cell a
             // hammer destroys was destroyed, so it pays exactly as one taken out by a completed line
             // does. A hammer is a single cell and so never an intersection, which the effect reads off
@@ -1059,6 +1065,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             {
                 _explosiveCoreEffect.Apply(_boardModel.Board, _hammerTriggerBuffer[i]);
                 _laserEffect.Apply(_boardModel.Board, _hammerTriggerBuffer[i]);
+                _vortexEffect.Apply(_boardModel.Board, _hammerTriggerBuffer[i]);
                 _coinEffect.Apply(_boardModel.Board, _hammerTriggerBuffer[i]);
             }
 
@@ -1075,6 +1082,16 @@ namespace MustyBlockBlast.Gameplay.Systems
             {
                 _boardModel.NotifyPowerUpCleared(wipedCells);
                 _laserFiredPublisher.Publish(new LaserFiredMessage(wipedCells.Count));
+            }
+
+            // Announced exactly as the placement path announces its pulls — their own seam, both ends of
+            // every move, and a copy of the buffer so a subscriber animating the slide is not reading the
+            // next resolution's data halfway through.
+            IReadOnlyList<VortexPull> pulls = _vortexEffect.Pulls;
+            if (pulls.Count > 0)
+            {
+                _boardModel.NotifyPulled(pulls);
+                _vortexPulledPublisher.Publish(new VortexPulledMessage(new List<VortexPull>(pulls)));
             }
 
             PublishCoinsAwarded();

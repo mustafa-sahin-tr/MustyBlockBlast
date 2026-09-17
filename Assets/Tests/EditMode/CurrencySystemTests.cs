@@ -1513,6 +1513,7 @@ namespace MustyBlockBlast.Tests.EditMode
                 _grantedBroker,
                 new TestMessageBroker<ExplosiveCoreDetonatedMessage>(),
                 new TestMessageBroker<LaserFiredMessage>(),
+                new TestMessageBroker<VortexPulledMessage>(),
                 new TestMessageBroker<CoinCellsClearedMessage>(),
                 ScriptableObject.CreateInstance<CurrencyConfig>(),
                 new TestMessageBroker<RunStartedMessage>(),
