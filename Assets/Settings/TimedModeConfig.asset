@@ -13,9 +13,7 @@ MonoBehaviour:
   m_Name: TimedModeConfig
   m_EditorClassIdentifier: MustyBlockBlast.Gameplay::MustyBlockBlast.Gameplay.Settings.TimedModeConfig
   _durationsSeconds:
-  - 5
-  - 10
-  - 15
-  - 20
-  - 25
-  _defaultDurationIndex: 2
+  - 180
+  - 300
+  - 600
+  _defaultDurationIndex: 1

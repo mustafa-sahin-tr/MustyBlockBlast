@@ -427,12 +427,12 @@ namespace MustyBlockBlast.Presentation.Views
             if (_gameModeSystem.CurrentMode.Value == GameMode.Timed)
             {
                 // Timed bests are per round length, so the length has to be named or the number is
-                // meaningless. The length goes through the shared seconds format, so it reads exactly
-                // as the countdown HUD spells it.
+                // meaningless. The length goes through the shared minutes format, so it reads exactly
+                // as the duration picker spells it.
                 _stringBuilder.Clear();
-                _stringBuilder.Append((int)_timedModeSystem.SelectedDuration.Value);
+                _stringBuilder.Append(Mathf.RoundToInt(_timedModeSystem.SelectedDuration.Value / 60f));
                 string duration = _localizationSystem.Format(
-                    LocalizationKeys.FORMAT_SECONDS, _stringBuilder.ToString());
+                    LocalizationKeys.FORMAT_MINUTES, _stringBuilder.ToString());
 
                 _stringBuilder.Clear();
                 _stringBuilder.Append(_timedHighScoreModel.Best.Value);

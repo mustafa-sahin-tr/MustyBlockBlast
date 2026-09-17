@@ -11,7 +11,7 @@ namespace MustyBlockBlast.Gameplay.Systems
     /// System — it never counts anything down, that is <see cref="TimerRunSystem"/>'s job.
     /// <para>
     /// Changing the selection mid-run is deliberately harmless: <see cref="TimerRunSystem"/> only
-    /// reads it on a tray refill, so the run in progress keeps the length it started on.
+    /// reads it once, on run start, so the run in progress keeps the length it started on.
     /// </para>
     /// </summary>
     public sealed class TimedModeSystem

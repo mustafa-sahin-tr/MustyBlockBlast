@@ -354,12 +354,12 @@ namespace MustyBlockBlast.Presentation.Views
 
             if (isTimed)
             {
-                // The round length goes through the shared seconds format rather than being spelled
-                // here, so the countdown HUD and this suffix always read the same way.
+                // The round length goes through the shared minutes format rather than being spelled
+                // here, so the duration picker and this suffix always read the same way.
                 _stringBuilder.Clear();
-                _stringBuilder.Append((int)_timedModeSystem.SelectedDuration.Value);
+                _stringBuilder.Append(Mathf.RoundToInt(_timedModeSystem.SelectedDuration.Value / 60f));
                 string duration = _localizationSystem.Format(
-                    LocalizationKeys.FORMAT_SECONDS, _stringBuilder.ToString());
+                    LocalizationKeys.FORMAT_MINUTES, _stringBuilder.ToString());
 
                 _bestLabelText.text = _localizationSystem.Format(LocalizationKeys.SCORE_BEST_TIMED, duration);
             }
