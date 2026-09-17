@@ -13,9 +13,10 @@ using VContainer;
 namespace MustyBlockBlast.Presentation.Views
 {
     /// <summary>
-    /// The run's objectives, as a row of icons pinned to the top centre of the screen above the score.
-    /// One icon per objective the current level asks for: a glyph for what it measures, a "2/3" badge
-    /// for how far along it is, and a tick once that particular objective is done.
+    /// The run's objectives, as a row of icons pinned to the top centre of the screen, directly below
+    /// <see cref="ScoreView"/>'s score. One icon per objective the current level asks for: a glyph for
+    /// what it measures, a "2/3" badge for how far along it is, and a tick once that particular
+    /// objective is done.
     /// <para>
     /// Replaces the old single-line text strip. A level may now carry several objectives at once
     /// (<see cref="ObjectiveModel.TrackedObjectives"/>), and a sentence per objective would not fit the
@@ -58,8 +59,9 @@ namespace MustyBlockBlast.Presentation.Views
 
         [Header("Layout")]
         [Tooltip("Offset from the top-centre of the canvas, in reference pixels. Anchored to the top " +
-            "edge so the row hugs it at every aspect ratio instead of drifting into the score.")]
-        [SerializeField] private Vector2 _topOffset = new Vector2(0f, -18f);
+            "edge so the row hugs the score at every aspect ratio: it sits just below ScoreView's " +
+            "centred score number rather than above it.")]
+        [SerializeField] private Vector2 _topOffset = new Vector2(0f, -344f);
 
         [Tooltip("Side of one icon plate, in reference pixels.")]
         [SerializeField] private float _slotSize = 76f;

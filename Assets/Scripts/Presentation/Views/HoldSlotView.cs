@@ -1,9 +1,12 @@
 using System.Collections.Generic;
 using MustyBlockBlast.Core;
+using MustyBlockBlast.Gameplay.Localization;
 using MustyBlockBlast.Gameplay.Models;
 using MustyBlockBlast.Gameplay.Reactive;
 using MustyBlockBlast.Gameplay.Settings;
+using MustyBlockBlast.Gameplay.Systems;
 using UnityEngine;
+using UnityEngine.Serialization;
 using UnityEngine.UI;
 using VContainer;
 
@@ -13,11 +16,13 @@ namespace MustyBlockBlast.Presentation.Views
     /// The Hold slot ("pocket"): one plate showing the single parked piece, or an empty outline when
     /// nothing is parked. Reads <see cref="TrayModel"/> only.
     /// <para>
-    /// Corner-anchored to the top-left, mirroring the top-right button column, rather than placed on
-    /// the centre-anchored power-up row next to the tray. The row it would naturally belong to has no
-    /// clearance left: the strip is centred, so on a narrow phone the canvas edge and the strip's first
-    /// icon close in on each other from both sides and any plate in that lane either clips off-screen
-    /// or collides. A corner anchor tracks the real screen edge, so neither can happen at any aspect.
+    /// Centred beneath <see cref="PieceTrayView"/>'s card, sharing its horizontal centre, rather than
+    /// corner-anchored near the score readout: the pocket is a tray affordance, not a HUD button, and
+    /// sitting far from the tray it swaps pieces with was read as an unrelated, half-disabled control.
+    /// The gap below the tray card is the only clearance the layout has — the power-up strip sits
+    /// directly above the tray with almost none to spare, and the tray card itself already spans nearly
+    /// the full canvas width — so "below" is the one placement that cannot collide with a tray piece at
+    /// its largest footprint or with the power-up strip at any aspect ratio.
     /// </para>
     /// <para>
     /// Like <see cref="PowerUpInventoryView"/> it knows how to draw itself and whether a screen point is
@@ -37,9 +42,14 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>Alpha of the plate while the pocket is empty, so "nothing parked" reads at a glance.</summary>
         private const float EMPTY_PLATE_ALPHA = 0.45f;
 
+        /// <summary>Alpha of the empty-state arrow and label. Kept well above <see cref="EMPTY_PLATE_ALPHA"/>
+        /// so the "drop a piece here" hint stays legible even while the plate itself fades.</summary>
+        private const float EMPTY_HINT_ALPHA = 0.85f;
+
         [Header("Layout")]
-        [Tooltip("Plate centre, offset from the canvas top-left corner. Sits below the best-score readout.")]
-        [SerializeField] private Vector2 _cornerOffset = new Vector2(60f, -280f);
+        [FormerlySerializedAs("_cornerOffset")]
+        [Tooltip("Plate centre in canvas space. Sits below the piece tray, sharing its horizontal centre.")]
+        [SerializeField] private Vector2 _anchoredPosition = new Vector2(0f, -897f);
 
         [SerializeField] private float _slotSize = 104f;
 
@@ -60,6 +70,16 @@ namespace MustyBlockBlast.Presentation.Views
         [Tooltip("Scale applied while a dragged piece hovers the pocket, so the drop target reads without new art.")]
         [SerializeField] private float _hoverScale = 1.14f;
 
+        [Header("Empty-state hint")]
+        [Tooltip("Side of the downward arrow shown while the pocket is empty.")]
+        [SerializeField] private float _emptyGlyphSize = 40f;
+
+        [Tooltip("Font size of the short label under the plate while the pocket is empty.")]
+        [SerializeField] private int _emptyLabelFontSize = 20;
+
+        [Tooltip("Gap between the plate's bottom edge and the empty-state label.")]
+        [SerializeField] private float _emptyLabelGap = 10f;
+
         private readonly List<CellView> _pieceCells = new List<CellView>(9);
         private readonly CompositeDisposable _disposables = new CompositeDisposable();
 
@@ -70,17 +90,26 @@ namespace MustyBlockBlast.Presentation.Views
         private Image _plateImage;
         private Image _shadowImage;
         private Image _emptyGlyphImage;
+        private Text _emptyLabelText;
 
         private TrayModel _trayModel;
         private SettingsModel _settingsModel;
+        private LocalizationModel _localizationModel;
+        private LocalizationSystem _localizationSystem;
         private ThemeDefinition _currentTheme;
         private bool _isHovered;
 
         [Inject]
-        public void Construct(TrayModel trayModel, SettingsModel settingsModel)
+        public void Construct(
+            TrayModel trayModel,
+            SettingsModel settingsModel,
+            LocalizationModel localizationModel,
+            LocalizationSystem localizationSystem)
         {
             _trayModel = trayModel;
             _settingsModel = settingsModel;
+            _localizationModel = localizationModel;
+            _localizationSystem = localizationSystem;
         }
 
         private void Awake()
@@ -92,7 +121,8 @@ namespace MustyBlockBlast.Presentation.Views
 
         private void Start()
         {
-            if (_trayModel == null || _settingsModel == null)
+            if (_trayModel == null || _settingsModel == null
+                || _localizationModel == null || _localizationSystem == null)
             {
                 Debug.LogError(
                     $"{nameof(HoldSlotView)} was not injected. Is it registered in the LifetimeScope?", this);
@@ -101,6 +131,7 @@ namespace MustyBlockBlast.Presentation.Views
 
             // Subscribed first so _currentTheme is set before the initial rebuild paints a cell.
             _settingsModel.CurrentTheme.Subscribe(OnThemeChanged).AddTo(_disposables);
+            _localizationModel.CurrentLocale.Subscribe(OnLocaleChanged).AddTo(_disposables);
 
             _trayModel.HeldChanged += OnHeldChanged;
             RebuildHeldPiece();
@@ -146,6 +177,9 @@ namespace MustyBlockBlast.Presentation.Views
 
         private void OnHeldChanged() => RebuildHeldPiece();
 
+        private void OnLocaleChanged(LocaleDefinition locale)
+            => _emptyLabelText.text = _localizationSystem.Translate(LocalizationKeys.HOLD_SLOT_EMPTY_HINT);
+
         private void OnThemeChanged(ThemeDefinition theme)
         {
             if (theme == null)
@@ -187,9 +221,10 @@ namespace MustyBlockBlast.Presentation.Views
 
             _plateImage.color = WithAlpha(plateColour, _isHovered ? 1f : alpha);
             _shadowImage.color = WithAlpha(_currentTheme.CardShadow, alpha);
-            _emptyGlyphImage.color = isOccupied
-                ? Color.clear
-                : WithAlpha(_currentTheme.EmptyCellOutline, alpha);
+
+            Color hintColour = isOccupied ? Color.clear : WithAlpha(_currentTheme.SoftInk, EMPTY_HINT_ALPHA);
+            _emptyGlyphImage.color = hintColour;
+            _emptyLabelText.color = hintColour;
 
             float scale = _isHovered ? _hoverScale : 1f;
             _rectTransform.localScale = new Vector3(scale, scale, 1f);
@@ -255,13 +290,13 @@ namespace MustyBlockBlast.Presentation.Views
 
         private void Build()
         {
-            // Anchored to the canvas' top-left corner, so the offset is measured from the real screen
-            // edge at every aspect ratio instead of from a 1080-wide reference the device may not have.
-            _rectTransform.anchorMin = new Vector2(0f, 1f);
-            _rectTransform.anchorMax = new Vector2(0f, 1f);
+            // Centre-anchored like PieceTrayView, so _anchoredPosition sits in the same coordinate
+            // space as the tray it is placed relative to.
+            _rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
+            _rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
             _rectTransform.pivot = new Vector2(0.5f, 0.5f);
             _rectTransform.sizeDelta = new Vector2(_slotSize, _slotSize);
-            _rectTransform.anchoredPosition = _cornerOffset;
+            _rectTransform.anchoredPosition = _anchoredPosition;
 
             // Every size here is in canvas reference units, so the pocket owns its own scale rather
             // than inheriting whatever the scene object happened to be created with.
@@ -280,17 +315,31 @@ namespace MustyBlockBlast.Presentation.Views
             Centre(_plateRect, new Vector2(_slotSize, _slotSize));
             _plateImage = ConfigurePlate(plateObject.GetComponent<Image>());
 
+            // A downward arrow into the plate, not the old translucent square outline: an empty pocket
+            // otherwise reads as a dim, disabled button rather than a live drop target. Rotated 180°
+            // from the shared upward RocketIcon, so no new art is drawn just for this.
             var glyphObject = new GameObject("EmptyGlyph", typeof(RectTransform), typeof(Image));
             var glyphRect = (RectTransform)glyphObject.transform;
             glyphRect.SetParent(_plateRect, false);
-            float glyphSide = _slotSize * 0.5f;
-            Centre(glyphRect, new Vector2(glyphSide, glyphSide));
-            _emptyGlyphImage = ConfigurePlate(glyphObject.GetComponent<Image>());
+            Centre(glyphRect, new Vector2(_emptyGlyphSize, _emptyGlyphSize));
+            glyphRect.localRotation = Quaternion.Euler(0f, 0f, 180f);
+            _emptyGlyphImage = glyphObject.GetComponent<Image>();
+            _emptyGlyphImage.sprite = UiSpriteFactory.RocketIcon;
+            _emptyGlyphImage.type = Image.Type.Simple;
+            _emptyGlyphImage.color = Color.clear;
+            _emptyGlyphImage.raycastTarget = false;
 
             var pieceObject = new GameObject("HeldPiece", typeof(RectTransform));
             _pieceRoot = (RectTransform)pieceObject.transform;
             _pieceRoot.SetParent(_plateRect, false);
             Centre(_pieceRoot, Vector2.zero);
+
+            // Below the plate rather than inside it: the plate is one small square shared with the
+            // parked-piece miniature, with no room to also fit a legible word.
+            _emptyLabelText = UiTextFactory.Create(
+                _rectTransform, "EmptyLabel", _emptyLabelFontSize, FontStyle.Bold, Color.clear);
+            var labelRect = (RectTransform)_emptyLabelText.transform;
+            labelRect.anchoredPosition = new Vector2(0f, -((_slotSize * 0.5f) + _emptyLabelGap));
         }
 
         private static Color WithAlpha(Color colour, float alphaScale)

@@ -11,22 +11,20 @@ namespace MustyBlockBlast.Presentation.Views
 {
     /// <summary>
     /// Accent-coloured circular badge showing the active path level number, pinned to the top-left
-    /// corner group directly under <see cref="ScoreView"/>'s "BestValue" label. Hidden outside Path
-    /// mode and while no level is active.
+    /// corner group. Hidden outside Path mode and while no level is active.
     /// <para>
-    /// It used to overlap <see cref="LevelPathButtonView"/>'s corner, where a notch or Dynamic Island
-    /// could clip it; as its own element under the safe-area root it keeps a stable, readable spot.
+    /// Sits where <see cref="HoldSlotView"/> used to live, top-left under <see cref="ScoreView"/>'s
+    /// "BestValue" label — free once the Hold slot moved to sit beside the piece tray instead. Reusing
+    /// the spot keeps the corner group's footprint unchanged rather than adding a second occupied-and-
+    /// vacated layout to reason about.
     /// </para>
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class PathLevelBadgeView : MonoBehaviour
     {
         [Header("Layout")]
-        // Magic-number layout on purpose: deriving this from ScoreView's serialized font sizes would
-        // make this View depend on another View. It must stay visually under ScoreView's "BestValue"
-        // box — BestValue sits at y = -76 with a 96px line, so the badge starts just below it.
-        [Tooltip("Offset from the top-left corner of the safe area, in reference pixels. Must sit below ScoreView's BestValue label.")]
-        [SerializeField] private Vector2 _anchoredPosition = new Vector2(32f, -188f);
+        [Tooltip("Offset from the top-left corner of the safe area, in reference pixels.")]
+        [SerializeField] private Vector2 _anchoredPosition = new Vector2(26f, -246f);
         [SerializeField] private float _badgeDiameter = 68f;
 
         private readonly CompositeDisposable _disposables = new CompositeDisposable();

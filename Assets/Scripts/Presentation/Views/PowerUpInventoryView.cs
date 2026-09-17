@@ -115,7 +115,7 @@ namespace MustyBlockBlast.Presentation.Views
 
         [Header("Layout")]
         [Tooltip("Strip centre in canvas space. Sits in the gap between the board card and the tray.")]
-        [SerializeField] private Vector2 _anchoredPosition = new Vector2(0f, -430f);
+        [SerializeField] private Vector2 _anchoredPosition = new Vector2(0f, -460f);
 
         [SerializeField] private float _slotSize = 104f;
 

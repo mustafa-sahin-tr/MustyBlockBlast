@@ -164,6 +164,12 @@ namespace MustyBlockBlast.Gameplay.Localization
         public const string OBJECTIVE_FAMILY_S_SHAPE = "objective.family.s_shape";
         public const string OBJECTIVE_FAMILY_Z_SHAPE = "objective.family.z_shape";
 
+        // --- Hold slot ---
+
+        /// <summary>Short label under the empty Hold slot, telling the player what dragging a tray
+        /// piece there does.</summary>
+        public const string HOLD_SLOT_EMPTY_HINT = "hold_slot.empty_hint";
+
         // --- Themes ---
 
         public const string THEME_YAZ = "theme.yaz";

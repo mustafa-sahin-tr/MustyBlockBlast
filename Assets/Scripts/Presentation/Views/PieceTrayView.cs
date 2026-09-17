@@ -27,7 +27,7 @@ namespace MustyBlockBlast.Presentation.Views
     public sealed class PieceTrayView : MonoBehaviour
     {
         [Header("Layout")]
-        [SerializeField] private Vector2 _anchoredPosition = new Vector2(0f, -640f);
+        [SerializeField] private Vector2 _anchoredPosition = new Vector2(0f, -670f);
         [SerializeField] private Vector2 _cardSize = new Vector2(1000f, 300f);
         [SerializeField] private float _slotWidth = 300f;
         [SerializeField] private float _trayCellSize = 56f;
