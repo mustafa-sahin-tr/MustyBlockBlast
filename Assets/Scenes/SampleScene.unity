@@ -1151,11 +1151,21 @@ MonoBehaviour:
   _cardSize: {x: 880, y: 1040}
   _headerFontSize: 52
   _balanceFontSize: 44
-  _bodyFontSize: 32
+  _tabFontSize: 26
+  _earnFontSize: 24
+  _itemNameFontSize: 26
+  _itemDescriptionFontSize: 22
+  _itemPriceFontSize: 32
   _wasPriceFontSize: 24
-  _rowNameFontSize: 32
-  _rowDescriptionFontSize: 24
-  _rowPriceFontSize: 30
+  _badgeFontSize: 20
+  _toastFontSize: 26
+  _placeholderFontSize: 30
+  _displayFont: {fileID: 12800000, guid: 6537f3bea187e4d82b1d0969d9d00fa6, type: 3}
+  _buttonSprite: {fileID: 21300000, guid: be54dd355e70442e6885fd6762cac582, type: 3}
+  _tileSprite: {fileID: 21300000, guid: 4ea885232be03479d94ad02cc34b1683, type: 3}
+  _awningSprite: {fileID: 21300000, guid: 2302a00b326d242d7b14bd994f985842, type: 3}
+  _lockSprite: {fileID: 21300000, guid: 58e61f925043d4eb881736ba5d44dbe6, type: 3}
+  _coinSprite: {fileID: 21300000, guid: ef1b23357960542ca8a3614b7fbc2837, type: 3}
   _rowIcons:
   - {fileID: 21300000, guid: 4eb7949ce29df43d7b0049a7da99d113, type: 3}
   - {fileID: 21300000, guid: a78c069ff5050429a949119407ba55bc, type: 3}
@@ -2084,6 +2094,7 @@ MonoBehaviour:
   _objectiveIconCatalog: {fileID: 11400000, guid: fadafff29d78b4ecf8a72d927fa23418, type: 2}
   _currencyConfig: {fileID: 11400000, guid: 36f18b394e8614ca0a06e153de8be6d3, type: 2}
   _powerUpPriceConfig: {fileID: 11400000, guid: e31dd2862241042cf84ab7666973315a, type: 2}
+  _shopPaletteConfig: {fileID: 11400000, guid: 5a84fbb2d11fc427eb0dc587291c2a95, type: 2}
   _coinBundleConfig: {fileID: 11400000, guid: eb3e91b3d5d5343eeaf64dd26cd6962f, type: 2}
   _removeAdsProductConfig: {fileID: 11400000, guid: 8d78666af0edb4a9eb24de1f12842ce8, type: 2}
   _promotionConfig: {fileID: 11400000, guid: 7388f93f45ba1487b8604089e57a0e81, type: 2}
@@ -2352,6 +2363,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 28696aeeca65843479821c321262106d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.SafeAreaView
+  _applyTopInset: 0
 --- !u!1 &1606248352
 GameObject:
   m_ObjectHideFlags: 0

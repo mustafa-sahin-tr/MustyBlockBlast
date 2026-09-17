@@ -12,54 +12,55 @@ using VContainer;
 namespace MustyBlockBlast.Presentation.Views
 {
     /// <summary>
-    /// The power-up shop: one row per <see cref="PowerUpKind"/> with what the player holds, what one
-    /// costs, and a tap that buys it. Shown as the shop tab of <see cref="HubPanelView"/>, which is its
-    /// only opener.
+    /// The power-up shop, drawn as a carnival stall (issue #234): a striped awning over a cream card,
+    /// the balance on a dark plate, three chunky sub-tabs, and a scrolling two-column grid of item
+    /// cards — one per <see cref="PowerUpKind"/> — each with a glossy tinted tile, the kind's glyph,
+    /// a one-line description, a held-count badge and a 3D price button. Shown as the shop tab of
+    /// <see cref="HubPanelView"/>, which is its only opener.
     /// <para>
     /// Holds no logic, like every other card here. It never writes a model: the balance and the nine
-    /// counters are observed, so the rows repaint whether this screen or something else moved them —
-    /// including <see cref="PowerUpInventoryView"/>'s earn-by-ad taps on the strip underneath. A tap on
-    /// a row is one call to <see cref="CurrencySystem.TryPurchasePowerUp"/> and nothing more; whether
-    /// it is refused, and why, is the System's answer and not this card's guess.
+    /// counters are observed, so the cards repaint whether this screen or something else moved them —
+    /// including <see cref="PowerUpInventoryView"/>'s earn-by-ad taps on the strip underneath. A tap
+    /// on a price button is one call to <see cref="CurrencySystem.TryPurchasePowerUp"/> and nothing
+    /// more; whether it is refused, and why, is the System's answer and not this card's guess.
     /// </para>
     /// <para>
     /// Prices are quoted through <see cref="CurrencySystem.QuotePriceFor"/> rather than read out of the
-    /// config directly, for the reason the conversion screen quotes through
-    /// <see cref="CurrencySystem.QuoteCoinsFor"/>: the figure shown and the figure charged must come
-    /// from the same arithmetic rather than two copies of it.
+    /// config directly, so the figure shown and the figure charged come from the same arithmetic. A
+    /// live promotion reaches this card the same way — the quote arrives discounted — and whether to
+    /// <em>say</em> so (the struck-through standard price and the sale badge) is decided by comparing
+    /// that quote against <see cref="PowerUpPriceConfig.GetPrice"/>, never by reading
+    /// <see cref="PromotionConfig"/> here.
     /// </para>
     /// <para>
-    /// That is also how a live promotion reaches this card: the quote it already asks for arrives
-    /// discounted, so nothing here knows a campaign exists. Whether to <em>say</em> so — the dimmed
-    /// standard price struck through above the sale one — is decided by comparing that quote against
-    /// <see cref="PowerUpPriceConfig.GetPrice"/>, rather than by reading
-    /// <see cref="PromotionConfig"/> directly: which campaign applies, whether two of them stack and
-    /// when a window closes are all the System's answers, and a View holding its own copy of that logic
-    /// could only ever disagree with the price it is drawing.
+    /// The one card that does not follow the theme. Its colours come from
+    /// <see cref="ShopPaletteConfig"/>, because a stall that went pastel in spring and muddy in winter
+    /// would not be a stall; see that config for the argument.
     /// </para>
     /// <para>
-    /// A row has the same three states a strip slot does — locked, held, empty — and locked wins
-    /// outright for the same reason: a kind behind its level gate is not an offer. It is dimmed and its
-    /// tap does nothing but say so, because coins never open that gate (the System refuses it too, so
-    /// this is the message rather than the enforcement).
+    /// Taps are split two ways, as <see cref="LevelPathPanelView"/>'s are. The grid scrolls, so the
+    /// buttons inside the card are EventSystem targets (<see cref="LevelPathNodeButton"/>): only uGUI
+    /// tells a tap from the first frame of a drag correctly. The close cross and the dismissing scrim
+    /// stay with <see cref="BoardInputView"/>'s manual routing through <see cref="HandleTap"/>, which
+    /// is what keeps this card in the hub's gate chain. A press inside the card is therefore seen by
+    /// both pipelines, and <see cref="HandleTap"/> deliberately does nothing with it so the button
+    /// underneath is the only thing that acts.
     /// </para>
     /// <para>
-    /// While it is open it is modal and swallows every tap, and it holds the run's clock through
-    /// <see cref="TimerRunSystem.SetMenuPaused"/> — see the gate chain in
-    /// <see cref="BoardInputView"/>, which is what keeps it mutually exclusive with the other overlays
-    /// so that flag can never have two owners.
+    /// While it is open it is modal and holds the run's clock through
+    /// <see cref="TimerRunSystem.SetMenuPaused"/> — see the gate chain in <see cref="BoardInputView"/>.
     /// </para>
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class PowerUpShopView : MonoBehaviour
     {
         /// <summary>
-        /// One row per <see cref="PowerUpKind"/>, in the same display order
+        /// One item card per <see cref="PowerUpKind"/>, in the same display order
         /// <see cref="PowerUpInventoryView"/> draws its strip in. Deliberately a second copy of that
-        /// order rather than a shared one: the strip's is private to it, and a shop row and a HUD slot
-        /// are free to diverge later without either having to ask the other's permission.
+        /// order rather than a shared one: the strip's is private to it, and a shop card and a HUD
+        /// slot are free to diverge later without either having to ask the other's permission.
         /// </summary>
-        private static readonly PowerUpKind[] RowKinds =
+        private static readonly PowerUpKind[] ItemKinds =
         {
             PowerUpKind.Bomb,
             PowerUpKind.RowClear,
@@ -72,155 +73,178 @@ namespace MustyBlockBlast.Presentation.Views
             PowerUpKind.GhostFit,
         };
 
-        /// <summary>Derived from <see cref="RowKinds"/> rather than written out, so the two can never
-        /// disagree about how many rows there are.</summary>
-        private static readonly int RowCount = RowKinds.Length;
+        private static readonly int ItemCount = ItemKinds.Length;
 
-        /// <summary>How many of a kind one tap buys. Fixed at one for now: the shop is a functional
-        /// slice, and a quantity picker is a design pass this screen has not had yet.</summary>
+        /// <summary>How many of a kind one tap buys. Fixed at one: a quantity picker is a design pass
+        /// this screen has not had.</summary>
         private const int PURCHASE_QUANTITY = 1;
 
-        // Layout, in canvas reference pixels, matching the other cards so they all read as one family.
-        private const float HEADER_Y = 470f;
-        private const float BALANCE_Y = 445f;
+        /// <summary>The two sub-tabs that draw something in the card. The Coins tab is not one of them:
+        /// it opens <see cref="CoinConversionView"/> over this card instead, since that card already
+        /// holds every way to earn coins, and the shop returns to the tab it was on underneath.</summary>
+        private enum ShopTab
+        {
+            PowerUps,
+            Deals,
+        }
 
-        // The balance line is shared with the convert button (issue #219): balance on the left, the
-        // way into the conversion screen on the right, so the coins and the way to get more sit
-        // together and the nine rows below keep the height they have.
-        private const float BALANCE_X = -190f;
-        private const float CONVERT_BUTTON_X = 210f;
-        private const float CONVERT_BUTTON_CORNER_RADIUS = 14f;
-        private static readonly Vector2 ConvertButtonSize = new Vector2(360f, 64f);
-        private const float ROWS_TOP_Y = 350f;
-        private const float MESSAGE_Y = -462f;
+        // Layout, in canvas reference pixels, on the 880-wide card the other hub cards share. Offsets
+        // are measured down from the card's top edge; TopY turns them into anchored positions.
+        private const float SIDE_INSET = 24f;
+        private const float AWNING_TOP = 4f;
+        private const float AWNING_HEIGHT = 112f;
+        private const float BALANCE_TOP = 128f;
+        private const float BALANCE_HEIGHT = 80f;
+        private const float BALANCE_CORNER_RADIUS = 18f;
+        private const float BALANCE_COIN_SIZE = 56f;
+        private const float BALANCE_PADDING = 14f;
+        private const float EARN_BUTTON_WIDTH = 300f;
+        private const float EARN_BUTTON_HEIGHT = 60f;
+        private const float TABS_TOP = 224f;
+        private const float TAB_HEIGHT = 72f;
+        private const float TAB_GAP = 12f;
+        private const int TAB_COUNT = 3;
+        private const float VIEWPORT_TOP = 312f;
+        private const float VIEWPORT_BOTTOM_INSET = 24f;
         private const float ICON_BUTTON_SIZE = 92f;
-        private const float SIDE_INSET = 48f;
         private const float HEADER_INSET = 84f;
 
-        // The row, after the design (issue #207) and one round of on-device feedback: the design's
-        // 40px tile and 14px gap read too small on the 880-wide card, so the tile, the glyph and the
-        // type are scaled up and the gap tightened to keep nine rows on the card. The rows start where
-        // the card's own header used to be — HubPanelView hides that header, so the space is free.
-        private const float ROW_HEIGHT = 80f;
-        private const float ROW_GAP = 10f;
-        private const float ROW_PITCH = ROW_HEIGHT + ROW_GAP;
-        private const float ROW_PADDING = 10f;
-        private const float ROW_CORNER_RADIUS = 14f;
-        private const float ICON_TILE_SIZE = 64f;
-        private const float ICON_TILE_CORNER_RADIUS = 12f;
-        private const float ICON_GLYPH_SIZE = 50f;
-        private const float ICON_TEXT_GAP = 12f;
+        // The grid: two columns of item cards, scrolled vertically.
+        private const int GRID_COLUMNS = 2;
+        private const float GRID_GAP = 16f;
+        private const float GRID_TOP_PADDING = 8f;
+        private const float GRID_BOTTOM_PADDING = 96f;
+        private const float ITEM_HEIGHT = 384f;
+        private const float ITEM_CORNER_RADIUS = 22f;
+        private const float ITEM_SHADOW_DROP = 8f;
+        private const float ITEM_PADDING = 16f;
+        private const float ITEM_INNER_GAP = 12f;
+        private const float BAND_HEIGHT = 46f;
+        private const float TILE_SIZE = 150f;
+        private const float GLYPH_SIZE = 88f;
 
-        /// <summary>How far a row's plate is tinted from the card towards the ink. The design's beige on
-        /// off-white is a small step, not a second colour: a tint keeps it a theme-derived shade.</summary>
-        private const float ROW_PLATE_TINT = 0.05f;
-
-        /// <summary>Vertical offsets of the name and the description from the row's centre line, so the
-        /// two stack as one label rather than two rows of text.</summary>
-        private const float NAME_RISE = 15f;
-        private const float DESCRIPTION_DROP = 16f;
-
-        /// <summary>Alpha applied to the struck-through standard price on a discounted row. Well under
-        /// the sale price's, so the eye lands on what the player would pay rather than on what they
-        /// would have paid.</summary>
-        private const float WAS_PRICE_ALPHA = 0.45f;
-
-        /// <summary>Thickness of the line drawn through the standard price, in canvas reference pixels.
-        /// A thin <see cref="Image"/> bar, the same primitive the close cross is built from, rather than
-        /// a rich-text tag: this card draws with <see cref="Text"/>, which has no strikethrough.</summary>
+        /// <summary>The tile sprite's glossy face sits above a darker lip, so the glyph is lifted off
+        /// the tile's geometric centre to sit on the face.</summary>
+        private const float GLYPH_RISE = 8f;
+        private const float DESCRIPTION_HEIGHT = 60f;
+        private const float BUY_BUTTON_HEIGHT = 72f;
+        private const float BUY_BUTTON_CORNER_RADIUS = 16f;
+        private const float HELD_BADGE_SIZE = 44f;
+        private const float HELD_BADGE_BORDER = 4f;
+        private const float SALE_BADGE_WIDTH = 72f;
+        private const float SALE_BADGE_HEIGHT = 30f;
+        private const float SALE_BADGE_CORNER_RADIUS = 12f;
+        private const float COIN_GLYPH_SIZE = 36f;
+        private const float LOCK_GLYPH_SIZE = 32f;
         private const float STRIKETHROUGH_THICKNESS = 3f;
 
-        /// <summary>How far the sale price drops from a row's centre line to make room for the standard
-        /// price above it. Applied only on a discounted row — an undiscounted one keeps its single price
-        /// centred, exactly as before.</summary>
-        private const float DISCOUNTED_PRICE_DROP = 0.17f;
+        /// <summary>
+        /// Where the coin and the figure sit inside the price button, in the button's local space. Two
+        /// layouts: centred when the price stands alone, shifted right when a struck-through standard
+        /// price sits to its left.
+        /// </summary>
+        private const float PRICE_TEXT_WIDTH = 150f;
+        private const float COIN_X_PLAIN = -44f;
+        private const float PRICE_X_PLAIN = 60f;
+        private const float WAS_PRICE_WIDTH = 110f;
+        private const float WAS_PRICE_X = -106f;
+        private const float COIN_X_DISCOUNTED = -20f;
+        private const float PRICE_X_DISCOUNTED = 84f;
 
-        /// <summary>Where the struck-through standard price sits, as a fraction of the row height above
-        /// the centre line.</summary>
-        private const float WAS_PRICE_RISE = 0.26f;
+        private const float TOAST_HEIGHT = 56f;
+        private const float TOAST_BOTTOM = 44f;
+        private const float TOAST_PADDING = 48f;
+        private const float TOAST_CORNER_RADIUS = 28f;
 
-        /// <summary>Alpha applied to a row whose kind is still behind its level gate. Unlike
-        /// <see cref="PowerUpInventoryView"/>, which hides a locked kind's slot entirely, this is a full
-        /// catalog: every kind gets a row regardless of level, so "locked" has to be a visual state here
-        /// rather than an absence.</summary>
-        private const float LOCKED_ROW_ALPHA = 0.35f;
+        /// <summary>
+        /// The button sprite is authored at 512×249 with a deep bottom lip. Sliced at its native
+        /// scale the lip alone would be taller than a 72-pixel button, so the slices are shrunk
+        /// uniformly and the lip reads as a lip rather than as the whole button.
+        /// </summary>
+        private const float BUTTON_SLICE_SCALE = 2.5f;
 
-        /// <summary>Alpha applied to a row the player cannot currently afford. Above the locked alpha on
-        /// purpose: "come back with more coins" is a live offer, where a locked row is not one at all.</summary>
-        private const float UNAFFORDABLE_ROW_ALPHA = 0.6f;
+        /// <summary>Alpha applied to every part of a card whose kind is behind its level gate. This is
+        /// a full catalog — every kind gets a card regardless of level — so "locked" is a visual state
+        /// here where the strip simply has no slot.</summary>
+        private const float LOCKED_ITEM_ALPHA = 0.55f;
 
-        // Plain strings, not String Table keys, for the reason CoinConversionView states:
-        // LocalizationKeys has no currency section yet, and adding keys with no translations behind
-        // them would render the keys themselves. Tracked for a follow-up.
+        /// <summary>Alpha of the struck-through standard price, well under the sale price's so the eye
+        /// lands on what the player would pay.</summary>
+        private const float WAS_PRICE_ALPHA = 0.7f;
+
+        // Plain strings, not String Table keys, for the reason CoinConversionView states: LocalizationKeys
+        // has no currency section yet, and adding keys with no translations behind them would render
+        // the keys themselves. Tracked for a follow-up.
         private const string HEADER_TEXT = "POWER-UP SHOP";
-        private const string COIN_BALANCE_PREFIX_TEXT = "Coins: ";
-        private const string LOCKED_LEVEL_PREFIX = "Reach Lv";
+        private const string TAB_POWER_UPS_TEXT = "POWER-UPS";
+        private const string TAB_COINS_TEXT = "COINS";
+        private const string TAB_DEALS_TEXT = "DEALS";
+        private const string EARN_BUTTON_TEXT = "+ GET COINS";
+        private const string DEALS_PLACEHOLDER_TEXT = "Deals are coming soon.";
+        private const string LOCKED_LEVEL_PREFIX = "Lv ";
+        private const string HELD_COUNT_PREFIX = "x";
         private const string PURCHASED_MESSAGE = "Bought!";
         private const string INSUFFICIENT_COINS_MESSAGE = "Not enough coins.";
-        private const string LOCKED_MESSAGE = "Locked — level up to unlock this.";
-        private const string OPENING_MESSAGE = "Tap a power-up to buy one.";
-
-        /// <summary>Label of the button that opens <see cref="CoinConversionView"/>. Authored text like
-        /// the header and the messages around it; the card has no string-table pass yet.</summary>
-        private const string CONVERT_BUTTON_TEXT = "CONVERT SCORE";
-        private const string COINS_SUFFIX_TEXT = " coins";
-
-        /// <summary>The price column's width as a fraction of a row's width. Named because three things
-        /// are placed in that column — the price, the standard price above it and the bar through that —
-        /// and three copies of the same number would be three chances to drift. The column sits flush
-        /// against the row's right padding, as the design's price does.</summary>
-        private const float PRICE_COLUMN_WIDTH_FRACTION = 0.30f;
+        private const string LOCKED_MESSAGE = "Level up to unlock this.";
 
         [Header("Layout")]
         [SerializeField] private Vector2 _cardSize = new Vector2(880f, 1040f);
         [SerializeField] private int _headerFontSize = 52;
-        [SerializeField] private int _balanceFontSize = 44;
-        [SerializeField] private int _bodyFontSize = 32;
-        [SerializeField] private int _wasPriceFontSize = 24;
+        [SerializeField] private int _balanceFontSize = 40;
+        [SerializeField] private int _tabFontSize = 26;
+        [SerializeField] private int _earnFontSize = 24;
+        [SerializeField] private int _itemNameFontSize = 26;
+        [SerializeField] private int _itemDescriptionFontSize = 22;
+        [SerializeField] private int _itemPriceFontSize = 32;
+        [SerializeField] private int _wasPriceFontSize = 20;
+        [SerializeField] private int _badgeFontSize = 20;
+        [SerializeField] private int _toastFontSize = 26;
+        [SerializeField] private int _placeholderFontSize = 30;
 
-        [Header("Rows")]
-        [SerializeField] private int _rowNameFontSize = 32;
-        [SerializeField] private int _rowDescriptionFontSize = 24;
-        [SerializeField] private int _rowPriceFontSize = 30;
+        [Header("Art")]
+        [Tooltip("The chunky display face for names, prices and tab labels. Falls back to the built-in "
+            + "runtime font when unassigned.")]
+        [SerializeField] private Font _displayFont;
 
-        [Tooltip("White-on-transparent glyphs, one per shop row in display order (Bomb, Row Clear, Column "
-            + "Clear, Joker, Colour Cleanser, Rotate, Reroll, Double Score, Ghost Fit). Tinted at runtime.")]
-        [SerializeField] private Sprite[] _rowIcons = new Sprite[RowCount];
+        [Tooltip("White 9-sliced glossy button with a darker bottom lip. Tinted at runtime.")]
+        [SerializeField] private Sprite _buttonSprite;
+
+        [Tooltip("White glossy rounded tile behind each glyph. Tinted at runtime per kind.")]
+        [SerializeField] private Sprite _tileSprite;
+
+        [Tooltip("The striped awning drawn across the top of the card.")]
+        [SerializeField] private Sprite _awningSprite;
+
+        [Tooltip("White-on-transparent padlock glyph for a locked card's button.")]
+        [SerializeField] private Sprite _lockSprite;
+
+        [Tooltip("The coin drawn beside every price and the balance.")]
+        [SerializeField] private Sprite _coinSprite;
+
+        [Tooltip("White-on-transparent glyphs, one per item in display order (Bomb, Row Clear, Column "
+            + "Clear, Joker, Colour Cleanser, Rotate, Reroll, Double Score, Ghost Fit).")]
+        [SerializeField] private Sprite[] _rowIcons = new Sprite[ItemCount];
 
         [Header("Palette")]
         [SerializeField] private Color _scrimColour = new Color(0.17f, 0.15f, 0.20f, 0.55f);
 
         private readonly CompositeDisposable _disposables = new CompositeDisposable();
         private readonly StringBuilder _stringBuilder = new StringBuilder(48);
-
-        private readonly RectTransform[] _rowRects = new RectTransform[RowCount];
-        private readonly Image[] _rowPlates = new Image[RowCount];
-        private readonly Image[] _iconTiles = new Image[RowCount];
-        private readonly Image[] _iconGlyphs = new Image[RowCount];
-        private readonly Text[] _nameTexts = new Text[RowCount];
-        private readonly Text[] _descriptionTexts = new Text[RowCount];
-        private readonly Text[] _priceTexts = new Text[RowCount];
-
-        /// <summary>The standard price of a discounted row, and the bar drawn through it. Built for
-        /// every row and shown on none of them by default: a campaign can start or end between two
-        /// openings of this card, so the "was" figure has to be one repaint away rather than one
-        /// instantiation away.</summary>
-        private readonly Text[] _wasPriceTexts = new Text[RowCount];
-        private readonly Image[] _strikethroughBars = new Image[RowCount];
+        private readonly ItemWidgets[] _items = new ItemWidgets[ItemCount];
 
         /// <summary>Held counts, mirrored from <see cref="PowerUpModel"/> so a repaint never has to
         /// reach back through the model. Written only by the count subscriptions.</summary>
-        private readonly int[] _counts = new int[RowCount];
+        private readonly int[] _counts = new int[ItemCount];
 
         private ProfileModel _profileModel;
         private PowerUpModel _powerUpModel;
         private LevelProgressionModel _levelProgressionModel;
         private CurrencySystem _currencySystem;
         private TimerRunSystem _timerRunSystem;
-        private SettingsModel _settingsModel;
         private LocalizationModel _localizationModel;
         private LocalizationSystem _localizationSystem;
         private CoinConversionView _coinConversionView;
+        private ShopPaletteConfig _palette;
 
         /// <summary>Read for one purpose only: the standard price to strike through when the System's
         /// quote comes back lower than it. Never used to charge or to quote.</summary>
@@ -235,24 +259,38 @@ namespace MustyBlockBlast.Presentation.Views
         private Image _closeBarA;
         private Image _closeBarB;
         private Text _headerText;
+
+        private Image _awningImage;
+        private Image _balancePlate;
+        private Image _balanceCoin;
         private Text _balanceText;
-        private Text _messageText;
-        private RectTransform _convertButtonRect;
-        private Image _convertButtonPlate;
-        private Text _convertButtonText;
+        private Image _earnButtonPlate;
+        private Text _earnButtonText;
 
-        private ThemeDefinition _currentTheme;
+        private Image _tabPowerUpsPlate;
+        private Text _tabPowerUpsText;
+        private Image _tabCoinsPlate;
+        private Text _tabCoinsText;
+        private Image _tabDealsPlate;
+        private Text _tabDealsText;
 
-        /// <summary>The player's progression frontier, mirrored from
-        /// <see cref="LevelProgressionModel.CurrentLevelNumber"/> for the reason
-        /// <see cref="PowerUpInventoryView"/> mirrors it: every row's locked state is derived from this
-        /// one number, so it has a single source and cannot go stale.</summary>
-        private int _currentLevelNumber;
+        private CanvasGroup _contentGroup;
+        private GameObject _viewportObject;
+        private ScrollRect _scrollRect;
+        private GameObject _dealsPlaceholder;
+        private Image _dealsPlate;
+        private Text _dealsText;
 
-        /// <summary>What the last tap did, drawn at the foot of the card. The whole of the card's
-        /// feedback: a purchase and both refusals are three different sentences, and the System already
-        /// says which one applies.</summary>
-        private string _message = OPENING_MESSAGE;
+        private RectTransform _toastRect;
+        private Image _toastPlate;
+        private Text _toastText;
+
+        private ShopTab _activeTab = ShopTab.PowerUps;
+        private int _currentLevelNumber = 1;
+        private string _message = string.Empty;
+
+        /// <summary>Whether the conversion card was open at the last poll — see <see cref="Update"/>.</summary>
+        private bool _wasConversionOpen;
 
         [Inject]
         public void Construct(
@@ -261,22 +299,22 @@ namespace MustyBlockBlast.Presentation.Views
             LevelProgressionModel levelProgressionModel,
             CurrencySystem currencySystem,
             TimerRunSystem timerRunSystem,
-            SettingsModel settingsModel,
             LocalizationModel localizationModel,
             LocalizationSystem localizationSystem,
             PowerUpPriceConfig priceConfig,
+            ShopPaletteConfig palette,
             CoinConversionView coinConversionView)
         {
-            _priceConfig = priceConfig;
-            _coinConversionView = coinConversionView;
             _profileModel = profileModel;
             _powerUpModel = powerUpModel;
             _levelProgressionModel = levelProgressionModel;
             _currencySystem = currencySystem;
             _timerRunSystem = timerRunSystem;
-            _settingsModel = settingsModel;
             _localizationModel = localizationModel;
             _localizationSystem = localizationSystem;
+            _priceConfig = priceConfig;
+            _palette = palette;
+            _coinConversionView = coinConversionView;
         }
 
         private void Awake()
@@ -289,8 +327,8 @@ namespace MustyBlockBlast.Presentation.Views
         private void Start()
         {
             if (_profileModel == null || _powerUpModel == null || _levelProgressionModel == null
-                || _currencySystem == null || _timerRunSystem == null || _settingsModel == null
-                || _localizationModel == null || _localizationSystem == null || _priceConfig == null
+                || _currencySystem == null || _timerRunSystem == null || _localizationModel == null
+                || _localizationSystem == null || _priceConfig == null || _palette == null
                 || _coinConversionView == null)
             {
                 Debug.LogError(
@@ -299,8 +337,8 @@ namespace MustyBlockBlast.Presentation.Views
                 return;
             }
 
-            // Subscribed first so the theme is known before any row is painted below.
-            _settingsModel.CurrentTheme.Subscribe(OnThemeChanged).AddTo(_disposables);
+            // Painted once: the palette is static config, not an observed model.
+            PaintChrome();
 
             // Names and descriptions come from the string tables, so a language change repaints them.
             _localizationModel.CurrentLocale.Subscribe(OnLocaleChanged).AddTo(_disposables);
@@ -324,28 +362,43 @@ namespace MustyBlockBlast.Presentation.Views
             WatchCount(_powerUpModel.GhostFitCount, PowerUpKind.GhostFit);
         }
 
+        /// <summary>
+        /// Keeps the card's EventSystem targets out of reach while <see cref="CoinConversionView"/> is
+        /// showing over it. That card is modal only in <see cref="BoardInputView"/>'s manual routing;
+        /// its scrim has no raycast target, so without this a tap on its plate would fall through to a
+        /// price button underneath and buy something. A flag flip on change, never per frame.
+        /// </summary>
+        private void Update()
+        {
+            if (!IsOpen || _coinConversionView == null)
+            {
+                return;
+            }
+
+            bool isConversionOpen = _coinConversionView.IsOpen;
+            if (isConversionOpen == _wasConversionOpen)
+            {
+                return;
+            }
+
+            _wasConversionOpen = isConversionOpen;
+            _contentGroup.blocksRaycasts = !isConversionOpen;
+        }
+
         private void OnDestroy() => _disposables.Dispose();
 
         /// <summary>True while the panel is showing. Read by <see cref="BoardInputView"/>.</summary>
         internal bool IsOpen => _panel != null && _panel.activeSelf;
 
-        /// <summary>The card's own rect, current size included. Read by <see cref="HubPanelView"/> to
-        /// sit its tab bar flush against whichever card is open, rather than at a fixed offset that
-        /// would gap open against a shorter card.</summary>
+        /// <summary>The card's frame, for <see cref="HubPanelView"/> to seat its bar above.</summary>
         internal RectTransform CardRect => _cardRect;
 
-        /// <summary>This card's own close cross. Hidden by <see cref="HubPanelView"/> once opened
-        /// there, since the hub's own header now carries the one close button for whichever tab is
-        /// open.</summary>
+        /// <summary>The card's own close cross, which the hub hides in favour of its own.</summary>
         internal RectTransform CloseButtonRect => _closeButtonRect;
 
-        /// <summary>This card's own title, which just repeats the tab it belongs to. Hidden by
-        /// <see cref="HubPanelView"/> once opened there, since the hub's own header now says the same
-        /// thing.</summary>
+        /// <summary>The card's own header, which the hub hides in favour of its own.</summary>
         internal Text HeaderTitleText => _headerText;
 
-        /// <summary>Shows the card and holds the run's clock. Called by <see cref="BoardInputView"/>
-        /// when the HUD icon is tapped.</summary>
         internal void Open()
         {
             if (_panel == null || IsOpen)
@@ -353,7 +406,11 @@ namespace MustyBlockBlast.Presentation.Views
                 return;
             }
 
-            _message = OPENING_MESSAGE;
+            _message = string.Empty;
+            _wasConversionOpen = false;
+            _contentGroup.blocksRaycasts = true;
+            SelectTab(ShopTab.PowerUps);
+            _scrollRect.verticalNormalizedPosition = 1f;
             Refresh();
             _panel.SetActive(true);
             transform.SetAsLastSibling();
@@ -361,9 +418,9 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         /// <summary>
-        /// Routes a tap while the panel is open. The close cross wins, then the nine rows; the card then
-        /// swallows anything else, so a tap between rows is a deliberate no-op rather than a dismissal.
-        /// Only a tap on the scrim outside the card closes.
+        /// Routes a tap while the panel is open. The close cross wins; the card then swallows anything
+        /// else, because everything tappable on it is an EventSystem target that has already acted or
+        /// will. Only a tap on the scrim outside the card closes.
         /// </summary>
         internal void HandleTap(Vector2 screenPosition)
         {
@@ -380,24 +437,6 @@ namespace MustyBlockBlast.Presentation.Views
             {
                 Close();
                 return;
-            }
-
-            // Opens over this card rather than replacing it: the hub stays open underneath, and the
-            // conversion card's own scrim tap brings the player back here.
-            if (RectTransformUtility.RectangleContainsScreenPoint(_convertButtonRect, screenPosition, eventCamera))
-            {
-                _coinConversionView.Open();
-                return;
-            }
-
-            for (int rowIndex = 0; rowIndex < RowCount; rowIndex++)
-            {
-                if (RectTransformUtility.RectangleContainsScreenPoint(
-                    _rowRects[rowIndex], screenPosition, eventCamera))
-                {
-                    Buy(rowIndex);
-                    return;
-                }
             }
 
             if (RectTransformUtility.RectangleContainsScreenPoint(_cardRect, screenPosition, eventCamera))
@@ -420,19 +459,15 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         /// <summary>
-        /// Asks the System to buy one of this row's kind and reports what it said. The whole row is the
-        /// button: the price and the BUY plate are two parts of one offer, and a tap that lands between
-        /// them is still a tap on the offer.
-        /// <para>
-        /// Every outcome — including both refusals — is routed through the System rather than pre-empted
-        /// here. A locked row and an unaffordable one are already drawn as such, so this cannot normally
+        /// Asks the System to buy one of this card's kind and reports what it said. Every outcome —
+        /// including both refusals — is routed through the System rather than pre-empted here. A
+        /// locked card and an unaffordable one are already drawn as such, so a refusal cannot normally
         /// happen; when it does, the refusal the player is shown is the one the System actually gave.
-        /// </para>
         /// </summary>
-        private void Buy(int rowIndex)
+        private void Buy(int itemIndex)
         {
             PowerUpPurchaseResult result = _currencySystem.TryPurchasePowerUp(
-                RowKinds[rowIndex], PURCHASE_QUANTITY);
+                ItemKinds[itemIndex], PURCHASE_QUANTITY);
 
             switch (result)
             {
@@ -444,45 +479,58 @@ namespace MustyBlockBlast.Presentation.Views
                     break;
                 default:
                     // InsufficientCoins, and InvalidQuantity — which this card cannot produce, since
-                    // PURCHASE_QUANTITY is a positive constant. Folded in rather than given its own
-                    // sentence: there is no wording that would help a player with a bug in this View.
+                    // PURCHASE_QUANTITY is a positive constant.
                     _message = INSUFFICIENT_COINS_MESSAGE;
                     break;
             }
 
             // The count and balance subscriptions repaint on a success; a refusal moves neither, so the
-            // message has to be painted here either way.
+            // toast has to be painted here either way.
             Refresh();
         }
 
-        /// <summary>
-        /// Binds one inventory counter to the row that draws <paramref name="kind"/>. The row index is
-        /// resolved from <see cref="RowKinds"/> at subscribe time rather than written at the call site,
-        /// so a row can be added or reordered without a counter repainting its neighbour.
-        /// </summary>
+        /// <summary>The Coins tab and the balance strip's earn button both land here: the conversion
+        /// card is where score, ads and bundles all turn into coins (issue #219), and it opens over
+        /// this card rather than replacing it.</summary>
+        private void OpenCoins() => _coinConversionView.Open();
+
+        private void SelectTab(ShopTab tab)
+        {
+            _activeTab = tab;
+            bool showItems = tab == ShopTab.PowerUps;
+            _viewportObject.SetActive(showItems);
+            _dealsPlaceholder.SetActive(!showItems);
+
+            // A purchase message belongs to the grid it was answered on; it would be a non sequitur
+            // over the deals plate.
+            _message = string.Empty;
+            RefreshToast();
+            PaintTabs();
+        }
+
         private void WatchCount(ReactiveProperty<int> counter, PowerUpKind kind)
         {
-            int rowIndex = RowIndexOf(kind);
-            if (rowIndex < 0)
+            int itemIndex = ItemIndexOf(kind);
+            if (itemIndex < 0)
             {
                 return;
             }
 
             counter.Subscribe(count =>
             {
-                _counts[rowIndex] = count;
+                _counts[itemIndex] = count;
                 Refresh();
             }).AddTo(_disposables);
         }
 
-        /// <summary>The row drawing <paramref name="kind"/>, or -1 when no row does.</summary>
-        private static int RowIndexOf(PowerUpKind kind)
+        /// <summary>The card drawing <paramref name="kind"/>, or -1 when none does.</summary>
+        private static int ItemIndexOf(PowerUpKind kind)
         {
-            for (int rowIndex = 0; rowIndex < RowCount; rowIndex++)
+            for (int itemIndex = 0; itemIndex < ItemCount; itemIndex++)
             {
-                if (RowKinds[rowIndex] == kind)
+                if (ItemKinds[itemIndex] == kind)
                 {
-                    return rowIndex;
+                    return itemIndex;
                 }
             }
 
@@ -499,167 +547,150 @@ namespace MustyBlockBlast.Presentation.Views
             Refresh();
         }
 
-        private void OnThemeChanged(ThemeDefinition theme)
-        {
-            if (theme == null)
-            {
-                return;
-            }
-
-            _currentTheme = theme;
-
-            _cardImage.color = theme.CardBackground;
-            _cardShadowImage.color = theme.CardShadow;
-            _headerText.color = theme.Ink;
-            _balanceText.color = theme.Accent;
-            _messageText.color = theme.SoftInk;
-            _convertButtonPlate.color = theme.Accent;
-            _convertButtonText.color = theme.CardBackground;
-            _closeBarA.color = theme.Ink;
-            _closeBarB.color = theme.Ink;
-
-            Refresh();
-        }
-
         /// <summary>
-        /// Repaints every row and both figures from the models. Cheap enough to be the only repaint
-        /// path: it runs on an open, a purchase, a grant, a level change and a theme switch — never per
-        /// frame.
+        /// Repaints the balance, every card and the toast from the models. Cheap enough to be the only
+        /// repaint path: it runs on an open, a purchase, a grant, a level change and a language change —
+        /// never per frame.
         /// </summary>
         private void Refresh()
         {
-            if (_panel == null || _currentTheme == null || _currencySystem == null)
+            if (_panel == null || _palette == null || _currencySystem == null)
             {
                 return;
             }
 
-            _stringBuilder.Clear();
-            _stringBuilder.Append(COIN_BALANCE_PREFIX_TEXT);
-            _stringBuilder.Append(_profileModel.CoinBalance.Value);
-            _balanceText.text = _stringBuilder.ToString();
+            _balanceText.text = _profileModel.CoinBalance.Value.ToString();
 
-            _messageText.text = _message;
-
-            for (int rowIndex = 0; rowIndex < RowCount; rowIndex++)
+            for (int itemIndex = 0; itemIndex < ItemCount; itemIndex++)
             {
-                RefreshRow(rowIndex);
+                RefreshItem(itemIndex);
             }
+
+            RefreshToast();
         }
 
         /// <summary>
-        /// Repaints one row. Three mutually exclusive states in priority order, mirroring the strip's:
-        /// locked wins outright, then affordable, then "not enough coins" — the last two differing only
-        /// in alpha, because an unaffordable row is still a real offer and a locked one is not.
-        /// <para>
-        /// A discount is a fourth, orthogonal thing rather than a fifth state: it decorates whichever of
-        /// the three the row is already in, because a power-up on sale can still be unaffordable and one
-        /// behind its gate is not on offer at any price. A locked row therefore shows no "was" figure at
-        /// all, for the reason it shows no price — there is nothing there to discount.
-        /// </para>
+        /// Repaints one card. Three mutually exclusive states in priority order, mirroring the strip's:
+        /// locked wins outright, then affordable, then "not enough coins". A discount is orthogonal —
+        /// it decorates whichever of the three the card is in, except locked, which shows no price at
+        /// all and so nothing to discount.
         /// </summary>
-        private void RefreshRow(int rowIndex)
+        private void RefreshItem(int itemIndex)
         {
-            PowerUpKind kind = RowKinds[rowIndex];
+            ItemWidgets item = _items[itemIndex];
+            PowerUpKind kind = ItemKinds[itemIndex];
             bool isLocked = !PowerUpUnlockLevels.IsUnlockedAt(kind, _currentLevelNumber);
             long price = _currencySystem.QuotePriceFor(kind, PURCHASE_QUANTITY);
             bool isAffordable = !isLocked && price <= _profileModel.CoinBalance.Value;
-
-            // The System's quote coming in under the standard price is the only evidence this card
-            // needs, and wants, that a campaign is live. PURCHASE_QUANTITY is one, so the two figures
-            // are directly comparable without re-deriving a line total.
             int standardPrice = _priceConfig.GetPrice(kind);
             bool isDiscounted = !isLocked && price < standardPrice;
+            float alpha = isLocked ? LOCKED_ITEM_ALPHA : 1f;
 
-            float alpha = isLocked
-                ? LOCKED_ROW_ALPHA
-                : (isAffordable ? 1f : UNAFFORDABLE_ROW_ALPHA);
+            item.Shadow.color = WithAlpha(_palette.ItemShadow, alpha);
+            item.Plate.color = WithAlpha(_palette.ItemPlate, alpha);
+            item.Band.color = WithAlpha(_palette.ItemBand, alpha);
+            item.BandSquare.color = WithAlpha(_palette.ItemBand, alpha);
+            item.Tile.color = WithAlpha(_palette.TileColourFor(kind), alpha);
+            item.Glyph.color = WithAlpha(Color.white, alpha);
+            item.Name.color = WithAlpha(_palette.ItemName, alpha);
+            item.Description.color = WithAlpha(_palette.ItemDescription, alpha);
 
-            // Every colour is a theme field or a step between two of them, so a theme switch restyles
-            // the whole row with nothing hard-coded (issue #207, AC6).
-            _rowPlates[rowIndex].color = WithAlpha(
-                Color.Lerp(_currentTheme.CardBackground, _currentTheme.Ink, ROW_PLATE_TINT), alpha);
-            _iconTiles[rowIndex].color = WithAlpha(_currentTheme.CardBackground, alpha);
-            _iconGlyphs[rowIndex].color = WithAlpha(_currentTheme.Ink, alpha);
-            _nameTexts[rowIndex].color = WithAlpha(_currentTheme.Ink, alpha);
-            _descriptionTexts[rowIndex].color = WithAlpha(_currentTheme.SoftInk, alpha);
+            item.Name.text = _localizationSystem.Translate(NameKeyOf(kind));
+            item.Description.text = _localizationSystem.Translate(DescriptionKeyOf(kind));
 
-            // The price is the row's one accent, as in the design; a locked row shows a requirement
-            // there instead, in the soft ink a non-offer deserves.
-            _priceTexts[rowIndex].color = WithAlpha(isLocked ? _currentTheme.SoftInk : _currentTheme.Accent, alpha);
+            bool showHeld = !isLocked && _counts[itemIndex] > 0;
+            item.HeldBadge.SetActive(showHeld);
+            if (showHeld)
+            {
+                _stringBuilder.Clear();
+                _stringBuilder.Append(HELD_COUNT_PREFIX);
+                _stringBuilder.Append(_counts[itemIndex]);
+                item.HeldCount.text = _stringBuilder.ToString();
+            }
 
-            _stringBuilder.Clear();
-            _stringBuilder.Append(_localizationSystem.Translate(NameKeyOf(kind)));
-            _stringBuilder.Append("  x");
-            _stringBuilder.Append(_counts[rowIndex]);
-            _nameTexts[rowIndex].text = _stringBuilder.ToString();
-
-            _descriptionTexts[rowIndex].text = _localizationSystem.Translate(DescriptionKeyOf(kind));
-
-            _stringBuilder.Clear();
+            // The button: a requirement on a locked card, a price on every other.
+            item.LockGlyph.enabled = isLocked;
+            item.Coin.enabled = !isLocked;
             if (isLocked)
             {
-                // The requirement, not a price: a locked row has nothing to sell, so quoting a figure
-                // next to a dead BUY plate would only invite the tap it is going to refuse.
+                item.ButtonPlate.color = _palette.LockedButton;
+                item.Price.color = _palette.LockedText;
+                _stringBuilder.Clear();
                 _stringBuilder.Append(LOCKED_LEVEL_PREFIX);
                 _stringBuilder.Append(PowerUpUnlockLevels.LevelFor(kind));
+                item.Price.text = _stringBuilder.ToString();
+                item.Price.alignment = TextAnchor.MiddleLeft;
+                ((RectTransform)item.Price.transform).anchoredPosition = new Vector2(PRICE_X_PLAIN, 0f);
             }
             else
             {
-                _stringBuilder.Append(price);
-                _stringBuilder.Append(COINS_SUFFIX_TEXT);
+                item.ButtonPlate.color = isAffordable ? _palette.BuyButton : _palette.UnaffordableButton;
+                item.Price.color = _palette.BuyButtonText;
+                item.Price.text = price.ToString();
+                item.Price.alignment = TextAnchor.MiddleLeft;
+                ((RectTransform)item.Price.transform).anchoredPosition = new Vector2(
+                    isDiscounted ? PRICE_X_DISCOUNTED : PRICE_X_PLAIN, 0f);
+                ((RectTransform)item.Coin.transform).anchoredPosition = new Vector2(
+                    isDiscounted ? COIN_X_DISCOUNTED : COIN_X_PLAIN, 0f);
             }
 
-            _priceTexts[rowIndex].text = _stringBuilder.ToString();
-
-            // Dropped only while a "was" figure sits above it, so an undiscounted row keeps the single
-            // centred price this card has always drawn.
-            ((RectTransform)_priceTexts[rowIndex].transform).anchoredPosition = new Vector2(
-                PriceColumnX(), isDiscounted ? -ROW_HEIGHT * DISCOUNTED_PRICE_DROP : 0f);
-
-            RefreshWasPrice(rowIndex, standardPrice, isDiscounted, alpha);
+            RefreshWasPrice(item, price, standardPrice, isDiscounted);
         }
 
         /// <summary>
-        /// Paints — or hides — the struck-through standard price above a discounted row's sale price.
-        /// <para>
-        /// Hidden by emptying the text and disabling the bar rather than by deactivating either
-        /// GameObject: both are built once in <see cref="BuildPanel"/> and toggled on every repaint, and
-        /// a <see cref="GameObject.SetActive(bool)"/> pair would dirty the canvas layout for no gain
-        /// over a component that draws nothing.
-        /// </para>
-        /// <para>
-        /// The bar is sized from <see cref="Text.preferredWidth"/> rather than from the rect it lives in,
-        /// because the text is right-aligned inside a fixed-width column: a bar the width of the column
-        /// would run out past "50 coins" into empty space. Read after the text is assigned, which is the
-        /// only order in which it reports the new string's width.
-        /// </para>
+        /// Paints — or hides — the struck-through standard price beside a discounted sale price, and
+        /// the percentage badge on the band. Hidden by emptying the text and disabling the images
+        /// rather than by deactivating GameObjects: all of it is built once and toggled on every
+        /// repaint, and a SetActive pair would dirty the canvas layout for no gain over a component that
+        /// draws nothing. The bar is sized from <see cref="Text.preferredWidth"/> after the text is
+        /// assigned, which is the only order in which it reports the new string's width.
         /// </summary>
-        private void RefreshWasPrice(int rowIndex, int standardPrice, bool isDiscounted, float alpha)
+        private void RefreshWasPrice(ItemWidgets item, long price, int standardPrice, bool isDiscounted)
         {
-            Text wasPriceText = _wasPriceTexts[rowIndex];
-            Image strikethroughBar = _strikethroughBars[rowIndex];
-
             if (!isDiscounted)
             {
-                wasPriceText.text = string.Empty;
-                strikethroughBar.enabled = false;
+                item.WasPrice.text = string.Empty;
+                item.WasPriceBar.enabled = false;
+                item.SaleBadge.enabled = false;
+                item.SaleText.text = string.Empty;
                 return;
             }
 
-            _stringBuilder.Clear();
-            _stringBuilder.Append(standardPrice);
-            _stringBuilder.Append(COINS_SUFFIX_TEXT);
-            wasPriceText.text = _stringBuilder.ToString();
-            wasPriceText.color = WithAlpha(_currentTheme.SoftInk, alpha * WAS_PRICE_ALPHA);
+            item.WasPrice.text = standardPrice.ToString();
+            item.WasPrice.color = WithAlpha(_palette.WasPrice, WAS_PRICE_ALPHA);
+            item.WasPriceBar.enabled = true;
+            item.WasPriceBar.color = WithAlpha(_palette.WasPrice, WAS_PRICE_ALPHA);
+            ((RectTransform)item.WasPriceBar.transform).sizeDelta = new Vector2(
+                item.WasPrice.preferredWidth, STRIKETHROUGH_THICKNESS);
 
-            strikethroughBar.enabled = true;
-            strikethroughBar.color = WithAlpha(_currentTheme.SoftInk, alpha * WAS_PRICE_ALPHA);
-            ((RectTransform)strikethroughBar.transform).sizeDelta = new Vector2(
-                wasPriceText.preferredWidth, STRIKETHROUGH_THICKNESS);
+            int percentOff = standardPrice > 0
+                ? Mathf.RoundToInt((1f - ((float)price / standardPrice)) * 100f)
+                : 0;
+            item.SaleBadge.enabled = true;
+            item.SaleBadge.color = _palette.SaleBadge;
+            _stringBuilder.Clear();
+            _stringBuilder.Append('-');
+            _stringBuilder.Append(percentOff);
+            _stringBuilder.Append('%');
+            item.SaleText.text = _stringBuilder.ToString();
         }
 
-        /// <summary>String-table key of a kind's display name. The text itself lives in the tables, one
-        /// row per language, so this is only the mapping from enum to key.</summary>
+        /// <summary>The toast pill at the foot of the card, sized to its message and hidden when there is
+        /// none. Deactivated rather than emptied: it is one object, and an invisible pill would still
+        /// sit over the last row of the grid.</summary>
+        private void RefreshToast()
+        {
+            bool hasMessage = !string.IsNullOrEmpty(_message);
+            _toastRect.gameObject.SetActive(hasMessage);
+            if (!hasMessage)
+            {
+                return;
+            }
+
+            _toastText.text = _message;
+            _toastRect.sizeDelta = new Vector2(_toastText.preferredWidth + TOAST_PADDING, TOAST_HEIGHT);
+        }
+
         private static string NameKeyOf(PowerUpKind kind)
         {
             switch (kind)
@@ -714,6 +745,66 @@ namespace MustyBlockBlast.Presentation.Views
         private static Color WithAlpha(Color colour, float alphaScale)
             => new Color(colour.r, colour.g, colour.b, colour.a * alphaScale);
 
+        // ---------------------------------------------------------------- painting the static chrome
+
+        /// <summary>Paints everything that is neither a model value nor a card state: the card, the
+        /// awning, the balance strip, the tabs, the placeholder and the toast. Once, from the palette.</summary>
+        private void PaintChrome()
+        {
+            _cardImage.color = _palette.CardFace;
+            _cardShadowImage.color = _palette.CardShadow;
+            _headerText.color = _palette.DarkPlate;
+            _closeBarA.color = _palette.DarkPlate;
+            _closeBarB.color = _palette.DarkPlate;
+
+            _awningImage.color = Color.white;
+            _balancePlate.color = _palette.DarkPlate;
+            _balanceCoin.color = Color.white;
+            _balanceText.color = _palette.CoinYellow;
+            _earnButtonPlate.color = _palette.EarnButton;
+            _earnButtonText.color = _palette.BuyButtonText;
+
+            _dealsPlate.color = _palette.ItemPlate;
+            _dealsText.color = _palette.ItemDescription;
+
+            _toastPlate.color = _palette.DarkPlate;
+            _toastText.color = _palette.CoinYellow;
+
+            for (int itemIndex = 0; itemIndex < ItemCount; itemIndex++)
+            {
+                ItemWidgets item = _items[itemIndex];
+                item.HeldRing.color = _palette.CardFace;
+                item.HeldFill.color = _palette.HeldBadge;
+                item.HeldCount.color = _palette.BuyButtonText;
+                item.Coin.color = Color.white;
+                item.LockGlyph.color = _palette.LockedText;
+                item.SaleText.color = _palette.BuyButtonText;
+            }
+
+            PaintTabs();
+        }
+
+        /// <summary>The active tab in its full colour, the others multiplied down. The Coins tab is
+        /// never active — it is a launcher — so it is always drawn lit, as a button is.</summary>
+        private void PaintTabs()
+        {
+            bool powerUpsActive = _activeTab == ShopTab.PowerUps;
+            _tabPowerUpsPlate.color = powerUpsActive
+                ? _palette.TabPowerUp
+                : _palette.TabPowerUp * _palette.InactiveTabTint;
+            _tabPowerUpsText.color = _palette.TabPowerUpText;
+
+            _tabCoinsPlate.color = _palette.TabCoin;
+            _tabCoinsText.color = _palette.TabText;
+
+            _tabDealsPlate.color = powerUpsActive
+                ? _palette.TabPromotion * _palette.InactiveTabTint
+                : _palette.TabPromotion;
+            _tabDealsText.color = _palette.TabText;
+        }
+
+        // ------------------------------------------------------------------------------ building
+
         private void BuildPanel()
         {
             var rect = (RectTransform)transform;
@@ -738,140 +829,427 @@ namespace MustyBlockBlast.Presentation.Views
                 panelRect, "PowerUpShopCard", _cardSize, out _cardImage, out _cardShadowImage);
 
             // Everything below is built with a transparent colour: the card is built in Awake, before
-            // the theme is known, and the theme subscription in Start paints all of it.
+            // injection is guaranteed, and PaintChrome in Start paints all of it.
             _headerText = UiTextFactory.Create(
-                _cardRect, "Header", _headerFontSize, FontStyle.Bold, Color.clear);
-            ((RectTransform)_headerText.transform).anchoredPosition = new Vector2(0f, HEADER_Y);
+                _cardRect, "Header", _headerFontSize, FontStyle.Bold, Color.clear, _displayFont);
+            ((RectTransform)_headerText.transform).anchoredPosition =
+                new Vector2(0f, (_cardSize.y * 0.5f) - (HEADER_INSET * 0.5f));
             _headerText.text = HEADER_TEXT;
 
-            _balanceText = UiTextFactory.Create(
-                _cardRect, "Balance", _balanceFontSize, FontStyle.Bold, Color.clear);
-            ((RectTransform)_balanceText.transform).anchoredPosition = new Vector2(BALANCE_X, BALANCE_Y);
+            // The tabs and the grid share one CanvasGroup so a single flag can take every EventSystem
+            // target on the card out of reach while the conversion card sits over it.
+            var contentObject = new GameObject("Content", typeof(RectTransform), typeof(CanvasGroup));
+            var contentRect = (RectTransform)contentObject.transform;
+            contentRect.SetParent(_cardRect, false);
+            contentRect.anchorMin = Vector2.zero;
+            contentRect.anchorMax = Vector2.one;
+            contentRect.offsetMin = Vector2.zero;
+            contentRect.offsetMax = Vector2.zero;
+            _contentGroup = contentObject.GetComponent<CanvasGroup>();
 
-            BuildConvertButton(new Vector2(CONVERT_BUTTON_X, BALANCE_Y));
-
-            for (int rowIndex = 0; rowIndex < RowCount; rowIndex++)
-            {
-                BuildRow(rowIndex, ROWS_TOP_Y - (rowIndex * ROW_PITCH));
-            }
-
-            _messageText = UiTextFactory.Create(
-                _cardRect, "Message", _bodyFontSize, FontStyle.Normal, Color.clear);
-            var messageRect = (RectTransform)_messageText.transform;
-            messageRect.sizeDelta = new Vector2(_cardSize.x - (SIDE_INSET * 2f), ROW_HEIGHT);
-            messageRect.anchoredPosition = new Vector2(0f, MESSAGE_Y);
-
+            BuildAwning();
+            BuildBalanceStrip(contentRect);
+            BuildTabs(contentRect);
+            BuildViewport(contentRect);
+            BuildDealsPlaceholder(contentRect);
+            BuildToast();
             BuildCloseButton();
 
             _panel = panelObject;
         }
 
-        /// <summary>
-        /// The accent pill that opens the conversion screen. Its own rect is the hit area, as a row's
-        /// is. Built transparent like everything else here and painted by the theme subscription.
-        /// </summary>
-        private void BuildConvertButton(Vector2 anchoredPosition)
+        private void BuildAwning()
         {
-            var buttonObject = new GameObject("ConvertButton", typeof(RectTransform), typeof(Image));
-            _convertButtonRect = (RectTransform)buttonObject.transform;
-            _convertButtonRect.SetParent(_cardRect, false);
-            _convertButtonRect.anchorMin = new Vector2(0.5f, 0.5f);
-            _convertButtonRect.anchorMax = new Vector2(0.5f, 0.5f);
-            _convertButtonRect.pivot = new Vector2(0.5f, 0.5f);
-            _convertButtonRect.sizeDelta = ConvertButtonSize;
-            _convertButtonRect.anchoredPosition = anchoredPosition;
+            var awningObject = new GameObject("Awning", typeof(RectTransform), typeof(Image));
+            var awningRect = (RectTransform)awningObject.transform;
+            awningRect.SetParent(_cardRect, false);
+            Centre(awningRect, new Vector2(_cardSize.x - (SIDE_INSET * 2f) + 8f, AWNING_HEIGHT));
+            awningRect.anchoredPosition = new Vector2(0f, TopY(AWNING_TOP, AWNING_HEIGHT));
 
-            _convertButtonPlate = ConfigureRounded(
-                buttonObject.GetComponent<Image>(), CONVERT_BUTTON_CORNER_RADIUS);
+            _awningImage = awningObject.GetComponent<Image>();
+            _awningImage.sprite = _awningSprite;
+            _awningImage.type = Image.Type.Simple;
+            _awningImage.preserveAspect = false;
+            _awningImage.color = Color.clear;
+            _awningImage.raycastTarget = false;
+        }
 
-            _convertButtonText = UiTextFactory.Create(
-                _convertButtonRect, "Label", _bodyFontSize, FontStyle.Bold, Color.clear);
-            _convertButtonText.text = CONVERT_BUTTON_TEXT;
+        /// <summary>The dark plate with the coin and the balance on the left and the earn button on the
+        /// right, so the coins and the way to get more sit together.</summary>
+        private void BuildBalanceStrip(RectTransform parent)
+        {
+            float width = _cardSize.x - (SIDE_INSET * 2f);
+
+            var stripObject = new GameObject("BalanceStrip", typeof(RectTransform), typeof(Image));
+            var stripRect = (RectTransform)stripObject.transform;
+            stripRect.SetParent(parent, false);
+            Centre(stripRect, new Vector2(width, BALANCE_HEIGHT));
+            stripRect.anchoredPosition = new Vector2(0f, TopY(BALANCE_TOP, BALANCE_HEIGHT));
+            _balancePlate = ConfigureRounded(stripObject.GetComponent<Image>(), BALANCE_CORNER_RADIUS);
+
+            float left = (-width * 0.5f) + BALANCE_PADDING;
+
+            var coinObject = new GameObject("Coin", typeof(RectTransform), typeof(Image));
+            var coinRect = (RectTransform)coinObject.transform;
+            coinRect.SetParent(stripRect, false);
+            Centre(coinRect, new Vector2(BALANCE_COIN_SIZE, BALANCE_COIN_SIZE));
+            coinRect.anchoredPosition = new Vector2(left + (BALANCE_COIN_SIZE * 0.5f), 0f);
+            _balanceCoin = ConfigureGlyph(coinObject.GetComponent<Image>(), _coinSprite);
+
+            _balanceText = UiTextFactory.Create(
+                stripRect, "Balance", _balanceFontSize, FontStyle.Bold, Color.clear, _displayFont);
+            _balanceText.alignment = TextAnchor.MiddleLeft;
+            var balanceRect = (RectTransform)_balanceText.transform;
+            float textLeft = left + BALANCE_COIN_SIZE + ITEM_INNER_GAP;
+            float textWidth = width - EARN_BUTTON_WIDTH - (BALANCE_PADDING * 2f) - (textLeft + (width * 0.5f));
+            balanceRect.sizeDelta = new Vector2(textWidth, BALANCE_HEIGHT);
+            balanceRect.anchoredPosition = new Vector2(textLeft + (textWidth * 0.5f), 0f);
+
+            RectTransform earnRect = BuildChunkyButton(
+                stripRect, "EarnButton", new Vector2(EARN_BUTTON_WIDTH, EARN_BUTTON_HEIGHT),
+                out _earnButtonPlate, OpenCoins);
+            earnRect.anchoredPosition = new Vector2(
+                (width * 0.5f) - BALANCE_PADDING - (EARN_BUTTON_WIDTH * 0.5f), 0f);
+            _earnButtonText = UiTextFactory.Create(
+                earnRect, "Label", _earnFontSize, FontStyle.Bold, Color.clear, _displayFont);
+            _earnButtonText.text = EARN_BUTTON_TEXT;
+        }
+
+        private void BuildTabs(RectTransform parent)
+        {
+            float width = _cardSize.x - (SIDE_INSET * 2f);
+            float tabWidth = (width - (TAB_GAP * (TAB_COUNT - 1))) / TAB_COUNT;
+            float pitch = tabWidth + TAB_GAP;
+            float y = TopY(TABS_TOP, TAB_HEIGHT);
+            var size = new Vector2(tabWidth, TAB_HEIGHT);
+
+            RectTransform powerUpsRect = BuildChunkyButton(
+                parent, "TabPowerUps", size, out _tabPowerUpsPlate, () => SelectTab(ShopTab.PowerUps));
+            powerUpsRect.anchoredPosition = new Vector2(-pitch, y);
+            _tabPowerUpsText = UiTextFactory.Create(
+                powerUpsRect, "Label", _tabFontSize, FontStyle.Bold, Color.clear, _displayFont);
+            _tabPowerUpsText.text = TAB_POWER_UPS_TEXT;
+
+            RectTransform coinsRect = BuildChunkyButton(
+                parent, "TabCoins", size, out _tabCoinsPlate, OpenCoins);
+            coinsRect.anchoredPosition = new Vector2(0f, y);
+            _tabCoinsText = UiTextFactory.Create(
+                coinsRect, "Label", _tabFontSize, FontStyle.Bold, Color.clear, _displayFont);
+            _tabCoinsText.text = TAB_COINS_TEXT;
+
+            RectTransform dealsRect = BuildChunkyButton(
+                parent, "TabDeals", size, out _tabDealsPlate, () => SelectTab(ShopTab.Deals));
+            dealsRect.anchoredPosition = new Vector2(pitch, y);
+            _tabDealsText = UiTextFactory.Create(
+                dealsRect, "Label", _tabFontSize, FontStyle.Bold, Color.clear, _displayFont);
+            _tabDealsText.text = TAB_DEALS_TEXT;
         }
 
         /// <summary>
-        /// One shop row, left to right as the design draws it: a rounded icon tile, the name with the
-        /// description under it, and the price on the right — all on the row's own tinted plate. The
-        /// row's own rect is the hit area, which is what makes the whole offer tappable; the BUY plate
-        /// the old layout ended in is gone, since the design has none and the tap never needed it.
+        /// The scrolling grid: a clipped viewport whose invisible backdrop is the ScrollRect's raycast
+        /// target — a drag has to land on a graphic to reach the ScrollRect at all — and a content rect
+        /// sized exactly to the rows the nine cards need, pinned to the viewport's top.
         /// </summary>
-        private void BuildRow(int rowIndex, float y)
+        private void BuildViewport(RectTransform parent)
         {
-            float rowWidth = RowWidth;
+            float width = _cardSize.x - (SIDE_INSET * 2f);
+            float height = _cardSize.y - VIEWPORT_TOP - VIEWPORT_BOTTOM_INSET;
 
-            var rowObject = new GameObject($"ShopRow_{RowKinds[rowIndex]}", typeof(RectTransform));
-            var rowRect = (RectTransform)rowObject.transform;
-            rowRect.SetParent(_cardRect, false);
-            Centre(rowRect, new Vector2(rowWidth, ROW_HEIGHT));
-            rowRect.anchoredPosition = new Vector2(0f, y);
-            _rowRects[rowIndex] = rowRect;
+            _viewportObject = new GameObject(
+                "ItemsViewport", typeof(RectTransform), typeof(Image), typeof(RectMask2D), typeof(ScrollRect));
+            var viewportRect = (RectTransform)_viewportObject.transform;
+            viewportRect.SetParent(parent, false);
+            Centre(viewportRect, new Vector2(width, height));
+            viewportRect.anchoredPosition = new Vector2(0f, TopY(VIEWPORT_TOP, height));
+
+            var backdrop = _viewportObject.GetComponent<Image>();
+            backdrop.color = Color.clear;
+            backdrop.raycastTarget = true;
+
+            int rowCount = (ItemCount + GRID_COLUMNS - 1) / GRID_COLUMNS;
+            float contentHeight = GRID_TOP_PADDING + (rowCount * ITEM_HEIGHT)
+                + ((rowCount - 1) * GRID_GAP) + GRID_BOTTOM_PADDING;
+
+            var contentObject = new GameObject("ItemsContent", typeof(RectTransform));
+            var contentRect = (RectTransform)contentObject.transform;
+            contentRect.SetParent(viewportRect, false);
+            contentRect.anchorMin = new Vector2(0.5f, 1f);
+            contentRect.anchorMax = new Vector2(0.5f, 1f);
+            contentRect.pivot = new Vector2(0.5f, 1f);
+            contentRect.sizeDelta = new Vector2(width, contentHeight);
+            contentRect.anchoredPosition = Vector2.zero;
+
+            _scrollRect = _viewportObject.GetComponent<ScrollRect>();
+            _scrollRect.horizontal = false;
+            _scrollRect.vertical = true;
+            _scrollRect.movementType = ScrollRect.MovementType.Clamped;
+            _scrollRect.viewport = viewportRect;
+            _scrollRect.content = contentRect;
+
+            float itemWidth = (width - (GRID_GAP * (GRID_COLUMNS - 1))) / GRID_COLUMNS;
+            for (int itemIndex = 0; itemIndex < ItemCount; itemIndex++)
+            {
+                int column = itemIndex % GRID_COLUMNS;
+                int row = itemIndex / GRID_COLUMNS;
+                float x = (column - ((GRID_COLUMNS - 1) * 0.5f)) * (itemWidth + GRID_GAP);
+                float y = -(GRID_TOP_PADDING + (row * (ITEM_HEIGHT + GRID_GAP)) + (ITEM_HEIGHT * 0.5f));
+                _items[itemIndex] = BuildItem(contentRect, itemIndex, itemWidth, new Vector2(x, y));
+            }
+        }
+
+        /// <summary>
+        /// One item card, top to bottom as the design draws it: a lighter band with the name, the
+        /// glossy tile with the glyph and the held badge on its corner, the description, and the price
+        /// button. The button is the only tap target; the card itself is not, so a drag begun anywhere
+        /// on it still scrolls.
+        /// </summary>
+        private ItemWidgets BuildItem(RectTransform parent, int itemIndex, float itemWidth, Vector2 anchoredPosition)
+        {
+            var item = new ItemWidgets();
+            PowerUpKind kind = ItemKinds[itemIndex];
+
+            var rootObject = new GameObject($"ShopItem_{kind}", typeof(RectTransform));
+            var rootRect = (RectTransform)rootObject.transform;
+            rootRect.SetParent(parent, false);
+            rootRect.anchorMin = new Vector2(0.5f, 1f);
+            rootRect.anchorMax = new Vector2(0.5f, 1f);
+            rootRect.pivot = new Vector2(0.5f, 0.5f);
+            rootRect.sizeDelta = new Vector2(itemWidth, ITEM_HEIGHT);
+            rootRect.anchoredPosition = anchoredPosition;
+            item.Rect = rootRect;
+
+            var shadowObject = new GameObject("Shadow", typeof(RectTransform), typeof(Image));
+            var shadowRect = (RectTransform)shadowObject.transform;
+            shadowRect.SetParent(rootRect, false);
+            Centre(shadowRect, new Vector2(itemWidth, ITEM_HEIGHT));
+            shadowRect.anchoredPosition = new Vector2(0f, -ITEM_SHADOW_DROP);
+            item.Shadow = ConfigureRounded(shadowObject.GetComponent<Image>(), ITEM_CORNER_RADIUS);
 
             var plateObject = new GameObject("Plate", typeof(RectTransform), typeof(Image));
             var plateRect = (RectTransform)plateObject.transform;
-            plateRect.SetParent(rowRect, false);
-            Centre(plateRect, new Vector2(rowWidth, ROW_HEIGHT));
-            _rowPlates[rowIndex] = ConfigureRounded(plateObject.GetComponent<Image>(), ROW_CORNER_RADIUS);
+            plateRect.SetParent(rootRect, false);
+            Centre(plateRect, new Vector2(itemWidth, ITEM_HEIGHT));
+            item.Plate = ConfigureRounded(plateObject.GetComponent<Image>(), ITEM_CORNER_RADIUS);
 
-            float leftEdge = -rowWidth * 0.5f + ROW_PADDING;
+            // The band: a rounded plate for the top corners, and a flat one over its lower half so the
+            // bottom corners are square where the band meets the plate.
+            float bandY = (ITEM_HEIGHT * 0.5f) - (BAND_HEIGHT * 0.5f);
+            var bandObject = new GameObject("Band", typeof(RectTransform), typeof(Image));
+            var bandRect = (RectTransform)bandObject.transform;
+            bandRect.SetParent(rootRect, false);
+            Centre(bandRect, new Vector2(itemWidth, BAND_HEIGHT));
+            bandRect.anchoredPosition = new Vector2(0f, bandY);
+            item.Band = ConfigureRounded(bandObject.GetComponent<Image>(), ITEM_CORNER_RADIUS);
 
-            var tileObject = new GameObject("IconTile", typeof(RectTransform), typeof(Image));
+            var bandSquareObject = new GameObject("BandSquare", typeof(RectTransform), typeof(Image));
+            var bandSquareRect = (RectTransform)bandSquareObject.transform;
+            bandSquareRect.SetParent(rootRect, false);
+            Centre(bandSquareRect, new Vector2(itemWidth, BAND_HEIGHT * 0.5f));
+            bandSquareRect.anchoredPosition = new Vector2(0f, bandY - (BAND_HEIGHT * 0.25f));
+            item.BandSquare = bandSquareObject.GetComponent<Image>();
+            item.BandSquare.color = Color.clear;
+            item.BandSquare.raycastTarget = false;
+
+            item.Name = UiTextFactory.Create(
+                rootRect, "Name", _itemNameFontSize, FontStyle.Bold, Color.clear, _displayFont);
+            var nameRect = (RectTransform)item.Name.transform;
+            nameRect.sizeDelta = new Vector2(itemWidth - (ITEM_PADDING * 2f), BAND_HEIGHT);
+            nameRect.anchoredPosition = new Vector2(0f, bandY);
+            item.Name.horizontalOverflow = HorizontalWrapMode.Wrap;
+            item.Name.resizeTextForBestFit = true;
+            item.Name.resizeTextMinSize = 16;
+            item.Name.resizeTextMaxSize = _itemNameFontSize;
+
+            var saleObject = new GameObject("SaleBadge", typeof(RectTransform), typeof(Image));
+            var saleRect = (RectTransform)saleObject.transform;
+            saleRect.SetParent(rootRect, false);
+            Centre(saleRect, new Vector2(SALE_BADGE_WIDTH, SALE_BADGE_HEIGHT));
+            saleRect.anchoredPosition = new Vector2(
+                (itemWidth * 0.5f) - (SALE_BADGE_WIDTH * 0.5f) - 6f, bandY);
+            item.SaleBadge = ConfigureRounded(saleObject.GetComponent<Image>(), SALE_BADGE_CORNER_RADIUS);
+            item.SaleBadge.enabled = false;
+            item.SaleText = UiTextFactory.Create(
+                saleRect, "Label", _badgeFontSize, FontStyle.Bold, Color.clear, _displayFont);
+
+            float tileY = bandY - (BAND_HEIGHT * 0.5f) - ITEM_PADDING - (TILE_SIZE * 0.5f);
+            var tileObject = new GameObject("Tile", typeof(RectTransform), typeof(Image));
             var tileRect = (RectTransform)tileObject.transform;
-            tileRect.SetParent(rowRect, false);
-            Centre(tileRect, new Vector2(ICON_TILE_SIZE, ICON_TILE_SIZE));
-            tileRect.anchoredPosition = new Vector2(leftEdge + (ICON_TILE_SIZE * 0.5f), 0f);
-            _iconTiles[rowIndex] = ConfigureRounded(tileObject.GetComponent<Image>(), ICON_TILE_CORNER_RADIUS);
+            tileRect.SetParent(rootRect, false);
+            Centre(tileRect, new Vector2(TILE_SIZE, TILE_SIZE));
+            tileRect.anchoredPosition = new Vector2(0f, tileY);
+            item.Tile = ConfigureGlyph(tileObject.GetComponent<Image>(), _tileSprite);
 
             var glyphObject = new GameObject("Glyph", typeof(RectTransform), typeof(Image));
             var glyphRect = (RectTransform)glyphObject.transform;
             glyphRect.SetParent(tileRect, false);
-            Centre(glyphRect, new Vector2(ICON_GLYPH_SIZE, ICON_GLYPH_SIZE));
-            var glyph = glyphObject.GetComponent<Image>();
-            glyph.sprite = IconFor(rowIndex);
-            glyph.type = Image.Type.Simple;
-            glyph.preserveAspect = true;
-            glyph.color = Color.clear;
-            glyph.raycastTarget = false;
-            _iconGlyphs[rowIndex] = glyph;
+            Centre(glyphRect, new Vector2(GLYPH_SIZE, GLYPH_SIZE));
+            glyphRect.anchoredPosition = new Vector2(0f, GLYPH_RISE);
+            item.Glyph = ConfigureGlyph(glyphObject.GetComponent<Image>(), IconFor(itemIndex));
 
-            float priceWidth = rowWidth * PRICE_COLUMN_WIDTH_FRACTION;
-            float textLeft = leftEdge + ICON_TILE_SIZE + ICON_TEXT_GAP;
-            float textWidth = rowWidth - ROW_PADDING - priceWidth - (textLeft + (rowWidth * 0.5f));
-            float textCentreX = textLeft + (textWidth * 0.5f);
+            BuildHeldBadge(item, tileRect);
 
-            Text nameText = UiTextFactory.Create(
-                rowRect, "Name", _rowNameFontSize, FontStyle.Bold, Color.clear);
-            nameText.alignment = TextAnchor.MiddleLeft;
-            var nameRect = (RectTransform)nameText.transform;
-            nameRect.sizeDelta = new Vector2(textWidth, ROW_HEIGHT * 0.5f);
-            nameRect.anchoredPosition = new Vector2(textCentreX, NAME_RISE);
-            _nameTexts[rowIndex] = nameText;
+            float descriptionY = tileY - (TILE_SIZE * 0.5f) - ITEM_INNER_GAP - (DESCRIPTION_HEIGHT * 0.5f);
+            item.Description = UiTextFactory.Create(
+                rootRect, "Description", _itemDescriptionFontSize, FontStyle.Bold, Color.clear);
+            item.Description.alignment = TextAnchor.UpperCenter;
+            item.Description.horizontalOverflow = HorizontalWrapMode.Wrap;
+            var descriptionRect = (RectTransform)item.Description.transform;
+            descriptionRect.sizeDelta = new Vector2(itemWidth - (ITEM_PADDING * 2f), DESCRIPTION_HEIGHT);
+            descriptionRect.anchoredPosition = new Vector2(0f, descriptionY);
 
-            Text descriptionText = UiTextFactory.Create(
-                rowRect, "Description", _rowDescriptionFontSize, FontStyle.Normal, Color.clear);
-            descriptionText.alignment = TextAnchor.MiddleLeft;
-            var descriptionRect = (RectTransform)descriptionText.transform;
-            descriptionRect.sizeDelta = new Vector2(textWidth, ROW_HEIGHT * 0.5f);
-            descriptionRect.anchoredPosition = new Vector2(textCentreX, -DESCRIPTION_DROP);
-            _descriptionTexts[rowIndex] = descriptionText;
+            float buttonY = (-ITEM_HEIGHT * 0.5f) + ITEM_PADDING + (BUY_BUTTON_HEIGHT * 0.5f);
+            int capturedIndex = itemIndex;
+            RectTransform buttonRect = BuildChunkyButton(
+                rootRect, "BuyButton", new Vector2(itemWidth - (ITEM_PADDING * 2f), BUY_BUTTON_HEIGHT),
+                out item.ButtonPlate, () => Buy(capturedIndex));
+            buttonRect.anchoredPosition = new Vector2(0f, buttonY);
 
-            Text priceText = UiTextFactory.Create(
-                rowRect, "Price", _rowPriceFontSize, FontStyle.Bold, Color.clear);
-            priceText.alignment = TextAnchor.MiddleRight;
-            var priceRect = (RectTransform)priceText.transform;
-            priceRect.sizeDelta = new Vector2(priceWidth, ROW_HEIGHT);
-            priceRect.anchoredPosition = new Vector2(PriceColumnX(), 0f);
-            _priceTexts[rowIndex] = priceText;
+            var coinObject = new GameObject("Coin", typeof(RectTransform), typeof(Image));
+            var coinRect = (RectTransform)coinObject.transform;
+            coinRect.SetParent(buttonRect, false);
+            Centre(coinRect, new Vector2(COIN_GLYPH_SIZE, COIN_GLYPH_SIZE));
+            coinRect.anchoredPosition = new Vector2(COIN_X_PLAIN, 0f);
+            item.Coin = ConfigureGlyph(coinObject.GetComponent<Image>(), _coinSprite);
 
-            BuildWasPrice(rowIndex, rowRect, rowWidth);
+            var lockObject = new GameObject("Lock", typeof(RectTransform), typeof(Image));
+            var lockRect = (RectTransform)lockObject.transform;
+            lockRect.SetParent(buttonRect, false);
+            Centre(lockRect, new Vector2(LOCK_GLYPH_SIZE, LOCK_GLYPH_SIZE));
+            lockRect.anchoredPosition = new Vector2(COIN_X_PLAIN, 0f);
+            item.LockGlyph = ConfigureGlyph(lockObject.GetComponent<Image>(), _lockSprite);
+            item.LockGlyph.enabled = false;
+
+            item.Price = UiTextFactory.Create(
+                buttonRect, "Price", _itemPriceFontSize, FontStyle.Bold, Color.clear, _displayFont);
+            item.Price.alignment = TextAnchor.MiddleLeft;
+            var priceRect = (RectTransform)item.Price.transform;
+            priceRect.sizeDelta = new Vector2(PRICE_TEXT_WIDTH, BUY_BUTTON_HEIGHT);
+            priceRect.anchoredPosition = new Vector2(PRICE_X_PLAIN, 0f);
+
+            item.WasPrice = UiTextFactory.Create(
+                buttonRect, "WasPrice", _wasPriceFontSize, FontStyle.Bold, Color.clear, _displayFont);
+            item.WasPrice.alignment = TextAnchor.MiddleRight;
+            var wasPriceRect = (RectTransform)item.WasPrice.transform;
+            wasPriceRect.sizeDelta = new Vector2(WAS_PRICE_WIDTH, BUY_BUTTON_HEIGHT);
+            wasPriceRect.anchoredPosition = new Vector2(WAS_PRICE_X, 0f);
+
+            var barObject = new GameObject("Strikethrough", typeof(RectTransform), typeof(Image));
+            var barRect = (RectTransform)barObject.transform;
+            barRect.SetParent(wasPriceRect, false);
+            barRect.anchorMin = new Vector2(1f, 0.5f);
+            barRect.anchorMax = new Vector2(1f, 0.5f);
+            barRect.pivot = new Vector2(1f, 0.5f);
+            barRect.sizeDelta = new Vector2(0f, STRIKETHROUGH_THICKNESS);
+            barRect.anchoredPosition = Vector2.zero;
+            item.WasPriceBar = barObject.GetComponent<Image>();
+            item.WasPriceBar.color = Color.clear;
+            item.WasPriceBar.raycastTarget = false;
+            item.WasPriceBar.enabled = false;
+
+            return item;
         }
 
-        /// <summary>The row's icon, authored in <see cref="RowKinds"/> order.</summary>
-        private Sprite IconFor(int rowIndex)
+        /// <summary>The green "x2" badge on the tile's top-right corner: a cream ring under a green
+        /// disc, so it reads against both the tile and the plate behind it.</summary>
+        private void BuildHeldBadge(ItemWidgets item, RectTransform tileRect)
         {
-            Sprite icon = _rowIcons != null && rowIndex < _rowIcons.Length ? _rowIcons[rowIndex] : null;
+            var badgeObject = new GameObject("HeldBadge", typeof(RectTransform));
+            var badgeRect = (RectTransform)badgeObject.transform;
+            badgeRect.SetParent(tileRect, false);
+            Centre(badgeRect, new Vector2(HELD_BADGE_SIZE, HELD_BADGE_SIZE));
+            badgeRect.anchoredPosition = new Vector2(TILE_SIZE * 0.5f, TILE_SIZE * 0.5f);
+            item.HeldBadge = badgeObject;
+
+            var ringObject = new GameObject("Ring", typeof(RectTransform), typeof(Image));
+            var ringRect = (RectTransform)ringObject.transform;
+            ringRect.SetParent(badgeRect, false);
+            Centre(ringRect, new Vector2(HELD_BADGE_SIZE, HELD_BADGE_SIZE));
+            item.HeldRing = ConfigureGlyph(ringObject.GetComponent<Image>(), UiSpriteFactory.Circle);
+
+            var fillObject = new GameObject("Fill", typeof(RectTransform), typeof(Image));
+            var fillRect = (RectTransform)fillObject.transform;
+            fillRect.SetParent(badgeRect, false);
+            Centre(fillRect, new Vector2(
+                HELD_BADGE_SIZE - (HELD_BADGE_BORDER * 2f), HELD_BADGE_SIZE - (HELD_BADGE_BORDER * 2f)));
+            item.HeldFill = ConfigureGlyph(fillObject.GetComponent<Image>(), UiSpriteFactory.Circle);
+
+            item.HeldCount = UiTextFactory.Create(
+                badgeRect, "Count", _badgeFontSize, FontStyle.Bold, Color.clear, _displayFont);
+
+            badgeObject.SetActive(false);
+        }
+
+        /// <summary>What the Deals tab shows until a campaign screen exists (issue #165): one plate with
+        /// one sentence, in the grid's place.</summary>
+        private void BuildDealsPlaceholder(RectTransform parent)
+        {
+            float width = _cardSize.x - (SIDE_INSET * 2f);
+            float height = _cardSize.y - VIEWPORT_TOP - VIEWPORT_BOTTOM_INSET;
+
+            _dealsPlaceholder = new GameObject("DealsPlaceholder", typeof(RectTransform), typeof(Image));
+            var placeholderRect = (RectTransform)_dealsPlaceholder.transform;
+            placeholderRect.SetParent(parent, false);
+            Centre(placeholderRect, new Vector2(width, height));
+            placeholderRect.anchoredPosition = new Vector2(0f, TopY(VIEWPORT_TOP, height));
+            _dealsPlate = ConfigureRounded(_dealsPlaceholder.GetComponent<Image>(), ITEM_CORNER_RADIUS);
+
+            _dealsText = UiTextFactory.Create(
+                placeholderRect, "Label", _placeholderFontSize, FontStyle.Bold, Color.clear, _displayFont);
+            _dealsText.text = DEALS_PLACEHOLDER_TEXT;
+
+            _dealsPlaceholder.SetActive(false);
+        }
+
+        /// <summary>The message pill at the foot of the card, over the grid's bottom padding so it never
+        /// covers a button.</summary>
+        private void BuildToast()
+        {
+            var toastObject = new GameObject("Toast", typeof(RectTransform), typeof(Image));
+            _toastRect = (RectTransform)toastObject.transform;
+            _toastRect.SetParent(_cardRect, false);
+            Centre(_toastRect, new Vector2(_cardSize.x * 0.5f, TOAST_HEIGHT));
+            _toastRect.anchoredPosition = new Vector2(
+                0f, (-_cardSize.y * 0.5f) + TOAST_BOTTOM + (TOAST_HEIGHT * 0.5f));
+            _toastPlate = ConfigureRounded(toastObject.GetComponent<Image>(), TOAST_CORNER_RADIUS);
+
+            _toastText = UiTextFactory.Create(
+                _toastRect, "Label", _toastFontSize, FontStyle.Bold, Color.clear, _displayFont);
+
+            toastObject.SetActive(false);
+        }
+
+        /// <summary>
+        /// A glossy 3D plate that is also an EventSystem tap target: the sliced button sprite, tinted
+        /// by the caller, with a <see cref="LevelPathNodeButton"/> forwarding its click. Its own rect
+        /// is the hit area. The caller positions it and adds its label.
+        /// </summary>
+        private RectTransform BuildChunkyButton(
+            RectTransform parent, string objectName, Vector2 size, out Image plate, System.Action onClick)
+        {
+            var buttonObject = new GameObject(
+                objectName, typeof(RectTransform), typeof(Image), typeof(LevelPathNodeButton));
+            var buttonRect = (RectTransform)buttonObject.transform;
+            buttonRect.SetParent(parent, false);
+            Centre(buttonRect, size);
+
+            plate = buttonObject.GetComponent<Image>();
+            plate.sprite = _buttonSprite;
+            plate.type = Image.Type.Sliced;
+            plate.pixelsPerUnitMultiplier = BUTTON_SLICE_SCALE;
+            plate.color = Color.clear;
+            plate.raycastTarget = true;
+
+            buttonObject.GetComponent<LevelPathNodeButton>().SetClicked(onClick);
+            return buttonRect;
+        }
+
+        /// <summary>The item's glyph, authored in <see cref="ItemKinds"/> order.</summary>
+        private Sprite IconFor(int itemIndex)
+        {
+            Sprite icon = _rowIcons != null && itemIndex < _rowIcons.Length ? _rowIcons[itemIndex] : null;
             if (icon == null)
             {
-                Debug.LogError($"{nameof(PowerUpShopView)} has no icon sprite assigned for {RowKinds[rowIndex]}.", this);
+                Debug.LogError($"{nameof(PowerUpShopView)} has no icon sprite assigned for {ItemKinds[itemIndex]}.", this);
             }
 
             return icon;
@@ -889,58 +1267,19 @@ namespace MustyBlockBlast.Presentation.Views
             return image;
         }
 
-        /// <summary>
-        /// The standard price of a discounted row and the line drawn through it, stacked above the sale
-        /// price in the same column and at a smaller size. Built for every row and shown on none until a
-        /// repaint says otherwise.
-        /// <para>
-        /// Stacked rather than set beside the sale price because the row is already three columns wide —
-        /// name, price, BUY plate — and squeezing a fourth in would have narrowed the name column past
-        /// "Colour Cleanser". The vertical pair is also the shape a shopper reads without a legend.
-        /// </para>
-        /// <para>
-        /// The bar is anchored to the column's right edge, matching the right-aligned text it crosses
-        /// out, so only its width has to be recomputed when the figure changes.
-        /// </para>
-        /// </summary>
-        private void BuildWasPrice(int rowIndex, RectTransform rowRect, float rowWidth)
+        /// <summary>A non-interactive picture: aspect kept, no raycast, painted later.</summary>
+        private static Image ConfigureGlyph(Image image, Sprite sprite)
         {
-            Text wasPriceText = UiTextFactory.Create(
-                rowRect, "WasPrice", _wasPriceFontSize, FontStyle.Normal, Color.clear);
-            wasPriceText.alignment = TextAnchor.MiddleRight;
-            var wasPriceRect = (RectTransform)wasPriceText.transform;
-            wasPriceRect.sizeDelta = new Vector2(
-                rowWidth * PRICE_COLUMN_WIDTH_FRACTION, ROW_HEIGHT * 0.5f);
-            wasPriceRect.anchoredPosition = new Vector2(
-                PriceColumnX(), ROW_HEIGHT * WAS_PRICE_RISE);
-            _wasPriceTexts[rowIndex] = wasPriceText;
-
-            var barObject = new GameObject("Strikethrough", typeof(RectTransform), typeof(Image));
-            var barRect = (RectTransform)barObject.transform;
-            barRect.SetParent(wasPriceRect, false);
-            barRect.anchorMin = new Vector2(1f, 0.5f);
-            barRect.anchorMax = new Vector2(1f, 0.5f);
-            barRect.pivot = new Vector2(1f, 0.5f);
-            barRect.sizeDelta = new Vector2(0f, STRIKETHROUGH_THICKNESS);
-            barRect.anchoredPosition = Vector2.zero;
-
-            var barImage = barObject.GetComponent<Image>();
-            barImage.color = Color.clear;
-            barImage.raycastTarget = false;
-            barImage.enabled = false;
-            _strikethroughBars[rowIndex] = barImage;
+            image.sprite = sprite;
+            image.type = Image.Type.Simple;
+            image.preserveAspect = true;
+            image.color = Color.clear;
+            image.raycastTarget = false;
+            return image;
         }
 
-        /// <summary>A row's width inside the card's side insets. Derived rather than stored so it cannot
-        /// go stale against <see cref="_cardSize"/>.</summary>
-        private float RowWidth => _cardSize.x - (SIDE_INSET * 2f);
-
-        /// <summary>The price column's centre, in a row's local space: flush against the right padding.</summary>
-        private float PriceColumnX()
-            => (RowWidth * 0.5f) - ROW_PADDING - (RowWidth * PRICE_COLUMN_WIDTH_FRACTION * 0.5f);
-
         /// <summary>The close cross, drawn as two rotated bars so it needs no glyph asset — the same
-        /// treatment the other cards give theirs.</summary>
+        /// treatment the other cards give theirs. The hub hides it, but keeps the rect as a hit test.</summary>
         private void BuildCloseButton()
         {
             var closeObject = new GameObject("CloseButton", typeof(RectTransform));
@@ -969,6 +1308,11 @@ namespace MustyBlockBlast.Presentation.Views
             return barImage;
         }
 
+        /// <summary>Anchored Y of an element <paramref name="height"/> tall whose top edge sits
+        /// <paramref name="offsetFromTop"/> below the card's top edge.</summary>
+        private float TopY(float offsetFromTop, float height)
+            => (_cardSize.y * 0.5f) - offsetFromTop - (height * 0.5f);
+
         private static void Centre(RectTransform rect, Vector2 size)
         {
             rect.anchorMin = new Vector2(0.5f, 0.5f);
@@ -976,6 +1320,34 @@ namespace MustyBlockBlast.Presentation.Views
             rect.pivot = new Vector2(0.5f, 0.5f);
             rect.sizeDelta = size;
             rect.anchoredPosition = Vector2.zero;
+        }
+
+        /// <summary>Every widget of one item card, so a repaint addresses the card rather than nine
+        /// parallel arrays. A class rather than a struct: it is filled in piecemeal by the builder and
+        /// read by reference on every repaint.</summary>
+        private sealed class ItemWidgets
+        {
+            public RectTransform Rect;
+            public Image Shadow;
+            public Image Plate;
+            public Image Band;
+            public Image BandSquare;
+            public Image Tile;
+            public Image Glyph;
+            public GameObject HeldBadge;
+            public Image HeldRing;
+            public Image HeldFill;
+            public Text HeldCount;
+            public Text Name;
+            public Text Description;
+            public Image ButtonPlate;
+            public Image Coin;
+            public Image LockGlyph;
+            public Text Price;
+            public Text WasPrice;
+            public Image WasPriceBar;
+            public Image SaleBadge;
+            public Text SaleText;
         }
     }
 }
