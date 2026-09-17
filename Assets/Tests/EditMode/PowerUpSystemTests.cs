@@ -229,6 +229,40 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.AreEqual(0, _appliedBroker.Published.Count);
         }
 
+        /// <summary>Issue #203: the pocket's "earn one" tap goes through the same rewarded-ad path as an
+        /// empty strip slot, and a grant is a grant — incremented, persisted and announced identically.</summary>
+        [Test]
+        public void GrantRewardAsync_ForHold_IncrementsPersistsAndPublishes()
+        {
+            var model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, new BoardModel(), new StubRewardSource(granted: true));
+
+            bool granted = system.GrantRewardAsync(PowerUpKind.Hold, CancellationToken.None)
+                .GetAwaiter().GetResult();
+
+            Assert.IsTrue(granted);
+            Assert.AreEqual(1, model.HoldCount.Value);
+            Assert.AreEqual(1, PlayerPrefs.GetInt(PowerUpInventoryKey.For(PowerUpKind.Hold), 0));
+            Assert.AreEqual(1, _grantedBroker.Published.Count);
+            Assert.AreEqual(PowerUpKind.Hold, _grantedBroker.Published[0].Kind);
+            Assert.AreEqual(1, _grantedBroker.Published[0].NewInventoryCount);
+        }
+
+        /// <summary>A declined ad leaves the pocket exactly as it was: nothing banked, nothing announced.</summary>
+        [Test]
+        public void GrantRewardAsync_ForHoldWhenTheSourceRefuses_ChangesNothing()
+        {
+            var model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, new BoardModel(), new StubRewardSource(granted: false));
+
+            bool granted = system.GrantRewardAsync(PowerUpKind.Hold, CancellationToken.None)
+                .GetAwaiter().GetResult();
+
+            Assert.IsFalse(granted);
+            Assert.AreEqual(0, model.HoldCount.Value);
+            Assert.AreEqual(0, _grantedBroker.Published.Count);
+        }
+
         /// <summary>Hold is invoked by a drag onto the pocket, never armed and aimed: arming it is
         /// refused however many the player holds, like the other targetless kinds.</summary>
         [Test]
