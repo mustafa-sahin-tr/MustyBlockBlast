@@ -289,7 +289,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1e9454aa92f5949329208080f1c305c5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.CoinTotalHudView
-  _leftInset: 16
+  _rightInset: 60
   _gapAboveBoard: 16
   _coinSize: 112
   _fontSize: 40
@@ -2204,7 +2204,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d283a9361c4c94785852a8425936e6af, type: 3}
   m_Name: 
   m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.ObjectiveIconContainerView
-  _leftInset: 144
+  _leftInset: 16
   _gapAboveBoard: 16
   _slotSize: 112
   _slotSpacing: 124

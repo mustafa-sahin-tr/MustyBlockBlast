@@ -43,12 +43,14 @@ namespace MustyBlockBlast.Presentation.Views
         private static readonly Color NumberInk = new Color(0.36f, 0.22f, 0.05f, 1f);
 
         [Header("Layout")]
-        // Sits on the band directly above the board card, at its left, with the objective icons to
-        // its right — not stacked under the right-column buttons any more: three 112px icons plus
-        // their gaps never fit between the board's top edge and the safe area on a tall phone, and
-        // the coin was the one being pushed into the card (issue #229).
-        [Tooltip("Left edge of the coin, in reference pixels from the canvas's left edge.")]
-        [SerializeField] private float _leftInset = 16f;
+        // Sits on the band directly above the board card, flush with its right edge, with the
+        // objective icons on the same band at the left — not stacked under the right-column buttons
+        // any more: three 112px icons plus their gaps never fit between the board's top edge and the
+        // safe area on a tall phone, and the coin was the one being pushed into the card (issue #229).
+        [Tooltip("Right edge of the coin, in reference pixels from the canvas's right edge. Matches " +
+            "SettingsButtonView and LevelPathButtonView's corner offset so the three read as one " +
+            "right-aligned column.")]
+        [SerializeField] private float _rightInset = 60f;
 
         [Tooltip("Gap between the board card's top edge and the bottom of the coin, in reference " +
             "pixels. The coin hangs from the board (see BoardView.StandardCardTopEdge), not from the " +
@@ -85,11 +87,11 @@ namespace MustyBlockBlast.Presentation.Views
             var rect = (RectTransform)transform;
             _rect = rect;
 
-            // Left edge and vertical centre, the board card's own vertical anchor. Bottom-left pivot so
-            // the position set in Start is simply "this far in, this far above the board".
-            rect.anchorMin = new Vector2(0f, 0.5f);
-            rect.anchorMax = new Vector2(0f, 0.5f);
-            rect.pivot = Vector2.zero;
+            // Right edge and vertical centre, the board card's own vertical anchor. Bottom-right pivot
+            // so the position set in Start is simply "this far in, this far above the board".
+            rect.anchorMin = new Vector2(1f, 0.5f);
+            rect.anchorMax = new Vector2(1f, 0.5f);
+            rect.pivot = new Vector2(1f, 0f);
             rect.sizeDelta = new Vector2(_coinSize, _coinSize);
 
             // Every size here is in canvas reference units, so the coin owns its own scale rather than
@@ -150,7 +152,7 @@ namespace MustyBlockBlast.Presentation.Views
 
             // Positioned here rather than in Awake: the board's layout is read off an injected View,
             // and injection has only certainly happened by Start.
-            _rect.anchoredPosition = new Vector2(_leftInset, _boardView.StandardCardTopEdge + _gapAboveBoard);
+            _rect.anchoredPosition = new Vector2(-_rightInset, _boardView.StandardCardTopEdge + _gapAboveBoard);
 
             // Fires immediately with the current balance, so the label is correct from the first frame
             // and no separate initial read is needed.

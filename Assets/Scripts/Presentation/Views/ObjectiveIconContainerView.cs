@@ -60,9 +60,9 @@ namespace MustyBlockBlast.Presentation.Views
         private const float IN_PROGRESS_ALPHA = 0.88f;
 
         [Header("Layout")]
-        [Tooltip("Left edge of the row, in reference pixels from the canvas's left edge. Leaves room " +
-            "for CoinTotalHudView, which sits on the same band to the left of the first icon.")]
-        [SerializeField] private float _leftInset = 144f;
+        [Tooltip("Left edge of the row, in reference pixels from the canvas's left edge. " +
+            "CoinTotalHudView sits on the same band at the right edge.")]
+        [SerializeField] private float _leftInset = 16f;
 
         [Tooltip("Gap between the board card's top edge and the bottom of the icons, in reference " +
             "pixels. The row hangs from the board (see BoardView.StandardCardTopEdge), not from the " +
