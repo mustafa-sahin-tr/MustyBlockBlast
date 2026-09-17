@@ -181,6 +181,113 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.AreEqual(0, _pulledBroker.Published.Count);
         }
 
+        // --- The Demolition Hammer path (issue #156, AC2) ---
+
+        /// <summary>AC2: a vortex destroyed by a hammer drags the board's isolated blocks inwards exactly
+        /// as one destroyed by a completed line does. A hammer destroys a single cell and completes no
+        /// line, so nothing but the pull itself can explain the stray having moved.</summary>
+        [Test]
+        public void TryUseDemolitionHammer_OnAVortex_PullsTheIsolatedBlocksInwards()
+        {
+            var vortex = new GridPosition(4, 4);
+            _boardModel.Occupy(vortex, 1);
+            _boardModel.SetSpecialKind(vortex, SpecialCellKind.Vortex);
+
+            var stray = new GridPosition(0, 0);
+            _boardModel.Occupy(stray, 2);
+
+            _trayModel.SetSlot(0, PieceCatalog.SingleCell, 1, SpecialPieceKind.DemolitionHammer);
+
+            Assert.IsTrue(_system.TryUseDemolitionHammer(0, vortex));
+
+            // Equal distances on both axes, and the tie goes to the horizontal — VortexEffect's fixed
+            // rule, so the same board always resolves the same way whatever destroyed the tile.
+            var pulledTo = new GridPosition(1, 0);
+            Assert.AreEqual(Board.EMPTY, _boardModel.GetCell(stray), "The cell it left is empty.");
+            Assert.AreNotEqual(Board.EMPTY, _boardModel.GetCell(pulledTo), "One step inwards.");
+
+            Assert.AreEqual(1, _pulledBroker.Published.Count);
+            Assert.AreEqual(1, _pulledBroker.Published[0].Pulls.Count);
+            Assert.AreEqual(stray, _pulledBroker.Published[0].Pulls[0].From);
+            Assert.AreEqual(pulledTo, _pulledBroker.Published[0].Pulls[0].To);
+        }
+
+        /// <summary>The same "the message means blocks moved" contract on the hammer path: a vortex that
+        /// found nothing isolated publishes nothing.</summary>
+        [Test]
+        public void TryUseDemolitionHammer_OnAVortexWithNothingIsolated_PublishesNothing()
+        {
+            var vortex = new GridPosition(4, 4);
+            _boardModel.Occupy(vortex, 1);
+            _boardModel.SetSpecialKind(vortex, SpecialCellKind.Vortex);
+
+            var left = new GridPosition(0, 0);
+            var right = new GridPosition(1, 0);
+            _boardModel.Occupy(left, 2);
+            _boardModel.Occupy(right, 2);
+
+            _trayModel.SetSlot(0, PieceCatalog.SingleCell, 1, SpecialPieceKind.DemolitionHammer);
+
+            Assert.IsTrue(_system.TryUseDemolitionHammer(0, vortex));
+
+            Assert.AreNotEqual(Board.EMPTY, _boardModel.GetCell(left));
+            Assert.AreNotEqual(Board.EMPTY, _boardModel.GetCell(right));
+            Assert.AreEqual(0, _pulledBroker.Published.Count);
+        }
+
+        /// <summary>A hammer swung at an ordinary cell pulls nothing: the pull belongs to the tile, not
+        /// to the hammer.</summary>
+        [Test]
+        public void TryUseDemolitionHammer_OnAnOrdinaryCell_PublishesNothing()
+        {
+            var target = new GridPosition(4, 4);
+            _boardModel.Occupy(target, 1);
+            _boardModel.Occupy(new GridPosition(0, 0), 2);
+
+            _trayModel.SetSlot(0, PieceCatalog.SingleCell, 1, SpecialPieceKind.DemolitionHammer);
+
+            Assert.IsTrue(_system.TryUseDemolitionHammer(0, target));
+
+            Assert.AreEqual(0, _pulledBroker.Published.Count);
+            Assert.AreNotEqual(Board.EMPTY, _boardModel.GetCell(new GridPosition(0, 0)), "Left alone.");
+        }
+
+        /// <summary>
+        /// AC3's hammer half, recorded as it actually stands rather than as the acceptance criterion
+        /// reads: a hammer destroys a score gem outright, and nothing scores it.
+        /// <para>
+        /// A hammer swing publishes no score-bearing message at all — no <c>PiecePlacedMessage</c> (it is
+        /// not a placement) and no <c>PowerUpAppliedMessage</c> (it is not a power-up, and never enters
+        /// the inventory) — so there is no gain for a gem's factor to multiply. The gem's <em>count</em>
+        /// is nonetheless available: the swing already collects its triggers through the same
+        /// <c>SpecialCellDetection</c> pass every destroying path uses, so a later issue that gives the
+        /// hammer a score has the figure in hand. Inventing that score here would be inventing a reward
+        /// this issue never asked for, which is why this test asserts the destruction and no more.
+        /// </para>
+        /// </summary>
+        [Test]
+        public void TryUseDemolitionHammer_OnAScoreGem_DestroysItAndLeavesTheBoardOtherwiseAlone()
+        {
+            var gem = new GridPosition(4, 4);
+            _boardModel.Occupy(gem, 1);
+            _boardModel.SetSpecialKind(gem, SpecialCellKind.ScoreGem);
+
+            var bystander = new GridPosition(0, 0);
+            _boardModel.Occupy(bystander, 2);
+
+            _trayModel.SetSlot(0, PieceCatalog.SingleCell, 1, SpecialPieceKind.DemolitionHammer);
+
+            Assert.IsTrue(_system.TryUseDemolitionHammer(0, gem));
+
+            Assert.AreEqual(Board.EMPTY, _boardModel.GetCell(gem), "The gem cell went.");
+            Assert.AreEqual(SpecialCellKind.None, _boardModel.GetSpecialKind(gem), "And so did its kind.");
+
+            // A gem destroys nothing at all, so the bystander is untouched — and, being the only other
+            // block, it is isolated, which is what would have moved had a vortex been involved.
+            Assert.AreNotEqual(Board.EMPTY, _boardModel.GetCell(bystander));
+            Assert.AreEqual(0, _pulledBroker.Published.Count);
+        }
+
         /// <summary>AC6: a snapshot taken before the placement restores the board exactly, vortex tiles
         /// and pulled blocks included. Rides entirely on <c>Board.Clone</c>/<c>CopyFrom</c> being
         /// kind-agnostic, which holds because the effect mutates nothing outside the board's own cells;

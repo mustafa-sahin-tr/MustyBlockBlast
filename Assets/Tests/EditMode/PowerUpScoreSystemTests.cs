@@ -159,6 +159,43 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.AreEqual(7, _scoreModel.CumulativeMultiClearCount.Value);
         }
 
+        // --- Score gems destroyed by a spent power-up (issue #156, AC3) ---
+
+        /// <summary>AC3's multiplier half: a gem destroyed by the application multiplies that
+        /// application's whole gain, exactly as one destroyed by a placement multiplies the
+        /// placement's.</summary>
+        [Test]
+        public void OnPowerUpApplied_BombThatDestroyedAScoreGem_TriplesTheGain()
+        {
+            _appliedBroker.Publish(new PowerUpAppliedMessage(
+                PowerUpKind.Bomb, clearedCellCount: 5, clearedLineCount: 0, emptiedLineCount: 0,
+                wasClutchSave: false, destroyedScoreGemCount: 1));
+
+            Assert.AreEqual(ScoreRules.PlacementScore(5) * ScoreRules.SCORE_GEM_FACTOR, _scoreModel.Score.Value);
+        }
+
+        /// <summary>The factor is a flag, not a per-gem product: two gems in one clear pay the same
+        /// multiple as one, which is what <c>ScoreRules.ScoreGemMultiplied</c> states.</summary>
+        [Test]
+        public void OnPowerUpApplied_RowClearThatDestroyedTwoScoreGems_TriplesTheGainOnce()
+        {
+            _appliedBroker.Publish(new PowerUpAppliedMessage(
+                PowerUpKind.RowClear, Board.SIZE, clearedLineCount: 0, emptiedLineCount: 0,
+                wasClutchSave: false, destroyedScoreGemCount: 2));
+
+            Assert.AreEqual(ScoreRules.ClearScore(1, 0) * ScoreRules.SCORE_GEM_FACTOR, _scoreModel.Score.Value);
+        }
+
+        [Test]
+        public void OnPowerUpApplied_BombThatDestroyedNoScoreGem_ScoresThePlainGain()
+        {
+            _appliedBroker.Publish(new PowerUpAppliedMessage(
+                PowerUpKind.Bomb, clearedCellCount: 5, clearedLineCount: 0, emptiedLineCount: 0,
+                wasClutchSave: false, destroyedScoreGemCount: 0));
+
+            Assert.AreEqual(ScoreRules.PlacementScore(5), _scoreModel.Score.Value);
+        }
+
         [Test]
         public void Dispose_ThenAnApplication_ScoresNothing()
         {

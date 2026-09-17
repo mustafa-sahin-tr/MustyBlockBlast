@@ -78,6 +78,7 @@ namespace MustyBlockBlast.Gameplay.Systems
         private readonly IPublisher<PowerUpGrantedMessage> _grantedPublisher;
         private readonly IPublisher<ExplosiveCoreDetonatedMessage> _explosiveCoreDetonatedPublisher;
         private readonly IPublisher<LaserFiredMessage> _laserFiredPublisher;
+        private readonly IPublisher<VortexPulledMessage> _vortexPulledPublisher;
         private readonly IDisposable _runStartedSubscription;
         private readonly IDisposable _gameOverSubscription;
 
@@ -91,6 +92,18 @@ namespace MustyBlockBlast.Gameplay.Systems
 
         /// <summary>Its own instance for the same reason <see cref="_explosiveCoreEffect"/> is.</summary>
         private readonly LaserEffect _laserEffect = new LaserEffect();
+
+        /// <summary>
+        /// Its own instance for the same reason the two above are, and with the same reading of what its
+        /// buffer means: <see cref="VortexEffect.Pulls"/> has to list "the blocks the power-up I just
+        /// spent dragged", never a running total shared with whatever the last placement resolved.
+        /// <para>
+        /// The odd one out among the three, as it is in <see cref="BoardSystem"/>: it moves blocks rather
+        /// than destroying them, so what it reports is a list of moves and it is announced through the
+        /// pull seam instead of the cleared-cells one.
+        /// </para>
+        /// </summary>
+        private readonly VortexEffect _vortexEffect = new VortexEffect();
 
         /// <summary>
         /// Its own instance for the same reason the two above are: its total has to mean "the coins the
@@ -117,6 +130,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             IPublisher<PowerUpGrantedMessage> grantedPublisher,
             IPublisher<ExplosiveCoreDetonatedMessage> explosiveCoreDetonatedPublisher,
             IPublisher<LaserFiredMessage> laserFiredPublisher,
+            IPublisher<VortexPulledMessage> vortexPulledPublisher,
             IPublisher<CoinCellsClearedMessage> coinCellsClearedPublisher,
             CurrencyConfig currencyConfig,
             ISubscriber<RunStartedMessage> runStartedSubscriber,
@@ -124,6 +138,7 @@ namespace MustyBlockBlast.Gameplay.Systems
         {
             _explosiveCoreDetonatedPublisher = explosiveCoreDetonatedPublisher;
             _laserFiredPublisher = laserFiredPublisher;
+            _vortexPulledPublisher = vortexPulledPublisher;
             _coinCellsClearedPublisher = coinCellsClearedPublisher;
             _coinEffect = new CoinEffect(currencyConfig.CoinCellPayout);
             _powerUpModel = powerUpModel;
@@ -736,6 +751,7 @@ namespace MustyBlockBlast.Gameplay.Systems
 
             _explosiveCoreEffect.BeginResolution();
             _laserEffect.BeginResolution();
+            _vortexEffect.BeginResolution();
             _coinEffect.BeginResolution();
 
             for (int i = 0; i < triggers.Count; i++)
@@ -744,6 +760,7 @@ namespace MustyBlockBlast.Gameplay.Systems
                 // adding an effect rather than editing this loop.
                 _explosiveCoreEffect.Apply(_boardModel.Board, triggers[i]);
                 _laserEffect.Apply(_boardModel.Board, triggers[i]);
+                _vortexEffect.Apply(_boardModel.Board, triggers[i]);
                 _coinEffect.Apply(_boardModel.Board, triggers[i]);
             }
 
@@ -759,6 +776,23 @@ namespace MustyBlockBlast.Gameplay.Systems
             {
                 _boardModel.NotifyPowerUpCleared(wipedCells);
                 _laserFiredPublisher.Publish(new LaserFiredMessage(wipedCells.Count));
+            }
+
+            // A vortex's pulls are announced through their own seam rather than the cleared-cells one,
+            // exactly as the placement path announces them: nothing was destroyed, so there is no cell
+            // to fade — each move empties one cell and fills another, and both ends have to reach the
+            // View together or a block would appear to duplicate itself. Published only when something
+            // actually moved, which is the contract VortexPulledMessage states.
+            IReadOnlyList<VortexPull> pulls = _vortexEffect.Pulls;
+            if (pulls.Count > 0)
+            {
+                _boardModel.NotifyPulled(pulls);
+
+                // Copied, unlike the counts above and for the reason the placement path copies it: the
+                // effect's list is a buffer this instance overwrites on the next application, and a
+                // subscriber animating the slide over several frames would otherwise read the next one's
+                // data halfway through. One small list per application that pulled something.
+                _vortexPulledPublisher.Publish(new VortexPulledMessage(new List<VortexPull>(pulls)));
             }
 
             // A coin cell a Bomb destroys pays exactly as one a completed line destroys does, which is
