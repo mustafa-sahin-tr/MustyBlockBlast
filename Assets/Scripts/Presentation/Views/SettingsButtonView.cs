@@ -31,8 +31,12 @@ namespace MustyBlockBlast.Presentation.Views
 
         [Header("Layout")]
         [Tooltip("Offset from the top-right corner of the canvas, in reference pixels.")]
-        [SerializeField] private Vector2 _cornerOffset = new Vector2(-60f, -60f);
-        [SerializeField] private float _buttonSize = 112f;
+        // 104, the power-up strip's slot size, so every chip on the HUD reads as one system; and a
+        // tighter top inset. Together with the level-path button and the coin below it, the right
+        // column has to fit between the screen's top edge and the board on a tall phone, where the
+        // safe area's bottom inset also lifts the board (issue #229).
+        [SerializeField] private Vector2 _cornerOffset = new Vector2(-60f, -48f);
+        [SerializeField] private float _buttonSize = 104f;
 
         private readonly CompositeDisposable _disposables = new CompositeDisposable();
         private readonly Image[] _inkImages = new Image[INK_PART_COUNT];

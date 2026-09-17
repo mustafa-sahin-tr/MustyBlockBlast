@@ -55,10 +55,10 @@ namespace MustyBlockBlast.Presentation.Views
         [Tooltip("Gap between the board card's top edge and the bottom of the coin, in reference " +
             "pixels. The coin hangs from the board (see BoardView.StandardCardTopEdge), not from the " +
             "screen top, so it can never be pushed down into the card by a taller screen or a notch.")]
-        [SerializeField] private float _gapAboveBoard = 16f;
+        [SerializeField] private float _gapAboveBoard = 12f;
 
-        [Tooltip("Side of the coin, in reference pixels. Matches the icons above it.")]
-        [SerializeField] private float _coinSize = 112f;
+        [Tooltip("Side of the coin, in reference pixels. Matches the icons above it and the power-up strip.")]
+        [SerializeField] private float _coinSize = 104f;
 
         [SerializeField] private int _fontSize = 40;
 
