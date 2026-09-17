@@ -55,6 +55,13 @@ namespace MustyBlockBlast.Tests.EditMode
         private CurrencyConfig _config;
         private PowerUpPriceConfig _priceConfig;
         private CoinBundleConfig _bundleConfig;
+
+        /// <summary>
+        /// The ad-removal product's SKU config (issue #161). Built for every test here because the
+        /// shipped validator now takes it: a coin-bundle receipt has to be priced exactly as it was
+        /// before with this config present, which is what the validator tests below pin.
+        /// </summary>
+        private RemoveAdsProductConfig _removeAdsConfig;
         private LevelProgressionModel _levelProgressionModel;
 
         /// <summary>
@@ -74,6 +81,7 @@ namespace MustyBlockBlast.Tests.EditMode
             _config = ScriptableObject.CreateInstance<CurrencyConfig>();
             _priceConfig = ScriptableObject.CreateInstance<PowerUpPriceConfig>();
             _bundleConfig = ScriptableObject.CreateInstance<CoinBundleConfig>();
+            _removeAdsConfig = ScriptableObject.CreateInstance<RemoveAdsProductConfig>();
             _levelProgressionModel = new LevelProgressionModel();
             _levelProgressionModel.CurrentLevelNumber.Value = ALL_KINDS_UNLOCKED_LEVEL;
         }
@@ -85,6 +93,7 @@ namespace MustyBlockBlast.Tests.EditMode
             DestroyIfPresent(_config);
             DestroyIfPresent(_priceConfig);
             DestroyIfPresent(_bundleConfig);
+            DestroyIfPresent(_removeAdsConfig);
         }
 
         // --- The shipped placeholder line-up ---
@@ -461,7 +470,7 @@ namespace MustyBlockBlast.Tests.EditMode
         [Test]
         public void DeterministicPurchaseReceiptValidator_ForAKnownSku_ApprovesTheConfiguredAmount()
         {
-            var validator = new DeterministicPurchaseReceiptValidator(_bundleConfig);
+            var validator = new DeterministicPurchaseReceiptValidator(_bundleConfig, _removeAdsConfig);
             _bundleConfig.TryGetBundle(KNOWN_SKU, out CoinBundle bundle);
 
             ValidatedPurchase verdict = validator
@@ -481,7 +490,7 @@ namespace MustyBlockBlast.Tests.EditMode
         [Test]
         public void DeterministicPurchaseReceiptValidator_ForAnUnknownSku_Rejects()
         {
-            var validator = new DeterministicPurchaseReceiptValidator(_bundleConfig);
+            var validator = new DeterministicPurchaseReceiptValidator(_bundleConfig, _removeAdsConfig);
 
             ValidatedPurchase verdict = validator
                 .ValidateAsync(CreateReceipt(TRANSACTION_ID, "coins_nonexistent"), CancellationToken.None)
@@ -504,7 +513,7 @@ namespace MustyBlockBlast.Tests.EditMode
             CurrencySystem system = CreateSystem(
                 profileModel,
                 new StubCoinPurchaseService(CreateReceipt(TRANSACTION_ID, KNOWN_SKU)),
-                new DeterministicPurchaseReceiptValidator(_bundleConfig));
+                new DeterministicPurchaseReceiptValidator(_bundleConfig, _removeAdsConfig));
 
             Assert.IsTrue(Purchase(system, KNOWN_SKU));
 
@@ -523,10 +532,36 @@ namespace MustyBlockBlast.Tests.EditMode
             CurrencySystem system = CreateSystem(
                 profileModel,
                 new StubCoinPurchaseService(CreateReceipt(TRANSACTION_ID, "coins_nonexistent")),
-                new DeterministicPurchaseReceiptValidator(_bundleConfig));
+                new DeterministicPurchaseReceiptValidator(_bundleConfig, _removeAdsConfig));
 
             Assert.IsFalse(Purchase(system, "coins_nonexistent"));
             Assert.AreEqual(0, profileModel.CoinBalance.Value);
+        }
+
+        /// <summary>
+        /// The other product's receipt buys no coins (issue #161). The shipped validator now approves an
+        /// ad-removal receipt — it is a genuine purchase — and the credit path still refuses it, through
+        /// the positive-amount gate it already had. Nothing in <see cref="CurrencySystem"/> changed to
+        /// make this true, which is the point: generalizing the store seam for a second product left the
+        /// coin path exactly as it was, including its answer to a receipt that was never a coin purchase.
+        /// </summary>
+        [Test]
+        public void PurchaseCoinBundleAsync_WithTheRemoveAdsReceipt_CreditsNothing()
+        {
+            var profileModel = new ProfileModel();
+            string removeAdsSku = _removeAdsConfig.Sku;
+            CurrencySystem system = CreateSystem(
+                profileModel,
+                new StubCoinPurchaseService(CreateReceipt(TRANSACTION_ID, removeAdsSku)),
+                new DeterministicPurchaseReceiptValidator(_bundleConfig, _removeAdsConfig));
+
+            Assert.IsFalse(Purchase(system, removeAdsSku));
+            Assert.AreEqual(0, profileModel.CoinBalance.Value);
+            Assert.AreEqual(0, _purchaseGrantBroker.Published.Count);
+
+            // And the transaction is not burned: a rejection leaves it unconsumed and therefore
+            // recoverable by whichever path should have handled it.
+            Assert.AreEqual(string.Empty, PlayerPrefs.GetString(CONSUMED_TRANSACTION_IDS_KEY, string.Empty));
         }
 
         /// <summary>Banks <paramref name="coinAmount"/> through a real purchase of

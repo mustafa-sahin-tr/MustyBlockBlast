@@ -2025,6 +2025,7 @@ MonoBehaviour:
   _currencyConfig: {fileID: 11400000, guid: 36f18b394e8614ca0a06e153de8be6d3, type: 2}
   _powerUpPriceConfig: {fileID: 11400000, guid: e31dd2862241042cf84ab7666973315a, type: 2}
   _coinBundleConfig: {fileID: 11400000, guid: eb3e91b3d5d5343eeaf64dd26cd6962f, type: 2}
+  _removeAdsProductConfig: {fileID: 11400000, guid: 8d78666af0edb4a9eb24de1f12842ce8, type: 2}
   _promotionConfig: {fileID: 11400000, guid: 7388f93f45ba1487b8604089e57a0e81, type: 2}
 --- !u!4 &1490060644
 Transform:

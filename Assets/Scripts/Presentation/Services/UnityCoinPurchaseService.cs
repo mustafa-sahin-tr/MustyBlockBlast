@@ -30,15 +30,34 @@ namespace MustyBlockBlast.Presentation.Services
     /// since the SDK's own purchase events carry no correlation id.
     /// </para>
     /// <para>
-    /// Products are configured from <see cref="CoinBundleConfig"/>, so the line-up the storefront shows
-    /// and the line-up fetched from the store come from one asset. They are all
+    /// Products are configured from <see cref="CoinBundleConfig"/> and
+    /// <see cref="RemoveAdsProductConfig"/>, so the line-up the storefronts show and the line-up fetched
+    /// from the store come from those same two assets. The coin bundles are all
     /// <see cref="ProductType.Consumable"/>: a coin bundle is spent on receipt and is meant to be
-    /// buyable again.
+    /// buyable again. The ad-removal product is the one exception and is
+    /// <see cref="ProductType.NonConsumable"/> — it is bought once and owned forever, and registering it
+    /// as a consumable would let the store sell it twice.
+    /// </para>
+    /// <para>
+    /// Two configs rather than one, and two kinds of product rather than one, is the whole of what this
+    /// class knows about the difference between them. It still holds no notion of what either purchase
+    /// is <em>worth</em>: the coins belong to <see cref="CurrencySystem"/> and the ad-removal flag to
+    /// <see cref="AdRemovalSystem"/>, and both go through <see cref="IPurchaseReceiptValidator"/> first.
+    /// A second implementation of the seam for the second product was the alternative, and it would have
+    /// meant a second <see cref="StoreController"/> connection to the same store — which is why the
+    /// product line-up widened here instead.
     /// </para>
     /// </summary>
     public sealed class UnityCoinPurchaseService : ICoinPurchaseService, IDisposable
     {
         private readonly CoinBundleConfig _bundleConfig;
+
+        /// <summary>
+        /// The ad-removal product, or null when this build does not sell one. Held for exactly two
+        /// questions: whether to register it with the store, and whether a SKU handed to
+        /// <see cref="PurchaseAsync"/> is it.
+        /// </summary>
+        private readonly RemoveAdsProductConfig _removeAdsConfig;
 
         /// <summary>
         /// Pending orders awaiting <see cref="CompletePurchase"/>, keyed by the transaction id the seam
@@ -60,9 +79,11 @@ namespace MustyBlockBlast.Presentation.Services
         private UniTaskCompletionSource<CoinPurchaseResult> _pendingPurchaseSource;
         private UniTaskCompletionSource<bool> _productsFetchedSource;
 
-        public UnityCoinPurchaseService(CoinBundleConfig bundleConfig)
+        public UnityCoinPurchaseService(
+            CoinBundleConfig bundleConfig, RemoveAdsProductConfig removeAdsConfig)
         {
             _bundleConfig = bundleConfig;
+            _removeAdsConfig = removeAdsConfig;
         }
 
         public async UniTask<CoinPurchaseResult> PurchaseAsync(
@@ -71,12 +92,16 @@ namespace MustyBlockBlast.Presentation.Services
             cancellationToken.ThrowIfCancellationRequested();
 
             // An unknown SKU is an authoring or caller mistake, not a store problem, and it is caught
-            // here so the store is never asked for a product this build does not sell.
-            if (_bundleConfig == null || !_bundleConfig.TryGetBundle(sku, out CoinBundle unused))
+            // here so the store is never asked for a product this build does not sell. "Known" means
+            // known to either config — a coin bundle row or the ad-removal product — because those two
+            // together are exactly the line-up BuildProductDefinitions registers, and a guard narrower
+            // than the line-up would refuse a product the store is quite happy to sell.
+            if (!IsKnownSku(sku))
             {
                 Debug.LogError(
                     $"{nameof(UnityCoinPurchaseService)} was asked for the unknown SKU '{sku}'. " +
-                    $"Add it to {nameof(CoinBundleConfig)} and register it with the platform stores.");
+                    $"Add it to {nameof(CoinBundleConfig)} or {nameof(RemoveAdsProductConfig)} and " +
+                    "register it with the platform stores.");
                 return CoinPurchaseResult.Failed;
             }
 
@@ -235,14 +260,37 @@ namespace MustyBlockBlast.Presentation.Services
         }
 
         /// <summary>
+        /// Whether either config names <paramref name="sku"/>. The one place "does this build sell it?"
+        /// is answered, so <see cref="PurchaseAsync"/>'s guard and
+        /// <see cref="BuildProductDefinitions"/>'s line-up cannot drift apart into a SKU that is
+        /// registered but refused, or refused but registered.
+        /// </summary>
+        private bool IsKnownSku(string sku)
+        {
+            if (_removeAdsConfig != null && _removeAdsConfig.Matches(sku))
+            {
+                return true;
+            }
+
+            return _bundleConfig != null && _bundleConfig.TryGetBundle(sku, out CoinBundle unused);
+        }
+
+        /// <summary>
         /// One <see cref="ProductDefinition"/> per authored bundle, walked by index so the line-up is
-        /// built without an enumerator. All consumable — a coin bundle is spent the moment it is
-        /// credited and must be buyable again.
+        /// built without an enumerator, plus the ad-removal product when one is configured.
+        /// <para>
+        /// The bundles are consumable — a coin bundle is spent the moment it is credited and must be
+        /// buyable again. The ad-removal product is non-consumable, which is not a detail: a consumable
+        /// is consumed on confirmation and the store will sell it again, so registering a
+        /// bought-once-owned-forever product as one would let a player pay twice for something they
+        /// already own, and would leave the store with no record of the entitlement for a restore to
+        /// find.
+        /// </para>
         /// </summary>
         private List<ProductDefinition> BuildProductDefinitions()
         {
             int bundleCount = _bundleConfig == null ? 0 : _bundleConfig.BundleCount;
-            var definitions = new List<ProductDefinition>(bundleCount);
+            var definitions = new List<ProductDefinition>(bundleCount + 1);
 
             for (int bundleIndex = 0; bundleIndex < bundleCount; bundleIndex++)
             {
@@ -251,6 +299,11 @@ namespace MustyBlockBlast.Presentation.Services
                 {
                     definitions.Add(new ProductDefinition(bundle.Sku, ProductType.Consumable));
                 }
+            }
+
+            if (_removeAdsConfig != null && _removeAdsConfig.IsValid)
+            {
+                definitions.Add(new ProductDefinition(_removeAdsConfig.Sku, ProductType.NonConsumable));
             }
 
             return definitions;
@@ -348,7 +401,7 @@ namespace MustyBlockBlast.Presentation.Services
         private void OnProductsFetchFailed(ProductFetchFailed failure)
         {
             Debug.LogError(
-                $"Fetching {failure.FailedFetchProducts.Count} coin bundle products failed: " +
+                $"Fetching {failure.FailedFetchProducts.Count} store products failed: " +
                 $"{failure.FailureReason}. Are the SKUs registered with the platform stores?");
 
             UniTaskCompletionSource<bool> source = _productsFetchedSource;

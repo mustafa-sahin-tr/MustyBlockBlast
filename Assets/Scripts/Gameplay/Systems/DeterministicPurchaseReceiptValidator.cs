@@ -6,7 +6,8 @@ namespace MustyBlockBlast.Gameplay.Systems
 {
     /// <summary>
     /// Stand-in receipt validator used until a validation backend exists: it reads the SKU the device
-    /// claims, looks its coin value up in <see cref="CoinBundleConfig"/>, and approves. The purchase
+    /// claims, recognises it as either a coin bundle from <see cref="CoinBundleConfig"/> or the
+    /// ad-removal product from <see cref="RemoveAdsProductConfig"/>, and approves. The purchase
     /// counterpart of <see cref="DeterministicCoinRewardSource"/>, and deterministic for the same
     /// reason — the rest of the purchase flow has to be buildable and playable against it.
     /// <para>
@@ -34,15 +35,29 @@ namespace MustyBlockBlast.Gameplay.Systems
     public sealed class DeterministicPurchaseReceiptValidator : IPurchaseReceiptValidator
     {
         private readonly CoinBundleConfig _bundleConfig;
+        private readonly RemoveAdsProductConfig _removeAdsConfig;
 
-        public DeterministicPurchaseReceiptValidator(CoinBundleConfig bundleConfig)
+        public DeterministicPurchaseReceiptValidator(
+            CoinBundleConfig bundleConfig, RemoveAdsProductConfig removeAdsConfig)
         {
             _bundleConfig = bundleConfig;
+            _removeAdsConfig = removeAdsConfig;
         }
 
         /// <summary>
-        /// Approves any receipt naming a SKU the config knows, for that SKU's authored coin amount, and
-        /// rejects one it does not.
+        /// Approves any receipt naming a SKU either config knows — a coin bundle for that bundle's
+        /// authored coin amount, the ad-removal product for no coins at all — and rejects one neither
+        /// does.
+        /// <para>
+        /// The ad-removal product is checked first, and its verdict carries
+        /// <see cref="ValidatedPurchase.CoinAmount"/> zero because it is worth no coins: it is not a
+        /// cheaper bundle, it is a purchase that pays in something other than currency. Its consumer
+        /// (<see cref="AdRemovalSystem.PurchaseRemoveAdsAsync"/>) therefore reads only
+        /// <see cref="ValidatedPurchase.IsValid"/>, and <see cref="CurrencySystem"/> is left exactly as
+        /// it was: it already refuses a valid-but-zero verdict, which is still the right answer for a
+        /// <em>coin bundle</em> worth nothing, and now doubles as the right answer for a receipt that
+        /// reached the coin path but was never a coin purchase at all.
+        /// </para>
         /// <para>
         /// The unknown SKU is rejected rather than approved for zero coins, because the two are not the
         /// same outcome upstream: a zero-coin approval would let the credit path mark a real transaction
@@ -54,6 +69,11 @@ namespace MustyBlockBlast.Gameplay.Systems
             PurchaseReceipt receipt, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
+
+            if (_removeAdsConfig != null && _removeAdsConfig.Matches(receipt.Sku))
+            {
+                return UniTask.FromResult(new ValidatedPurchase(coinAmount: 0, isValid: true));
+            }
 
             if (_bundleConfig == null || !_bundleConfig.TryGetBundle(receipt.Sku, out CoinBundle bundle))
             {
