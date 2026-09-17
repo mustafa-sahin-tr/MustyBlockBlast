@@ -1,5 +1,9 @@
+using System;
 using System.Collections.Generic;
+using System.Threading;
+using Cysharp.Threading.Tasks;
 using MustyBlockBlast.Core;
+using MustyBlockBlast.Gameplay;
 using MustyBlockBlast.Gameplay.Localization;
 using MustyBlockBlast.Gameplay.Models;
 using MustyBlockBlast.Gameplay.Reactive;
@@ -39,6 +43,12 @@ namespace MustyBlockBlast.Presentation.Views
     /// this View to light up while a drag hovers it.
     /// </para>
     /// <para>
+    /// A pocket with no charge left is also the place to earn one: a tap on it is the "earn one"
+    /// gesture, routed here by <see cref="BoardInputView"/> exactly as a tap on an empty strip slot is
+    /// routed to <see cref="PowerUpInventoryView"/>, and it asks <see cref="PowerUpSystem"/> for the
+    /// reward the same way. The View banks nothing itself; the count subscription repaints the badge.
+    /// </para>
+    /// <para>
     /// There is no gesture for taking a piece <em>out</em> of the pocket, and none is needed: dropping
     /// any dock piece here swaps the two, so the parked piece comes back to the dock the moment another
     /// one is parked. That single gesture is the whole loop.
@@ -67,6 +77,10 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>Fraction of the badge the count glyph may fill, so a large serialized font size
         /// cannot spill the number off its own chip.</summary>
         private const float BADGE_FONT_FILL = 0.66f;
+
+        /// <summary>Drawn in place of the count when the player holds no charge: that state's tap is the
+        /// "earn one" gesture, so the chip reads as an offer rather than as a dead 0 — the strip's label.</summary>
+        private const string EARN_AFFORDANCE_LABEL = "+";
 
         [Header("Layout")]
         [FormerlySerializedAs("_cornerOffset")]
@@ -126,23 +140,27 @@ namespace MustyBlockBlast.Presentation.Views
 
         private TrayModel _trayModel;
         private PowerUpModel _powerUpModel;
+        private PowerUpSystem _powerUpSystem;
         private SettingsModel _settingsModel;
         private LocalizationModel _localizationModel;
         private LocalizationSystem _localizationSystem;
         private ThemeDefinition _currentTheme;
         private bool _isHovered;
         private int _holdCount;
+        private bool _isRequestingReward;
 
         [Inject]
         public void Construct(
             TrayModel trayModel,
             PowerUpModel powerUpModel,
+            PowerUpSystem powerUpSystem,
             SettingsModel settingsModel,
             LocalizationModel localizationModel,
             LocalizationSystem localizationSystem)
         {
             _trayModel = trayModel;
             _powerUpModel = powerUpModel;
+            _powerUpSystem = powerUpSystem;
             _settingsModel = settingsModel;
             _localizationModel = localizationModel;
             _localizationSystem = localizationSystem;
@@ -157,7 +175,7 @@ namespace MustyBlockBlast.Presentation.Views
 
         private void Start()
         {
-            if (_trayModel == null || _powerUpModel == null || _settingsModel == null
+            if (_trayModel == null || _powerUpModel == null || _powerUpSystem == null || _settingsModel == null
                 || _localizationModel == null || _localizationSystem == null)
             {
                 Debug.LogError(
@@ -225,6 +243,23 @@ namespace MustyBlockBlast.Presentation.Views
             return plateScreenRect.Overlaps(screenBounds);
         }
 
+        /// <summary>
+        /// Resolves a press at <paramref name="screenPosition"/>. Returns true when it landed on the
+        /// pocket and was consumed as the "earn one" gesture — only while the player holds no charge,
+        /// because that is the one state in which a tap on the pocket means anything: with a charge the
+        /// pocket is a drop target, reached by a drag that starts on the tray, never by a tap.
+        /// </summary>
+        internal bool TryHandleTap(Vector2 screenPosition)
+        {
+            if (_plateRect == null || _holdCount > 0 || !ContainsScreenPoint(screenPosition))
+            {
+                return false;
+            }
+
+            RequestReward();
+            return true;
+        }
+
         /// <summary>Lights the pocket while a dragged piece hovers it, so the drop target is obvious
         /// before the player commits. Idempotent — the input View calls this every drag frame.</summary>
         internal void SetHovered(bool isHovered)
@@ -236,6 +271,48 @@ namespace MustyBlockBlast.Presentation.Views
 
             _isHovered = isHovered;
             RefreshPlate();
+        }
+
+        private bool ContainsScreenPoint(Vector2 screenPosition)
+        {
+            Camera eventCamera = _canvas != null && _canvas.renderMode != RenderMode.ScreenSpaceOverlay
+                ? _canvas.worldCamera
+                : null;
+
+            return RectTransformUtility.RectangleContainsScreenPoint(_plateRect, screenPosition, eventCamera);
+        }
+
+        /// <summary>
+        /// Fire-and-forget earn request, mirroring the strip's. The View banks nothing itself: the
+        /// System increments and persists the inventory, and the count subscription bound in
+        /// <see cref="Start"/> repaints the badge from that. A grant never parks anything.
+        /// </summary>
+        private void RequestReward()
+        {
+            if (_isRequestingReward)
+            {
+                return;
+            }
+
+            RequestRewardAsync(this.GetCancellationTokenOnDestroy()).Forget();
+        }
+
+        private async UniTaskVoid RequestRewardAsync(CancellationToken cancellationToken)
+        {
+            _isRequestingReward = true;
+            try
+            {
+                await _powerUpSystem.GrantRewardAsync(PowerUpKind.Hold, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                // The View went away mid-request. Nothing to undo: the System only banks a reward it
+                // was actually handed.
+            }
+            finally
+            {
+                _isRequestingReward = false;
+            }
         }
 
         private void OnHeldChanged() => RebuildHeldPiece();
@@ -310,10 +387,10 @@ namespace MustyBlockBlast.Presentation.Views
 
             // The badge is drawn at full strength over an otherwise dimmed plate, exactly as on the
             // strip: it states a number, and a number has to be legible in every state. Two tones for
-            // the same reason — accent means "you hold this many", soft ink means "none left".
+            // the same reason — accent means "you hold this many", soft ink means "tap to earn one".
             _badgeImage.color = hasCharge ? _currentTheme.Accent : _currentTheme.SoftInk;
             _countText.color = _currentTheme.CardBackground;
-            _countText.text = _holdCount.ToString();
+            _countText.text = hasCharge ? _holdCount.ToString() : EARN_AFFORDANCE_LABEL;
 
             float scale = isLit ? _hoverScale : 1f;
             _rectTransform.localScale = new Vector3(scale, scale, 1f);

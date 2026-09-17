@@ -442,6 +442,15 @@ namespace MustyBlockBlast.Presentation.Views
                 return;
             }
 
+            // Same tier as the strip, for the same gesture: a tap on a pocket with no Hold charge is
+            // the "earn one" tap. With a charge the pocket is a drop target and this returns false, so
+            // the press falls through to the drag that would fill it.
+            if (_holdSlotView.TryHandleTap(screenPosition))
+            {
+                CancelHammerArm();
+                return;
+            }
+
             // Everything below this line is the player reaching for the board or the tray, which is
             // exactly what takes a Ghost Fit suggestion down (see the class remarks). Sited under the
             // inventory gate on purpose: a tap on the strip is the player picking another power-up, not
