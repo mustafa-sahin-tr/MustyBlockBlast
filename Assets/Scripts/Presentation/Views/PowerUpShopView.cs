@@ -6,6 +6,7 @@ using MustyBlockBlast.Gameplay.Reactive;
 using MustyBlockBlast.Gameplay.Settings;
 using MustyBlockBlast.Gameplay.Systems;
 using UnityEngine;
+using UnityEngine.Serialization;
 using UnityEngine.UI;
 using VContainer;
 
@@ -193,8 +194,11 @@ namespace MustyBlockBlast.Presentation.Views
         [SerializeField] private int _balanceFontSize = 40;
         [SerializeField] private int _tabFontSize = 26;
         [SerializeField] private int _earnFontSize = 24;
+        [FormerlySerializedAs("_rowNameFontSize")]
         [SerializeField] private int _itemNameFontSize = 26;
+        [FormerlySerializedAs("_rowDescriptionFontSize")]
         [SerializeField] private int _itemDescriptionFontSize = 22;
+        [FormerlySerializedAs("_rowPriceFontSize")]
         [SerializeField] private int _itemPriceFontSize = 32;
         [SerializeField] private int _wasPriceFontSize = 20;
         [SerializeField] private int _badgeFontSize = 20;
