@@ -40,6 +40,10 @@ namespace MustyBlockBlast.Presentation
         [Tooltip("Coin price of each power-up kind. Required — without it the shop has nothing to charge.")]
         [SerializeField] private PowerUpPriceConfig _powerUpPriceConfig;
 
+        [Tooltip("The power-up shop's own colours — the one card that does not follow the theme. Optional: "
+            + "the built-in defaults are the finished design.")]
+        [SerializeField] private ShopPaletteConfig _shopPaletteConfig;
+
         [Tooltip("Coin bundles buyable with real money, and what each pays. Required — without it the "
             + "storefront has nothing to sell and no purchase can be priced.")]
         [SerializeField] private CoinBundleConfig _coinBundleConfig;
@@ -192,6 +196,7 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterInstance(ResolveObjectiveIconCatalog());
             builder.RegisterInstance(ResolveCurrencyConfig());
             builder.RegisterInstance(ResolvePowerUpPriceConfig());
+            builder.RegisterInstance(ResolveShopPaletteConfig());
             builder.RegisterInstance(ResolveCoinBundleConfig());
             builder.RegisterInstance(ResolveRemoveAdsProductConfig());
             builder.RegisterInstance(ResolvePromotionConfig());
@@ -280,6 +285,15 @@ namespace MustyBlockBlast.Presentation
                 "Coin bundle purchases are falling back to the built-in placeholder line-up.", this);
             return ScriptableObject.CreateInstance<CoinBundleConfig>();
         }
+
+        /// <summary>
+        /// The same shape as <see cref="ResolvePromotionConfig"/>, and quiet for the same reason: the
+        /// palette's code defaults <em>are</em> the shipped design, so a scene without the asset draws the
+        /// shop exactly as one with it — the asset only exists so the colours can be retuned without a
+        /// code change.
+        /// </summary>
+        private ShopPaletteConfig ResolveShopPaletteConfig()
+            => _shopPaletteConfig != null ? _shopPaletteConfig : ScriptableObject.CreateInstance<ShopPaletteConfig>();
 
         /// <summary>
         /// Same defensive shape as <see cref="ResolveCoinBundleConfig"/>: a default-valued instance

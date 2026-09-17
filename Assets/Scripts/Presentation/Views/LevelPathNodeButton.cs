@@ -5,12 +5,13 @@ using UnityEngine.EventSystems;
 namespace MustyBlockBlast.Presentation.Views
 {
     /// <summary>
-    /// One tap target inside <see cref="LevelPathPanelView"/> — a level node, the close cross or the
-    /// scrim behind the card — forwarding its click to a callback the panel sets when it builds the
-    /// widget.
+    /// One tap target inside a scrolling panel — a level node, the close cross or the scrim behind the
+    /// card in <see cref="LevelPathPanelView"/>, and a buy button or sub-tab in
+    /// <see cref="PowerUpShopView"/> — forwarding its click to a callback the panel sets when it builds
+    /// the widget.
     /// <para>
-    /// This is the one place in the project that takes taps from an EventSystem rather than from
-    /// <see cref="BoardInputView"/>'s manual hit-testing, and it has to be: the level trail lives in a
+    /// These are the only places in the project that take taps from an EventSystem rather than from
+    /// <see cref="BoardInputView"/>'s manual hit-testing, and they have to: both panels scroll in a
     /// ScrollRect, so telling a tap from the first frame of a drag means honouring the drag threshold,
     /// the pointer-down/up pairing and the "the finger left the widget" cancel. uGUI already does all
     /// three and gets them right; hand-rolling them against a raw pointer action would be a quiet

@@ -1,0 +1,60 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9dd7dacbc4f484b20924d9d0e0ac4ffc, type: 3}
+  m_Name: ShopPaletteConfig
+  m_EditorClassIdentifier: MustyBlockBlast.Gameplay::MustyBlockBlast.Gameplay.Settings.ShopPaletteConfig
+  _cardFace: {r: 1, g: 0.9647059, b: 0.8980392, a: 1}
+  _cardShadow: {r: 0.6901961, g: 0.5411765, b: 0.3529412, a: 1}
+  _darkPlate: {r: 0.105882354, g: 0.08235294, b: 0.2509804, a: 1}
+  _coinYellow: {r: 1, g: 0.8862745, b: 0.47843137, a: 1}
+  _softInk: {r: 0.6156863, g: 0.5764706, b: 0.8392157, a: 1}
+  _tabPowerUp: {r: 1, g: 0.7882353, b: 0.23529412, a: 1}
+  _tabPowerUpText: {r: 0.3529412, g: 0.22745098, b: 0, a: 1}
+  _tabCoin: {r: 0.6039216, g: 0.43529412, b: 0.9411765, a: 1}
+  _tabPromotion: {r: 0.9411765, g: 0.41568628, b: 0.6509804, a: 1}
+  _tabText: {r: 1, g: 1, b: 1, a: 1}
+  _inactiveTabTint: {r: 0.72, g: 0.72, b: 0.78, a: 1}
+  _itemPlate: {r: 0.3529412, g: 0.30980393, b: 0.72156864, a: 1}
+  _itemShadow: {r: 0.16862746, g: 0.14117648, b: 0.33333334, a: 1}
+  _itemBand: {r: 0.47843137, g: 0.43137255, b: 0.8784314, a: 1}
+  _itemName: {r: 1, g: 1, b: 1, a: 1}
+  _itemDescription: {r: 0.9137255, g: 0.89411765, b: 1, a: 1}
+  _buyButton: {r: 0.9490196, g: 0.3764706, b: 0.10980392, a: 1}
+  _buyButtonText: {r: 1, g: 1, b: 1, a: 1}
+  _earnButton: {r: 0.24705882, g: 0.68235296, b: 0.24705882, a: 1}
+  _unaffordableButton: {r: 0.7882353, g: 0.7490196, b: 0.6901961, a: 1}
+  _lockedButton: {r: 0.16862746, g: 0.14117648, b: 0.33333334, a: 1}
+  _lockedText: {r: 0.7882353, g: 0.7529412, b: 1, a: 1}
+  _heldBadge: {r: 0.18039216, g: 0.8, b: 0.44313726, a: 1}
+  _saleBadge: {r: 0.8784314, g: 0.1882353, b: 0.11764706, a: 1}
+  _wasPrice: {r: 1, g: 0.8509804, b: 0.7607843, a: 1}
+  _tileColours:
+  - _kind: 0
+    _colour: {r: 0.9098039, g: 0.25490198, b: 0.22745098, a: 1}
+  - _kind: 1
+    _colour: {r: 0.13333334, g: 0.627451, b: 0.5764706, a: 1}
+  - _kind: 2
+    _colour: {r: 0.18431373, g: 0.43529412, b: 0.8784314, a: 1}
+  - _kind: 3
+    _colour: {r: 0.49411765, g: 0.30980393, b: 0.84705883, a: 1}
+  - _kind: 4
+    _colour: {r: 0.8784314, g: 0.27450982, b: 0.5411765, a: 1}
+  - _kind: 5
+    _colour: {r: 0.24705882, g: 0.68235296, b: 0.24705882, a: 1}
+  - _kind: 6
+    _colour: {r: 0.9411765, g: 0.5411765, b: 0.08627451, a: 1}
+  - _kind: 7
+    _colour: {r: 0.9411765, g: 0.6392157, b: 0, a: 1}
+  - _kind: 8
+    _colour: {r: 0.13333334, g: 0.72156864, b: 0.84705883, a: 1}
+  - _kind: 9
+    _colour: {r: 0.8784314, g: 0.654902, b: 0.18039216, a: 1}
