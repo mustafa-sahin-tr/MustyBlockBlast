@@ -274,6 +274,18 @@ MonoBehaviour:
     m_Localized: Tap an unlocked level to play it
     m_Metadata:
       m_Items: []
+  - m_Id: 1253489991737344
+    m_Localized: Remove ads
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1253490004320256
+    m_Localized: BUY
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1253490004320257
+    m_Localized: OWNED
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

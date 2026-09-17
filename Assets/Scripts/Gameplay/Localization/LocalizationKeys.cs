@@ -90,6 +90,15 @@ namespace MustyBlockBlast.Gameplay.Localization
         public const string SETTINGS_ROW_SOUND = "settings.row.sound";
         public const string SETTINGS_ROW_DURATION = "settings.row.duration";
         public const string SETTINGS_ROW_LANGUAGE = "settings.row.language";
+        public const string SETTINGS_ROW_REMOVE_ADS = "settings.row.remove_ads";
+
+        /// <summary>The Remove Ads row's pill before the purchase. A call to action, not a price: what
+        /// the product costs in money lives in the store consoles, so this card cannot state it.</summary>
+        public const string SETTINGS_REMOVE_ADS_BUY = "settings.remove_ads.buy";
+
+        /// <summary>The Remove Ads row's pill once the product is owned. A state, not an offer — a
+        /// non-consumable cannot be bought twice, so the row stops being a button.</summary>
+        public const string SETTINGS_REMOVE_ADS_OWNED = "settings.remove_ads.owned";
         public const string SETTINGS_THEME_SCREEN_TITLE = "settings.theme_screen.title";
         public const string SETTINGS_LANGUAGE_SCREEN_TITLE = "settings.language_screen.title";
         public const string SETTINGS_MODE_SCREEN_TITLE = "settings.mode_screen.title";

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using Cysharp.Threading.Tasks;
 using MustyBlockBlast.Gameplay;
 using MustyBlockBlast.Gameplay.Localization;
 using MustyBlockBlast.Gameplay.Models;
@@ -53,7 +54,7 @@ namespace MustyBlockBlast.Presentation.Views
         private const float ICON_BUTTON_SIZE = 92f;
         private const float LIST_WIDTH = 760f;
         private const float ROW_HEIGHT = 128f;
-        private const int ROW_COUNT = 5;
+        private const int ROW_COUNT = 6;
 
         /// <summary>Card top edge to list top edge: the header band plus the gap under it.</summary>
         private const float LIST_TOP_INSET = 194f;
@@ -168,7 +169,17 @@ namespace MustyBlockBlast.Presentation.Views
         private GameModeSystem _gameModeSystem;
         private TimedModeSystem _timedModeSystem;
         private TimerRunSystem _timerRunSystem;
+        private ProfileModel _profileModel;
+        private AdRemovalSystem _adRemovalSystem;
         private Canvas _canvas;
+
+        /// <summary>
+        /// Guards the Remove Ads row against a second tap while a store prompt is already up. The same
+        /// guard <see cref="CoinConversionView"/> keeps over its bundle strip, and for the same reason:
+        /// a store prompt is modal and slow, and a second overlapping order is one the store would only
+        /// refuse.
+        /// </summary>
+        private bool _isPurchasingRemoveAds;
 
         private PanelScreen _screen = PanelScreen.Settings;
 
@@ -195,6 +206,7 @@ namespace MustyBlockBlast.Presentation.Views
         private RectTransform _soundRowRect;
         private RectTransform _durationRowRect;
         private RectTransform _languageRowRect;
+        private RectTransform _removeAdsRowRect;
         private RectTransform _themeBackButtonRect;
         private RectTransform _modeBackButtonRect;
         private RectTransform _durationBackButtonRect;
@@ -208,6 +220,7 @@ namespace MustyBlockBlast.Presentation.Views
         private Text _durationValueText;
         private Text _durationLabelText;
         private Text _languageValueText;
+        private Text _removeAdsValueText;
 
         /// <summary>Which of the screens inside the card is showing.</summary>
         private enum PanelScreen
@@ -253,7 +266,9 @@ namespace MustyBlockBlast.Presentation.Views
             ISfxService sfxService,
             GameModeSystem gameModeSystem,
             TimedModeSystem timedModeSystem,
-            TimerRunSystem timerRunSystem)
+            TimerRunSystem timerRunSystem,
+            ProfileModel profileModel,
+            AdRemovalSystem adRemovalSystem)
         {
             _settingsModel = settingsModel;
             _settingsSystem = settingsSystem;
@@ -264,6 +279,8 @@ namespace MustyBlockBlast.Presentation.Views
             _gameModeSystem = gameModeSystem;
             _timedModeSystem = timedModeSystem;
             _timerRunSystem = timerRunSystem;
+            _profileModel = profileModel;
+            _adRemovalSystem = adRemovalSystem;
         }
 
         private void Awake()
@@ -275,7 +292,8 @@ namespace MustyBlockBlast.Presentation.Views
         {
             if (_settingsModel == null || _settingsSystem == null || _sfxModel == null || _sfxService == null
                 || _localizationModel == null || _localizationSystem == null
-                || _gameModeSystem == null || _timedModeSystem == null || _timerRunSystem == null)
+                || _gameModeSystem == null || _timedModeSystem == null || _timerRunSystem == null
+                || _profileModel == null || _adRemovalSystem == null)
             {
                 Debug.LogError(
                     $"{nameof(SettingsPanelView)} was not injected. Is it registered in the LifetimeScope?", this);
@@ -294,6 +312,11 @@ namespace MustyBlockBlast.Presentation.Views
 
             _settingsModel.CurrentTheme.Subscribe(OnThemeChanged).AddTo(_disposables);
             _sfxModel.IsMuted.Subscribe(OnMutedChanged).AddTo(_disposables);
+
+            // Observed rather than read once: the flag is one-way, but it is set while this card is the
+            // open screen — the purchase is started from it — so the row has to repaint on the write
+            // rather than only on the next open.
+            _profileModel.AdsRemoved.Subscribe(OnAdsRemovedChanged).AddTo(_disposables);
             _timedModeSystem.SelectedDuration.Subscribe(OnSelectedDurationChanged).AddTo(_disposables);
 
             // Last, because its handler repaints the duration row, which needs the ones above to have
@@ -395,6 +418,18 @@ namespace MustyBlockBlast.Presentation.Views
                 return true;
             }
 
+            if (RectTransformUtility.RectangleContainsScreenPoint(_removeAdsRowRect, screenPosition, eventCamera))
+            {
+                // Swallowed even when owned: the row stays in place so the player can see the purchase
+                // went through, and a row that fell through to the scrim would dismiss the card instead.
+                if (!_profileModel.AdsRemoved.Value)
+                {
+                    PurchaseRemoveAds().Forget();
+                }
+
+                return true;
+            }
+
             if (!RectTransformUtility.RectangleContainsScreenPoint(_durationRowRect, screenPosition, eventCamera))
             {
                 return false;
@@ -408,6 +443,53 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// Buys the one-time ad-removal product. The only place this card starts anything asynchronous,
+        /// and it holds no logic of its own beyond the re-entrancy guard: whether the store completes,
+        /// whether the receipt is honoured and what is persisted are all
+        /// <see cref="AdRemovalSystem.PurchaseRemoveAdsAsync"/>'s answers, and the row repaints off
+        /// <see cref="ProfileModel.AdsRemoved"/> rather than off the returned bool — so it shows the
+        /// owned state whether this tap bought it or something else already had.
+        /// <para>
+        /// Cancelled on destroy, so a card torn down mid-prompt leaves nothing awaiting a disposed
+        /// scope. The transaction itself is left to the store, which replays it on the next launch.
+        /// </para>
+        /// </summary>
+        private async UniTaskVoid PurchaseRemoveAds()
+        {
+            if (_isPurchasingRemoveAds)
+            {
+                return;
+            }
+
+            _isPurchasingRemoveAds = true;
+            try
+            {
+                await _adRemovalSystem.PurchaseRemoveAdsAsync(this.GetCancellationTokenOnDestroy());
+            }
+            finally
+            {
+                _isPurchasingRemoveAds = false;
+            }
+        }
+
+        /// <summary>
+        /// Repaints the Remove Ads row's pill. Two states and no third: an offer before the purchase, a
+        /// statement of ownership after it. Worded from the String Table like every other label here, so
+        /// it is re-worded by <see cref="OnLocaleChanged"/> too.
+        /// </summary>
+        private void OnAdsRemovedChanged(bool adsRemoved)
+        {
+            if (_removeAdsValueText == null)
+            {
+                return;
+            }
+
+            _removeAdsValueText.text = _localizationSystem.Translate(adsRemoved
+                ? LocalizationKeys.SETTINGS_REMOVE_ADS_OWNED
+                : LocalizationKeys.SETTINGS_REMOVE_ADS_BUY);
         }
 
         private bool HandleThemeScreenTap(Vector2 screenPosition, Camera eventCamera)
@@ -668,6 +750,10 @@ namespace MustyBlockBlast.Presentation.Views
             // translated string, so they are driven by the locale itself instead of the table.
             RefreshLanguageValue(locale);
             RefreshLanguageSelection();
+
+            // Its wording is a choice between two keys rather than one fixed key, so it is outside the
+            // _localizedLabels loop above and has to be re-rendered by its own handler.
+            OnAdsRemovedChanged(_profileModel.AdsRemoved.Value);
         }
 
         /// <summary>
@@ -983,6 +1069,12 @@ namespace MustyBlockBlast.Presentation.Views
             _durationRowRect = BuildRow(
                 listRect, 4, "DurationRow", LocalizationKeys.SETTINGS_ROW_DURATION, out _durationLabelText);
 
+            // Last row on purpose: it is the only one that is not a setting at all but a purchase, and
+            // the bottom of the list is where a player expects to find one rather than among the things
+            // that change how the game looks and sounds.
+            _removeAdsRowRect = BuildRow(
+                listRect, 5, "RemoveAdsRow", LocalizationKeys.SETTINGS_ROW_REMOVE_ADS, out _);
+
             for (int dividerIndex = 1; dividerIndex < ROW_COUNT; dividerIndex++)
             {
                 BuildDivider(listRect, (listHeight * 0.5f) - (ROW_HEIGHT * dividerIndex));
@@ -993,6 +1085,7 @@ namespace MustyBlockBlast.Presentation.Views
             BuildLanguageRowContent(_languageRowRect);
             BuildSoundRowContent(_soundRowRect);
             BuildDurationRowContent(_durationRowRect);
+            BuildRemoveAdsRowContent(_removeAdsRowRect);
         }
 
         /// <summary>
@@ -1186,6 +1279,60 @@ namespace MustyBlockBlast.Presentation.Views
             _durationValueText = BuildPill(rowRect);
         }
 
+        private void BuildRemoveAdsRowContent(RectTransform rowRect)
+        {
+            RectTransform badgeRect = BuildBadge(rowRect);
+            BuildNoAdsGlyph(badgeRect);
+
+            // No chevron: the other four pills step to a picker screen, and this one does not — it
+            // either opens the store's own prompt or says the product is already owned. A chevron on it
+            // would promise a screen that does not exist.
+            _removeAdsValueText = BuildPill(rowRect, withChevron: false);
+        }
+
+        /// <summary>
+        /// A hollow banner with a bar struck through it — the usual "no advertising" mark, built from
+        /// the same rounded-rect-and-fake-cut-out parts as the clock and globe glyphs so the badges stay
+        /// one family.
+        /// </summary>
+        private void BuildNoAdsGlyph(RectTransform badgeRect)
+        {
+            const float BANNER_WIDTH = 58f;
+            const float BANNER_HEIGHT = 40f;
+            const float LINE_THICKNESS = 5f;
+            const float SLASH_LENGTH = 64f;
+
+            var bannerObject = new GameObject("NoAdsBanner", typeof(RectTransform), typeof(Image));
+            var bannerRect = (RectTransform)bannerObject.transform;
+            bannerRect.SetParent(badgeRect, false);
+            Centre(bannerRect, new Vector2(BANNER_WIDTH, BANNER_HEIGHT));
+            var bannerImage = bannerObject.GetComponent<Image>();
+            ConfigureRounded(bannerImage);
+            _inkImages.Add(bannerImage);
+
+            // Same fake cut-out as the clock dial: the badge underneath is one opaque colour, so a
+            // smaller rect in that colour turns the banner into an outline.
+            var faceObject = new GameObject("NoAdsBannerFace", typeof(RectTransform), typeof(Image));
+            var faceRect = (RectTransform)faceObject.transform;
+            faceRect.SetParent(badgeRect, false);
+            Centre(
+                faceRect,
+                new Vector2(BANNER_WIDTH - (LINE_THICKNESS * 2f), BANNER_HEIGHT - (LINE_THICKNESS * 2f)));
+            var faceImage = faceObject.GetComponent<Image>();
+            ConfigureRounded(faceImage);
+            _badgeImages.Add(faceImage);
+
+            // Drawn last so the cut-out above cannot punch a gap out of its middle.
+            var slashObject = new GameObject("NoAdsSlash", typeof(RectTransform), typeof(Image));
+            var slashRect = (RectTransform)slashObject.transform;
+            slashRect.SetParent(badgeRect, false);
+            Centre(slashRect, new Vector2(SLASH_LENGTH, LINE_THICKNESS));
+            slashRect.localRotation = Quaternion.Euler(0f, 0f, -35f);
+            var slashImage = slashObject.GetComponent<Image>();
+            ConfigureRounded(slashImage);
+            _inkImages.Add(slashImage);
+        }
+
         /// <summary>Three ascending bars, bottom-aligned — the usual "volume" glyph.</summary>
         private void BuildVolumeGlyph(RectTransform badgeRect)
         {
@@ -1252,7 +1399,15 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         /// <summary>Right-aligned value pill with a chevron. Returns its value label.</summary>
-        private Text BuildPill(RectTransform rowRect)
+        private Text BuildPill(RectTransform rowRect) => BuildPill(rowRect, withChevron: true);
+
+        /// <summary>
+        /// The value pill on the right of a row. <paramref name="withChevron"/> is what separates a row
+        /// that steps to a picker screen from one that does not — see
+        /// <see cref="BuildRemoveAdsRowContent"/>. Without it the value is centred in the pill instead
+        /// of being pushed left of the arrow.
+        /// </summary>
+        private Text BuildPill(RectTransform rowRect, bool withChevron)
         {
             var pillObject = new GameObject("Pill", typeof(RectTransform), typeof(Image));
             var pillRect = (RectTransform)pillObject.transform;
@@ -1264,11 +1419,17 @@ namespace MustyBlockBlast.Presentation.Views
             ConfigureRounded(pillImage);
             _pillImages.Add(pillImage);
 
-            BuildChevron(pillRect, new Vector2((PILL_WIDTH * 0.5f) - 30f, 0f), 1f);
+            if (withChevron)
+            {
+                BuildChevron(pillRect, new Vector2((PILL_WIDTH * 0.5f) - 30f, 0f), 1f);
+            }
 
-            Text valueText = CreateLabel(
-                pillRect, "Value", 34, FontStyle.Bold, TextAnchor.MiddleRight,
-                new Vector2((PILL_WIDTH * 0.5f) - 56f, 0f));
+            Text valueText = withChevron
+                ? CreateLabel(
+                    pillRect, "Value", 34, FontStyle.Bold, TextAnchor.MiddleRight,
+                    new Vector2((PILL_WIDTH * 0.5f) - 56f, 0f))
+                : CreateLabel(
+                    pillRect, "Value", 34, FontStyle.Bold, TextAnchor.MiddleCenter, Vector2.zero);
             _inkTexts.Add(valueText);
             return valueText;
         }

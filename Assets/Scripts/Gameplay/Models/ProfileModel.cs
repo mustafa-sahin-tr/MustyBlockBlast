@@ -63,5 +63,24 @@ namespace MustyBlockBlast.Gameplay.Models
         /// be kept in step with anything: conversion only ever adds to this counter.
         /// </summary>
         public ReactiveProperty<int> ScoreConverted { get; } = new ReactiveProperty<int>(0);
+
+        /// <summary>
+        /// Whether the player has bought the one-time "remove ads" product. Account-bound for the reason
+        /// <see cref="CoinBalance"/> is: it is something the player paid for, so it is part of who they
+        /// are and a later linked-account migration has to carry it across rather than leave it behind on
+        /// one device.
+        /// <para>
+        /// Owned, mutated and persisted by <see cref="AdRemovalSystem"/> — not by
+        /// <see cref="ProfileSystem"/> and not by <see cref="CurrencySystem"/>. The same
+        /// one-writer-per-slice split the currency fields above already have: removing ads is not a
+        /// currency concept, so it gets its own writer rather than a fourth counter in the wallet's.
+        /// </para>
+        /// <para>
+        /// One-way. There is no code path that sets this back to <c>false</c>, because there is no way to
+        /// un-buy a non-consumable: a store refund is the store's business and would arrive, if it ever
+        /// does, through a receipt-validation backend that does not exist yet.
+        /// </para>
+        /// </summary>
+        public ReactiveProperty<bool> AdsRemoved { get; } = new ReactiveProperty<bool>(false);
     }
 }

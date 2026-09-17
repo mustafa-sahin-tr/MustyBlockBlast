@@ -271,6 +271,18 @@ MonoBehaviour:
     m_Key: level_path.tap_hint
     m_Metadata:
       m_Items: []
+  - m_Id: 1253489991737344
+    m_Key: settings.row.remove_ads
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1253490004320256
+    m_Key: settings.remove_ads.buy
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1253490004320257
+    m_Key: settings.remove_ads.owned
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

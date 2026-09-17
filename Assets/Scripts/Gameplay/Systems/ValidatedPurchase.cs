@@ -26,6 +26,19 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// rejection by the credit path even when <see cref="IsValid"/> is somehow true: crediting
         /// nothing is not a purchase, and writing a zero to the wallet would burn the transaction id for
         /// good on a receipt the validator could not price.
+        /// <para>
+        /// Zero <em>also</em> means "not applicable" for a product that pays in something other than
+        /// coins — today exactly one: the ad-removal purchase behind
+        /// <see cref="AdRemovalSystem.PurchaseRemoveAdsAsync"/>, whose consumer reads only
+        /// <see cref="IsValid"/>. That overloading is deliberate, and it was weighed against adding a
+        /// discriminator to this struct. A discriminator would have to be read by
+        /// <see cref="CurrencySystem.PurchaseCoinBundleAsync"/> to mean anything, which would change the
+        /// one code path in the project that must not be touched lightly, in exchange for describing a
+        /// distinction no coin path can act on: a verdict worth no coins buys no coins, whatever the
+        /// reason. So the smaller change was taken — nothing here changed at all — and the two readings
+        /// of zero are distinguished by which System asked, which is already the only thing that knows
+        /// what it bought.
+        /// </para>
         /// </summary>
         public int CoinAmount { get; }
 

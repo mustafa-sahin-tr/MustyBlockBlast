@@ -41,6 +41,10 @@ namespace MustyBlockBlast.Presentation
             + "storefront has nothing to sell and no purchase can be priced.")]
         [SerializeField] private CoinBundleConfig _coinBundleConfig;
 
+        [Tooltip("Store product id of the one-time Remove Ads purchase. Required — without it there is "
+            + "no product to register with the store and nothing to sell.")]
+        [SerializeField] private RemoveAdsProductConfig _removeAdsProductConfig;
+
         [Tooltip("Time-limited discounts on power-up prices. Optional — an unassigned or empty config "
             + "simply means no sale is running and every kind costs its standard price.")]
         [SerializeField] private PromotionConfig _promotionConfig;
@@ -84,6 +88,12 @@ namespace MustyBlockBlast.Presentation
                 // takes that system as a constructor dependency. The container would build it anyway;
                 // this order says so rather than relying on it.
                 container.Resolve<CurrencySystem>();
+
+                // Loads the persisted ad-removal flag in its constructor, like CurrencySystem loads the
+                // balance, so it must have run before any View subscribes to ProfileModel.AdsRemoved in
+                // Start() — otherwise an owning player's settings card would paint "not bought" and only
+                // correct itself on the next write, which for a one-way flag never comes.
+                container.Resolve<AdRemovalSystem>();
 
                 // Subscribes in its constructor, like PowerUpScoreSystem: it must be listening before
                 // the first placement can detonate a core, not be constructed by one.
@@ -178,6 +188,7 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterInstance(ResolveCurrencyConfig());
             builder.RegisterInstance(ResolvePowerUpPriceConfig());
             builder.RegisterInstance(ResolveCoinBundleConfig());
+            builder.RegisterInstance(ResolveRemoveAdsProductConfig());
             builder.RegisterInstance(ResolvePromotionConfig());
 
             // Languages come from the project's Locale assets rather than a scene field: a new
@@ -263,6 +274,25 @@ namespace MustyBlockBlast.Presentation
                 $"{nameof(GameLifetimeScope)} has no {nameof(CoinBundleConfig)} assigned. " +
                 "Coin bundle purchases are falling back to the built-in placeholder line-up.", this);
             return ScriptableObject.CreateInstance<CoinBundleConfig>();
+        }
+
+        /// <summary>
+        /// Same defensive shape as <see cref="ResolveCoinBundleConfig"/>: a default-valued instance
+        /// boots the scene on the built-in placeholder SKU — which names a sellable product, so the
+        /// settings card still offers it — and one readable error, which beats an opaque container
+        /// failure deep inside a null instance registration.
+        /// </summary>
+        private RemoveAdsProductConfig ResolveRemoveAdsProductConfig()
+        {
+            if (_removeAdsProductConfig != null)
+            {
+                return _removeAdsProductConfig;
+            }
+
+            Debug.LogError(
+                $"{nameof(GameLifetimeScope)} has no {nameof(RemoveAdsProductConfig)} assigned. " +
+                "The Remove Ads purchase is falling back to the built-in placeholder SKU.", this);
+            return ScriptableObject.CreateInstance<RemoveAdsProductConfig>();
         }
 
         /// <summary>
@@ -425,6 +455,15 @@ namespace MustyBlockBlast.Presentation
             // constructor dependency (a coin purchase is a debit here and a grant there), so the
             // container orders the two itself either way.
             builder.Register<CurrencySystem>(Lifetime.Singleton).AsSelf();
+
+            // Owns the ad-removal slice of ProfileModel and is the only writer of it. Its own System
+            // rather than a fifth faucet on CurrencySystem: removing ads mints and spends no coin, so
+            // it has no business inside the single writer of the balance. It shares that class's two
+            // purchase seams though — one store integration, one validator, two products.
+            //
+            // AsSelf because SettingsPanelView asks for the concrete system — there is no second
+            // implementation to hide behind an interface.
+            builder.Register<AdRemovalSystem>(Lifetime.Singleton).AsSelf();
 
             builder.Register<PowerUpScoreSystem>(Lifetime.Singleton).AsSelf();
             builder.Register<ExplosiveCoreScoreSystem>(Lifetime.Singleton).AsSelf();
