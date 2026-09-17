@@ -24,6 +24,7 @@ namespace MustyBlockBlast.Gameplay.Models
     {
         private readonly List<BadgeProgress> _badges = new List<BadgeProgress>();
         private readonly HashSet<string> _claimedBadgeIds = new HashSet<string>();
+        private readonly List<string> _unlockedThisRun = new List<string>();
 
         /// <summary>Every tracked badge, in catalog order. Never null.</summary>
         public IReadOnlyList<BadgeProgress> Badges => _badges;
@@ -34,6 +35,13 @@ namespace MustyBlockBlast.Gameplay.Models
         /// nothing; only the change does.
         /// </summary>
         public ReactiveProperty<int> Revision { get; } = new ReactiveProperty<int>(0);
+
+        /// <summary>
+        /// Ids of the badges that unlocked during the current run, in unlock order. Cleared by the owning
+        /// System when the next run starts, so the end-of-run result screen lists exactly this run's
+        /// unlocks and never a previous run's. Never null.
+        /// </summary>
+        public IReadOnlyList<string> UnlockedThisRun => _unlockedThisRun;
 
         /// <summary>Whether the coin reward of <paramref name="badgeId"/> has already been paid out.</summary>
         public bool IsClaimed(string badgeId) => badgeId != null && _claimedBadgeIds.Contains(badgeId);
@@ -53,6 +61,18 @@ namespace MustyBlockBlast.Gameplay.Models
                 _badges.Add(badges[badgeIndex]);
             }
         }
+
+        /// <summary>Appends an unlock to this run's buffer.</summary>
+        internal void AddUnlockedThisRun(string badgeId)
+        {
+            if (!string.IsNullOrEmpty(badgeId))
+            {
+                _unlockedThisRun.Add(badgeId);
+            }
+        }
+
+        /// <summary>Empties this run's buffer. Called at run start by the owning System.</summary>
+        internal void ClearUnlockedThisRun() => _unlockedThisRun.Clear();
 
         /// <summary>Latches <paramref name="badgeId"/> as claimed. One-way, like the unlock latch.</summary>
         internal void MarkClaimed(string badgeId)

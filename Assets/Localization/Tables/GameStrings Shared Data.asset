@@ -435,6 +435,10 @@ MonoBehaviour:
     m_Key: result.tap_hint
     m_Metadata:
       m_Items: []
+  - m_Id: 1371178030587924
+    m_Key: result.badges_title
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

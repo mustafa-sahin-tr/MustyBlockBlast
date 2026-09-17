@@ -55,6 +55,8 @@ namespace MustyBlockBlast.Tests.EditMode
         private BadgeModel _badgeModel;
         private BadgeStatsModel _statsModel;
         private ProfileModel _profileModel;
+        private TestMessageBroker<BadgeUnlockedMessage> _unlockedBroker;
+        private TestMessageBroker<RunStartedMessage> _runStartedBroker;
         private CurrencySystem _currencySystem;
         private PowerUpSystem _powerUpSystem;
         private BadgeSystem _badgeSystem;
@@ -103,6 +105,61 @@ namespace MustyBlockBlast.Tests.EditMode
             _statsModel.TotalPiecesPlaced.Value = 50;
 
             Assert.Greater(_badgeModel.Revision.Value, revisionBefore);
+        }
+
+        [Test]
+        public void Unlock_PublishesOneBadgeUnlockedMessagePerBadge()
+        {
+            BuildSystems();
+
+            _statsModel.TotalPiecesPlaced.Value = 50;
+
+            Assert.AreEqual(1, _unlockedBroker.Published.Count);
+            Assert.AreEqual(FIRST_STEPS, _unlockedBroker.Published[0].BadgeId);
+
+            // The same counter moving again re-fires nothing: the latch is one-way.
+            _statsModel.TotalPiecesPlaced.Value = 51;
+            Assert.AreEqual(1, _unlockedBroker.Published.Count);
+        }
+
+        [Test]
+        public void Unlock_RecordsTheBadgeInThisRunsBuffer()
+        {
+            BuildSystems();
+
+            _statsModel.TotalPiecesPlaced.Value = 50;
+            _statsModel.TotalLinesCleared.Value = 100;
+
+            Assert.AreEqual(2, _badgeModel.UnlockedThisRun.Count);
+            Assert.AreEqual(FIRST_STEPS, _badgeModel.UnlockedThisRun[0]);
+            Assert.AreEqual(LINE_CUTTER, _badgeModel.UnlockedThisRun[1]);
+        }
+
+        [Test]
+        public void RunStarted_ClearsThisRunsBuffer()
+        {
+            BuildSystems();
+            _statsModel.TotalPiecesPlaced.Value = 50;
+
+            _runStartedBroker.Publish(new RunStartedMessage());
+
+            Assert.AreEqual(0, _badgeModel.UnlockedThisRun.Count);
+            Assert.IsTrue(_badgeSystem.IsClaimable(FIRST_STEPS), "Clearing the run buffer must not touch the claim state.");
+        }
+
+        [Test]
+        public void ARestoredBadge_IsNeverInThisRunsBufferAndPublishesNothing()
+        {
+            PlayerPrefs.SetString(
+                BADGE_SAVE_KEY,
+                "{\"schemaVersion\":2,\"unlockedBadgeIds\":[\"" + FIRST_STEPS + "\"],\"claimedBadgeIds\":[]}");
+
+            BuildSystems();
+            _statsModel.TotalPiecesPlaced.Value = 50;
+
+            Assert.AreEqual(0, _badgeModel.UnlockedThisRun.Count);
+            Assert.AreEqual(0, _unlockedBroker.Published.Count);
+            Assert.IsTrue(_badgeSystem.IsClaimable(FIRST_STEPS));
         }
 
         [Test]
@@ -279,8 +336,11 @@ namespace MustyBlockBlast.Tests.EditMode
             _badgeModel = new BadgeModel();
             _statsModel = new BadgeStatsModel();
             _profileModel = new ProfileModel();
+            _unlockedBroker = new TestMessageBroker<BadgeUnlockedMessage>();
+            _runStartedBroker = new TestMessageBroker<RunStartedMessage>();
             _currencySystem = CreateCurrencySystem(_profileModel);
-            _badgeSystem = new BadgeSystem(_badgeModel, _statsModel, _catalog, _currencySystem);
+            _badgeSystem = new BadgeSystem(
+                _badgeModel, _statsModel, _catalog, _currencySystem, _unlockedBroker, _runStartedBroker);
         }
 
         private void DisposeSystems()

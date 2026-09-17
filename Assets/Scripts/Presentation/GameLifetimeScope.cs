@@ -165,6 +165,7 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterMessageBroker<TrayRefilledMessage>(options);
             builder.RegisterMessageBroker<PowerUpAppliedMessage>(options);
             builder.RegisterMessageBroker<PowerUpGrantedMessage>(options);
+            builder.RegisterMessageBroker<BadgeUnlockedMessage>(options);
             builder.RegisterMessageBroker<ExplosiveCoreDetonatedMessage>(options);
             builder.RegisterMessageBroker<LaserFiredMessage>(options);
             builder.RegisterMessageBroker<PiercingRocketFiredMessage>(options);
