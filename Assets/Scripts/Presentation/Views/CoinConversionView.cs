@@ -13,7 +13,7 @@ using Cysharp.Threading.Tasks;
 namespace MustyBlockBlast.Presentation.Views
 {
     /// <summary>
-    /// The end-of-run conversion screen: what the player has scored in total, what they have already
+    /// The score conversion screen: what the player has scored in total, what they have already
     /// sold, what is still theirs to sell, and the two ways to earn a coin.
     /// <para>
     /// Three figures rather than one, and deliberately so. "Total" alone would look like a balance the
@@ -28,10 +28,11 @@ namespace MustyBlockBlast.Presentation.Views
     /// observed, so they repaint whether this screen or something else moved them.
     /// </para>
     /// <para>
-    /// Opens on <see cref="GameOverMessage"/> over the top of <see cref="GameOverView"/> and closes on
-    /// <see cref="RunStartedMessage"/> or on a tap outside its card. While it is open it is modal and
-    /// swallows every tap, which is what keeps the card-wide restart tap underneath it from firing —
-    /// see the gate chain in <see cref="BoardInputView"/>.
+    /// Opened by the player from the power-up shop (see <see cref="PowerUpShopView"/>) and by nothing
+    /// else — it no longer opens itself at game over (issue #219): the end of a run is a result, not a
+    /// sales pitch. Closes on <see cref="RunStartedMessage"/> or on a tap outside its card. While it
+    /// is open it is modal and swallows every tap, above even the hub it was opened from — see the
+    /// gate chain in <see cref="BoardInputView"/>.
     /// </para>
     /// </summary>
     [DisallowMultipleComponent]
@@ -103,7 +104,6 @@ namespace MustyBlockBlast.Presentation.Views
         private CurrencySystem _currencySystem;
         private CoinBundleConfig _bundleConfig;
         private SettingsModel _settingsModel;
-        private ISubscriber<GameOverMessage> _gameOverSubscriber;
         private ISubscriber<RunStartedMessage> _runStartedSubscriber;
 
         private Canvas _canvas;
@@ -177,14 +177,12 @@ namespace MustyBlockBlast.Presentation.Views
             CurrencySystem currencySystem,
             CoinBundleConfig bundleConfig,
             SettingsModel settingsModel,
-            ISubscriber<GameOverMessage> gameOverSubscriber,
             ISubscriber<RunStartedMessage> runStartedSubscriber)
         {
             _profileModel = profileModel;
             _currencySystem = currencySystem;
             _bundleConfig = bundleConfig;
             _settingsModel = settingsModel;
-            _gameOverSubscriber = gameOverSubscriber;
             _runStartedSubscriber = runStartedSubscriber;
         }
 
@@ -198,7 +196,7 @@ namespace MustyBlockBlast.Presentation.Views
         private void Start()
         {
             if (_profileModel == null || _currencySystem == null || _bundleConfig == null
-                || _settingsModel == null || _gameOverSubscriber == null || _runStartedSubscriber == null)
+                || _settingsModel == null || _runStartedSubscriber == null)
             {
                 Debug.LogError(
                     $"{nameof(CoinConversionView)} was not injected. Is it registered in the LifetimeScope?",
@@ -220,7 +218,6 @@ namespace MustyBlockBlast.Presentation.Views
             _profileModel.TotalScoreEarned.Subscribe(OnCurrencyChanged).AddTo(_disposables);
             _profileModel.ScoreConverted.Subscribe(OnCurrencyChanged).AddTo(_disposables);
 
-            _gameOverSubscriber.Subscribe(OnGameOver).AddTo(_disposables);
             _runStartedSubscriber.Subscribe(OnRunStarted).AddTo(_disposables);
         }
 
@@ -230,10 +227,28 @@ namespace MustyBlockBlast.Presentation.Views
         internal bool IsOpen => _panel != null && _panel.activeSelf;
 
         /// <summary>
+        /// Shows the card, opened on the whole pool selected: the player who wants all of it — most
+        /// of them — taps Convert once, and the picker is there for the one who wants less. Reached
+        /// from the shop's convert button; an already-open card returns immediately.
+        /// </summary>
+        internal void Open()
+        {
+            if (_panel == null || IsOpen)
+            {
+                return;
+            }
+
+            SetPendingAmount(_currencySystem.AvailableToConvert);
+
+            _panel.SetActive(true);
+            transform.SetAsLastSibling();
+        }
+
+        /// <summary>
         /// Routes a tap while the panel is open. The close cross wins, then the picker and the two
         /// actions; the card then swallows anything else, so a tap on a figure is a deliberate no-op
         /// rather than a dismissal. Only a tap on the scrim outside the card closes — which is also how
-        /// the player reaches the restart tap on the game-over card underneath.
+        /// the player gets back to the shop underneath.
         /// </summary>
         internal void HandleTap(Vector2 screenPosition)
         {
@@ -381,16 +396,6 @@ namespace MustyBlockBlast.Presentation.Views
             {
                 _isPurchasingBundle = false;
             }
-        }
-
-        private void OnGameOver(GameOverMessage message)
-        {
-            // Opens on the whole pool selected: the player who wants all of it — most of them — taps
-            // Convert once, and the picker is there for the one who wants less.
-            SetPendingAmount(_currencySystem.AvailableToConvert);
-
-            _panel.SetActive(true);
-            transform.SetAsLastSibling();
         }
 
         private void OnRunStarted(RunStartedMessage message) => _panel.SetActive(false);

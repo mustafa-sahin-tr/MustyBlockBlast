@@ -330,6 +330,16 @@ namespace MustyBlockBlast.Presentation.Views
         {
             Vector2 screenPosition = _pointerPositionAction.ReadValue<Vector2>();
 
+            // The conversion card sits above every other gate, the hub's included: it is opened from
+            // the shop tab, so the hub is still open underneath it, and the hub's own router would
+            // otherwise swallow every tap meant for the card. Its scrim tap closes it and hands the next
+            // tap back to the hub below.
+            if (_coinConversionView.IsOpen)
+            {
+                _coinConversionView.HandleTap(screenPosition);
+                return;
+            }
+
             // While any overlay is open it is modal and swallows every tap. These four gates are also
             // what keeps the overlays mutually exclusive, and the argument scales with their number
             // rather than pairing them off: *every* "is a panel open, route the tap into it" gate sits
@@ -366,17 +376,6 @@ namespace MustyBlockBlast.Presentation.Views
             if (_coinSowerPickerView.IsOpen)
             {
                 _coinSowerPickerView.HandleTap(screenPosition);
-                return;
-            }
-
-            // Above the game-over gate below, not among the four panel gates: the conversion screen is
-            // the one overlay that opens *because* a run ended, so it is showing exactly when the
-            // card-wide restart tap is live underneath it. Routing into it first is what keeps a tap on
-            // "Convert" from also restarting the run. Its own scrim tap closes it and hands the next tap
-            // back to the card below, so the restart is one tap away rather than blocked.
-            if (_coinConversionView.IsOpen)
-            {
-                _coinConversionView.HandleTap(screenPosition);
                 return;
             }
 
