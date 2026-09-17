@@ -1,7 +1,9 @@
 using MustyBlockBlast.Gameplay;
+using MustyBlockBlast.Gameplay.Localization;
 using MustyBlockBlast.Gameplay.Models;
 using MustyBlockBlast.Gameplay.Reactive;
 using MustyBlockBlast.Gameplay.Settings;
+using MustyBlockBlast.Gameplay.Systems;
 using UnityEngine;
 using UnityEngine.UI;
 using VContainer;
@@ -57,8 +59,23 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>Padding between the strip's edge and the outermost tab plate.</summary>
         private const float STRIP_PADDING = 12f;
 
-        private const int COG_TOOTH_COUNT = 8;
-        private const int PODIUM_BAR_COUNT = 3;
+        /// <summary>Rendered corner radius of a tab plate, in reference pixels — the design's 14px, used
+        /// directly. The shared rounded sprite bakes its radius at <see cref="UiSpriteFactory.ROUNDED_RADIUS"/>,
+        /// so the slice multiplier is derived from the two rather than tuned by eye: the header, strip
+        /// and close cross keep the HUD-wide ~5px look, only the tabs round to this.</summary>
+        private const float TAB_CORNER_RADIUS = 14f;
+
+        /// <summary>Vertical offset of a tab's own shadow, so the plate reads as lifted off the strip.</summary>
+        private const float TAB_SHADOW_OFFSET = 4f;
+
+        /// <summary>How far the shadow outgrows the plate on every side.</summary>
+        private const float TAB_SHADOW_SPREAD = 6f;
+
+        /// <summary>How much of the theme's card shadow an active tab casts versus an inactive one. The
+        /// selected plate is lifted, the rest sit nearly flat — the design's shadow-strength contrast,
+        /// with the shape itself identical in both states.</summary>
+        private const float ACTIVE_TAB_SHADOW_STRENGTH = 2.5f;
+        private const float INACTIVE_TAB_SHADOW_STRENGTH = 0.8f;
 
         /// <summary>Overlap between the bar's bottom edge and the active card's top edge, and likewise
         /// between the header's bottom edge and the bar's top edge. Small and negative rather than
@@ -77,13 +94,16 @@ namespace MustyBlockBlast.Presentation.Views
         /// exact and dynamic (see <see cref="AlignCardBelowBar"/>), never derived from this.</summary>
         private const float REFERENCE_CARD_HEIGHT = 1140f;
 
-        private static readonly string[] TabTitles =
+        /// <summary>Header title key per tab, in <see cref="HubTab"/> declaration order. Translated on
+        /// every open and again on every locale change, so the header follows the language setting
+        /// the Settings tab itself changes.</summary>
+        private static readonly string[] TabTitleKeys =
         {
-            "SETTINGS",
-            "POWER-UP SHOP",
-            "LEADERBOARD",
-            "PROFILE",
-            "BADGES",
+            LocalizationKeys.SETTINGS_TITLE,
+            LocalizationKeys.HUB_TAB_POWER_UP_SHOP,
+            LocalizationKeys.HUB_TAB_LEADERBOARD,
+            LocalizationKeys.HUB_TAB_PROFILE,
+            LocalizationKeys.HUB_TAB_BADGES,
         };
 
         [Header("Layout")]
@@ -91,15 +111,22 @@ namespace MustyBlockBlast.Presentation.Views
             + "pixels — a floor under the computed centred position, not the position itself.")]
         [SerializeField] private float _topInset = 28f;
         [SerializeField] private Vector2 _tabSize = new Vector2(176f, 118f);
-        [SerializeField] private float _tabGap = 10f;
+        [SerializeField] private float _tabGap = 8f;
 
         [Tooltip("Size of the glyph box inside a tab plate, in reference pixels.")]
         [SerializeField] private float _glyphSize = 68f;
+
+        [Header("Tab icons")]
+        [Tooltip("White-on-transparent glyphs, one per HubTab in declaration order (Settings, Power-up Shop, "
+            + "Leaderboard, Profile, Badges). Tinted at runtime from the theme, so keep them pure white.")]
+        [SerializeField] private Sprite[] _tabIcons = new Sprite[TAB_COUNT];
 
         private readonly CompositeDisposable _disposables = new CompositeDisposable();
         private readonly TabEntry[] _tabs = new TabEntry[TAB_COUNT];
 
         private SettingsModel _settingsModel;
+        private LocalizationModel _localizationModel;
+        private LocalizationSystem _localizationSystem;
         private SettingsPanelView _settingsPanelView;
         private PowerUpShopView _powerUpShopView;
         private LeaderboardPanelView _leaderboardPanelView;
@@ -131,6 +158,8 @@ namespace MustyBlockBlast.Presentation.Views
         [Inject]
         public void Construct(
             SettingsModel settingsModel,
+            LocalizationModel localizationModel,
+            LocalizationSystem localizationSystem,
             SettingsPanelView settingsPanelView,
             PowerUpShopView powerUpShopView,
             LeaderboardPanelView leaderboardPanelView,
@@ -138,6 +167,8 @@ namespace MustyBlockBlast.Presentation.Views
             BadgesPanelView badgesPanelView)
         {
             _settingsModel = settingsModel;
+            _localizationModel = localizationModel;
+            _localizationSystem = localizationSystem;
             _settingsPanelView = settingsPanelView;
             _powerUpShopView = powerUpShopView;
             _leaderboardPanelView = leaderboardPanelView;
@@ -156,7 +187,8 @@ namespace MustyBlockBlast.Presentation.Views
 
         private void Start()
         {
-            if (_settingsModel == null || _settingsPanelView == null || _powerUpShopView == null
+            if (_settingsModel == null || _localizationModel == null || _localizationSystem == null
+                || _settingsPanelView == null || _powerUpShopView == null
                 || _leaderboardPanelView == null || _profilePanelView == null || _badgesPanelView == null)
             {
                 Debug.LogError(
@@ -169,6 +201,21 @@ namespace MustyBlockBlast.Presentation.Views
             _headerRoot.SetActive(false);
 
             _settingsModel.CurrentTheme.Subscribe(OnThemeChanged).AddTo(_disposables);
+            _localizationModel.CurrentLocale.Subscribe(OnLocaleChanged).AddTo(_disposables);
+        }
+
+        private void OnLocaleChanged(LocaleDefinition locale) => RefreshHeaderTitle();
+
+        private void RefreshHeaderTitle()
+        {
+            if (_headerTitleText == null)
+            {
+                return;
+            }
+
+            // HubTab's declaration order is the display order (see its own doc comment), so the enum
+            // value indexes the key table directly.
+            _headerTitleText.text = _localizationSystem.Translate(TabTitleKeys[(int)_activeTab]);
         }
 
         private void OnDestroy() => _disposables.Dispose();
@@ -466,7 +513,7 @@ namespace MustyBlockBlast.Presentation.Views
 
             // HubTab's declaration order is the display order (see its own doc comment), so the enum
             // value is already the array index — no lookup needed.
-            _headerTitleText.text = TabTitles[(int)tab];
+            RefreshHeaderTitle();
         }
 
         /// <summary>Shuts a card only when it is actually showing, so the menu pause is never released
@@ -586,28 +633,19 @@ namespace MustyBlockBlast.Presentation.Views
 
         /// <summary>
         /// The selected tab inverts onto the accent plate, the same way the leaderboard marks its own
-        /// two tabs and the level path marks the node the player is on. Both plate colours are fully
-        /// opaque: the glyphs' holes are fake cut-outs painted in the plate's own colour, which only
-        /// reads as a hole over something solid.
+        /// two tabs and the level path marks the node the player is on, and casts the heavier of the
+        /// two shadows. Only colour and shadow change between the states: the plate's shape, radius
+        /// and glyph are the same object in both, which is what keeps a tab switch from looking like a
+        /// tab reshaping.
         /// </summary>
         private void PaintTab(TabEntry entry, bool isSelected)
         {
-            Color plateColour = isSelected
-                ? _currentTheme.Accent
-                : Color.Lerp(_currentTheme.CardBackground, _currentTheme.Ink, 0.12f);
+            entry.Plate.color = isSelected ? _currentTheme.Accent : _currentTheme.CardBackground;
+            entry.Glyph.color = isSelected ? _currentTheme.CardBackground : _currentTheme.SoftInk;
 
-            entry.Plate.color = plateColour;
-
-            Color inkColour = isSelected ? _currentTheme.CardBackground : _currentTheme.SoftInk;
-            for (int inkIndex = 0; inkIndex < entry.Ink.Length; inkIndex++)
-            {
-                entry.Ink[inkIndex].color = inkColour;
-            }
-
-            for (int holeIndex = 0; holeIndex < entry.Holes.Length; holeIndex++)
-            {
-                entry.Holes[holeIndex].color = plateColour;
-            }
+            Color shadow = _currentTheme.CardShadow;
+            float strength = isSelected ? ACTIVE_TAB_SHADOW_STRENGTH : INACTIVE_TAB_SHADOW_STRENGTH;
+            entry.Shadow.color = new Color(shadow.r, shadow.g, shadow.b, Mathf.Clamp01(shadow.a * strength));
         }
 
         private void BuildBar()
@@ -733,191 +771,71 @@ namespace MustyBlockBlast.Presentation.Views
             }
         }
 
+        /// <summary>
+        /// One tab: its own shadow, then the plate, then a single sprite glyph from
+        /// <see cref="_tabIcons"/>, tinted at paint time. The old hand-assembled primitive glyphs (and
+        /// their fake cut-outs) are gone with it: a real icon sprite has its own holes, so the glyph is
+        /// one Image and one colour, and the tab no longer has to know which shape it is drawing.
+        /// </summary>
         private TabEntry BuildTab(RectTransform barRect, HubTab tab, Vector2 anchoredPosition)
         {
-            var tabObject = new GameObject($"HubTab_{tab}", typeof(RectTransform), typeof(Image));
+            var tabObject = new GameObject($"HubTab_{tab}", typeof(RectTransform));
             var tabRect = (RectTransform)tabObject.transform;
             tabRect.SetParent(barRect, false);
             Centre(tabRect, _tabSize);
             tabRect.anchoredPosition = anchoredPosition;
 
-            var plate = tabObject.GetComponent<Image>();
-            ConfigureRounded(plate);
+            // Shadow and plate stretch to the tab's rect rather than being sized once: ResizeBarToWidth
+            // resizes the tab to the active card's width, and both have to follow it.
+            var shadowObject = new GameObject("Shadow", typeof(RectTransform), typeof(Image));
+            var shadowRect = (RectTransform)shadowObject.transform;
+            shadowRect.SetParent(tabRect, false);
+            Stretch(shadowRect, TAB_SHADOW_SPREAD);
+            shadowRect.anchoredPosition = new Vector2(0f, -TAB_SHADOW_OFFSET);
+            var shadow = shadowObject.GetComponent<Image>();
+            ConfigureTabPlate(shadow);
 
-            var glyphObject = new GameObject("Glyph", typeof(RectTransform));
+            var plateObject = new GameObject("Plate", typeof(RectTransform), typeof(Image));
+            var plateRect = (RectTransform)plateObject.transform;
+            plateRect.SetParent(tabRect, false);
+            Stretch(plateRect, 0f);
+            var plate = plateObject.GetComponent<Image>();
+            ConfigureTabPlate(plate);
+
+            var glyphObject = new GameObject("Glyph", typeof(RectTransform), typeof(Image));
             var glyphRect = (RectTransform)glyphObject.transform;
             glyphRect.SetParent(tabRect, false);
             Centre(glyphRect, new Vector2(_glyphSize, _glyphSize));
+            var glyph = glyphObject.GetComponent<Image>();
+            glyph.sprite = IconFor(tab);
+            glyph.type = Image.Type.Simple;
+            glyph.preserveAspect = true;
+            glyph.color = Color.clear;
+            glyph.raycastTarget = false;
 
-            Image[] ink;
-            Image[] holes;
-            switch (tab)
+            return new TabEntry(tab, tabRect, shadow, plate, glyph);
+        }
+
+        /// <summary>HubTab's declaration order is the display order (see its own doc comment), and the
+        /// icon array is authored in that same order, so the enum value indexes it directly.</summary>
+        private Sprite IconFor(HubTab tab)
+        {
+            int iconIndex = (int)tab;
+            Sprite icon = _tabIcons != null && iconIndex < _tabIcons.Length ? _tabIcons[iconIndex] : null;
+            if (icon == null)
             {
-                case HubTab.PowerUpShop:
-                    BuildCoinGlyph(glyphRect, out ink, out holes);
-                    break;
-                case HubTab.Leaderboard:
-                    BuildPodiumGlyph(glyphRect, out ink, out holes);
-                    break;
-                case HubTab.Profile:
-                    BuildAvatarGlyph(glyphRect, out ink, out holes);
-                    break;
-                case HubTab.Badges:
-                    BuildMedalGlyph(glyphRect, out ink, out holes);
-                    break;
-                default:
-                    BuildCogGlyph(glyphRect, out ink, out holes);
-                    break;
+                Debug.LogError($"{nameof(HubPanelView)} has no icon sprite assigned for {tab}.", this);
             }
 
-            return new TabEntry(tab, tabRect, plate, ink, holes);
+            return icon;
         }
 
-        /// <summary>Teeth first, then the hub disc over their inner ends, then the bore punched through
-        /// both. The same cog the settings icon draws, at tab scale.</summary>
-        private void BuildCogGlyph(RectTransform root, out Image[] ink, out Image[] holes)
+        /// <summary>The tab plate and its shadow share the HUD's one rounded sprite, sliced to the
+        /// design's radius rather than the HUD-wide ~5px, so the whole bar still batches together.</summary>
+        private static void ConfigureTabPlate(Image image)
         {
-            ink = new Image[COG_TOOTH_COUNT + 1];
-
-            float toothWidth = _glyphSize * 0.17f;
-            float toothLength = _glyphSize * 0.26f;
-            float toothDistance = _glyphSize * 0.32f;
-
-            for (int toothIndex = 0; toothIndex < COG_TOOTH_COUNT; toothIndex++)
-            {
-                float angle = (360f / COG_TOOTH_COUNT) * toothIndex;
-                var toothRect = CreateRect(root, $"Tooth_{toothIndex}", new Vector2(toothWidth, toothLength));
-
-                // The tooth points away from the centre, so it is both rotated by the angle and pushed
-                // out along that same rotated axis.
-                toothRect.localRotation = Quaternion.Euler(0f, 0f, angle);
-                toothRect.anchoredPosition =
-                    (Vector2)(Quaternion.Euler(0f, 0f, angle) * new Vector3(0f, toothDistance, 0f));
-
-                var toothImage = toothRect.GetComponent<Image>();
-                ConfigureRounded(toothImage);
-                ink[toothIndex] = toothImage;
-            }
-
-            var ringRect = CreateRect(root, "CogRing", new Vector2(_glyphSize * 0.60f, _glyphSize * 0.60f));
-            var ringImage = ringRect.GetComponent<Image>();
-            ConfigureCircle(ringImage);
-            ink[COG_TOOTH_COUNT] = ringImage;
-
-            var boreRect = CreateRect(root, "CogBore", new Vector2(_glyphSize * 0.26f, _glyphSize * 0.26f));
-            var boreImage = boreRect.GetComponent<Image>();
-            ConfigureCircle(boreImage);
-            holes = new[] { boreImage };
-        }
-
-        private void BuildCoinGlyph(RectTransform root, out Image[] ink, out Image[] holes)
-        {
-            float diameter = _glyphSize * 0.82f;
-
-            var discRect = CreateRect(root, "CoinDisc", new Vector2(diameter, diameter));
-            var discImage = discRect.GetComponent<Image>();
-            ConfigureCircle(discImage);
-            ink = new[] { discImage };
-
-            var coreRect = CreateRect(root, "CoinCore", new Vector2(diameter * 0.42f, diameter * 0.42f));
-            var coreImage = coreRect.GetComponent<Image>();
-            ConfigureCircle(coreImage);
-            holes = new[] { coreImage };
-        }
-
-        /// <summary>Second place to the left of the winner, third to the right — which is how a podium is
-        /// ordered, and what stops three bars reading as a bar chart.</summary>
-        private void BuildPodiumGlyph(RectTransform root, out Image[] ink, out Image[] holes)
-        {
-            ink = new Image[PODIUM_BAR_COUNT];
-            holes = System.Array.Empty<Image>();
-
-            float barWidth = _glyphSize * 0.22f;
-            float barPitch = _glyphSize * 0.28f;
-            float baselineY = -_glyphSize * 0.36f;
-
-            for (int barIndex = 0; barIndex < PODIUM_BAR_COUNT; barIndex++)
-            {
-                float heightScale = barIndex == 1 ? 0.72f : (barIndex == 0 ? 0.46f : 0.58f);
-                float barHeight = _glyphSize * heightScale;
-
-                var barRect = CreateRect(root, $"PodiumBar_{barIndex}", new Vector2(barWidth, barHeight));
-                barRect.anchoredPosition = new Vector2(
-                    (barIndex - ((PODIUM_BAR_COUNT - 1) * 0.5f)) * barPitch,
-                    baselineY + (barHeight * 0.5f));
-
-                var barImage = barRect.GetComponent<Image>();
-                ConfigureRounded(barImage);
-                ink[barIndex] = barImage;
-            }
-        }
-
-        private void BuildAvatarGlyph(RectTransform root, out Image[] ink, out Image[] holes)
-        {
-            holes = System.Array.Empty<Image>();
-
-            float headDiameter = _glyphSize * 0.40f;
-
-            var headRect = CreateRect(root, "AvatarHead", new Vector2(headDiameter, headDiameter));
-            headRect.anchoredPosition = new Vector2(0f, _glyphSize * 0.22f);
-            var headImage = headRect.GetComponent<Image>();
-            ConfigureCircle(headImage);
-
-            var shouldersRect = CreateRect(
-                root, "AvatarShoulders", new Vector2(_glyphSize * 0.70f, _glyphSize * 0.46f));
-            shouldersRect.anchoredPosition = new Vector2(0f, -_glyphSize * 0.24f);
-            var shouldersImage = shouldersRect.GetComponent<Image>();
-            ConfigureRounded(shouldersImage);
-
-            ink = new[] { headImage, shouldersImage };
-        }
-
-        /// <summary>Ribbons first, then the disc over their ends, then the disc's core: the same medal the
-        /// badges icon drew, at tab scale.</summary>
-        private void BuildMedalGlyph(RectTransform root, out Image[] ink, out Image[] holes)
-        {
-            ink = new Image[3];
-
-            float ribbonLength = _glyphSize * 0.34f;
-            float ribbonThickness = _glyphSize * 0.13f;
-            float discDiameter = _glyphSize * 0.62f;
-            float discCentreY = -_glyphSize * 0.15f;
-
-            for (int ribbonIndex = 0; ribbonIndex < 2; ribbonIndex++)
-            {
-                float sign = ribbonIndex == 0 ? 1f : -1f;
-
-                var ribbonRect = CreateRect(
-                    root, $"MedalRibbon_{ribbonIndex}", new Vector2(ribbonThickness, ribbonLength));
-                ribbonRect.anchoredPosition = new Vector2(sign * _glyphSize * 0.12f, _glyphSize * 0.23f);
-                ribbonRect.localRotation = Quaternion.Euler(0f, 0f, sign * 16f);
-
-                var ribbonImage = ribbonRect.GetComponent<Image>();
-                ConfigureRounded(ribbonImage);
-                ink[ribbonIndex] = ribbonImage;
-            }
-
-            var discRect = CreateRect(root, "MedalDisc", new Vector2(discDiameter, discDiameter));
-            discRect.anchoredPosition = new Vector2(0f, discCentreY);
-            var discImage = discRect.GetComponent<Image>();
-            ConfigureCircle(discImage);
-            ink[2] = discImage;
-
-            var coreRect = CreateRect(
-                root, "MedalCore", new Vector2(discDiameter * 0.46f, discDiameter * 0.46f));
-            coreRect.anchoredPosition = new Vector2(0f, discCentreY);
-            var coreImage = coreRect.GetComponent<Image>();
-            ConfigureCircle(coreImage);
-            holes = new[] { coreImage };
-        }
-
-        private static RectTransform CreateRect(RectTransform parent, string objectName, Vector2 size)
-        {
-            var partObject = new GameObject(objectName, typeof(RectTransform), typeof(Image));
-            var partRect = (RectTransform)partObject.transform;
-            partRect.SetParent(parent, false);
-            Centre(partRect, size);
-            return partRect;
+            ConfigureRounded(image);
+            image.pixelsPerUnitMultiplier = UiSpriteFactory.ROUNDED_RADIUS / TAB_CORNER_RADIUS;
         }
 
         private static void Centre(RectTransform rect, Vector2 size)
@@ -926,6 +844,16 @@ namespace MustyBlockBlast.Presentation.Views
             rect.anchorMax = new Vector2(0.5f, 0.5f);
             rect.pivot = new Vector2(0.5f, 0.5f);
             rect.sizeDelta = size;
+            rect.anchoredPosition = Vector2.zero;
+        }
+
+        /// <summary>Fills the parent, outgrowing it by <paramref name="spread"/> on every side.</summary>
+        private static void Stretch(RectTransform rect, float spread)
+        {
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.sizeDelta = new Vector2(spread * 2f, spread * 2f);
             rect.anchoredPosition = Vector2.zero;
         }
 
@@ -940,37 +868,28 @@ namespace MustyBlockBlast.Presentation.Views
             image.raycastTarget = false;
         }
 
-        // The circle sprite has no border, so it must never be sliced.
-        private static void ConfigureCircle(Image image)
-        {
-            image.sprite = UiSpriteFactory.Circle;
-            image.type = Image.Type.Simple;
-            image.color = Color.clear;
-            image.raycastTarget = false;
-        }
-
-        /// <summary>One built tab: its hotspot, its plate, and the two repaint buckets its glyph splits
-        /// into — inked parts, and fake cut-outs that have to track the plate colour exactly.</summary>
+        /// <summary>One built tab: its hotspot and the three Images a repaint touches — shadow, plate
+        /// and the single tinted glyph.</summary>
         private readonly struct TabEntry
         {
-            internal TabEntry(HubTab tab, RectTransform rect, Image plate, Image[] ink, Image[] holes)
+            internal TabEntry(HubTab tab, RectTransform rect, Image shadow, Image plate, Image glyph)
             {
                 Tab = tab;
                 Rect = rect;
+                Shadow = shadow;
                 Plate = plate;
-                Ink = ink;
-                Holes = holes;
+                Glyph = glyph;
             }
 
             internal HubTab Tab { get; }
 
             internal RectTransform Rect { get; }
 
+            internal Image Shadow { get; }
+
             internal Image Plate { get; }
 
-            internal Image[] Ink { get; }
-
-            internal Image[] Holes { get; }
+            internal Image Glyph { get; }
         }
     }
 }

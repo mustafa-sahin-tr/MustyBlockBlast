@@ -12,7 +12,14 @@ namespace MustyBlockBlast.Presentation.Views
     internal static class UiSpriteFactory
     {
         private const int ROUNDED_SIZE = 64;
-        private const int ROUNDED_RADIUS = 16;
+
+        /// <summary>
+        /// Baked corner radius of <see cref="RoundedSquare"/>, in sprite pixels — which, at the sprite's
+        /// 100 pixels per unit against the canvas's own 100, is also the radius in reference pixels a
+        /// sliced Image renders it at with a <c>pixelsPerUnitMultiplier</c> of 1. Exposed so a caller can
+        /// pick a rendered radius (<c>ROUNDED_RADIUS / wanted</c>) instead of a magic multiplier.
+        /// </summary>
+        internal const int ROUNDED_RADIUS = 16;
         private const int GLOW_SIZE = 128;
         private const int CIRCLE_SIZE = 128;
 

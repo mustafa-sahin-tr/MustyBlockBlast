@@ -961,8 +961,14 @@ MonoBehaviour:
   m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.HubPanelView
   _topInset: 28
   _tabSize: {x: 176, y: 118}
-  _tabGap: 10
+  _tabGap: 8
   _glyphSize: 68
+  _tabIcons:
+  - {fileID: 21300000, guid: 06d98da7ba1aa48d6a84be0daf4094b5, type: 3}
+  - {fileID: 21300000, guid: 9f45c9d3b315c4f7d9f084a699f2303c, type: 3}
+  - {fileID: 21300000, guid: f436205e7c24c47398be8042edebaaa2, type: 3}
+  - {fileID: 21300000, guid: 4c7b4b3b8d6f44e7db5c8c11a2888b5c, type: 3}
+  - {fileID: 21300000, guid: 0bbad68bf017540c99a708ba6fe10381, type: 3}
 --- !u!114 &865148684
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1328,6 +1334,7 @@ MonoBehaviour:
   _emptyGlyphSize: 40
   _emptyLabelFontSize: 20
   _emptyLabelGap: 10
+  _countFontSize: 34
 --- !u!1 &1077023708
 GameObject:
   m_ObjectHideFlags: 0
