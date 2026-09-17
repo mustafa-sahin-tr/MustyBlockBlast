@@ -10,20 +10,27 @@ namespace MustyBlockBlast.Gameplay.Systems
 {
     /// <summary>
     /// Owns <see cref="BadgeModel"/>: builds the tracked badge set from <see cref="BadgeCatalog"/>,
-    /// watches <see cref="BadgeStatsModel"/>'s lifetime counters, and pays out a power-up the moment a
-    /// threshold is crossed.
+    /// watches <see cref="BadgeStatsModel"/>'s lifetime counters, latches a badge unlocked the moment a
+    /// threshold is crossed, and pays its coin reward when the player later claims it.
     /// <para>
-    /// The payout goes through <see cref="PowerUpSystem.GrantDirect"/> rather than
-    /// <c>GrantRewardAsync</c>: a badge is not ad-gated, it is already earned by the time it unlocks,
-    /// so there is nothing left to ask the player for. Both methods share one grant helper inside
-    /// <see cref="PowerUpSystem"/>, so a badge grant mutates, persists and announces the inventory
-    /// exactly as a rewarded one does.
+    /// Unlocking and claiming are two steps on purpose. A badge falls mid-run, when the player is
+    /// looking at the board, so the unlock only latches state and persists it; nothing is credited.
+    /// The coins are paid by <see cref="ClaimReward"/>, which a tap on the badge's tile reaches, and
+    /// they go through <see cref="CurrencySystem"/> because that class is the one and only writer of
+    /// the coin balance — this one never touches <see cref="ProfileModel"/> directly.
     /// </para>
     /// <para>
     /// Paying exactly once is structural rather than checked: <see cref="BadgeProgress.Evaluate"/> is
-    /// a one-way latch that only returns true on the false-to-true transition, and a badge restored
-    /// from the save file starts latched, so neither a repeated counter update nor an app relaunch can
-    /// grant twice.
+    /// a one-way latch that only returns true on the false-to-true transition, a badge restored from
+    /// the save file starts latched, and the claim latch in the model is one-way too. Neither a
+    /// repeated counter update, a double tap nor an app relaunch can pay twice.
+    /// </para>
+    /// <para>
+    /// Persistence ordering, in case of a force-quit. The unlock is written and flushed before any
+    /// claim is possible, so a claimable badge is never lost. A claim credits and flushes the coins
+    /// first, then writes and flushes the claimed id. The one window that a crash can fall into is
+    /// between those two flushes, and it errs in the player's favour: they may claim once more, but
+    /// can never be left with a claimed badge that was not paid.
     /// </para>
     /// </summary>
     public sealed class BadgeSystem : IDisposable
@@ -32,22 +39,22 @@ namespace MustyBlockBlast.Gameplay.Systems
         private const string SAVE_KEY = "Badges.Unlocked";
 
         private readonly BadgeModel _badgeModel;
-        private readonly PowerUpSystem _powerUpSystem;
+        private readonly CurrencySystem _currencySystem;
         private readonly BadgeSaveData _saveData;
         private readonly CompositeDisposable _disposables = new CompositeDisposable();
 
-        /// <summary>Reward per tracked badge, index-aligned with <see cref="BadgeModel.Badges"/>. Held
-        /// here so an unlock does not have to scan the catalog for its own payout.</summary>
-        private readonly List<PowerUpKind> _rewards = new List<PowerUpKind>();
+        /// <summary>Coin reward per tracked badge, index-aligned with <see cref="BadgeModel.Badges"/>.
+        /// Held here so a claim does not have to scan the catalog for its own payout.</summary>
+        private readonly List<int> _coinRewards = new List<int>();
 
         public BadgeSystem(
             BadgeModel badgeModel,
             BadgeStatsModel statsModel,
             BadgeCatalog badgeCatalog,
-            PowerUpSystem powerUpSystem)
+            CurrencySystem currencySystem)
         {
             _badgeModel = badgeModel;
-            _powerUpSystem = powerUpSystem;
+            _currencySystem = currencySystem;
             _saveData = Load();
 
             BuildBadges(badgeCatalog);
@@ -55,7 +62,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             // Subscribing last, and only after the save file has re-latched every already-unlocked
             // badge: ReactiveProperty.Subscribe fires immediately with the current value, so this is
             // also the boot-time evaluation. Without the restore above, every badge the player had
-            // already earned would pay out again on every launch.
+            // already earned would become claimable again on every launch.
             Watch(statsModel.TotalPiecesPlaced, BadgeStatType.TotalPiecesPlaced);
             Watch(statsModel.TotalLinesCleared, BadgeStatType.TotalLinesCleared);
             Watch(statsModel.TotalBoardWipes, BadgeStatType.TotalBoardWipes);
@@ -65,6 +72,54 @@ namespace MustyBlockBlast.Gameplay.Systems
         }
 
         public void Dispose() => _disposables.Dispose();
+
+        /// <summary>
+        /// Coins <paramref name="badgeId"/> pays when claimed, or zero for an unknown badge. Read by
+        /// the badge wall so the amount on the tile and the amount credited are one number.
+        /// </summary>
+        public int CoinRewardOf(string badgeId)
+        {
+            int badgeIndex = IndexOf(badgeId);
+            return badgeIndex < 0 ? 0 : _coinRewards[badgeIndex];
+        }
+
+        /// <summary>
+        /// Whether a tap on <paramref name="badgeId"/> would pay out: unlocked, not yet claimed, and
+        /// worth something. The one definition of "claimable", shared by the tile that draws the
+        /// indicator and the claim below that honours it.
+        /// </summary>
+        public bool IsClaimable(string badgeId)
+        {
+            int badgeIndex = IndexOf(badgeId);
+            return badgeIndex >= 0 && IsClaimableAt(badgeIndex);
+        }
+
+        /// <summary>
+        /// Pays the coin reward of <paramref name="badgeId"/> and latches it claimed. Returns whether
+        /// anything was paid. Refused outright — no balance change, no PlayerPrefs write — for a badge
+        /// that is locked, already claimed, worth zero coins, or not in the catalog at all. A second tap
+        /// on the same tile therefore does nothing, however quickly it follows the first.
+        /// </summary>
+        public bool ClaimReward(string badgeId)
+        {
+            int badgeIndex = IndexOf(badgeId);
+            if (badgeIndex < 0 || !IsClaimableAt(badgeIndex))
+            {
+                return false;
+            }
+
+            // Coins first, and flushed inside the call: if the app dies between here and the claim
+            // write below, the player keeps the coins and may claim once more — the recoverable half
+            // of the pair. The other order would risk a claimed badge that was never paid.
+            _currencySystem.CreditBadgeReward(_coinRewards[badgeIndex]);
+
+            _badgeModel.MarkClaimed(badgeId);
+            _saveData.claimedBadgeIds.Add(badgeId);
+            Save();
+
+            _badgeModel.Revision.Value += 1;
+            return true;
+        }
 
         /// <summary>
         /// Turns the authored catalog into tracked progress. An invalid row is skipped with one
@@ -91,13 +146,18 @@ namespace MustyBlockBlast.Gameplay.Systems
                 }
 
                 var progress = new BadgeProgress(config.ToBadgeDefinition());
-                if (IsPersistedUnlocked(config.Id))
+                if (Contains(_saveData.unlockedBadgeIds, config.Id))
                 {
                     progress.RestoreUnlocked();
                 }
 
+                if (Contains(_saveData.claimedBadgeIds, config.Id))
+                {
+                    _badgeModel.MarkClaimed(config.Id);
+                }
+
                 progresses.Add(progress);
-                _rewards.Add(config.Reward);
+                _coinRewards.Add(config.CoinReward);
             }
 
             _badgeModel.SetBadges(progresses);
@@ -131,24 +191,52 @@ namespace MustyBlockBlast.Gameplay.Systems
                     continue;
                 }
 
-                _powerUpSystem.GrantDirect(_rewards[badgeIndex]);
                 _saveData.unlockedBadgeIds.Add(progress.Definition.Id);
                 anyUnlocked = true;
             }
 
             // One write however many badges fell at once, and none at all on the overwhelmingly common
-            // "counter moved, nothing unlocked" path.
+            // "counter moved, nothing unlocked" path. Flushed here so the unlock is on the disk before
+            // the tile that lets the player claim it can even be drawn.
             if (anyUnlocked)
             {
                 Save();
+                _badgeModel.Revision.Value += 1;
             }
         }
 
-        private bool IsPersistedUnlocked(string badgeId)
+        private bool IsClaimableAt(int badgeIndex)
         {
-            for (int idIndex = 0; idIndex < _saveData.unlockedBadgeIds.Count; idIndex++)
+            BadgeProgress progress = _badgeModel.Badges[badgeIndex];
+            return progress.IsUnlocked
+                && !_badgeModel.IsClaimed(progress.Definition.Id)
+                && _coinRewards[badgeIndex] > 0;
+        }
+
+        private int IndexOf(string badgeId)
+        {
+            if (string.IsNullOrEmpty(badgeId))
             {
-                if (_saveData.unlockedBadgeIds[idIndex] == badgeId)
+                return -1;
+            }
+
+            IReadOnlyList<BadgeProgress> badges = _badgeModel.Badges;
+            for (int badgeIndex = 0; badgeIndex < badges.Count; badgeIndex++)
+            {
+                if (badges[badgeIndex].Definition.Id == badgeId)
+                {
+                    return badgeIndex;
+                }
+            }
+
+            return -1;
+        }
+
+        private static bool Contains(List<string> ids, string badgeId)
+        {
+            for (int idIndex = 0; idIndex < ids.Count; idIndex++)
+            {
+                if (ids[idIndex] == badgeId)
                 {
                     return true;
                 }
@@ -159,8 +247,14 @@ namespace MustyBlockBlast.Gameplay.Systems
 
         /// <summary>
         /// Reads the save blob, falling back to a fresh one on anything unreadable. The cost of a
-        /// corrupt file here is re-granting rewards the player already had, which is strictly better
+        /// corrupt file here is re-offering rewards the player already had, which is strictly better
         /// than failing the boot over a cosmetic wall of badges.
+        /// <para>
+        /// Migrates a version-1 blob (unlocks only, paid in power-ups at the time) by seeding the
+        /// claimed list from the unlocked one, exactly once, and writing the result back straight away
+        /// so the next launch reads a version-2 blob and never runs this again. Without it every badge
+        /// the player already held would light up as claimable on first launch after the update.
+        /// </para>
         /// </summary>
         private static BadgeSaveData Load()
         {
@@ -185,20 +279,38 @@ namespace MustyBlockBlast.Gameplay.Systems
                 return new BadgeSaveData();
             }
 
-            // JsonUtility writes null for a list that was never populated, so the list is the one
-            // field that needs guarding before anything reads it.
+            // JsonUtility writes null for a list that was never populated, so the lists are the fields
+            // that need guarding before anything reads them.
             if (data.unlockedBadgeIds == null)
             {
                 data.unlockedBadgeIds = new List<string>();
             }
 
+            bool needsMigration = data.schemaVersion < 2 || data.claimedBadgeIds == null;
+            if (data.claimedBadgeIds == null)
+            {
+                data.claimedBadgeIds = new List<string>();
+            }
+
+            if (needsMigration)
+            {
+                data.claimedBadgeIds.Clear();
+                data.claimedBadgeIds.AddRange(data.unlockedBadgeIds);
+                data.schemaVersion = BadgeSaveData.CURRENT_SCHEMA_VERSION;
+                PlayerPrefs.SetString(SAVE_KEY, JsonUtility.ToJson(data));
+                PlayerPrefs.Save();
+            }
+
             return data;
         }
 
+        /// <summary>Writes and flushes the blob. Flushed every time, unlike the flat counters other
+        /// Systems keep: each write here is a latch the player would notice losing.</summary>
         private void Save()
         {
             _saveData.schemaVersion = BadgeSaveData.CURRENT_SCHEMA_VERSION;
             PlayerPrefs.SetString(SAVE_KEY, JsonUtility.ToJson(_saveData));
+            PlayerPrefs.Save();
         }
     }
 }

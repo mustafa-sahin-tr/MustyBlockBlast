@@ -5,15 +5,16 @@ using UnityEngine;
 namespace MustyBlockBlast.Gameplay.Settings
 {
     /// <summary>
-    /// One authored badge: the lifetime counter it watches, how high that counter must get, and what
-    /// the player is paid when it does. Inspector-editable rather than hardcoded, so the whole badge
+    /// One authored badge: the lifetime counter it watches, how high that counter must get, and how
+    /// many coins the player may claim once it does. Inspector-editable rather than hardcoded, so the whole badge
     /// set can be retuned or extended as an asset edit — see <see cref="BadgeCatalog"/>, which owns
     /// the list of these.
     /// <para>
     /// Mirrors <see cref="BadgeDefinition"/>'s shape in Unity serialization terms; the immutable Core
     /// definition is built on demand by <see cref="ToBadgeDefinition"/>. The reward lives here rather
-    /// than on the Core definition because <see cref="PowerUpKind"/> is a Gameplay type and Core may
-    /// not see it — see <see cref="BadgeDefinition"/>.
+    /// than on the Core definition because it is content, not rule: the rule ("has the counter reached
+    /// the threshold") is the whole of <see cref="BadgeDefinition"/>, and the payout is retuned as an
+    /// asset edit without touching Core.
     /// </para>
     /// </summary>
     [Serializable]
@@ -41,8 +42,9 @@ namespace MustyBlockBlast.Gameplay.Settings
         [Tooltip("Value the counter must reach to unlock. Must be greater than zero.")]
         [SerializeField] private long _threshold = 1L;
 
-        [Tooltip("Power-up granted, unconditionally and instantly, the moment this badge unlocks.")]
-        [SerializeField] private PowerUpKind _reward = PowerUpKind.Bomb;
+        [Tooltip("Coins the player may claim once this badge unlocks. Claimed by tapping the badge, never "
+            + "paid automatically. Zero means the badge is a trophy only and its tile never becomes tappable.")]
+        [SerializeField] private int _coinReward = 0;
 
         /// <summary>Stable identifier; <see cref="BadgeCatalog"/> looks badges up by this, not by index.</summary>
         public string Id => _id;
@@ -60,7 +62,8 @@ namespace MustyBlockBlast.Gameplay.Settings
 
         public long Threshold => _threshold;
 
-        public PowerUpKind Reward => _reward;
+        /// <summary>Coins one claim of this badge pays. Never negative; zero means nothing to claim.</summary>
+        public int CoinReward => _coinReward;
 
         /// <summary>
         /// Builds the immutable Core definition for this badge. Throws the same way
@@ -89,13 +92,19 @@ namespace MustyBlockBlast.Gameplay.Settings
                 return false;
             }
 
+            if (_coinReward < 0)
+            {
+                error = "Coin Reward must not be negative — a claim would fine the player.";
+                return false;
+            }
+
             error = null;
             return true;
         }
 
 #if UNITY_EDITOR
         /// <summary>
-        /// Called by <see cref="BadgeCatalog.OnValidate"/>: clamps the numeric field so the developer
+        /// Called by <see cref="BadgeCatalog.OnValidate"/>: clamps the numeric fields so the developer
         /// authoring badges gets immediate feedback rather than a throw on the next play session. The
         /// id is left alone — silently inventing one would be worse than reporting the blank — and is
         /// surfaced as a console warning instead.
@@ -105,6 +114,11 @@ namespace MustyBlockBlast.Gameplay.Settings
             if (_threshold < 1L)
             {
                 _threshold = 1L;
+            }
+
+            if (_coinReward < 0)
+            {
+                _coinReward = 0;
             }
         }
 #endif
