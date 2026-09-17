@@ -15,8 +15,10 @@ namespace MustyBlockBlast.Presentation.Views
     /// <summary>
     /// The badges overlay: the whole lifetime-achievement wall as a grid of tiles, each locked or
     /// unlocked, each with its authored icon (see <see cref="BadgeConfig.Icon"/>), its name and how
-    /// close the player is. Read-only — a tile is a status light, not a button, so tapping one
-    /// deliberately does nothing.
+    /// close the player is. A tile is a status light, not a button — with one exception: an unlocked
+    /// badge whose coin reward has not been collected yet shows the amount in its corner, and a tap on
+    /// that tile claims it through <see cref="BadgeSystem.ClaimReward"/>. Every other tile swallows
+    /// the tap.
     /// <para>
     /// Unpaged, unlike <see cref="LevelPathPanelView"/>: the authored set is small enough to fit the
     /// card in one 2x5 grid, and a wall you have to page through stops reading as a wall. Should the
@@ -26,9 +28,8 @@ namespace MustyBlockBlast.Presentation.Views
     /// <para>
     /// Built once in <see cref="Start"/> and toggled with SetActive, exactly as
     /// <see cref="SettingsPanelView"/> and <see cref="LevelPathPanelView"/> are. It repaints on
-    /// <see cref="Open"/> rather than subscribing to unlocks: a badge that falls while the card is
-    /// closed simply shows as unlocked the next time it is opened, which is the whole of the feedback
-    /// this slice promises.
+    /// <see cref="Open"/> and on every <see cref="BadgeModel.Revision"/> bump, so a claim repaints its
+    /// tile in place and a badge that falls while the card is open lights up without a reopen.
     /// </para>
     /// <para>
     /// Modal like the other two cards: while open it holds the timed countdown through
@@ -59,6 +60,15 @@ namespace MustyBlockBlast.Presentation.Views
         private const float TILE_SPACING_Y = 172f;
         private const float TILE_TEXT_INSET = 26f;
         private const float TILE_DOT_SIZE = 28f;
+
+        /// <summary>Where the claim amount sits: the top-right corner the done dot otherwise owns. The
+        /// two never show together — a claimable badge is by definition not yet done with.</summary>
+        private const float TILE_REWARD_INSET_X = 24f;
+        private const float TILE_REWARD_INSET_Y = 24f;
+
+        /// <summary>Prefix on the claim amount, so "+50" reads as something to collect rather than a
+        /// count. A symbol, not a word — nothing here for a translator.</summary>
+        private const string REWARD_PREFIX = "+";
 
         /// <summary>The badge's icon disc on the tile's left, and the glyph drawn inside it. Sized so the
         /// disc nearly fills the tile's height, as a medal would, and the name and counter sit to its
@@ -97,11 +107,13 @@ namespace MustyBlockBlast.Presentation.Views
         [SerializeField] private int _headerFontSize = 64;
         [SerializeField] private int _titleFontSize = 34;
         [SerializeField] private int _progressFontSize = 28;
+        [SerializeField] private int _rewardFontSize = 30;
 
         [Header("Palette")]
         [SerializeField] private Color _scrimColour = new Color(0.17f, 0.15f, 0.20f, 0.55f);
 
         private BadgeModel _badgeModel;
+        private BadgeSystem _badgeSystem;
         private BadgeCatalog _badgeCatalog;
         private SettingsModel _settingsModel;
         private LocalizationModel _localizationModel;
@@ -123,7 +135,7 @@ namespace MustyBlockBlast.Presentation.Views
         {
             internal BadgeTile(
                 RectTransform root, Image plateImage, Image shadowImage, Image iconDisc, Image iconGlyph,
-                Image doneDot, Text titleText, Text progressText)
+                Image doneDot, Text titleText, Text progressText, Text rewardText)
             {
                 Root = root;
                 PlateImage = plateImage;
@@ -133,7 +145,16 @@ namespace MustyBlockBlast.Presentation.Views
                 DoneDot = doneDot;
                 TitleText = titleText;
                 ProgressText = progressText;
+                RewardText = rewardText;
             }
+
+            /// <summary>Id of the badge this tile currently draws, or null while it draws none. What a
+            /// tap on the tile claims.</summary>
+            internal string BadgeId { get; set; }
+
+            /// <summary>Whether the tile currently offers a claim. Cached from the last repaint so the
+            /// tap path does not re-derive it.</summary>
+            internal bool IsClaimable { get; set; }
 
             internal RectTransform Root { get; }
 
@@ -150,11 +171,14 @@ namespace MustyBlockBlast.Presentation.Views
             internal Text TitleText { get; }
 
             internal Text ProgressText { get; }
+
+            internal Text RewardText { get; }
         }
 
         [Inject]
         public void Construct(
             BadgeModel badgeModel,
+            BadgeSystem badgeSystem,
             BadgeCatalog badgeCatalog,
             SettingsModel settingsModel,
             LocalizationModel localizationModel,
@@ -162,6 +186,7 @@ namespace MustyBlockBlast.Presentation.Views
             TimerRunSystem timerRunSystem)
         {
             _badgeModel = badgeModel;
+            _badgeSystem = badgeSystem;
             _badgeCatalog = badgeCatalog;
             _settingsModel = settingsModel;
             _localizationModel = localizationModel;
@@ -176,7 +201,7 @@ namespace MustyBlockBlast.Presentation.Views
 
         private void Start()
         {
-            if (_badgeModel == null || _badgeCatalog == null || _settingsModel == null
+            if (_badgeModel == null || _badgeSystem == null || _badgeCatalog == null || _settingsModel == null
                 || _localizationModel == null || _localizationSystem == null || _timerRunSystem == null)
             {
                 Debug.LogError(
@@ -191,9 +216,14 @@ namespace MustyBlockBlast.Presentation.Views
 
             // Tile names come from the string tables, so a language change repaints them.
             _localizationModel.CurrentLocale.Subscribe(OnLocaleChanged).AddTo(_disposables);
+
+            // Every unlock and every claim bumps this, so the tile just tapped repaints in place.
+            _badgeModel.Revision.Subscribe(OnBadgesChanged).AddTo(_disposables);
         }
 
         private void OnLocaleChanged(LocaleDefinition locale) => Refresh();
+
+        private void OnBadgesChanged(int revision) => Refresh();
 
         private void OnDestroy() => _disposables.Dispose();
 
@@ -226,9 +256,9 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         /// <summary>
-        /// Routes a tap while the panel is open. The close cross wins; the card then swallows anything
-        /// else — a tile is read-only, so landing on one is a deliberate no-op rather than a dismissal.
-        /// Only the scrim outside the card closes.
+        /// Routes a tap while the panel is open. The close cross wins; a claimable tile then claims;
+        /// the card swallows anything else — every other tile is read-only, so landing on one is a
+        /// deliberate no-op rather than a dismissal. Only the scrim outside the card closes.
         /// </summary>
         internal void HandleTap(Vector2 screenPosition)
         {
@@ -249,10 +279,35 @@ namespace MustyBlockBlast.Presentation.Views
 
             if (RectTransformUtility.RectangleContainsScreenPoint(_cardRect, screenPosition, eventCamera))
             {
+                TryClaimTileAt(screenPosition, eventCamera);
                 return;
             }
 
             Close();
+        }
+
+        /// <summary>
+        /// Claims the badge under <paramref name="screenPosition"/> when its tile offers one. Only
+        /// tiles painted claimable are even hit-tested, so a locked, claimed or zero-reward tile costs
+        /// nothing here — and the System refuses the claim anyway, so a stale flag cannot pay twice.
+        /// The repaint comes back through <see cref="BadgeModel.Revision"/>, not from here.
+        /// </summary>
+        private void TryClaimTileAt(Vector2 screenPosition, Camera eventCamera)
+        {
+            for (int tileIndex = 0; tileIndex < _tiles.Length; tileIndex++)
+            {
+                BadgeTile tile = _tiles[tileIndex];
+                if (!tile.IsClaimable || !tile.Root.gameObject.activeSelf)
+                {
+                    continue;
+                }
+
+                if (RectTransformUtility.RectangleContainsScreenPoint(tile.Root, screenPosition, eventCamera))
+                {
+                    _badgeSystem.ClaimReward(tile.BadgeId);
+                    return;
+                }
+            }
         }
 
         /// <summary>
@@ -328,11 +383,18 @@ namespace MustyBlockBlast.Presentation.Views
 
             if (!exists)
             {
+                tile.BadgeId = null;
+                tile.IsClaimable = false;
                 return;
             }
 
+            string badgeId = progress.Definition.Id;
             bool isUnlocked = progress.IsUnlocked;
+            bool isClaimable = _badgeSystem.IsClaimable(badgeId);
             float alpha = isUnlocked ? 1f : LOCKED_TILE_ALPHA;
+
+            tile.BadgeId = badgeId;
+            tile.IsClaimable = isClaimable;
 
             // Unlocked inverts onto the accent plate, the same way LevelPathPanelView marks the node
             // the player is on and PowerUpInventoryView marks the armed slot.
@@ -342,7 +404,11 @@ namespace MustyBlockBlast.Presentation.Views
 
             tile.PlateImage.color = WithAlpha(plateColour, alpha);
             tile.ShadowImage.color = WithAlpha(_currentTheme.CardShadow, alpha);
-            tile.DoneDot.color = isUnlocked ? _currentTheme.CardBackground : Color.clear;
+            // The corner shows one of two things: the claim amount while there is one to collect, and
+            // the done dot once it has been — or, for a badge worth nothing, straight away.
+            tile.DoneDot.color = isUnlocked && !isClaimable ? _currentTheme.CardBackground : Color.clear;
+            tile.RewardText.color = isClaimable ? _currentTheme.CardBackground : Color.clear;
+            tile.RewardText.text = isClaimable ? FormatReward(_badgeSystem.CoinRewardOf(badgeId)) : string.Empty;
 
             // The disc is always the card's own colour so the glyph has a calm ground on both plates;
             // the glyph takes the accent once earned and the ink while it is still a goal.
@@ -389,6 +455,14 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             return !string.IsNullOrEmpty(config.DisplayName) ? config.DisplayName : badgeId;
+        }
+
+        private string FormatReward(int coins)
+        {
+            _stringBuilder.Clear();
+            _stringBuilder.Append(REWARD_PREFIX);
+            _stringBuilder.Append(coins);
+            return _stringBuilder.ToString();
         }
 
         private string FormatCounter(long value, long total)
@@ -524,8 +598,14 @@ namespace MustyBlockBlast.Presentation.Views
             var dotImage = dotObject.GetComponent<Image>();
             ConfigureCircle(dotImage);
 
+            // The claim amount shares the dot's corner; RefreshTile shows exactly one of the two.
+            Text rewardText = CreateLabel(
+                tileRect, "Reward", _rewardFontSize, FontStyle.Bold, TextAnchor.MiddleRight,
+                new Vector2((TILE_WIDTH * 0.5f) - TILE_REWARD_INSET_X, (TILE_HEIGHT * 0.5f) - TILE_REWARD_INSET_Y));
+
             return new BadgeTile(
-                tileRect, plateImage, shadowImage, discImage, glyphImage, dotImage, titleText, progressText);
+                tileRect, plateImage, shadowImage, discImage, glyphImage, dotImage, titleText, progressText,
+                rewardText);
         }
 
         /// <summary>Two bars crossed at right angles — the close glyph, as on the other two cards.</summary>

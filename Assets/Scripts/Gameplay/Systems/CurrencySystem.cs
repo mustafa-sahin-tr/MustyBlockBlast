@@ -30,11 +30,12 @@ namespace MustyBlockBlast.Gameplay.Systems
     /// pool is drained. What the player may convert is the subtraction
     /// <see cref="AvailableToConvert"/>, and only an explicit <see cref="ConvertScoreToCoins"/> moves
     /// it. The consequence is worth stating plainly: coins are never granted merely for playing, and
-    /// never at the end of a run. There are exactly three ways one comes into existence, and all three
-    /// are something the player did — a conversion, a watched rewarded ad, or a destroyed
-    /// <see cref="MustyBlockBlast.Core.SpecialCellKind.Coin"/> cell. The third is the only one that
-    /// happens mid-run, and it is still earned: the coin cell had to be cleared, and one left standing
-    /// when the run ends pays nothing.
+    /// never at the end of a run. There are exactly four ways one comes into existence, and all four
+    /// are something the player did — a conversion, a watched rewarded ad, a destroyed
+    /// <see cref="MustyBlockBlast.Core.SpecialCellKind.Coin"/> cell, or a claimed badge (see
+    /// <see cref="CreditBadgeReward"/>). The third is the only one that happens mid-run, and it is
+    /// still earned: the coin cell had to be cleared, and one left standing when the run ends pays
+    /// nothing.
     /// </para>
     /// <para>
     /// Persistence is flat PlayerPrefs keys, one per field, exactly as <see cref="ProfileSystem"/> and
@@ -527,6 +528,31 @@ namespace MustyBlockBlast.Gameplay.Systems
             PlayerPrefs.Save();
 
             return PowerUpPurchaseResult.Success;
+        }
+
+        /// <summary>
+        /// Banks the coins a claimed badge pays. Called by <see cref="BadgeSystem.ClaimReward"/> and by
+        /// nothing else: the badge System decides whether a claim is due (unlocked, unclaimed, worth
+        /// something) and this class only mints, because it is the one and only writer of the balance.
+        /// <para>
+        /// Credits and flushes in one call, so the coins are on the disk before the caller records the
+        /// claim — the ordering that lets a crash between the two at worst pay once more, never leave a
+        /// claimed badge unpaid. A non-positive amount is a no-op, as every other faucet's is.
+        /// </para>
+        /// <para>
+        /// Takes nothing out of the convertible pool, exactly as an ad grant does not: the player has
+        /// not sold any score here, they have earned a badge.
+        /// </para>
+        /// </summary>
+        public void CreditBadgeReward(int amount)
+        {
+            if (amount <= 0)
+            {
+                return;
+            }
+
+            CreditCoins(amount);
+            PlayerPrefs.Save();
         }
 
         public void Dispose()
