@@ -379,6 +379,46 @@ MonoBehaviour:
     m_Key: powerup.desc.ghost_fit
     m_Metadata:
       m_Items: []
+  - m_Id: 1371178001227776
+    m_Key: badge.name.first_steps
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587904
+    m_Key: badge.name.line_cutter
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587905
+    m_Key: badge.name.board_sweeper
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587906
+    m_Key: badge.name.high_scorer
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587907
+    m_Key: badge.name.century_club
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587908
+    m_Key: badge.name.perfectionist
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587909
+    m_Key: badge.name.veteran
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587910
+    m_Key: badge.name.power_player
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587911
+    m_Key: badge.name.marathon
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587912
+    m_Key: badge.name.elite_scorer
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

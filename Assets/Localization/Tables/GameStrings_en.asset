@@ -382,6 +382,46 @@ MonoBehaviour:
     m_Localized: Points out the best move
     m_Metadata:
       m_Items: []
+  - m_Id: 1371178001227776
+    m_Localized: First Steps
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587904
+    m_Localized: Line Cutter
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587905
+    m_Localized: Board Sweeper
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587906
+    m_Localized: High Scorer
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587907
+    m_Localized: Century Club
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587908
+    m_Localized: Perfectionist
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587909
+    m_Localized: Veteran
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587910
+    m_Localized: Power Player
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587911
+    m_Localized: Marathon
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587912
+    m_Localized: Elite Scorer
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []
