@@ -31,6 +31,12 @@ namespace MustyBlockBlast.Tests.EditMode
 
         private const string HIGH_SCORE_KEY = "Score.HighScore";
 
+        /// <summary>The PlayerPrefs key <see cref="GameModeSystem"/> persists the active mode under.
+        /// This file selects Path/Timed mode repeatedly, so it must be cleared around every test or a
+        /// later fixture's fresh <c>GameModeSystem</c> would boot into whichever mode this one left
+        /// behind instead of the Endless default it expects.</summary>
+        private const string GAME_MODE_KEY = "Settings.GameMode";
+
         private TestMessageBroker<ObjectiveCompletedMessage> _objectiveCompletedBroker;
         private TestMessageBroker<ObjectiveProgressChangedMessage> _objectiveProgressBroker;
         private TestMessageBroker<LevelAdvancedMessage> _levelAdvancedBroker;
@@ -58,6 +64,7 @@ namespace MustyBlockBlast.Tests.EditMode
         {
             PlayerPrefs.DeleteKey(LEVEL_SAVE_KEY);
             PlayerPrefs.DeleteKey(HIGH_SCORE_KEY);
+            PlayerPrefs.DeleteKey(GAME_MODE_KEY);
             PlayerPrefs.DeleteKey(PowerUpInventoryKey.For(PowerUpKind.RowClear));
 
             _objectiveCompletedBroker = new TestMessageBroker<ObjectiveCompletedMessage>();
@@ -75,6 +82,7 @@ namespace MustyBlockBlast.Tests.EditMode
         {
             PlayerPrefs.DeleteKey(LEVEL_SAVE_KEY);
             PlayerPrefs.DeleteKey(HIGH_SCORE_KEY);
+            PlayerPrefs.DeleteKey(GAME_MODE_KEY);
 
             // A level-up reward is persisted the moment it is granted, so a test that earns one would
             // otherwise hand the next fixture a stocked inventory.
