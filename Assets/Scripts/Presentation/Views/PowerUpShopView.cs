@@ -12,8 +12,8 @@ namespace MustyBlockBlast.Presentation.Views
 {
     /// <summary>
     /// The power-up shop: one row per <see cref="PowerUpKind"/> with what the player holds, what one
-    /// costs, and a tap that buys it. Opened from <see cref="PowerUpShopButtonView"/> in the right-edge
-    /// icon column.
+    /// costs, and a tap that buys it. Shown as the shop tab of <see cref="HubPanelView"/>, which is its
+    /// only opener.
     /// <para>
     /// Holds no logic, like every other card here. It never writes a model: the balance and the nine
     /// counters are observed, so the rows repaint whether this screen or something else moved them —
@@ -269,6 +269,21 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>True while the panel is showing. Read by <see cref="BoardInputView"/>.</summary>
         internal bool IsOpen => _panel != null && _panel.activeSelf;
 
+        /// <summary>The card's own rect, current size included. Read by <see cref="HubPanelView"/> to
+        /// sit its tab bar flush against whichever card is open, rather than at a fixed offset that
+        /// would gap open against a shorter card.</summary>
+        internal RectTransform CardRect => _cardRect;
+
+        /// <summary>This card's own close cross. Hidden by <see cref="HubPanelView"/> once opened
+        /// there, since the hub's own header now carries the one close button for whichever tab is
+        /// open.</summary>
+        internal RectTransform CloseButtonRect => _closeButtonRect;
+
+        /// <summary>This card's own title, which just repeats the tab it belongs to. Hidden by
+        /// <see cref="HubPanelView"/> once opened there, since the hub's own header now says the same
+        /// thing.</summary>
+        internal Text HeaderTitleText => _headerText;
+
         /// <summary>Shows the card and holds the run's clock. Called by <see cref="BoardInputView"/>
         /// when the HUD icon is tapped.</summary>
         internal void Open()
@@ -325,7 +340,12 @@ namespace MustyBlockBlast.Presentation.Views
             Close();
         }
 
-        private void Close()
+        /// <summary>
+        /// Shuts the card and releases the menu pause. Reachable by <c>HubPanelView</c>, which shuts the
+        /// outgoing card when the player switches tabs; every other caller is this class's own dismiss
+        /// paths.
+        /// </summary>
+        internal void Close()
         {
             _panel.SetActive(false);
             _timerRunSystem.SetMenuPaused(false);

@@ -17,10 +17,9 @@ namespace MustyBlockBlast.Presentation.Views
     /// and consequences are decided by the System.
     /// <para>
     /// A press is resolved by a single ordered gate chain, so exactly one claimant handles it: the
-    /// eight modal overlays (settings, level path, badges, profile, leaderboard, power-up shop,
-    /// objective info, Coin Sower picker), game
-    /// over, the settings icon, the level path icon, the badges icon, the profile icon, the
-    /// leaderboard icon, the power-up shop icon, an objective icon, a
+    /// four modal overlays (the hub — which is itself the one owner of the settings, power-up shop,
+    /// leaderboard, profile and badges cards — level path, objective info, Coin Sower picker), game
+    /// over, the settings icon, the level path icon, an objective icon, a
     /// power-up inventory icon, an armed power-up being aimed at the board, and finally a tray piece
     /// being picked up. HUD icons are resolved
     /// here rather than by an EventSystem: the scene has one, but every UI Image outside
@@ -94,17 +93,9 @@ namespace MustyBlockBlast.Presentation.Views
         private PieceTrayView _trayView;
         private HoldSlotView _holdSlotView;
         private SettingsButtonView _settingsButtonView;
-        private SettingsPanelView _settingsPanelView;
+        private HubPanelView _hubPanelView;
         private LevelPathButtonView _levelPathButtonView;
         private LevelPathPanelView _levelPathPanelView;
-        private BadgesButtonView _badgesButtonView;
-        private BadgesPanelView _badgesPanelView;
-        private ProfileButtonView _profileButtonView;
-        private ProfilePanelView _profilePanelView;
-        private LeaderboardButtonView _leaderboardButtonView;
-        private LeaderboardPanelView _leaderboardPanelView;
-        private PowerUpShopButtonView _powerUpShopButtonView;
-        private PowerUpShopView _powerUpShopView;
         private CoinSowerPickerView _coinSowerPickerView;
         private GameOverView _gameOverView;
         private CoinConversionView _coinConversionView;
@@ -160,17 +151,9 @@ namespace MustyBlockBlast.Presentation.Views
             PieceTrayView trayView,
             HoldSlotView holdSlotView,
             SettingsButtonView settingsButtonView,
-            SettingsPanelView settingsPanelView,
+            HubPanelView hubPanelView,
             LevelPathButtonView levelPathButtonView,
             LevelPathPanelView levelPathPanelView,
-            BadgesButtonView badgesButtonView,
-            BadgesPanelView badgesPanelView,
-            ProfileButtonView profileButtonView,
-            ProfilePanelView profilePanelView,
-            LeaderboardButtonView leaderboardButtonView,
-            LeaderboardPanelView leaderboardPanelView,
-            PowerUpShopButtonView powerUpShopButtonView,
-            PowerUpShopView powerUpShopView,
             CoinSowerPickerView coinSowerPickerView,
             GameOverView gameOverView,
             CoinConversionView coinConversionView,
@@ -190,17 +173,9 @@ namespace MustyBlockBlast.Presentation.Views
             _trayView = trayView;
             _holdSlotView = holdSlotView;
             _settingsButtonView = settingsButtonView;
-            _settingsPanelView = settingsPanelView;
+            _hubPanelView = hubPanelView;
             _levelPathButtonView = levelPathButtonView;
             _levelPathPanelView = levelPathPanelView;
-            _badgesButtonView = badgesButtonView;
-            _badgesPanelView = badgesPanelView;
-            _profileButtonView = profileButtonView;
-            _profilePanelView = profilePanelView;
-            _leaderboardButtonView = leaderboardButtonView;
-            _leaderboardPanelView = leaderboardPanelView;
-            _powerUpShopButtonView = powerUpShopButtonView;
-            _powerUpShopView = powerUpShopView;
             _coinSowerPickerView = coinSowerPickerView;
             _gameOverView = gameOverView;
             _coinConversionView = coinConversionView;
@@ -355,15 +330,17 @@ namespace MustyBlockBlast.Presentation.Views
         {
             Vector2 screenPosition = _pointerPositionAction.ReadValue<Vector2>();
 
-            // While any overlay is open it is modal and swallows every tap. These eight gates are also
+            // While any overlay is open it is modal and swallows every tap. These four gates are also
             // what keeps the overlays mutually exclusive, and the argument scales with their number
             // rather than pairing them off: *every* "is a panel open, route the tap into it" gate sits
             // above *every* "tapped an icon, open that panel" gate, so an icon tap is only ever reached
-            // with all eight panels closed. No panel can therefore stack on another, and the single
+            // with all four panels closed. No panel can therefore stack on another, and the single
             // TimerRunSystem menu-pause flag they all share can never be held by two owners at once.
-            if (_settingsPanelView.IsOpen)
+            // The hub counts once here for the five cards it owns: it is their only opener and only
+            // router, so the five cannot stack on each other either.
+            if (_hubPanelView.IsOpen)
             {
-                _settingsPanelView.HandleTap(screenPosition);
+                _hubPanelView.HandleTap(screenPosition);
                 return;
             }
 
@@ -373,30 +350,6 @@ namespace MustyBlockBlast.Presentation.Views
             // Swallowing it is still this gate's job — that is what keeps the press off the board.
             if (_levelPathPanelView.IsOpen)
             {
-                return;
-            }
-
-            if (_badgesPanelView.IsOpen)
-            {
-                _badgesPanelView.HandleTap(screenPosition);
-                return;
-            }
-
-            if (_profilePanelView.IsOpen)
-            {
-                _profilePanelView.HandleTap(screenPosition);
-                return;
-            }
-
-            if (_leaderboardPanelView.IsOpen)
-            {
-                _leaderboardPanelView.HandleTap(screenPosition);
-                return;
-            }
-
-            if (_powerUpShopView.IsOpen)
-            {
-                _powerUpShopView.HandleTap(screenPosition);
                 return;
             }
 
@@ -416,7 +369,7 @@ namespace MustyBlockBlast.Presentation.Views
                 return;
             }
 
-            // Above the game-over gate below, not among the six panel gates: the conversion screen is
+            // Above the game-over gate below, not among the four panel gates: the conversion screen is
             // the one overlay that opens *because* a run ended, so it is showing exactly when the
             // card-wide restart tap is live underneath it. Routing into it first is what keeps a tap on
             // "Convert" from also restarting the run. Its own scrim tap closes it and hands the next tap
@@ -435,7 +388,10 @@ namespace MustyBlockBlast.Presentation.Views
             {
                 if (_gameOverView.ContainsChangeModeScreenPoint(screenPosition))
                 {
-                    _settingsPanelView.Open();
+                    // Straight to the settings tab, which is where the mode row lives — the link names
+                    // a setting, so it opens on the section that holds it rather than on the hub's
+                    // front door.
+                    _hubPanelView.Open(HubTab.Settings);
                     return;
                 }
 
@@ -452,9 +408,11 @@ namespace MustyBlockBlast.Presentation.Views
                 return;
             }
 
+            // The one persistent corner button left, and the only way into the hub: the power-up shop,
+            // leaderboard, profile and badges icons that used to sit under it are now tabs inside it.
             if (_settingsButtonView.ContainsScreenPoint(screenPosition))
             {
-                _settingsPanelView.Open();
+                _hubPanelView.Open();
                 return;
             }
 
@@ -464,31 +422,7 @@ namespace MustyBlockBlast.Presentation.Views
                 return;
             }
 
-            if (_badgesButtonView.ContainsScreenPoint(screenPosition))
-            {
-                _badgesPanelView.Open();
-                return;
-            }
-
-            if (_profileButtonView.ContainsScreenPoint(screenPosition))
-            {
-                _profilePanelView.Open();
-                return;
-            }
-
-            if (_leaderboardButtonView.ContainsScreenPoint(screenPosition))
-            {
-                _leaderboardPanelView.Open();
-                return;
-            }
-
-            if (_powerUpShopButtonView.ContainsScreenPoint(screenPosition))
-            {
-                _powerUpShopView.Open();
-                return;
-            }
-
-            // Same tier as the five icons above: a HUD widget that answers "was I tapped" and opens an
+            // Same tier as the two icons above: a HUD widget that answers "was I tapped" and opens an
             // overlay. Resolved per slot rather than per widget, because the objective row draws one
             // hotspot per tracked objective and the popup has to know which one.
             if (_objectiveIconContainerView.TryGetTappedObjectiveIndex(screenPosition, out int objectiveIndex))

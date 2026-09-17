@@ -505,17 +505,16 @@ namespace MustyBlockBlast.Presentation
         {
             builder.RegisterComponentInHierarchy<BoardView>();
             builder.RegisterComponentInHierarchy<BackgroundView>();
+            // The one persistent corner icon left. It opens the hub, which is the single modal owner of
+            // the five cards below it — so those five have no icon of their own any more, only a tab.
             builder.RegisterComponentInHierarchy<SettingsButtonView>();
+            builder.RegisterComponentInHierarchy<HubPanelView>();
             builder.RegisterComponentInHierarchy<SettingsPanelView>();
             builder.RegisterComponentInHierarchy<LevelPathButtonView>();
             builder.RegisterComponentInHierarchy<LevelPathPanelView>();
-            builder.RegisterComponentInHierarchy<BadgesButtonView>();
             builder.RegisterComponentInHierarchy<BadgesPanelView>();
-            builder.RegisterComponentInHierarchy<ProfileButtonView>();
             builder.RegisterComponentInHierarchy<ProfilePanelView>();
-            builder.RegisterComponentInHierarchy<LeaderboardButtonView>();
             builder.RegisterComponentInHierarchy<LeaderboardPanelView>();
-            builder.RegisterComponentInHierarchy<PowerUpShopButtonView>();
             builder.RegisterComponentInHierarchy<PowerUpShopView>();
 
             // The level-start Coin Sower picker. Taken as a dependency by LevelPathPanelView, whose node
