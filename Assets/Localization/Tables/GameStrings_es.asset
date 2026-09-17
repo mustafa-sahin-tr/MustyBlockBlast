@@ -294,6 +294,22 @@ MonoBehaviour:
     m_Localized: Guardar
     m_Metadata:
       m_Items: []
+  - m_Id: 1355798369263616
+    m_Localized: Tienda de potenciadores
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1355798423789568
+    m_Localized: "Clasificaci\xF3n"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1355798423789569
+    m_Localized: Perfil
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1355798423789570
+    m_Localized: Insignias
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

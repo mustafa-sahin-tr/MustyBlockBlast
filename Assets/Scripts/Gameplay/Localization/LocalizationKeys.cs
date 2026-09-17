@@ -164,6 +164,14 @@ namespace MustyBlockBlast.Gameplay.Localization
         public const string OBJECTIVE_FAMILY_S_SHAPE = "objective.family.s_shape";
         public const string OBJECTIVE_FAMILY_Z_SHAPE = "objective.family.z_shape";
 
+        // --- Hub ---
+
+        /// <summary>Header titles of the hub's tabs. Settings reuses <see cref="SETTINGS_TITLE"/>.</summary>
+        public const string HUB_TAB_POWER_UP_SHOP = "hub.tab.power_up_shop";
+        public const string HUB_TAB_LEADERBOARD = "hub.tab.leaderboard";
+        public const string HUB_TAB_PROFILE = "hub.tab.profile";
+        public const string HUB_TAB_BADGES = "hub.tab.badges";
+
         // --- Hold slot ---
 
         /// <summary>Short label under the empty Hold slot, telling the player what dragging a tray

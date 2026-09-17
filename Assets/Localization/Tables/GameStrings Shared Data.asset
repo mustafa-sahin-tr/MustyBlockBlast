@@ -291,6 +291,22 @@ MonoBehaviour:
     m_Key: hold_slot.empty_hint
     m_Metadata:
       m_Items: []
+  - m_Id: 1355798369263616
+    m_Key: hub.tab.power_up_shop
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1355798423789568
+    m_Key: hub.tab.leaderboard
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1355798423789569
+    m_Key: hub.tab.profile
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1355798423789570
+    m_Key: hub.tab.badges
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:
