@@ -98,6 +98,7 @@ namespace MustyBlockBlast.Presentation.Views
         private LevelPathPanelView _levelPathPanelView;
         private CoinSowerPickerView _coinSowerPickerView;
         private GameOverView _gameOverView;
+        private RunResultView _runResultView;
         private CoinConversionView _coinConversionView;
         private PowerUpInventoryView _powerUpInventoryView;
         private ObjectiveIconContainerView _objectiveIconContainerView;
@@ -156,6 +157,7 @@ namespace MustyBlockBlast.Presentation.Views
             LevelPathPanelView levelPathPanelView,
             CoinSowerPickerView coinSowerPickerView,
             GameOverView gameOverView,
+            RunResultView runResultView,
             CoinConversionView coinConversionView,
             PowerUpInventoryView powerUpInventoryView,
             ObjectiveIconContainerView objectiveIconContainerView,
@@ -178,6 +180,7 @@ namespace MustyBlockBlast.Presentation.Views
             _levelPathPanelView = levelPathPanelView;
             _coinSowerPickerView = coinSowerPickerView;
             _gameOverView = gameOverView;
+            _runResultView = runResultView;
             _coinConversionView = coinConversionView;
             _powerUpInventoryView = powerUpInventoryView;
             _objectiveIconContainerView = objectiveIconContainerView;
@@ -383,6 +386,15 @@ namespace MustyBlockBlast.Presentation.Views
             // so honouring a tap on the icon hidden underneath it would be a hidden hotspot. The
             // "change mode" link, "Play Again" and "Next Level" are the exceptions — each is drawn on
             // the card itself, so each is visible and must win over the card-wide restart tap.
+            // The result summary opens on the same message the game-over card does and sits over it,
+            // so it is showing exactly when the card-wide restart tap below is live. Routing into it
+            // first is what keeps the tap that dismisses the summary from also restarting the run.
+            if (_runResultView.IsOpen)
+            {
+                _runResultView.HandleTap(screenPosition);
+                return;
+            }
+
             if (_boardSystem.IsGameOver)
             {
                 if (_gameOverView.ContainsChangeModeScreenPoint(screenPosition))

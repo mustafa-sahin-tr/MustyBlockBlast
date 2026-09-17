@@ -422,6 +422,22 @@ MonoBehaviour:
     m_Localized: "Anotador de \xE9lite"
     m_Metadata:
       m_Items: []
+  - m_Id: 1371178030587920
+    m_Localized: FIN DE LA PARTIDA
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587921
+    m_Localized: Puntos {0}
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587922
+    m_Localized: Total {0}
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587923
+    m_Localized: Toca para continuar
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

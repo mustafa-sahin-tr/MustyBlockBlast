@@ -419,6 +419,22 @@ MonoBehaviour:
     m_Key: badge.name.elite_scorer
     m_Metadata:
       m_Items: []
+  - m_Id: 1371178030587920
+    m_Key: result.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587921
+    m_Key: result.run_score
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587922
+    m_Key: result.lifetime_total
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587923
+    m_Key: result.tap_hint
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

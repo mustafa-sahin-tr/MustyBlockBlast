@@ -71,6 +71,20 @@ namespace MustyBlockBlast.Gameplay.Localization
         /// only ever adds to the second.</summary>
         public const string GAME_OVER_SCORE_AND_PATH_TOTAL = "gameover.score_and_path_total";
 
+        // --- Run result (issue #220) ---
+
+        /// <summary>Title of the result summary card shown on game over, before the game-over card.</summary>
+        public const string RUN_RESULT_TITLE = "result.title";
+
+        /// <summary><c>{0}</c> is the score of the run that just ended.</summary>
+        public const string RUN_RESULT_RUN_SCORE = "result.run_score";
+
+        /// <summary><c>{0}</c> is the lifetime total of every point ever scored, this run included.</summary>
+        public const string RUN_RESULT_LIFETIME_TOTAL = "result.lifetime_total";
+
+        /// <summary>Dismiss hint at the foot of the result card.</summary>
+        public const string RUN_RESULT_TAP_HINT = "result.tap_hint";
+
         // --- Game modes ---
 
         public const string MODE_ENDLESS = "mode.endless";

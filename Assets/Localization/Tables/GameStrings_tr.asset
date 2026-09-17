@@ -422,6 +422,22 @@ MonoBehaviour:
     m_Localized: Elit Skorcu
     m_Metadata:
       m_Items: []
+  - m_Id: 1371178030587920
+    m_Localized: "OYUN B\u0130TT\u0130"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587921
+    m_Localized: Skor {0}
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587922
+    m_Localized: Toplam {0}
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587923
+    m_Localized: "Devam etmek i\xE7in dokun"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

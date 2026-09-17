@@ -557,6 +557,10 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterComponentInHierarchy<ObjectiveIconContainerView>();
             builder.RegisterComponentInHierarchy<ObjectiveInfoPopupView>();
             builder.RegisterComponentInHierarchy<GameOverView>();
+
+            // Opens on the same GameOverMessage as GameOverView and sits over it until tapped away
+            // (issue #220); BoardInputView routes into it ahead of the game-over restart tap.
+            builder.RegisterComponentInHierarchy<RunResultView>();
             builder.RegisterComponentInHierarchy<CoinConversionView>();
             builder.RegisterComponentInHierarchy<BoardInputView>();
             builder.RegisterComponentInHierarchy<SfxPlayerView>();
