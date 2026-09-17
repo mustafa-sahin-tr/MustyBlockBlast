@@ -14,7 +14,15 @@ namespace MustyBlockBlast.Presentation.Views
 {
     /// <summary>
     /// The Hold slot ("pocket"): one plate showing the single parked piece, or an empty outline when
-    /// nothing is parked. Reads <see cref="TrayModel"/> only.
+    /// nothing is parked, with a badge counting the Hold charges left. Reads <see cref="TrayModel"/>
+    /// for what is parked and <see cref="PowerUpModel.HoldCount"/> for whether parking can be paid for.
+    /// <para>
+    /// The charge is drawn the way the power-up strip draws its counts — a chip on the bottom-right
+    /// corner, accent when the player holds some, soft ink when none — and a pocket with no charge dims
+    /// to the strip's empty-slot alpha, so "cannot park right now" reads in the same language as
+    /// "holds no bombs". The parked-piece miniature never dims: a piece stuck behind an empty inventory
+    /// is still a real piece the player owns and must be able to see.
+    /// </para>
     /// <para>
     /// Centred beneath <see cref="PieceTrayView"/>'s card, sharing its horizontal centre, rather than
     /// corner-anchored near the score readout: the pocket is a tray affordance, not a HUD button, and
@@ -45,6 +53,20 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>Alpha of the empty-state arrow and label. Kept well above <see cref="EMPTY_PLATE_ALPHA"/>
         /// so the "drop a piece here" hint stays legible even while the plate itself fades.</summary>
         private const float EMPTY_HINT_ALPHA = 0.85f;
+
+        /// <summary>Alpha of the plate while the player holds no Hold charge, occupied or not. The same
+        /// figure as the strip's empty slot, so the two kinds of "cannot use this" read alike.</summary>
+        private const float NO_CHARGE_PLATE_ALPHA = 0.35f;
+
+        /// <summary>Side of the charge badge, as a fraction of the slot — the strip's ratio.</summary>
+        private const float BADGE_SIZE = 0.36f;
+
+        /// <summary>How far the badge is pushed past the plate's bottom-right corner, as on the strip.</summary>
+        private const float BADGE_CORNER_OVERLAP = 4f;
+
+        /// <summary>Fraction of the badge the count glyph may fill, so a large serialized font size
+        /// cannot spill the number off its own chip.</summary>
+        private const float BADGE_FONT_FILL = 0.66f;
 
         [Header("Layout")]
         [FormerlySerializedAs("_cornerOffset")]
@@ -80,6 +102,10 @@ namespace MustyBlockBlast.Presentation.Views
         [Tooltip("Gap between the plate's bottom edge and the empty-state label.")]
         [SerializeField] private float _emptyLabelGap = 10f;
 
+        [Header("Charge badge")]
+        [Tooltip("Preferred font size of the charge count. Clamped to the badge so it can never overhang it.")]
+        [SerializeField] private int _countFontSize = 34;
+
         private readonly List<CellView> _pieceCells = new List<CellView>(9);
 
         /// <summary>Reused by the per-drag-frame overlap test so it allocates nothing.</summary>
@@ -95,22 +121,28 @@ namespace MustyBlockBlast.Presentation.Views
         private Image _shadowImage;
         private Image _emptyGlyphImage;
         private Text _emptyLabelText;
+        private Image _badgeImage;
+        private Text _countText;
 
         private TrayModel _trayModel;
+        private PowerUpModel _powerUpModel;
         private SettingsModel _settingsModel;
         private LocalizationModel _localizationModel;
         private LocalizationSystem _localizationSystem;
         private ThemeDefinition _currentTheme;
         private bool _isHovered;
+        private int _holdCount;
 
         [Inject]
         public void Construct(
             TrayModel trayModel,
+            PowerUpModel powerUpModel,
             SettingsModel settingsModel,
             LocalizationModel localizationModel,
             LocalizationSystem localizationSystem)
         {
             _trayModel = trayModel;
+            _powerUpModel = powerUpModel;
             _settingsModel = settingsModel;
             _localizationModel = localizationModel;
             _localizationSystem = localizationSystem;
@@ -125,7 +157,7 @@ namespace MustyBlockBlast.Presentation.Views
 
         private void Start()
         {
-            if (_trayModel == null || _settingsModel == null
+            if (_trayModel == null || _powerUpModel == null || _settingsModel == null
                 || _localizationModel == null || _localizationSystem == null)
             {
                 Debug.LogError(
@@ -136,6 +168,7 @@ namespace MustyBlockBlast.Presentation.Views
             // Subscribed first so _currentTheme is set before the initial rebuild paints a cell.
             _settingsModel.CurrentTheme.Subscribe(OnThemeChanged).AddTo(_disposables);
             _localizationModel.CurrentLocale.Subscribe(OnLocaleChanged).AddTo(_disposables);
+            _powerUpModel.HoldCount.Subscribe(OnHoldCountChanged).AddTo(_disposables);
 
             _trayModel.HeldChanged += OnHeldChanged;
             RebuildHeldPiece();
@@ -207,6 +240,12 @@ namespace MustyBlockBlast.Presentation.Views
 
         private void OnHeldChanged() => RebuildHeldPiece();
 
+        private void OnHoldCountChanged(int count)
+        {
+            _holdCount = count;
+            RefreshPlate();
+        }
+
         private void OnLocaleChanged(LocaleDefinition locale)
             => _emptyLabelText.text = _localizationSystem.Translate(LocalizationKeys.HOLD_SLOT_EMPTY_HINT);
 
@@ -233,8 +272,8 @@ namespace MustyBlockBlast.Presentation.Views
             }
         }
 
-        /// <summary>Repaints the plate from the two things that change how it looks: whether something
-        /// is parked, and whether a drag is hovering it.</summary>
+        /// <summary>Repaints the plate from the three things that change how it looks: whether something
+        /// is parked, whether a charge is left to park with, and whether a drag is hovering it.</summary>
         private void RefreshPlate()
         {
             if (_currentTheme == null || _plateImage == null)
@@ -243,20 +282,40 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             bool isOccupied = _trayModel != null && _trayModel.IsHoldOccupied;
-            float alpha = isOccupied ? 1f : EMPTY_PLATE_ALPHA;
+            bool hasCharge = _holdCount > 0;
+
+            // No charge dims the plate whatever is parked in it — the drop would be refused, and the
+            // piece's own miniature (never dimmed) is what says "something is still in here".
+            float alpha = !hasCharge
+                ? NO_CHARGE_PLATE_ALPHA
+                : isOccupied ? 1f : EMPTY_PLATE_ALPHA;
 
             // Hovering inverts the plate to the accent colour, the same "selected" language the
-            // power-up strip uses for an armed icon — no second sprite needed.
-            Color plateColour = _isHovered ? _currentTheme.Accent : _currentTheme.CardBackground;
+            // power-up strip uses for an armed icon — no second sprite needed. Only when the drop
+            // could be paid for: lighting a pocket that will refuse the piece would promise a park
+            // the System is about to decline.
+            bool isLit = _isHovered && hasCharge;
+            Color plateColour = isLit ? _currentTheme.Accent : _currentTheme.CardBackground;
 
-            _plateImage.color = WithAlpha(plateColour, _isHovered ? 1f : alpha);
+            _plateImage.color = WithAlpha(plateColour, isLit ? 1f : alpha);
             _shadowImage.color = WithAlpha(_currentTheme.CardShadow, alpha);
 
-            Color hintColour = isOccupied ? Color.clear : WithAlpha(_currentTheme.SoftInk, EMPTY_HINT_ALPHA);
+            // The "drop a piece here" hint is an invitation, so it is shown only when accepting the
+            // invitation would work: an empty pocket with a charge to spend on it.
+            Color hintColour = isOccupied || !hasCharge
+                ? Color.clear
+                : WithAlpha(_currentTheme.SoftInk, EMPTY_HINT_ALPHA);
             _emptyGlyphImage.color = hintColour;
             _emptyLabelText.color = hintColour;
 
-            float scale = _isHovered ? _hoverScale : 1f;
+            // The badge is drawn at full strength over an otherwise dimmed plate, exactly as on the
+            // strip: it states a number, and a number has to be legible in every state. Two tones for
+            // the same reason — accent means "you hold this many", soft ink means "none left".
+            _badgeImage.color = hasCharge ? _currentTheme.Accent : _currentTheme.SoftInk;
+            _countText.color = _currentTheme.CardBackground;
+            _countText.text = _holdCount.ToString();
+
+            float scale = isLit ? _hoverScale : 1f;
             _rectTransform.localScale = new Vector3(scale, scale, 1f);
         }
 
@@ -370,6 +429,28 @@ namespace MustyBlockBlast.Presentation.Views
                 _rectTransform, "EmptyLabel", _emptyLabelFontSize, FontStyle.Bold, Color.clear);
             var labelRect = (RectTransform)_emptyLabelText.transform;
             labelRect.anchoredPosition = new Vector2(0f, -((_slotSize * 0.5f) + _emptyLabelGap));
+
+            // A sibling of the plate rather than a child of it, and built last, so it draws over both
+            // the plate and the parked-piece miniature without inheriting the plate's colour — the
+            // same construction as the strip's count chip, in the same corner.
+            float badgeSide = _slotSize * BADGE_SIZE;
+            var badgeObject = new GameObject("CountBadge", typeof(RectTransform), typeof(Image));
+            var badgeRect = (RectTransform)badgeObject.transform;
+            badgeRect.SetParent(_rectTransform, false);
+            badgeRect.anchorMin = new Vector2(1f, 0f);
+            badgeRect.anchorMax = new Vector2(1f, 0f);
+            badgeRect.pivot = new Vector2(0.5f, 0.5f);
+            badgeRect.sizeDelta = new Vector2(badgeSide, badgeSide);
+            badgeRect.anchoredPosition = new Vector2(BADGE_CORNER_OVERLAP, -BADGE_CORNER_OVERLAP);
+            _badgeImage = badgeObject.GetComponent<Image>();
+            _badgeImage.sprite = UiSpriteFactory.Circle;
+            _badgeImage.type = Image.Type.Simple;
+            _badgeImage.color = Color.clear;
+            _badgeImage.raycastTarget = false;
+
+            int fontSize = Mathf.Min(_countFontSize, Mathf.RoundToInt(badgeSide * BADGE_FONT_FILL));
+            _countText = UiTextFactory.Create(badgeRect, "Count", fontSize, FontStyle.Bold, Color.clear);
+            ((RectTransform)_countText.transform).sizeDelta = new Vector2(badgeSide, badgeSide);
         }
 
         private static Color WithAlpha(Color colour, float alphaScale)
