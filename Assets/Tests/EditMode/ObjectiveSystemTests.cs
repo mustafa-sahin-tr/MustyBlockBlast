@@ -42,6 +42,21 @@ namespace MustyBlockBlast.Tests.EditMode
                 _powerUpAppliedBroker, _progressChangedBroker, _completedBroker);
         }
 
+        /// <summary>A placement that cleared one row, with only the reinforced-cell report varying —
+        /// everything else is the same ordinary clear, so the only thing under test is whether the
+        /// count threads through <see cref="ObjectiveSystem.OnPiecePlaced"/>'s context.</summary>
+        private static PiecePlacedMessage APlacement(int reinforcedCellsFullyClearedCount)
+        {
+            return new PiecePlacedMessage(
+                pieceId: "line_h4", anchor: new GridPosition(0, 0), pieceFamily: PieceFamily.Line,
+                cellCount: 4, colourId: 1, linesCleared: 1, rowsCleared: 1, columnsCleared: 0,
+                monochromeLineCount: 0, boardEmptyAfterPlacement: false,
+                occupiedCellCountBeforeClear: 0, anyCornerCleared: false,
+                centerCoreEmptyAfterPlacement: false, hasIsolatedHolesAfterPlacement: false,
+                destroyedScoreGemCount: 0,
+                reinforcedCellsFullyClearedCount: reinforcedCellsFullyClearedCount);
+        }
+
         private static ObjectiveProgress BombLineObjective(int targetValue = 1)
         {
             return new ObjectiveProgress(new ObjectiveDefinition(
@@ -204,6 +219,97 @@ namespace MustyBlockBlast.Tests.EditMode
 
             Assert.AreEqual(1, objective.CurrentValue);
             Assert.IsTrue(objective.IsComplete);
+        }
+
+        private static ObjectiveProgress ReinforcedCellsObjective(int targetValue = 1)
+        {
+            return new ObjectiveProgress(new ObjectiveDefinition(
+                "reinforced", ObjectiveType.ReinforcedCellsCleared, ObjectiveScope.PerRun, targetValue));
+        }
+
+        [Test]
+        public void OnPiecePlaced_FinishingOffAReinforcedCell_AdvancesTheObjective()
+        {
+            _objectiveModel.SetCurrentObjective(ReinforcedCellsObjective());
+
+            _piecePlacedBroker.Publish(APlacement(reinforcedCellsFullyClearedCount: 1));
+
+            Assert.AreEqual(1, _objectiveModel.CurrentObjective.CurrentValue);
+            Assert.IsTrue(_objectiveModel.CurrentObjective.IsComplete);
+            Assert.AreEqual(1, _completedBroker.Published.Count);
+        }
+
+        /// <summary>AC5 end to end: a placement whose clear only decremented a reinforced cell's hit
+        /// count reports zero fully cleared, and the objective must not budge.</summary>
+        [Test]
+        public void OnPiecePlaced_OnlyDamagingAReinforcedCell_DoesNotAdvanceTheObjective()
+        {
+            _objectiveModel.SetCurrentObjective(ReinforcedCellsObjective());
+
+            _piecePlacedBroker.Publish(APlacement(reinforcedCellsFullyClearedCount: 0));
+
+            Assert.AreEqual(0, _objectiveModel.CurrentObjective.CurrentValue);
+            Assert.IsFalse(_objectiveModel.CurrentObjective.IsComplete);
+            Assert.AreEqual(0, _progressChangedBroker.Published.Count);
+            Assert.AreEqual(0, _completedBroker.Published.Count);
+        }
+
+        [Test]
+        public void OnPiecePlaced_FinishingOffTwoReinforcedCellsAtOnce_AdvancesByTwo()
+        {
+            _objectiveModel.SetCurrentObjective(ReinforcedCellsObjective(targetValue: 3));
+
+            _piecePlacedBroker.Publish(APlacement(reinforcedCellsFullyClearedCount: 2));
+
+            Assert.AreEqual(2, _objectiveModel.CurrentObjective.CurrentValue);
+            Assert.IsFalse(_objectiveModel.CurrentObjective.IsComplete);
+        }
+
+        /// <summary>The second event source: a spent power-up that finished a reinforced cell off is the
+        /// same destruction, arriving on the other message.</summary>
+        [Test]
+        public void OnPowerUpApplied_FinishingOffAReinforcedCell_AdvancesTheObjective()
+        {
+            _objectiveModel.SetCurrentObjective(ReinforcedCellsObjective());
+
+            _powerUpAppliedBroker.Publish(new PowerUpAppliedMessage(
+                PowerUpKind.Bomb, clearedCellCount: 5, clearedLineCount: 0, emptiedLineCount: 0,
+                wasClutchSave: false, destroyedScoreGemCount: 0, reinforcedCellsFullyClearedCount: 1));
+
+            Assert.AreEqual(1, _objectiveModel.CurrentObjective.CurrentValue);
+            Assert.IsTrue(_objectiveModel.CurrentObjective.IsComplete);
+            Assert.AreEqual(1, _completedBroker.Published.Count);
+        }
+
+        [Test]
+        public void OnPowerUpApplied_ThatOnlyDamagedAReinforcedCell_DoesNotAdvanceTheObjective()
+        {
+            _objectiveModel.SetCurrentObjective(ReinforcedCellsObjective());
+
+            _powerUpAppliedBroker.Publish(new PowerUpAppliedMessage(
+                PowerUpKind.RowClear, clearedCellCount: 7, clearedLineCount: 0, emptiedLineCount: 0,
+                wasClutchSave: false, destroyedScoreGemCount: 0, reinforcedCellsFullyClearedCount: 0));
+
+            Assert.AreEqual(0, _objectiveModel.CurrentObjective.CurrentValue);
+            Assert.AreEqual(0, _progressChangedBroker.Published.Count);
+        }
+
+        /// <summary>Why the reinforced branch is an independent <c>if</c> rather than chained onto the
+        /// Bomb branch that early-returns: one Bomb application really can do both, and a reinforced-cell
+        /// objective tracked alongside a Bomb one must still be credited.</summary>
+        [Test]
+        public void OnPowerUpApplied_ABombThatBothEmptiedALineAndFinishedAReinforcedCell_CreditsBoth()
+        {
+            ObjectiveProgress reinforced = ReinforcedCellsObjective();
+            ObjectiveProgress bombLine = BombLineObjective();
+            _objectiveModel.SetObjectives(new[] { reinforced, bombLine });
+
+            _powerUpAppliedBroker.Publish(new PowerUpAppliedMessage(
+                PowerUpKind.Bomb, clearedCellCount: 5, clearedLineCount: 0, emptiedLineCount: 1,
+                wasClutchSave: false, destroyedScoreGemCount: 0, reinforcedCellsFullyClearedCount: 1));
+
+            Assert.AreEqual(1, reinforced.CurrentValue);
+            Assert.AreEqual(1, bombLine.CurrentValue);
         }
 
         [Test]

@@ -89,5 +89,34 @@ namespace MustyBlockBlast.Core
         /// in only via <see cref="ObjectiveProgress.ApplyPowerUpRerollSave"/>, the same shape
         /// <see cref="BombInducedLineClear"/> uses.</summary>
         RerollSave = 16,
+
+        /// <summary>Count reinforced cells whose hit count reached 0 and were actually removed from the
+        /// board. A cell that merely took a hit and survived counts for nothing — only the destruction
+        /// does, which is what makes "clear all of them" a finite goal rather than a hit tally.
+        /// <para>
+        /// The target is not authored: <see cref="MustyBlockBlast.Gameplay.Settings.LevelObjectiveConfig.ToObjectiveDefinition"/>
+        /// always forces it to the count of reinforced cells the level authored, so the objective is
+        /// always "all of them" and never a subset.
+        /// </para>
+        /// <para>
+        /// A genuinely new shape among the special types: this is the only one advanced by BOTH
+        /// <see cref="ObjectiveProgress.ApplyPlacement"/> (a placement's own line clear can finish a
+        /// reinforced cell off, arriving as <c>PiecePlacedMessage.ReinforcedCellsFullyClearedCount</c>)
+        /// AND a dedicated <see cref="ObjectiveProgress.ApplyPowerUpReinforcedCellsCleared"/> (a spent
+        /// power-up can finish one off too, arriving as
+        /// <c>PowerUpAppliedMessage.ReinforcedCellsFullyClearedCount</c>). <see cref="BombInducedLineClear"/>
+        /// and <see cref="RerollSave"/> are power-up-sourced ONLY, so each needs just the one method;
+        /// this type has two real event sources and so needs both paths.
+        /// </para>
+        /// <para>
+        /// Unlike every other counting type, one event can advance it by more than 1: a single cleared
+        /// row can finish off two reinforced cells at once, and both destructions must be credited.
+        /// </para>
+        /// <para>
+        /// Known gap, inherited from the mechanic itself: a reinforced cell finished off by a special
+        /// cell's own blast/wipe/strike mid-cascade never passes through a clear phase, so it is not
+        /// reported on either message and does not advance this objective.
+        /// </para></summary>
+        ReinforcedCellsCleared = 17,
     }
 }

@@ -24,13 +24,14 @@ namespace MustyBlockBlast.Tests.EditMode
             bool anyCornerCleared = false,
             bool centerCoreEmptyAfterPlacement = false,
             bool hasIsolatedHolesAfterPlacement = false,
-            float elapsedRunSeconds = 0f)
+            float elapsedRunSeconds = 0f,
+            int reinforcedCellsFullyCleared = 0)
         {
             return new ObjectivePlacementContext(
                 linesCleared, rowsCleared, columnsCleared, pieceFamily, pieceId, currentRunScore,
                 boardEmptyAfterPlacement, currentStreak, occupiedCellCountBeforeClear,
                 anyCornerCleared, centerCoreEmptyAfterPlacement, hasIsolatedHolesAfterPlacement,
-                elapsedRunSeconds);
+                elapsedRunSeconds, reinforcedCellsFullyCleared);
         }
 
         private static ObjectiveProgress StreakObjective(int targetValue)
@@ -821,6 +822,163 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.AreEqual(0, lineClear.CurrentValue);
             Assert.AreEqual(0, family.CurrentValue);
             Assert.AreEqual(0, streak.CurrentValue);
+        }
+
+        private static ObjectiveProgress ReinforcedCellsObjective(int targetValue)
+        {
+            return new ObjectiveProgress(new ObjectiveDefinition(
+                "reinforced", ObjectiveType.ReinforcedCellsCleared, ObjectiveScope.PerRun, targetValue));
+        }
+
+        [Test]
+        public void ReinforcedCellsCleared_APlacementThatFinishedOneOff_AdvancesByOne()
+        {
+            ObjectiveProgress objective = ReinforcedCellsObjective(targetValue: 3);
+
+            Assert.IsTrue(objective.ApplyPlacement(Placement(
+                linesCleared: 1, reinforcedCellsFullyCleared: 1)));
+            Assert.AreEqual(1, objective.CurrentValue);
+            Assert.IsFalse(objective.IsComplete);
+        }
+
+        /// <summary>AC5, the negative case that is the whole point of counting destructions rather than
+        /// hits: a line clear that merely decremented a reinforced cell's count reports zero fully
+        /// cleared, and must move nothing — even though it really did clear a line.</summary>
+        [Test]
+        public void ReinforcedCellsCleared_APlacementThatOnlyDamagedACell_AdvancesNothing()
+        {
+            ObjectiveProgress objective = ReinforcedCellsObjective(targetValue: 3);
+
+            Assert.IsFalse(objective.ApplyPlacement(Placement(
+                linesCleared: 2, rowsCleared: 1, columnsCleared: 1, reinforcedCellsFullyCleared: 0)));
+            Assert.AreEqual(0, objective.CurrentValue);
+            Assert.IsFalse(objective.IsComplete);
+        }
+
+        /// <summary>The "+N, not +1" rule: two reinforced cells on their last hit in the same cleared row
+        /// are two destructions, and crediting only one would make "clear all 3" unreachable.</summary>
+        [Test]
+        public void ReinforcedCellsCleared_APlacementThatFinishedTwoOff_AdvancesByTwo()
+        {
+            ObjectiveProgress objective = ReinforcedCellsObjective(targetValue: 3);
+
+            Assert.IsTrue(objective.ApplyPlacement(Placement(
+                linesCleared: 1, reinforcedCellsFullyCleared: 2)));
+            Assert.AreEqual(2, objective.CurrentValue);
+            Assert.IsFalse(objective.IsComplete);
+        }
+
+        [Test]
+        public void ReinforcedCellsCleared_APlacementThatOvershootsTheTarget_ClampsAndCompletes()
+        {
+            ObjectiveProgress objective = ReinforcedCellsObjective(targetValue: 2);
+
+            Assert.IsTrue(objective.ApplyPlacement(Placement(reinforcedCellsFullyCleared: 5)));
+            Assert.AreEqual(2, objective.CurrentValue);
+            Assert.IsTrue(objective.IsComplete);
+        }
+
+        /// <summary>AC4: the value clamps to the target and completion latches exactly once, the same
+        /// contract <see cref="CurrentValue_NeverExceedsTarget_AndACompletedObjectiveStopsTracking"/>
+        /// pins for the count-based types that came before it.</summary>
+        [Test]
+        public void ReinforcedCellsCleared_OnceComplete_StopsTracking()
+        {
+            ObjectiveProgress objective = ReinforcedCellsObjective(targetValue: 2);
+
+            Assert.IsTrue(objective.ApplyPlacement(Placement(reinforcedCellsFullyCleared: 1)));
+            Assert.IsTrue(objective.ApplyPlacement(Placement(reinforcedCellsFullyCleared: 1)));
+            Assert.AreEqual(2, objective.CurrentValue);
+            Assert.IsTrue(objective.IsComplete);
+
+            Assert.IsFalse(objective.ApplyPlacement(Placement(reinforcedCellsFullyCleared: 1)));
+            Assert.IsFalse(objective.ApplyPowerUpReinforcedCellsCleared(1));
+            Assert.AreEqual(2, objective.CurrentValue);
+        }
+
+        [Test]
+        public void ReinforcedCellsCleared_ApplyPowerUpReinforcedCellsCleared_AdvancesByTheGivenCount()
+        {
+            ObjectiveProgress objective = ReinforcedCellsObjective(targetValue: 4);
+
+            Assert.IsTrue(objective.ApplyPowerUpReinforcedCellsCleared(2));
+            Assert.AreEqual(2, objective.CurrentValue);
+            Assert.IsFalse(objective.IsComplete);
+
+            Assert.IsTrue(objective.ApplyPowerUpReinforcedCellsCleared(2));
+            Assert.AreEqual(4, objective.CurrentValue);
+            Assert.IsTrue(objective.IsComplete);
+        }
+
+        [TestCase(0)]
+        [TestCase(-1)]
+        public void ReinforcedCellsCleared_ApplyPowerUpWithANonPositiveCount_AdvancesNothing(int count)
+        {
+            ObjectiveProgress objective = ReinforcedCellsObjective(targetValue: 3);
+
+            Assert.IsFalse(objective.ApplyPowerUpReinforcedCellsCleared(count));
+            Assert.AreEqual(0, objective.CurrentValue);
+        }
+
+        [Test]
+        public void ReinforcedCellsCleared_ApplyPowerUpClampsToTheTarget()
+        {
+            ObjectiveProgress objective = ReinforcedCellsObjective(targetValue: 2);
+
+            Assert.IsTrue(objective.ApplyPowerUpReinforcedCellsCleared(9));
+            Assert.AreEqual(2, objective.CurrentValue);
+            Assert.IsTrue(objective.IsComplete);
+        }
+
+        [Test]
+        public void OtherObjectiveTypes_AreNeverAdvancedByApplyPowerUpReinforcedCellsCleared()
+        {
+            ObjectiveProgress lineClear = LineClearObjective(requiredLineCount: 2, targetValue: 3);
+            ObjectiveProgress family = FamilyObjective(PieceFamily.Square, targetValue: 3);
+            ObjectiveProgress streak = StreakObjective(targetValue: 3);
+            ObjectiveProgress bombLine = new ObjectiveProgress(new ObjectiveDefinition(
+                "bomb_line", ObjectiveType.BombInducedLineClear, ObjectiveScope.PerRun, targetValue: 3));
+
+            Assert.IsFalse(lineClear.ApplyPowerUpReinforcedCellsCleared(2));
+            Assert.IsFalse(family.ApplyPowerUpReinforcedCellsCleared(2));
+            Assert.IsFalse(streak.ApplyPowerUpReinforcedCellsCleared(2));
+            Assert.IsFalse(bombLine.ApplyPowerUpReinforcedCellsCleared(2));
+
+            Assert.AreEqual(0, lineClear.CurrentValue);
+            Assert.AreEqual(0, family.CurrentValue);
+            Assert.AreEqual(0, streak.CurrentValue);
+            Assert.AreEqual(0, bombLine.CurrentValue);
+        }
+
+        /// <summary>The converse guard: a reinforced-cell destruction must not leak into an unrelated
+        /// objective tracked in the same run just because the placement carried the count.</summary>
+        [Test]
+        public void OtherObjectiveTypes_AreNeverAdvancedByAReinforcedCellCountOnAPlacement()
+        {
+            ObjectiveProgress bombLine = new ObjectiveProgress(new ObjectiveDefinition(
+                "bomb_line", ObjectiveType.BombInducedLineClear, ObjectiveScope.PerRun, targetValue: 3));
+            ObjectiveProgress family = FamilyObjective(PieceFamily.Square, targetValue: 3);
+
+            Assert.IsFalse(bombLine.ApplyPlacement(Placement(reinforcedCellsFullyCleared: 2)));
+            Assert.IsFalse(family.ApplyPlacement(Placement(
+                pieceFamily: PieceFamily.Line, reinforcedCellsFullyCleared: 2)));
+
+            Assert.AreEqual(0, bombLine.CurrentValue);
+            Assert.AreEqual(0, family.CurrentValue);
+        }
+
+        /// <summary>Both real event sources feed the same counter: a destruction by an ordinary line
+        /// clear and one by a spent power-up are the same thing to this objective, so they sum.</summary>
+        [Test]
+        public void ReinforcedCellsCleared_APlacementAndAPowerUp_BothCreditTheSameObjective()
+        {
+            ObjectiveProgress objective = ReinforcedCellsObjective(targetValue: 2);
+
+            Assert.IsTrue(objective.ApplyPlacement(Placement(reinforcedCellsFullyCleared: 1)));
+            Assert.IsTrue(objective.ApplyPowerUpReinforcedCellsCleared(1));
+
+            Assert.AreEqual(2, objective.CurrentValue);
+            Assert.IsTrue(objective.IsComplete);
         }
     }
 }
