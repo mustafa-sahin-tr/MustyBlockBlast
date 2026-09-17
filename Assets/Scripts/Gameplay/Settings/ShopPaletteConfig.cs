@@ -39,6 +39,25 @@ namespace MustyBlockBlast.Gameplay.Settings
         [Tooltip("Small caption text on the dark plate.")]
         [SerializeField] private Color _softInk = FromHex(0x9D93D6);
 
+        [Header("Coins tab")]
+        [Tooltip("The white plate under an ad row or a coin bundle row.")]
+        [SerializeField] private Color _lightPlate = FromHex(0xFFFFFF);
+
+        [Tooltip("Ink on a light plate.")]
+        [SerializeField] private Color _ink = FromHex(0x3A2A14);
+
+        [Tooltip("Caption ink on a light plate, and the section labels between rows.")]
+        [SerializeField] private Color _inkSoft = FromHex(0x8C7658);
+
+        [Tooltip("The 'watch an ad' button and tile.")]
+        [SerializeField] private Color _adButton = FromHex(0x2F6FE0);
+
+        [Tooltip("The big coin figure on a bundle row.")]
+        [SerializeField] private Color _bundleAmount = FromHex(0xF08A16);
+
+        [Tooltip("Border of the 'convertible' stat plate on the convert panel.")]
+        [SerializeField] private Color _statHighlight = FromHex(0xFFE27A);
+
         [Header("Sub-tabs")]
         [SerializeField] private Color _tabPowerUp = FromHex(0xFFC93C);
         [SerializeField] private Color _tabPowerUpText = FromHex(0x5A3A00);
@@ -89,6 +108,12 @@ namespace MustyBlockBlast.Gameplay.Settings
         public Color DarkPlate => _darkPlate;
         public Color CoinYellow => _coinYellow;
         public Color SoftInk => _softInk;
+        public Color LightPlate => _lightPlate;
+        public Color Ink => _ink;
+        public Color InkSoft => _inkSoft;
+        public Color AdButton => _adButton;
+        public Color BundleAmount => _bundleAmount;
+        public Color StatHighlight => _statHighlight;
         public Color TabPowerUp => _tabPowerUp;
         public Color TabPowerUpText => _tabPowerUpText;
         public Color TabCoin => _tabCoin;
