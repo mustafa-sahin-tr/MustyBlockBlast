@@ -52,6 +52,20 @@ namespace MustyBlockBlast.Gameplay.Models
         /// </summary>
         public event Action<GridPosition, SpecialCellKind> SpecialKindChanged;
 
+        /// <summary>
+        /// Raised for a reinforced cell that is still standing and whose remaining hit count may have
+        /// changed. Args: position, hits remaining.
+        /// <para>
+        /// Its own signal because <see cref="CellChanged"/>'s args are "position, new colour id" and a
+        /// damaged cell's colour does not change — it is the same block, just closer to breaking. A cell
+        /// whose last hit was spent needs no notification here: it was destroyed, which
+        /// <see cref="CellChanged"/> already announces, and a View that drops a cell's damage look
+        /// whenever that cell empties is correct with no second event to keep in step (the same
+        /// reasoning <see cref="SpecialKindChanged"/> is built on).
+        /// </para>
+        /// </summary>
+        public event Action<GridPosition, int> HitCountChanged;
+
         /// <summary>The board's outline. Read-only and immutable — a View reads width, height and hole
         /// cells off it to lay itself out and to render the holes.</summary>
         public BoardShape Shape => _board.Shape;
@@ -74,6 +88,11 @@ namespace MustyBlockBlast.Gameplay.Models
         /// look from the model rather than trusting bookkeeping it accumulated from events.</summary>
         public SpecialCellKind GetSpecialKind(GridPosition position) => _board.GetSpecialKind(position);
 
+        /// <summary>Read-only access for Views, for the reason <see cref="GetSpecialKind"/> is: a full
+        /// repaint re-derives every cell's damage look from the model rather than trusting bookkeeping
+        /// it accumulated from events. 0 for an ordinary or empty cell.</summary>
+        public int GetHitCount(GridPosition position) => _board.GetHitCount(position);
+
         /// <summary>Core board handed to the stateless Core rule helpers. Systems only.</summary>
         internal Board Board => _board;
 
@@ -81,6 +100,17 @@ namespace MustyBlockBlast.Gameplay.Models
         {
             _board.Occupy(position, colourId);
             CellChanged?.Invoke(position, colourId);
+        }
+
+        /// <summary>Occupies a cell as a reinforced one and announces both halves of it — the block
+        /// that appeared, then how much punishment it will take — in the order a View needs them, which
+        /// is the same order <see cref="SetSpecialKind"/> establishes for a special cell's icon.
+        /// Level-start seeding only; see <see cref="Core.Board.OccupyReinforced"/>.</summary>
+        internal void OccupyReinforced(GridPosition position, int colourId, int hitCount)
+        {
+            _board.OccupyReinforced(position, colourId, hitCount);
+            CellChanged?.Invoke(position, colourId);
+            HitCountChanged?.Invoke(position, hitCount);
         }
 
         /// <summary>Tags a cell with a special behaviour and announces it. Separate from
@@ -93,8 +123,17 @@ namespace MustyBlockBlast.Gameplay.Models
             SpecialKindChanged?.Invoke(position, kind);
         }
 
-        /// <summary>Raises change notifications for cells emptied by a resolver run. The Core
-        /// resolver has already mutated the board when this is called.</summary>
+        /// <summary>
+        /// Raises change notifications for cells emptied by a resolver run. The Core resolver has
+        /// already mutated the board when this is called.
+        /// <para>
+        /// Announces the cells of a cleared line that are <em>actually</em> empty now, read back off the
+        /// board rather than assumed: a reinforced cell that spent a hit is still standing in a line
+        /// that otherwise cleared, and telling a View it had emptied would fade a block that is still
+        /// there. (The same read-back covers a cell an effect refilled before this ran — it reports as
+        /// filled, which is what it is.)
+        /// </para>
+        /// </summary>
         internal void NotifyCleared(LineClearResult result)
         {
             for (int i = 0; i < result.ClearedRows.Count; i++)
@@ -102,13 +141,7 @@ namespace MustyBlockBlast.Gameplay.Models
                 int y = result.ClearedRows[i];
                 for (int x = 0; x < _board.Width; x++)
                 {
-                    var position = new GridPosition(x, y);
-                    if (_board.IsHole(position))
-                    {
-                        continue;
-                    }
-
-                    CellChanged?.Invoke(position, Board.EMPTY);
+                    NotifyClearedCell(new GridPosition(x, y));
                 }
             }
 
@@ -117,13 +150,52 @@ namespace MustyBlockBlast.Gameplay.Models
                 int x = result.ClearedColumns[i];
                 for (int y = 0; y < _board.Height; y++)
                 {
-                    var position = new GridPosition(x, y);
-                    if (_board.IsHole(position))
-                    {
-                        continue;
-                    }
+                    NotifyClearedCell(new GridPosition(x, y));
+                }
+            }
+        }
 
-                    CellChanged?.Invoke(position, Board.EMPTY);
+        /// <summary>Announces one cell of a cleared line, if the clear really did empty it.</summary>
+        private void NotifyClearedCell(GridPosition position)
+        {
+            if (_board.IsHole(position) || _board[position] != Board.EMPTY)
+            {
+                return;
+            }
+
+            CellChanged?.Invoke(position, Board.EMPTY);
+        }
+
+        /// <summary>
+        /// Re-announces the remaining hit count of every reinforced cell still on the board, so a View
+        /// repaints the ones a clear just damaged.
+        /// <para>
+        /// A scan rather than a list of exactly the cells that changed, deliberately. The Core
+        /// resolvers and effects that spend hits are pure and report only what they
+        /// <em>destroyed</em> — threading a second "and here is what survived" list out of every one of
+        /// them, through the cascade loop and into three Systems, would be far more moving parts than
+        /// the one thing it buys. This runs once per placement or power-up over the board's cells (64 on
+        /// the standard board), never per frame, allocates nothing, and is idempotent: re-announcing an
+        /// unchanged count repaints a cell exactly as it already looked.
+        /// </para>
+        /// </summary>
+        internal void NotifyHitCountsRefreshed()
+        {
+            if (HitCountChanged == null)
+            {
+                return;
+            }
+
+            for (int y = 0; y < _board.Height; y++)
+            {
+                for (int x = 0; x < _board.Width; x++)
+                {
+                    var position = new GridPosition(x, y);
+                    int hitCount = _board.GetHitCount(position);
+                    if (hitCount > 0)
+                    {
+                        HitCountChanged.Invoke(position, hitCount);
+                    }
                 }
             }
         }
@@ -187,6 +259,16 @@ namespace MustyBlockBlast.Gameplay.Models
             }
         }
 
+        /// <summary>
+        /// Empties the whole board for the start of a run.
+        /// <para>
+        /// Deliberately the unconditional <see cref="Core.Board.Clear"/> rather than
+        /// <see cref="Core.Board.TryDamage"/>: a new run must not inherit anything from the last one, so
+        /// a reinforced cell left over from it is wiped outright — hit count included — rather than
+        /// given the chance to survive into a run that never authored it. The run's own reinforced cells
+        /// are seeded afterwards, from the level, by <see cref="Systems.BoardSystem.StartNewRun"/>.
+        /// </para>
+        /// </summary>
         internal void ClearAll()
         {
             for (int y = 0; y < _board.Height; y++)

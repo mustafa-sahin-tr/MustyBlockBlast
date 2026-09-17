@@ -45,6 +45,32 @@ namespace MustyBlockBlast.Gameplay.Messages
             bool centerCoreEmptyAfterPlacement,
             bool hasIsolatedHolesAfterPlacement,
             int destroyedScoreGemCount)
+            : this(
+                pieceId, anchor, pieceFamily, cellCount, colourId, linesCleared, rowsCleared,
+                columnsCleared, monochromeLineCount, boardEmptyAfterPlacement,
+                occupiedCellCountBeforeClear, anyCornerCleared, centerCoreEmptyAfterPlacement,
+                hasIsolatedHolesAfterPlacement, destroyedScoreGemCount,
+                reinforcedCellsFullyClearedCount: 0)
+        {
+        }
+
+        public PiecePlacedMessage(
+            string pieceId,
+            GridPosition anchor,
+            PieceFamily pieceFamily,
+            int cellCount,
+            int colourId,
+            int linesCleared,
+            int rowsCleared,
+            int columnsCleared,
+            int monochromeLineCount,
+            bool boardEmptyAfterPlacement,
+            int occupiedCellCountBeforeClear,
+            bool anyCornerCleared,
+            bool centerCoreEmptyAfterPlacement,
+            bool hasIsolatedHolesAfterPlacement,
+            int destroyedScoreGemCount,
+            int reinforcedCellsFullyClearedCount)
         {
             PieceId = pieceId;
             Anchor = anchor;
@@ -61,6 +87,7 @@ namespace MustyBlockBlast.Gameplay.Messages
             CenterCoreEmptyAfterPlacement = centerCoreEmptyAfterPlacement;
             HasIsolatedHolesAfterPlacement = hasIsolatedHolesAfterPlacement;
             DestroyedScoreGemCount = destroyedScoreGemCount;
+            ReinforcedCellsFullyClearedCount = reinforcedCellsFullyClearedCount;
         }
 
         public string PieceId { get; }
@@ -119,5 +146,20 @@ namespace MustyBlockBlast.Gameplay.Messages
         /// </para>
         /// </summary>
         public int DestroyedScoreGemCount { get; }
+
+        /// <summary>
+        /// How many reinforced cells this placement's clear phases finished off — cells that were
+        /// reinforced and took their last hit, as distinct from ordinary cells that were never
+        /// reinforced at all.
+        /// <para>
+        /// Data plumbing for issue #154's "clear all reinforced cells" objective, which is the only
+        /// thing that will ever read it; nothing does today, and no
+        /// <c>ObjectiveType</c> for it exists yet (deliberately — that is #154's work, not this
+        /// issue's). Read off
+        /// <see cref="MustyBlockBlast.Core.CascadeClearResult.TotalReinforcedCellsFullyClearedCount"/>,
+        /// so see that property for exactly which destructions are counted.
+        /// </para>
+        /// </summary>
+        public int ReinforcedCellsFullyClearedCount { get; }
     }
 }

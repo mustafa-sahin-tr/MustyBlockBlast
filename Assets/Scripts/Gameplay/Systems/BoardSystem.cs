@@ -33,6 +33,19 @@ namespace MustyBlockBlast.Gameplay.Systems
         private readonly TrayModel _trayModel;
         private readonly PerfectRoundModel _perfectRoundModel;
         private readonly WeightedPieceDraw _pieceDraw;
+
+        /// <summary>
+        /// Puts the level's authored reinforced cells on the board at the opening of a run. Called
+        /// inline from <see cref="StartNewRun"/> rather than subscribing to the message that method
+        /// publishes — see <see cref="LevelReinforcedCellSeeder"/> for why the ordering has to be a
+        /// property of this call stack.
+        /// <para>
+        /// Nullable, and null in most unit tests: a board exercised by hand authors no level, and the
+        /// seeder's three collaborators are level-catalog concerns those tests have no reason to build.
+        /// </para>
+        /// </summary>
+        private readonly LevelReinforcedCellSeeder _reinforcedCellSeeder;
+
         private readonly PlacementSnapper _placementSnapper = new PlacementSnapper();
         private readonly IPublisher<RunStartedMessage> _runStartedPublisher;
         private readonly IPublisher<PiecePlacedMessage> _piecePlacedPublisher;
@@ -159,13 +172,14 @@ namespace MustyBlockBlast.Gameplay.Systems
             IPublisher<VortexPulledMessage> vortexPulledPublisher,
             IPublisher<ChainLightningTriggeredMessage> chainLightningTriggeredPublisher,
             IPublisher<CoinCellsClearedMessage> coinCellsClearedPublisher,
-            CurrencyConfig currencyConfig)
+            CurrencyConfig currencyConfig,
+            LevelReinforcedCellSeeder reinforcedCellSeeder)
             : this(
                 boardModel, trayModel, perfectRoundModel, pieceDraw, runStartedPublisher,
                 piecePlacedPublisher, linesClearedPublisher, gameOverPublisher, trayRefilledPublisher,
                 explosiveCoreDetonatedPublisher, laserFiredPublisher, piercingRocketFiredPublisher,
                 vortexPulledPublisher, chainLightningTriggeredPublisher, coinCellsClearedPublisher,
-                currencyConfig, Environment.TickCount)
+                currencyConfig, Environment.TickCount, reinforcedCellSeeder)
         {
         }
 
@@ -186,8 +200,10 @@ namespace MustyBlockBlast.Gameplay.Systems
             IPublisher<ChainLightningTriggeredMessage> chainLightningTriggeredPublisher,
             IPublisher<CoinCellsClearedMessage> coinCellsClearedPublisher,
             CurrencyConfig currencyConfig,
-            int seed)
+            int seed,
+            LevelReinforcedCellSeeder reinforcedCellSeeder = null)
         {
+            _reinforcedCellSeeder = reinforcedCellSeeder;
             _random = new Random(seed);
 
             // After the stream it draws from, necessarily: the effect keeps the reference it is handed,
@@ -225,6 +241,17 @@ namespace MustyBlockBlast.Gameplay.Systems
         public void StartNewRun()
         {
             _boardModel.ClearAll();
+
+            // Straight after the board is emptied and before the dock is dealt: a reinforced cell is
+            // pre-filled and occupied from board creation (AC1), so it has to be standing there before
+            // the player is handed anything to place — and certainly before the first line they could
+            // complete through it. Synchronous, in this one call stack, rather than driven by the
+            // RunStartedMessage published below, which would put the seeding after the refill and make
+            // the ordering a property of subscription order.
+            if (_reinforcedCellSeeder != null)
+            {
+                _reinforcedCellSeeder.Seed(_boardModel);
+            }
 
             // Dropped before the refill below, which is the thing that would otherwise pay them: a
             // special piece is earned by the run that triggered it and must never be handed to the next
@@ -447,6 +474,11 @@ namespace MustyBlockBlast.Gameplay.Systems
                 _boardModel.NotifyPulled(pulls);
             }
 
+            // After every emptied/filled cell has been announced: a reinforced cell this resolution only
+            // damaged is still standing, so nothing above repaints it, and this is the signal that says
+            // "still here, but closer to breaking". Cheap and idempotent — see NotifyHitCountsRefreshed.
+            _boardModel.NotifyHitCountsRefreshed();
+
             bool anyCornerCleared = AnyCornerTouched(
                 _boardModel.Board, clearResult.ClearedRows, clearResult.ClearedColumns);
 
@@ -455,7 +487,7 @@ namespace MustyBlockBlast.Gameplay.Systems
                 clearResult.LineCount, clearResult.ClearedRows.Count, clearResult.ClearedColumns.Count,
                 clearResult.MonochromeLineCount, _boardModel.Board.IsEmpty(), occupiedCellCountBeforeClear,
                 anyCornerCleared, _boardModel.Board.IsCenterCoreEmpty(), _boardModel.Board.HasIsolatedEmptyCells(),
-                _scoreGemEffect.DestroyedCount));
+                _scoreGemEffect.DestroyedCount, cascade.TotalReinforcedCellsFullyClearedCount));
 
             if (clearResult.AnyCleared)
             {
@@ -739,12 +771,25 @@ namespace MustyBlockBlast.Gameplay.Systems
             // line, so a laser caught here has no opposite to compute and wipes both ways.
             _hammerClearedBuffer.Clear();
             _hammerClearedBuffer.Add(target);
+
+            // Through the same damage gate, in the same order, as every other destroying path: a hammer
+            // swung at a reinforced cell spends one of its hits and leaves it standing (AC5), which
+            // empties this buffer — so the cell is reported as neither destroyed nor triggering, and
+            // detection below still reads the kind of a cell that really is going.
+            //
+            // The returned count (reinforced cells finished off, issue #154's figure) is deliberately
+            // dropped: a hammer publishes no message that carries it, and inventing one for a count
+            // nothing reads yet is #154's call to make.
+            ReinforcedCellDamage.SpendHits(_boardModel.Board, _hammerClearedBuffer);
+
             _hammerTriggerBuffer.Clear();
             SpecialCellDetection.CollectTriggered(
                 _boardModel.Board, _hammerClearedBuffer, _hammerTriggerBuffer);
 
-            _boardModel.Board.Clear(target);
+            ReinforcedCellDamage.RemoveAll(_boardModel.Board, _hammerClearedBuffer);
+
             _boardModel.NotifyPowerUpCleared(_hammerClearedBuffer);
+            _boardModel.NotifyHitCountsRefreshed();
 
             // Consumed before the effects below can end the run, so AC7 holds whatever they go on to do:
             // the hammer is spent exactly once, at the moment it was used.

@@ -176,7 +176,15 @@ namespace MustyBlockBlast.Core
                 }
 
                 SpecialCellKind kind = board.GetSpecialKind(cell);
-                board.Clear(cell);
+
+                // Through the damage gate, not Board.Clear: a reinforced cell on the wiped line spends
+                // one hit and stays standing (issue #153 AC5), and a cell that survived is neither a
+                // wiped cell nor a laser this wipe could have set off.
+                if (!board.TryDamage(cell))
+                {
+                    continue;
+                }
+
                 _wipedCells.Add(cell);
 
                 if (kind == SpecialCellKind.Laser && !IsFired(board, cell))

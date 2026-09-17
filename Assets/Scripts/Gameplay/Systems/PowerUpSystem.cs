@@ -281,10 +281,15 @@ namespace MustyBlockBlast.Gameplay.Systems
             // The gem count is read from the triggers rather than from the effects below, so it is known
             // before the message that pays for this application is published — a gem multiplies the
             // event that destroyed it, so the count has to be in hand at the moment that event scores.
+            // Same reason as the region-clearing path: a reinforced cell the completed line only
+            // damaged is still standing and needs repainting.
+            _boardModel.NotifyHitCountsRefreshed();
+
             _appliedPublisher.Publish(new PowerUpAppliedMessage(
                 PowerUpKind.Joker, result.ClearedCellCount, result.LineCount, emptiedLineCount: 0,
                 wasClutchSave: false,
-                destroyedScoreGemCount: ScoreGemEffect.CountDestroyed(result.TriggeredSpecials)));
+                destroyedScoreGemCount: ScoreGemEffect.CountDestroyed(result.TriggeredSpecials),
+                reinforcedCellsFullyClearedCount: result.ReinforcedCellsFullyClearedCount));
 
             // A joker completes lines rather than clearing a region, but a core standing in one of
             // those lines is destroyed just the same — and a destroyed core blasts whatever destroyed
@@ -688,10 +693,14 @@ namespace MustyBlockBlast.Gameplay.Systems
             // The gem count is read from the triggers rather than from the effects applied below, for the
             // reason the joker path states: a gem multiplies the event that destroyed it, so the count
             // has to be in hand at the moment that event scores — which is this publish.
+            // A reinforced cell this clear only damaged is still standing, so nothing above repaints it.
+            _boardModel.NotifyHitCountsRefreshed();
+
             _appliedPublisher.Publish(new PowerUpAppliedMessage(
                 kind, result.ClearedCellCount, clearedLineCount: 0,
                 emptiedLineCount: result.EmptiedLineCount, wasClutchSave: false,
-                destroyedScoreGemCount: ScoreGemEffect.CountDestroyed(result.TriggeredSpecials)));
+                destroyedScoreGemCount: ScoreGemEffect.CountDestroyed(result.TriggeredSpecials),
+                reinforcedCellsFullyClearedCount: result.ReinforcedCellsFullyClearedCount));
 
             ApplyTriggeredSpecials(result.TriggeredSpecials);
         }
@@ -762,6 +771,10 @@ namespace MustyBlockBlast.Gameplay.Systems
             {
                 _coinCellsClearedPublisher.Publish(new CoinCellsClearedMessage(coinsAwarded));
             }
+
+            // A blast or a wipe can damage a reinforced cell without destroying it, and a cell that is
+            // still standing is repainted by none of the sweeps above.
+            _boardModel.NotifyHitCountsRefreshed();
         }
 
         private ReactiveProperty<int> CountOf(PowerUpKind kind)

@@ -86,6 +86,11 @@ namespace MustyBlockBlast.Core
         private readonly List<int> _rowsBuffer = new List<int>(Board.SIZE);
         private readonly List<int> _columnsBuffer = new List<int>(Board.SIZE);
 
+        /// <summary>Scratch space for the cells of the lines a projected placement clears, handed to
+        /// <see cref="LineClearResolver.ApplyClearedLines"/>. Owned and reused, so projecting a
+        /// candidate placement allocates nothing.</summary>
+        private readonly List<GridPosition> _projectionCellBuffer = new List<GridPosition>(Board.SIZE * 2);
+
         /// <summary>
         /// Scratch state, rebuilt only when the board being searched has a different shape from the one
         /// the last search saw. An instance of this class outlives any single level, so it cannot be
@@ -228,17 +233,12 @@ namespace MustyBlockBlast.Core
             _projectionBoard.CopyFrom(board);
             PlacementRules.Place(_projectionBoard, piece, anchor, PROJECTION_COLOUR_ID);
 
-            IReadOnlyList<int> rows = clears.ClearedRows;
-            for (int i = 0; i < rows.Count; i++)
-            {
-                LineClearResolver.ClearRow(_projectionBoard, rows[i]);
-            }
-
-            IReadOnlyList<int> columns = clears.ClearedColumns;
-            for (int i = 0; i < columns.Count; i++)
-            {
-                LineClearResolver.ClearColumn(_projectionBoard, columns[i]);
-            }
+            // Through the resolver's own line-emptying primitive, so the projection agrees with what the
+            // real clear would do — including leaving a reinforced cell standing where it would only
+            // have been damaged, which is the difference between an honest open-region figure and an
+            // optimistic one.
+            LineClearResolver.ApplyClearedLines(
+                _projectionBoard, clears.ClearedRows, clears.ClearedColumns, _projectionCellBuffer);
 
             return _projectionBoard.LargestEmptyRegionSize(_visitedBuffer, _stackBuffer);
         }

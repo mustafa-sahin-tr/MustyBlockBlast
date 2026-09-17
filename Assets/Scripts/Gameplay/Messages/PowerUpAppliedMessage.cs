@@ -39,6 +39,15 @@ namespace MustyBlockBlast.Gameplay.Messages
         public PowerUpAppliedMessage(
             PowerUpKind kind, int clearedCellCount, int clearedLineCount, int emptiedLineCount,
             bool wasClutchSave, int destroyedScoreGemCount)
+            : this(
+                kind, clearedCellCount, clearedLineCount, emptiedLineCount, wasClutchSave,
+                destroyedScoreGemCount, reinforcedCellsFullyClearedCount: 0)
+        {
+        }
+
+        public PowerUpAppliedMessage(
+            PowerUpKind kind, int clearedCellCount, int clearedLineCount, int emptiedLineCount,
+            bool wasClutchSave, int destroyedScoreGemCount, int reinforcedCellsFullyClearedCount)
         {
             Kind = kind;
             ClearedCellCount = clearedCellCount;
@@ -46,6 +55,7 @@ namespace MustyBlockBlast.Gameplay.Messages
             EmptiedLineCount = emptiedLineCount;
             WasClutchSave = wasClutchSave;
             DestroyedScoreGemCount = destroyedScoreGemCount;
+            ReinforcedCellsFullyClearedCount = reinforcedCellsFullyClearedCount;
         }
 
         public PowerUpKind Kind { get; }
@@ -88,5 +98,17 @@ namespace MustyBlockBlast.Gameplay.Messages
         /// a placement or a spent power-up.
         /// </summary>
         public int DestroyedScoreGemCount { get; }
+
+        /// <summary>
+        /// How many reinforced cells this application's clear finished off — cells that were reinforced
+        /// and took their last hit, as distinct from ordinary cells that were never reinforced.
+        /// <para>
+        /// Data plumbing for issue #154's "clear all reinforced cells" objective, the parallel of
+        /// <c>PiecePlacedMessage.ReinforcedCellsFullyClearedCount</c> for the paths that are not a
+        /// placement — a reinforced cell finished off by a spent power-up counts exactly as one
+        /// finished off by a completed line. Nothing reads it yet.
+        /// </para>
+        /// </summary>
+        public int ReinforcedCellsFullyClearedCount { get; }
     }
 }

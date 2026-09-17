@@ -12,23 +12,50 @@ namespace MustyBlockBlast.Core
             IReadOnlyList<int> clearedColumns,
             int clearedCellCount,
             int monochromeLineCount)
+            : this(
+                clearedRows, clearedColumns, clearedCellCount, monochromeLineCount,
+                reinforcedCellsFullyClearedCount: 0)
+        {
+        }
+
+        public LineClearResult(
+            IReadOnlyList<int> clearedRows,
+            IReadOnlyList<int> clearedColumns,
+            int clearedCellCount,
+            int monochromeLineCount,
+            int reinforcedCellsFullyClearedCount)
         {
             ClearedRows = clearedRows;
             ClearedColumns = clearedColumns;
             ClearedCellCount = clearedCellCount;
             MonochromeLineCount = monochromeLineCount;
+            ReinforcedCellsFullyClearedCount = reinforcedCellsFullyClearedCount;
         }
 
         public IReadOnlyList<int> ClearedRows { get; }
 
         public IReadOnlyList<int> ClearedColumns { get; }
 
-        /// <summary>Total distinct cells emptied, counting each row/column intersection once.</summary>
+        /// <summary>Total distinct cells emptied, counting each row/column intersection once. A
+        /// reinforced cell this clear only damaged is <em>not</em> counted: it is still standing, so it
+        /// scores nothing and was not emptied (issue #153 AC3).</summary>
         public int ClearedCellCount { get; }
 
         /// <summary>How many of the cleared lines consisted entirely of one colour. Each row/column is
         /// evaluated independently, so a shared intersection cell never forces the two lines to match.</summary>
         public int MonochromeLineCount { get; }
+
+        /// <summary>
+        /// Of <see cref="ClearedCellCount"/>, how many were reinforced cells taking their last hit —
+        /// as distinct from ordinary cells that were never reinforced at all.
+        /// <para>
+        /// Data plumbing for issue #154's "clear all reinforced cells" objective, which needs to tell
+        /// the two apart; nothing reads it as an objective yet. Threaded on to
+        /// <c>PiecePlacedMessage.ReinforcedCellsFullyClearedCount</c> exactly as
+        /// <see cref="MonochromeLineCount"/> is threaded on to that message's own copy.
+        /// </para>
+        /// </summary>
+        public int ReinforcedCellsFullyClearedCount { get; }
 
         /// <summary>Simultaneous lines cleared — the "lines" term used by <see cref="ScoreRules"/>.</summary>
         public int LineCount => ClearedRows.Count + ClearedColumns.Count;
@@ -41,6 +68,12 @@ namespace MustyBlockBlast.Core
     public static class LineClearResolver
     {
         private const int PreviewColourId = 1; // Arbitrary non-EMPTY id; colour is cosmetic and never affects placement/clearing.
+
+        /// <summary>Scratch space for <see cref="PreviewClears"/>'s candidate cells. Owned and reused
+        /// rather than allocated per call, because the preview runs every drag-update frame and must
+        /// stay allocation-free; it never escapes a <see cref="PreviewClears"/> call.</summary>
+        private static readonly List<GridPosition> PreviewCellBuffer =
+            new List<GridPosition>(Board.SIZE * 2);
 
         /// <summary>Non-mutating: what would clear if <paramref name="piece"/> were placed at
         /// <paramref name="anchor"/> on <paramref name="board"/>, without touching <paramref name="board"/>.
@@ -85,7 +118,12 @@ namespace MustyBlockBlast.Core
                 }
             }
 
-            int clearedCellCount = CountClearedCells(scratchBoard, resultRows, resultColumns);
+            // Counted off the real candidate cells rather than from a width/height formula, so a
+            // reinforced cell that would only be damaged is excluded from the hint exactly as it is
+            // excluded from the real clear (AC3). Non-mutating: the scratch board is read, never
+            // damaged.
+            CollectDestroyedCells(scratchBoard, resultRows, resultColumns, PreviewCellBuffer);
+            int clearedCellCount = CountRemovableCells(scratchBoard, PreviewCellBuffer);
 
             // Always 0: the previewed piece is stamped with the placeholder PreviewColourId rather than its
             // real colour, so per-line colour uniformity cannot be judged here. No UI surfaces it yet.
@@ -105,10 +143,11 @@ namespace MustyBlockBlast.Core
         /// <para>
         /// <paramref name="destroyedCells"/> receives each distinct emptied cell exactly once — a
         /// cleared row/column intersection is listed by the row pass only, matching the
-        /// "count intersections once" rule <see cref="LineClearResult.ClearedCellCount"/> uses.
+        /// "count intersections once" rule <see cref="LineClearResult.ClearedCellCount"/> uses. A
+        /// reinforced cell this clear merely damaged is not among them: it is still standing.
         /// <paramref name="triggeredSpecials"/> receives the special cells among them, collected
-        /// through <see cref="SpecialCellDetection"/> before anything is cleared — the one moment the
-        /// kinds are still readable.
+        /// through <see cref="SpecialCellDetection"/> after the damage gate but before anything is
+        /// cleared — the one moment the list is final and the kinds are still readable.
         /// </para>
         /// <para>
         /// Internal because only <see cref="CascadeClearResolver"/> needs it: it exists so the cascade
@@ -149,8 +188,6 @@ namespace MustyBlockBlast.Core
                 }
             }
 
-            int clearedCellCount = CountClearedCells(board, clearedRows, clearedColumns);
-
             // Must run before any clearing — once cleared, the colour data is gone.
             int monochromeLineCount = 0;
             for (int i = 0; i < clearedRows.Count; i++)
@@ -169,70 +206,84 @@ namespace MustyBlockBlast.Core
                 }
             }
 
-            // Both must also run before any clearing: the cell list is built from the lines as they
-            // still stand, and a cell's special kind is wiped by Board.Clear along with its colour.
-            if (destroyedCells != null)
-            {
-                CollectDestroyedCells(board, clearedRows, clearedColumns, destroyedCells);
-            }
+            // The geometric candidates — every playable cell of every cleared line, each intersection
+            // listed once. Built into the caller's buffer when it wants one, so there is exactly one
+            // list and the caller's "what did this destroy" report is the very list that gets damaged.
+            List<GridPosition> candidates = destroyedCells ?? new List<GridPosition>(Board.SIZE * 2);
+            CollectDestroyedCells(board, clearedRows, clearedColumns, candidates);
+
+            // The damage gate, fused into turning the candidates into the real destroyed-cell list: a
+            // reinforced cell with hits to spare absorbs one here and is dropped from the list, so it
+            // counts towards neither ClearedCellCount nor the triggers collected below, and can never
+            // be reported as destroyed (AC3). Each cell is visited exactly once however many of the
+            // cleared lines pass through it, because CollectDestroyedCells already de-duplicated the
+            // intersections — which is what makes a row-and-column clear cost one hit, not two (AC4).
+            int reinforcedCellsFullyClearedCount = ReinforcedCellDamage.SpendHits(board, candidates);
 
             if (triggeredSpecials != null)
             {
                 triggeredSpecials.Clear();
 
+                // On the post-gate list, never on the raw candidates: a cell that survived was not
+                // destroyed and owes no effect. Still before the removal below, because Board.Clear
+                // wipes a cell's kind along with its colour.
+                //
                 // The cleared lines are passed along so each trigger records which of them destroyed
                 // it: an effect that fires relative to that line (a laser) needs to know, and this is
                 // the only point where "this cell went with that row/column" is still known.
                 SpecialCellDetection.CollectTriggered(
-                    board, destroyedCells, triggeredSpecials, clearedRows, clearedColumns);
+                    board, candidates, triggeredSpecials, clearedRows, clearedColumns);
             }
 
-            for (int i = 0; i < clearedRows.Count; i++)
-            {
-                ClearRow(board, clearedRows[i]);
-            }
+            ReinforcedCellDamage.RemoveAll(board, candidates);
 
-            for (int i = 0; i < clearedColumns.Count; i++)
-            {
-                ClearColumn(board, clearedColumns[i]);
-            }
-
-            return new LineClearResult(clearedRows, clearedColumns, clearedCellCount, monochromeLineCount);
+            // Read off the cells actually removed rather than recomputed from the lines' geometry: the
+            // two agreed exactly before reinforced cells existed (a full line's playable cells are all
+            // occupied by definition), and they must keep agreeing now that a line can clear with one
+            // of its cells left standing.
+            return new LineClearResult(
+                clearedRows, clearedColumns, candidates.Count, monochromeLineCount,
+                reinforcedCellsFullyClearedCount);
         }
 
         /// <summary>
-        /// How many distinct cells the given lines empty, counting each row/column intersection once.
+        /// Empties the given already-identified cleared lines on <paramref name="board"/>, through the
+        /// same damage gate a real clear uses — so a reinforced cell on one of them spends a hit and
+        /// stays standing here too.
         /// <para>
-        /// Counted from the board's playable cells rather than from its width and height: a line
-        /// shortened by holes empties fewer cells than a full-width one, and the intersection of a
-        /// cleared row and a cleared column is only double-counted when that cell is itself playable.
-        /// On a hole-free board this is exactly the old
-        /// <c>(rows * SIZE) + (columns * SIZE) - (rows * columns)</c>.
+        /// Internal, for <see cref="GhostFitSearch"/>, which stamps a candidate placement onto a
+        /// scratch board and needs the post-clear board to measure. It replaced a pair of
+        /// "empty this row"/"empty this column" helpers: those cleared unconditionally, and a second
+        /// definition of "clear this line" is exactly what must not exist now that clearing one is
+        /// conditional. <paramref name="cellBuffer"/> is supplied by the caller (its contents on entry
+        /// are irrelevant) because that caller runs this once per candidate placement and must not
+        /// allocate per call.
         /// </para>
         /// </summary>
-        private static int CountClearedCells(
-            Board board, IReadOnlyList<int> clearedRows, IReadOnlyList<int> clearedColumns)
+        internal static void ApplyClearedLines(
+            Board board,
+            IReadOnlyList<int> clearedRows,
+            IReadOnlyList<int> clearedColumns,
+            List<GridPosition> cellBuffer)
+        {
+            CollectDestroyedCells(board, clearedRows, clearedColumns, cellBuffer);
+            ReinforcedCellDamage.SpendHits(board, cellBuffer);
+            ReinforcedCellDamage.RemoveAll(board, cellBuffer);
+        }
+
+        /// <summary>How many of <paramref name="cells"/> a clear would actually remove: the ones with no
+        /// hit left to absorb. Read-only — the non-mutating counterpart to
+        /// <see cref="ReinforcedCellDamage.SpendHits"/>, for the preview path, which must answer "how
+        /// much would this clear" without touching the board.</summary>
+        private static int CountRemovableCells(Board board, IReadOnlyList<GridPosition> cells)
         {
             int count = 0;
 
-            for (int i = 0; i < clearedRows.Count; i++)
+            for (int i = 0; i < cells.Count; i++)
             {
-                count += board.PlayableCountInRow(clearedRows[i]);
-            }
-
-            for (int i = 0; i < clearedColumns.Count; i++)
-            {
-                count += board.PlayableCountInColumn(clearedColumns[i]);
-            }
-
-            for (int rowIndex = 0; rowIndex < clearedRows.Count; rowIndex++)
-            {
-                for (int columnIndex = 0; columnIndex < clearedColumns.Count; columnIndex++)
+                if (board.GetHitCount(cells[i]) <= 1)
                 {
-                    if (board.IsPlayable(new GridPosition(clearedColumns[columnIndex], clearedRows[rowIndex])))
-                    {
-                        count--;
-                    }
+                    count++;
                 }
             }
 
@@ -362,39 +413,6 @@ namespace MustyBlockBlast.Core
             }
 
             return firstColourId != Board.EMPTY;
-        }
-
-        /// <summary>Empties row <paramref name="y"/>. Internal so <see cref="JokerFillResolver"/>
-        /// clears a completed line through the exact same primitive a placement does, instead of
-        /// carrying a second definition of "clear this line".</summary>
-        internal static void ClearRow(Board board, int y)
-        {
-            for (int x = 0; x < board.Width; x++)
-            {
-                var position = new GridPosition(x, y);
-                if (board.IsHole(position))
-                {
-                    continue;
-                }
-
-                board.Clear(position);
-            }
-        }
-
-        /// <summary>Empties column <paramref name="x"/>. Internal for the same reason as
-        /// <see cref="ClearRow"/>.</summary>
-        internal static void ClearColumn(Board board, int x)
-        {
-            for (int y = 0; y < board.Height; y++)
-            {
-                var position = new GridPosition(x, y);
-                if (board.IsHole(position))
-                {
-                    continue;
-                }
-
-                board.Clear(position);
-            }
         }
     }
 }

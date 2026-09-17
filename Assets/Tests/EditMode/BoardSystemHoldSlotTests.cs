@@ -62,7 +62,8 @@ namespace MustyBlockBlast.Tests.EditMode
                 new TestMessageBroker<VortexPulledMessage>(),
                 new TestMessageBroker<ChainLightningTriggeredMessage>(),
                 new TestMessageBroker<CoinCellsClearedMessage>(),
-                ScriptableObject.CreateInstance<CurrencyConfig>());
+                ScriptableObject.CreateInstance<CurrencyConfig>(),
+                reinforcedCellSeeder: null);
         }
 
         // --- AC1: parking into an empty pocket ---

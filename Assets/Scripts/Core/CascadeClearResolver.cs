@@ -91,6 +91,31 @@ namespace MustyBlockBlast.Core
             }
         }
 
+        /// <summary>
+        /// Reinforced cells finished off across every phase, primary and cascaded alike.
+        /// <para>
+        /// Data plumbing for issue #154's "clear all reinforced cells" objective — the whole
+        /// resolution, not just the primary phase, because a reinforced cell is destroyed by whatever
+        /// destroyed it, exactly as <c>PiecePlacedMessage.DestroyedScoreGemCount</c> is read off the
+        /// whole resolution. Cells finished off by a special cell's own blast/wipe/strike are
+        /// <em>not</em> included: those never pass through a clear phase, and whether they should count
+        /// is a scoring decision for #154 to make with its objective in hand.
+        /// </para>
+        /// </summary>
+        public int TotalReinforcedCellsFullyClearedCount
+        {
+            get
+            {
+                int total = 0;
+                for (int i = 0; i < Phases.Count; i++)
+                {
+                    total += Phases[i].ReinforcedCellsFullyClearedCount;
+                }
+
+                return total;
+            }
+        }
+
         /// <summary>Cells emptied across every phase. Phases never overlap — a cell emptied in one
         /// phase has to be refilled by an effect before another phase can clear it again — so this is
         /// a true total, not a distinct-cell count.</summary>

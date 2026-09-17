@@ -181,7 +181,16 @@ namespace MustyBlockBlast.Core
                 _occupiedBuffer[i] = cell;
 
                 SpecialCellKind kind = board.GetSpecialKind(cell);
-                board.Clear(cell);
+
+                // Through the damage gate, not Board.Clear: a reinforced cell the arc happened to pick
+                // spends one hit and stays standing (issue #153 AC5), and a cell that survived is
+                // neither a vaporized cell nor a tile this strike could have set off. The target was
+                // still spent on it — an arc that hits armour has hit something.
+                if (!board.TryDamage(cell))
+                {
+                    continue;
+                }
+
                 _vaporizedCells.Add(cell);
 
                 if (kind == SpecialCellKind.ChainLightning && !IsStruck(board, cell))

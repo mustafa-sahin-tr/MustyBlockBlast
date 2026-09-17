@@ -127,6 +127,33 @@ namespace MustyBlockBlast.Presentation.Views
         private const float HOLE_DARKEN = 0.62f;
         private const float HOLE_ALPHA = 0.55f;
 
+        /// <summary>
+        /// The reference ceiling the reinforced-cell damage stages are spread across — the highest hit
+        /// count a level may author (issue #153 AC1). A cell authored with fewer simply starts partway
+        /// along the same ramp, so every reinforced cell with one hit left looks equally battered
+        /// whatever it started at, which is the reading that matters to the player: "one more and it
+        /// goes".
+        /// </summary>
+        private const int MAX_HIT_COUNT = 4;
+
+        /// <summary>How far an undamaged reinforced cell is already blended towards
+        /// <see cref="ReinforcedDamageTint"/>, so it reads as reinforced before anything has hit it.</summary>
+        private const float UNDAMAGED_BLEND = 0.4f;
+
+        /// <summary>
+        /// Colour a reinforced cell's fill is blended towards as its hits run out — a cold, desaturated
+        /// slate, so a reinforced block reads as something harder than the themed blocks around it
+        /// without any theme having to author a colour for it.
+        /// <para>
+        /// A placeholder tint rather than a sprite per damage stage, which the issue explicitly allows
+        /// (AC2). It borrows the <see cref="Color.Lerp"/>-towards-a-fixed-tint idiom the clear flash and
+        /// the ghost-fit silhouette already use, so it costs no extra draw call, no atlas entry and no
+        /// art. See the Developer Action Required note in this issue's report: real cracked-block art is
+        /// an Editor asset job, and this keeps the code path complete and testable until it is done.
+        /// </para>
+        /// </summary>
+        private static readonly Color ReinforcedDamageTint = new Color(0.36f, 0.4f, 0.45f, 1f);
+
         private readonly GridPosition[] _previewCells = new GridPosition[16];
 
         // Its own claim set, kept apart from the drag preview's: the silhouette and a drag can be on
@@ -180,6 +207,12 @@ namespace MustyBlockBlast.Presentation.Views
         // ends, so the icon follows its block out instead of vanishing the instant the model empties
         // the cell — which is why no "pending kind" counterpart is needed.
         private SpecialCellKind[] _cellSpecialKinds;
+
+        /// <summary>Hits each cell has left, parallel to the bookkeeping above. 0 for every ordinary
+        /// cell, which is every cell on a board no level reinforced. Drives the damage blend in
+        /// <see cref="ApplyCellColour"/>, so every repaint path picks it up without knowing about
+        /// it.</summary>
+        private int[] _cellHitCounts;
 
         private BoardModel _boardModel;
         private SettingsModel _settingsModel;
@@ -317,6 +350,7 @@ namespace MustyBlockBlast.Presentation.Views
 
             _boardModel.CellChanged += OnCellChanged;
             _boardModel.SpecialKindChanged += OnSpecialKindChanged;
+            _boardModel.HitCountChanged += OnHitCountChanged;
             _linesClearedSubscriber.Subscribe(OnLinesCleared).AddTo(_disposables);
             _runStartedSubscriber.Subscribe(OnRunStarted).AddTo(_disposables);
             _powerUpAppliedSubscriber.Subscribe(OnPowerUpApplied).AddTo(_disposables);
@@ -349,6 +383,7 @@ namespace MustyBlockBlast.Presentation.Views
             {
                 _boardModel.CellChanged -= OnCellChanged;
                 _boardModel.SpecialKindChanged -= OnSpecialKindChanged;
+                _boardModel.HitCountChanged -= OnHitCountChanged;
             }
         }
 
@@ -705,6 +740,7 @@ namespace MustyBlockBlast.Presentation.Views
             _pendingGenerations = new int[cellCount];
             _cellPending = new bool[cellCount];
             _cellSpecialKinds = new SpecialCellKind[cellCount];
+            _cellHitCounts = new int[cellCount];
 
             for (int i = 0; i < cellCount; i++)
             {
@@ -764,6 +800,11 @@ namespace MustyBlockBlast.Presentation.Views
 
                     int colourId = _boardModel.GetCell(cell);
                     _cellColourIds[index] = colourId;
+
+                    // Before the paint, because the paint reads it: a level's reinforced cells are on
+                    // the board before the first repaint ever runs, so a full redraw has to pick their
+                    // damage stage up from the model rather than wait for a change event.
+                    _cellHitCounts[index] = _boardModel.GetHitCount(cell);
                     ApplyCellColour(cell, colourId);
 
                     // Re-derived from the model, never carried over from the bookkeeping: a full
@@ -787,6 +828,10 @@ namespace MustyBlockBlast.Presentation.Views
                 _cellGenerations[index]++;
                 _cellPending[index] = false;
                 _cellColourIds[index] = colourId;
+
+                // Read back for the reason the special kind below is: this is also the notification
+                // raised when a reinforced cell is seeded, and the hit count's own notification follows.
+                _cellHitCounts[index] = _boardModel.GetHitCount(cell);
                 ApplyCellColour(cell, colourId);
 
                 // Read back rather than assumed empty: this is also the notification a spawner raises
@@ -815,6 +860,25 @@ namespace MustyBlockBlast.Presentation.Views
             // The icon is left on screen and fades with the block it belongs to; the settled state is
             // already "no kind", because Board.Clear resets a destroyed cell's kind with its colour.
             _cellSpecialKinds[index] = SpecialCellKind.None;
+
+            // And so is its hit count: a cell only ever reaches "empty" by being destroyed, which is
+            // the last hit by definition. This is why a damaged cell needs a signal of its own but a
+            // destroyed one does not.
+            _cellHitCounts[index] = 0;
+        }
+
+        /// <summary>A reinforced cell survived a clear and is closer to breaking. Only its fill changes
+        /// — it is the same block in the same place — so this repaints it and nothing else.</summary>
+        private void OnHitCountChanged(GridPosition cell, int hitCount)
+        {
+            int index = CellIndex(cell);
+            if (_cellHitCounts[index] == hitCount)
+            {
+                return;
+            }
+
+            _cellHitCounts[index] = hitCount;
+            ApplyCellColour(cell, _cellColourIds[index]);
         }
 
         private void OnLinesCleared(LinesClearedMessage message)
@@ -1261,10 +1325,33 @@ namespace MustyBlockBlast.Presentation.Views
                 return;
             }
 
+            int hitCount = _cellHitCounts[index];
+            if (hitCount > 0)
+            {
+                float damage = DamageBlend(hitCount);
+                view.SetEmbossedColours(
+                    Color.Lerp(_currentTheme.GetFill(colourId), ReinforcedDamageTint, damage),
+                    Color.Lerp(_currentTheme.GetHighlight(colourId), ReinforcedDamageTint, damage),
+                    Color.Lerp(_currentTheme.GetShade(colourId), ReinforcedDamageTint, damage));
+                return;
+            }
+
             view.SetEmbossedColours(
                 _currentTheme.GetFill(colourId),
                 _currentTheme.GetHighlight(colourId),
                 _currentTheme.GetShade(colourId));
+        }
+
+        /// <summary>How far a reinforced cell's fill is blended towards
+        /// <see cref="ReinforcedDamageTint"/>: least at a full <see cref="MAX_HIT_COUNT"/> hits, fully
+        /// with one hit left, so the ramp runs the way the damage does. It starts at
+        /// <see cref="UNDAMAGED_BLEND"/> rather than at zero because an intact reinforced cell still has
+        /// to be told apart from the ordinary block beside it (AC2) — every hit count then gets its own
+        /// step along the ramp.</summary>
+        private static float DamageBlend(int hitCount)
+        {
+            float damaged = Mathf.Clamp01((MAX_HIT_COUNT - hitCount) / (float)(MAX_HIT_COUNT - 1));
+            return UNDAMAGED_BLEND + ((1f - UNDAMAGED_BLEND) * damaged);
         }
 
         /// <summary>Shows or hides one cell's special-cell icon. Allocation-free and idempotent, like
