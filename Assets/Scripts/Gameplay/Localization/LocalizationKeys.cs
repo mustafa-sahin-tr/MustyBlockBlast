@@ -164,6 +164,31 @@ namespace MustyBlockBlast.Gameplay.Localization
         public const string OBJECTIVE_FAMILY_S_SHAPE = "objective.family.s_shape";
         public const string OBJECTIVE_FAMILY_Z_SHAPE = "objective.family.z_shape";
 
+        // --- Power-up catalog (shop rows) ---
+        //
+        // One name and one one-line description per kind, so a new kind is two rows per language
+        // rather than a string buried in a View. Keyed off the enum by PowerUpShopView.
+
+        public const string POWERUP_NAME_BOMB = "powerup.name.bomb";
+        public const string POWERUP_NAME_ROW_CLEAR = "powerup.name.row_clear";
+        public const string POWERUP_NAME_COLUMN_CLEAR = "powerup.name.column_clear";
+        public const string POWERUP_NAME_JOKER = "powerup.name.joker";
+        public const string POWERUP_NAME_COLOR_CLEANSER = "powerup.name.color_cleanser";
+        public const string POWERUP_NAME_ROTATE = "powerup.name.rotate";
+        public const string POWERUP_NAME_REROLL = "powerup.name.reroll";
+        public const string POWERUP_NAME_DOUBLE_MULTIPLIER = "powerup.name.double_multiplier";
+        public const string POWERUP_NAME_GHOST_FIT = "powerup.name.ghost_fit";
+
+        public const string POWERUP_DESC_BOMB = "powerup.desc.bomb";
+        public const string POWERUP_DESC_ROW_CLEAR = "powerup.desc.row_clear";
+        public const string POWERUP_DESC_COLUMN_CLEAR = "powerup.desc.column_clear";
+        public const string POWERUP_DESC_JOKER = "powerup.desc.joker";
+        public const string POWERUP_DESC_COLOR_CLEANSER = "powerup.desc.color_cleanser";
+        public const string POWERUP_DESC_ROTATE = "powerup.desc.rotate";
+        public const string POWERUP_DESC_REROLL = "powerup.desc.reroll";
+        public const string POWERUP_DESC_DOUBLE_MULTIPLIER = "powerup.desc.double_multiplier";
+        public const string POWERUP_DESC_GHOST_FIT = "powerup.desc.ghost_fit";
+
         // --- Hub ---
 
         /// <summary>Header titles of the hub's tabs. Settings reuses <see cref="SETTINGS_TITLE"/>.</summary>

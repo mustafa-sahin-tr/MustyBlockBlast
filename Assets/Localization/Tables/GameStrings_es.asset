@@ -310,6 +310,78 @@ MonoBehaviour:
     m_Localized: Insignias
     m_Metadata:
       m_Items: []
+  - m_Id: 1357482390708224
+    m_Localized: Bomba
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482415874048
+    m_Localized: "Limpia el \xE1rea 3x3 alrededor de una celda"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262656
+    m_Localized: Limpiar fila
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262657
+    m_Localized: "Vac\xEDa una fila entera"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262658
+    m_Localized: Limpiar columna
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262659
+    m_Localized: "Vac\xEDa una columna entera"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262660
+    m_Localized: "Comod\xEDn"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262661
+    m_Localized: "Rellena una celda vac\xEDa"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262662
+    m_Localized: Limpiador de color
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262663
+    m_Localized: Limpia todas las celdas de un color
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262664
+    m_Localized: Rotar
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262665
+    m_Localized: "Gira una pieza 90\xB0"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262666
+    m_Localized: Rebarajar
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262667
+    m_Localized: Reparte tres piezas nuevas
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262668
+    m_Localized: Puntos dobles
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262669
+    m_Localized: Duplica los puntos un rato
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262670
+    m_Localized: Ajuste fantasma
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262671
+    m_Localized: "Se\xF1ala la mejor jugada"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

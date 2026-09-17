@@ -1,5 +1,6 @@
 using System.Text;
 using MustyBlockBlast.Gameplay;
+using MustyBlockBlast.Gameplay.Localization;
 using MustyBlockBlast.Gameplay.Models;
 using MustyBlockBlast.Gameplay.Reactive;
 using MustyBlockBlast.Gameplay.Settings;
@@ -82,12 +83,33 @@ namespace MustyBlockBlast.Presentation.Views
         // Layout, in canvas reference pixels, matching the other cards so they all read as one family.
         private const float HEADER_Y = 470f;
         private const float BALANCE_Y = 390f;
-        private const float ROWS_TOP_Y = 290f;
-        private const float ROW_HEIGHT = 76f;
-        private const float MESSAGE_Y = -470f;
+        private const float ROWS_TOP_Y = 300f;
+        private const float MESSAGE_Y = -462f;
         private const float ICON_BUTTON_SIZE = 92f;
         private const float SIDE_INSET = 48f;
         private const float HEADER_INSET = 84f;
+
+        // The row, as the design draws it (issue #207): its CSS px are used directly as reference px.
+        // A 40px icon tile with 10px of padding gives the row its height; rows sit 14px apart on their
+        // own tinted plates rather than as a bare list on the card.
+        private const float ROW_HEIGHT = 70f;
+        private const float ROW_GAP = 14f;
+        private const float ROW_PITCH = ROW_HEIGHT + ROW_GAP;
+        private const float ROW_PADDING = 10f;
+        private const float ROW_CORNER_RADIUS = 14f;
+        private const float ICON_TILE_SIZE = 40f;
+        private const float ICON_TILE_CORNER_RADIUS = 12f;
+        private const float ICON_GLYPH_SIZE = 26f;
+        private const float ICON_TEXT_GAP = 12f;
+
+        /// <summary>How far a row's plate is tinted from the card towards the ink. The design's beige on
+        /// off-white is a small step, not a second colour: a tint keeps it a theme-derived shade.</summary>
+        private const float ROW_PLATE_TINT = 0.05f;
+
+        /// <summary>Vertical offsets of the name and the description from the row's centre line, so the
+        /// two stack as one label rather than two rows of text.</summary>
+        private const float NAME_RISE = 12f;
+        private const float DESCRIPTION_DROP = 13f;
 
         /// <summary>Alpha applied to the struck-through standard price on a discounted row. Well under
         /// the sale price's, so the eye lands on what the player would pay rather than on what they
@@ -123,7 +145,6 @@ namespace MustyBlockBlast.Presentation.Views
         // them would render the keys themselves. Tracked for a follow-up.
         private const string HEADER_TEXT = "POWER-UP SHOP";
         private const string COIN_BALANCE_PREFIX_TEXT = "Coins: ";
-        private const string BUY_BUTTON_TEXT = "BUY";
         private const string LOCKED_LEVEL_PREFIX = "Reach Lv";
         private const string PURCHASED_MESSAGE = "Bought!";
         private const string INSUFFICIENT_COINS_MESSAGE = "Not enough coins.";
@@ -131,21 +152,27 @@ namespace MustyBlockBlast.Presentation.Views
         private const string OPENING_MESSAGE = "Tap a power-up to buy one.";
         private const string COINS_SUFFIX_TEXT = " coins";
 
-        /// <summary>The price column's centre and width, as fractions of a row's width. Named because
-        /// three things are now placed in that column — the price, the standard price above it and the
-        /// bar through that — and three copies of the same two numbers would be three chances to drift.</summary>
-        private const float PRICE_COLUMN_X_FRACTION = 0.11f;
-        private const float PRICE_COLUMN_WIDTH_FRACTION = 0.34f;
-
-        private static readonly Vector2 BuyButtonSize = new Vector2(150f, 60f);
+        /// <summary>The price column's width as a fraction of a row's width. Named because three things
+        /// are placed in that column — the price, the standard price above it and the bar through that —
+        /// and three copies of the same number would be three chances to drift. The column sits flush
+        /// against the row's right padding, as the design's price does.</summary>
+        private const float PRICE_COLUMN_WIDTH_FRACTION = 0.30f;
 
         [Header("Layout")]
         [SerializeField] private Vector2 _cardSize = new Vector2(880f, 1040f);
         [SerializeField] private int _headerFontSize = 52;
         [SerializeField] private int _balanceFontSize = 44;
         [SerializeField] private int _bodyFontSize = 32;
-        [SerializeField] private int _buttonFontSize = 28;
         [SerializeField] private int _wasPriceFontSize = 24;
+
+        [Header("Rows")]
+        [SerializeField] private int _rowNameFontSize = 26;
+        [SerializeField] private int _rowDescriptionFontSize = 20;
+        [SerializeField] private int _rowPriceFontSize = 26;
+
+        [Tooltip("White-on-transparent glyphs, one per shop row in display order (Bomb, Row Clear, Column "
+            + "Clear, Joker, Colour Cleanser, Rotate, Reroll, Double Score, Ghost Fit). Tinted at runtime.")]
+        [SerializeField] private Sprite[] _rowIcons = new Sprite[RowCount];
 
         [Header("Palette")]
         [SerializeField] private Color _scrimColour = new Color(0.17f, 0.15f, 0.20f, 0.55f);
@@ -154,10 +181,12 @@ namespace MustyBlockBlast.Presentation.Views
         private readonly StringBuilder _stringBuilder = new StringBuilder(48);
 
         private readonly RectTransform[] _rowRects = new RectTransform[RowCount];
+        private readonly Image[] _rowPlates = new Image[RowCount];
+        private readonly Image[] _iconTiles = new Image[RowCount];
+        private readonly Image[] _iconGlyphs = new Image[RowCount];
         private readonly Text[] _nameTexts = new Text[RowCount];
+        private readonly Text[] _descriptionTexts = new Text[RowCount];
         private readonly Text[] _priceTexts = new Text[RowCount];
-        private readonly Text[] _buyTexts = new Text[RowCount];
-        private readonly Image[] _buyPlates = new Image[RowCount];
 
         /// <summary>The standard price of a discounted row, and the bar drawn through it. Built for
         /// every row and shown on none of them by default: a campaign can start or end between two
@@ -176,6 +205,8 @@ namespace MustyBlockBlast.Presentation.Views
         private CurrencySystem _currencySystem;
         private TimerRunSystem _timerRunSystem;
         private SettingsModel _settingsModel;
+        private LocalizationModel _localizationModel;
+        private LocalizationSystem _localizationSystem;
 
         /// <summary>Read for one purpose only: the standard price to strike through when the System's
         /// quote comes back lower than it. Never used to charge or to quote.</summary>
@@ -214,6 +245,8 @@ namespace MustyBlockBlast.Presentation.Views
             CurrencySystem currencySystem,
             TimerRunSystem timerRunSystem,
             SettingsModel settingsModel,
+            LocalizationModel localizationModel,
+            LocalizationSystem localizationSystem,
             PowerUpPriceConfig priceConfig)
         {
             _priceConfig = priceConfig;
@@ -223,6 +256,8 @@ namespace MustyBlockBlast.Presentation.Views
             _currencySystem = currencySystem;
             _timerRunSystem = timerRunSystem;
             _settingsModel = settingsModel;
+            _localizationModel = localizationModel;
+            _localizationSystem = localizationSystem;
         }
 
         private void Awake()
@@ -236,7 +271,7 @@ namespace MustyBlockBlast.Presentation.Views
         {
             if (_profileModel == null || _powerUpModel == null || _levelProgressionModel == null
                 || _currencySystem == null || _timerRunSystem == null || _settingsModel == null
-                || _priceConfig == null)
+                || _localizationModel == null || _localizationSystem == null || _priceConfig == null)
             {
                 Debug.LogError(
                     $"{nameof(PowerUpShopView)} was not injected. Is it registered in the LifetimeScope?",
@@ -246,6 +281,9 @@ namespace MustyBlockBlast.Presentation.Views
 
             // Subscribed first so the theme is known before any row is painted below.
             _settingsModel.CurrentTheme.Subscribe(OnThemeChanged).AddTo(_disposables);
+
+            // Names and descriptions come from the string tables, so a language change repaints them.
+            _localizationModel.CurrentLocale.Subscribe(OnLocaleChanged).AddTo(_disposables);
 
             // Subscribed rather than read once on open, for the reason the strip subscribes: reaching a
             // kind's unlock level must reveal it in the run that got the player there.
@@ -425,6 +463,8 @@ namespace MustyBlockBlast.Presentation.Views
 
         private void OnCountChanged(int value) => Refresh();
 
+        private void OnLocaleChanged(LocaleDefinition locale) => Refresh();
+
         private void OnLevelChanged(int currentLevelNumber)
         {
             _currentLevelNumber = currentLevelNumber;
@@ -504,21 +544,26 @@ namespace MustyBlockBlast.Presentation.Views
                 ? LOCKED_ROW_ALPHA
                 : (isAffordable ? 1f : UNAFFORDABLE_ROW_ALPHA);
 
+            // Every colour is a theme field or a step between two of them, so a theme switch restyles
+            // the whole row with nothing hard-coded (issue #207, AC6).
+            _rowPlates[rowIndex].color = WithAlpha(
+                Color.Lerp(_currentTheme.CardBackground, _currentTheme.Ink, ROW_PLATE_TINT), alpha);
+            _iconTiles[rowIndex].color = WithAlpha(_currentTheme.CardBackground, alpha);
+            _iconGlyphs[rowIndex].color = WithAlpha(_currentTheme.Ink, alpha);
             _nameTexts[rowIndex].color = WithAlpha(_currentTheme.Ink, alpha);
+            _descriptionTexts[rowIndex].color = WithAlpha(_currentTheme.SoftInk, alpha);
 
-            // A sale price is painted in the accent the BUY plate uses rather than the body's soft ink,
-            // so "this is cheaper than usual" reads at a glance without a badge or a banner.
-            _priceTexts[rowIndex].color = WithAlpha(
-                isDiscounted ? _currentTheme.Accent : _currentTheme.SoftInk, alpha);
-            _buyPlates[rowIndex].color = WithAlpha(
-                isAffordable ? _currentTheme.Accent : _currentTheme.Ink, alpha * 0.9f);
-            _buyTexts[rowIndex].color = WithAlpha(_currentTheme.CardBackground, alpha);
+            // The price is the row's one accent, as in the design; a locked row shows a requirement
+            // there instead, in the soft ink a non-offer deserves.
+            _priceTexts[rowIndex].color = WithAlpha(isLocked ? _currentTheme.SoftInk : _currentTheme.Accent, alpha);
 
             _stringBuilder.Clear();
-            _stringBuilder.Append(DisplayNameOf(kind));
+            _stringBuilder.Append(_localizationSystem.Translate(NameKeyOf(kind)));
             _stringBuilder.Append("  x");
             _stringBuilder.Append(_counts[rowIndex]);
             _nameTexts[rowIndex].text = _stringBuilder.ToString();
+
+            _descriptionTexts[rowIndex].text = _localizationSystem.Translate(DescriptionKeyOf(kind));
 
             _stringBuilder.Clear();
             if (isLocked)
@@ -583,33 +628,56 @@ namespace MustyBlockBlast.Presentation.Views
                 wasPriceText.preferredWidth, STRIKETHROUGH_THICKNESS);
         }
 
-        /// <summary>
-        /// Human-readable name of a kind. Spelled out here rather than taken from
-        /// <see cref="System.Enum.ToString"/>, which allocates and would render "ColorCleanser" as one
-        /// word. Not localized yet, for the reason the rest of this card's strings are not.
-        /// </summary>
-        private static string DisplayNameOf(PowerUpKind kind)
+        /// <summary>String-table key of a kind's display name. The text itself lives in the tables, one
+        /// row per language, so this is only the mapping from enum to key.</summary>
+        private static string NameKeyOf(PowerUpKind kind)
         {
             switch (kind)
             {
                 case PowerUpKind.RowClear:
-                    return "Row Clear";
+                    return LocalizationKeys.POWERUP_NAME_ROW_CLEAR;
                 case PowerUpKind.ColumnClear:
-                    return "Column Clear";
+                    return LocalizationKeys.POWERUP_NAME_COLUMN_CLEAR;
                 case PowerUpKind.Joker:
-                    return "Joker";
+                    return LocalizationKeys.POWERUP_NAME_JOKER;
                 case PowerUpKind.ColorCleanser:
-                    return "Colour Cleanser";
+                    return LocalizationKeys.POWERUP_NAME_COLOR_CLEANSER;
                 case PowerUpKind.Rotate:
-                    return "Rotate";
+                    return LocalizationKeys.POWERUP_NAME_ROTATE;
                 case PowerUpKind.Reroll:
-                    return "Reroll";
+                    return LocalizationKeys.POWERUP_NAME_REROLL;
                 case PowerUpKind.DoubleMultiplier:
-                    return "Double Score";
+                    return LocalizationKeys.POWERUP_NAME_DOUBLE_MULTIPLIER;
                 case PowerUpKind.GhostFit:
-                    return "Ghost Fit";
+                    return LocalizationKeys.POWERUP_NAME_GHOST_FIT;
                 default:
-                    return "Bomb";
+                    return LocalizationKeys.POWERUP_NAME_BOMB;
+            }
+        }
+
+        /// <summary>String-table key of a kind's one-line description, mapped as <see cref="NameKeyOf"/> is.</summary>
+        private static string DescriptionKeyOf(PowerUpKind kind)
+        {
+            switch (kind)
+            {
+                case PowerUpKind.RowClear:
+                    return LocalizationKeys.POWERUP_DESC_ROW_CLEAR;
+                case PowerUpKind.ColumnClear:
+                    return LocalizationKeys.POWERUP_DESC_COLUMN_CLEAR;
+                case PowerUpKind.Joker:
+                    return LocalizationKeys.POWERUP_DESC_JOKER;
+                case PowerUpKind.ColorCleanser:
+                    return LocalizationKeys.POWERUP_DESC_COLOR_CLEANSER;
+                case PowerUpKind.Rotate:
+                    return LocalizationKeys.POWERUP_DESC_ROTATE;
+                case PowerUpKind.Reroll:
+                    return LocalizationKeys.POWERUP_DESC_REROLL;
+                case PowerUpKind.DoubleMultiplier:
+                    return LocalizationKeys.POWERUP_DESC_DOUBLE_MULTIPLIER;
+                case PowerUpKind.GhostFit:
+                    return LocalizationKeys.POWERUP_DESC_GHOST_FIT;
+                default:
+                    return LocalizationKeys.POWERUP_DESC_BOMB;
             }
         }
 
@@ -652,7 +720,7 @@ namespace MustyBlockBlast.Presentation.Views
 
             for (int rowIndex = 0; rowIndex < RowCount; rowIndex++)
             {
-                BuildRow(rowIndex, ROWS_TOP_Y - (rowIndex * ROW_HEIGHT));
+                BuildRow(rowIndex, ROWS_TOP_Y - (rowIndex * ROW_PITCH));
             }
 
             _messageText = UiTextFactory.Create(
@@ -667,9 +735,10 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         /// <summary>
-        /// One shop row: the kind and how many are held on the left, the price in the middle, a BUY
-        /// plate on the right. The row's own rect is the hit area, which is what makes the whole offer
-        /// tappable rather than only the plate.
+        /// One shop row, left to right as the design draws it: a rounded icon tile, the name with the
+        /// description under it, and the price on the right — all on the row's own tinted plate. The
+        /// row's own rect is the hit area, which is what makes the whole offer tappable; the BUY plate
+        /// the old layout ended in is gone, since the design has none and the tap never needed it.
         /// </summary>
         private void BuildRow(int rowIndex, float y)
         {
@@ -682,42 +751,87 @@ namespace MustyBlockBlast.Presentation.Views
             rowRect.anchoredPosition = new Vector2(0f, y);
             _rowRects[rowIndex] = rowRect;
 
+            var plateObject = new GameObject("Plate", typeof(RectTransform), typeof(Image));
+            var plateRect = (RectTransform)plateObject.transform;
+            plateRect.SetParent(rowRect, false);
+            Centre(plateRect, new Vector2(rowWidth, ROW_HEIGHT));
+            _rowPlates[rowIndex] = ConfigureRounded(plateObject.GetComponent<Image>(), ROW_CORNER_RADIUS);
+
+            float leftEdge = -rowWidth * 0.5f + ROW_PADDING;
+
+            var tileObject = new GameObject("IconTile", typeof(RectTransform), typeof(Image));
+            var tileRect = (RectTransform)tileObject.transform;
+            tileRect.SetParent(rowRect, false);
+            Centre(tileRect, new Vector2(ICON_TILE_SIZE, ICON_TILE_SIZE));
+            tileRect.anchoredPosition = new Vector2(leftEdge + (ICON_TILE_SIZE * 0.5f), 0f);
+            _iconTiles[rowIndex] = ConfigureRounded(tileObject.GetComponent<Image>(), ICON_TILE_CORNER_RADIUS);
+
+            var glyphObject = new GameObject("Glyph", typeof(RectTransform), typeof(Image));
+            var glyphRect = (RectTransform)glyphObject.transform;
+            glyphRect.SetParent(tileRect, false);
+            Centre(glyphRect, new Vector2(ICON_GLYPH_SIZE, ICON_GLYPH_SIZE));
+            var glyph = glyphObject.GetComponent<Image>();
+            glyph.sprite = IconFor(rowIndex);
+            glyph.type = Image.Type.Simple;
+            glyph.preserveAspect = true;
+            glyph.color = Color.clear;
+            glyph.raycastTarget = false;
+            _iconGlyphs[rowIndex] = glyph;
+
+            float priceWidth = rowWidth * PRICE_COLUMN_WIDTH_FRACTION;
+            float textLeft = leftEdge + ICON_TILE_SIZE + ICON_TEXT_GAP;
+            float textWidth = rowWidth - ROW_PADDING - priceWidth - (textLeft + (rowWidth * 0.5f));
+            float textCentreX = textLeft + (textWidth * 0.5f);
+
             Text nameText = UiTextFactory.Create(
-                rowRect, "Name", _bodyFontSize, FontStyle.Bold, Color.clear);
+                rowRect, "Name", _rowNameFontSize, FontStyle.Bold, Color.clear);
             nameText.alignment = TextAnchor.MiddleLeft;
             var nameRect = (RectTransform)nameText.transform;
-            nameRect.sizeDelta = new Vector2(rowWidth * 0.46f, ROW_HEIGHT);
-            nameRect.anchoredPosition = new Vector2(-rowWidth * 0.27f, 0f);
+            nameRect.sizeDelta = new Vector2(textWidth, ROW_HEIGHT * 0.5f);
+            nameRect.anchoredPosition = new Vector2(textCentreX, NAME_RISE);
             _nameTexts[rowIndex] = nameText;
 
+            Text descriptionText = UiTextFactory.Create(
+                rowRect, "Description", _rowDescriptionFontSize, FontStyle.Normal, Color.clear);
+            descriptionText.alignment = TextAnchor.MiddleLeft;
+            var descriptionRect = (RectTransform)descriptionText.transform;
+            descriptionRect.sizeDelta = new Vector2(textWidth, ROW_HEIGHT * 0.5f);
+            descriptionRect.anchoredPosition = new Vector2(textCentreX, -DESCRIPTION_DROP);
+            _descriptionTexts[rowIndex] = descriptionText;
+
             Text priceText = UiTextFactory.Create(
-                rowRect, "Price", _bodyFontSize, FontStyle.Normal, Color.clear);
+                rowRect, "Price", _rowPriceFontSize, FontStyle.Bold, Color.clear);
             priceText.alignment = TextAnchor.MiddleRight;
             var priceRect = (RectTransform)priceText.transform;
-            priceRect.sizeDelta = new Vector2(rowWidth * PRICE_COLUMN_WIDTH_FRACTION, ROW_HEIGHT);
+            priceRect.sizeDelta = new Vector2(priceWidth, ROW_HEIGHT);
             priceRect.anchoredPosition = new Vector2(PriceColumnX(), 0f);
             _priceTexts[rowIndex] = priceText;
 
             BuildWasPrice(rowIndex, rowRect, rowWidth);
+        }
 
-            var plateObject = new GameObject("BuyPlate", typeof(RectTransform), typeof(Image));
-            var plateRect = (RectTransform)plateObject.transform;
-            plateRect.SetParent(rowRect, false);
-            Centre(plateRect, BuyButtonSize);
-            plateRect.anchoredPosition = new Vector2((rowWidth - BuyButtonSize.x) * 0.5f, 0f);
+        /// <summary>The row's icon, authored in <see cref="RowKinds"/> order.</summary>
+        private Sprite IconFor(int rowIndex)
+        {
+            Sprite icon = _rowIcons != null && rowIndex < _rowIcons.Length ? _rowIcons[rowIndex] : null;
+            if (icon == null)
+            {
+                Debug.LogError($"{nameof(PowerUpShopView)} has no icon sprite assigned for {RowKinds[rowIndex]}.", this);
+            }
 
-            var plateImage = plateObject.GetComponent<Image>();
-            plateImage.sprite = UiSpriteFactory.RoundedSquare;
-            plateImage.type = Image.Type.Sliced;
-            plateImage.pixelsPerUnitMultiplier = 2f;
-            plateImage.color = Color.clear;
-            plateImage.raycastTarget = false;
-            _buyPlates[rowIndex] = plateImage;
+            return icon;
+        }
 
-            Text buyText = UiTextFactory.Create(
-                plateRect, "Caption", _buttonFontSize, FontStyle.Bold, Color.clear);
-            buyText.text = BUY_BUTTON_TEXT;
-            _buyTexts[rowIndex] = buyText;
+        /// <summary>The shared rounded sprite sliced to <paramref name="radius"/> reference pixels — the
+        /// same derivation the hub's tabs use, so every plate on this screen batches together.</summary>
+        private static Image ConfigureRounded(Image image, float radius)
+        {
+            image.sprite = UiSpriteFactory.RoundedSquare;
+            image.type = Image.Type.Sliced;
+            image.pixelsPerUnitMultiplier = UiSpriteFactory.ROUNDED_RADIUS / radius;
+            image.color = Color.clear;
+            image.raycastTarget = false;
+            return image;
         }
 
         /// <summary>
@@ -766,8 +880,9 @@ namespace MustyBlockBlast.Presentation.Views
         /// go stale against <see cref="_cardSize"/>.</summary>
         private float RowWidth => _cardSize.x - (SIDE_INSET * 2f);
 
-        /// <summary>The price column's centre, in a row's local space.</summary>
-        private float PriceColumnX() => RowWidth * PRICE_COLUMN_X_FRACTION;
+        /// <summary>The price column's centre, in a row's local space: flush against the right padding.</summary>
+        private float PriceColumnX()
+            => (RowWidth * 0.5f) - ROW_PADDING - (RowWidth * PRICE_COLUMN_WIDTH_FRACTION * 0.5f);
 
         /// <summary>The close cross, drawn as two rotated bars so it needs no glyph asset — the same
         /// treatment the other cards give theirs.</summary>
