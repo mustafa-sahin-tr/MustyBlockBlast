@@ -60,11 +60,14 @@ namespace MustyBlockBlast.Presentation.Views
         private const float IN_PROGRESS_ALPHA = 0.88f;
 
         [Header("Layout")]
-        [Tooltip("Top-left corner of the row, offset from the top-left corner of the canvas in " +
-            "reference pixels. Anchored to that corner so the first icon sits directly under " +
-            "ScoreView's \"Best\" block at every aspect ratio, with the rest of the row growing " +
-            "rightward under the score.")]
-        [SerializeField] private Vector2 _topLeftOffset = new Vector2(16f, -272f);
+        [Tooltip("Left edge of the row, in reference pixels from the canvas's left edge. Leaves room " +
+            "for CoinTotalHudView, which sits on the same band to the left of the first icon.")]
+        [SerializeField] private float _leftInset = 144f;
+
+        [Tooltip("Gap between the board card's top edge and the bottom of the icons, in reference " +
+            "pixels. The row hangs from the board (see BoardView.StandardCardTopEdge), not from the " +
+            "screen top, so it can never be pushed down into the card by a taller screen or a notch.")]
+        [SerializeField] private float _gapAboveBoard = 16f;
 
         [Tooltip("Diameter of one icon disc, in reference pixels. Matches the level-path icon so the " +
             "HUD's top band reads as one row of same-sized controls.")]
@@ -79,6 +82,7 @@ namespace MustyBlockBlast.Presentation.Views
         private readonly StringBuilder _progressBuilder = new StringBuilder(8);
         private readonly IconSlot[] _slots = new IconSlot[MAX_SLOT_COUNT];
 
+        private BoardView _boardView;
         private ObjectiveModel _objectiveModel;
         private SettingsModel _settingsModel;
         private ObjectiveIconCatalog _iconCatalog;
@@ -152,6 +156,7 @@ namespace MustyBlockBlast.Presentation.Views
 
         [Inject]
         public void Construct(
+            BoardView boardView,
             ObjectiveModel objectiveModel,
             SettingsModel settingsModel,
             ObjectiveIconCatalog iconCatalog,
@@ -159,6 +164,7 @@ namespace MustyBlockBlast.Presentation.Views
             ISubscriber<ObjectiveCompletedMessage> completedSubscriber,
             ISubscriber<RunStartedMessage> runStartedSubscriber)
         {
+            _boardView = boardView;
             _objectiveModel = objectiveModel;
             _settingsModel = settingsModel;
             _iconCatalog = iconCatalog;
@@ -184,7 +190,7 @@ namespace MustyBlockBlast.Presentation.Views
 
         private void Start()
         {
-            if (_objectiveModel == null || _settingsModel == null || _iconCatalog == null
+            if (_boardView == null || _objectiveModel == null || _settingsModel == null || _iconCatalog == null
                 || _progressChangedSubscriber == null || _completedSubscriber == null
                 || _runStartedSubscriber == null)
             {
@@ -193,6 +199,12 @@ namespace MustyBlockBlast.Presentation.Views
                     this);
                 return;
             }
+
+            // Positioned here rather than in BuildRow: the board's layout is read off an injected View,
+            // and injection has only certainly happened by Start. The row's pivot is its top-left corner,
+            // so the y is the top of the icons: the board's edge, the gap, then one icon's height.
+            _rowRect.anchoredPosition = new Vector2(
+                _leftInset, _boardView.StandardCardTopEdge + _gapAboveBoard + _slotSize);
 
             // Subscribed first so _currentTheme is set before the first Refresh paints anything.
             _settingsModel.CurrentTheme.Subscribe(OnThemeChanged).AddTo(_disposables);
@@ -448,17 +460,17 @@ namespace MustyBlockBlast.Presentation.Views
         {
             _rowRect = (RectTransform)transform;
 
-            // Anchored to the top-left corner, like ScoreView's "Best" block above it, so the row keeps
-            // the same gap from that block whatever the aspect ratio. The slots inside are laid out
-            // from this corner too (see LayOutSlots), which is what makes the row left-aligned.
-            _rowRect.anchorMin = new Vector2(0f, 1f);
-            _rowRect.anchorMax = new Vector2(0f, 1f);
+            // Anchored to the left edge and the vertical centre — the same vertical anchor the board
+            // card uses — so the row keeps its gap above the board whatever the screen's height or safe
+            // area. The slots inside are laid out from the row's top-left corner (see LayOutSlots),
+            // which is what makes the row left-aligned. The position itself is set in Start.
+            _rowRect.anchorMin = new Vector2(0f, 0.5f);
+            _rowRect.anchorMax = new Vector2(0f, 0.5f);
             _rowRect.pivot = new Vector2(0f, 1f);
 
             // Fixed, and deliberately independent of how many objectives there are: the row is a
             // reserved band, not a widget that grows.
             _rowRect.sizeDelta = new Vector2(MAX_SLOT_COUNT * _slotSpacing, _slotSize);
-            _rowRect.anchoredPosition = _topLeftOffset;
 
             // Every size here is in canvas reference units, so the row owns its own scale rather than
             // inheriting whatever the scene object happened to be created with.

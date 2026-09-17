@@ -43,11 +43,17 @@ namespace MustyBlockBlast.Presentation.Views
         private static readonly Color NumberInk = new Color(0.36f, 0.22f, 0.05f, 1f);
 
         [Header("Layout")]
-        // Sits directly under LevelPathButtonView, which is at (-60, -196) and 112 tall, so the three
-        // right-column icons read as one stack with the same 24px gap between each.
-        [Tooltip("Offset from the top-right corner of the parent canvas. X is measured leftwards. " +
-            "Stacked under the level-path icon.")]
-        [SerializeField] private Vector2 _cornerOffset = new Vector2(-60f, -332f);
+        // Sits on the band directly above the board card, at its left, with the objective icons to
+        // its right — not stacked under the right-column buttons any more: three 112px icons plus
+        // their gaps never fit between the board's top edge and the safe area on a tall phone, and
+        // the coin was the one being pushed into the card (issue #229).
+        [Tooltip("Left edge of the coin, in reference pixels from the canvas's left edge.")]
+        [SerializeField] private float _leftInset = 16f;
+
+        [Tooltip("Gap between the board card's top edge and the bottom of the coin, in reference " +
+            "pixels. The coin hangs from the board (see BoardView.StandardCardTopEdge), not from the " +
+            "screen top, so it can never be pushed down into the card by a taller screen or a notch.")]
+        [SerializeField] private float _gapAboveBoard = 16f;
 
         [Tooltip("Side of the coin, in reference pixels. Matches the icons above it.")]
         [SerializeField] private float _coinSize = 112f;
@@ -62,22 +68,28 @@ namespace MustyBlockBlast.Presentation.Views
         private readonly CompositeDisposable _disposables = new CompositeDisposable();
         private readonly StringBuilder _stringBuilder = new StringBuilder(16);
 
+        private BoardView _boardView;
         private ProfileModel _profileModel;
+        private RectTransform _rect;
         private Text _totalText;
 
         [Inject]
-        public void Construct(ProfileModel profileModel)
+        public void Construct(BoardView boardView, ProfileModel profileModel)
         {
+            _boardView = boardView;
             _profileModel = profileModel;
         }
 
         private void Awake()
         {
             var rect = (RectTransform)transform;
-            rect.anchorMin = Vector2.one;
-            rect.anchorMax = Vector2.one;
-            rect.pivot = Vector2.one;
-            rect.anchoredPosition = _cornerOffset;
+            _rect = rect;
+
+            // Left edge and vertical centre, the board card's own vertical anchor. Bottom-left pivot so
+            // the position set in Start is simply "this far in, this far above the board".
+            rect.anchorMin = new Vector2(0f, 0.5f);
+            rect.anchorMax = new Vector2(0f, 0.5f);
+            rect.pivot = Vector2.zero;
             rect.sizeDelta = new Vector2(_coinSize, _coinSize);
 
             // Every size here is in canvas reference units, so the coin owns its own scale rather than
@@ -128,13 +140,17 @@ namespace MustyBlockBlast.Presentation.Views
 
         private void Start()
         {
-            if (_profileModel == null)
+            if (_boardView == null || _profileModel == null)
             {
                 Debug.LogError(
                     $"{nameof(CoinTotalHudView)} was not injected. Is it registered in the LifetimeScope?",
                     this);
                 return;
             }
+
+            // Positioned here rather than in Awake: the board's layout is read off an injected View,
+            // and injection has only certainly happened by Start.
+            _rect.anchoredPosition = new Vector2(_leftInset, _boardView.StandardCardTopEdge + _gapAboveBoard);
 
             // Fires immediately with the current balance, so the label is correct from the first frame
             // and no separate initial read is needed.
