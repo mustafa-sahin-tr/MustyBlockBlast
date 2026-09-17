@@ -442,6 +442,10 @@ MonoBehaviour:
     m_Localized: "Yeni rozetler \u2014 almak i\xE7in dokun"
     m_Metadata:
       m_Items: []
+  - m_Id: 1371178030587925
+    m_Localized: "{0} bloklar\u0131 temizle"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

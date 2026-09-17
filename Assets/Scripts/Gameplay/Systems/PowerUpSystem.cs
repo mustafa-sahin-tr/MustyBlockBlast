@@ -311,7 +311,8 @@ namespace MustyBlockBlast.Gameplay.Systems
                 PowerUpKind.Joker, result.ClearedCellCount, result.LineCount, emptiedLineCount: 0,
                 wasClutchSave: false,
                 destroyedScoreGemCount: ScoreGemEffect.CountDestroyed(result.TriggeredSpecials),
-                reinforcedCellsFullyClearedCount: result.ReinforcedCellsFullyClearedCount));
+                reinforcedCellsFullyClearedCount: result.ReinforcedCellsFullyClearedCount,
+                destroyedCellCountByColour: result.DestroyedCellCountByColour));
 
             // A joker completes lines rather than clearing a region, but a core standing in one of
             // those lines is destroyed just the same — and a destroyed core blasts whatever destroyed
@@ -765,7 +766,8 @@ namespace MustyBlockBlast.Gameplay.Systems
                 kind, result.ClearedCellCount, clearedLineCount: 0,
                 emptiedLineCount: result.EmptiedLineCount, wasClutchSave: false,
                 destroyedScoreGemCount: ScoreGemEffect.CountDestroyed(result.TriggeredSpecials),
-                reinforcedCellsFullyClearedCount: result.ReinforcedCellsFullyClearedCount));
+                reinforcedCellsFullyClearedCount: result.ReinforcedCellsFullyClearedCount,
+                destroyedCellCountByColour: result.DestroyedCellCountByColour));
 
             ApplyTriggeredSpecials(result.TriggeredSpecials);
         }

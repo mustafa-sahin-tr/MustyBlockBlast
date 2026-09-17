@@ -45,3 +45,5 @@ MonoBehaviour:
     _icon: {fileID: 21300000, guid: 9315ebe3fdf8847d5b22d3ab5bf40f22, type: 3}
   - _type: 15
     _icon: {fileID: 21300000, guid: fbb2630de6d3b483d8b13adc8fabca90, type: 3}
+  - _type: 18
+    _icon: {fileID: 21300000, guid: 3c079d1242e8343428d48aa28ef6858f, type: 3}

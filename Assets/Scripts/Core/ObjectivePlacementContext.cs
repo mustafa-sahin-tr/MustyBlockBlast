@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace MustyBlockBlast.Core
 {
     /// <summary>
@@ -23,6 +25,30 @@ namespace MustyBlockBlast.Core
             bool hasIsolatedHolesAfterPlacement,
             float elapsedRunSeconds,
             int reinforcedCellsFullyCleared)
+            : this(
+                linesCleared, rowsCleared, columnsCleared, pieceFamily, pieceId, currentRunScore,
+                boardEmptyAfterPlacement, currentStreak, occupiedCellCountBeforeClear, anyCornerCleared,
+                centerCoreEmptyAfterPlacement, hasIsolatedHolesAfterPlacement, elapsedRunSeconds,
+                reinforcedCellsFullyCleared, destroyedCellCountByColour: null)
+        {
+        }
+
+        public ObjectivePlacementContext(
+            int linesCleared,
+            int rowsCleared,
+            int columnsCleared,
+            PieceFamily pieceFamily,
+            string pieceId,
+            int currentRunScore,
+            bool boardEmptyAfterPlacement,
+            int currentStreak,
+            int occupiedCellCountBeforeClear,
+            bool anyCornerCleared,
+            bool centerCoreEmptyAfterPlacement,
+            bool hasIsolatedHolesAfterPlacement,
+            float elapsedRunSeconds,
+            int reinforcedCellsFullyCleared,
+            IReadOnlyList<int> destroyedCellCountByColour)
         {
             LinesCleared = linesCleared;
             RowsCleared = rowsCleared;
@@ -38,6 +64,7 @@ namespace MustyBlockBlast.Core
             HasIsolatedHolesAfterPlacement = hasIsolatedHolesAfterPlacement;
             ElapsedRunSeconds = elapsedRunSeconds;
             ReinforcedCellsFullyCleared = reinforcedCellsFullyCleared;
+            DestroyedCellCountByColour = destroyedCellCountByColour;
         }
 
         /// <summary>Rows plus columns cleared by this placement; zero when nothing cleared.</summary>
@@ -94,5 +121,17 @@ namespace MustyBlockBlast.Core
         /// reached 0) — zero for an ordinary placement, and zero for a reinforced cell that merely took a
         /// hit and survived. See <see cref="ObjectiveType.ReinforcedCellsCleared"/>.</summary>
         public int ReinforcedCellsFullyCleared { get; }
+
+        /// <summary>
+        /// How many cells of each colour this placement's clears destroyed, indexed by colour id (index
+        /// 0 is unused). Null when nothing was tallied — read through <see cref="DestroyedCountOf"/>,
+        /// which treats null as "none".
+        /// </summary>
+        public IReadOnlyList<int> DestroyedCellCountByColour { get; }
+
+        /// <summary>Cells of <paramref name="colourId"/> this placement destroyed, or zero when none were
+        /// tallied or the id is outside the tally.</summary>
+        public int DestroyedCountOf(int colourId)
+            => ColourTally.CountOf(DestroyedCellCountByColour, colourId);
     }
 }

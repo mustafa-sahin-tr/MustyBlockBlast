@@ -15,7 +15,10 @@ namespace MustyBlockBlast.Gameplay.Settings
     public sealed class ThemeDefinition : ScriptableObject
     {
         /// <summary>Piece "kinds" — colour ids are 1..KIND_COUNT and are cosmetic only.</summary>
-        public const int KIND_COUNT = 3;
+        /// <summary>How many piece colours a theme authors. An alias of the palette's single source of
+        /// truth, <see cref="MustyBlockBlast.Core.Board.COLOUR_COUNT"/>, kept under this name for the
+        /// Views that size their kind rows from it.</summary>
+        public const int KIND_COUNT = MustyBlockBlast.Core.Board.COLOUR_COUNT;
 
         [Header("Identity")]
         [Tooltip("Stable id persisted to PlayerPrefs. Must be unique and must never change once shipped.")]
@@ -46,6 +49,8 @@ namespace MustyBlockBlast.Gameplay.Settings
             FromHex(0xE8785A),
             FromHex(0x6FB8B0),
             FromHex(0xE0C36B),
+            FromHex(0x8E7CC3),
+            FromHex(0x7BC47F),
         };
 
         [SerializeField]
@@ -54,6 +59,8 @@ namespace MustyBlockBlast.Gameplay.Settings
             FromHex(0xF6A48D),
             FromHex(0x9AD8D1),
             FromHex(0xF0DDA0),
+            FromHex(0xB5A8DC),
+            FromHex(0xA6DBA8),
         };
 
         [SerializeField]
@@ -62,6 +69,8 @@ namespace MustyBlockBlast.Gameplay.Settings
             FromHex(0xC25A3F),
             FromHex(0x4C948C),
             FromHex(0xC29F49),
+            FromHex(0x6A58A3),
+            FromHex(0x559E5B),
         };
 
         [Header("Text")]

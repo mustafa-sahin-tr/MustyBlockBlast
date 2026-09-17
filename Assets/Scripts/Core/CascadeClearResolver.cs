@@ -119,6 +119,23 @@ namespace MustyBlockBlast.Core
         /// <summary>Cells emptied across every phase. Phases never overlap — a cell emptied in one
         /// phase has to be refilled by an effect before another phase can clear it again — so this is
         /// a true total, not a distinct-cell count.</summary>
+        /// <summary>Every phase's per-colour destroyed tally summed — see
+        /// <see cref="LineClearResult.DestroyedCellCountByColour"/>. Allocated on read; called once
+        /// per placement by the System that publishes it, never per frame.</summary>
+        public int[] TotalDestroyedCellCountByColour
+        {
+            get
+            {
+                var total = new int[ColourTally.LENGTH];
+                for (int i = 0; i < Phases.Count; i++)
+                {
+                    ColourTally.Add(Phases[i].DestroyedCellCountByColour, total);
+                }
+
+                return total;
+            }
+        }
+
         public int TotalClearedCellCount
         {
             get

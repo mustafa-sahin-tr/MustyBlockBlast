@@ -144,7 +144,8 @@ namespace MustyBlockBlast.Gameplay.Systems
                 message.CenterCoreEmptyAfterPlacement,
                 message.HasIsolatedHolesAfterPlacement,
                 elapsedRunSeconds,
-                message.ReinforcedCellsFullyClearedCount);
+                message.ReinforcedCellsFullyClearedCount,
+                message.DestroyedCellCountByColour);
 
             ApplyToAllObjectives(objective => objective.ApplyPlacement(context));
         }
@@ -167,6 +168,14 @@ namespace MustyBlockBlast.Gameplay.Systems
             {
                 ApplyToAllObjectives(objective =>
                     objective.ApplyPowerUpReinforcedCellsCleared(message.ReinforcedCellsFullyClearedCount));
+            }
+
+            // Before the kind-specific branches below, which return early: a colour-count objective
+            // takes every kind's destroyed cells, whatever else that kind meant to another objective.
+            if (message.DestroyedCellCountByColour != null && message.ClearedCellCount > 0)
+            {
+                ApplyToAllObjectives(objective =>
+                    objective.ApplyPowerUpColourCleared(message.DestroyedCellCountByColour));
             }
 
             if (message.Kind == PowerUpKind.Bomb && message.EmptiedLineCount > 0)

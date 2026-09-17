@@ -36,6 +36,21 @@ namespace MustyBlockBlast.Core
             IReadOnlyList<GridPosition> clearedCells,
             IReadOnlyList<SpecialCellTrigger> triggeredSpecials,
             int reinforcedCellsFullyClearedCount)
+            : this(
+                filled, position, clearedRows, clearedColumns, clearedCells, triggeredSpecials,
+                reinforcedCellsFullyClearedCount, destroyedCellCountByColour: null)
+        {
+        }
+
+        internal JokerFillResult(
+            bool filled,
+            GridPosition position,
+            IReadOnlyList<int> clearedRows,
+            IReadOnlyList<int> clearedColumns,
+            IReadOnlyList<GridPosition> clearedCells,
+            IReadOnlyList<SpecialCellTrigger> triggeredSpecials,
+            int reinforcedCellsFullyClearedCount,
+            IReadOnlyList<int> destroyedCellCountByColour)
         {
             Filled = filled;
             Position = position;
@@ -44,7 +59,13 @@ namespace MustyBlockBlast.Core
             ClearedCells = clearedCells;
             TriggeredSpecials = triggeredSpecials;
             ReinforcedCellsFullyClearedCount = reinforcedCellsFullyClearedCount;
+            DestroyedCellCountByColour = destroyedCellCountByColour;
         }
+
+        /// <summary>How many cells of each colour the completed lines destroyed, indexed by colour id —
+        /// see <see cref="ColourTally"/>. The joker's own filled cell is in it too, under the colour it
+        /// was filled with. Null for a rejected fill.</summary>
+        public IReadOnlyList<int> DestroyedCellCountByColour { get; }
 
         /// <summary>Of <see cref="ClearedCells"/>, how many were reinforced cells taking their last
         /// hit. Data plumbing for issue #154, mirroring
@@ -182,6 +203,9 @@ namespace MustyBlockBlast.Core
             // cells this fill destroyed.
             int reinforcedCellsFullyClearedCount = ReinforcedCellDamage.SpendHits(board, clearedCells);
 
+            // Post-gate and pre-removal, as LineClearResolver takes its own tally.
+            int[] destroyedCellCountByColour = ColourTally.Count(board, clearedCells);
+
             // Collected before anything is cleared, same as clearedCells above: once a cell is cleared
             // its special kind is reset (Board.Clear), so detection has to read it first.
             var triggeredSpecials = new List<SpecialCellTrigger>();
@@ -195,7 +219,7 @@ namespace MustyBlockBlast.Core
 
             return new JokerFillResult(
                 true, target, clearedRows, clearedColumns, clearedCells, triggeredSpecials,
-                reinforcedCellsFullyClearedCount);
+                reinforcedCellsFullyClearedCount, destroyedCellCountByColour);
         }
     }
 }

@@ -1,6 +1,8 @@
 using MustyBlockBlast.Core;
 using MustyBlockBlast.Gameplay.Localization;
+using MustyBlockBlast.Gameplay.Settings;
 using MustyBlockBlast.Gameplay.Systems;
+using UnityEngine;
 
 namespace MustyBlockBlast.Presentation.Views
 {
@@ -11,12 +13,26 @@ namespace MustyBlockBlast.Presentation.Views
     /// </summary>
     internal static class ObjectiveDescriptionFormatter
     {
+        /// <summary>The glyph a colour swatch is drawn with: a filled square, coloured through a
+        /// rich-text tag from the active theme's fill for the objective's colour id. A glyph and a
+        /// tag rather than a colour name, so no theme ever has to name its colours (issue #147).</summary>
+        private const string SWATCH_GLYPH = "\u25A0";
+
         /// <summary>
         /// Describes <paramref name="definition"/> in the active language. The target value is left
         /// out — the HUD renders it as the "2/3" progress, so repeating it here could only disagree
         /// with the model.
         /// </summary>
         internal static string Describe(ObjectiveDefinition definition, LocalizationSystem localization)
+            => Describe(definition, localization, null);
+
+        /// <summary>
+        /// As above, with the theme a <see cref="ObjectiveType.ColourCleared"/> description draws its
+        /// inline swatch from. Only that type consults <paramref name="theme"/>; with none the swatch
+        /// is drawn in the label's own colour, so the sentence still reads.
+        /// </summary>
+        internal static string Describe(
+            ObjectiveDefinition definition, LocalizationSystem localization, ThemeDefinition theme)
         {
             if (definition == null || localization == null)
             {
@@ -25,6 +41,10 @@ namespace MustyBlockBlast.Presentation.Views
 
             switch (definition.Type)
             {
+                case ObjectiveType.ColourCleared:
+                    return localization.Format(
+                        LocalizationKeys.OBJECTIVE_COLOUR_CLEARED, Swatch(definition.RequiredColourId, theme));
+
                 case ObjectiveType.SimultaneousLineClear:
                     return localization.Format(
                         LocalizationKeys.OBJECTIVE_SIMULTANEOUS_LINE_CLEAR,
@@ -99,6 +119,20 @@ namespace MustyBlockBlast.Presentation.Views
         /// authored objective actually references — so a piece nobody has named yet degrades to a
         /// functional (if unpolished) raw id rather than blank text.
         /// </summary>
+        /// <summary>A rich-text square in the theme's fill for <paramref name="colourId"/>. Read from
+        /// the theme handed in — the *current* one — so a theme switch repaints the swatch on the next
+        /// describe while the id underneath, and the progress keyed on it, never change.</summary>
+        private static string Swatch(int colourId, ThemeDefinition theme)
+        {
+            if (theme == null)
+            {
+                return SWATCH_GLYPH;
+            }
+
+            string hex = ColorUtility.ToHtmlStringRGB(theme.GetFill(colourId));
+            return "<color=#" + hex + ">" + SWATCH_GLYPH + "</color>";
+        }
+
         private static string PieceIdDisplayName(string pieceId, LocalizationSystem localization)
         {
             string key = PieceIdNameKey(pieceId);

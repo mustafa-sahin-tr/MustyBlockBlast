@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using MustyBlockBlast.Core;
 
 namespace MustyBlockBlast.Gameplay.Messages
@@ -71,6 +72,33 @@ namespace MustyBlockBlast.Gameplay.Messages
             bool hasIsolatedHolesAfterPlacement,
             int destroyedScoreGemCount,
             int reinforcedCellsFullyClearedCount)
+            : this(
+                pieceId, anchor, pieceFamily, cellCount, colourId, linesCleared, rowsCleared,
+                columnsCleared, monochromeLineCount, boardEmptyAfterPlacement,
+                occupiedCellCountBeforeClear, anyCornerCleared, centerCoreEmptyAfterPlacement,
+                hasIsolatedHolesAfterPlacement, destroyedScoreGemCount,
+                reinforcedCellsFullyClearedCount, destroyedCellCountByColour: null)
+        {
+        }
+
+        public PiecePlacedMessage(
+            string pieceId,
+            GridPosition anchor,
+            PieceFamily pieceFamily,
+            int cellCount,
+            int colourId,
+            int linesCleared,
+            int rowsCleared,
+            int columnsCleared,
+            int monochromeLineCount,
+            bool boardEmptyAfterPlacement,
+            int occupiedCellCountBeforeClear,
+            bool anyCornerCleared,
+            bool centerCoreEmptyAfterPlacement,
+            bool hasIsolatedHolesAfterPlacement,
+            int destroyedScoreGemCount,
+            int reinforcedCellsFullyClearedCount,
+            IReadOnlyList<int> destroyedCellCountByColour)
         {
             PieceId = pieceId;
             Anchor = anchor;
@@ -88,6 +116,7 @@ namespace MustyBlockBlast.Gameplay.Messages
             HasIsolatedHolesAfterPlacement = hasIsolatedHolesAfterPlacement;
             DestroyedScoreGemCount = destroyedScoreGemCount;
             ReinforcedCellsFullyClearedCount = reinforcedCellsFullyClearedCount;
+            DestroyedCellCountByColour = destroyedCellCountByColour;
         }
 
         public string PieceId { get; }
@@ -161,5 +190,9 @@ namespace MustyBlockBlast.Gameplay.Messages
         /// </para>
         /// </summary>
         public int ReinforcedCellsFullyClearedCount { get; }
+
+        /// <summary>Cells destroyed by this placement's clears, every cascade phase included, counted
+        /// per colour id — see <see cref="ColourTally"/>. Null when the publisher tallied nothing.</summary>
+        public IReadOnlyList<int> DestroyedCellCountByColour { get; }
     }
 }

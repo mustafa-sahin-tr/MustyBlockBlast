@@ -15,7 +15,8 @@ namespace MustyBlockBlast.Core
             PieceFamily requiredPieceFamily = PieceFamily.Single,
             int requiredOccupancyThreshold = 0,
             string requiredPieceId = null,
-            float windowSeconds = 0f)
+            float windowSeconds = 0f,
+            int requiredColourId = 0)
         {
             if (targetValue <= 0)
             {
@@ -45,6 +46,17 @@ namespace MustyBlockBlast.Core
                 throw new System.ArgumentException("RollingLineClearWindow objectives cannot be Cumulative — their window is measured against a per-run clock.", nameof(scope));
             }
 
+            // A colour outside the palette could never be drawn, so the objective could never advance.
+            // Checked here as the thresholds above are, so a misauthored level fails at build rather
+            // than sitting unreachable on the path.
+            if (type == ObjectiveType.ColourCleared
+                && (requiredColourId < 1 || requiredColourId > Board.COLOUR_COUNT))
+            {
+                throw new System.ArgumentOutOfRangeException(
+                    nameof(requiredColourId), requiredColourId,
+                    $"ColourCleared needs a colour id between 1 and {Board.COLOUR_COUNT}.");
+            }
+
             Id = id;
             Type = type;
             Scope = scope;
@@ -54,6 +66,7 @@ namespace MustyBlockBlast.Core
             RequiredOccupancyThreshold = requiredOccupancyThreshold;
             RequiredPieceId = requiredPieceId;
             WindowSeconds = windowSeconds;
+            RequiredColourId = requiredColourId;
         }
 
         /// <summary>Stable identifier; carried by the progress/completion messages so views can key off it.</summary>
@@ -90,5 +103,10 @@ namespace MustyBlockBlast.Core
         /// or the deadline (seconds from run start) for <see cref="ObjectiveType.EarlyScoreRush"/>.
         /// Meaningless for every other type.</summary>
         public float WindowSeconds { get; }
+
+        /// <summary>Colour id (1..<see cref="Board.COLOUR_COUNT"/>) a <see cref="ObjectiveType.ColourCleared"/>
+        /// objective counts. Zero for every other type. Refers to the theme-agnostic id, never to a
+        /// theme's colour, so progress survives a theme switch untouched.</summary>
+        public int RequiredColourId { get; }
     }
 }

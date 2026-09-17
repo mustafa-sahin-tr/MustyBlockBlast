@@ -165,6 +165,11 @@ namespace MustyBlockBlast.Gameplay.Localization
 
         public const string OBJECTIVE_REROLL_SAVE = "objective.reroll_save";
 
+        /// <summary>ColourCleared's description. <c>{0}</c> is an inline colour swatch (a rich-text
+        /// coloured glyph drawn from the active theme), never a colour name — see
+        /// <c>ObjectiveDescriptionFormatter</c>.</summary>
+        public const string OBJECTIVE_COLOUR_CLEARED = "objective.colour_cleared";
+
         // Translated display names for individual catalog pieces, keyed by piece id in
         // ObjectiveDescriptionFormatter.PieceIdNameKey. Not exhaustive — only pieces an authored
         // objective actually references need one; an unmapped id falls back to its raw catalog id.

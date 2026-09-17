@@ -33,6 +33,14 @@ namespace MustyBlockBlast.Core
 
         public const int EMPTY = 0;
 
+        /// <summary>
+        /// How many distinct piece colour ids exist: a cell holds <see cref="EMPTY"/> or a value in
+        /// 1..COLOUR_COUNT. The single source of truth for the palette size — the piece draw ranges
+        /// over it, every theme authors exactly this many fills, and a colour-count objective is
+        /// validated against it — so the three can never disagree (issue #147).
+        /// </summary>
+        public const int COLOUR_COUNT = 5;
+
         /// <summary>Width/height of the centered "core" region <see cref="IsCenterCoreEmpty"/> checks.</summary>
         private const int CENTER_CORE_SIZE = 4;
 
