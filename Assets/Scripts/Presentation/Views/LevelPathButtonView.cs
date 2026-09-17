@@ -1,9 +1,7 @@
 using System.Collections.Generic;
-using MustyBlockBlast.Gameplay;
 using MustyBlockBlast.Gameplay.Models;
 using MustyBlockBlast.Gameplay.Reactive;
 using MustyBlockBlast.Gameplay.Settings;
-using MustyBlockBlast.Gameplay.Systems;
 using UnityEngine;
 using UnityEngine.UI;
 using VContainer;
@@ -49,25 +47,15 @@ namespace MustyBlockBlast.Presentation.Views
         private readonly List<Image> _inkImages = new List<Image>(8);
 
         private SettingsModel _settingsModel;
-        private PathRunModel _pathRunModel;
-        private GameModeSystem _gameModeSystem;
         private RectTransform _buttonRect;
         private Image _plateImage;
         private Image _shadowImage;
         private Canvas _canvas;
 
-        /// <summary>Accent-gold badge that overlaps the button's corner, showing the active path level
-        /// number. Hidden outside Path mode and while no level is active.</summary>
-        private CanvasGroup _badgeGroup;
-        private Image _badgeCircleImage;
-        private Text _badgeText;
-
         [Inject]
-        public void Construct(SettingsModel settingsModel, PathRunModel pathRunModel, GameModeSystem gameModeSystem)
+        public void Construct(SettingsModel settingsModel)
         {
             _settingsModel = settingsModel;
-            _pathRunModel = pathRunModel;
-            _gameModeSystem = gameModeSystem;
         }
 
         private void Awake()
@@ -78,7 +66,7 @@ namespace MustyBlockBlast.Presentation.Views
 
         private void Start()
         {
-            if (_settingsModel == null || _pathRunModel == null || _gameModeSystem == null)
+            if (_settingsModel == null)
             {
                 Debug.LogError(
                     $"{nameof(LevelPathButtonView)} was not injected. Is it registered in the LifetimeScope?", this);
@@ -88,11 +76,6 @@ namespace MustyBlockBlast.Presentation.Views
             // The icon is built in Awake, before the theme is known; this subscription paints it and
             // repaints it on every later theme switch.
             _settingsModel.CurrentTheme.Subscribe(OnThemeChanged).AddTo(_disposables);
-
-            // Either the mode or the active level can change independently (e.g. leaving Path mode
-            // keeps the last ActiveLevelNumber around); both must repaint the badge.
-            _gameModeSystem.CurrentMode.Subscribe(_ => RefreshBadge()).AddTo(_disposables);
-            _pathRunModel.ActiveLevelNumber.Subscribe(_ => RefreshBadge()).AddTo(_disposables);
         }
 
         private void OnDestroy() => _disposables.Dispose();
@@ -121,30 +104,10 @@ namespace MustyBlockBlast.Presentation.Views
 
             _plateImage.color = theme.CardBackground;
             _shadowImage.color = theme.CardShadow;
-            _badgeCircleImage.color = theme.Accent;
 
             for (int inkIndex = 0; inkIndex < _inkImages.Count; inkIndex++)
             {
                 _inkImages[inkIndex].color = theme.Ink;
-            }
-        }
-
-        /// <summary>
-        /// Shows the badge only for a Path-mode run that has actually started a level — closing the
-        /// path panel without tapping a node never touches <see cref="PathRunModel.ActiveLevelNumber"/>,
-        /// so the badge keeps reading whatever level the run started on.
-        /// </summary>
-        private void RefreshBadge()
-        {
-            int activeLevelNumber = _pathRunModel.ActiveLevelNumber.Value;
-            bool isVisible = _gameModeSystem.CurrentMode.Value == GameMode.Path
-                && activeLevelNumber != PathRunModel.NO_ACTIVE_LEVEL;
-
-            _badgeGroup.alpha = isVisible ? 1f : 0f;
-
-            if (isVisible)
-            {
-                _badgeText.text = activeLevelNumber.ToString();
             }
         }
 
@@ -177,37 +140,6 @@ namespace MustyBlockBlast.Presentation.Views
             ConfigurePlate(_plateImage);
 
             BuildRoute();
-            BuildBadge();
-        }
-
-        /// <summary>
-        /// Accent-gold circular badge overlapping the plate's top-right corner. Built hidden — visibility
-        /// is driven entirely by <see cref="RefreshBadge"/> once the reactive subscriptions are live.
-        /// </summary>
-        private void BuildBadge()
-        {
-            float badgeDiameter = _buttonSize * 0.46f;
-
-            var badgeObject = new GameObject("LevelPathBadge", typeof(RectTransform), typeof(CanvasGroup));
-            var badgeRect = (RectTransform)badgeObject.transform;
-            badgeRect.SetParent(_buttonRect, false);
-            Centre(badgeRect, new Vector2(badgeDiameter, badgeDiameter));
-            badgeRect.anchoredPosition = new Vector2(_buttonSize * 0.5f, _buttonSize * 0.5f);
-
-            _badgeGroup = badgeObject.GetComponent<CanvasGroup>();
-            _badgeGroup.alpha = 0f;
-            _badgeGroup.interactable = false;
-            _badgeGroup.blocksRaycasts = false;
-
-            var circleObject = new GameObject("LevelPathBadgeCircle", typeof(RectTransform), typeof(Image));
-            var circleRect = (RectTransform)circleObject.transform;
-            circleRect.SetParent(badgeRect, false);
-            Centre(circleRect, new Vector2(badgeDiameter, badgeDiameter));
-            _badgeCircleImage = circleObject.GetComponent<Image>();
-            ConfigureCircle(_badgeCircleImage);
-
-            _badgeText = UiTextFactory.Create(
-                badgeRect, "LevelPathBadgeText", Mathf.RoundToInt(badgeDiameter * 0.72f), FontStyle.Bold, Color.white);
         }
 
         // Segments first, then the stops on top of their ends: sibling order is the only thing keeping

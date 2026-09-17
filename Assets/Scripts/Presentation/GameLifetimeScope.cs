@@ -524,6 +524,9 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterComponentInHierarchy<PieceTrayView>();
             builder.RegisterComponentInHierarchy<HoldSlotView>();
             builder.RegisterComponentInHierarchy<ScoreView>();
+
+            // Pinned under ScoreView's best-score corner group, so it lives next to it here too.
+            builder.RegisterComponentInHierarchy<PathLevelBadgeView>();
             builder.RegisterComponentInHierarchy<TimerHudView>();
             builder.RegisterComponentInHierarchy<DoubleMultiplierHudView>();
             builder.RegisterComponentInHierarchy<CoinTotalHudView>();
