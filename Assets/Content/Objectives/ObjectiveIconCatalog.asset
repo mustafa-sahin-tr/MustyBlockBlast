@@ -1,0 +1,47 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4bae7ec448d584307be4fb65347353cd, type: 3}
+  m_Name: ObjectiveIconCatalog
+  m_EditorClassIdentifier: MustyBlockBlast.Gameplay::MustyBlockBlast.Gameplay.Settings.ObjectiveIconCatalog
+  _entries:
+  - _type: 0
+    _icon: {fileID: 21300000, guid: 00465ec38517248b1ae2b81636109da2, type: 3}
+  - _type: 1
+    _icon: {fileID: 21300000, guid: 5317fe77dcebf4bb1a2c61c23449bd36, type: 3}
+  - _type: 2
+    _icon: {fileID: 21300000, guid: 2d7080349c63b49ceab3bf733fc7083b, type: 3}
+  - _type: 3
+    _icon: {fileID: 21300000, guid: d2c93216eee62427891801816e829dbc, type: 3}
+  - _type: 4
+    _icon: {fileID: 21300000, guid: 33672f59a1cff4c26b036d013a8f28f8, type: 3}
+  - _type: 5
+    _icon: {fileID: 21300000, guid: 8d30f8c85be4a44bb9906f17affe977f, type: 3}
+  - _type: 6
+    _icon: {fileID: 21300000, guid: c3b775609344b4e0c815fd7dcdfb1bcb, type: 3}
+  - _type: 7
+    _icon: {fileID: 21300000, guid: 83df87bd574cc46d4ba984ebf5e0eb66, type: 3}
+  - _type: 8
+    _icon: {fileID: 21300000, guid: cebfc48dd53da410ab48ab9a41694d81, type: 3}
+  - _type: 9
+    _icon: {fileID: 21300000, guid: a60b416f7902a481a83dedd667e75c96, type: 3}
+  - _type: 10
+    _icon: {fileID: 21300000, guid: a9b3074b023694fee95fba2d61180cf2, type: 3}
+  - _type: 11
+    _icon: {fileID: 21300000, guid: ea737127372644a1785ffd1fc1a1a979, type: 3}
+  - _type: 12
+    _icon: {fileID: 21300000, guid: 1384bc317607d4e1ca13fa5985d8ff7c, type: 3}
+  - _type: 13
+    _icon: {fileID: 21300000, guid: 6f182649b2b6943fd99a7485e1d67e41, type: 3}
+  - _type: 14
+    _icon: {fileID: 21300000, guid: 9315ebe3fdf8847d5b22d3ab5bf40f22, type: 3}
+  - _type: 15
+    _icon: {fileID: 21300000, guid: fbb2630de6d3b483d8b13adc8fabca90, type: 3}

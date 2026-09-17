@@ -13,10 +13,11 @@ using VContainer;
 namespace MustyBlockBlast.Presentation.Views
 {
     /// <summary>
-    /// The run's objectives, as a row of icons pinned to the top centre of the screen, directly below
-    /// <see cref="ScoreView"/>'s score. One icon per objective the current level asks for: a glyph for
-    /// what it measures, a "2/3" badge for how far along it is, and a tick once that particular
-    /// objective is done.
+    /// The run's objectives, as a left-aligned row of icons pinned to the top-left corner of the
+    /// screen, directly below <see cref="ScoreView"/>'s "Best" block and growing rightward under the
+    /// score. One disc per objective the current level asks for, the size of the level-path icon: an
+    /// authored silhouette (or the procedural glyph, for a type without one) for what it measures, a
+    /// "2/3" counter for how far along it is, and a tick once that particular objective is done.
     /// <para>
     /// Replaces the old single-line text strip. A level may now carry several objectives at once
     /// (<see cref="ObjectiveModel.TrackedObjectives"/>), and a sentence per objective would not fit the
@@ -47,9 +48,10 @@ namespace MustyBlockBlast.Presentation.Views
     {
         /// <summary>
         /// Icons the row can draw. Five is headroom rather than a target: no level authors more than a
-        /// couple of objectives today, and a row wider than this would start crowding the "Best" label
-        /// in the top-left corner. A level authored with more simply shows the first five — a truncated
-        /// row reads better than one that overflows the screen.
+        /// couple of objectives today, and a row growing rightward from under the "Best" label would
+        /// reach the right-hand icon column on a narrow device well before it held many more. A level
+        /// authored with more simply shows the first five — a truncated row reads better than one that
+        /// overflows the screen.
         /// </summary>
         private const int MAX_SLOT_COUNT = 5;
 
@@ -58,18 +60,20 @@ namespace MustyBlockBlast.Presentation.Views
         private const float IN_PROGRESS_ALPHA = 0.88f;
 
         [Header("Layout")]
-        [Tooltip("Offset from the top-centre of the canvas, in reference pixels. Anchored to the top " +
-            "edge so the row hugs the score at every aspect ratio: it sits just below ScoreView's " +
-            "centred score number rather than above it.")]
-        [SerializeField] private Vector2 _topOffset = new Vector2(0f, -300f);
+        [Tooltip("Top-left corner of the row, offset from the top-left corner of the canvas in " +
+            "reference pixels. Anchored to that corner so the first icon sits directly under " +
+            "ScoreView's \"Best\" block at every aspect ratio, with the rest of the row growing " +
+            "rightward under the score.")]
+        [SerializeField] private Vector2 _topLeftOffset = new Vector2(16f, -272f);
 
-        [Tooltip("Side of one icon plate, in reference pixels.")]
-        [SerializeField] private float _slotSize = 76f;
+        [Tooltip("Diameter of one icon disc, in reference pixels. Matches the level-path icon so the " +
+            "HUD's top band reads as one row of same-sized controls.")]
+        [SerializeField] private float _slotSize = 112f;
 
         [Tooltip("Centre-to-centre distance between icons, in reference pixels.")]
-        [SerializeField] private float _slotSpacing = 88f;
+        [SerializeField] private float _slotSpacing = 124f;
 
-        [SerializeField] private int _progressFontSize = 24;
+        [SerializeField] private int _progressFontSize = 26;
 
         private readonly CompositeDisposable _disposables = new CompositeDisposable();
         private readonly StringBuilder _progressBuilder = new StringBuilder(8);
@@ -77,6 +81,7 @@ namespace MustyBlockBlast.Presentation.Views
 
         private ObjectiveModel _objectiveModel;
         private SettingsModel _settingsModel;
+        private ObjectiveIconCatalog _iconCatalog;
         private ISubscriber<ObjectiveProgressChangedMessage> _progressChangedSubscriber;
         private ISubscriber<ObjectiveCompletedMessage> _completedSubscriber;
         private ISubscriber<RunStartedMessage> _runStartedSubscriber;
@@ -99,6 +104,7 @@ namespace MustyBlockBlast.Presentation.Views
                 Image plateImage,
                 Image shadowImage,
                 RectTransform glyphRoot,
+                Image iconImage,
                 Image checkMark,
                 Text progressText)
             {
@@ -107,6 +113,7 @@ namespace MustyBlockBlast.Presentation.Views
                 PlateImage = plateImage;
                 ShadowImage = shadowImage;
                 GlyphRoot = glyphRoot;
+                IconImage = iconImage;
                 CheckMark = checkMark;
                 ProgressText = progressText;
                 GlyphInkImages = new List<Image>(4);
@@ -123,6 +130,10 @@ namespace MustyBlockBlast.Presentation.Views
             internal Image ShadowImage { get; }
 
             internal RectTransform GlyphRoot { get; }
+
+            /// <summary>The authored silhouette, when the catalog has one for the slot's type. Listed
+            /// among <see cref="GlyphInkImages"/> while in use so it is tinted like any other ink.</summary>
+            internal Image IconImage { get; }
 
             internal Image CheckMark { get; }
 
@@ -143,12 +154,14 @@ namespace MustyBlockBlast.Presentation.Views
         public void Construct(
             ObjectiveModel objectiveModel,
             SettingsModel settingsModel,
+            ObjectiveIconCatalog iconCatalog,
             ISubscriber<ObjectiveProgressChangedMessage> progressChangedSubscriber,
             ISubscriber<ObjectiveCompletedMessage> completedSubscriber,
             ISubscriber<RunStartedMessage> runStartedSubscriber)
         {
             _objectiveModel = objectiveModel;
             _settingsModel = settingsModel;
+            _iconCatalog = iconCatalog;
             _progressChangedSubscriber = progressChangedSubscriber;
             _completedSubscriber = completedSubscriber;
             _runStartedSubscriber = runStartedSubscriber;
@@ -171,8 +184,9 @@ namespace MustyBlockBlast.Presentation.Views
 
         private void Start()
         {
-            if (_objectiveModel == null || _settingsModel == null || _progressChangedSubscriber == null
-                || _completedSubscriber == null || _runStartedSubscriber == null)
+            if (_objectiveModel == null || _settingsModel == null || _iconCatalog == null
+                || _progressChangedSubscriber == null || _completedSubscriber == null
+                || _runStartedSubscriber == null)
             {
                 Debug.LogError(
                     $"{nameof(ObjectiveIconContainerView)} was not injected. Is it registered in the LifetimeScope?",
@@ -348,9 +362,11 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         /// <summary>
-        /// Builds this slot's glyph if it is not already drawing <paramref name="type"/>. Destroying and
-        /// rebuilding is only reached on a level change — a progress tick never changes an objective's
-        /// type — so the canvas rebuild it costs is paid once per level rather than per placement.
+        /// Builds this slot's glyph if it is not already drawing <paramref name="type"/>. The authored
+        /// silhouette from <see cref="ObjectiveIconCatalog"/> is preferred; a type without one falls
+        /// back to the procedural glyph. Destroying and rebuilding is only reached on a level change —
+        /// a progress tick never changes an objective's type — so the canvas rebuild it costs is paid
+        /// once per level rather than per placement.
         /// </summary>
         private void EnsureGlyph(IconSlot slot, ObjectiveType type)
         {
@@ -367,22 +383,41 @@ namespace MustyBlockBlast.Presentation.Views
             slot.GlyphInkImages.Clear();
             slot.GlyphCoreImages.Clear();
 
-            ObjectiveIconFactory.Build(
-                slot.GlyphRoot, type, _slotSize * 0.62f, slot.GlyphInkImages, slot.GlyphCoreImages);
+            // Cleared before deciding: an Image with no sprite draws a solid square, so the authored
+            // image must be invisible whenever it is not the glyph in use.
+            slot.IconImage.sprite = null;
+            slot.IconImage.color = Color.clear;
+
+            Sprite authoredIcon = _iconCatalog.Find(type);
+            if (authoredIcon != null)
+            {
+                slot.IconImage.sprite = authoredIcon;
+                slot.GlyphInkImages.Add(slot.IconImage);
+            }
+            else
+            {
+                ObjectiveIconFactory.Build(
+                    slot.GlyphRoot, type, _slotSize * 0.62f, slot.GlyphInkImages, slot.GlyphCoreImages);
+            }
 
             slot.GlyphType = type;
             slot.HasGlyph = true;
         }
 
-        /// <summary>Centres the populated slots inside the row. The row's own size never changes — only
-        /// where within it the icons sit — so nothing else in the HUD can be pushed around by an
-        /// objective appearing or clearing.</summary>
+        /// <summary>Lays the populated slots out left to right from the row's top-left corner, the
+        /// first icon's left edge flush with the row's. The row's own size never changes — only how
+        /// much of it the icons fill — so nothing else in the HUD can be pushed around by an objective
+        /// appearing or clearing.</summary>
         private void LayOutSlots(int objectiveCount)
         {
+            // Slot roots are anchored to the row's top-left corner but centre-pivoted (see BuildSlot),
+            // so the first one is pushed in by half a slot to put its edge, not its centre, on the corner.
+            float y = -_slotSize * 0.5f;
+
             for (int slotIndex = 0; slotIndex < objectiveCount; slotIndex++)
             {
-                float x = (slotIndex - ((objectiveCount - 1) * 0.5f)) * _slotSpacing;
-                _slots[slotIndex].Root.anchoredPosition = new Vector2(x, 0f);
+                float x = (slotIndex * _slotSpacing) + (_slotSize * 0.5f);
+                _slots[slotIndex].Root.anchoredPosition = new Vector2(x, y);
             }
         }
 
@@ -413,17 +448,17 @@ namespace MustyBlockBlast.Presentation.Views
         {
             _rowRect = (RectTransform)transform;
 
-            // Anchored to the top edge rather than to the canvas centre, so the row keeps the same gap
-            // from the top of the screen whatever the aspect ratio — the score below it is the thing
-            // that must not be crowded, and it is centre-anchored.
-            _rowRect.anchorMin = new Vector2(0.5f, 1f);
-            _rowRect.anchorMax = new Vector2(0.5f, 1f);
-            _rowRect.pivot = new Vector2(0.5f, 1f);
+            // Anchored to the top-left corner, like ScoreView's "Best" block above it, so the row keeps
+            // the same gap from that block whatever the aspect ratio. The slots inside are laid out
+            // from this corner too (see LayOutSlots), which is what makes the row left-aligned.
+            _rowRect.anchorMin = new Vector2(0f, 1f);
+            _rowRect.anchorMax = new Vector2(0f, 1f);
+            _rowRect.pivot = new Vector2(0f, 1f);
 
             // Fixed, and deliberately independent of how many objectives there are: the row is a
             // reserved band, not a widget that grows.
             _rowRect.sizeDelta = new Vector2(MAX_SLOT_COUNT * _slotSpacing, _slotSize);
-            _rowRect.anchoredPosition = _topOffset;
+            _rowRect.anchoredPosition = _topLeftOffset;
 
             // Every size here is in canvas reference units, so the row owns its own scale rather than
             // inheriting whatever the scene object happened to be created with.
@@ -444,32 +479,54 @@ namespace MustyBlockBlast.Presentation.Views
             slotRect.SetParent(_rowRect, false);
             Centre(slotRect, slotSize);
 
+            // Anchored to the row's top-left corner, not its centre, so LayOutSlots can measure from
+            // the row's left edge — the row is left-aligned and its slots must be too.
+            slotRect.anchorMin = new Vector2(0f, 1f);
+            slotRect.anchorMax = new Vector2(0f, 1f);
+
             var shadowObject = new GameObject("Shadow", typeof(RectTransform), typeof(Image));
             var shadowRect = (RectTransform)shadowObject.transform;
             shadowRect.SetParent(slotRect, false);
             Centre(shadowRect, slotSize + new Vector2(8f, 8f));
             shadowRect.anchoredPosition = new Vector2(0f, -5f);
-            Image shadowImage = ConfigurePlate(shadowObject.GetComponent<Image>());
+            Image shadowImage = ConfigureDisc(shadowObject.GetComponent<Image>());
 
             var plateObject = new GameObject("Plate", typeof(RectTransform), typeof(Image));
             var plateRect = (RectTransform)plateObject.transform;
             plateRect.SetParent(slotRect, false);
             Centre(plateRect, slotSize);
-            Image plateImage = ConfigurePlate(plateObject.GetComponent<Image>());
+            Image plateImage = ConfigureDisc(plateObject.GetComponent<Image>());
 
             // An empty container: the glyph itself depends on the objective type, so it is filled in on
-            // the first repaint and rebuilt only when that type changes.
+            // the first repaint and rebuilt only when that type changes. Lifted off centre so the
+            // progress counter fits inside the disc's lower curve beneath it.
             var glyphObject = new GameObject("Glyph", typeof(RectTransform));
             var glyphRoot = (RectTransform)glyphObject.transform;
             glyphRoot.SetParent(slotRect, false);
             Centre(glyphRoot, slotSize);
-            glyphRoot.anchoredPosition = new Vector2(0f, _slotSize * 0.08f);
+            glyphRoot.anchoredPosition = new Vector2(0f, _slotSize * 0.09f);
 
+            // The authored silhouette lives beside the procedural glyph root, at the same offset, so
+            // either can stand in for the other without moving anything else in the slot.
+            var iconObject = new GameObject("Icon", typeof(RectTransform), typeof(Image));
+            var iconRect = (RectTransform)iconObject.transform;
+            iconRect.SetParent(slotRect, false);
+            Centre(iconRect, new Vector2(_slotSize * 0.54f, _slotSize * 0.54f));
+            iconRect.anchoredPosition = glyphRoot.anchoredPosition;
+
+            var iconImage = iconObject.GetComponent<Image>();
+            iconImage.type = Image.Type.Simple;
+            iconImage.preserveAspect = true;
+            iconImage.color = Color.clear;
+            iconImage.raycastTarget = false;
+
+            // Pulled in from the corner compared with a square plate: a disc has no corner to tuck
+            // the tick into, so it sits on the rim's 45° point instead.
             var checkObject = new GameObject("CheckMark", typeof(RectTransform), typeof(Image));
             var checkRect = (RectTransform)checkObject.transform;
             checkRect.SetParent(slotRect, false);
-            Centre(checkRect, new Vector2(_slotSize * 0.42f, _slotSize * 0.42f));
-            checkRect.anchoredPosition = new Vector2(_slotSize * 0.26f, -_slotSize * 0.26f);
+            Centre(checkRect, new Vector2(_slotSize * 0.36f, _slotSize * 0.36f));
+            checkRect.anchoredPosition = new Vector2(_slotSize * 0.22f, -_slotSize * 0.22f);
 
             var checkImage = checkObject.GetComponent<Image>();
 
@@ -485,11 +542,11 @@ namespace MustyBlockBlast.Presentation.Views
             progressRect.anchorMin = new Vector2(0.5f, 0f);
             progressRect.anchorMax = new Vector2(0.5f, 0f);
             progressRect.pivot = new Vector2(0.5f, 0f);
-            progressRect.anchoredPosition = new Vector2(0f, 2f);
+            progressRect.anchoredPosition = new Vector2(0f, _slotSize * 0.11f);
             progressText.alignment = TextAnchor.LowerCenter;
 
             return new IconSlot(
-                slotRect, plateRect, plateImage, shadowImage, glyphRoot, checkImage, progressText);
+                slotRect, plateRect, plateImage, shadowImage, glyphRoot, iconImage, checkImage, progressText);
         }
 
         private static void Centre(RectTransform rect, Vector2 size)
@@ -502,12 +559,12 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         // Raycasts stay off everywhere: taps arrive through BoardInputView's pointer action, not
-        // through an EventSystem, and this scene has none.
-        private static Image ConfigurePlate(Image image)
+        // through an EventSystem, and this scene has none. The circle sprite has no border, so it
+        // must never be sliced.
+        private static Image ConfigureDisc(Image image)
         {
-            image.sprite = UiSpriteFactory.RoundedSquare;
-            image.type = Image.Type.Sliced;
-            image.pixelsPerUnitMultiplier = 3f;
+            image.sprite = UiSpriteFactory.Circle;
+            image.type = Image.Type.Simple;
             image.color = Color.clear;
             image.raycastTarget = false;
             return image;

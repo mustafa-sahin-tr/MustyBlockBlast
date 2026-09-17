@@ -8,8 +8,9 @@ using VContainer;
 namespace MustyBlockBlast.Presentation.Views
 {
     /// <summary>
-    /// The running coin total, pinned to the top-right corner of the HUD: a coin disc and the number
-    /// beside it. Binds to <see cref="ProfileModel.CoinBalance"/>.
+    /// The running coin total, drawn as one authored gold coin with the number centred on its face,
+    /// stacked under the settings and level-path icons in the right-hand HUD column. Binds to
+    /// <see cref="ProfileModel.CoinBalance"/>.
     /// <para>
     /// Reactive, never polled — which is the whole point of it. Coins now arrive from three unrelated
     /// places (a score conversion, a rewarded ad, and a destroyed
@@ -24,40 +25,44 @@ namespace MustyBlockBlast.Presentation.Views
     /// not a thing in this game" to exactly the player who has not earned one yet.
     /// </para>
     /// <para>
-    /// The icon is drawn procedurally from the shared sprite atlas-free UI sprite set
-    /// (<see cref="UiSpriteFactory.Circle"/>) and tinted, exactly as a special cell's board icon is
-    /// (<c>BoardView.IconTint</c>): one shared sprite plus a colour, so the icon costs no new texture
-    /// and no import step.
+    /// The coin is a full-colour authored sprite rather than a tinted primitive, so it is drawn with
+    /// <see cref="Color.white"/> and never themed; the number on it is a fixed dark ink for the same
+    /// reason a board icon's tint is fixed — legibility on gold, not decoration. Without a sprite
+    /// assigned it falls back to the tinted disc the HUD drew before any art existed.
     /// </para>
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class CoinTotalHudView : MonoBehaviour
     {
-        /// <summary>
-        /// Colour the coin disc is drawn in. Fixed and unthemed for the reason a board icon's tint is:
-        /// it is a readability mark rather than decoration, and gold is what makes a disc read as a coin
-        /// without any theme having to author (and keep legible) a colour for it. The same hue
-        /// <c>BoardView.CoinIconTint</c> paints a coin cell with, so the thing on the board and the
-        /// thing it pays into are recognisably the same currency.
-        /// </summary>
+        /// <summary>Fallback disc colour when no coin sprite is assigned; the same hue
+        /// <c>BoardView.CoinIconTint</c> paints a coin cell with.</summary>
         private static readonly Color CoinTint = new Color(1f, 0.82f, 0.25f, 1f);
 
+        /// <summary>Ink for the number on the coin face. Dark and fixed: it has to read on gold in
+        /// every theme.</summary>
+        private static readonly Color NumberInk = new Color(0.36f, 0.22f, 0.05f, 1f);
+
         [Header("Layout")]
-        // X clears the right-hand button column, whose buttons sit at x -60 and are 112 wide (see
-        // SettingsButtonView and its siblings), so -200 keeps the number off them at any aspect ratio.
-        // Y lines the total up with the topmost of those buttons.
-        [Tooltip("Offset from the top-right corner of the parent canvas. X is measured leftwards.")]
-        [SerializeField] private Vector2 _cornerOffset = new Vector2(-200f, -52f);
+        // Sits directly under LevelPathButtonView, which is at (-60, -196) and 112 tall, so the three
+        // right-column icons read as one stack with the same 24px gap between each.
+        [Tooltip("Offset from the top-right corner of the parent canvas. X is measured leftwards. " +
+            "Stacked under the level-path icon.")]
+        [SerializeField] private Vector2 _cornerOffset = new Vector2(-60f, -332f);
 
-        [SerializeField] private float _iconSize = 56f;
+        [Tooltip("Side of the coin, in reference pixels. Matches the icons above it.")]
+        [SerializeField] private float _coinSize = 112f;
 
-        [SerializeField] private int _fontSize = 56;
+        [SerializeField] private int _fontSize = 40;
+
+        [Header("Art")]
+        [Tooltip("Full-colour coin face. Drawn untinted; the balance is centred on it. Leave empty to " +
+            "fall back to a plain gold disc.")]
+        [SerializeField] private Sprite _coinSprite;
 
         private readonly CompositeDisposable _disposables = new CompositeDisposable();
         private readonly StringBuilder _stringBuilder = new StringBuilder(16);
 
         private ProfileModel _profileModel;
-        private Image _coinIcon;
         private Text _totalText;
 
         [Inject]
@@ -69,27 +74,52 @@ namespace MustyBlockBlast.Presentation.Views
         private void Awake()
         {
             var rect = (RectTransform)transform;
-            PinToTopRight(rect, _cornerOffset);
-            rect.sizeDelta = new Vector2(280f, Mathf.Max(_iconSize, _fontSize));
+            rect.anchorMin = Vector2.one;
+            rect.anchorMax = Vector2.one;
+            rect.pivot = Vector2.one;
+            rect.anchoredPosition = _cornerOffset;
+            rect.sizeDelta = new Vector2(_coinSize, _coinSize);
 
-            // The number first, hugging the corner, with the disc to its left: the total is what grows,
-            // so anchoring it to the corner keeps a four-digit balance from pushing the icon off screen.
-            _totalText = UiTextFactory.Create(rect, "CoinTotalValue", _fontSize, FontStyle.Bold, CoinTint);
+            // Every size here is in canvas reference units, so the coin owns its own scale rather than
+            // inheriting whatever the scene object happened to be created with.
+            rect.localScale = Vector3.one;
+
+            var coinObject = new GameObject("CoinFace", typeof(RectTransform), typeof(Image));
+            var coinRect = (RectTransform)coinObject.transform;
+            coinRect.SetParent(rect, false);
+            coinRect.anchorMin = Vector2.zero;
+            coinRect.anchorMax = Vector2.one;
+            coinRect.offsetMin = Vector2.zero;
+            coinRect.offsetMax = Vector2.zero;
+
+            var coinImage = coinObject.GetComponent<Image>();
+            coinImage.type = Image.Type.Simple;
+            coinImage.preserveAspect = true;
+            coinImage.raycastTarget = false;
+
+            if (_coinSprite != null)
+            {
+                coinImage.sprite = _coinSprite;
+                coinImage.color = Color.white;
+            }
+            else
+            {
+                // The circle sprite has no border, so it must never be sliced.
+                coinImage.sprite = UiSpriteFactory.Circle;
+                coinImage.color = CoinTint;
+            }
+
+            // Centred on the face, created after the coin so it draws over it.
+            _totalText = UiTextFactory.Create(rect, "CoinTotalValue", _fontSize, FontStyle.Bold, NumberInk);
             var textRect = (RectTransform)_totalText.transform;
-            PinToTopRight(textRect, Vector2.zero);
-            _totalText.alignment = TextAnchor.UpperRight;
-
-            var iconObject = new GameObject("CoinIcon", typeof(RectTransform), typeof(Image));
-            _coinIcon = iconObject.GetComponent<Image>();
-            _coinIcon.sprite = UiSpriteFactory.Circle;
-            _coinIcon.type = Image.Type.Simple;
-            _coinIcon.color = CoinTint;
-            _coinIcon.raycastTarget = false;
-
-            var iconRect = (RectTransform)iconObject.transform;
-            iconRect.SetParent(rect, false);
-            PinToTopRight(iconRect, new Vector2(-(_iconSize + 96f), 0f));
-            iconRect.sizeDelta = new Vector2(_iconSize, _iconSize);
+            textRect.anchorMin = Vector2.zero;
+            textRect.anchorMax = Vector2.one;
+            textRect.offsetMin = Vector2.zero;
+            textRect.offsetMax = Vector2.zero;
+            _totalText.alignment = TextAnchor.MiddleCenter;
+            _totalText.resizeTextForBestFit = true;
+            _totalText.resizeTextMaxSize = _fontSize;
+            _totalText.resizeTextMinSize = Mathf.Max(12, _fontSize / 3);
 
             // Painted by the subscription in Start rather than left blank: the balance is loaded before
             // any View starts, so there is no "unknown" state to render.
@@ -112,17 +142,6 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         private void OnDestroy() => _disposables.Dispose();
-
-        /// <summary>Anchors <paramref name="rect"/> to its parent's top-right corner. Stated once
-        /// because the root, the label and the icon all share it, and a corner-pinned HUD element that
-        /// disagreed with its own children about the corner would drift at other aspect ratios.</summary>
-        private static void PinToTopRight(RectTransform rect, Vector2 offset)
-        {
-            rect.anchorMin = new Vector2(1f, 1f);
-            rect.anchorMax = new Vector2(1f, 1f);
-            rect.pivot = new Vector2(1f, 1f);
-            rect.anchoredPosition = offset;
-        }
 
         /// <summary>One integer through the shared builder, so a change allocates the one string it
         /// hands to the label rather than the several a concatenation would.</summary>
