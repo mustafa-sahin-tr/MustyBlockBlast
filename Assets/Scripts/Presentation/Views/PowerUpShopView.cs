@@ -132,32 +132,32 @@ namespace MustyBlockBlast.Presentation.Views
         private const float HEADER_INSET = 84f;
 
         // The grid: two columns of item cards, scrolled vertically.
-        private const int GRID_COLUMNS = 2;
+        private const int GRID_COLUMNS = 3;
         private const float GRID_GAP = 16f;
         private const float GRID_TOP_PADDING = 8f;
         private const float GRID_BOTTOM_PADDING = 96f;
-        private const float ITEM_HEIGHT = 384f;
-        private const float ITEM_CORNER_RADIUS = 22f;
+        private const float ITEM_HEIGHT = 276f;
+        private const float ITEM_CORNER_RADIUS = 18f;
         private const float ITEM_SHADOW_DROP = 8f;
-        private const float ITEM_PADDING = 16f;
+        private const float ITEM_PADDING = 10f;
         private const float ITEM_INNER_GAP = 12f;
-        private const float BAND_HEIGHT = 46f;
-        private const float TILE_SIZE = 150f;
-        private const float GLYPH_SIZE = 88f;
+        private const float BAND_HEIGHT = 40f;
+        private const float TILE_SIZE = 104f;
+        private const float GLYPH_SIZE = 62f;
 
         /// <summary>The tile sprite's glossy face sits above a darker lip, so the glyph is lifted off
         /// the tile's geometric centre to sit on the face.</summary>
         private const float GLYPH_RISE = 8f;
-        private const float DESCRIPTION_HEIGHT = 60f;
-        private const float BUY_BUTTON_HEIGHT = 72f;
+        private const float DESCRIPTION_HEIGHT = 44f;
+        private const float BUY_BUTTON_HEIGHT = 56f;
         private const float BUY_BUTTON_CORNER_RADIUS = 16f;
-        private const float HELD_BADGE_SIZE = 44f;
+        private const float HELD_BADGE_SIZE = 36f;
         private const float HELD_BADGE_BORDER = 4f;
-        private const float SALE_BADGE_WIDTH = 72f;
-        private const float SALE_BADGE_HEIGHT = 30f;
+        private const float SALE_BADGE_WIDTH = 60f;
+        private const float SALE_BADGE_HEIGHT = 26f;
         private const float SALE_BADGE_CORNER_RADIUS = 12f;
-        private const float COIN_GLYPH_SIZE = 36f;
-        private const float LOCK_GLYPH_SIZE = 32f;
+        private const float COIN_GLYPH_SIZE = 30f;
+        private const float LOCK_GLYPH_SIZE = 26f;
         private const float STRIKETHROUGH_THICKNESS = 3f;
 
         /// <summary>
@@ -165,13 +165,13 @@ namespace MustyBlockBlast.Presentation.Views
         /// layouts: centred when the price stands alone, shifted right when a struck-through standard
         /// price sits to its left.
         /// </summary>
-        private const float PRICE_TEXT_WIDTH = 150f;
-        private const float COIN_X_PLAIN = -44f;
-        private const float PRICE_X_PLAIN = 60f;
-        private const float WAS_PRICE_WIDTH = 110f;
-        private const float WAS_PRICE_X = -106f;
-        private const float COIN_X_DISCOUNTED = -20f;
-        private const float PRICE_X_DISCOUNTED = 84f;
+        private const float PRICE_TEXT_WIDTH = 120f;
+        private const float COIN_X_PLAIN = -34f;
+        private const float PRICE_X_PLAIN = 46f;
+        private const float WAS_PRICE_WIDTH = 70f;
+        private const float WAS_PRICE_X = -78f;
+        private const float COIN_X_DISCOUNTED = -14f;
+        private const float PRICE_X_DISCOUNTED = 66f;
 
         private const float TOAST_HEIGHT = 56f;
         private const float TOAST_BOTTOM = 44f;
@@ -254,19 +254,19 @@ namespace MustyBlockBlast.Presentation.Views
         private const string LOCKED_MESSAGE = "Level up to unlock this.";
 
         [Header("Layout")]
-        [SerializeField] private Vector2 _cardSize = new Vector2(880f, 1040f);
+        [SerializeField] private Vector2 _cardSize = new Vector2(880f, 1200f);
         [SerializeField] private int _headerFontSize = 52;
         [SerializeField] private int _balanceFontSize = 40;
         [SerializeField] private int _tabFontSize = 26;
         [SerializeField] private int _earnFontSize = 24;
         [FormerlySerializedAs("_rowNameFontSize")]
-        [SerializeField] private int _itemNameFontSize = 26;
+        [SerializeField] private int _itemNameFontSize = 22;
         [FormerlySerializedAs("_rowDescriptionFontSize")]
-        [SerializeField] private int _itemDescriptionFontSize = 22;
+        [SerializeField] private int _itemDescriptionFontSize = 17;
         [FormerlySerializedAs("_rowPriceFontSize")]
-        [SerializeField] private int _itemPriceFontSize = 32;
-        [SerializeField] private int _wasPriceFontSize = 20;
-        [SerializeField] private int _badgeFontSize = 20;
+        [SerializeField] private int _itemPriceFontSize = 26;
+        [SerializeField] private int _wasPriceFontSize = 16;
+        [SerializeField] private int _badgeFontSize = 17;
         [SerializeField] private int _toastFontSize = 26;
         [SerializeField] private int _placeholderFontSize = 30;
         [SerializeField] private int _sectionLabelFontSize = 20;
@@ -1340,7 +1340,7 @@ namespace MustyBlockBlast.Presentation.Views
             nameRect.anchoredPosition = new Vector2(0f, bandY);
             item.Name.horizontalOverflow = HorizontalWrapMode.Wrap;
             item.Name.resizeTextForBestFit = true;
-            item.Name.resizeTextMinSize = 16;
+            item.Name.resizeTextMinSize = 14;
             item.Name.resizeTextMaxSize = _itemNameFontSize;
 
             var saleObject = new GameObject("SaleBadge", typeof(RectTransform), typeof(Image));

@@ -1148,16 +1148,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 74e44c147a49c4488b3a171b08d53ff9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.PowerUpShopView
-  _cardSize: {x: 880, y: 1040}
+  _cardSize: {x: 880, y: 1200}
   _headerFontSize: 52
   _balanceFontSize: 44
   _tabFontSize: 26
   _earnFontSize: 24
-  _itemNameFontSize: 26
-  _itemDescriptionFontSize: 22
-  _itemPriceFontSize: 32
-  _wasPriceFontSize: 24
-  _badgeFontSize: 20
+  _itemNameFontSize: 22
+  _itemDescriptionFontSize: 17
+  _itemPriceFontSize: 26
+  _wasPriceFontSize: 16
+  _badgeFontSize: 17
   _toastFontSize: 26
   _placeholderFontSize: 30
   _sectionLabelFontSize: 20
