@@ -1036,6 +1036,16 @@ MonoBehaviour:
   _slotSpacing: 180
   _maxStripWidth: 1000
   _countFontSize: 34
+  _slotIcons:
+  - {fileID: 21300000, guid: 4eb7949ce29df43d7b0049a7da99d113, type: 3}
+  - {fileID: 21300000, guid: a78c069ff5050429a949119407ba55bc, type: 3}
+  - {fileID: 21300000, guid: 87efac498a1b6431ca61e9d6ef9975c3, type: 3}
+  - {fileID: 21300000, guid: b8923c044f1444f61bca85e1063f9aa7, type: 3}
+  - {fileID: 21300000, guid: be62b63a90b49414abad0b08aaae3c0b, type: 3}
+  - {fileID: 21300000, guid: c0997faea234d4ebcb32abfe7840f76f, type: 3}
+  - {fileID: 21300000, guid: 3ed537dccdd5e431bb0d9db764852859, type: 3}
+  - {fileID: 21300000, guid: b1457f48ecdf546ad82e33b5da56435f, type: 3}
+  - {fileID: 21300000, guid: df082345de6c341249b4b446e357c822, type: 3}
   _armedScale: 1.12
 --- !u!1 &941606219
 GameObject:
@@ -1089,8 +1099,20 @@ MonoBehaviour:
   _headerFontSize: 52
   _balanceFontSize: 44
   _bodyFontSize: 32
-  _buttonFontSize: 28
   _wasPriceFontSize: 24
+  _rowNameFontSize: 26
+  _rowDescriptionFontSize: 20
+  _rowPriceFontSize: 26
+  _rowIcons:
+  - {fileID: 21300000, guid: 4eb7949ce29df43d7b0049a7da99d113, type: 3}
+  - {fileID: 21300000, guid: a78c069ff5050429a949119407ba55bc, type: 3}
+  - {fileID: 21300000, guid: 87efac498a1b6431ca61e9d6ef9975c3, type: 3}
+  - {fileID: 21300000, guid: b8923c044f1444f61bca85e1063f9aa7, type: 3}
+  - {fileID: 21300000, guid: be62b63a90b49414abad0b08aaae3c0b, type: 3}
+  - {fileID: 21300000, guid: c0997faea234d4ebcb32abfe7840f76f, type: 3}
+  - {fileID: 21300000, guid: 3ed537dccdd5e431bb0d9db764852859, type: 3}
+  - {fileID: 21300000, guid: b1457f48ecdf546ad82e33b5da56435f, type: 3}
+  - {fileID: 21300000, guid: df082345de6c341249b4b446e357c822, type: 3}
   _scrimColour: {r: 0.17, g: 0.15, b: 0.2, a: 0.55}
 --- !u!1 &979778622
 GameObject:

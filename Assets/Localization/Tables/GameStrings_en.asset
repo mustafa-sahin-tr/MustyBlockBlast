@@ -310,6 +310,78 @@ MonoBehaviour:
     m_Localized: Badges
     m_Metadata:
       m_Items: []
+  - m_Id: 1357482390708224
+    m_Localized: Bomb
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482415874048
+    m_Localized: Clears the 3x3 area around a cell
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262656
+    m_Localized: Row Clear
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262657
+    m_Localized: Empties one whole row
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262658
+    m_Localized: Column Clear
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262659
+    m_Localized: Empties one whole column
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262660
+    m_Localized: Joker
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262661
+    m_Localized: Fills one empty cell
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262662
+    m_Localized: Colour Cleanser
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262663
+    m_Localized: Clears every cell of one colour
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262664
+    m_Localized: Rotate
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262665
+    m_Localized: "Turns a tray piece 90\xB0"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262666
+    m_Localized: Reroll
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262667
+    m_Localized: Draws three fresh tray pieces
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262668
+    m_Localized: Double Score
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262669
+    m_Localized: Doubles all points for a while
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262670
+    m_Localized: Ghost Fit
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262671
+    m_Localized: Points out the best move
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

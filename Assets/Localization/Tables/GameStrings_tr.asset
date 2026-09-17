@@ -310,6 +310,78 @@ MonoBehaviour:
     m_Localized: Rozetler
     m_Metadata:
       m_Items: []
+  - m_Id: 1357482390708224
+    m_Localized: Bomba
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482415874048
+    m_Localized: "Bir h\xFCcrenin \xE7evresindeki 3x3 alan\u0131 temizler"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262656
+    m_Localized: "Sat\u0131r Temizle"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262657
+    m_Localized: "Bir sat\u0131r\u0131 tamamen bo\u015Falt\u0131r"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262658
+    m_Localized: "S\xFCtun Temizle"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262659
+    m_Localized: "Bir s\xFCtunu tamamen bo\u015Falt\u0131r"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262660
+    m_Localized: Joker
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262661
+    m_Localized: "Bo\u015F bir h\xFCcreyi doldurur"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262662
+    m_Localized: Renk Temizleyici
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262663
+    m_Localized: "Bir rengin t\xFCm h\xFCcrelerini temizler"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262664
+    m_Localized: "D\xF6nd\xFCr"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262665
+    m_Localized: "Bir par\xE7ay\u0131 90\xB0 d\xF6nd\xFCr\xFCr"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262666
+    m_Localized: "Yeniden Da\u011F\u0131t"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262667
+    m_Localized: "\xDC\xE7 yeni par\xE7a da\u011F\u0131t\u0131r"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262668
+    m_Localized: "\xC7ift Puan"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262669
+    m_Localized: "Bir s\xFCre t\xFCm puanlar\u0131 ikiye katlar"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262670
+    m_Localized: "Hayalet Yerle\u015Fim"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262671
+    m_Localized: "En iyi hamleyi g\xF6sterir"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

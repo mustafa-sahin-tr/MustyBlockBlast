@@ -98,25 +98,11 @@ namespace MustyBlockBlast.Presentation.Views
         /// the "earn one" gesture, so it reads as an offer rather than as a dead icon showing 0.</summary>
         private const string EARN_AFFORDANCE_LABEL = "+";
 
-        /// <summary>Turns the joker's square glyph onto its point, so it is distinct from the bomb's
-        /// disc and the two clear bars without needing a fourth sprite.</summary>
-        private const float JOKER_GLYPH_ROTATION_DEGREES = 45f;
+        /// <summary>Side of a slot's icon glyph, as a fraction of the slot.</summary>
+        private const float GLYPH_SIZE_FRACTION = 0.56f;
 
-        /// <summary>Tilts the rotate power-up's bar off both axes, so it is distinct from the row and
-        /// column bars and reads as "turned" — again without needing another sprite.</summary>
-        private const float ROTATE_GLYPH_ROTATION_DEGREES = 45f;
-
-        /// <summary>Height-to-width ratio that squashes the reroll's circle into a lozenge, so it reads
-        /// apart from the bomb's disc without needing an eighth sprite.</summary>
-        private const float REROLL_GLYPH_FLATTEN = 0.5f;
-
-        /// <summary>Width-to-height ratio that stands the same circle on end for the double multiplier,
-        /// so it reads apart from the reroll's flat lozenge without needing a ninth sprite.</summary>
-        private const float DOUBLE_MULTIPLIER_GLYPH_FLATTEN = 0.5f;
-
-        /// <summary>Alpha of the Ghost Fit glyph, drawn semi-transparent so the ninth silhouette reads
-        /// as the ghost it is named after — the one distinction in the strip made with alpha rather than
-        /// shape, since every shape the two sprites can make is already spoken for.</summary>
+        /// <summary>Alpha of the Ghost Fit glyph, drawn semi-transparent so it reads as the ghost it is
+        /// named after — kept from the placeholder era because it is still the right look for it.</summary>
         private const float GHOST_FIT_GLYPH_ALPHA = 0.55f;
 
         [Header("Layout")]
@@ -133,6 +119,12 @@ namespace MustyBlockBlast.Presentation.Views
         [SerializeField] private float _maxStripWidth = 1000f;
 
         [SerializeField] private int _countFontSize = 34;
+
+        [Header("Icons")]
+        [Tooltip("White-on-transparent glyphs, one per slot in display order (Bomb, Row Clear, Column Clear, "
+            + "Joker, Colour Cleanser, Rotate, Reroll, Double Score, Ghost Fit) — the same sprites the shop "
+            + "rows draw, so a power-up looks the same wherever it is met. Tinted at runtime.")]
+        [SerializeField] private Sprite[] _slotIcons = new Sprite[SlotCount];
 
         [Tooltip("Extra scale applied to the armed slot, so the selection reads without any new art.")]
         [SerializeField] private float _armedScale = 1.12f;
@@ -771,90 +763,41 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         /// <summary>
-        /// One Image per kind, drawn from the shared placeholder sprites so the strip adds no art
-        /// dependency and keeps batching with the rest of the UI: a disc for the bomb, a wide bar for
-        /// the row clear, a tall bar for the column clear, a diamond — the same rounded square, turned
-        /// 45 degrees — for the joker, which reads as "one cell, placed askew", an upright square for
-        /// the colour cleanser, that same bar turned 45 degrees for the rotate, and a flattened circle
-        /// for the reroll, that same circle stood on end for the double multiplier, and the joker's
-        /// diamond again — drawn see-through — for ghost fit.
+        /// One tinted sprite per kind from <see cref="_slotIcons"/> — the same icons the shop rows draw,
+        /// so the thing the player bought is the thing they see in the strip. The sprites live in the
+        /// hub icon atlas, so the strip still batches with the rest of the UI. The placeholder
+        /// silhouettes assembled from the rounded square and the circle are gone with this.
         /// </summary>
         private Image BuildGlyph(RectTransform parent, PowerUpKind kind)
         {
             var glyphObject = new GameObject("Glyph", typeof(RectTransform), typeof(Image));
             var glyphRect = (RectTransform)glyphObject.transform;
             glyphRect.SetParent(parent, false);
+            float side = _slotSize * GLYPH_SIZE_FRACTION;
+            Centre(glyphRect, new Vector2(side, side));
 
             var glyphImage = glyphObject.GetComponent<Image>();
+            glyphImage.sprite = IconFor(kind);
+            glyphImage.type = Image.Type.Simple;
+            glyphImage.preserveAspect = true;
+            glyphImage.color = Color.clear;
+            glyphImage.raycastTarget = false;
+            return glyphImage;
+        }
 
-            float barLength = _slotSize * 0.62f;
-            float barThickness = _slotSize * 0.20f;
-
-            switch (kind)
+        /// <summary>The icon for <paramref name="kind"/>, authored in <see cref="SlotKinds"/> order.</summary>
+        private Sprite IconFor(PowerUpKind kind)
+        {
+            int slotIndex = SlotIndexOf(kind);
+            Sprite icon = _slotIcons != null && slotIndex >= 0 && slotIndex < _slotIcons.Length
+                ? _slotIcons[slotIndex]
+                : null;
+            if (icon == null)
             {
-                case PowerUpKind.RowClear:
-                    Centre(glyphRect, new Vector2(barLength, barThickness));
-                    ConfigurePlate(glyphImage);
-                    break;
-                case PowerUpKind.ColumnClear:
-                    Centre(glyphRect, new Vector2(barThickness, barLength));
-                    ConfigurePlate(glyphImage);
-                    break;
-                case PowerUpKind.Joker:
-                    float side = _slotSize * 0.40f;
-                    Centre(glyphRect, new Vector2(side, side));
-                    // Rotating the rect, not the sprite: the same rounded square every other plate
-                    // uses stays in the same atlas draw call, it is simply drawn on its point.
-                    glyphRect.localRotation = Quaternion.Euler(0f, 0f, JOKER_GLYPH_ROTATION_DEGREES);
-                    ConfigurePlate(glyphImage);
-                    break;
-                case PowerUpKind.ColorCleanser:
-                    // Upright square (not rotated to Joker's diamond, not round like Bomb) — the fifth
-                    // distinct silhouette in the strip, no new sprite needed.
-                    float swatchSide = _slotSize * 0.44f;
-                    Centre(glyphRect, new Vector2(swatchSide, swatchSide));
-                    ConfigurePlate(glyphImage);
-                    break;
-                case PowerUpKind.Rotate:
-                    // The sixth silhouette: the row clear's bar, tilted. Same rect-rotation trick as
-                    // Joker's diamond, so it stays in the shared atlas draw call.
-                    Centre(glyphRect, new Vector2(barLength, barThickness));
-                    glyphRect.localRotation = Quaternion.Euler(0f, 0f, ROTATE_GLYPH_ROTATION_DEGREES);
-                    ConfigurePlate(glyphImage);
-                    break;
-                case PowerUpKind.Reroll:
-                    // The seventh: the bomb's circle sprite, squashed into a lozenge. Distinct from the
-                    // bomb's true disc and from every straight-edged plate in the strip, and still the
-                    // same two sprites — nothing new to atlas.
-                    float lozengeWidth = _slotSize * 0.56f;
-                    Centre(glyphRect, new Vector2(lozengeWidth, lozengeWidth * REROLL_GLYPH_FLATTEN));
-                    ConfigureCircle(glyphImage);
-                    break;
-                case PowerUpKind.GhostFit:
-                    // The ninth: the joker's diamond at reduced alpha. Every silhouette the two shared
-                    // sprites can make is taken by now, so this one is set apart by being see-through —
-                    // which is also what a "ghost" should look like.
-                    float ghostSide = _slotSize * 0.40f;
-                    Centre(glyphRect, new Vector2(ghostSide, ghostSide));
-                    glyphRect.localRotation = Quaternion.Euler(0f, 0f, JOKER_GLYPH_ROTATION_DEGREES);
-                    ConfigurePlate(glyphImage);
-                    break;
-                case PowerUpKind.DoubleMultiplier:
-                    // The eighth: the same circle sprite as the reroll's lozenge, stood on end instead
-                    // of laid flat. Distinct from both the flat lozenge and the bomb's true disc, and
-                    // still no new sprite to atlas.
-                    float uprightWidth = _slotSize * 0.56f * DOUBLE_MULTIPLIER_GLYPH_FLATTEN;
-                    Centre(glyphRect, new Vector2(uprightWidth, _slotSize * 0.56f));
-                    ConfigureCircle(glyphImage);
-                    break;
-                default:
-                    float diameter = _slotSize * 0.5f;
-                    Centre(glyphRect, new Vector2(diameter, diameter));
-                    ConfigureCircle(glyphImage);
-                    break;
+                Debug.LogError($"{nameof(PowerUpInventoryView)} has no icon sprite assigned for {kind}.", this);
             }
 
-            return glyphImage;
+            return icon;
         }
 
         private static void Centre(RectTransform rect, Vector2 size)

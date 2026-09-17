@@ -307,6 +307,78 @@ MonoBehaviour:
     m_Key: hub.tab.badges
     m_Metadata:
       m_Items: []
+  - m_Id: 1357482390708224
+    m_Key: powerup.name.bomb
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482415874048
+    m_Key: powerup.desc.bomb
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262656
+    m_Key: powerup.name.row_clear
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262657
+    m_Key: powerup.desc.row_clear
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262658
+    m_Key: powerup.name.column_clear
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262659
+    m_Key: powerup.desc.column_clear
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262660
+    m_Key: powerup.name.joker
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262661
+    m_Key: powerup.desc.joker
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262662
+    m_Key: powerup.name.color_cleanser
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262663
+    m_Key: powerup.desc.color_cleanser
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262664
+    m_Key: powerup.name.rotate
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262665
+    m_Key: powerup.desc.rotate
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262666
+    m_Key: powerup.name.reroll
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262667
+    m_Key: powerup.desc.reroll
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262668
+    m_Key: powerup.name.double_multiplier
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262669
+    m_Key: powerup.desc.double_multiplier
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262670
+    m_Key: powerup.name.ghost_fit
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1357482424262671
+    m_Key: powerup.desc.ghost_fit
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:
