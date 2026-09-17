@@ -11,6 +11,13 @@ namespace MustyBlockBlast.Presentation.Views
     [RequireComponent(typeof(RectTransform))]
     public sealed class SafeAreaView : MonoBehaviour
     {
+        [Tooltip("Whether the top inset of the safe area (notch / Dynamic Island) is applied. Off by " +
+            "default: the cut-out is only ever in the centre of the top edge, and nothing in the HUD is " +
+            "anchored there — the run score is centred on the canvas, not on the top edge — while the " +
+            "corner controls and the best-score block need that height on a tall phone (issue #229). " +
+            "The bottom inset (home indicator) and the side insets are always applied.")]
+        [SerializeField] private bool _applyTopInset;
+
         private RectTransform _rectTransform;
         private Rect _lastSafeArea;
         private int _lastScreenWidth;
@@ -57,6 +64,11 @@ namespace MustyBlockBlast.Presentation.Views
             anchorMin.y /= screenHeight;
             anchorMax.x /= screenWidth;
             anchorMax.y /= screenHeight;
+
+            if (!_applyTopInset)
+            {
+                anchorMax.y = 1f;
+            }
 
             _rectTransform.anchorMin = anchorMin;
             _rectTransform.anchorMax = anchorMax;

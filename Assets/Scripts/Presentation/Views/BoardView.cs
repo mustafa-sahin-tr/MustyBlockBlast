@@ -264,6 +264,22 @@ namespace MustyBlockBlast.Presentation.Views
 
         internal float CellSize => _cellSize;
 
+        /// <summary>
+        /// Y of the board card's top edge for the standard <see cref="Board.SIZE"/> board, in canvas
+        /// reference units from the vertical centre. Derived from the serialized layout alone so it is
+        /// valid before any board is built and never moves with a level's shape: the HUD row that sits
+        /// on the board (objective icons, coin) hangs from this rather than from the screen's top edge,
+        /// so a taller screen or a notch can no longer push it down into the card (issue #229).
+        /// </summary>
+        internal float StandardCardTopEdge
+        {
+            get
+            {
+                float gridExtent = (Board.SIZE * _cellSize) + ((Board.SIZE - 1) * _cellSpacing);
+                return _anchoredPosition.y + ((gridExtent + (_cardPadding * 2f)) * 0.5f);
+            }
+        }
+
         internal float CellSpacing => _cellSpacing;
 
         internal float CellInset => _cellInset;
