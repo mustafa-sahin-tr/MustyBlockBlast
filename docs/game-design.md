@@ -316,11 +316,12 @@ to be replaying):
 | Double Multiplier | 25 |
 | Ghost Fit | 30 |
 
-A locked power-up keeps its fixed place in the inventory strip — the strip never reflows as
-kinds unlock — and is shown with a padlock and the level it needs, distinctly from an
-unlocked-but-empty slot (which is the "earn one" offer). A locked slot's tap does nothing at
-all: it cannot be armed, applied, or used to request a reward. Reaching the unlock level
-reveals the slot immediately, with no restart.
+A locked power-up has no slot in the inventory strip at all — no padlock, no reserved space.
+The strip only shows the kinds the player can use, and it grows as kinds unlock, sliding to
+its new width rather than snapping. A locked kind therefore cannot be armed, applied, or used
+to request a reward: there is nothing on screen to tap. Only an unlocked-but-empty slot is
+shown with no count, and that slot is the "earn one" offer. Reaching the unlock level reveals
+the slot immediately, in the same run, with no restart.
 
 The gate governs **visibility and use only**. It never touches the inventory: a power-up
 already held is kept in full even if its kind is locked, and simply becomes usable when the
