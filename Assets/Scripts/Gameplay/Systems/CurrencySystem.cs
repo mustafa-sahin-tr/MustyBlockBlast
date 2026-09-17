@@ -8,6 +8,7 @@ using MustyBlockBlast.Gameplay.Messages;
 using MustyBlockBlast.Gameplay.Models;
 using MustyBlockBlast.Gameplay.Settings;
 using UnityEngine;
+using VContainer;
 
 namespace MustyBlockBlast.Gameplay.Systems
 {
@@ -106,7 +107,16 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// </summary>
         private readonly Func<DateTime> _utcNowProvider;
 
-        /// <summary>DI entry point — VContainer must not pick the seeded-clock constructor.</summary>
+        /// <summary>
+        /// DI entry point. Explicitly marked because VContainer, absent an <see cref="InjectAttribute"/>,
+        /// resolves the constructor with the most parameters — which is the seeded-clock one below, not
+        /// this one, now that it carries an extra <see cref="Func{DateTime}"/> parameter. Without this
+        /// attribute VContainer silently picks that constructor instead and fails to resolve it (nothing
+        /// registers a bare <see cref="Func{DateTime}"/>), breaking this System — and everything that
+        /// depends on it — at runtime despite every EditMode test passing, since tests construct this
+        /// class directly rather than through the container.
+        /// </summary>
+        [Inject]
         public CurrencySystem(
             ProfileModel profileModel,
             ScoreModel scoreModel,
