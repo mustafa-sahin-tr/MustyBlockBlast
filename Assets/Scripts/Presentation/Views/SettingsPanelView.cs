@@ -1216,8 +1216,10 @@ namespace MustyBlockBlast.Presentation.Views
         {
             RectTransform badgeRect = BuildBadge(rowRect);
 
-            // Same three dots as the swatches use, just smaller: one visual language for "theme".
-            BuildKindDots(badgeRect, null, 20f, 26f, Vector2.zero, _themeBadgeDots);
+            // Same dots as the swatches use, just smaller: one visual language for "theme". Sized so
+            // the whole row of KIND_COUNT dots spans the badge's inner width (issue #147 widened the
+            // palette to five, and five of the old 20px dots would overrun an 84px badge).
+            BuildKindDots(badgeRect, null, 12f, 15f, Vector2.zero, _themeBadgeDots);
 
             _themeValueText = BuildPill(rowRect);
         }
@@ -1861,8 +1863,9 @@ namespace MustyBlockBlast.Presentation.Views
             swatchImage.color = Color.white;
             swatchImage.raycastTarget = false;
 
+            // Five dots (see ThemeDefinition.KIND_COUNT) at this pitch span 260 of the swatch's 356.
             BuildKindDots(
-                swatchRect, theme, 44f, 72f, new Vector2(0f, (-swatchSize.y * 0.5f) + 44f), null);
+                swatchRect, theme, 36f, 56f, new Vector2(0f, (-swatchSize.y * 0.5f) + 44f), null);
 
             Text nameText = UiTextFactory.Create(optionRect, "Name", 38, FontStyle.Bold, Color.clear);
             nameText.text = ResolveThemeName(theme);

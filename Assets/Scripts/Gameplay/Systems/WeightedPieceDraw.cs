@@ -18,7 +18,7 @@ namespace MustyBlockBlast.Gameplay.Systems
     public sealed class WeightedPieceDraw
     {
         /// <summary>Number of distinct cosmetic colour ids ("piece kinds"). Colour never affects rules.</summary>
-        public const int COLOUR_COUNT = 3;
+        public const int COLOUR_COUNT = Board.COLOUR_COUNT;
 
         /// <summary>
         /// How many whole sets <see cref="TryDrawSolvableSet"/> will draw before giving up on the

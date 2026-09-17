@@ -25,13 +25,31 @@ namespace MustyBlockBlast.Core
             IReadOnlyList<int> emptiedColumns,
             IReadOnlyList<SpecialCellTrigger> triggeredSpecials,
             int reinforcedCellsFullyClearedCount)
+            : this(
+                clearedCells, emptiedRows, emptiedColumns, triggeredSpecials,
+                reinforcedCellsFullyClearedCount, destroyedCellCountByColour: null)
+        {
+        }
+
+        public PowerUpClearResult(
+            IReadOnlyList<GridPosition> clearedCells,
+            IReadOnlyList<int> emptiedRows,
+            IReadOnlyList<int> emptiedColumns,
+            IReadOnlyList<SpecialCellTrigger> triggeredSpecials,
+            int reinforcedCellsFullyClearedCount,
+            IReadOnlyList<int> destroyedCellCountByColour)
         {
             ClearedCells = clearedCells;
             EmptiedRows = emptiedRows;
             EmptiedColumns = emptiedColumns;
             TriggeredSpecials = triggeredSpecials;
             ReinforcedCellsFullyClearedCount = reinforcedCellsFullyClearedCount;
+            DestroyedCellCountByColour = destroyedCellCountByColour;
         }
+
+        /// <summary>How many cells of each colour this clear destroyed, indexed by colour id — see
+        /// <see cref="ColourTally"/>. Null for a clear that resolved nothing.</summary>
+        public IReadOnlyList<int> DestroyedCellCountByColour { get; }
 
         /// <summary>Exactly the cells that held a colour before the clear and were actually emptied by
         /// it — cells that were already empty inside the affected region are not reported, and neither
@@ -233,6 +251,10 @@ namespace MustyBlockBlast.Core
             // cells that are really going.
             int reinforcedCellsFullyClearedCount = ReinforcedCellDamage.SpendHits(board, clearedCells);
 
+            // Post-gate and pre-removal, exactly as LineClearResolver takes its own: the colour is gone
+            // once Board.Clear runs, and a surviving reinforced cell was not destroyed.
+            int[] destroyedCellCountByColour = ColourTally.Count(board, clearedCells);
+
             // Before the removal, for the same reason occupancy was read before it: Board.Clear resets
             // a cell's special kind along with its colour, so this is the last moment the kinds exist.
             var triggeredSpecials = new List<SpecialCellTrigger>();
@@ -264,7 +286,7 @@ namespace MustyBlockBlast.Core
 
             return new PowerUpClearResult(
                 clearedCells, emptiedRows, emptiedColumns, triggeredSpecials,
-                reinforcedCellsFullyClearedCount);
+                reinforcedCellsFullyClearedCount, destroyedCellCountByColour);
         }
 
         private static void RequireBoard(Board board)

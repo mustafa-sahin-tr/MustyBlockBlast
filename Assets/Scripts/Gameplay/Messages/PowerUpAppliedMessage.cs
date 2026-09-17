@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace MustyBlockBlast.Gameplay.Messages
 {
     /// <summary>
@@ -48,6 +50,16 @@ namespace MustyBlockBlast.Gameplay.Messages
         public PowerUpAppliedMessage(
             PowerUpKind kind, int clearedCellCount, int clearedLineCount, int emptiedLineCount,
             bool wasClutchSave, int destroyedScoreGemCount, int reinforcedCellsFullyClearedCount)
+            : this(
+                kind, clearedCellCount, clearedLineCount, emptiedLineCount, wasClutchSave,
+                destroyedScoreGemCount, reinforcedCellsFullyClearedCount, destroyedCellCountByColour: null)
+        {
+        }
+
+        public PowerUpAppliedMessage(
+            PowerUpKind kind, int clearedCellCount, int clearedLineCount, int emptiedLineCount,
+            bool wasClutchSave, int destroyedScoreGemCount, int reinforcedCellsFullyClearedCount,
+            IReadOnlyList<int> destroyedCellCountByColour)
         {
             Kind = kind;
             ClearedCellCount = clearedCellCount;
@@ -56,6 +68,7 @@ namespace MustyBlockBlast.Gameplay.Messages
             WasClutchSave = wasClutchSave;
             DestroyedScoreGemCount = destroyedScoreGemCount;
             ReinforcedCellsFullyClearedCount = reinforcedCellsFullyClearedCount;
+            DestroyedCellCountByColour = destroyedCellCountByColour;
         }
 
         public PowerUpKind Kind { get; }
@@ -110,5 +123,9 @@ namespace MustyBlockBlast.Gameplay.Messages
         /// </para>
         /// </summary>
         public int ReinforcedCellsFullyClearedCount { get; }
+
+        /// <summary>Cells this application destroyed, counted per colour id — see
+        /// <c>ColourTally</c>. Null for a kind that clears nothing.</summary>
+        public IReadOnlyList<int> DestroyedCellCountByColour { get; }
     }
 }

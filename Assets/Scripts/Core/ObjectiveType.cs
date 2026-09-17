@@ -118,5 +118,11 @@ namespace MustyBlockBlast.Core
         /// reported on either message and does not advance this objective.
         /// </para></summary>
         ReinforcedCellsCleared = 17,
+
+        /// <summary>
+        /// Destroy <c>TargetValue</c> cells of <c>RequiredColourId</c>, by completed lines or by power-up
+        /// clears. Counts cells, not events: one placement can advance it by several (issue #147).
+        /// </summary>
+        ColourCleared = 18,
     }
 }

@@ -57,6 +57,10 @@ namespace MustyBlockBlast.Gameplay.Settings
             "Used by PieceIdCount and PieceIdLineClear only.")]
         [SerializeField] private string _requiredPieceId = "square_3x3";
 
+        [Tooltip("Piece colour id (1..5) whose cells a ColourCleared objective counts. The id is theme-"
+            + "agnostic: the swatch the player sees comes from the active theme at runtime. Unused otherwise.")]
+        [SerializeField] private int _requiredColourId = 1;
+
         [Tooltip("Grant a power-up when this level is completed. Off by default — milestone levels " +
             "are the reward levels, not every level.")]
         [SerializeField] private bool _grantsLevelUpReward;
@@ -144,6 +148,9 @@ namespace MustyBlockBlast.Gameplay.Settings
         /// </summary>
         public int CoinCellCount => _coinCellCount;
 
+        /// <summary>Colour id a <see cref="ObjectiveType.ColourCleared"/> objective counts.</summary>
+        public int RequiredColourId => _requiredColourId;
+
         /// <summary>
         /// The reinforced cells this level pre-fills its board with, in authored order. Empty for a
         /// level that authors none, which is every level authored before the mechanic existed.
@@ -215,7 +222,8 @@ namespace MustyBlockBlast.Gameplay.Settings
                 _requiredPieceFamily,
                 _requiredOccupancyThreshold,
                 _requiredPieceId,
-                _windowSeconds);
+                _windowSeconds,
+                _objectiveType == ObjectiveType.ColourCleared ? _requiredColourId : 0);
         }
 
         /// <summary>
@@ -379,6 +387,13 @@ namespace MustyBlockBlast.Gameplay.Settings
                 }
             }
 
+            if (_objectiveType == ObjectiveType.ColourCleared
+                && (_requiredColourId < 1 || _requiredColourId > Board.COLOUR_COUNT))
+            {
+                error = $"ColourCleared needs a required colour id between 1 and {Board.COLOUR_COUNT} — no other id is ever drawn.";
+                return false;
+            }
+
             if (_objectiveType == ObjectiveType.RollingLineClearWindow || _objectiveType == ObjectiveType.EarlyScoreRush)
             {
                 if (_windowSeconds <= 0f)
@@ -478,6 +493,7 @@ namespace MustyBlockBlast.Gameplay.Settings
             _windowSeconds = Mathf.Max(1f, _windowSeconds);
             _completionScoreBonus = Mathf.Max(0, _completionScoreBonus);
             _coinCellCount = Mathf.Max(0, _coinCellCount);
+            _requiredColourId = Mathf.Clamp(_requiredColourId, 1, Board.COLOUR_COUNT);
 
             // Clamped per entry rather than reported, for the reason every numeric field above is: a
             // hit count outside the range is a typo with one sensible reading, and the developer sees

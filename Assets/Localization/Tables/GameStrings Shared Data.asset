@@ -439,6 +439,10 @@ MonoBehaviour:
     m_Key: result.badges_title
     m_Metadata:
       m_Items: []
+  - m_Id: 1371178030587925
+    m_Key: objective.colour_cleared
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

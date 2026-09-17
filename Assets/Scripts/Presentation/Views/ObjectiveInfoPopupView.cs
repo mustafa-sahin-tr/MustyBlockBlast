@@ -262,8 +262,8 @@ namespace MustyBlockBlast.Presentation.Views
             _headerText.text = FormatCounter(objective.CurrentValue, objective.Definition.TargetValue);
 
             _descriptionText.color = isComplete ? _currentTheme.Accent : _currentTheme.SoftInk;
-            _descriptionText.text =
-                ObjectiveDescriptionFormatter.Describe(objective.Definition, _localizationSystem);
+            _descriptionText.text = ObjectiveDescriptionFormatter.Describe(
+                objective.Definition, _localizationSystem, _currentTheme);
         }
 
         /// <summary>Rebuilds the hero glyph when the card is opened for an objective of a different

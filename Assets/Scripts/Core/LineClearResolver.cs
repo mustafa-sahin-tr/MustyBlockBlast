@@ -24,12 +24,26 @@ namespace MustyBlockBlast.Core
             int clearedCellCount,
             int monochromeLineCount,
             int reinforcedCellsFullyClearedCount)
+            : this(
+                clearedRows, clearedColumns, clearedCellCount, monochromeLineCount,
+                reinforcedCellsFullyClearedCount, destroyedCellCountByColour: null)
+        {
+        }
+
+        public LineClearResult(
+            IReadOnlyList<int> clearedRows,
+            IReadOnlyList<int> clearedColumns,
+            int clearedCellCount,
+            int monochromeLineCount,
+            int reinforcedCellsFullyClearedCount,
+            IReadOnlyList<int> destroyedCellCountByColour)
         {
             ClearedRows = clearedRows;
             ClearedColumns = clearedColumns;
             ClearedCellCount = clearedCellCount;
             MonochromeLineCount = monochromeLineCount;
             ReinforcedCellsFullyClearedCount = reinforcedCellsFullyClearedCount;
+            DestroyedCellCountByColour = destroyedCellCountByColour;
         }
 
         public IReadOnlyList<int> ClearedRows { get; }
@@ -56,6 +70,14 @@ namespace MustyBlockBlast.Core
         /// </para>
         /// </summary>
         public int ReinforcedCellsFullyClearedCount { get; }
+
+        /// <summary>
+        /// How many cells of each colour this clear destroyed, indexed by colour id — see
+        /// <see cref="ColourTally"/>. Each intersection cell is counted once, matching
+        /// <see cref="ClearedCellCount"/>, and a reinforced cell that only took a hit is not in it.
+        /// Null for a preview, which stamps a placeholder colour and so cannot tally honestly.
+        /// </summary>
+        public IReadOnlyList<int> DestroyedCellCountByColour { get; }
 
         /// <summary>Simultaneous lines cleared — the "lines" term used by <see cref="ScoreRules"/>.</summary>
         public int LineCount => ClearedRows.Count + ClearedColumns.Count;
@@ -220,6 +242,10 @@ namespace MustyBlockBlast.Core
             // intersections — which is what makes a row-and-column clear cost one hit, not two (AC4).
             int reinforcedCellsFullyClearedCount = ReinforcedCellDamage.SpendHits(board, candidates);
 
+            // On the post-gate list, so a reinforced cell that survived is not counted as destroyed;
+            // and before the removal below, because Board.Clear wipes the colour this reads.
+            int[] destroyedCellCountByColour = ColourTally.Count(board, candidates);
+
             if (triggeredSpecials != null)
             {
                 triggeredSpecials.Clear();
@@ -243,7 +269,7 @@ namespace MustyBlockBlast.Core
             // of its cells left standing.
             return new LineClearResult(
                 clearedRows, clearedColumns, candidates.Count, monochromeLineCount,
-                reinforcedCellsFullyClearedCount);
+                reinforcedCellsFullyClearedCount, destroyedCellCountByColour);
         }
 
         /// <summary>

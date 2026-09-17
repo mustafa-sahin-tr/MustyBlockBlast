@@ -442,6 +442,10 @@ MonoBehaviour:
     m_Localized: "Insignias nuevas: toca para reclamar"
     m_Metadata:
       m_Items: []
+  - m_Id: 1371178030587925
+    m_Localized: Elimina bloques {0}
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

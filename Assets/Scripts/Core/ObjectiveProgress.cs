@@ -201,6 +201,19 @@ namespace MustyBlockBlast.Core
 
                     break;
 
+                case ObjectiveType.ColourCleared:
+                    // Counts THINGS DESTROYED like ReinforcedCellsCleared below, not events: one
+                    // placement that completes two lines of the wanted colour credits every one of
+                    // those cells. Keyed on the colour id alone — never on any theme's rendering of it —
+                    // which is what keeps progress a pure function of the board across a theme switch.
+                    int destroyedOfColour = context.DestroyedCountOf(Definition.RequiredColourId);
+                    if (destroyedOfColour > 0)
+                    {
+                        CurrentValue = Math.Min(CurrentValue + destroyedOfColour, Definition.TargetValue);
+                    }
+
+                    break;
+
                 case ObjectiveType.ReinforcedCellsCleared:
                     // Advances by the count this placement actually removed, not by a flat +1 like
                     // every other counting type above. Those count EVENTS ("a clear that qualified
@@ -330,6 +343,36 @@ namespace MustyBlockBlast.Core
         /// as a progress or completion event.
         /// </para>
         /// </summary>
+        /// <summary>
+        /// Credits the cells a power-up clear destroyed, by colour, to a <see cref="ObjectiveType.ColourCleared"/>
+        /// objective — the power-up mirror of the placement branch above, as
+        /// <see cref="ApplyPowerUpReinforcedCellsCleared"/> is of its own. A clear that took none of
+        /// the wanted colour (or a null tally) changes nothing and returns false.
+        /// </summary>
+        public bool ApplyPowerUpColourCleared(IReadOnlyList<int> destroyedCellCountByColour)
+        {
+            if (IsComplete || Definition.Type != ObjectiveType.ColourCleared)
+            {
+                return false;
+            }
+
+            int destroyedOfColour = ColourTally.CountOf(destroyedCellCountByColour, Definition.RequiredColourId);
+            if (destroyedOfColour <= 0)
+            {
+                return false;
+            }
+
+            int previousValue = CurrentValue;
+            CurrentValue = Math.Min(CurrentValue + destroyedOfColour, Definition.TargetValue);
+            if (CurrentValue == previousValue)
+            {
+                return false;
+            }
+
+            IsComplete = CurrentValue >= Definition.TargetValue;
+            return true;
+        }
+
         public void RestoreProgress(int currentValue)
         {
             CurrentValue = Math.Min(Math.Max(currentValue, 0), Definition.TargetValue);

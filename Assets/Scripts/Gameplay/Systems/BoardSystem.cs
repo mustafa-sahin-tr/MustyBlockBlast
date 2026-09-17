@@ -503,7 +503,8 @@ namespace MustyBlockBlast.Gameplay.Systems
                 clearResult.LineCount, clearResult.ClearedRows.Count, clearResult.ClearedColumns.Count,
                 clearResult.MonochromeLineCount, _boardModel.Board.IsEmpty(), occupiedCellCountBeforeClear,
                 anyCornerCleared, _boardModel.Board.IsCenterCoreEmpty(), _boardModel.Board.HasIsolatedEmptyCells(),
-                _scoreGemEffect.DestroyedCount, cascade.TotalReinforcedCellsFullyClearedCount));
+                _scoreGemEffect.DestroyedCount, cascade.TotalReinforcedCellsFullyClearedCount,
+                cascade.TotalDestroyedCellCountByColour));
 
             if (clearResult.AnyCleared)
             {

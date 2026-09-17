@@ -505,7 +505,7 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             ObjectiveDefinition definition = config.ToObjectiveDefinition();
-            return ObjectiveDescriptionFormatter.Describe(definition, _localizationSystem);
+            return ObjectiveDescriptionFormatter.Describe(definition, _localizationSystem, _currentTheme);
         }
 
         private string FormatCounter(int value, int total)
