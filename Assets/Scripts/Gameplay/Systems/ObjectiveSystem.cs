@@ -143,18 +143,32 @@ namespace MustyBlockBlast.Gameplay.Systems
                 message.AnyCornerCleared,
                 message.CenterCoreEmptyAfterPlacement,
                 message.HasIsolatedHolesAfterPlacement,
-                elapsedRunSeconds);
+                elapsedRunSeconds,
+                message.ReinforcedCellsFullyClearedCount);
 
             ApplyToAllObjectives(objective => objective.ApplyPlacement(context));
         }
 
         /// <summary>
-        /// A Bomb clear and a "clutch" Reroll are not placements — neither publishes
-        /// <see cref="PiecePlacedMessage"/> — so each needs its own event source into the objective
-        /// engine rather than being folded into <see cref="OnPiecePlaced"/>'s context.
+        /// A Bomb clear, a "clutch" Reroll and a reinforced cell finished off by a spent power-up are
+        /// not placements — none publishes <see cref="PiecePlacedMessage"/> — so each needs its own
+        /// event source into the objective engine rather than being folded into
+        /// <see cref="OnPiecePlaced"/>'s context.
+        /// <para>
+        /// The reinforced-cell branch is checked first and independently rather than chained onto the
+        /// other two, because it is the only one not keyed to a single <see cref="PowerUpKind"/>: any
+        /// kind that clears a region can finish a reinforced cell off, so one message can legitimately
+        /// need this branch AND the Bomb branch below (which early-returns) to fire.
+        /// </para>
         /// </summary>
         private void OnPowerUpApplied(PowerUpAppliedMessage message)
         {
+            if (message.ReinforcedCellsFullyClearedCount > 0)
+            {
+                ApplyToAllObjectives(objective =>
+                    objective.ApplyPowerUpReinforcedCellsCleared(message.ReinforcedCellsFullyClearedCount));
+            }
+
             if (message.Kind == PowerUpKind.Bomb && message.EmptiedLineCount > 0)
             {
                 ApplyToAllObjectives(objective => objective.ApplyPowerUpLineEmptied());

@@ -32,6 +32,10 @@ namespace MustyBlockBlast.Tests.EditMode
         private const int COLOUR = 3;
         private const int OTHER_COLOUR = 5;
 
+        /// <summary>The serialized form of <see cref="ObjectiveType.ReinforcedCellsCleared"/>: a row is
+        /// authored as JSON, and JsonUtility writes an enum as its underlying int.</summary>
+        private const int REINFORCED_CELLS_CLEARED = (int)ObjectiveType.ReinforcedCellsCleared;
+
         private static readonly Piece Single = new Piece("test_single", new[] { new GridPosition(0, 0) });
 
         /// <summary>Covers the row's one gap at (0,4) and the column's one gap at (4,0) in a single
@@ -686,6 +690,66 @@ namespace MustyBlockBlast.Tests.EditMode
             LevelObjectiveConfig config = ARow(
                 "{\"_levelNumber\":1,\"_targetValue\":1,\"_requiredLineCount\":1,\"_reinforcedCells\":["
                 + "{\"_x\":2,\"_y\":2,\"_hitCount\":3}]}");
+
+            Assert.IsTrue(config.IsValid(out string error), error);
+        }
+
+        // --- The "clear all reinforced cells" objective's authored target (issue #154) ---
+
+        /// <summary>#154 AC2: the target is "all of them", always. Whatever <c>_targetValue</c> the
+        /// Inspector holds is ignored for this type — a subset target would clear the level with
+        /// reinforced blocks still standing.</summary>
+        [TestCase(1)]
+        [TestCase(2)]
+        [TestCase(99)]
+        public void ToObjectiveDefinition_ForAReinforcedCellsClearedObjective_TargetsEveryAuthoredCell(
+            int authoredTarget)
+        {
+            LevelObjectiveConfig config = ARow(
+                $"{{\"_levelNumber\":1,\"_objectiveType\":{REINFORCED_CELLS_CLEARED},"
+                + $"\"_targetValue\":{authoredTarget},\"_reinforcedCells\":["
+                + "{\"_x\":1,\"_y\":1,\"_hitCount\":2},{\"_x\":2,\"_y\":2,\"_hitCount\":3},"
+                + "{\"_x\":3,\"_y\":3,\"_hitCount\":4}]}");
+
+            ObjectiveDefinition definition = config.ToObjectiveDefinition();
+
+            Assert.AreEqual(ObjectiveType.ReinforcedCellsCleared, definition.Type);
+            Assert.AreEqual(3, definition.TargetValue);
+        }
+
+        /// <summary>The converse: the override is scoped to the one type, so every other objective still
+        /// builds with exactly the target it authored — reinforced cells on the board or not.</summary>
+        [Test]
+        public void ToObjectiveDefinition_ForAnyOtherObjectiveType_StillUsesTheAuthoredTarget()
+        {
+            LevelObjectiveConfig config = ARow(
+                "{\"_levelNumber\":1,\"_targetValue\":5,\"_requiredLineCount\":1,\"_reinforcedCells\":["
+                + "{\"_x\":1,\"_y\":1,\"_hitCount\":2}]}");
+
+            Assert.AreEqual(5, config.ToObjectiveDefinition().TargetValue);
+        }
+
+        /// <summary>#154 AC2's failure mode, caught in validation rather than as a throw from
+        /// <see cref="ObjectiveDefinition"/>'s non-positive-target guard.</summary>
+        [Test]
+        public void IsValid_WithAReinforcedCellsClearedObjectiveAndNoReinforcedCells_Fails()
+        {
+            LevelObjectiveConfig config = ARow(
+                $"{{\"_levelNumber\":1,\"_objectiveType\":{REINFORCED_CELLS_CLEARED},"
+                + "\"_targetValue\":1,\"_requiredLineCount\":1}");
+
+            Assert.IsFalse(config.IsValid(out string error));
+            Assert.IsNotNull(error);
+            StringAssert.Contains("ReinforcedCellsCleared", error);
+        }
+
+        [Test]
+        public void IsValid_WithAReinforcedCellsClearedObjectiveAndOneCell_Passes()
+        {
+            LevelObjectiveConfig config = ARow(
+                $"{{\"_levelNumber\":1,\"_objectiveType\":{REINFORCED_CELLS_CLEARED},"
+                + "\"_targetValue\":1,\"_requiredLineCount\":1,"
+                + "\"_reinforcedCells\":[{\"_x\":1,\"_y\":1,\"_hitCount\":2}]}");
 
             Assert.IsTrue(config.IsValid(out string error), error);
         }

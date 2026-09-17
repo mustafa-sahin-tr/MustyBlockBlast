@@ -200,6 +200,21 @@ namespace MustyBlockBlast.Core
                     }
 
                     break;
+
+                case ObjectiveType.ReinforcedCellsCleared:
+                    // Advances by the count this placement actually removed, not by a flat +1 like
+                    // every other counting type above. Those count EVENTS ("a clear that qualified
+                    // happened"), and one placement is one event however much it cleared. This one
+                    // counts THINGS DESTROYED, and one cleared row can finish off two reinforced cells
+                    // at once — crediting only 1 would make "clear all N" unreachable on a board where
+                    // two of them share a line, so each destruction is credited separately.
+                    if (context.ReinforcedCellsFullyCleared > 0)
+                    {
+                        CurrentValue = Math.Min(
+                            CurrentValue + context.ReinforcedCellsFullyCleared, Definition.TargetValue);
+                    }
+
+                    break;
             }
 
             if (CurrentValue == previousValue)
@@ -256,6 +271,47 @@ namespace MustyBlockBlast.Core
 
             int previousValue = CurrentValue;
             CurrentValue = Math.Min(CurrentValue + 1, Definition.TargetValue);
+            if (CurrentValue == previousValue)
+            {
+                return false;
+            }
+
+            IsComplete = CurrentValue >= Definition.TargetValue;
+            return true;
+        }
+
+        /// <summary>
+        /// Folds the reinforced cells a spent power-up finished off into this objective's progress.
+        /// Deliberately a separate method from <see cref="ApplyPlacement"/> for exactly the reason
+        /// <see cref="ApplyPowerUpLineEmptied"/> already gives: a power-up application is not a
+        /// placement, and feeding one through a synthetic <see cref="ObjectivePlacementContext"/> would
+        /// risk its default field values satisfying an unrelated objective type that never saw a
+        /// placement at all.
+        /// <para>
+        /// Unlike the other two power-up-sourced types, <see cref="ApplyPlacement"/> ALSO advances
+        /// <see cref="ObjectiveType.ReinforcedCellsCleared"/> — and must. A Bomb-induced line clear and
+        /// a clutch Reroll are only ever power-up events, so for those two this method shape is the
+        /// whole story; a reinforced cell, by contrast, dies just as readily to an ordinary placement's
+        /// line clear. Both routes are the same destruction from the objective's point of view, so both
+        /// credit it, and the two paths are disjoint by construction: a placement publishes
+        /// <c>PiecePlacedMessage</c> and a spent power-up publishes <c>PowerUpAppliedMessage</c>, never
+        /// both for one destruction, so nothing is ever counted twice.
+        /// </para>
+        /// <para>
+        /// Takes a count rather than being a bare "one happened" signal, because a single power-up clear
+        /// can finish off several reinforced cells at once — see the placement branch in
+        /// <see cref="ApplyPlacement"/> for why each destruction is credited separately.
+        /// </para>
+        /// </summary>
+        public bool ApplyPowerUpReinforcedCellsCleared(int count)
+        {
+            if (IsComplete || Definition.Type != ObjectiveType.ReinforcedCellsCleared || count <= 0)
+            {
+                return false;
+            }
+
+            int previousValue = CurrentValue;
+            CurrentValue = Math.Min(CurrentValue + count, Definition.TargetValue);
             if (CurrentValue == previousValue)
             {
                 return false;

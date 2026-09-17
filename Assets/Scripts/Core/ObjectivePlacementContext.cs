@@ -21,7 +21,8 @@ namespace MustyBlockBlast.Core
             bool anyCornerCleared,
             bool centerCoreEmptyAfterPlacement,
             bool hasIsolatedHolesAfterPlacement,
-            float elapsedRunSeconds)
+            float elapsedRunSeconds,
+            int reinforcedCellsFullyCleared)
         {
             LinesCleared = linesCleared;
             RowsCleared = rowsCleared;
@@ -36,6 +37,7 @@ namespace MustyBlockBlast.Core
             CenterCoreEmptyAfterPlacement = centerCoreEmptyAfterPlacement;
             HasIsolatedHolesAfterPlacement = hasIsolatedHolesAfterPlacement;
             ElapsedRunSeconds = elapsedRunSeconds;
+            ReinforcedCellsFullyCleared = reinforcedCellsFullyCleared;
         }
 
         /// <summary>Rows plus columns cleared by this placement; zero when nothing cleared.</summary>
@@ -87,5 +89,10 @@ namespace MustyBlockBlast.Core
         /// Independent of any Timed-mode countdown — it runs identically in Endless and Timed mode and
         /// is never paused by a modal being open.</summary>
         public float ElapsedRunSeconds { get; }
+
+        /// <summary>How many reinforced cells this placement's line clears fully removed (hit count
+        /// reached 0) — zero for an ordinary placement, and zero for a reinforced cell that merely took a
+        /// hit and survived. See <see cref="ObjectiveType.ReinforcedCellsCleared"/>.</summary>
+        public int ReinforcedCellsFullyCleared { get; }
     }
 }

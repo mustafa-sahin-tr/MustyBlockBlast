@@ -103,6 +103,9 @@ namespace MustyBlockBlast.Gameplay.Settings
 
         public ObjectiveScope Scope => _scope;
 
+        /// <summary>The authored target, exactly as the Inspector holds it. Not necessarily the target
+        /// the built <see cref="ObjectiveDefinition"/> carries — see <see cref="ToObjectiveDefinition"/>
+        /// for the one type that overrides it.</summary>
         public int TargetValue => _targetValue;
 
         /// <summary>
@@ -193,6 +196,13 @@ namespace MustyBlockBlast.Gameplay.Settings
         /// (which is keyed by objective id) is orphaned by this. Later rows get <c>level_7_1</c>,
         /// <c>level_7_2</c>, and so on.
         /// </para>
+        /// <para>
+        /// For <see cref="ObjectiveType.ReinforcedCellsCleared"/> the authored <c>_targetValue</c> is
+        /// deliberately IGNORED in favour of the number of reinforced cells this level authors: that
+        /// objective is "clear all of them" by definition, and a designer must not be able to author a
+        /// target that disagrees with the board — a subset target would complete the level with
+        /// reinforced blocks still standing, and an over-large one could never complete at all.
+        /// </para>
         /// </summary>
         public ObjectiveDefinition ToObjectiveDefinition(int objectiveIndexInLevel = 0)
         {
@@ -200,12 +210,34 @@ namespace MustyBlockBlast.Gameplay.Settings
                 BuildObjectiveId(objectiveIndexInLevel),
                 _objectiveType,
                 _scope,
-                _targetValue,
+                EffectiveTargetValue(),
                 _requiredLineCount,
                 _requiredPieceFamily,
                 _requiredOccupancyThreshold,
                 _requiredPieceId,
                 _windowSeconds);
+        }
+
+        /// <summary>
+        /// The target <see cref="ToObjectiveDefinition"/> actually builds with: the authored
+        /// <c>_targetValue</c> for every type except <see cref="ObjectiveType.ReinforcedCellsCleared"/>,
+        /// which is always the count of reinforced cells this level authors — see that method for why
+        /// the authored value cannot be trusted for it.
+        /// <para>
+        /// Overridden here rather than hidden in the Inspector: nothing in this class shows or hides a
+        /// field based on <see cref="_objectiveType"/> today (every type-specific field is simply
+        /// documented as unused by the others), and inventing a custom Inspector for this one field
+        /// would be a lone exception to that convention.
+        /// </para>
+        /// </summary>
+        private int EffectiveTargetValue()
+        {
+            if (_objectiveType == ObjectiveType.ReinforcedCellsCleared)
+            {
+                return ReinforcedCells.Count;
+            }
+
+            return _targetValue;
         }
 
         /// <summary>
@@ -310,6 +342,16 @@ namespace MustyBlockBlast.Gameplay.Settings
                     error = $"Reinforced cell {position} is also authored as a hole — a cell cannot be both.";
                     return false;
                 }
+            }
+
+            // The target for this type is the reinforced-cell count (see EffectiveTargetValue), so a
+            // level authoring none would build an ObjectiveDefinition with target 0 — which throws.
+            // Caught here, where every other type-specific precondition is, rather than at construction.
+            if (_objectiveType == ObjectiveType.ReinforcedCellsCleared && reinforcedCells.Count == 0)
+            {
+                error = "ReinforcedCellsCleared needs at least one authored reinforced cell — its target "
+                    + "is always \"all of them\", and there is nothing to clear.";
+                return false;
             }
 
             // Bounded by the cells a block could actually stand on, so a shaped board's threshold cannot
