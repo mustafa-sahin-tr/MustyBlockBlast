@@ -662,7 +662,8 @@ namespace MustyBlockBlast.Tests.EditMode
                 new TestMessageBroker<VortexPulledMessage>(),
                 new TestMessageBroker<ChainLightningTriggeredMessage>(),
                 new TestMessageBroker<CoinCellsClearedMessage>(),
-                ScriptableObject.CreateInstance<CurrencyConfig>());
+                ScriptableObject.CreateInstance<CurrencyConfig>(),
+                reinforcedCellSeeder: null);
         }
 
         private static TimerRunSystem CreateTimerRunSystem(BoardSystem boardSystem)

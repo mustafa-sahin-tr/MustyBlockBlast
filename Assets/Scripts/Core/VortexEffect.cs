@@ -181,8 +181,20 @@ namespace MustyBlockBlast.Core
             return board.IsPlayable(target) && !board.IsOccupied(target);
         }
 
-        /// <summary>Appends every isolated cell of the board to <see cref="_isolatedBuffer"/>, which is
-        /// cleared first. One pass, one test per cell, no queue and no fill.</summary>
+        /// <summary>
+        /// Appends every isolated cell of the board to <see cref="_isolatedBuffer"/>, which is cleared
+        /// first. One pass, one test per cell, no queue and no fill.
+        /// <para>
+        /// <b>A reinforced cell is never a pull source</b> (issue #153). A pull is not a destruction: it
+        /// empties one cell and fills another, and nothing dies. So neither answer the damage gate could
+        /// give is right for it — spending a hit would charge the cell for a destruction that did not
+        /// happen, and moving it for free would let a vortex shunt the level's authored obstacle
+        /// somewhere else, which no acceptance criterion asks for and the player cannot read off the
+        /// board. A reinforced cell is a fixture: it is removed only by being cleared through, and only
+        /// there. The test itself (<see cref="IsIsolated"/>) is deliberately left alone — "is this block
+        /// touching anything" is a board reading the spawn rule also asks, and it has not changed.
+        /// </para>
+        /// </summary>
         private void CollectIsolated(Board board)
         {
             _isolatedBuffer.Clear();
@@ -192,7 +204,7 @@ namespace MustyBlockBlast.Core
                 for (int x = 0; x < board.Width; x++)
                 {
                     var position = new GridPosition(x, y);
-                    if (IsIsolated(board, position))
+                    if (IsIsolated(board, position) && board.GetHitCount(position) == 0)
                     {
                         _isolatedBuffer.Add(position);
                     }
@@ -202,7 +214,14 @@ namespace MustyBlockBlast.Core
 
         /// <summary>Moves one block, colour and special kind together. The kind is read before the
         /// source is cleared: <see cref="Board.Clear"/> resets it, so afterwards the board no longer
-        /// knows a pulled laser was ever a laser.</summary>
+        /// knows a pulled laser was ever a laser.
+        /// <para>
+        /// Deliberately the unconditional <see cref="Board.Clear"/> rather than
+        /// <see cref="Board.TryDamage"/>: this is a relocation, not a destruction, and the only blocks
+        /// that reach it are un-reinforced ones (see <see cref="CollectIsolated"/>), so there is no hit
+        /// to spend and nothing for the damage gate to decide.
+        /// </para>
+        /// </summary>
         private void Move(Board board, GridPosition from, GridPosition to)
         {
             int colourId = board[from];

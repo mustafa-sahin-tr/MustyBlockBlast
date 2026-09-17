@@ -126,7 +126,15 @@ namespace MustyBlockBlast.Core
                 }
 
                 SpecialCellKind kind = board.GetSpecialKind(cell);
-                board.Clear(cell);
+
+                // Through the damage gate, not Board.Clear: a reinforced cell in the footprint spends
+                // one hit and stays standing (issue #153 AC5), and a cell that survived is neither a
+                // blasted cell nor a core this blast could have set off.
+                if (!board.TryDamage(cell))
+                {
+                    continue;
+                }
+
                 _blastedCells.Add(cell);
 
                 if (kind == SpecialCellKind.ExplosiveCore && !IsDetonated(board, cell))

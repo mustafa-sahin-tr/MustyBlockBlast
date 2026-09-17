@@ -443,6 +443,11 @@ namespace MustyBlockBlast.Presentation
             // Puts a level's authored coin cells on the board. Separate from LevelProgressionSystem,
             // which owns which level is played but deliberately never writes to the board.
             builder.Register<LevelCoinCellSeedSystem>(Lifetime.Singleton).AsSelf();
+
+            // Puts a level's authored reinforced cells on the board. Unlike the coin seeder above it
+            // subscribes to nothing: BoardSystem calls it inline while opening a run, because a
+            // reinforced cell has to be standing before the tray is dealt (issue #153 AC1).
+            builder.Register<LevelReinforcedCellSeeder>(Lifetime.Singleton).AsSelf();
             builder.Register<ObjectiveSystem>(Lifetime.Singleton);
             builder.Register<LevelProgressionSystem>(Lifetime.Singleton);
             builder.Register<BadgeStatsSystem>(Lifetime.Singleton);

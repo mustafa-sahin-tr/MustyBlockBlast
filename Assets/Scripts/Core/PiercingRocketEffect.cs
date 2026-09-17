@@ -113,6 +113,11 @@ namespace MustyBlockBlast.Core
                 }
             }
 
+            // The damage gate, before the kinds are read and before anything is removed: a reinforced
+            // cell on either line spends one hit and stays standing (issue #153 AC5), and is dropped
+            // from the wiped list here — so it is reported as neither wiped nor triggering.
+            ReinforcedCellDamage.SpendHits(board, _wipedCells, firstNewCell);
+
             for (int i = firstNewCell; i < _wipedCells.Count; i++)
             {
                 GridPosition cell = _wipedCells[i];
@@ -124,10 +129,7 @@ namespace MustyBlockBlast.Core
                 }
             }
 
-            for (int i = firstNewCell; i < _wipedCells.Count; i++)
-            {
-                board.Clear(_wipedCells[i]);
-            }
+            ReinforcedCellDamage.RemoveAll(board, _wipedCells, firstNewCell);
         }
 
         /// <summary>Which of the two wiped lines took <paramref name="cell"/> out. The intersection went

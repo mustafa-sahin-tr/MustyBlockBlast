@@ -46,6 +46,28 @@ namespace MustyBlockBlast.Core
         /// <see cref="_cells"/> must keep meaning "is this cell occupied, and in which colour".</summary>
         private readonly SpecialCellKind[] _specialKinds;
 
+        /// <summary>
+        /// Per-cell hits still to absorb before the cell can be destroyed, indexed exactly like
+        /// <see cref="_cells"/>. <c>0</c> — every cell of every board authored before reinforced cells
+        /// existed, and every cell an ordinary placement fills — means "not reinforced": such a cell is
+        /// removed by the first <see cref="TryDamage"/> that reaches it, exactly as
+        /// <see cref="Clear"/> always removed it.
+        /// <para>
+        /// A third parallel array rather than bits packed into the colour id or a
+        /// <see cref="SpecialCellKind"/> value, for the reason <see cref="_specialKinds"/> is a second
+        /// one: the three are independent, and every existing read of <see cref="_cells"/> must keep
+        /// meaning "is this cell occupied, and in which colour".
+        /// </para>
+        /// <para>
+        /// <b>Undo (issue #153 AC8) is deliberately not implemented</b> — one-step undo does not exist
+        /// anywhere in this project yet, so there is nothing to integrate with. The storage is kept as a
+        /// plain parallel array copied by <see cref="Clone"/>/<see cref="CopyFrom"/> exactly as the
+        /// special kinds are, so an undo built on those two methods will restore hit counts with no
+        /// change here.
+        /// </para>
+        /// </summary>
+        private readonly int[] _hitCounts;
+
         /// <summary>The standard <see cref="SIZE"/> x <see cref="SIZE"/> hole-free board. Delegates to
         /// <see cref="BoardShape.Standard"/> so every level authored before board shapes existed keeps
         /// the exact geometry it was authored against.</summary>
@@ -59,13 +81,15 @@ namespace MustyBlockBlast.Core
             _shape = shape ?? throw new ArgumentNullException(nameof(shape));
             _cells = new int[shape.CellCount];
             _specialKinds = new SpecialCellKind[shape.CellCount];
+            _hitCounts = new int[shape.CellCount];
         }
 
-        private Board(BoardShape shape, int[] cells, SpecialCellKind[] specialKinds)
+        private Board(BoardShape shape, int[] cells, SpecialCellKind[] specialKinds, int[] hitCounts)
         {
             _shape = shape;
             _cells = cells;
             _specialKinds = specialKinds;
+            _hitCounts = hitCounts;
         }
 
         /// <summary>The outline this board was built with. Shared, immutable and safe to hand out — a
@@ -132,16 +156,70 @@ namespace MustyBlockBlast.Core
             _cells[Index(position)] = colourId;
         }
 
-        /// <summary>Empties a cell. Also resets its <see cref="SpecialCellKind"/>: the special
-        /// behaviour belonged to the block that was standing there, so leaving it behind would hand it
-        /// to whatever piece happens to land on the cell next. Any caller that needs to know what was
-        /// destroyed must read the kind <em>before</em> clearing — see
-        /// <see cref="SpecialCellDetection.CollectTriggered"/>.</summary>
+        /// <summary>Empties a cell, whatever is on it. Also resets its <see cref="SpecialCellKind"/> and
+        /// its hit count: all three belonged to the block that was standing there, so leaving either
+        /// behind would hand it to whatever piece happens to land on the cell next. Any caller that
+        /// needs to know what was destroyed must read the kind <em>before</em> clearing — see
+        /// <see cref="SpecialCellDetection.CollectTriggered"/>.
+        /// <para>
+        /// Unconditional removal: it spends no hit and asks for none, so a reinforced cell is wiped by
+        /// it as readily as an ordinary one. Every path that destroys a cell as the <em>consequence of
+        /// a clear</em> must go through <see cref="TryDamage"/> instead; this stays the force-clear
+        /// primitive that <see cref="TryDamage"/> itself and a whole-board reset are built on.
+        /// </para>
+        /// </summary>
         public void Clear(GridPosition position)
         {
             int index = Index(position);
             _cells[index] = EMPTY;
             _specialKinds[index] = SpecialCellKind.None;
+            _hitCounts[index] = 0;
+        }
+
+        /// <summary>
+        /// Removes <paramref name="position"/> if it has no hits left to absorb, or spends exactly one
+        /// hit and leaves it occupied otherwise. Returns whether the cell was actually removed — the
+        /// caller uses this to decide whether the cell counts towards a clear's score/count and whether
+        /// it may trigger a <see cref="SpecialCellKind"/> effect, neither of which a surviving hit may
+        /// do.
+        /// <para>
+        /// <b>The removal entry point every clearing path uses.</b> An ordinary occupied cell has a hit
+        /// count of 0 and so takes the removal branch on the very first call — behaviourally identical
+        /// to the unconditional <see cref="Clear"/> this replaced at those call sites, which is what
+        /// keeps every mechanic that does not involve a reinforced cell exactly as it was.
+        /// </para>
+        /// </summary>
+        public bool TryDamage(GridPosition position)
+        {
+            int index = Index(position);
+
+            if (_hitCounts[index] <= 1)
+            {
+                Clear(position);
+                return true;
+            }
+
+            _hitCounts[index]--;
+            return false;
+        }
+
+        /// <summary>Hits <paramref name="position"/> must still absorb before it can be destroyed. 0 for
+        /// an ordinary or empty cell, which is every cell of a board nothing reinforced.</summary>
+        public int GetHitCount(GridPosition position) => _hitCounts[Index(position)];
+
+        /// <summary>
+        /// Occupies an empty cell as a reinforced one, for level-start authoring only. Ordinary piece
+        /// placement (<see cref="Occupy"/>) never sets a hit count — only this does, because a
+        /// reinforced cell is pre-filled by the level rather than put down by the player.
+        /// <para>
+        /// Reuses <see cref="Occupy"/>, so a hole and the <see cref="EMPTY"/> colour are refused here
+        /// exactly as they are for an ordinary block.
+        /// </para>
+        /// </summary>
+        public void OccupyReinforced(GridPosition position, int colourId, int hitCount)
+        {
+            Occupy(position, colourId);
+            _hitCounts[Index(position)] = hitCount;
         }
 
         /// <summary>The special behaviour the block on <paramref name="position"/> carries.
@@ -510,9 +588,9 @@ namespace MustyBlockBlast.Core
         }
 
         /// <summary>Deep copy, used for undo snapshots. Shares the shape (immutable, so there is
-        /// nothing to copy) and copies the special-cell kinds as well as the colours — a snapshot that
-        /// restored the colours but not the kinds would silently strip every special block on the
-        /// board.</summary>
+        /// nothing to copy) and copies the special-cell kinds and the hit counts as well as the colours
+        /// — a snapshot that restored the colours but not the other two would silently strip every
+        /// special block on the board and un-reinforce every reinforced cell.</summary>
         public Board Clone()
         {
             int[] copy = new int[_cells.Length];
@@ -521,12 +599,15 @@ namespace MustyBlockBlast.Core
             var specialCopy = new SpecialCellKind[_specialKinds.Length];
             Array.Copy(_specialKinds, specialCopy, _specialKinds.Length);
 
-            return new Board(_shape, copy, specialCopy);
+            int[] hitCountCopy = new int[_hitCounts.Length];
+            Array.Copy(_hitCounts, hitCountCopy, _hitCounts.Length);
+
+            return new Board(_shape, copy, specialCopy, hitCountCopy);
         }
 
         /// <summary>Overwrites this board's cells with <paramref name="source"/>'s. Used to reuse a scratch
         /// board across preview queries without allocating a new board each call. Copies the
-        /// special-cell kinds too, for the same reason <see cref="Clone"/> does.
+        /// special-cell kinds and the hit counts too, for the same reason <see cref="Clone"/> does.
         /// <para>
         /// The two boards must share a shape. Refused rather than reinterpreted: copying a differently
         /// shaped board's cells across would silently move every block by a row and drop blocks off the
@@ -551,6 +632,7 @@ namespace MustyBlockBlast.Core
 
             Array.Copy(source._cells, _cells, _cells.Length);
             Array.Copy(source._specialKinds, _specialKinds, _specialKinds.Length);
+            Array.Copy(source._hitCounts, _hitCounts, _hitCounts.Length);
         }
 
         /// <summary>Flat index of <paramref name="position"/> — also the index a caller's own per-cell

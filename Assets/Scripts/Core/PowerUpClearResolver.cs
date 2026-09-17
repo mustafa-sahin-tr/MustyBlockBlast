@@ -13,16 +13,40 @@ namespace MustyBlockBlast.Core
             IReadOnlyList<int> emptiedRows,
             IReadOnlyList<int> emptiedColumns,
             IReadOnlyList<SpecialCellTrigger> triggeredSpecials)
+            : this(
+                clearedCells, emptiedRows, emptiedColumns, triggeredSpecials,
+                reinforcedCellsFullyClearedCount: 0)
+        {
+        }
+
+        public PowerUpClearResult(
+            IReadOnlyList<GridPosition> clearedCells,
+            IReadOnlyList<int> emptiedRows,
+            IReadOnlyList<int> emptiedColumns,
+            IReadOnlyList<SpecialCellTrigger> triggeredSpecials,
+            int reinforcedCellsFullyClearedCount)
         {
             ClearedCells = clearedCells;
             EmptiedRows = emptiedRows;
             EmptiedColumns = emptiedColumns;
             TriggeredSpecials = triggeredSpecials;
+            ReinforcedCellsFullyClearedCount = reinforcedCellsFullyClearedCount;
         }
 
-        /// <summary>Exactly the cells that held a colour before the clear — cells that were already
-        /// empty inside the affected region are not reported.</summary>
+        /// <summary>Exactly the cells that held a colour before the clear and were actually emptied by
+        /// it — cells that were already empty inside the affected region are not reported, and neither
+        /// is a reinforced cell that spent a hit and stayed standing (issue #153 AC5).</summary>
         public IReadOnlyList<GridPosition> ClearedCells { get; }
+
+        /// <summary>
+        /// Of <see cref="ClearedCells"/>, how many were reinforced cells taking their last hit.
+        /// <para>
+        /// Data plumbing for issue #154's "clear all reinforced cells" objective, mirroring
+        /// <see cref="LineClearResult.ReinforcedCellsFullyClearedCount"/> — a reinforced cell finished
+        /// off by a Bomb counts exactly as one finished off by a completed line.
+        /// </para>
+        /// </summary>
+        public int ReinforcedCellsFullyClearedCount { get; }
 
         /// <summary>Rows that had at least one cleared cell and, after clearing, have zero occupied
         /// cells — a row this clear happened to empty out entirely. Note this is the OPPOSITE
@@ -185,9 +209,11 @@ namespace MustyBlockBlast.Core
             return ClearAndReport(board, clearedCells, axisRows, axisColumns);
         }
 
-        /// <summary>Clears exactly <paramref name="clearedCells"/> (every entry is assumed already
-        /// verified occupied) and reports which rows/columns that emptied out entirely. Shared by every
-        /// resolve method so the emptied-line computation has exactly one implementation.
+        /// <summary>Clears <paramref name="clearedCells"/> (every entry is assumed already verified
+        /// occupied), minus any reinforced cell that spends a hit instead — which is dropped from the
+        /// list, so the caller is handed exactly what was really emptied — and reports which
+        /// rows/columns that emptied out entirely. Shared by every resolve method so the emptied-line
+        /// computation has exactly one implementation.
         /// <para>
         /// <paramref name="axisRows"/>/<paramref name="axisColumns"/> name the lines this clear was
         /// aimed at, if any, so each triggered special records what destroyed it. Both null for the
@@ -200,13 +226,20 @@ namespace MustyBlockBlast.Core
             IReadOnlyList<int> axisRows,
             IReadOnlyList<int> axisColumns)
         {
-            // Before ClearAll, for the same reason occupancy was read before it: Board.Clear resets a
-            // cell's special kind along with its colour, so this is the last moment the kinds exist.
+            // The damage gate, fused into settling what this clear actually destroys: a reinforced cell
+            // with hits to spare absorbs one here and is dropped from the list, so it is reported by
+            // neither ClearedCells nor the triggers below and can never fire an effect it did not live
+            // to earn (AC5). Runs before detection, which is why detection can be trusted to see only
+            // cells that are really going.
+            int reinforcedCellsFullyClearedCount = ReinforcedCellDamage.SpendHits(board, clearedCells);
+
+            // Before the removal, for the same reason occupancy was read before it: Board.Clear resets
+            // a cell's special kind along with its colour, so this is the last moment the kinds exist.
             var triggeredSpecials = new List<SpecialCellTrigger>();
             SpecialCellDetection.CollectTriggered(
                 board, clearedCells, triggeredSpecials, axisRows, axisColumns);
 
-            ClearAll(board, clearedCells);
+            ReinforcedCellDamage.RemoveAll(board, clearedCells);
 
             // Only rows/columns a cleared cell actually belonged to can have changed emptiness — no
             // need to scan the whole board. Each cleared cell was occupied before this clear, so every
@@ -229,15 +262,9 @@ namespace MustyBlockBlast.Core
                 }
             }
 
-            return new PowerUpClearResult(clearedCells, emptiedRows, emptiedColumns, triggeredSpecials);
-        }
-
-        private static void ClearAll(Board board, List<GridPosition> cells)
-        {
-            for (int i = 0; i < cells.Count; i++)
-            {
-                board.Clear(cells[i]);
-            }
+            return new PowerUpClearResult(
+                clearedCells, emptiedRows, emptiedColumns, triggeredSpecials,
+                reinforcedCellsFullyClearedCount);
         }
 
         private static void RequireBoard(Board board)

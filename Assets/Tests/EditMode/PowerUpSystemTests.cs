@@ -1862,7 +1862,8 @@ namespace MustyBlockBlast.Tests.EditMode
                 new TestMessageBroker<VortexPulledMessage>(),
                 new TestMessageBroker<ChainLightningTriggeredMessage>(),
                 new TestMessageBroker<CoinCellsClearedMessage>(),
-                ScriptableObject.CreateInstance<CurrencyConfig>());
+                ScriptableObject.CreateInstance<CurrencyConfig>(),
+                reinforcedCellSeeder: null);
         }
 
         /// <summary>Occupies every board cell except the ones named, so a test can state the one gap it

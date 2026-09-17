@@ -25,6 +25,11 @@ namespace MustyBlockBlast.Gameplay.Settings
         /// e.g. <c>level_7_1</c> for a level's second objective. Never appended to the first one.</summary>
         private const string OBJECTIVE_ID_INDEX_SEPARATOR = "_";
 
+        /// <summary>Shared, never-mutated empty for a row whose list field is null — which
+        /// <see cref="JsonUtility"/> can produce for a row authored before the field existed.</summary>
+        private static readonly ReinforcedCellAuthoring[] EmptyReinforcedCells =
+            new ReinforcedCellAuthoring[0];
+
         [Tooltip("1-based level number. This is the identity of the level, not its position in the list.")]
         [SerializeField] private int _levelNumber = 1;
 
@@ -85,6 +90,12 @@ namespace MustyBlockBlast.Gameplay.Settings
             "default) means a plain rectangle with no holes.")]
         [SerializeField] private List<BoardHoleCell> _boardHoles = new List<BoardHoleCell>();
 
+        [Tooltip("Cells pre-filled with a reinforced block that resists line clears. Empty (the " +
+            "default) means the level starts on a bare board, which is what every level authored " +
+            "before reinforced cells existed does.")]
+        [SerializeField] private List<ReinforcedCellAuthoring> _reinforcedCells =
+            new List<ReinforcedCellAuthoring>();
+
         /// <summary>1-based level number; <see cref="LevelCatalog"/> looks levels up by this, not by index.</summary>
         public int LevelNumber => _levelNumber;
 
@@ -129,6 +140,17 @@ namespace MustyBlockBlast.Gameplay.Settings
         /// </para>
         /// </summary>
         public int CoinCellCount => _coinCellCount;
+
+        /// <summary>
+        /// The reinforced cells this level pre-fills its board with, in authored order. Empty for a
+        /// level that authors none, which is every level authored before the mechanic existed.
+        /// <para>
+        /// Never null — a row deserialized without the field at all gets the empty list the field
+        /// initialiser supplies, so a caller never has to guard it.
+        /// </para>
+        /// </summary>
+        public IReadOnlyList<ReinforcedCellAuthoring> ReinforcedCells =>
+            _reinforcedCells ?? (IReadOnlyList<ReinforcedCellAuthoring>)EmptyReinforcedCells;
 
         /// <summary>
         /// Builds this level's board outline. Returns the shared <see cref="BoardShape.Standard"/>
@@ -255,6 +277,41 @@ namespace MustyBlockBlast.Gameplay.Settings
                 }
             }
 
+            IReadOnlyList<ReinforcedCellAuthoring> reinforcedCells = ReinforcedCells;
+            for (int i = 0; i < reinforcedCells.Count; i++)
+            {
+                ReinforcedCellAuthoring reinforced = reinforcedCells[i];
+                if (reinforced == null)
+                {
+                    error = "A reinforced cell entry is empty — remove the row or fill it in.";
+                    return false;
+                }
+
+                GridPosition position = reinforced.ToGridPosition();
+                if (position.X < 0 || position.X >= _boardWidth
+                    || position.Y < 0 || position.Y >= _boardHeight)
+                {
+                    error = $"Reinforced cell {position} is outside this level's {_boardWidth}x{_boardHeight} board.";
+                    return false;
+                }
+
+                if (reinforced.HitCount < ReinforcedCellAuthoring.MIN_HIT_COUNT
+                    || reinforced.HitCount > ReinforcedCellAuthoring.MAX_HIT_COUNT)
+                {
+                    error = $"Reinforced cell {position} needs a hit count between "
+                        + $"{ReinforcedCellAuthoring.MIN_HIT_COUNT} and {ReinforcedCellAuthoring.MAX_HIT_COUNT}.";
+                    return false;
+                }
+
+                // A cell cannot be both: a hole can never hold a block, so a reinforced block authored
+                // on one could never be placed, and the level would silently open without it.
+                if (IsAuthoredHole(position))
+                {
+                    error = $"Reinforced cell {position} is also authored as a hole — a cell cannot be both.";
+                    return false;
+                }
+            }
+
             // Bounded by the cells a block could actually stand on, so a shaped board's threshold cannot
             // be authored above an occupancy it can never reach. Identical to 64 on the standard board.
             int playableCellCount = MaxPlayableCellCount();
@@ -328,6 +385,25 @@ namespace MustyBlockBlast.Gameplay.Settings
             return Mathf.Max(1, (_boardWidth * _boardHeight) - holeCount);
         }
 
+        /// <summary>True when <paramref name="position"/> is one of this level's authored hole cells.</summary>
+        private bool IsAuthoredHole(GridPosition position)
+        {
+            if (_boardHoles == null)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < _boardHoles.Count; i++)
+            {
+                if (_boardHoles[i].ToGridPosition().Equals(position))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         private static bool PieceIdExistsInCatalog(string pieceId)
         {
             IReadOnlyList<Piece> allPieces = PieceCatalog.AllPieces;
@@ -360,6 +436,21 @@ namespace MustyBlockBlast.Gameplay.Settings
             _windowSeconds = Mathf.Max(1f, _windowSeconds);
             _completionScoreBonus = Mathf.Max(0, _completionScoreBonus);
             _coinCellCount = Mathf.Max(0, _coinCellCount);
+
+            // Clamped per entry rather than reported, for the reason every numeric field above is: a
+            // hit count outside the range is a typo with one sensible reading, and the developer sees
+            // the corrected value immediately. A position out of bounds or on a hole is left alone and
+            // surfaced by IsValid — silently moving an authored cell would be worse than naming it.
+            if (_reinforcedCells != null)
+            {
+                for (int i = 0; i < _reinforcedCells.Count; i++)
+                {
+                    if (_reinforcedCells[i] != null)
+                    {
+                        _reinforcedCells[i].ValidateInEditor();
+                    }
+                }
+            }
         }
 #endif
     }

@@ -22,6 +22,20 @@ namespace MustyBlockBlast.Core
             IReadOnlyList<int> clearedColumns,
             IReadOnlyList<GridPosition> clearedCells,
             IReadOnlyList<SpecialCellTrigger> triggeredSpecials)
+            : this(
+                filled, position, clearedRows, clearedColumns, clearedCells, triggeredSpecials,
+                reinforcedCellsFullyClearedCount: 0)
+        {
+        }
+
+        internal JokerFillResult(
+            bool filled,
+            GridPosition position,
+            IReadOnlyList<int> clearedRows,
+            IReadOnlyList<int> clearedColumns,
+            IReadOnlyList<GridPosition> clearedCells,
+            IReadOnlyList<SpecialCellTrigger> triggeredSpecials,
+            int reinforcedCellsFullyClearedCount)
         {
             Filled = filled;
             Position = position;
@@ -29,7 +43,13 @@ namespace MustyBlockBlast.Core
             ClearedColumns = clearedColumns;
             ClearedCells = clearedCells;
             TriggeredSpecials = triggeredSpecials;
+            ReinforcedCellsFullyClearedCount = reinforcedCellsFullyClearedCount;
         }
+
+        /// <summary>Of <see cref="ClearedCells"/>, how many were reinforced cells taking their last
+        /// hit. Data plumbing for issue #154, mirroring
+        /// <see cref="LineClearResult.ReinforcedCellsFullyClearedCount"/>.</summary>
+        public int ReinforcedCellsFullyClearedCount { get; }
 
         /// <summary>Whether the cell was actually filled. False means nothing on the board changed —
         /// the target was off the board or already occupied — so the caller must charge nothing.</summary>
@@ -78,8 +98,8 @@ namespace MustyBlockBlast.Core
     /// Deliberately not a <see cref="PowerUpClearResolver"/> method: those force-clear a region
     /// whether or not it is full, whereas a joker clears on exactly the condition a placement does —
     /// the line actually became full. It therefore reuses <see cref="Board.IsRowFull"/>,
-    /// <see cref="Board.IsColumnFull"/> and <see cref="LineClearResolver"/>'s own line-clearing
-    /// primitives rather than carrying a second definition of either.
+    /// <see cref="Board.IsColumnFull"/> and the same <see cref="ReinforcedCellDamage"/> gate a
+    /// placement's clear removes its cells through, rather than carrying a second definition of either.
     /// </para>
     /// <para>
     /// Only the filled cell's own row and column are examined. No other line's fullness can have
@@ -156,23 +176,26 @@ namespace MustyBlockBlast.Core
                 }
             }
 
+            // The damage gate, before detection and before anything is removed — exactly the order
+            // LineClearResolver uses, so a joker's completed line treats a reinforced cell the same way
+            // a placement's does: it spends one hit, stays standing, and is dropped from the list of
+            // cells this fill destroyed.
+            int reinforcedCellsFullyClearedCount = ReinforcedCellDamage.SpendHits(board, clearedCells);
+
             // Collected before anything is cleared, same as clearedCells above: once a cell is cleared
             // its special kind is reset (Board.Clear), so detection has to read it first.
             var triggeredSpecials = new List<SpecialCellTrigger>();
             SpecialCellDetection.CollectTriggered(
                 board, clearedCells, triggeredSpecials, clearedRows, clearedColumns);
 
-            for (int i = 0; i < clearedRows.Count; i++)
-            {
-                LineClearResolver.ClearRow(board, clearedRows[i]);
-            }
+            // The listed cells are every playable cell of the completed lines, each once, so removing
+            // them one by one is exactly what clearing those lines means — and it is the one place the
+            // removal can honour the damage gate above.
+            ReinforcedCellDamage.RemoveAll(board, clearedCells);
 
-            for (int i = 0; i < clearedColumns.Count; i++)
-            {
-                LineClearResolver.ClearColumn(board, clearedColumns[i]);
-            }
-
-            return new JokerFillResult(true, target, clearedRows, clearedColumns, clearedCells, triggeredSpecials);
+            return new JokerFillResult(
+                true, target, clearedRows, clearedColumns, clearedCells, triggeredSpecials,
+                reinforcedCellsFullyClearedCount);
         }
     }
 }
