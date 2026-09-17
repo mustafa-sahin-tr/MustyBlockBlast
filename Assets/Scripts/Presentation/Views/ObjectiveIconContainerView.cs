@@ -61,7 +61,7 @@ namespace MustyBlockBlast.Presentation.Views
         [Tooltip("Offset from the top-centre of the canvas, in reference pixels. Anchored to the top " +
             "edge so the row hugs the score at every aspect ratio: it sits just below ScoreView's " +
             "centred score number rather than above it.")]
-        [SerializeField] private Vector2 _topOffset = new Vector2(0f, -344f);
+        [SerializeField] private Vector2 _topOffset = new Vector2(0f, -300f);
 
         [Tooltip("Side of one icon plate, in reference pixels.")]
         [SerializeField] private float _slotSize = 76f;

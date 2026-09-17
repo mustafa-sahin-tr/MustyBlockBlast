@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MustyBlockBlast — İçerik Envanteri</title>
+<style>
+  :root{
+    --bg:#f6f5f2; --panel:#ffffff; --ink:#1c1a17; --sub:#6b655c;
+    --line:#e7e3da; --accent:#b5652b; --accent-soft:#f4e3d3;
+    --good:#3f7a4f; --good-soft:#e5f1e6;
+    --chip:#efece4;
+    --code:#f0eee7;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#17140f; --panel:#211d17; --ink:#f1ede4; --sub:#a99f8f;
+      --line:#3a3327; --accent:#e08a45; --accent-soft:#3a2a1a;
+      --good:#7fc294; --good-soft:#1e2e21;
+      --chip:#2a251c;
+      --code:#241f17;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#17140f; --panel:#211d17; --ink:#f1ede4; --sub:#a99f8f;
+    --line:#3a3327; --accent:#e08a45; --accent-soft:#3a2a1a;
+    --good:#7fc294; --good-soft:#1e2e21;
+    --chip:#2a251c;
+    --code:#241f17;
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif;
+    padding: 28px 16px 64px;
+  }
+  .wrap{max-width: 980px; margin: 0 auto;}
+
+  header.top{margin-bottom: 32px;}
+  header.top h1{font-size: 1.7rem; margin: 0 0 6px; letter-spacing: -0.01em;}
+  header.top p{color: var(--sub); margin: 0; font-size: 0.95rem;}
+  .meta-row{display:flex; gap:8px; flex-wrap:wrap; margin-top:14px;}
+  .meta-chip{
+    background: var(--chip); border:1px solid var(--line); border-radius: 999px;
+    padding: 5px 12px; font-size: 0.78rem; color: var(--sub);
+  }
+
+  .toc{
+    display:flex; gap:8px; flex-wrap:wrap; margin: 20px 0 36px;
+  }
+  .toc a{
+    text-decoration:none; color: var(--ink); background: var(--panel);
+    border:1px solid var(--line); border-radius: 10px; padding: 9px 14px;
+    font-size: 0.85rem; font-weight: 600; transition: border-color .15s;
+  }
+  .toc a:hover{border-color: var(--accent);}
+  .toc .count{color: var(--accent); font-weight: 700;}
+
+  section{margin-bottom: 40px; scroll-margin-top: 20px;}
+  section h2{
+    font-size: 1.15rem; margin: 0 0 4px; display:flex; align-items:baseline; gap:10px;
+  }
+  section h2 .badge-count{
+    font-size: 0.72rem; font-weight: 700; color: var(--accent);
+    background: var(--accent-soft); border-radius: 999px; padding: 3px 10px;
+  }
+  section .intro{color: var(--sub); font-size: 0.88rem; margin: 0 0 16px; max-width: 70ch;}
+
+  .panel{
+    background: var(--panel); border:1px solid var(--line); border-radius: 14px;
+    padding: 18px 20px; overflow-x:auto;
+  }
+
+  table{border-collapse: collapse; width: 100%; font-size: 0.86rem;}
+  th{
+    text-align:left; font-weight: 700; color: var(--sub); font-size: 0.72rem;
+    text-transform: uppercase; letter-spacing: 0.04em;
+    padding: 8px 10px; border-bottom: 1px solid var(--line);
+    white-space: nowrap;
+  }
+  td{
+    padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top;
+  }
+  tr:last-child td{border-bottom:none;}
+  tr:hover td{background: var(--chip);}
+  code{
+    background: var(--code); border-radius: 5px; padding: 1px 6px;
+    font-size: 0.82em; font-family: "SF Mono", Menlo, monospace; white-space: nowrap;
+  }
+  .num{font-variant-numeric: tabular-nums; color: var(--accent); font-weight: 700;}
+  .path{color: var(--sub); font-size: 0.78rem;}
+  .tag{
+    display:inline-block; background: var(--good-soft); color: var(--good);
+    border-radius: 6px; padding: 1px 8px; font-size: 0.74rem; font-weight: 700;
+  }
+  .starter{background: var(--accent-soft); color: var(--accent);}
+
+  .grid-cards{
+    display:grid; grid-template-columns: repeat(auto-fill, minmax(200px,1fr));
+    gap: 10px;
+  }
+  .card{
+    background: var(--panel); border:1px solid var(--line); border-radius: 12px;
+    padding: 14px 16px;
+  }
+  .card .k{font-weight: 700; font-size: 0.92rem; margin-bottom: 3px;}
+  .card .v{color: var(--sub); font-size: 0.8rem;}
+
+  .swatch{
+    display:inline-block; width:12px; height:12px; border-radius:3px; margin-right:6px;
+    vertical-align:middle; border: 1px solid var(--line);
+  }
+
+  footer{
+    margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--line);
+    color: var(--sub); font-size: 0.78rem;
+  }
+
+  @media (max-width: 560px){
+    th, td{padding: 7px 6px; font-size: 0.8rem;}
+    .toc a{padding: 8px 12px; font-size: 0.8rem;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <h1>MustyBlockBlast — Oyun İçeriği Envanteri</h1>
+    <p>Kod tabanı taranarak çıkarılan hedef (objective), power-up, level açılım eşlemesi ve badge listesi. Kaynak: repo içi enum/config dosyaları ve .asset içerikleri.</p>
+    <div class="meta-row">
+      <span class="meta-chip">18 hedef türü</span>
+      <span class="meta-chip">10 power-up</span>
+      <span class="meta-chip">10 badge</span>
+      <span class="meta-chip">6 özel hücre türü</span>
+      <span class="meta-chip">4 tema</span>
+    </div>
+  </header>
+
+  <nav class="toc">
+    <a href="#objectives">Hedefler <span class="count">18</span></a>
+    <a href="#powerups">Power-up'lar <span class="count">10</span></a>
+    <a href="#unlocks">Level Açılımları <span class="count">10</span></a>
+    <a href="#badges">Badge'ler <span class="count">10</span></a>
+    <a href="#special-cells">Özel Hücreler <span class="count">6</span></a>
+    <a href="#themes">Temalar <span class="count">4</span></a>
+  </nav>
+
+  <section id="objectives">
+    <h2>1. Hedefler (Level Objective) <span class="badge-count">18 tür</span></h2>
+    <p class="intro"><code>ObjectiveType</code> enum'u — level tasarımında kullanılan hedef/görev türleri. Kaynak: <span class="path">Assets/Scripts/Core/ObjectiveType.cs</span>, açıklamalar: <span class="path">ObjectiveDescriptionFormatter.cs</span> + <span class="path">LocalizationKeys.cs</span> (GameStrings tablosu).</p>
+    <div class="panel">
+      <table>
+        <thead><tr><th>#</th><th>Enum</th><th>Açıklama</th><th>Localization key</th></tr></thead>
+        <tbody>
+          <tr><td class="num">0</td><td><code>SimultaneousLineClear</code></td><td>Tek hamlede tam olarak N satır/sütun temizleme sayısı</td><td class="path">objective.simultaneous_line_clear</td></tr>
+          <tr><td class="num">1</td><td><code>PieceFamilyCount</code></td><td>Belirli parça ailesinden (Line, Square, T_Shape…) yerleştirme sayısı</td><td class="path">objective.piece_family_count</td></tr>
+          <tr><td class="num">2</td><td><code>ScoreInRun</code></td><td>Koşu içi canlı skor hedefi (kümülatif olamaz)</td><td class="path">objective.score_in_run</td></tr>
+          <tr><td class="num">3</td><td><code>BoardWipeCount</code></td><td>Tahtayı tamamen boşaltan yerleştirme sayısı</td><td class="path">objective.board_wipe_count</td></tr>
+          <tr><td class="num">4</td><td><code>StreakThreshold</code></td><td>Koşu boyunca ulaşılan en yüksek kombo serisi</td><td class="path">objective.streak_threshold</td></tr>
+          <tr><td class="num">5</td><td><code>BombInducedLineClear</code></td><td>Bomb power-up ile satır/sütun boşaltma sayısı</td><td class="path">objective.bomb_induced_line_clear</td></tr>
+          <tr><td class="num">6</td><td><code>RowAndColumnCrossClear</code></td><td>Aynı anda hem satır hem sütun temizleyen yerleştirmeler</td><td class="path">objective.row_and_column_cross_clear</td></tr>
+          <tr><td class="num">7</td><td><code>ClutchRecoveryClear</code></td><td>Tahta doluluğu eşik üstündeyken yapılan "kurtarış" temizliği</td><td class="path">objective.clutch_recovery_clear</td></tr>
+          <tr><td class="num">8</td><td><code>AtLeastLineClear</code></td><td>En az N satır/sütun temizleyen yerleştirmeler ("mega clear")</td><td class="path">objective.at_least_line_clear</td></tr>
+          <tr><td class="num">9</td><td><code>PieceIdCount</code></td><td>Katalogda belirli bir parça ID'sinin yerleştirilme sayısı</td><td class="path">objective.piece_id_count</td></tr>
+          <tr><td class="num">10</td><td><code>PieceIdLineClear</code></td><td>Belirli parça ID'siyle satır/sütun temizleme sayısı</td><td class="path">objective.piece_id_line_clear</td></tr>
+          <tr><td class="num">11</td><td><code>FourCornersCleared</code></td><td>Tahta köşesine değen temizleme sayısı</td><td class="path">objective.four_corners_cleared</td></tr>
+          <tr><td class="num">12</td><td><code>CenterCoreEvacuated</code></td><td>Ortadaki 4x4 çekirdeği tamamen boşaltma sayısı</td><td class="path">objective.center_core_evacuated</td></tr>
+          <tr><td class="num">13</td><td><code>NoIsolatedHolesStreak</code></td><td>Sıfır izole boşluk bırakan en uzun yerleştirme serisi</td><td class="path">objective.no_isolated_holes_streak</td></tr>
+          <tr><td class="num">14</td><td><code>RollingLineClearWindow</code></td><td>Kayan zaman penceresi içinde temizlenen satır sayısı</td><td class="path">objective.line_clear_burst</td></tr>
+          <tr><td class="num">15</td><td><code>EarlyScoreRush</code></td><td>Koşunun ilk X saniyesinde hedef skora ulaşma</td><td class="path">objective.early_score_rush</td></tr>
+          <tr><td class="num">16</td><td><code>RerollSave</code></td><td>Dock'ta geçerli hamle kalmadığında Reroll kullanma sayısı</td><td class="path">objective.reroll_save</td></tr>
+          <tr><td class="num">17</td><td><code>ReinforcedCellsCleared</code></td><td>Yok edilen güçlendirilmiş (reinforced) hücre sayısı</td><td class="path"><em>yok — boş string</em></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="powerups">
+    <h2>2. Power-up'lar <span class="badge-count">10 tür</span></h2>
+    <p class="intro"><code>PowerUpKind</code> enum'u. Kaynak: <span class="path">Assets/Scripts/Gameplay/PowerUpKind.cs</span>, fiyatlar: <span class="path">Assets/Settings/PowerUpPriceConfig.asset</span>, görünen adlar: <span class="path">PowerUpShopView.cs</span>.</p>
+    <div class="panel">
+      <table>
+        <thead><tr><th>Enum</th><th>Görünen ad</th><th>Etki</th><th>Coin fiyatı</th></tr></thead>
+        <tbody>
+          <tr><td><code>Bomb</code></td><td>Bomb</td><td>Hedeflenen hücre etrafında 3x3 alanı temizler</td><td class="num">50</td></tr>
+          <tr><td><code>RowClear</code></td><td>Row Clear</td><td>Bir satırın tamamını (dolu/boş fark etmez) temizler</td><td class="num">50</td></tr>
+          <tr><td><code>ColumnClear</code></td><td>Column Clear</td><td>Bir sütunun tamamını temizler</td><td class="num">50</td></tr>
+          <tr><td><code>Joker</code></td><td>Joker</td><td>Bir boş hücreyi doldurur; satır/sütun tamamlanırsa temizler</td><td class="num">100</td></tr>
+          <tr><td><code>ColorCleanser</code></td><td>Colour Cleanser</td><td>Hedeflenen hücrenin rengiyle aynı olan tüm hücreleri temizler</td><td class="num">150</td></tr>
+          <tr><td><code>Rotate</code></td><td>Rotate</td><td>Dock'taki bir parçayı 90° saat yönünde döndürür</td><td class="num">200</td></tr>
+          <tr><td><code>Reroll</code></td><td>Reroll</td><td>Dock'taki 3 parçayı atıp, çözülebilirliği garantili yeniden çeker</td><td class="num">250</td></tr>
+          <tr><td><code>DoubleMultiplier</code></td><td>Double Score</td><td>Sabit bir süre boyunca skor kazanımını ikiye katlar</td><td class="num">300</td></tr>
+          <tr><td><code>GhostFit</code></td><td>Ghost Fit</td><td>Projeksiyon silueti ile en iyi geçerli hamleyi önerir</td><td class="num">350</td></tr>
+          <tr><td><code>CoinSower</code></td><td><em>(mağazada yok — koşu öncesi satın alınır)</em></td><td>Level başlamadan önce tahtaya ekstra Coin özel hücreleri eker</td><td class="num">60</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="unlocks">
+    <h2>3. Level Bazlı Power-up Açılımları <span class="badge-count">10 eşleme</span></h2>
+    <p class="intro">Kaynak: <span class="path">Assets/Scripts/Gameplay/PowerUpUnlockLevels.cs</span> — <code>PowerUpUnlockLevels.LevelFor(PowerUpKind)</code>. Not: bu tablo kodda sabit tanımlı (tasarımcı için ayrı bir ScriptableObject/CSV yok — bilinçli bir tercih olarak koda gömülü).</p>
+    <div class="panel">
+      <table>
+        <thead><tr><th>Power-up</th><th>Açılış Level'ı</th><th>Durum</th></tr></thead>
+        <tbody>
+          <tr><td><code>Bomb</code></td><td class="num">0</td><td><span class="tag starter">Başlangıçtan açık</span></td></tr>
+          <tr><td><code>RowClear</code></td><td class="num">0</td><td><span class="tag starter">Başlangıçtan açık</span></td></tr>
+          <tr><td><code>ColumnClear</code></td><td class="num">0</td><td><span class="tag starter">Başlangıçtan açık</span></td></tr>
+          <tr><td><code>Joker</code></td><td class="num">5</td><td><span class="tag">Level 5'te açılır</span></td></tr>
+          <tr><td><code>ColorCleanser</code></td><td class="num">10</td><td><span class="tag">Level 10'da açılır</span></td></tr>
+          <tr><td><code>Rotate</code></td><td class="num">15</td><td><span class="tag">Level 15'te açılır</span></td></tr>
+          <tr><td><code>Reroll</code></td><td class="num">20</td><td><span class="tag">Level 20'de açılır</span></td></tr>
+          <tr><td><code>DoubleMultiplier</code></td><td class="num">25</td><td><span class="tag">Level 25'te açılır</span></td></tr>
+          <tr><td><code>GhostFit</code></td><td class="num">30</td><td><span class="tag">Level 30'da açılır</span></td></tr>
+          <tr><td><code>CoinSower</code></td><td class="num">35</td><td><span class="tag">Level 35'te açılır</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="badges">
+    <h2>4. Badge'ler <span class="badge-count">10 adet</span></h2>
+    <p class="intro">Kaynak: <span class="path">Assets/Content/Badges/BadgeCatalog.asset</span> (<code>BadgeConfig</code> / <code>BadgeCatalog</code>). İzlenen istatistik türleri <code>BadgeStatType</code> enum'undan (<span class="path">Assets/Scripts/Core/BadgeStatType.cs</span>). Görünen adlar asset içinde ham metin olarak yazılı — localization key değil.</p>
+    <div class="panel">
+      <table>
+        <thead><tr><th>Id</th><th>Görünen ad</th><th>İzlenen istatistik</th><th>Eşik</th><th>Ödül</th></tr></thead>
+        <tbody>
+          <tr><td class="path">first_steps</td><td>First Steps</td><td><code>TotalPiecesPlaced</code></td><td class="num">50</td><td><code>Bomb</code></td></tr>
+          <tr><td class="path">line_cutter</td><td>Line Cutter</td><td><code>TotalLinesCleared</code></td><td class="num">100</td><td><code>RowClear</code></td></tr>
+          <tr><td class="path">board_sweeper</td><td>Board Sweeper</td><td><code>TotalBoardWipes</code></td><td class="num">5</td><td><code>ColumnClear</code></td></tr>
+          <tr><td class="path">high_scorer</td><td>High Scorer</td><td><code>HighestScoreEver</code></td><td class="num">5000</td><td><code>Bomb</code></td></tr>
+          <tr><td class="path">century_club</td><td>Century Club</td><td><code>TotalLinesCleared</code></td><td class="num">500</td><td><code>RowClear</code></td></tr>
+          <tr><td class="path">perfectionist</td><td>Perfectionist</td><td><code>TotalBoardWipes</code></td><td class="num">20</td><td><code>ColumnClear</code></td></tr>
+          <tr><td class="path">veteran</td><td>Veteran</td><td><code>TotalRunsPlayed</code></td><td class="num">25</td><td><code>Bomb</code></td></tr>
+          <tr><td class="path">power_player</td><td>Power Player</td><td><code>TotalPowerUpsApplied</code></td><td class="num">10</td><td><code>RowClear</code></td></tr>
+          <tr><td class="path">marathon</td><td>Marathon</td><td><code>TotalPiecesPlaced</code></td><td class="num">1000</td><td><code>ColumnClear</code></td></tr>
+          <tr><td class="path">elite_scorer</td><td>Elite Scorer</td><td><code>HighestScoreEver</code></td><td class="num">20000</td><td><code>Bomb</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="special-cells">
+    <h2>5. Özel Hücreler (bonus katalog) <span class="badge-count">6 tür</span></h2>
+    <p class="intro">Hedef/power-up/badge dışında kalan ama benzer şekilde katalog niteliğinde bir enum: <code>SpecialCellKind</code>. Kaynak: <span class="path">Assets/Scripts/Core/SpecialCellKind.cs</span>. Tahtaya gömülü özel hücreler — her biri farklı bir yok edilme efektine sahip.</p>
+    <div class="panel">
+      <table>
+        <thead><tr><th>#</th><th>Enum</th><th>Efekt</th></tr></thead>
+        <tbody>
+          <tr><td class="num">0</td><td><code>None</code></td><td>Sıradan hücre</td></tr>
+          <tr><td class="num">1</td><td><code>ExplosiveCore</code></td><td>Yok edildiğinde etrafındaki 3x3 alanı patlatır (diğer core'larla zincirlenir)</td></tr>
+          <tr><td class="num">2</td><td><code>Laser</code></td><td>Kendisini yok eden yöne dik olan satır/sütunu siler (diğer laser'larla zincirlenir)</td></tr>
+          <tr><td class="num">3</td><td><code>ScoreGem</code></td><td>Kendisini yok eden olayın skorunu çarpanla katlar</td></tr>
+          <tr><td class="num">4</td><td><code>Vortex</code></td><td>İzole blokları kendine doğru bir hücre çeker, yok etmez</td></tr>
+          <tr><td class="num">5</td><td><code>ChainLightning</code></td><td>Rastgele dolu hücrelere sıçrayıp onları yok eder (zorlu hamlelerde kazanılır)</td></tr>
+          <tr><td class="num">6</td><td><code>Coin</code></td><td>Yok edildiğinde cüzdana coin öder (hem satır hem sütunda aynı anda temizlenirse ikiye katlanır)</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="themes">
+    <h2>6. Temalar (kozmetik) <span class="badge-count">4 tema</span></h2>
+    <p class="intro">Kaynak: <span class="path">Assets/Settings/Themes/*.asset</span> (<code>ThemeDefinition</code>). Oynanışı etkilemeyen görsel/mevsimsel renk paletleri.</p>
+    <div class="panel grid-cards" style="display:grid;">
+      <div class="card"><div class="k">Yaz (Summer)</div><div class="v">id 0 · theme.yaz</div></div>
+      <div class="card"><div class="k">Kış (Winter)</div><div class="v">id 1 · theme.kis</div></div>
+      <div class="card"><div class="k">İlkbahar (Spring)</div><div class="v">id 2 · theme.ilkbahar</div></div>
+      <div class="card"><div class="k">Sonbahar (Autumn)</div><div class="v">id 3 · theme.sonbahar</div></div>
+    </div>
+  </section>
+
+  <footer>
+    Not: Kod tabanında ayrıca aranan ama bulunmayan sistemler — ayrı bir "Booster" kataloğu (power-up'lardan bağımsız), ayrı bir "Achievement" sistemi (badge'lerden bağımsız), Mission, Daily Reward, IAP ürün kataloğu ve Skin sistemi. Proje şu an meta-ilerleme için sadece Badge'leri, tüketilebilir güçlendirme için sadece Power-up'ları kullanıyor.
+    <br>Oluşturulma: 2026-09-17 · Kaynak: repo statik kod taraması.
+  </footer>
+
+</div>
+</body>
+</html>

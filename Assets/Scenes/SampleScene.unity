@@ -2121,7 +2121,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d283a9361c4c94785852a8425936e6af, type: 3}
   m_Name: 
   m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.ObjectiveIconContainerView
-  _topOffset: {x: 0, y: -344}
+  _topOffset: {x: 0, y: -300}
   _slotSize: 76
   _slotSpacing: 88
   _progressFontSize: 24
