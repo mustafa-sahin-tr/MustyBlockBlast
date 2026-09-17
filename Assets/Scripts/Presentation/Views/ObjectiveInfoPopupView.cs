@@ -76,6 +76,8 @@ namespace MustyBlockBlast.Presentation.Views
         private Image _cardShadowImage;
         private RectTransform _closeButtonRect;
         private RectTransform _heroGlyphRoot;
+        private Image _heroIconImage;
+        private ObjectiveIconCatalog _iconCatalog;
         private Image _heroPlateImage;
         private Image _heroCheckMark;
         private Text _headerText;
@@ -95,12 +97,14 @@ namespace MustyBlockBlast.Presentation.Views
             LocalizationModel localizationModel,
             LocalizationSystem localizationSystem,
             SettingsModel settingsModel,
+            ObjectiveIconCatalog iconCatalog,
             TimerRunSystem timerRunSystem)
         {
             _objectiveModel = objectiveModel;
             _localizationModel = localizationModel;
             _localizationSystem = localizationSystem;
             _settingsModel = settingsModel;
+            _iconCatalog = iconCatalog;
             _timerRunSystem = timerRunSystem;
         }
 
@@ -279,8 +283,22 @@ namespace MustyBlockBlast.Presentation.Views
             _heroInkImages.Clear();
             _heroCoreImages.Clear();
 
-            ObjectiveIconFactory.Build(
-                _heroGlyphRoot, type, HERO_GLYPH_SIZE * 0.62f, _heroInkImages, _heroCoreImages);
+            // Cleared before deciding: an Image with no sprite draws a solid square, so the authored
+            // image must be invisible whenever it is not the glyph in use.
+            _heroIconImage.sprite = null;
+            _heroIconImage.color = Color.clear;
+
+            Sprite authoredIcon = _iconCatalog != null ? _iconCatalog.Find(type) : null;
+            if (authoredIcon != null)
+            {
+                _heroIconImage.sprite = authoredIcon;
+                _heroInkImages.Add(_heroIconImage);
+            }
+            else
+            {
+                ObjectiveIconFactory.Build(
+                    _heroGlyphRoot, type, HERO_GLYPH_SIZE * 0.62f, _heroInkImages, _heroCoreImages);
+            }
 
             _heroGlyphType = type;
             _hasHeroGlyph = true;
@@ -359,6 +377,18 @@ namespace MustyBlockBlast.Presentation.Views
             _heroGlyphRoot = (RectTransform)glyphObject.transform;
             _heroGlyphRoot.SetParent(heroRect, false);
             Centre(_heroGlyphRoot, new Vector2(HERO_GLYPH_SIZE, HERO_GLYPH_SIZE));
+
+            // The authored silhouette, same footprint as the procedural glyph, so either can stand in
+            // for the other. Tinted with the ink colour through _heroInkImages while in use.
+            var iconObject = new GameObject("Icon", typeof(RectTransform), typeof(Image));
+            var iconRect = (RectTransform)iconObject.transform;
+            iconRect.SetParent(heroRect, false);
+            Centre(iconRect, new Vector2(HERO_GLYPH_SIZE * 0.58f, HERO_GLYPH_SIZE * 0.58f));
+            _heroIconImage = iconObject.GetComponent<Image>();
+            _heroIconImage.type = Image.Type.Simple;
+            _heroIconImage.preserveAspect = true;
+            _heroIconImage.color = Color.clear;
+            _heroIconImage.raycastTarget = false;
 
             var checkObject = new GameObject("CheckMark", typeof(RectTransform), typeof(Image));
             var checkRect = (RectTransform)checkObject.transform;

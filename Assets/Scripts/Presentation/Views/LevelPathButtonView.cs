@@ -23,6 +23,11 @@ namespace MustyBlockBlast.Presentation.Views
     /// point is on it. The tap that opens the panel is routed by <see cref="BoardInputView"/>, which is
     /// the single owner of pointer input.
     /// </para>
+    /// <para>
+    /// In Path mode it also hosts <see cref="PathLevelBadgeView"/>, which parents itself onto
+    /// <see cref="RootRect"/> to sit on the icon's top-right corner. The badge is a sibling of the
+    /// plate, not a child of it, so it never widens the plate's hit test.
+    /// </para>
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class LevelPathButtonView : MonoBehaviour
@@ -51,6 +56,13 @@ namespace MustyBlockBlast.Presentation.Views
         private Image _plateImage;
         private Image _shadowImage;
         private Canvas _canvas;
+
+        /// <summary>
+        /// The icon's own rect — the 112x112 top-right anchored root that the plate, shadow and glyph
+        /// hang off. <see cref="PathLevelBadgeView"/> parents onto this so the badge follows the icon
+        /// wherever <see cref="_cornerOffset"/> puts it, without being able to see or alter the plate.
+        /// </summary>
+        internal RectTransform RootRect => (RectTransform)transform;
 
         [Inject]
         public void Construct(SettingsModel settingsModel)

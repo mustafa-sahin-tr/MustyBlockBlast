@@ -31,6 +31,9 @@ namespace MustyBlockBlast.Presentation
         [Tooltip("Authored badge content. Required — without it there are no badges to track or unlock.")]
         [SerializeField] private BadgeCatalog _badgeCatalog;
 
+        [Tooltip("Authored objective glyphs. Optional — a missing catalog or entry falls back to the procedural glyph.")]
+        [SerializeField] private ObjectiveIconCatalog _objectiveIconCatalog;
+
         [Tooltip("Score-to-coin rate and the rewarded-ad coin grant. Required — without it there is no economy.")]
         [SerializeField] private CurrencyConfig _currencyConfig;
 
@@ -185,6 +188,7 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterInstance(ResolveTimedModeConfig());
             builder.RegisterInstance(ResolveLevelCatalog());
             builder.RegisterInstance(ResolveBadgeCatalog());
+            builder.RegisterInstance(ResolveObjectiveIconCatalog());
             builder.RegisterInstance(ResolveCurrencyConfig());
             builder.RegisterInstance(ResolvePowerUpPriceConfig());
             builder.RegisterInstance(ResolveCoinBundleConfig());
@@ -323,6 +327,23 @@ namespace MustyBlockBlast.Presentation
                 $"{nameof(GameLifetimeScope)} has no {nameof(BadgeCatalog)} assigned. " +
                 "No badges will be tracked or unlocked.", this);
             return ScriptableObject.CreateInstance<BadgeCatalog>();
+        }
+
+        /// <summary>
+        /// Unlike the other catalogs this one is optional by design — every objective type still has a
+        /// procedural glyph — so a missing asset only warns rather than errors.
+        /// </summary>
+        private ObjectiveIconCatalog ResolveObjectiveIconCatalog()
+        {
+            if (_objectiveIconCatalog != null)
+            {
+                return _objectiveIconCatalog;
+            }
+
+            Debug.LogWarning(
+                $"{nameof(GameLifetimeScope)} has no {nameof(ObjectiveIconCatalog)} assigned. " +
+                "Objective icons will use the procedural glyphs.", this);
+            return ScriptableObject.CreateInstance<ObjectiveIconCatalog>();
         }
 
         /// <summary>
@@ -524,7 +545,7 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterComponentInHierarchy<HoldSlotView>();
             builder.RegisterComponentInHierarchy<ScoreView>();
 
-            // Pinned under ScoreView's best-score corner group, so it lives next to it here too.
+            // Worn on the corner of LevelPathButtonView (registered above), which it takes as a dependency.
             builder.RegisterComponentInHierarchy<PathLevelBadgeView>();
             builder.RegisterComponentInHierarchy<TimerHudView>();
             builder.RegisterComponentInHierarchy<DoubleMultiplierHudView>();

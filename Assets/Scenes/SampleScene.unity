@@ -239,9 +239,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1e9454aa92f5949329208080f1c305c5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.CoinTotalHudView
-  _cornerOffset: {x: -200, y: -52}
-  _iconSize: 56
-  _fontSize: 56
+  _cornerOffset: {x: -60, y: -332}
+  _coinSize: 112
+  _fontSize: 40
+  _coinSprite: {fileID: 21300000, guid: ef1b23357960542ca8a3614b7fbc2837, type: 3}
 --- !u!114 &322864019
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -809,7 +810,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3f3ac9e6aa63c435eb22ebfd1c34a8b6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.PathLevelBadgeView
-  _anchoredPosition: {x: 26, y: -246}
+  _cornerOffset: {x: 14, y: 14}
   _badgeDiameter: 68
 --- !u!1 &680048523
 GameObject:
@@ -2028,6 +2029,7 @@ MonoBehaviour:
   _timedModeConfig: {fileID: 11400000, guid: 13041911c2a664794a06737bb59a7597, type: 2}
   _levelCatalog: {fileID: 11400000, guid: 82557e6758efe42d5967a45459d0b560, type: 2}
   _badgeCatalog: {fileID: 11400000, guid: 70b54e62afe9643e987f413b8119f8c5, type: 2}
+  _objectiveIconCatalog: {fileID: 11400000, guid: fadafff29d78b4ecf8a72d927fa23418, type: 2}
   _currencyConfig: {fileID: 11400000, guid: 36f18b394e8614ca0a06e153de8be6d3, type: 2}
   _powerUpPriceConfig: {fileID: 11400000, guid: e31dd2862241042cf84ab7666973315a, type: 2}
   _coinBundleConfig: {fileID: 11400000, guid: eb3e91b3d5d5343eeaf64dd26cd6962f, type: 2}
@@ -2150,10 +2152,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d283a9361c4c94785852a8425936e6af, type: 3}
   m_Name: 
   m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.ObjectiveIconContainerView
-  _topOffset: {x: 0, y: -300}
-  _slotSize: 76
-  _slotSpacing: 88
-  _progressFontSize: 24
+  _topLeftOffset: {x: 16, y: -272}
+  _slotSize: 112
+  _slotSpacing: 124
+  _progressFontSize: 26
 --- !u!1 &1552735300
 GameObject:
   m_ObjectHideFlags: 0
