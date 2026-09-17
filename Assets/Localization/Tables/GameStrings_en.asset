@@ -106,20 +106,16 @@ MonoBehaviour:
     m_Localized: Choose Duration
     m_Metadata:
       m_Items: []
-  - m_Id: 766500881
-    m_Localized: Change Mode
-    m_Metadata:
-      m_Items: []
   - m_Id: 766500882
-    m_Localized: The game will restart. Continue?
+    m_Localized: "Your current run restarts. Your best score stays."
     m_Metadata:
       m_Items: []
   - m_Id: 766500883
-    m_Localized: Yes, Start
+    m_Localized: "Restart"
     m_Metadata:
       m_Items: []
   - m_Id: 766500884
-    m_Localized: Cancel
+    m_Localized: "Keep playing"
     m_Metadata:
       m_Items: []
   - m_Id: 10990476320768
@@ -278,16 +274,12 @@ MonoBehaviour:
     m_Localized: Tap an unlocked level to play it
     m_Metadata:
       m_Items: []
-  - m_Id: 1253489991737344
-    m_Localized: Remove ads
-    m_Metadata:
-      m_Items: []
   - m_Id: 1253490004320256
-    m_Localized: BUY
+    m_Localized: "Remove ads"
     m_Metadata:
       m_Items: []
   - m_Id: 1253490004320257
-    m_Localized: OWNED
+    m_Localized: "Ads removed \u00B7 thank you for supporting the game"
     m_Metadata:
       m_Items: []
   - m_Id: 1292508796542976
@@ -444,6 +436,46 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 1371178030587925
     m_Localized: Clear {0} blocks
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587926
+    m_Localized: "Timed mode only"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587927
+    m_Localized: "On"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587928
+    m_Localized: "Off"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587929
+    m_Localized: "Ads \u00B7 one-time purchase"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587930
+    m_Localized: "Recolours everything"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587931
+    m_Localized: "Playing"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587932
+    m_Localized: "Switch to {0}?"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587933
+    m_Localized: "Play until the board fills. Chase your best score."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587934
+    m_Localized: "Score as much as you can before the clock runs out."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587935
+    m_Localized: "Clear one objective per level along the trail."
     m_Metadata:
       m_Items: []
   references:

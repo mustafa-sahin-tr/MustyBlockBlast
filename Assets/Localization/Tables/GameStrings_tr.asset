@@ -106,20 +106,16 @@ MonoBehaviour:
     m_Localized: "S\xFCre Se\xE7"
     m_Metadata:
       m_Items: []
-  - m_Id: 766500881
-    m_Localized: "Modu De\u011Fi\u015Ftir"
-    m_Metadata:
-      m_Items: []
   - m_Id: 766500882
-    m_Localized: "Oyun yeniden ba\u015Flayacak. Devam edilsin mi?"
+    m_Localized: "Mevcut oyunun yeniden ba\u015Flar. En iyi skorun kal\u0131r."
     m_Metadata:
       m_Items: []
   - m_Id: 766500883
-    m_Localized: "Evet, Ba\u015Flat"
+    m_Localized: "Yeniden ba\u015Flat"
     m_Metadata:
       m_Items: []
   - m_Id: 766500884
-    m_Localized: "\u0130ptal"
+    m_Localized: "Oynamaya devam"
     m_Metadata:
       m_Items: []
   - m_Id: 10990476320768
@@ -278,16 +274,12 @@ MonoBehaviour:
     m_Localized: "Oynamak i\xE7in a\xE7\u0131lm\u0131\u015F bir b\xF6l\xFCme dokun"
     m_Metadata:
       m_Items: []
-  - m_Id: 1253489991737344
+  - m_Id: 1253490004320256
     m_Localized: "Reklamlar\u0131 kald\u0131r"
     m_Metadata:
       m_Items: []
-  - m_Id: 1253490004320256
-    m_Localized: SATIN AL
-    m_Metadata:
-      m_Items: []
   - m_Id: 1253490004320257
-    m_Localized: SATIN ALINDI
+    m_Localized: "Reklamlar kald\u0131r\u0131ld\u0131 \u00B7 deste\u011Fin i\u00E7in te\u015Fekk\u00FCrler"
     m_Metadata:
       m_Items: []
   - m_Id: 1292508796542976
@@ -444,6 +436,46 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 1371178030587925
     m_Localized: "{0} bloklar\u0131 temizle"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587926
+    m_Localized: "Yaln\u0131zca s\u00FCreli modda"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587927
+    m_Localized: "A\u00E7\u0131k"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587928
+    m_Localized: "Kapal\u0131"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587929
+    m_Localized: "Reklamlar \u00B7 tek seferlik sat\u0131n alma"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587930
+    m_Localized: "Her \u015Feyi yeniden boyar"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587931
+    m_Localized: "Oynan\u0131yor"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587932
+    m_Localized: "{0} moduna ge\u00E7ilsin mi?"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587933
+    m_Localized: "Tahta dolana kadar oyna. En iyi skorunun pe\u015Fine d\u00FC\u015F."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587934
+    m_Localized: "S\u00FCre dolmadan olabildi\u011Fince puan topla."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587935
+    m_Localized: "Yol boyunca her seviyede bir hedefi tamamla."
     m_Metadata:
       m_Items: []
   references:

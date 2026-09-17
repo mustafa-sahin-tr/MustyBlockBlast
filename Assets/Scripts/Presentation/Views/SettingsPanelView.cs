@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Text;
 using Cysharp.Threading.Tasks;
 using MustyBlockBlast.Gameplay;
@@ -15,27 +16,38 @@ using VContainer;
 namespace MustyBlockBlast.Presentation.Views
 {
     /// <summary>
-    /// The settings overlay. Several screens live inside one card:
+    /// The settings card, drawn in the storefront language the profile card and the shop share
+    /// (issue #260): one sunken well, and inside it one plate per setting — a coloured icon tile, a
+    /// small uppercase label, the value in the display face, and a chevron disc or a 3D toggle on the
+    /// right. Several screens live inside the one card:
     /// <list type="bullet">
-    /// <item>Settings — a grouped list with the current mode, the current theme, the current
-    /// language, the sound toggle and a round duration row.</item>
-    /// <item>Language — one chip per shipped language, each labelled in its own language. Picking one
+    /// <item>Settings — the five plates (mode, theme, language, sound, round length) and, at the foot
+    /// of the well, the one call to action: the Remove Ads button, or the "ads removed" strip once it
+    /// is owned.</item>
+    /// <item>Theme — a 2×2 grid of cards, each previewing its own theme's gradient with a 4×4 mini
+    /// board in that theme's real kind colours. Picking one calls <see cref="SettingsSystem.SetTheme"/>
+    /// and returns; the recolour itself is handled by the reactive theme subscriptions in every other
+    /// View, so nothing else happens here.</item>
+    /// <item>Mode — one plate per entry in <see cref="SelectableModes"/>, with a one-line description
+    /// and a PLAYING tag on the active one. Picking the active mode just returns; picking any other
+    /// opens the confirmation card at the bottom of the same screen, because switching restarts the
+    /// run.</item>
+    /// <item>ModeConfirm — the Mode screen with that card showing: KEEP PLAYING steps back, RESTART
+    /// calls <see cref="GameModeSystem.SelectMode"/>, which owns the restart.</item>
+    /// <item>Language — one plate per shipped language, each labelled in its own language. Picking one
     /// calls <see cref="LocalizationSystem.SetLocale"/>; the re-wording is handled by the reactive
     /// locale subscriptions in every View, this one included.</item>
-    /// <item>Theme — the swatch grid; picking one calls <see cref="SettingsSystem.SetTheme"/> and
-    /// returns to the settings screen. The recolour itself is handled by the existing reactive theme
-    /// subscriptions in every other View, so nothing else happens here.</item>
-    /// <item>Mode — one card per entry in <see cref="SelectableModes"/>. Picking the active mode just
-    /// returns; picking any other steps to the confirmation screen, because switching restarts the
-    /// run.</item>
-    /// <item>ModeConfirm — the "this restarts your run" prompt. Confirming calls
-    /// <see cref="GameModeSystem.SelectMode"/>, which owns the restart.</item>
+    /// <item>Duration — a 3-column grid of round lengths, timed mode only.</item>
     /// </list>
-    /// Both screens are built once in <see cref="Start"/> and toggled with SetActive — the same
-    /// "build once, never rebuild" approach <see cref="CellView"/> uses for its two looks.
+    /// Every screen is built once in <see cref="Start"/> and toggled with SetActive — the same "build
+    /// once, never rebuild" approach <see cref="CellView"/> uses for its two looks — and every screen
+    /// is the same 880 × 1140 card the hub's other tabs use, so the hub's tab bar never has to chase a
+    /// height change between sub-screens.
     /// <para>
-    /// The swatch list is built from <c>SettingsModel.AvailableThemes</c>, so shipping a new theme is
-    /// a new ScriptableObject plus a LifetimeScope entry — no change to this class.
+    /// Every colour on the card comes from the active <see cref="ThemeDefinition"/>: the plates, the
+    /// well and the labels from its neutrals, the icon tiles and the toggle from its kind triplets, the
+    /// selection rings from its accent. The only constant is white, for the glyphs drawn on coloured
+    /// tiles and the toggle thumb — the same constant the hub's tab glyphs use.
     /// </para>
     /// <para>
     /// Like the rest of the UI this View never raycasts: <see cref="BoardInputView"/> owns the pointer
@@ -45,58 +57,202 @@ namespace MustyBlockBlast.Presentation.Views
     [DisallowMultipleComponent]
     public sealed class SettingsPanelView : MonoBehaviour
     {
-        private const int COLUMN_COUNT = 2;
-
-        // Layout, in canvas reference pixels. The mock-up was drawn against a 380pt card; everything
-        // here is that mock-up scaled to the 880pt card the rest of the UI already uses.
-        private const float HEADER_INSET = 92f;
+        // Layout, in canvas reference pixels, on the 880 × 1140 card the hub's other cards share. The
+        // mock-up was drawn on a 358pt card; everything here is that mock-up at 880/358. Vertical
+        // offsets are measured down from the card's top edge; TopY turns them into anchored positions.
+        private const float HEADER_INSET = 84f;
         private const float SIDE_INSET = 60f;
         private const float ICON_BUTTON_SIZE = 92f;
-        private const float LIST_WIDTH = 760f;
-        private const float ROW_HEIGHT = 128f;
-        private const int ROW_COUNT = 6;
 
-        /// <summary>Card top edge to list top edge: the header band plus the gap under it.</summary>
-        private const float LIST_TOP_INSET = 194f;
+        /// <summary>The well: the sunken plate the whole content sits in, inset from the card edge on
+        /// every side, with its own padding inside that — the same well the profile card has.</summary>
+        private const float WELL_INSET = 16f;
+        private const float WELL_PADDING_X = 24f;
+        private const float WELL_PADDING_Y = 28f;
+        private const float WELL_CORNER_RADIUS = 22f;
 
-        /// <summary>List bottom edge to card bottom edge.</summary>
-        private const float LIST_BOTTOM_INSET = 62f;
+        /// <summary>Rendered corner radius of a plate, in reference pixels. The shared rounded sprite
+        /// bakes its radius at <see cref="UiSpriteFactory.ROUNDED_RADIUS"/>, so the slice multiplier is
+        /// derived from the two, as the hub's tabs and the profile card do.</summary>
+        private const float PLATE_CORNER_RADIUS = 16f;
 
-        private const float BADGE_SIZE = 84f;
-        private const float DIVIDER_THICKNESS = 3f;
-        private const float PILL_WIDTH = 240f;
-        private const float PILL_HEIGHT = 76f;
-        private const float TOGGLE_WIDTH = 106f;
-        private const float TOGGLE_HEIGHT = 62f;
-        private const float TOGGLE_THUMB_SIZE = 50f;
+        /// <summary>A plate's drop shadow: a copy of the plate, this far lower, in Ink at low alpha.</summary>
+        private const float PLATE_SHADOW_DROP = 4f;
 
-        /// <summary>Half the slack left in the track once the thumb and its 6pt inset are removed.</summary>
-        private const float TOGGLE_THUMB_TRAVEL = (TOGGLE_WIDTH - TOGGLE_THUMB_SIZE - 12f) * 0.5f;
+        private const float ROW_HEIGHT = 148f;
+        private const float ROW_GAP = 22f;
+        private const float ROW_PADDING_X = 28f;
 
-        private const float CHEVRON_HALF_SIZE = 13f;
-        private const float CHEVRON_THICKNESS = 7f;
+        /// <summary>The icon tile: a rounded square in the row's kind fill over a slightly taller one
+        /// in its shade, so the shade shows as a lip along the bottom.</summary>
+        private const float TILE_SIZE = 96f;
+        private const float TILE_LIP = 7f;
+        private const float TILE_CORNER_RADIUS = 28f;
+
+        /// <summary>Left edge of a row's text column: after the padding, the tile and a gap.</summary>
+        private const float ROW_TEXT_INSET = ROW_PADDING_X + TILE_SIZE + 28f;
+
+        private const float ROW_LABEL_RISE = 30f;
+        private const float ROW_VALUE_DROP = 14f;
+
+        // The round-length row carries a third line (the "timed mode only" note), so its three lines
+        // are spread wider than the other rows' two.
+        private const float NOTED_ROW_LABEL_RISE = 44f;
+        private const float NOTED_ROW_VALUE_DROP = 2f;
+        private const float NOTED_ROW_NOTE_DROP = 46f;
+
+        /// <summary>The chevron disc on a row that steps to a picker screen: a disc in the empty-cell
+        /// fill over a slightly lower one in the empty-cell outline, so it has the same lip the tiles
+        /// have.</summary>
+        private const float DISC_SIZE = 84f;
+        private const float DISC_LIP = 6f;
+
+        private const float CHEVRON_HALF_SIZE = 14f;
+        private const float CHEVRON_THICKNESS = 8f;
+
+        private const float TOGGLE_WIDTH = 138f;
+        private const float TOGGLE_HEIGHT = 78f;
+        private const float TOGGLE_LIP = 8f;
+        private const float TOGGLE_THUMB_SIZE = 62f;
+        private const float TOGGLE_THUMB_INSET = 7f;
+
+        /// <summary>Half the slack left in the track once the thumb and its inset are removed.</summary>
+        private const float TOGGLE_THUMB_TRAVEL = (TOGGLE_WIDTH - TOGGLE_THUMB_SIZE - (TOGGLE_THUMB_INSET * 2f)) * 0.5f;
+
+        /// <summary>The five kind dots after the theme row's value: the same dots the old badge wore,
+        /// moved into the value.</summary>
+        private const float THEME_DOT_SIZE = 20f;
+        private const float THEME_DOT_PITCH = 26f;
+        private const float THEME_DOT_GAP = 18f;
+
+        /// <summary>The call to action at the foot of the well, and the strip that replaces it — the
+        /// same size as the profile card's SAVE button and its "Saved with" strip.</summary>
+        private const float ACTION_HEIGHT = 96f;
+        private const float ACTION_CAPTION_RISE = 30f;
+
+        /// <summary>The glossy button sprite's face sits above a baked darker lip, so a label is lifted
+        /// off the button's geometric centre to sit on the face — the same rise the shop uses.</summary>
+        private const float BUTTON_LABEL_RISE = 4f;
+
+        /// <summary>Slice scale for the glossy button sprite, matching <see cref="PowerUpShopView"/> and
+        /// <see cref="ProfilePanelView"/> so every screen's buttons have the same lip and corner.</summary>
+        private const float BUTTON_SLICE_SCALE = 2.5f;
+
+        // Sub-screens: the well's first row is a round back disc and the screen's name.
+        private const float BACK_DISC_SIZE = 88f;
+        private const float SUB_HEADER_HEIGHT = 88f;
+
+        private const int THEME_COLUMN_COUNT = 2;
+        private const float THEME_CARD_GAP = 24f;
+        private const float THEME_CARD_HEIGHT = 400f;
+        private const float THEME_CARD_PADDING = 20f;
+        private const float THEME_PREVIEW_HEIGHT = 300f;
+        private const float THEME_NAME_RISE = 34f;
+
+        /// <summary>The 4×4 mini board on a theme card: a plate in that theme's card colour holding
+        /// sixteen bevelled cells in its real kind colours.</summary>
+        private const int MINI_BOARD_SIZE = 4;
+        private const float MINI_BOARD_WIDTH = 192f;
+        private const float MINI_BOARD_PADDING = 12f;
+        private const float MINI_BOARD_CORNER_RADIUS = 20f;
+        private const float MINI_CELL_GAP = 8f;
+        private const float MINI_CELL_LIP = 4f;
+        private const float MINI_CELL_CORNER_RADIUS = 8f;
 
         /// <summary>
-        /// Shown in the duration pill while endless is active, where a length means nothing. An em
+        /// Which kind fills each cell of the preview board, row by row from the top; 0 is empty. A
+        /// fixed checker of four kinds rather than a random scatter, so the four cards are told apart by
+        /// their colours alone and not by their layouts.
+        /// </summary>
+        private static readonly int[] MiniBoardPattern =
+        {
+            0, 2, 0, 3,
+            4, 0, 5, 0,
+            0, 3, 0, 2,
+            5, 0, 4, 0,
+        };
+
+        /// <summary>The selection ring around a chosen card or plate: an accent ring this far outside
+        /// the plate, with a card-coloured gap between the two so the ring reads as a ring.</summary>
+        private const float RING_OUTSET = 14f;
+        private const float RING_GAP_OUTSET = 7f;
+
+        /// <summary>The check disc in a chosen card's corner: accent, with a darker lip and a white tick.</summary>
+        private const float CHECK_DISC_SIZE = 64f;
+        private const float CHECK_DISC_LIP = 5f;
+        private const float CHECK_DISC_INSET = 20f;
+        private const float CHECK_GLYPH_SIZE = 34f;
+
+        private const float MODE_NAME_RISE = 26f;
+        private const float MODE_DESCRIPTION_DROP = 24f;
+
+        /// <summary>The restart confirmation: a plate at the foot of the mode screen with a title, a
+        /// line of body and the two buttons.</summary>
+        private const float CONFIRM_CARD_HEIGHT = 250f;
+        private const float CONFIRM_PADDING = 28f;
+        private const float CONFIRM_TITLE_DROP = 50f;
+        private const float CONFIRM_BODY_DROP = 104f;
+        private const float CONFIRM_BUTTON_HEIGHT = 84f;
+        private const float CONFIRM_BUTTON_GAP = 24f;
+
+        private const int DURATION_COLUMN_COUNT = 3;
+        private const float OPTION_GAP = 24f;
+
+        // Type sizes. The display face is Bowlby One SC where the mock-up uses it (values, names,
+        // buttons); everything else is the built-in face in bold, as on the profile card.
+        private const int TITLE_FONT_SIZE = 48;
+        private const int LABEL_FONT_SIZE = 24;
+        private const int VALUE_FONT_SIZE = 44;
+        private const int NOTE_FONT_SIZE = 22;
+        private const int THEME_NAME_FONT_SIZE = 36;
+        private const int MODE_NAME_FONT_SIZE = 40;
+        private const int DESCRIPTION_FONT_SIZE = 24;
+        private const int BUTTON_FONT_SIZE = 34;
+        private const int CONFIRM_TITLE_FONT_SIZE = 40;
+        private const int CONFIRM_BUTTON_FONT_SIZE = 30;
+        private const int OPTION_FONT_SIZE = 44;
+
+        /// <summary>How far the well sinks below the card: Ink over CardBackground.</summary>
+        private const float WELL_TINT = 0.06f;
+
+        /// <summary>A plate's shadow: Ink at this alpha, as the profile card's plates have.</summary>
+        private const float PLATE_SHADOW_ALPHA = 0.12f;
+
+        /// <summary>The owned strip's ground: the owned kind's highlight over CardBackground.</summary>
+        private const float OWNED_TINT = 0.55f;
+
+        /// <summary>How far the accent is pulled toward black for a check disc's lip.</summary>
+        private const float ACCENT_SHADE = 0.35f;
+
+        /// <summary>The round-length row's whole plate, in a mode where a round length means nothing.</summary>
+        private const float DIMMED_ALPHA = 0.5f;
+
+        /// <summary>How far a busy Remove Ads button fades toward SoftInk while the store prompt is up.</summary>
+        private const float BUSY_FADE = 0.5f;
+
+        // Which theme kind's bevel triplet each coloured element takes. Chosen by role, so a season swap
+        // recolours them together: one kind per row's tile, the call to action, the toggle's "on"
+        // track and the owned strip.
+        private const int MODE_KIND = 5;
+        private const int THEME_KIND = 3;
+        private const int LANGUAGE_KIND = 4;
+        private const int SOUND_KIND = 2;
+        private const int DURATION_KIND = 1;
+        private const int PRIMARY_KIND = 1;
+        private const int TOGGLE_KIND = 5;
+        private const int OWNED_KIND = 5;
+
+        /// <summary>
+        /// Shown in the round-length value while endless is active, where a length means nothing. An em
         /// dash, not a word — deliberately left out of the String Table, since there is nothing here
         /// for a translator to translate.
         /// </summary>
         private const string DURATION_NOT_APPLICABLE = "—";
 
-        private static readonly Vector2 ModeOptionSize = new Vector2(320f, 180f);
-        private static readonly Vector2 ConfirmButtonSize = new Vector2(340f, 96f);
-        private const float MODE_OPTION_SPACING_X = 360f;
-
-        /// <summary>Columns in the mode grid. Two, because a mode card is 320pt wide and three of them
-        /// would not fit the 880pt card.</summary>
-        private const int MODE_COLUMN_COUNT = 2;
-
-        private const float MODE_OPTION_SPACING_Y = 216f;
-
         /// <summary>
         /// Every mode the picker offers, in display order. The single source of "which modes exist to
-        /// choose from": adding one here is all the picker needs, and the layout centres whatever
-        /// count it finds.
+        /// choose from": adding one here (with its tile kind, glyph and description key) is all the
+        /// picker needs.
         /// </summary>
         private static readonly GameMode[] SelectableModes =
         {
@@ -105,60 +261,51 @@ namespace MustyBlockBlast.Presentation.Views
             GameMode.Path,
         };
 
-        private const int DURATION_COLUMN_COUNT = 3;
-        private static readonly Vector2 DurationOptionSize = new Vector2(200f, 130f);
-        private static readonly Vector2 DurationOptionSpacing = new Vector2(232f, 162f);
-
-        // One chip per language, stacked instead of gridded: a language name is a word rather than a
-        // number, so it needs a wide chip, and three wide chips only fit one to a row.
-        private static readonly Vector2 LanguageOptionSize = new Vector2(520f, 116f);
-        private const float LANGUAGE_OPTION_SPACING_Y = 148f;
-
-        // The switch is a universal affordance, so unlike everything else on the card it keeps the
-        // same colours in every theme.
-        private static readonly Color ToggleOnColour = new Color(0.298f, 0.686f, 0.510f, 1f);
-        private static readonly Color ToggleOffColour = new Color(0.851f, 0.835f, 0.871f, 1f);
-
         private readonly CompositeDisposable _disposables = new CompositeDisposable();
-        private readonly List<ThemeOption> _options = new List<ThemeOption>(4);
+        private readonly List<ThemeOption> _themeOptions = new List<ThemeOption>(4);
         private readonly List<ModeOption> _modeOptions = new List<ModeOption>(SelectableModes.Length);
         private readonly List<DurationOption> _durationOptions = new List<DurationOption>(6);
         private readonly List<LanguageOption> _languageOptions = new List<LanguageOption>(3);
         private readonly StringBuilder _stringBuilder = new StringBuilder(8);
 
-        // Repaint buckets: every Image built here belongs to exactly one of them, so a theme switch is
-        // a handful of tight loops instead of a hierarchy walk.
+        // Repaint buckets: every Image and Text built here belongs to exactly one of them, so a theme
+        // switch is a handful of tight loops instead of a hierarchy walk.
+        private readonly List<Image> _platePlates = new List<Image>(32);
+        private readonly List<Image> _plateShadows = new List<Image>(32);
         private readonly List<Image> _inkImages = new List<Image>(24);
-        private readonly List<Image> _badgeImages = new List<Image>(4);
-        private readonly List<Image> _pillImages = new List<Image>(2);
-        private readonly List<Image> _dividerImages = new List<Image>(2);
-        private readonly List<Text> _inkTexts = new List<Text>(8);
-        private readonly Image[] _themeBadgeDots = new Image[ThemeDefinition.KIND_COUNT];
+        private readonly List<Image> _discFaces = new List<Image>(8);
+        private readonly List<Image> _discLips = new List<Image>(8);
+        private readonly List<KindImage> _kindFills = new List<KindImage>(24);
+        private readonly List<KindImage> _kindShades = new List<KindImage>(12);
+        private readonly List<Text> _inkTexts = new List<Text>(24);
+        private readonly List<Text> _softInkTexts = new List<Text>(16);
+        private readonly Image[] _themeValueDots = new Image[ThemeDefinition.KIND_COUNT];
 
         /// <summary>
         /// Every label whose wording is a plain String Table lookup, paired with its key. The same
         /// "repaint bucket" idea as <see cref="_inkTexts"/>, applied to words instead of colours: a
         /// language switch is one tight loop rather than a hierarchy walk, and a new label is one
         /// <see cref="RegisterLocalized"/> call rather than a new branch in the locale handler.
-        /// Labels that need a value substituted in (the pills, the duration chips) are not in here —
-        /// they are re-rendered by their own refresh methods.
+        /// Labels that need a value substituted in (the values, the duration chips, the confirmation
+        /// title) are not in here — they are re-rendered by their own refresh methods.
         /// </summary>
-        private readonly List<LocalizedLabel> _localizedLabels = new List<LocalizedLabel>(16);
+        private readonly List<LocalizedLabel> _localizedLabels = new List<LocalizedLabel>(24);
 
         [Header("Layout")]
-        [Tooltip("Card size while the theme grid is showing.")]
-        [SerializeField] private Vector2 _cardSize = new Vector2(880f, 980f);
-        [Tooltip("Minimum card size while the settings list or the mode picker is showing. Grown automatically when the row list no longer fits.")]
-        [SerializeField] private Vector2 _settingsCardSize = new Vector2(880f, 640f);
-        [Tooltip("Card size while the mode-change confirmation is showing.")]
-        [SerializeField] private Vector2 _confirmCardSize = new Vector2(880f, 460f);
-        [SerializeField] private Vector2 _optionSize = new Vector2(380f, 300f);
-        [SerializeField] private Vector2 _optionSpacing = new Vector2(400f, 340f);
+        [Tooltip("Card size. Every screen inside the card is this one size, so the hub's tab bar never has to chase a sub-screen.")]
+        [SerializeField] private Vector2 _cardSize = new Vector2(880f, 1140f);
+
+        [Header("Art")]
+        [Tooltip("The chunky display face for the values, names and buttons. Falls back to the built-in "
+            + "runtime font when unassigned.")]
+        [SerializeField] private Font _displayFont;
+
+        [Tooltip("White 9-sliced glossy button with a darker bottom lip, shared with the shop and the "
+            + "profile card. Tinted at runtime from the theme.")]
+        [SerializeField] private Sprite _buttonSprite;
 
         [Header("Palette")]
         [SerializeField] private Color _scrimColour = new Color(0.17f, 0.15f, 0.20f, 0.55f);
-        [Tooltip("Outline thickness drawn around the currently selected theme swatch.")]
-        [SerializeField] private float _selectionBorderThickness = 8f;
 
         private SettingsModel _settingsModel;
         private SettingsSystem _settingsSystem;
@@ -174,54 +321,78 @@ namespace MustyBlockBlast.Presentation.Views
         private Canvas _canvas;
 
         /// <summary>
-        /// Guards the Remove Ads row against a second tap while a store prompt is already up. The same
-        /// guard <see cref="CoinConversionView"/> keeps over its bundle strip, and for the same reason:
-        /// a store prompt is modal and slow, and a second overlapping order is one the store would only
-        /// refuse.
+        /// Guards the Remove Ads button against a second tap while a store prompt is already up. The
+        /// same guard <see cref="CoinConversionView"/> keeps over its bundle strip, and for the same
+        /// reason: a store prompt is modal and slow, and a second overlapping order is one the store
+        /// would only refuse.
         /// </summary>
         private bool _isPurchasingRemoveAds;
 
         private PanelScreen _screen = PanelScreen.Settings;
 
-        /// <summary>The mode the confirmation screen is asking about. Only meaningful on that screen.</summary>
+        /// <summary>The mode the confirmation card is asking about. Only meaningful on that screen.</summary>
         private GameMode _pendingMode = GameMode.Endless;
+
+        private ThemeDefinition _currentTheme;
 
         private GameObject _panel;
         private RectTransform _cardRect;
-        private RectTransform _cardShadowRect;
         private Image _cardImage;
         private Image _cardShadowImage;
+        private Image _wellPlate;
 
         private GameObject _settingsScreenRoot;
         private GameObject _themeScreenRoot;
         private GameObject _modeScreenRoot;
-        private GameObject _confirmScreenRoot;
         private GameObject _durationScreenRoot;
         private GameObject _languageScreenRoot;
 
-        private Image _listImage;
         private RectTransform _closeButtonRect;
         private Text _titleText;
+
         private RectTransform _modeRowRect;
         private RectTransform _themeRowRect;
+        private RectTransform _languageRowRect;
         private RectTransform _soundRowRect;
         private RectTransform _durationRowRect;
-        private RectTransform _languageRowRect;
-        private RectTransform _removeAdsRowRect;
+        private CanvasGroup _durationRowGroup;
+
         private RectTransform _themeBackButtonRect;
         private RectTransform _modeBackButtonRect;
         private RectTransform _durationBackButtonRect;
         private RectTransform _languageBackButtonRect;
+
+        private RectTransform _confirmCardRect;
         private RectTransform _confirmYesRect;
         private RectTransform _confirmNoRect;
+        private Image _confirmYesPlate;
+        private Image _confirmNoFace;
+        private Image _confirmNoLip;
+        private Text _confirmTitleText;
+        private Text _confirmYesText;
+        private Text _confirmNoText;
+
         private RectTransform _toggleThumbRect;
-        private Image _toggleTrackImage;
+        private Image _toggleFace;
+        private Image _toggleLip;
+
         private Text _themeValueText;
+        private RectTransform _themeValueRect;
         private Text _modeValueText;
+        private Text _soundValueText;
         private Text _durationValueText;
-        private Text _durationLabelText;
         private Text _languageValueText;
-        private Text _removeAdsValueText;
+
+        /// <summary>The mode row's tile wears the active mode's own glyph, one per selectable mode.</summary>
+        private readonly GameObject[] _modeRowGlyphs = new GameObject[SelectableModes.Length];
+
+        private RectTransform _removeAdsButtonRect;
+        private Image _removeAdsButtonPlate;
+        private Text _removeAdsButtonText;
+        private RectTransform _ownedStripRect;
+        private Image _ownedStripPlate;
+        private Image _ownedCheck;
+        private Text _ownedText;
 
         /// <summary>Which of the screens inside the card is showing.</summary>
         private enum PanelScreen
@@ -237,25 +408,35 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>A built label together with the String Table key it renders.</summary>
         private readonly struct LocalizedLabel
         {
-            internal LocalizedLabel(Text label, string key)
+            internal LocalizedLabel(Text label, string key, bool uppercase)
             {
                 Label = label;
                 Key = key;
+                Uppercase = uppercase;
             }
 
             internal Text Label { get; }
 
             internal string Key { get; }
+
+            /// <summary>Rendered in capitals, the way the mock-up sets its small labels. Done at paint
+            /// time rather than in the table so the same key can still read in mixed case elsewhere.</summary>
+            internal bool Uppercase { get; }
         }
 
-        /// <summary>
-        /// Settings/mode card size. Derived from the row count so adding a row never has to be
-        /// mirrored into the scene-serialized <see cref="_settingsCardSize"/>; the serialized value
-        /// is a floor, so a designer can still make the card roomier.
-        /// </summary>
-        private Vector2 SettingsCardSize => new Vector2(
-            _settingsCardSize.x,
-            Mathf.Max(_settingsCardSize.y, (ROW_HEIGHT * ROW_COUNT) + LIST_TOP_INSET + LIST_BOTTOM_INSET));
+        /// <summary>An Image painted in one theme kind's fill or shade.</summary>
+        private readonly struct KindImage
+        {
+            internal KindImage(Image image, int kind)
+            {
+                Image = image;
+                Kind = kind;
+            }
+
+            internal Image Image { get; }
+
+            internal int Kind { get; }
+        }
 
         [Inject]
         public void Construct(
@@ -301,13 +482,13 @@ namespace MustyBlockBlast.Presentation.Views
                 return;
             }
 
-            // Built in Start rather than Awake: the swatch list needs the injected theme catalogue,
+            // Built in Start rather than Awake: the theme grid needs the injected theme catalogue,
             // which is only available once VContainer has run Construct.
             BuildPanel();
             SetScreen(PanelScreen.Settings);
             _panel.SetActive(false);
 
-            // Before the theme subscription: the theme handler repaints the duration row, which can
+            // Before the theme subscription: the theme handler repaints the round-length row, which can
             // only be worded once the language is known.
             _localizationModel.CurrentLocale.Subscribe(OnLocaleChanged).AddTo(_disposables);
 
@@ -315,13 +496,13 @@ namespace MustyBlockBlast.Presentation.Views
             _sfxModel.IsMuted.Subscribe(OnMutedChanged).AddTo(_disposables);
 
             // Observed rather than read once: the flag is one-way, but it is set while this card is the
-            // open screen — the purchase is started from it — so the row has to repaint on the write
-            // rather than only on the next open.
+            // open screen — the purchase is started from it — so the foot of the well has to repaint on
+            // the write rather than only on the next open.
             _profileModel.AdsRemoved.Subscribe(OnAdsRemovedChanged).AddTo(_disposables);
             _timedModeSystem.SelectedDuration.Subscribe(OnSelectedDurationChanged).AddTo(_disposables);
 
-            // Last, because its handler repaints the duration row, which needs the ones above to have
-            // published their first value.
+            // Last, because its handler repaints the round-length row, which needs the ones above to
+            // have published their first value.
             _gameModeSystem.CurrentMode.Subscribe(OnModeChanged).AddTo(_disposables);
         }
 
@@ -330,21 +511,17 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>True while the panel is showing. Read by <see cref="BoardInputView"/>.</summary>
         internal bool IsOpen => _panel != null && _panel.activeSelf;
 
-        /// <summary>The card's own rect, current size included. Read by <see cref="HubPanelView"/> to
-        /// sit its tab bar flush against whichever card is open, rather than at a fixed offset that
-        /// would gap open against a shorter card.</summary>
+        /// <summary>The card's own rect. Read by <see cref="HubPanelView"/> to sit its tab bar flush
+        /// against whichever card is open.</summary>
         internal RectTransform CardRect => _cardRect;
 
-        /// <summary>This card's own close cross, on the Settings screen specifically — the only one of
-        /// its six screens with one; the others navigate back with a chevron instead. Hidden by
-        /// <see cref="HubPanelView"/> once opened there, since the hub's own header now carries the one
+        /// <summary>This card's own close cross, kept for a stand-alone open. Hidden by
+        /// <see cref="HubPanelView"/> once opened there, since the hub's own header carries the one
         /// close button for whichever tab is open.</summary>
         internal RectTransform CloseButtonRect => _closeButtonRect;
 
-        /// <summary>This card's own title, on the Settings screen specifically — its localized name.
-        /// Hidden by <see cref="HubPanelView"/> once opened there, since the hub's own header now says
-        /// the same thing (unlocalized, unlike this one — see <see cref="HubPanelView"/>'s own remarks
-        /// on that trade-off).</summary>
+        /// <summary>This card's own title — its localized name. Hidden by <see cref="HubPanelView"/>
+        /// once opened there, since the hub's own header says the same thing.</summary>
         internal Text HeaderTitleText => _titleText;
 
         /// <summary>
@@ -404,6 +581,19 @@ namespace MustyBlockBlast.Presentation.Views
             Close();
         }
 
+        /// <summary>
+        /// Shuts the card and releases the menu pause. Reachable by <c>HubPanelView</c>, which shuts the
+        /// outgoing card when the player switches tabs; every other caller is this class's own dismiss
+        /// paths.
+        /// </summary>
+        internal void Close()
+        {
+            _panel.SetActive(false);
+            _timerRunSystem.SetMenuPaused(false);
+        }
+
+        // ---------------------------------------------------------------------------- taps
+
         private bool HandleSettingsScreenTap(Vector2 screenPosition, Camera eventCamera)
         {
             if (RectTransformUtility.RectangleContainsScreenPoint(_closeButtonRect, screenPosition, eventCamera))
@@ -436,10 +626,11 @@ namespace MustyBlockBlast.Presentation.Views
                 return true;
             }
 
-            if (RectTransformUtility.RectangleContainsScreenPoint(_removeAdsRowRect, screenPosition, eventCamera))
+            // The button and the owned strip share one rect, so one test covers both. Swallowed even
+            // when owned: the strip stays in place so the player can see the purchase went through, and
+            // a tap that fell through to the scrim would dismiss the card instead.
+            if (RectTransformUtility.RectangleContainsScreenPoint(_removeAdsButtonRect, screenPosition, eventCamera))
             {
-                // Swallowed even when owned: the row stays in place so the player can see the purchase
-                // went through, and a row that fell through to the scrim would dismiss the card instead.
                 if (!_profileModel.AdsRemoved.Value)
                 {
                     PurchaseRemoveAds().Forget();
@@ -453,8 +644,8 @@ namespace MustyBlockBlast.Presentation.Views
                 return false;
             }
 
-            // A round length is meaningless in an endless run, so the row is greyed out and inert
-            // there — but it still swallows the tap, so it never behaves like the scrim.
+            // A round length is meaningless in an endless run, so the row is dimmed and inert there —
+            // but it still swallows the tap, so it never behaves like the scrim.
             if (_gameModeSystem.CurrentMode.Value == GameMode.Timed)
             {
                 SetScreen(PanelScreen.Duration);
@@ -463,58 +654,11 @@ namespace MustyBlockBlast.Presentation.Views
             return true;
         }
 
-        /// <summary>
-        /// Buys the one-time ad-removal product. The only place this card starts anything asynchronous,
-        /// and it holds no logic of its own beyond the re-entrancy guard: whether the store completes,
-        /// whether the receipt is honoured and what is persisted are all
-        /// <see cref="AdRemovalSystem.PurchaseRemoveAdsAsync"/>'s answers, and the row repaints off
-        /// <see cref="ProfileModel.AdsRemoved"/> rather than off the returned bool — so it shows the
-        /// owned state whether this tap bought it or something else already had.
-        /// <para>
-        /// Cancelled on destroy, so a card torn down mid-prompt leaves nothing awaiting a disposed
-        /// scope. The transaction itself is left to the store, which replays it on the next launch.
-        /// </para>
-        /// </summary>
-        private async UniTaskVoid PurchaseRemoveAds()
-        {
-            if (_isPurchasingRemoveAds)
-            {
-                return;
-            }
-
-            _isPurchasingRemoveAds = true;
-            try
-            {
-                await _adRemovalSystem.PurchaseRemoveAdsAsync(this.GetCancellationTokenOnDestroy());
-            }
-            finally
-            {
-                _isPurchasingRemoveAds = false;
-            }
-        }
-
-        /// <summary>
-        /// Repaints the Remove Ads row's pill. Two states and no third: an offer before the purchase, a
-        /// statement of ownership after it. Worded from the String Table like every other label here, so
-        /// it is re-worded by <see cref="OnLocaleChanged"/> too.
-        /// </summary>
-        private void OnAdsRemovedChanged(bool adsRemoved)
-        {
-            if (_removeAdsValueText == null)
-            {
-                return;
-            }
-
-            _removeAdsValueText.text = _localizationSystem.Translate(adsRemoved
-                ? LocalizationKeys.SETTINGS_REMOVE_ADS_OWNED
-                : LocalizationKeys.SETTINGS_REMOVE_ADS_BUY);
-        }
-
         private bool HandleThemeScreenTap(Vector2 screenPosition, Camera eventCamera)
         {
-            for (int optionIndex = 0; optionIndex < _options.Count; optionIndex++)
+            for (int optionIndex = 0; optionIndex < _themeOptions.Count; optionIndex++)
             {
-                ThemeOption option = _options[optionIndex];
+                ThemeOption option = _themeOptions[optionIndex];
                 if (RectTransformUtility.RectangleContainsScreenPoint(option.Rect, screenPosition, eventCamera))
                 {
                     _settingsSystem.SetTheme(option.ThemeId);
@@ -564,6 +708,11 @@ namespace MustyBlockBlast.Presentation.Views
             return false;
         }
 
+        /// <summary>
+        /// The confirmation card sits on the mode screen rather than replacing it, so its two buttons
+        /// are tested first and everything else falls through to the mode screen's own handling: a tap
+        /// on another plate re-asks about that mode, and the back disc still leaves.
+        /// </summary>
         private bool HandleConfirmScreenTap(Vector2 screenPosition, Camera eventCamera)
         {
             if (RectTransformUtility.RectangleContainsScreenPoint(_confirmYesRect, screenPosition, eventCamera))
@@ -579,7 +728,7 @@ namespace MustyBlockBlast.Presentation.Views
                 return true;
             }
 
-            return false;
+            return HandleModeScreenTap(screenPosition, eventCamera);
         }
 
         private bool HandleDurationScreenTap(Vector2 screenPosition, Camera eventCamera)
@@ -635,53 +784,60 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         /// <summary>
-        /// Shuts the card and releases the menu pause. Reachable by <c>HubPanelView</c>, which shuts the
-        /// outgoing card when the player switches tabs; every other caller is this class's own dismiss
-        /// paths.
+        /// Buys the one-time ad-removal product. The only place this card starts anything asynchronous,
+        /// and it holds no logic of its own beyond the re-entrancy guard: whether the store completes,
+        /// whether the receipt is honoured and what is persisted are all
+        /// <see cref="AdRemovalSystem.PurchaseRemoveAdsAsync"/>'s answers, and the foot of the well
+        /// repaints off <see cref="ProfileModel.AdsRemoved"/> rather than off the returned bool — so it
+        /// shows the owned state whether this tap bought it or something else already had.
+        /// <para>
+        /// Cancelled on destroy, so a card torn down mid-prompt leaves nothing awaiting a disposed
+        /// scope. The transaction itself is left to the store, which replays it on the next launch.
+        /// </para>
         /// </summary>
-        internal void Close()
+        private async UniTaskVoid PurchaseRemoveAds()
         {
-            _panel.SetActive(false);
-            _timerRunSystem.SetMenuPaused(false);
+            if (_isPurchasingRemoveAds)
+            {
+                return;
+            }
+
+            _isPurchasingRemoveAds = true;
+            RefreshRemoveAdsAction();
+            try
+            {
+                await _adRemovalSystem.PurchaseRemoveAdsAsync(this.GetCancellationTokenOnDestroy());
+            }
+            finally
+            {
+                _isPurchasingRemoveAds = false;
+                RefreshRemoveAdsAction();
+            }
         }
+
+        // ---------------------------------------------------------------------------- screens
 
         private void SetScreen(PanelScreen screen)
         {
             _screen = screen;
 
+            bool isModeScreen = screen == PanelScreen.Mode || screen == PanelScreen.ModeConfirm;
             _settingsScreenRoot.SetActive(screen == PanelScreen.Settings);
             _themeScreenRoot.SetActive(screen == PanelScreen.Theme);
-            _modeScreenRoot.SetActive(screen == PanelScreen.Mode);
-            _confirmScreenRoot.SetActive(screen == PanelScreen.ModeConfirm);
+            _modeScreenRoot.SetActive(isModeScreen);
+            _confirmCardRect.gameObject.SetActive(screen == PanelScreen.ModeConfirm);
             _durationScreenRoot.SetActive(screen == PanelScreen.Duration);
             _languageScreenRoot.SetActive(screen == PanelScreen.Language);
 
-            // The screens need very different heights, so the shared card resizes with them rather
-            // than leaving the shorter content stranded in a tall empty card.
-            Vector2 size = screen switch
+            if (isModeScreen)
             {
-                PanelScreen.Theme => _cardSize,
-                PanelScreen.ModeConfirm => _confirmCardSize,
-                _ => SettingsCardSize,
-            };
-
-            _cardRect.sizeDelta = size;
-            _cardShadowRect.sizeDelta = size + new Vector2(10f, 10f);
-        }
-
-        private void OnMutedChanged(bool muted)
-        {
-            if (_toggleTrackImage == null)
-            {
-                return;
+                // The pending ring and the confirmation's wording both depend on which mode was tapped.
+                RefreshModeSelection();
+                RefreshConfirmTitle();
             }
-
-            // Deliberately not theme-derived: the switch is a universal affordance, so it keeps the
-            // same green/grey in every theme.
-            _toggleTrackImage.color = muted ? ToggleOffColour : ToggleOnColour;
-            _toggleThumbRect.anchoredPosition =
-                new Vector2(muted ? -TOGGLE_THUMB_TRAVEL : TOGGLE_THUMB_TRAVEL, 0f);
         }
+
+        // ---------------------------------------------------------------------------- repainting
 
         private void OnThemeChanged(ThemeDefinition theme)
         {
@@ -690,28 +846,25 @@ namespace MustyBlockBlast.Presentation.Views
                 return;
             }
 
+            _currentTheme = theme;
+
             _cardImage.color = theme.CardBackground;
             _cardShadowImage.color = theme.CardShadow;
 
-            // Every neutral in the mock-up is derived from the Ink/CardBackground pair instead of
-            // being hard-coded: that pair is guaranteed readable in every theme by design, whereas a
-            // fixed light neutral collapses against a light-ink theme (e.g. Kış's near-white ink).
-            _listImage.color = Color.Lerp(theme.CardBackground, theme.Ink, 0.06f);
-            Color badgeColour = Color.Lerp(theme.CardBackground, theme.Ink, 0.16f);
+            // Every neutral in the mock-up is derived from the Ink/CardBackground pair instead of being
+            // hard-coded: that pair is guaranteed readable in every theme by design, whereas a fixed
+            // light neutral collapses against a light-ink theme (e.g. Kış's near-white ink).
+            _wellPlate.color = Color.Lerp(theme.CardBackground, theme.Ink, WELL_TINT);
+            Color shadowColour = WithAlpha(theme.Ink, PLATE_SHADOW_ALPHA);
 
-            for (int imageIndex = 0; imageIndex < _badgeImages.Count; imageIndex++)
+            for (int imageIndex = 0; imageIndex < _platePlates.Count; imageIndex++)
             {
-                _badgeImages[imageIndex].color = badgeColour;
+                _platePlates[imageIndex].color = theme.CardBackground;
             }
 
-            for (int imageIndex = 0; imageIndex < _dividerImages.Count; imageIndex++)
+            for (int imageIndex = 0; imageIndex < _plateShadows.Count; imageIndex++)
             {
-                _dividerImages[imageIndex].color = badgeColour;
-            }
-
-            for (int imageIndex = 0; imageIndex < _pillImages.Count; imageIndex++)
-            {
-                _pillImages[imageIndex].color = theme.CardBackground;
+                _plateShadows[imageIndex].color = shadowColour;
             }
 
             for (int imageIndex = 0; imageIndex < _inkImages.Count; imageIndex++)
@@ -719,35 +872,62 @@ namespace MustyBlockBlast.Presentation.Views
                 _inkImages[imageIndex].color = theme.Ink;
             }
 
+            for (int imageIndex = 0; imageIndex < _discFaces.Count; imageIndex++)
+            {
+                _discFaces[imageIndex].color = theme.EmptyCellFill;
+            }
+
+            for (int imageIndex = 0; imageIndex < _discLips.Count; imageIndex++)
+            {
+                _discLips[imageIndex].color = theme.EmptyCellOutline;
+            }
+
+            for (int imageIndex = 0; imageIndex < _kindFills.Count; imageIndex++)
+            {
+                KindImage kindImage = _kindFills[imageIndex];
+                kindImage.Image.color = theme.GetFill(kindImage.Kind);
+            }
+
+            for (int imageIndex = 0; imageIndex < _kindShades.Count; imageIndex++)
+            {
+                KindImage kindImage = _kindShades[imageIndex];
+                kindImage.Image.color = theme.GetShade(kindImage.Kind);
+            }
+
             for (int textIndex = 0; textIndex < _inkTexts.Count; textIndex++)
             {
                 _inkTexts[textIndex].color = theme.Ink;
             }
 
+            for (int textIndex = 0; textIndex < _softInkTexts.Count; textIndex++)
+            {
+                _softInkTexts[textIndex].color = theme.SoftInk;
+            }
+
             // Colour ids are 1-based; 0 means "empty cell".
-            for (int kindIndex = 0; kindIndex < _themeBadgeDots.Length; kindIndex++)
+            for (int kindIndex = 0; kindIndex < _themeValueDots.Length; kindIndex++)
             {
-                _themeBadgeDots[kindIndex].color = theme.GetFill(kindIndex + 1);
+                _themeValueDots[kindIndex].color = theme.GetFill(kindIndex + 1);
             }
 
-            _themeValueText.text = ResolveThemeName(theme);
+            // The confirmation's secondary button is the empty-cell pair, its primary the call-to-action
+            // kind — the same split the profile card's EDIT and SAVE buttons make.
+            _confirmNoFace.color = theme.EmptyCellFill;
+            _confirmNoLip.color = theme.EmptyCellOutline;
+            _confirmNoText.color = theme.Ink;
+            _confirmYesPlate.color = theme.GetFill(PRIMARY_KIND);
+            _confirmYesText.color = theme.CardBackground;
 
-            // The swatches themselves show their own theme's colours and never change; only the
-            // selection outline and the labels follow the active theme.
-            for (int optionIndex = 0; optionIndex < _options.Count; optionIndex++)
-            {
-                ThemeOption option = _options[optionIndex];
-                bool isSelected = option.ThemeId == theme.Id;
-                option.BorderImage.color = isSelected ? theme.Ink : Color.clear;
-                option.NameText.color = isSelected ? theme.Ink : theme.SoftInk;
-            }
-
+            RefreshThemeNames();
+            RefreshThemeSelection();
             RefreshModeSelection();
             RefreshDurationSelection();
             RefreshLanguageSelection();
+            RefreshRemoveAdsAction();
 
-            // Last: the bulk ink loops above repaint the duration row's label and pill too, so its
-            // greyed-out state has to be reapplied on top of them.
+            // Last: the bulk loops above repaint the toggle's and the round-length row's parts too, so
+            // their state-dependent colours have to be reapplied on top of them.
+            OnMutedChanged(_sfxModel.IsMuted.Value);
             RefreshDurationRow();
         }
 
@@ -761,13 +941,16 @@ namespace MustyBlockBlast.Presentation.Views
             for (int labelIndex = 0; labelIndex < _localizedLabels.Count; labelIndex++)
             {
                 LocalizedLabel localizedLabel = _localizedLabels[labelIndex];
-                localizedLabel.Label.text = _localizationSystem.Translate(localizedLabel.Key);
+                string wording = _localizationSystem.Translate(localizedLabel.Key);
+                localizedLabel.Label.text = localizedLabel.Uppercase ? Uppercase(wording) : wording;
             }
 
             RefreshDurationOptionLabels();
             RefreshModeValue();
+            RefreshSoundValue();
             RefreshDurationRow();
             RefreshThemeNames();
+            RefreshConfirmTitle();
 
             // The language rows are the one place that shows a language's own name rather than a
             // translated string, so they are driven by the locale itself instead of the table.
@@ -776,25 +959,115 @@ namespace MustyBlockBlast.Presentation.Views
 
             // Its wording is a choice between two keys rather than one fixed key, so it is outside the
             // _localizedLabels loop above and has to be re-rendered by its own handler.
-            OnAdsRemovedChanged(_profileModel.AdsRemoved.Value);
+            RefreshRemoveAdsAction();
+        }
+
+        private void OnMutedChanged(bool muted)
+        {
+            if (_toggleFace == null || _currentTheme == null)
+            {
+                return;
+            }
+
+            // On is the toggle kind's bevel pair, off the empty-cell pair — so the switch, like every
+            // other element on the card, is painted from the theme rather than a fixed green.
+            _toggleFace.color = muted ? _currentTheme.EmptyCellFill : _currentTheme.GetFill(TOGGLE_KIND);
+            _toggleLip.color = muted ? _currentTheme.EmptyCellOutline : _currentTheme.GetShade(TOGGLE_KIND);
+            _toggleThumbRect.anchoredPosition =
+                new Vector2(muted ? -TOGGLE_THUMB_TRAVEL : TOGGLE_THUMB_TRAVEL, TOGGLE_LIP * 0.5f);
+
+            RefreshSoundValue();
+        }
+
+        private void OnAdsRemovedChanged(bool adsRemoved) => RefreshRemoveAdsAction();
+
+        private void OnModeChanged(GameMode mode)
+        {
+            if (_modeValueText == null)
+            {
+                return;
+            }
+
+            RefreshModeValue();
+            RefreshModeSelection();
+            RefreshDurationRow();
+        }
+
+        private void OnSelectedDurationChanged(float seconds)
+        {
+            RefreshDurationRow();
+            RefreshDurationSelection();
         }
 
         /// <summary>
-        /// Re-words the theme row's pill and every swatch label in the picker. Unlike the language
-        /// row, theme names ARE translated (Summer/Verano/Yaz differ per locale), so both call sites
-        /// resolve through <see cref="ResolveThemeName"/> instead of a raw <c>DisplayName</c>.
+        /// The foot of the well: the one call to action while there is something to buy, or the owned
+        /// strip once the product is owned. The two share a rect, so exactly one of them is ever
+        /// showing — the same pair the profile card's account row is.
+        /// </summary>
+        private void RefreshRemoveAdsAction()
+        {
+            if (_removeAdsButtonRect == null || _currentTheme == null)
+            {
+                return;
+            }
+
+            bool adsRemoved = _profileModel.AdsRemoved.Value;
+
+            if (_removeAdsButtonRect.gameObject.activeSelf == adsRemoved)
+            {
+                _removeAdsButtonRect.gameObject.SetActive(!adsRemoved);
+            }
+
+            if (_ownedStripRect.gameObject.activeSelf != adsRemoved)
+            {
+                _ownedStripRect.gameObject.SetActive(adsRemoved);
+            }
+
+            if (!adsRemoved)
+            {
+                Color buttonColour = _currentTheme.GetFill(PRIMARY_KIND);
+                _removeAdsButtonPlate.color = _isPurchasingRemoveAds
+                    ? Color.Lerp(buttonColour, _currentTheme.SoftInk, BUSY_FADE)
+                    : buttonColour;
+                _removeAdsButtonText.color = _currentTheme.CardBackground;
+                _removeAdsButtonText.text = Uppercase(_localizationSystem.Translate(LocalizationKeys.SETTINGS_REMOVE_ADS_BUY));
+                return;
+            }
+
+            _ownedStripPlate.color = Color.Lerp(
+                _currentTheme.CardBackground, _currentTheme.GetHighlight(OWNED_KIND), OWNED_TINT);
+            _ownedCheck.color = _currentTheme.GetShade(OWNED_KIND);
+            _ownedText.color = _currentTheme.GetShade(OWNED_KIND);
+            _ownedText.text = _localizationSystem.Translate(LocalizationKeys.SETTINGS_REMOVE_ADS_OWNED);
+        }
+
+        /// <summary>
+        /// Re-words the theme row's value and every card name in the picker, then re-seats the kind
+        /// dots after the value, whose width the wording decides. Unlike the language row, theme names
+        /// ARE translated (Summer/Verano/Yaz differ per locale), so both call sites resolve through
+        /// <see cref="ResolveThemeName"/> instead of a raw <c>DisplayName</c>.
         /// </summary>
         private void RefreshThemeNames()
         {
             if (_themeValueText != null)
             {
                 _themeValueText.text = ResolveThemeName(_settingsModel.CurrentTheme.Value);
+
+                // preferredWidth forces the label's mesh so the dots can be placed after whatever the
+                // new wording measures — a one-off on a wording change, never per frame.
+                float dotsStartX = _themeValueRect.anchoredPosition.x + _themeValueText.preferredWidth + THEME_DOT_GAP;
+                for (int kindIndex = 0; kindIndex < _themeValueDots.Length; kindIndex++)
+                {
+                    ((RectTransform)_themeValueDots[kindIndex].transform).anchoredPosition = new Vector2(
+                        dotsStartX + (THEME_DOT_SIZE * 0.5f) + (kindIndex * THEME_DOT_PITCH),
+                        _themeValueRect.anchoredPosition.y);
+                }
             }
 
             IReadOnlyList<ThemeDefinition> themes = _settingsModel.AvailableThemes;
-            for (int optionIndex = 0; optionIndex < _options.Count; optionIndex++)
+            for (int optionIndex = 0; optionIndex < _themeOptions.Count; optionIndex++)
             {
-                ThemeOption option = _options[optionIndex];
+                ThemeOption option = _themeOptions[optionIndex];
                 for (int themeIndex = 0; themeIndex < themes.Count; themeIndex++)
                 {
                     ThemeDefinition theme = themes[themeIndex];
@@ -828,8 +1101,24 @@ namespace MustyBlockBlast.Presentation.Views
             return _localizationSystem.Translate(theme.TranslationKey);
         }
 
+        /// <summary>Repaints the theme cards' rings: the active theme wears the accent ring and the
+        /// check disc, the others nothing.</summary>
+        private void RefreshThemeSelection()
+        {
+            if (_currentTheme == null)
+            {
+                return;
+            }
+
+            for (int optionIndex = 0; optionIndex < _themeOptions.Count; optionIndex++)
+            {
+                ThemeOption option = _themeOptions[optionIndex];
+                PaintSelection(option.Selection, option.ThemeId == _currentTheme.Id, _currentTheme.Accent);
+            }
+        }
+
         /// <summary>
-        /// Re-words the language row's pill. The name is the locale's own
+        /// Re-words the language row's value. The name is the locale's own
         /// <see cref="LocaleDefinition.DisplayName"/> — "Türkçe", never "Turkish" — so a player who
         /// cannot read the current language can still find their own.
         /// </summary>
@@ -843,11 +1132,10 @@ namespace MustyBlockBlast.Presentation.Views
             _languageValueText.text = locale.DisplayName;
         }
 
-        /// <summary>Repaints the language chips' selection outline.</summary>
+        /// <summary>Repaints the language plates' rings.</summary>
         private void RefreshLanguageSelection()
         {
-            ThemeDefinition theme = _settingsModel.CurrentTheme.Value;
-            if (theme == null)
+            if (_currentTheme == null)
             {
                 return;
             }
@@ -859,24 +1147,11 @@ namespace MustyBlockBlast.Presentation.Views
             {
                 LanguageOption option = _languageOptions[optionIndex];
                 bool isSelected = string.Equals(option.LocaleCode, currentCode, StringComparison.OrdinalIgnoreCase);
-                option.BorderImage.color = isSelected ? theme.Ink : Color.clear;
-                option.NameText.color = isSelected ? theme.Ink : theme.SoftInk;
+                PaintSelection(option.Selection, isSelected, _currentTheme.Accent);
             }
         }
 
-        private void OnModeChanged(GameMode mode)
-        {
-            if (_modeValueText == null)
-            {
-                return;
-            }
-
-            RefreshModeValue();
-            RefreshModeSelection();
-            RefreshDurationRow();
-        }
-
-        /// <summary>Re-words the mode row's pill from the active mode.</summary>
+        /// <summary>Re-words the mode row's value from the active mode and swaps the tile's glyph to match.</summary>
         private void RefreshModeValue()
         {
             if (_modeValueText == null)
@@ -884,11 +1159,32 @@ namespace MustyBlockBlast.Presentation.Views
                 return;
             }
 
-            _modeValueText.text = _localizationSystem.Translate(
-                ModeNameKey(_gameModeSystem.CurrentMode.Value));
+            GameMode current = _gameModeSystem.CurrentMode.Value;
+            _modeValueText.text = _localizationSystem.Translate(ModeNameKey(current));
+
+            for (int modeIndex = 0; modeIndex < SelectableModes.Length; modeIndex++)
+            {
+                bool isCurrent = SelectableModes[modeIndex] == current;
+                if (_modeRowGlyphs[modeIndex].activeSelf != isCurrent)
+                {
+                    _modeRowGlyphs[modeIndex].SetActive(isCurrent);
+                }
+            }
         }
 
-        /// <summary>Re-renders the duration chips, whose wording is a number in the seconds format.</summary>
+        private void RefreshSoundValue()
+        {
+            if (_soundValueText == null)
+            {
+                return;
+            }
+
+            _soundValueText.text = _localizationSystem.Translate(_sfxModel.IsMuted.Value
+                ? LocalizationKeys.SETTINGS_SOUND_OFF
+                : LocalizationKeys.SETTINGS_SOUND_ON);
+        }
+
+        /// <summary>Re-renders the duration tiles, whose wording is a number in the minutes format.</summary>
         private void RefreshDurationOptionLabels()
         {
             for (int optionIndex = 0; optionIndex < _durationOptions.Count; optionIndex++)
@@ -908,29 +1204,73 @@ namespace MustyBlockBlast.Presentation.Views
             };
         }
 
+        private static string ModeDescriptionKey(GameMode mode)
+        {
+            return mode switch
+            {
+                GameMode.Timed => LocalizationKeys.MODE_TIMED_DESCRIPTION,
+                GameMode.Path => LocalizationKeys.MODE_PATH_DESCRIPTION,
+                _ => LocalizationKeys.MODE_ENDLESS_DESCRIPTION,
+            };
+        }
+
+        /// <summary>Which kind's bevel triplet a mode's tile takes, on the row and in the picker.</summary>
+        private static int ModeKind(GameMode mode)
+        {
+            return mode switch
+            {
+                GameMode.Timed => DURATION_KIND,
+                GameMode.Path => LANGUAGE_KIND,
+                _ => MODE_KIND,
+            };
+        }
+
         /// <summary>
         /// Records <paramref name="label"/> as rendering <paramref name="key"/> and paints it once, so
         /// a label is correct from the moment it is built rather than only after the first switch.
         /// </summary>
-        private void RegisterLocalized(Text label, string key)
+        private void RegisterLocalized(Text label, string key, bool uppercase = false)
         {
-            _localizedLabels.Add(new LocalizedLabel(label, key));
-            label.text = _localizationSystem.Translate(key);
-        }
-
-        private void OnSelectedDurationChanged(float seconds)
-        {
-            RefreshDurationRow();
-            RefreshDurationSelection();
+            _localizedLabels.Add(new LocalizedLabel(label, key, uppercase));
+            string wording = _localizationSystem.Translate(key);
+            label.text = uppercase ? Uppercase(wording) : wording;
         }
 
         /// <summary>
-        /// Repaints the duration row's pill and greys it out outside timed mode. Shared by the theme,
-        /// mode and duration handlers, all three of which can invalidate it.
+        /// Capitalises in the current language rather than invariantly: Turkish has a dotted capital İ,
+        /// and the invariant rules would turn "Dil" into "DIL". Falls back to invariant for a locale
+        /// code the runtime does not know.
+        /// </summary>
+        private string Uppercase(string wording)
+        {
+            if (string.IsNullOrEmpty(wording))
+            {
+                return wording;
+            }
+
+            LocaleDefinition locale = _localizationModel.CurrentLocale.Value;
+            if (locale == null || string.IsNullOrEmpty(locale.Code))
+            {
+                return wording.ToUpperInvariant();
+            }
+
+            try
+            {
+                return wording.ToUpper(CultureInfo.GetCultureInfo(locale.Code));
+            }
+            catch (CultureNotFoundException)
+            {
+                return wording.ToUpperInvariant();
+            }
+        }
+
+        /// <summary>
+        /// Repaints the round-length row's value and dims the whole plate outside timed mode. Shared by
+        /// the theme, mode and duration handlers, all three of which can invalidate it.
         /// </summary>
         private void RefreshDurationRow()
         {
-            if (_durationValueText == null || _durationLabelText == null)
+            if (_durationValueText == null)
             {
                 return;
             }
@@ -940,24 +1280,15 @@ namespace MustyBlockBlast.Presentation.Views
                 ? FormatDuration(_timedModeSystem.SelectedDuration.Value)
                 : DURATION_NOT_APPLICABLE;
 
-            ThemeDefinition theme = _settingsModel.CurrentTheme.Value;
-            if (theme == null)
-            {
-                return;
-            }
-
-            // Greyed rather than hidden: the row staying in place keeps the list height stable and
-            // tells the player the setting exists and which mode unlocks it.
-            Color rowColour = isTimed ? theme.Ink : theme.SoftInk;
-            _durationValueText.color = rowColour;
-            _durationLabelText.color = rowColour;
+            // Dimmed rather than hidden: the plate staying in place keeps the list stable and tells the
+            // player the setting exists and which mode unlocks it (the note under the value says which).
+            _durationRowGroup.alpha = isTimed ? 1f : DIMMED_ALPHA;
         }
 
-        /// <summary>Repaints the duration chips' selection outline.</summary>
+        /// <summary>Repaints the duration tiles' rings.</summary>
         private void RefreshDurationSelection()
         {
-            ThemeDefinition theme = _settingsModel.CurrentTheme.Value;
-            if (theme == null)
+            if (_currentTheme == null)
             {
                 return;
             }
@@ -966,9 +1297,7 @@ namespace MustyBlockBlast.Presentation.Views
             for (int optionIndex = 0; optionIndex < _durationOptions.Count; optionIndex++)
             {
                 DurationOption option = _durationOptions[optionIndex];
-                bool isSelected = Mathf.Approximately(option.Seconds, selected);
-                option.BorderImage.color = isSelected ? theme.Ink : Color.clear;
-                option.NameText.color = isSelected ? theme.Ink : theme.SoftInk;
+                PaintSelection(option.Selection, Mathf.Approximately(option.Seconds, selected), _currentTheme.Accent);
             }
         }
 
@@ -984,24 +1313,63 @@ namespace MustyBlockBlast.Presentation.Views
             return _localizationSystem.Format(LocalizationKeys.FORMAT_MINUTES, _stringBuilder.ToString());
         }
 
-        /// <summary>Repaints the mode cards' selection outline. Shared by the theme and mode handlers.</summary>
+        /// <summary>
+        /// Repaints the mode plates: the mode being played wears the accent ring and its PLAYING tag;
+        /// while the confirmation is up, the mode it asks about wears the call-to-action kind's ring
+        /// instead, so the eye goes from that plate to the RESTART button of the same colour.
+        /// </summary>
         private void RefreshModeSelection()
         {
-            ThemeDefinition theme = _settingsModel.CurrentTheme.Value;
-            if (theme == null)
+            if (_currentTheme == null)
             {
                 return;
             }
 
             GameMode current = _gameModeSystem.CurrentMode.Value;
+            bool isConfirming = _screen == PanelScreen.ModeConfirm;
+
             for (int optionIndex = 0; optionIndex < _modeOptions.Count; optionIndex++)
             {
                 ModeOption option = _modeOptions[optionIndex];
-                bool isSelected = option.Mode == current;
-                option.BorderImage.color = isSelected ? theme.Ink : Color.clear;
-                option.NameText.color = isSelected ? theme.Ink : theme.SoftInk;
+                bool isPlaying = option.Mode == current;
+                bool isPending = isConfirming && option.Mode == _pendingMode;
+
+                Color ringColour = isPending ? _currentTheme.GetShade(PRIMARY_KIND) : _currentTheme.Accent;
+                PaintSelection(option.Selection, isPlaying || isPending, ringColour);
+                option.PlayingText.color = isPlaying ? _currentTheme.Accent : Color.clear;
             }
         }
+
+        /// <summary>Re-words the confirmation's title around the mode it asks about.</summary>
+        private void RefreshConfirmTitle()
+        {
+            if (_confirmTitleText == null)
+            {
+                return;
+            }
+
+            _confirmTitleText.text = _localizationSystem.Format(
+                LocalizationKeys.SETTINGS_CONFIRM_SWITCH_TITLE,
+                _localizationSystem.Translate(ModeNameKey(_pendingMode)));
+        }
+
+        /// <summary>Shows or clears a plate's ring and check disc.</summary>
+        private void PaintSelection(Selection selection, bool isSelected, Color ringColour)
+        {
+            selection.Ring.color = isSelected ? ringColour : Color.clear;
+            selection.Gap.color = isSelected ? _currentTheme.CardBackground : Color.clear;
+
+            if (selection.CheckDisc == null)
+            {
+                return;
+            }
+
+            selection.CheckLip.color = isSelected ? Darken(_currentTheme.Accent, ACCENT_SHADE) : Color.clear;
+            selection.CheckDisc.color = isSelected ? _currentTheme.Accent : Color.clear;
+            selection.CheckGlyph.color = isSelected ? Color.white : Color.clear;
+        }
+
+        // ---------------------------------------------------------------------------- building
 
         private void BuildPanel()
         {
@@ -1025,21 +1393,30 @@ namespace MustyBlockBlast.Presentation.Views
 
             _cardRect = CellFactory.CreateCard(
                 panelRect, "SettingsCard", _cardSize, out _cardImage, out _cardShadowImage);
-            _cardShadowRect = (RectTransform)_cardShadowImage.transform;
+
+            // The card's own title and close cross, kept for a stand-alone open; the hub hides both.
+            float cardHalfWidth = _cardSize.x * 0.5f;
+            float headerY = (_cardSize.y * 0.5f) - HEADER_INSET;
+            _titleText = CreateLabel(
+                _cardRect, "Title", 64, FontStyle.Bold, TextAnchor.MiddleLeft,
+                new Vector2(-cardHalfWidth + SIDE_INSET, headerY));
+            _inkTexts.Add(_titleText);
+            RegisterLocalized(_titleText, LocalizationKeys.SETTINGS_TITLE);
+            BuildCloseButton(_cardRect, new Vector2(cardHalfWidth - SIDE_INSET - (ICON_BUTTON_SIZE * 0.5f), headerY));
+
+            BuildWell();
 
             _settingsScreenRoot = CreateScreenRoot("SettingsScreen");
             _themeScreenRoot = CreateScreenRoot("ThemeScreen");
             _modeScreenRoot = CreateScreenRoot("ModeScreen");
-            _confirmScreenRoot = CreateScreenRoot("ModeConfirmScreen");
             _durationScreenRoot = CreateScreenRoot("DurationScreen");
             _languageScreenRoot = CreateScreenRoot("LanguageScreen");
 
-            BuildSettingsScreen((RectTransform)_settingsScreenRoot.transform, SettingsCardSize.y * 0.5f);
-            BuildThemeScreen((RectTransform)_themeScreenRoot.transform, _cardSize.y * 0.5f);
-            BuildModeScreen((RectTransform)_modeScreenRoot.transform, SettingsCardSize.y * 0.5f);
-            BuildConfirmScreen((RectTransform)_confirmScreenRoot.transform, _confirmCardSize.y * 0.5f);
-            BuildDurationScreen((RectTransform)_durationScreenRoot.transform, SettingsCardSize.y * 0.5f);
-            BuildLanguageScreen((RectTransform)_languageScreenRoot.transform, SettingsCardSize.y * 0.5f);
+            BuildSettingsScreen((RectTransform)_settingsScreenRoot.transform);
+            BuildThemeScreen((RectTransform)_themeScreenRoot.transform);
+            BuildModeScreen((RectTransform)_modeScreenRoot.transform);
+            BuildDurationScreen((RectTransform)_durationScreenRoot.transform);
+            BuildLanguageScreen((RectTransform)_languageScreenRoot.transform);
 
             _panel = panelObject;
         }
@@ -1056,458 +1433,281 @@ namespace MustyBlockBlast.Presentation.Views
             return screenObject;
         }
 
-        private void BuildSettingsScreen(RectTransform root, float cardHalfHeight)
+        /// <summary>The sunken plate under everything: one rounded Image, drawn before the screens so
+        /// every plate sits on it.</summary>
+        private void BuildWell()
         {
-            float headerY = cardHalfHeight - HEADER_INSET;
-            float halfWidth = SettingsCardSize.x * 0.5f;
+            var wellObject = new GameObject("Well", typeof(RectTransform), typeof(Image));
+            var wellRect = (RectTransform)wellObject.transform;
+            wellRect.SetParent(_cardRect, false);
+            wellRect.anchorMin = Vector2.zero;
+            wellRect.anchorMax = Vector2.one;
+            wellRect.pivot = new Vector2(0.5f, 0.5f);
+            wellRect.offsetMin = new Vector2(WELL_INSET, WELL_INSET);
+            wellRect.offsetMax = new Vector2(-WELL_INSET, -WELL_INSET);
+            _wellPlate = ConfigureRounded(wellObject.GetComponent<Image>(), WELL_CORNER_RADIUS);
+        }
 
-            _titleText = CreateLabel(
-                root, "Title", 64, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(-halfWidth + SIDE_INSET, headerY));
-            _inkTexts.Add(_titleText);
-            RegisterLocalized(_titleText, LocalizationKeys.SETTINGS_TITLE);
+        /// <summary>Width of the well's content column: the card less the well inset and padding on both sides.</summary>
+        private float ContentWidth => _cardSize.x - ((WELL_INSET + WELL_PADDING_X) * 2f);
 
-            BuildCloseButton(
-                root,
-                new Vector2(halfWidth - SIDE_INSET - (ICON_BUTTON_SIZE * 0.5f), headerY));
+        /// <summary>Distance from the card's top edge to the well's first content row.</summary>
+        private const float CONTENT_TOP = WELL_INSET + WELL_PADDING_Y;
 
-            float listHeight = ROW_HEIGHT * ROW_COUNT;
-            float listCentreY = headerY - (ICON_BUTTON_SIZE * 0.5f) - 56f - (listHeight * 0.5f);
+        /// <summary>Distance from the card's top edge to a sub-screen's first content row, below its header row.</summary>
+        private const float SUB_CONTENT_TOP = CONTENT_TOP + SUB_HEADER_HEIGHT + ROW_GAP;
 
-            var listObject = new GameObject("SettingsList", typeof(RectTransform), typeof(Image));
-            var listRect = (RectTransform)listObject.transform;
-            listRect.SetParent(root, false);
-            Centre(listRect, new Vector2(LIST_WIDTH, listHeight));
-            listRect.anchoredPosition = new Vector2(0f, listCentreY);
-            _listImage = listObject.GetComponent<Image>();
-            ConfigureRounded(_listImage);
+        private void BuildSettingsScreen(RectTransform root)
+        {
+            float contentWidth = ContentWidth;
 
-            _modeRowRect = BuildRow(listRect, 0, "ModeRow", LocalizationKeys.SETTINGS_ROW_MODE, out _);
-            _themeRowRect = BuildRow(listRect, 1, "ThemeRow", LocalizationKeys.SETTINGS_ROW_THEME, out _);
+            _modeRowRect = BuildRow(root, 0, "ModeRow", MODE_KIND, LocalizationKeys.SETTINGS_ROW_MODE, out _, out _modeValueText, out RectTransform modeTile);
+            _themeRowRect = BuildRow(root, 1, "ThemeRow", THEME_KIND, LocalizationKeys.SETTINGS_ROW_THEME, out _, out _themeValueText, out RectTransform themeTile);
 
             // Next to the theme row rather than at the bottom: both are "how the game looks and
             // reads", and a player hunting for the language in a script they cannot read finds it
             // faster in the top half of the list.
-            _languageRowRect = BuildRow(listRect, 2, "LanguageRow", LocalizationKeys.SETTINGS_ROW_LANGUAGE, out _);
-            _soundRowRect = BuildRow(listRect, 3, "SoundRow", LocalizationKeys.SETTINGS_ROW_SOUND, out _);
-            _durationRowRect = BuildRow(
-                listRect, 4, "DurationRow", LocalizationKeys.SETTINGS_ROW_DURATION, out _durationLabelText);
+            _languageRowRect = BuildRow(root, 2, "LanguageRow", LANGUAGE_KIND, LocalizationKeys.SETTINGS_ROW_LANGUAGE, out _, out _languageValueText, out RectTransform languageTile);
+            _soundRowRect = BuildRow(root, 3, "SoundRow", SOUND_KIND, LocalizationKeys.SETTINGS_ROW_SOUND, out _, out _soundValueText, out RectTransform soundTile);
+            _durationRowRect = BuildNotedRow(root, 4, "DurationRow", DURATION_KIND, LocalizationKeys.SETTINGS_ROW_DURATION,
+                LocalizationKeys.SETTINGS_ROW_DURATION_TIMED_ONLY, out _durationValueText, out RectTransform durationTile);
 
-            // Last row on purpose: it is the only one that is not a setting at all but a purchase, and
-            // the bottom of the list is where a player expects to find one rather than among the things
-            // that change how the game looks and sounds.
-            _removeAdsRowRect = BuildRow(
-                listRect, 5, "RemoveAdsRow", LocalizationKeys.SETTINGS_ROW_REMOVE_ADS, out _);
+            _themeValueRect = (RectTransform)_themeValueText.transform;
 
-            for (int dividerIndex = 1; dividerIndex < ROW_COUNT; dividerIndex++)
+            // The mode row's tile shows whichever mode is being played; all three glyphs are built and
+            // RefreshModeValue shows one.
+            for (int modeIndex = 0; modeIndex < SelectableModes.Length; modeIndex++)
             {
-                BuildDivider(listRect, (listHeight * 0.5f) - (ROW_HEIGHT * dividerIndex));
+                _modeRowGlyphs[modeIndex] = BuildModeGlyph(modeTile, SelectableModes[modeIndex], MODE_KIND);
             }
 
-            BuildModeRowContent(_modeRowRect);
-            BuildThemeRowContent(_themeRowRect);
-            BuildLanguageRowContent(_languageRowRect);
-            BuildSoundRowContent(_soundRowRect);
-            BuildDurationRowContent(_durationRowRect);
-            BuildRemoveAdsRowContent(_removeAdsRowRect);
+            BuildPaletteGlyph(themeTile, THEME_KIND);
+            BuildGlobeGlyph(languageTile, LANGUAGE_KIND);
+            BuildVolumeGlyph(soundTile);
+            BuildClockGlyph(durationTile, DURATION_KIND);
+
+            BuildChevronDisc(_modeRowRect, contentWidth);
+            BuildChevronDisc(_themeRowRect, contentWidth);
+            BuildChevronDisc(_languageRowRect, contentWidth);
+            BuildChevronDisc(_durationRowRect, contentWidth);
+            BuildToggle(_soundRowRect, contentWidth);
+
+            // Same dots as the theme cards' boards use, just smaller, moved into the value: one visual
+            // language for "theme". Positioned after the value by RefreshThemeNames, since the wording
+            // decides where they start.
+            for (int kindIndex = 0; kindIndex < ThemeDefinition.KIND_COUNT; kindIndex++)
+            {
+                _themeValueDots[kindIndex] = BuildRounded(
+                    _themeRowRect, $"Kind_{kindIndex}", new Vector2(THEME_DOT_SIZE, THEME_DOT_SIZE),
+                    Vector2.zero, THEME_DOT_SIZE * 0.3f);
+            }
+
+            BuildRemoveAdsAction(root, contentWidth);
         }
 
         /// <summary>
-        /// Builds one list row. <paramref name="labelText"/> is handed back for the rows that need to
-        /// repaint their label outside the bulk ink loop — currently only the duration row, which
-        /// greys out in endless mode.
+        /// One settings plate: shadow, plate, the kind-coloured tile and the label/value pair. The
+        /// value label is handed back for the row's own refresh method to word; the tile for the row's
+        /// glyph.
         /// </summary>
         private RectTransform BuildRow(
-            RectTransform listRect, int rowIndex, string objectName, string labelKey, out Text labelText)
+            RectTransform root, int rowIndex, string objectName, int kind, string labelKey,
+            out Text labelText, out Text valueText, out RectTransform tileRect)
         {
-            var rowObject = new GameObject(objectName, typeof(RectTransform));
-            var rowRect = (RectTransform)rowObject.transform;
-            rowRect.SetParent(listRect, false);
-            Centre(rowRect, new Vector2(LIST_WIDTH, ROW_HEIGHT));
-            rowRect.anchoredPosition = new Vector2(
-                0f, (((ROW_COUNT - 1) * 0.5f) - rowIndex) * ROW_HEIGHT);
+            RectTransform rowRect = BuildPlate(
+                root, objectName, new Vector2(ContentWidth, ROW_HEIGHT),
+                new Vector2(0f, TopY(CONTENT_TOP + (rowIndex * (ROW_HEIGHT + ROW_GAP)), ROW_HEIGHT)));
 
+            tileRect = BuildKindTile(rowRect, kind, new Vector2((-ContentWidth * 0.5f) + ROW_PADDING_X + (TILE_SIZE * 0.5f), 0f));
+
+            float textX = (-ContentWidth * 0.5f) + ROW_TEXT_INSET;
             labelText = CreateLabel(
-                rowRect, "Label", 40, FontStyle.Normal, TextAnchor.MiddleLeft,
-                new Vector2((-LIST_WIDTH * 0.5f) + 140f, 0f));
-            _inkTexts.Add(labelText);
-            RegisterLocalized(labelText, labelKey);
+                rowRect, "Label", LABEL_FONT_SIZE, FontStyle.Bold, TextAnchor.MiddleLeft, new Vector2(textX, ROW_LABEL_RISE));
+            _softInkTexts.Add(labelText);
+            RegisterLocalized(labelText, labelKey, uppercase: true);
+
+            valueText = CreateLabel(
+                rowRect, "Value", VALUE_FONT_SIZE, FontStyle.Normal, TextAnchor.MiddleLeft,
+                new Vector2(textX, -ROW_VALUE_DROP), _displayFont);
+            _inkTexts.Add(valueText);
 
             return rowRect;
         }
 
-        private RectTransform BuildBadge(RectTransform rowRect)
+        /// <summary>
+        /// The round-length plate: <see cref="BuildRow"/> with a third line under the value, and a
+        /// CanvasGroup on the whole plate so it can dim as one piece outside timed mode.
+        /// </summary>
+        private RectTransform BuildNotedRow(
+            RectTransform root, int rowIndex, string objectName, int kind, string labelKey, string noteKey,
+            out Text valueText, out RectTransform tileRect)
         {
-            var badgeObject = new GameObject("Badge", typeof(RectTransform), typeof(Image));
-            var badgeRect = (RectTransform)badgeObject.transform;
-            badgeRect.SetParent(rowRect, false);
-            Centre(badgeRect, new Vector2(BADGE_SIZE, BADGE_SIZE));
-            badgeRect.anchoredPosition = new Vector2((-LIST_WIDTH * 0.5f) + 76f, 0f);
+            RectTransform rowRect = BuildRow(root, rowIndex, objectName, kind, labelKey, out Text labelText, out valueText, out tileRect);
 
-            var badgeImage = badgeObject.GetComponent<Image>();
-            ConfigureRounded(badgeImage);
-            _badgeImages.Add(badgeImage);
-            return badgeRect;
-        }
+            float textX = (-ContentWidth * 0.5f) + ROW_TEXT_INSET;
 
-        private void BuildDivider(RectTransform listRect, float y)
-        {
-            var dividerObject = new GameObject("Divider", typeof(RectTransform), typeof(Image));
-            var dividerRect = (RectTransform)dividerObject.transform;
-            dividerRect.SetParent(listRect, false);
-            Centre(dividerRect, new Vector2(LIST_WIDTH - 144f, DIVIDER_THICKNESS));
-            dividerRect.anchoredPosition = new Vector2(0f, y);
+            // Re-seat the two lines BuildRow made so the three are evenly spread.
+            ((RectTransform)labelText.transform).anchoredPosition = new Vector2(textX, NOTED_ROW_LABEL_RISE);
+            ((RectTransform)valueText.transform).anchoredPosition = new Vector2(textX, -NOTED_ROW_VALUE_DROP);
 
-            var dividerImage = dividerObject.GetComponent<Image>();
-            ConfigureRounded(dividerImage);
-            _dividerImages.Add(dividerImage);
-        }
+            Text noteText = CreateLabel(
+                rowRect, "Note", NOTE_FONT_SIZE, FontStyle.Bold, TextAnchor.MiddleLeft, new Vector2(textX, -NOTED_ROW_NOTE_DROP));
+            _softInkTexts.Add(noteText);
+            RegisterLocalized(noteText, noteKey);
 
-        private void BuildModeRowContent(RectTransform rowRect)
-        {
-            RectTransform badgeRect = BuildBadge(rowRect);
-            BuildModeGlyph(badgeRect);
-            _modeValueText = BuildPill(rowRect);
+            _durationRowGroup = rowRect.gameObject.AddComponent<CanvasGroup>();
+            _durationRowGroup.interactable = false;
+            _durationRowGroup.blocksRaycasts = false;
+
+            return rowRect;
         }
 
         /// <summary>
-        /// Two overlapping rings — a loose nod to the infinity mark, which is enough to read as
-        /// "mode" at badge size without inventing a bespoke glyph.
+        /// A plate: a rounded rect in the card colour over a copy of itself dropped a few pixels in Ink
+        /// at low alpha. The returned rect is the plate's own; children position relative to it, and it
+        /// is the tap target.
         /// </summary>
-        private void BuildModeGlyph(RectTransform badgeRect)
+        private RectTransform BuildPlate(RectTransform parent, string objectName, Vector2 size, Vector2 anchoredPosition)
         {
-            const float RING_DIAMETER = 40f;
-            const float RING_OVERLAP = 13f;
+            var rootObject = new GameObject(objectName, typeof(RectTransform));
+            var rootRect = (RectTransform)rootObject.transform;
+            rootRect.SetParent(parent, false);
+            Centre(rootRect, size);
+            rootRect.anchoredPosition = anchoredPosition;
 
-            for (int discIndex = 0; discIndex < 2; discIndex++)
-            {
-                var discObject = new GameObject($"ModeDisc_{discIndex}", typeof(RectTransform), typeof(Image));
-                var discRect = (RectTransform)discObject.transform;
-                discRect.SetParent(badgeRect, false);
-                Centre(discRect, new Vector2(RING_DIAMETER, RING_DIAMETER));
-                discRect.anchoredPosition = new Vector2(RingOffsetX(discIndex), 0f);
-
-                var discImage = discObject.GetComponent<Image>();
-                ConfigureCircle(discImage);
-                _inkImages.Add(discImage);
-            }
-
-            // Same fake cut-out as the clock glyph: a smaller circle in the badge colour turns each
-            // disc into a ring. Both holes are drawn after both discs so neither disc fills the
-            // other's hole.
-            for (int holeIndex = 0; holeIndex < 2; holeIndex++)
-            {
-                var holeObject = new GameObject($"ModeDiscHole_{holeIndex}", typeof(RectTransform), typeof(Image));
-                var holeRect = (RectTransform)holeObject.transform;
-                holeRect.SetParent(badgeRect, false);
-                Centre(holeRect, new Vector2(RING_DIAMETER - 14f, RING_DIAMETER - 14f));
-                holeRect.anchoredPosition = new Vector2(RingOffsetX(holeIndex), 0f);
-
-                var holeImage = holeObject.GetComponent<Image>();
-                ConfigureCircle(holeImage);
-                _badgeImages.Add(holeImage);
-            }
-
-            float RingOffsetX(int index)
-                => (index == 0 ? -1f : 1f) * ((RING_DIAMETER * 0.5f) - (RING_OVERLAP * 0.5f));
-        }
-
-        private void BuildThemeRowContent(RectTransform rowRect)
-        {
-            RectTransform badgeRect = BuildBadge(rowRect);
-
-            // Same dots as the swatches use, just smaller: one visual language for "theme". Sized so
-            // the whole row of KIND_COUNT dots spans the badge's inner width (issue #147 widened the
-            // palette to five, and five of the old 20px dots would overrun an 84px badge).
-            BuildKindDots(badgeRect, null, 12f, 15f, Vector2.zero, _themeBadgeDots);
-
-            _themeValueText = BuildPill(rowRect);
-        }
-
-        private void BuildLanguageRowContent(RectTransform rowRect)
-        {
-            RectTransform badgeRect = BuildBadge(rowRect);
-            BuildGlobeGlyph(badgeRect);
-            _languageValueText = BuildPill(rowRect);
+            _plateShadows.Add(BuildRounded(rootRect, "Shadow", size, new Vector2(0f, -PLATE_SHADOW_DROP), PLATE_CORNER_RADIUS));
+            _platePlates.Add(BuildRounded(rootRect, "Plate", size, Vector2.zero, PLATE_CORNER_RADIUS));
+            return rootRect;
         }
 
         /// <summary>
-        /// Ring plus an equator and a meridian — the usual globe, built from the same ring-and-bars
-        /// parts as the clock glyph so the badges stay one family.
+        /// A plate that can be chosen: the same as <see cref="BuildPlate"/> with an accent ring and a
+        /// card-coloured gap behind it, both clear until <see cref="PaintSelection"/> shows them. The
+        /// check disc, if wanted, is added by <see cref="AddCheckDisc"/> once the plate's contents are
+        /// in, so it draws on top of them.
         /// </summary>
-        private void BuildGlobeGlyph(RectTransform badgeRect)
+        private RectTransform BuildSelectablePlate(
+            RectTransform parent, string objectName, Vector2 size, Vector2 anchoredPosition, out Selection selection)
         {
-            const float GLOBE_DIAMETER = 54f;
-            const float GLOBE_FACE_DIAMETER = 40f;
-            const float MERIDIAN_WIDTH = 26f;
-            const float LINE_THICKNESS = 5f;
+            var rootObject = new GameObject(objectName, typeof(RectTransform));
+            var rootRect = (RectTransform)rootObject.transform;
+            rootRect.SetParent(parent, false);
+            Centre(rootRect, size);
+            rootRect.anchoredPosition = anchoredPosition;
 
-            var globeObject = new GameObject("GlobeOutline", typeof(RectTransform), typeof(Image));
-            var globeRect = (RectTransform)globeObject.transform;
-            globeRect.SetParent(badgeRect, false);
-            Centre(globeRect, new Vector2(GLOBE_DIAMETER, GLOBE_DIAMETER));
-            var globeImage = globeObject.GetComponent<Image>();
-            ConfigureCircle(globeImage);
-            _inkImages.Add(globeImage);
+            Image ring = BuildRounded(
+                rootRect, "Ring", size + (Vector2.one * (RING_OUTSET * 2f)), Vector2.zero, PLATE_CORNER_RADIUS + RING_OUTSET);
+            Image gap = BuildRounded(
+                rootRect, "RingGap", size + (Vector2.one * (RING_GAP_OUTSET * 2f)), Vector2.zero, PLATE_CORNER_RADIUS + RING_GAP_OUTSET);
+            _plateShadows.Add(BuildRounded(rootRect, "Shadow", size, new Vector2(0f, -PLATE_SHADOW_DROP), PLATE_CORNER_RADIUS));
+            _platePlates.Add(BuildRounded(rootRect, "Plate", size, Vector2.zero, PLATE_CORNER_RADIUS));
 
-            // Same fake cut-out as the clock dial: the badge underneath is one opaque colour, so a
-            // smaller circle in that colour turns the disc into a ring.
-            var faceObject = new GameObject("GlobeFace", typeof(RectTransform), typeof(Image));
-            var faceRect = (RectTransform)faceObject.transform;
-            faceRect.SetParent(badgeRect, false);
-            Centre(faceRect, new Vector2(GLOBE_FACE_DIAMETER, GLOBE_FACE_DIAMETER));
-            var faceImage = faceObject.GetComponent<Image>();
-            ConfigureCircle(faceImage);
-            _badgeImages.Add(faceImage);
-
-            // A narrow ellipse would be truer, but the sprite set has no ellipse; a narrow rounded
-            // rect reads the same at badge size. Drawn after the cut-out so it survives it.
-            var meridianObject = new GameObject("GlobeMeridian", typeof(RectTransform), typeof(Image));
-            var meridianRect = (RectTransform)meridianObject.transform;
-            meridianRect.SetParent(badgeRect, false);
-            Centre(meridianRect, new Vector2(MERIDIAN_WIDTH, GLOBE_DIAMETER));
-            var meridianImage = meridianObject.GetComponent<Image>();
-            ConfigureRounded(meridianImage);
-            _inkImages.Add(meridianImage);
-
-            // Hollows the meridian out so it reads as an outline rather than a filled capsule.
-            var meridianHoleObject = new GameObject("GlobeMeridianHole", typeof(RectTransform), typeof(Image));
-            var meridianHoleRect = (RectTransform)meridianHoleObject.transform;
-            meridianHoleRect.SetParent(badgeRect, false);
-            Centre(
-                meridianHoleRect,
-                new Vector2(MERIDIAN_WIDTH - (LINE_THICKNESS * 2f), GLOBE_DIAMETER - (LINE_THICKNESS * 2f)));
-            var meridianHoleImage = meridianHoleObject.GetComponent<Image>();
-            ConfigureRounded(meridianHoleImage);
-            _badgeImages.Add(meridianHoleImage);
-
-            // Last of all: the meridian's own cut-out would otherwise punch a gap out of its middle.
-            var equatorObject = new GameObject("GlobeEquator", typeof(RectTransform), typeof(Image));
-            var equatorRect = (RectTransform)equatorObject.transform;
-            equatorRect.SetParent(badgeRect, false);
-            Centre(equatorRect, new Vector2(GLOBE_DIAMETER, LINE_THICKNESS));
-            var equatorImage = equatorObject.GetComponent<Image>();
-            ConfigureRounded(equatorImage);
-            _inkImages.Add(equatorImage);
+            selection = new Selection(ring, gap);
+            return rootRect;
         }
 
-        private void BuildSoundRowContent(RectTransform rowRect)
+        /// <summary>The check disc in a chosen plate's top-right corner: accent over a darker lip, white tick.</summary>
+        private static void AddCheckDisc(RectTransform plateRect, Selection selection)
         {
-            RectTransform badgeRect = BuildBadge(rowRect);
-            BuildVolumeGlyph(badgeRect);
-            BuildToggle(rowRect);
+            Vector2 centre = new Vector2(
+                (plateRect.sizeDelta.x * 0.5f) - CHECK_DISC_INSET - (CHECK_DISC_SIZE * 0.5f),
+                (plateRect.sizeDelta.y * 0.5f) - CHECK_DISC_INSET - (CHECK_DISC_SIZE * 0.5f));
+
+            selection.CheckLip = BuildCircle(plateRect, "CheckLip", CHECK_DISC_SIZE, centre + new Vector2(0f, -CHECK_DISC_LIP));
+            selection.CheckDisc = BuildCircle(plateRect, "CheckDisc", CHECK_DISC_SIZE, centre);
+            selection.CheckGlyph = BuildGlyph(
+                plateRect, "Check", UiSpriteFactory.CheckMark, new Vector2(CHECK_GLYPH_SIZE, CHECK_GLYPH_SIZE), centre);
         }
 
-        private void BuildDurationRowContent(RectTransform rowRect)
+        /// <summary>A kind-coloured tile: a rounded square in the kind's fill over a taller one in its
+        /// shade, so the shade shows as a lip along the bottom. Returns the tile's rect for the glyph.</summary>
+        private RectTransform BuildKindTile(RectTransform parent, int kind, Vector2 anchoredPosition)
         {
-            RectTransform badgeRect = BuildBadge(rowRect);
-            BuildClockGlyph(badgeRect);
-            _durationValueText = BuildPill(rowRect);
+            var tileObject = new GameObject("Tile", typeof(RectTransform));
+            var tileRect = (RectTransform)tileObject.transform;
+            tileRect.SetParent(parent, false);
+            Centre(tileRect, new Vector2(TILE_SIZE, TILE_SIZE));
+            tileRect.anchoredPosition = anchoredPosition;
+
+            _kindShades.Add(new KindImage(
+                BuildRounded(tileRect, "Shade", new Vector2(TILE_SIZE, TILE_SIZE), Vector2.zero, TILE_CORNER_RADIUS), kind));
+            _kindFills.Add(new KindImage(
+                BuildRounded(tileRect, "Fill", new Vector2(TILE_SIZE, TILE_SIZE - TILE_LIP), new Vector2(0f, TILE_LIP * 0.5f), TILE_CORNER_RADIUS), kind));
+            return tileRect;
         }
 
-        private void BuildRemoveAdsRowContent(RectTransform rowRect)
+        /// <summary>The right-hand chevron disc on a row that steps to a picker: a disc in the empty-cell
+        /// pair with the same lip the tiles have, and an Ink chevron on it.</summary>
+        private void BuildChevronDisc(RectTransform rowRect, float contentWidth)
         {
-            RectTransform badgeRect = BuildBadge(rowRect);
-            BuildNoAdsGlyph(badgeRect);
-
-            // No chevron: the other four pills step to a picker screen, and this one does not — it
-            // either opens the store's own prompt or says the product is already owned. A chevron on it
-            // would promise a screen that does not exist.
-            _removeAdsValueText = BuildPill(rowRect, withChevron: false);
+            var discCentre = new Vector2((contentWidth * 0.5f) - ROW_PADDING_X - (DISC_SIZE * 0.5f), 0f);
+            _discLips.Add(BuildCircle(rowRect, "DiscLip", DISC_SIZE, discCentre + new Vector2(0f, -DISC_LIP)));
+            _discFaces.Add(BuildCircle(rowRect, "DiscFace", DISC_SIZE, discCentre));
+            BuildChevron(rowRect, discCentre + new Vector2(2f, 0f), 1f);
         }
 
         /// <summary>
-        /// A hollow banner with a bar struck through it — the usual "no advertising" mark, built from
-        /// the same rounded-rect-and-fake-cut-out parts as the clock and globe glyphs so the badges stay
-        /// one family.
+        /// The sound toggle: a rounded track with the same lip the tiles have, and a white thumb that
+        /// slides between its two ends. Painted by <see cref="OnMutedChanged"/>.
         /// </summary>
-        private void BuildNoAdsGlyph(RectTransform badgeRect)
+        private void BuildToggle(RectTransform rowRect, float contentWidth)
         {
-            const float BANNER_WIDTH = 58f;
-            const float BANNER_HEIGHT = 40f;
-            const float LINE_THICKNESS = 5f;
-            const float SLASH_LENGTH = 64f;
-
-            var bannerObject = new GameObject("NoAdsBanner", typeof(RectTransform), typeof(Image));
-            var bannerRect = (RectTransform)bannerObject.transform;
-            bannerRect.SetParent(badgeRect, false);
-            Centre(bannerRect, new Vector2(BANNER_WIDTH, BANNER_HEIGHT));
-            var bannerImage = bannerObject.GetComponent<Image>();
-            ConfigureRounded(bannerImage);
-            _inkImages.Add(bannerImage);
-
-            // Same fake cut-out as the clock dial: the badge underneath is one opaque colour, so a
-            // smaller rect in that colour turns the banner into an outline.
-            var faceObject = new GameObject("NoAdsBannerFace", typeof(RectTransform), typeof(Image));
-            var faceRect = (RectTransform)faceObject.transform;
-            faceRect.SetParent(badgeRect, false);
-            Centre(
-                faceRect,
-                new Vector2(BANNER_WIDTH - (LINE_THICKNESS * 2f), BANNER_HEIGHT - (LINE_THICKNESS * 2f)));
-            var faceImage = faceObject.GetComponent<Image>();
-            ConfigureRounded(faceImage);
-            _badgeImages.Add(faceImage);
-
-            // Drawn last so the cut-out above cannot punch a gap out of its middle.
-            var slashObject = new GameObject("NoAdsSlash", typeof(RectTransform), typeof(Image));
-            var slashRect = (RectTransform)slashObject.transform;
-            slashRect.SetParent(badgeRect, false);
-            Centre(slashRect, new Vector2(SLASH_LENGTH, LINE_THICKNESS));
-            slashRect.localRotation = Quaternion.Euler(0f, 0f, -35f);
-            var slashImage = slashObject.GetComponent<Image>();
-            ConfigureRounded(slashImage);
-            _inkImages.Add(slashImage);
-        }
-
-        /// <summary>Three ascending bars, bottom-aligned — the usual "volume" glyph.</summary>
-        private void BuildVolumeGlyph(RectTransform badgeRect)
-        {
-            const int BAR_COUNT = 3;
-            const float BAR_WIDTH = 11f;
-            const float BAR_SPACING = 21f;
-            const float BAR_BASE_Y = -26f;
-
-            for (int barIndex = 0; barIndex < BAR_COUNT; barIndex++)
-            {
-                float barHeight = 24f + (barIndex * 14f);
-                var barObject = new GameObject($"VolumeBar_{barIndex}", typeof(RectTransform), typeof(Image));
-                var barRect = (RectTransform)barObject.transform;
-                barRect.SetParent(badgeRect, false);
-                Centre(barRect, new Vector2(BAR_WIDTH, barHeight));
-                barRect.anchoredPosition = new Vector2(
-                    (barIndex - ((BAR_COUNT - 1) * 0.5f)) * BAR_SPACING, BAR_BASE_Y + (barHeight * 0.5f));
-
-                var barImage = barObject.GetComponent<Image>();
-                ConfigureRounded(barImage);
-                _inkImages.Add(barImage);
-            }
-        }
-
-        /// <summary>Ring plus a single off-vertical hand — enough to read as a clock at badge size.</summary>
-        private void BuildClockGlyph(RectTransform badgeRect)
-        {
-            const float DIAL_DIAMETER = 54f;
-            const float FACE_DIAMETER = 38f;
-            const float HAND_LENGTH = 17f;
-            const float HAND_ANGLE = -35f;
-
-            var dialObject = new GameObject("ClockDial", typeof(RectTransform), typeof(Image));
-            var dialRect = (RectTransform)dialObject.transform;
-            dialRect.SetParent(badgeRect, false);
-            Centre(dialRect, new Vector2(DIAL_DIAMETER, DIAL_DIAMETER));
-            var dialImage = dialObject.GetComponent<Image>();
-            ConfigureCircle(dialImage);
-            _inkImages.Add(dialImage);
-
-            // Fake cut-out: the badge underneath is always painted with one opaque colour, so a
-            // smaller circle in that colour turns the dial into a ring.
-            var faceObject = new GameObject("ClockFace", typeof(RectTransform), typeof(Image));
-            var faceRect = (RectTransform)faceObject.transform;
-            faceRect.SetParent(badgeRect, false);
-            Centre(faceRect, new Vector2(FACE_DIAMETER, FACE_DIAMETER));
-            var faceImage = faceObject.GetComponent<Image>();
-            ConfigureCircle(faceImage);
-            _badgeImages.Add(faceImage);
-
-            var handObject = new GameObject("ClockHand", typeof(RectTransform), typeof(Image));
-            var handRect = (RectTransform)handObject.transform;
-            handRect.SetParent(badgeRect, false);
-            Centre(handRect, new Vector2(5f, HAND_LENGTH));
-            handRect.localRotation = Quaternion.Euler(0f, 0f, HAND_ANGLE);
-
-            // Pushed half its own length along its rotated axis so the base sits on the centre.
-            handRect.anchoredPosition =
-                (Vector2)(Quaternion.Euler(0f, 0f, HAND_ANGLE) * new Vector3(0f, HAND_LENGTH * 0.5f, 0f));
-
-            var handImage = handObject.GetComponent<Image>();
-            ConfigureRounded(handImage);
-            _inkImages.Add(handImage);
-        }
-
-        /// <summary>Right-aligned value pill with a chevron. Returns its value label.</summary>
-        private Text BuildPill(RectTransform rowRect) => BuildPill(rowRect, withChevron: true);
-
-        /// <summary>
-        /// The value pill on the right of a row. <paramref name="withChevron"/> is what separates a row
-        /// that steps to a picker screen from one that does not — see
-        /// <see cref="BuildRemoveAdsRowContent"/>. Without it the value is centred in the pill instead
-        /// of being pushed left of the arrow.
-        /// </summary>
-        private Text BuildPill(RectTransform rowRect, bool withChevron)
-        {
-            var pillObject = new GameObject("Pill", typeof(RectTransform), typeof(Image));
-            var pillRect = (RectTransform)pillObject.transform;
-            pillRect.SetParent(rowRect, false);
-            Centre(pillRect, new Vector2(PILL_WIDTH, PILL_HEIGHT));
-            pillRect.anchoredPosition = new Vector2((LIST_WIDTH * 0.5f) - 36f - (PILL_WIDTH * 0.5f), 0f);
-
-            var pillImage = pillObject.GetComponent<Image>();
-            ConfigureRounded(pillImage);
-            _pillImages.Add(pillImage);
-
-            if (withChevron)
-            {
-                BuildChevron(pillRect, new Vector2((PILL_WIDTH * 0.5f) - 30f, 0f), 1f);
-            }
-
-            Text valueText = withChevron
-                ? CreateLabel(
-                    pillRect, "Value", 34, FontStyle.Bold, TextAnchor.MiddleRight,
-                    new Vector2((PILL_WIDTH * 0.5f) - 56f, 0f))
-                : CreateLabel(
-                    pillRect, "Value", 34, FontStyle.Bold, TextAnchor.MiddleCenter, Vector2.zero);
-            _inkTexts.Add(valueText);
-            return valueText;
-        }
-
-        private void BuildToggle(RectTransform rowRect)
-        {
-            var trackObject = new GameObject("ToggleTrack", typeof(RectTransform), typeof(Image));
+            var trackObject = new GameObject("Toggle", typeof(RectTransform));
             var trackRect = (RectTransform)trackObject.transform;
             trackRect.SetParent(rowRect, false);
             Centre(trackRect, new Vector2(TOGGLE_WIDTH, TOGGLE_HEIGHT));
-            trackRect.anchoredPosition = new Vector2((LIST_WIDTH * 0.5f) - 36f - (TOGGLE_WIDTH * 0.5f), 0f);
+            trackRect.anchoredPosition = new Vector2((contentWidth * 0.5f) - ROW_PADDING_X - (TOGGLE_WIDTH * 0.5f), 0f);
 
-            _toggleTrackImage = trackObject.GetComponent<Image>();
-            ConfigureRounded(_toggleTrackImage);
-            _toggleTrackImage.color = ToggleOnColour;
+            _toggleLip = BuildRounded(trackRect, "Lip", new Vector2(TOGGLE_WIDTH, TOGGLE_HEIGHT), Vector2.zero, TOGGLE_HEIGHT * 0.5f);
+            _toggleFace = BuildRounded(
+                trackRect, "Face", new Vector2(TOGGLE_WIDTH, TOGGLE_HEIGHT - TOGGLE_LIP), new Vector2(0f, TOGGLE_LIP * 0.5f),
+                (TOGGLE_HEIGHT - TOGGLE_LIP) * 0.5f);
 
-            var thumbObject = new GameObject("ToggleThumb", typeof(RectTransform), typeof(Image));
-            _toggleThumbRect = (RectTransform)thumbObject.transform;
-            _toggleThumbRect.SetParent(trackRect, false);
-            Centre(_toggleThumbRect, new Vector2(TOGGLE_THUMB_SIZE, TOGGLE_THUMB_SIZE));
-            _toggleThumbRect.anchoredPosition = new Vector2(TOGGLE_THUMB_TRAVEL, 0f);
-
-            var thumbImage = thumbObject.GetComponent<Image>();
-            ConfigureCircle(thumbImage);
-            thumbImage.color = Color.white;
+            Image thumb = BuildCircle(trackRect, "Thumb", TOGGLE_THUMB_SIZE, new Vector2(TOGGLE_THUMB_TRAVEL, TOGGLE_LIP * 0.5f));
+            thumb.color = Color.white;
+            _toggleThumbRect = (RectTransform)thumb.transform;
         }
 
         /// <summary>
-        /// Two rotated bars meeting at a point, the same trick <see cref="CellView"/> uses for its
-        /// bevel facets. <paramref name="directionX"/> is +1 for a right chevron, -1 for a left one.
+        /// The foot of the well: the caption, the glossy Remove Ads button and, sharing its rect, the
+        /// owned strip that replaces it. <see cref="RefreshRemoveAdsAction"/> shows one of the two.
         /// </summary>
-        private void BuildChevron(RectTransform parent, Vector2 centre, float directionX)
+        private void BuildRemoveAdsAction(RectTransform root, float contentWidth)
         {
-            float armLength = (CHEVRON_HALF_SIZE * Mathf.Sqrt(2f)) + CHEVRON_THICKNESS;
+            var actionSize = new Vector2(contentWidth, ACTION_HEIGHT);
+            float actionTop = _cardSize.y - WELL_INSET - WELL_PADDING_Y - ACTION_HEIGHT;
+            float actionY = TopY(actionTop, ACTION_HEIGHT);
 
-            for (int armIndex = 0; armIndex < 2; armIndex++)
-            {
-                float sign = armIndex == 0 ? 1f : -1f;
-                var armObject = new GameObject($"ChevronArm_{armIndex}", typeof(RectTransform), typeof(Image));
-                var armRect = (RectTransform)armObject.transform;
-                armRect.SetParent(parent, false);
-                Centre(armRect, new Vector2(armLength, CHEVRON_THICKNESS));
-                armRect.anchoredPosition = centre + new Vector2(0f, sign * CHEVRON_HALF_SIZE * 0.5f);
-                armRect.localRotation = Quaternion.Euler(0f, 0f, -45f * sign * directionX);
+            Text captionText = CreateLabel(
+                root, "AdsCaption", LABEL_FONT_SIZE, FontStyle.Bold, TextAnchor.MiddleLeft,
+                new Vector2((-contentWidth * 0.5f) + 12f, TopY(actionTop - ACTION_CAPTION_RISE, 0f)));
+            _softInkTexts.Add(captionText);
+            RegisterLocalized(captionText, LocalizationKeys.SETTINGS_REMOVE_ADS_CAPTION, uppercase: true);
 
-                var armImage = armObject.GetComponent<Image>();
-                ConfigureRounded(armImage);
-                _inkImages.Add(armImage);
-            }
+            _removeAdsButtonRect = BuildGlossyButton(root, "RemoveAdsButton", actionSize, out _removeAdsButtonPlate);
+            _removeAdsButtonRect.anchoredPosition = new Vector2(0f, actionY);
+            _removeAdsButtonText = CreateLabel(
+                _removeAdsButtonRect, "RemoveAdsLabel", BUTTON_FONT_SIZE, FontStyle.Normal, TextAnchor.MiddleCenter,
+                new Vector2(0f, BUTTON_LABEL_RISE), _displayFont);
+
+            var stripObject = new GameObject("OwnedStrip", typeof(RectTransform), typeof(Image));
+            _ownedStripRect = (RectTransform)stripObject.transform;
+            _ownedStripRect.SetParent(root, false);
+            Centre(_ownedStripRect, actionSize);
+            _ownedStripRect.anchoredPosition = new Vector2(0f, actionY);
+            _ownedStripPlate = ConfigureRounded(stripObject.GetComponent<Image>(), PLATE_CORNER_RADIUS);
+
+            const float CHECK_SIZE = 32f;
+            const float STRIP_PADDING = 28f;
+            _ownedCheck = BuildGlyph(
+                _ownedStripRect, "Check", UiSpriteFactory.CheckMark, new Vector2(CHECK_SIZE, CHECK_SIZE),
+                new Vector2((-contentWidth * 0.5f) + STRIP_PADDING + (CHECK_SIZE * 0.5f), 0f));
+            _ownedText = CreateLabel(
+                _ownedStripRect, "OwnedLabel", DESCRIPTION_FONT_SIZE, FontStyle.Bold, TextAnchor.MiddleLeft,
+                new Vector2((-contentWidth * 0.5f) + STRIP_PADDING + CHECK_SIZE + 16f, 0f));
         }
 
-        /// <summary>Two bars crossed at right angles — the close glyph.</summary>
+        /// <summary>Two bars crossed at right angles — the close glyph, as on the other cards.</summary>
         private void BuildCloseButton(RectTransform root, Vector2 anchoredPosition)
         {
             const float CROSS_LENGTH = 46f;
@@ -1521,293 +1721,283 @@ namespace MustyBlockBlast.Presentation.Views
 
             for (int barIndex = 0; barIndex < 2; barIndex++)
             {
-                var barObject = new GameObject($"CloseBar_{barIndex}", typeof(RectTransform), typeof(Image));
-                var barRect = (RectTransform)barObject.transform;
-                barRect.SetParent(_closeButtonRect, false);
-                Centre(barRect, new Vector2(CROSS_LENGTH, CROSS_THICKNESS));
-                barRect.localRotation = Quaternion.Euler(0f, 0f, barIndex == 0 ? 45f : -45f);
-
-                var barImage = barObject.GetComponent<Image>();
-                ConfigureRounded(barImage);
+                Image barImage = BuildRounded(
+                    _closeButtonRect, $"CloseBar_{barIndex}", new Vector2(CROSS_LENGTH, CROSS_THICKNESS), Vector2.zero,
+                    CROSS_THICKNESS * 0.5f);
+                barImage.rectTransform.localRotation = Quaternion.Euler(0f, 0f, barIndex == 0 ? 45f : -45f);
                 _inkImages.Add(barImage);
             }
         }
 
-        private void BuildThemeScreen(RectTransform root, float cardHalfHeight)
-        {
-            float headerY = cardHalfHeight - HEADER_INSET;
-            float leftEdge = -(_cardSize.x * 0.5f);
-
-            _themeBackButtonRect = BuildBackButton(root, leftEdge, headerY);
-
-            Text title = CreateLabel(
-                root, "Title", 64, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(leftEdge + SIDE_INSET + ICON_BUTTON_SIZE + 30f, headerY));
-            _inkTexts.Add(title);
-            RegisterLocalized(title, LocalizationKeys.SETTINGS_THEME_SCREEN_TITLE);
-
-            BuildOptions(root);
-        }
-
         /// <summary>
-        /// Left chevron in the header. Each screen owns its own instance: the cards differ in height,
-        /// so a shared one would sit at the wrong header line on all but one screen.
+        /// A glossy 3D button: the shop's white button sprite, sliced, tinted at paint time with a
+        /// kind's fill — its baked highlight and lip supply the bevel. The returned rect is the hit
+        /// area; the caller positions it and adds its label.
         /// </summary>
-        private RectTransform BuildBackButton(RectTransform root, float leftEdge, float headerY)
-        {
-            var backObject = new GameObject("BackButton", typeof(RectTransform));
-            var backRect = (RectTransform)backObject.transform;
-            backRect.SetParent(root, false);
-            Centre(backRect, new Vector2(ICON_BUTTON_SIZE, ICON_BUTTON_SIZE));
-            backRect.anchoredPosition = new Vector2(leftEdge + SIDE_INSET + (ICON_BUTTON_SIZE * 0.5f), headerY);
-
-            BuildChevron(backRect, Vector2.zero, -1f);
-            return backRect;
-        }
-
-        private void BuildModeScreen(RectTransform root, float cardHalfHeight)
-        {
-            float headerY = cardHalfHeight - HEADER_INSET;
-            float leftEdge = -(SettingsCardSize.x * 0.5f);
-
-            _modeBackButtonRect = BuildBackButton(root, leftEdge, headerY);
-
-            Text title = CreateLabel(
-                root, "Title", 64, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(leftEdge + SIDE_INSET + ICON_BUTTON_SIZE + 30f, headerY));
-            _inkTexts.Add(title);
-            RegisterLocalized(title, LocalizationKeys.SETTINGS_MODE_SCREEN_TITLE);
-
-            // A genuine N-way picker over SelectableModes rather than a hardcoded pair, so shipping a
-            // mode is one entry in that array plus its String Table row — nothing here moves. Laid out
-            // on the same centred grid as the theme swatches and duration chips, with the trailing
-            // partial row centred on its own count so an odd number of modes does not sit lopsided.
-            int rowCount = Mathf.Max(
-                1, Mathf.CeilToInt(SelectableModes.Length / (float)MODE_COLUMN_COUNT));
-
-            for (int modeIndex = 0; modeIndex < SelectableModes.Length; modeIndex++)
-            {
-                int column = modeIndex % MODE_COLUMN_COUNT;
-                int row = modeIndex / MODE_COLUMN_COUNT;
-                int columnsInRow = Mathf.Min(
-                    MODE_COLUMN_COUNT, SelectableModes.Length - (row * MODE_COLUMN_COUNT));
-
-                float x = (column - ((columnsInRow - 1) * 0.5f)) * MODE_OPTION_SPACING_X;
-                float y = (((rowCount - 1) * 0.5f) - row) * MODE_OPTION_SPACING_Y;
-
-                _modeOptions.Add(BuildModeOption(root, SelectableModes[modeIndex], new Vector2(x, y)));
-            }
-        }
-
-        private ModeOption BuildModeOption(RectTransform root, GameMode mode, Vector2 anchoredPosition)
-        {
-            var optionObject = new GameObject($"ModeOption_{mode}", typeof(RectTransform));
-            var optionRect = (RectTransform)optionObject.transform;
-            optionRect.SetParent(root, false);
-            Centre(optionRect, ModeOptionSize);
-            optionRect.anchoredPosition = anchoredPosition;
-
-            // Same trick as the theme swatches: an outset rect behind the card reads as an outline
-            // once it is tinted.
-            var borderObject = new GameObject("Border", typeof(RectTransform), typeof(Image));
-            var borderRect = (RectTransform)borderObject.transform;
-            borderRect.SetParent(optionRect, false);
-            Centre(borderRect, ModeOptionSize + (Vector2.one * (_selectionBorderThickness * 2f)));
-            var borderImage = borderObject.GetComponent<Image>();
-            ConfigureRounded(borderImage);
-
-            var faceObject = new GameObject("Face", typeof(RectTransform), typeof(Image));
-            var faceRect = (RectTransform)faceObject.transform;
-            faceRect.SetParent(optionRect, false);
-            Centre(faceRect, ModeOptionSize);
-            var faceImage = faceObject.GetComponent<Image>();
-            ConfigureRounded(faceImage);
-            _badgeImages.Add(faceImage);
-
-            Text nameText = UiTextFactory.Create(optionRect, "Name", 42, FontStyle.Bold, Color.clear);
-            RegisterLocalized(nameText, ModeNameKey(mode));
-
-            return new ModeOption(mode, optionRect, borderImage, nameText);
-        }
-
-        private void BuildDurationScreen(RectTransform root, float cardHalfHeight)
-        {
-            float headerY = cardHalfHeight - HEADER_INSET;
-            float leftEdge = -(SettingsCardSize.x * 0.5f);
-
-            _durationBackButtonRect = BuildBackButton(root, leftEdge, headerY);
-
-            Text title = CreateLabel(
-                root, "Title", 64, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(leftEdge + SIDE_INSET + ICON_BUTTON_SIZE + 30f, headerY));
-            _inkTexts.Add(title);
-            RegisterLocalized(title, LocalizationKeys.SETTINGS_DURATION_SCREEN_TITLE);
-
-            // Same centred grid as the theme swatches, so adding a duration to the config asset needs
-            // no change here.
-            IReadOnlyList<float> durations = _timedModeSystem.AvailableDurations;
-            int rowCount = Mathf.Max(1, Mathf.CeilToInt(durations.Count / (float)DURATION_COLUMN_COUNT));
-
-            for (int durationIndex = 0; durationIndex < durations.Count; durationIndex++)
-            {
-                int column = durationIndex % DURATION_COLUMN_COUNT;
-                int row = durationIndex / DURATION_COLUMN_COUNT;
-
-                float x = (column - ((DURATION_COLUMN_COUNT - 1) * 0.5f)) * DurationOptionSpacing.x;
-                float y = (((rowCount - 1) * 0.5f) - row) * DurationOptionSpacing.y;
-
-                _durationOptions.Add(
-                    BuildDurationOption(root, durations[durationIndex], new Vector2(x, y)));
-            }
-        }
-
-        private DurationOption BuildDurationOption(RectTransform root, float seconds, Vector2 anchoredPosition)
-        {
-            var optionObject = new GameObject($"DurationOption_{Mathf.RoundToInt(seconds)}", typeof(RectTransform));
-            var optionRect = (RectTransform)optionObject.transform;
-            optionRect.SetParent(root, false);
-            Centre(optionRect, DurationOptionSize);
-            optionRect.anchoredPosition = anchoredPosition;
-
-            // Same outset-rect-as-outline trick the theme swatches and mode cards use.
-            var borderObject = new GameObject("Border", typeof(RectTransform), typeof(Image));
-            var borderRect = (RectTransform)borderObject.transform;
-            borderRect.SetParent(optionRect, false);
-            Centre(borderRect, DurationOptionSize + (Vector2.one * (_selectionBorderThickness * 2f)));
-            var borderImage = borderObject.GetComponent<Image>();
-            ConfigureRounded(borderImage);
-
-            var faceObject = new GameObject("Face", typeof(RectTransform), typeof(Image));
-            var faceRect = (RectTransform)faceObject.transform;
-            faceRect.SetParent(optionRect, false);
-            Centre(faceRect, DurationOptionSize);
-            var faceImage = faceObject.GetComponent<Image>();
-            ConfigureRounded(faceImage);
-            _badgeImages.Add(faceImage);
-
-            Text nameText = UiTextFactory.Create(optionRect, "Name", 46, FontStyle.Bold, Color.clear);
-            nameText.text = FormatDuration(seconds);
-
-            return new DurationOption(seconds, optionRect, borderImage, nameText);
-        }
-
-        /// <summary>
-        /// Built from <c>LocalizationModel.AvailableLocales</c> the same way the theme grid is built
-        /// from the theme catalogue, so shipping a language is a Locale asset plus its String Table
-        /// column — no change here.
-        /// </summary>
-        private void BuildLanguageScreen(RectTransform root, float cardHalfHeight)
-        {
-            float headerY = cardHalfHeight - HEADER_INSET;
-            float leftEdge = -(SettingsCardSize.x * 0.5f);
-
-            _languageBackButtonRect = BuildBackButton(root, leftEdge, headerY);
-
-            Text title = CreateLabel(
-                root, "Title", 64, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(leftEdge + SIDE_INSET + ICON_BUTTON_SIZE + 30f, headerY));
-            _inkTexts.Add(title);
-            RegisterLocalized(title, LocalizationKeys.SETTINGS_LANGUAGE_SCREEN_TITLE);
-
-            IReadOnlyList<LocaleDefinition> locales = _localizationModel.AvailableLocales;
-
-            for (int localeIndex = 0; localeIndex < locales.Count; localeIndex++)
-            {
-                LocaleDefinition locale = locales[localeIndex];
-                if (locale == null)
-                {
-                    continue;
-                }
-
-                // Stacked around y = 0, the same centring the grids use collapsed to one column.
-                float y = (((locales.Count - 1) * 0.5f) - localeIndex) * LANGUAGE_OPTION_SPACING_Y;
-                _languageOptions.Add(BuildLanguageOption(root, locale, new Vector2(0f, y)));
-            }
-        }
-
-        private LanguageOption BuildLanguageOption(
-            RectTransform root, LocaleDefinition locale, Vector2 anchoredPosition)
-        {
-            var optionObject = new GameObject($"LanguageOption_{locale.Code}", typeof(RectTransform));
-            var optionRect = (RectTransform)optionObject.transform;
-            optionRect.SetParent(root, false);
-            Centre(optionRect, LanguageOptionSize);
-            optionRect.anchoredPosition = anchoredPosition;
-
-            // Same outset-rect-as-outline trick the theme swatches, mode cards and duration chips use.
-            var borderObject = new GameObject("Border", typeof(RectTransform), typeof(Image));
-            var borderRect = (RectTransform)borderObject.transform;
-            borderRect.SetParent(optionRect, false);
-            Centre(borderRect, LanguageOptionSize + (Vector2.one * (_selectionBorderThickness * 2f)));
-            var borderImage = borderObject.GetComponent<Image>();
-            ConfigureRounded(borderImage);
-
-            var faceObject = new GameObject("Face", typeof(RectTransform), typeof(Image));
-            var faceRect = (RectTransform)faceObject.transform;
-            faceRect.SetParent(optionRect, false);
-            Centre(faceRect, LanguageOptionSize);
-            var faceImage = faceObject.GetComponent<Image>();
-            ConfigureRounded(faceImage);
-            _badgeImages.Add(faceImage);
-
-            // Not a String Table lookup and deliberately never re-worded: a language is always
-            // labelled in its own language, so this chip reads the same in every locale.
-            Text nameText = UiTextFactory.Create(optionRect, "Name", 46, FontStyle.Bold, Color.clear);
-            nameText.text = locale.DisplayName;
-
-            return new LanguageOption(locale.Code, optionRect, borderImage, nameText);
-        }
-
-        private void BuildConfirmScreen(RectTransform root, float cardHalfHeight)
-        {
-            float headerY = cardHalfHeight - HEADER_INSET;
-
-            Text title = CreateLabel(
-                root, "Title", 58, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(0f, headerY));
-            _inkTexts.Add(title);
-            RegisterLocalized(title, LocalizationKeys.SETTINGS_CONFIRM_TITLE);
-
-            Text body = CreateLabel(
-                root, "Body", 34, FontStyle.Normal,
-                TextAnchor.MiddleCenter, new Vector2(0f, headerY - 92f));
-            _inkTexts.Add(body);
-            RegisterLocalized(body, LocalizationKeys.SETTINGS_CONFIRM_BODY);
-
-            float buttonY = -cardHalfHeight + HEADER_INSET;
-            float buttonOffsetX = (ConfirmButtonSize.x * 0.5f) + 24f;
-
-            _confirmYesRect = BuildConfirmButton(
-                root, "ConfirmYes", LocalizationKeys.SETTINGS_CONFIRM_YES, new Vector2(-buttonOffsetX, buttonY));
-            _confirmNoRect = BuildConfirmButton(
-                root, "ConfirmNo", LocalizationKeys.SETTINGS_CONFIRM_NO, new Vector2(buttonOffsetX, buttonY));
-        }
-
-        private RectTransform BuildConfirmButton(
-            RectTransform root, string objectName, string labelKey, Vector2 anchoredPosition)
+        private RectTransform BuildGlossyButton(RectTransform parent, string objectName, Vector2 size, out Image plate)
         {
             var buttonObject = new GameObject(objectName, typeof(RectTransform), typeof(Image));
             var buttonRect = (RectTransform)buttonObject.transform;
-            buttonRect.SetParent(root, false);
-            Centre(buttonRect, ConfirmButtonSize);
-            buttonRect.anchoredPosition = anchoredPosition;
+            buttonRect.SetParent(parent, false);
+            Centre(buttonRect, size);
 
-            var buttonImage = buttonObject.GetComponent<Image>();
-            ConfigureRounded(buttonImage);
-            _badgeImages.Add(buttonImage);
-
-            Text labelText = CreateLabel(
-                buttonRect, "Label", 38, FontStyle.Bold, TextAnchor.MiddleCenter, Vector2.zero);
-            _inkTexts.Add(labelText);
-            RegisterLocalized(labelText, labelKey);
+            plate = buttonObject.GetComponent<Image>();
+            if (_buttonSprite != null)
+            {
+                plate.sprite = _buttonSprite;
+                plate.type = Image.Type.Sliced;
+                plate.pixelsPerUnitMultiplier = BUTTON_SLICE_SCALE;
+                plate.color = Color.clear;
+                plate.raycastTarget = false;
+            }
+            else
+            {
+                ConfigureRounded(plate, PLATE_CORNER_RADIUS);
+            }
 
             return buttonRect;
         }
 
-        private void BuildOptions(RectTransform root)
+        // ---------------------------------------------------------------------------- glyphs
+
+        /// <summary>
+        /// The glyph a mode's tile wears, white on the kind's fill: two overlapping rings for endless (a
+        /// loose nod to the infinity mark), a clock for timed, and two stops joined by a rise for path.
+        /// The tile's fill kind is needed for the fake cut-outs that turn discs into rings.
+        /// </summary>
+        private GameObject BuildModeGlyph(RectTransform tileRect, GameMode mode, int tileKind)
         {
+            var glyphObject = new GameObject($"Glyph_{mode}", typeof(RectTransform));
+            var glyphRect = (RectTransform)glyphObject.transform;
+            glyphRect.SetParent(tileRect, false);
+            Centre(glyphRect, new Vector2(TILE_SIZE, TILE_SIZE));
+
+            switch (mode)
+            {
+                case GameMode.Timed:
+                    BuildClockGlyph(glyphRect, tileKind);
+                    break;
+                case GameMode.Path:
+                    BuildTrailGlyph(glyphRect);
+                    break;
+                default:
+                    BuildInfinityGlyph(glyphRect, tileKind);
+                    break;
+            }
+
+            return glyphObject;
+        }
+
+        /// <summary>Two overlapping rings — enough to read as "endless" at tile size.</summary>
+        private void BuildInfinityGlyph(RectTransform parent, int tileKind)
+        {
+            const float RING_DIAMETER = 40f;
+            const float RING_OVERLAP = 13f;
+            const float RING_THICKNESS = 7f;
+
+            for (int discIndex = 0; discIndex < 2; discIndex++)
+            {
+                BuildCircle(parent, $"InfinityDisc_{discIndex}", RING_DIAMETER, new Vector2(RingOffsetX(discIndex), 0f)).color = Color.white;
+            }
+
+            // Fake cut-out: the tile underneath is one opaque colour, so a smaller circle in that
+            // colour turns each disc into a ring. Both holes are drawn after both discs so neither disc
+            // fills the other's hole.
+            for (int holeIndex = 0; holeIndex < 2; holeIndex++)
+            {
+                _kindFills.Add(new KindImage(
+                    BuildCircle(parent, $"InfinityHole_{holeIndex}", RING_DIAMETER - (RING_THICKNESS * 2f), new Vector2(RingOffsetX(holeIndex), 0f)),
+                    tileKind));
+            }
+
+            float RingOffsetX(int index)
+                => (index == 0 ? -1f : 1f) * ((RING_DIAMETER * 0.5f) - (RING_OVERLAP * 0.5f));
+        }
+
+        /// <summary>Ring plus a single off-vertical hand — enough to read as a clock at tile size.</summary>
+        private void BuildClockGlyph(RectTransform parent, int tileKind)
+        {
+            const float DIAL_DIAMETER = 54f;
+            const float FACE_DIAMETER = 40f;
+            const float HAND_LENGTH = 17f;
+            const float HAND_ANGLE = -35f;
+
+            BuildCircle(parent, "ClockDial", DIAL_DIAMETER, Vector2.zero).color = Color.white;
+            _kindFills.Add(new KindImage(BuildCircle(parent, "ClockFace", FACE_DIAMETER, Vector2.zero), tileKind));
+
+            Image hand = BuildRounded(parent, "ClockHand", new Vector2(6f, HAND_LENGTH), Vector2.zero, 3f);
+            hand.rectTransform.localRotation = Quaternion.Euler(0f, 0f, HAND_ANGLE);
+
+            // Pushed half its own length along its rotated axis so the base sits on the centre.
+            hand.rectTransform.anchoredPosition =
+                (Vector2)(Quaternion.Euler(0f, 0f, HAND_ANGLE) * new Vector3(0f, HAND_LENGTH * 0.5f, 0f));
+            hand.color = Color.white;
+        }
+
+        /// <summary>Two stops joined by a rise and a fall — the trail, as the level path draws it.</summary>
+        private void BuildTrailGlyph(RectTransform parent)
+        {
+            const float STOP_DIAMETER = 18f;
+            const float STOP_X = 26f;
+            const float STOP_Y = -14f;
+            const float LEG_LENGTH = 40f;
+            const float LEG_THICKNESS = 7f;
+            const float LEG_ANGLE = 52f;
+
+            for (int legIndex = 0; legIndex < 2; legIndex++)
+            {
+                float sign = legIndex == 0 ? -1f : 1f;
+                Image leg = BuildRounded(
+                    parent, $"TrailLeg_{legIndex}", new Vector2(LEG_LENGTH, LEG_THICKNESS),
+                    new Vector2(sign * 13f, 2f), LEG_THICKNESS * 0.5f);
+                leg.rectTransform.localRotation = Quaternion.Euler(0f, 0f, -sign * LEG_ANGLE);
+                leg.color = Color.white;
+            }
+
+            for (int stopIndex = 0; stopIndex < 2; stopIndex++)
+            {
+                float sign = stopIndex == 0 ? -1f : 1f;
+                BuildCircle(parent, $"TrailStop_{stopIndex}", STOP_DIAMETER, new Vector2(sign * STOP_X, STOP_Y)).color = Color.white;
+            }
+        }
+
+        /// <summary>A painter's palette: a white disc with a thumb hole and three paint dabs in the
+        /// theme's own kind fills, so the tile previews the very thing the row changes.</summary>
+        private void BuildPaletteGlyph(RectTransform tileRect, int tileKind)
+        {
+            const float PALETTE_DIAMETER = 56f;
+            const float HOLE_DIAMETER = 16f;
+            const float DAB_DIAMETER = 12f;
+
+            BuildCircle(tileRect, "Palette", PALETTE_DIAMETER, Vector2.zero).color = Color.white;
+            _kindFills.Add(new KindImage(BuildCircle(tileRect, "PaletteHole", HOLE_DIAMETER, new Vector2(13f, -13f)), tileKind));
+
+            // Dabs in kinds other than the tile's own, so none of them vanishes into the tile.
+            int[] dabKinds = { 1, 2, 5 };
+            Vector2[] dabCentres = { new Vector2(-14f, 10f), new Vector2(2f, 16f), new Vector2(-16f, -8f) };
+            for (int dabIndex = 0; dabIndex < dabKinds.Length; dabIndex++)
+            {
+                _kindFills.Add(new KindImage(
+                    BuildCircle(tileRect, $"PaletteDab_{dabIndex}", DAB_DIAMETER, dabCentres[dabIndex]), dabKinds[dabIndex]));
+            }
+        }
+
+        /// <summary>
+        /// Ring plus an equator and a meridian — the usual globe, built from the same ring-and-bars
+        /// parts as the clock glyph so the tiles stay one family.
+        /// </summary>
+        private void BuildGlobeGlyph(RectTransform tileRect, int tileKind)
+        {
+            const float GLOBE_DIAMETER = 54f;
+            const float GLOBE_FACE_DIAMETER = 42f;
+            const float MERIDIAN_WIDTH = 26f;
+            const float LINE_THICKNESS = 6f;
+
+            BuildCircle(tileRect, "GlobeOutline", GLOBE_DIAMETER, Vector2.zero).color = Color.white;
+
+            // Same fake cut-out as the clock dial: the tile underneath is one opaque colour, so a
+            // smaller circle in that colour turns the disc into a ring.
+            _kindFills.Add(new KindImage(BuildCircle(tileRect, "GlobeFace", GLOBE_FACE_DIAMETER, Vector2.zero), tileKind));
+
+            // A narrow ellipse would be truer, but the sprite set has no ellipse; a narrow rounded
+            // rect reads the same at tile size. Drawn after the cut-out so it survives it.
+            BuildRounded(tileRect, "GlobeMeridian", new Vector2(MERIDIAN_WIDTH, GLOBE_DIAMETER), Vector2.zero, MERIDIAN_WIDTH * 0.5f).color = Color.white;
+
+            // Hollows the meridian out so it reads as an outline rather than a filled capsule.
+            _kindFills.Add(new KindImage(
+                BuildRounded(
+                    tileRect, "GlobeMeridianHole",
+                    new Vector2(MERIDIAN_WIDTH - (LINE_THICKNESS * 2f), GLOBE_DIAMETER - (LINE_THICKNESS * 2f)),
+                    Vector2.zero, (MERIDIAN_WIDTH - (LINE_THICKNESS * 2f)) * 0.5f),
+                tileKind));
+
+            // Last of all: the meridian's own cut-out would otherwise punch a gap out of its middle.
+            BuildRounded(tileRect, "GlobeEquator", new Vector2(GLOBE_DIAMETER, LINE_THICKNESS), Vector2.zero, LINE_THICKNESS * 0.5f).color = Color.white;
+        }
+
+        /// <summary>Three ascending bars, bottom-aligned — the usual "volume" glyph.</summary>
+        private static void BuildVolumeGlyph(RectTransform tileRect)
+        {
+            const int BAR_COUNT = 3;
+            const float BAR_WIDTH = 11f;
+            const float BAR_SPACING = 21f;
+            const float BAR_BASE_Y = -26f;
+
+            for (int barIndex = 0; barIndex < BAR_COUNT; barIndex++)
+            {
+                float barHeight = 24f + (barIndex * 14f);
+                BuildRounded(
+                    tileRect, $"VolumeBar_{barIndex}", new Vector2(BAR_WIDTH, barHeight),
+                    new Vector2((barIndex - ((BAR_COUNT - 1) * 0.5f)) * BAR_SPACING, BAR_BASE_Y + (barHeight * 0.5f)),
+                    BAR_WIDTH * 0.5f).color = Color.white;
+            }
+        }
+
+        /// <summary>
+        /// Two rotated bars meeting at a point, the same trick <see cref="CellView"/> uses for its
+        /// bevel facets. <paramref name="directionX"/> is +1 for a right chevron, -1 for a left one.
+        /// </summary>
+        private void BuildChevron(RectTransform parent, Vector2 centre, float directionX)
+        {
+            float armLength = (CHEVRON_HALF_SIZE * Mathf.Sqrt(2f)) + CHEVRON_THICKNESS;
+
+            for (int armIndex = 0; armIndex < 2; armIndex++)
+            {
+                float sign = armIndex == 0 ? 1f : -1f;
+                Image armImage = BuildRounded(
+                    parent, $"ChevronArm_{armIndex}", new Vector2(armLength, CHEVRON_THICKNESS),
+                    centre + new Vector2(0f, sign * CHEVRON_HALF_SIZE * 0.5f), CHEVRON_THICKNESS * 0.5f);
+                armImage.rectTransform.localRotation = Quaternion.Euler(0f, 0f, -45f * sign * directionX);
+                _inkImages.Add(armImage);
+            }
+        }
+
+        // ---------------------------------------------------------------------------- sub-screens
+
+        /// <summary>
+        /// A sub-screen's first row: the round back disc and the screen's name in the display face,
+        /// with an optional uppercase hint on the right. Returns the back disc's rect, the tap target.
+        /// </summary>
+        private RectTransform BuildSubHeader(RectTransform root, string titleKey, string hintKey)
+        {
+            float contentWidth = ContentWidth;
+            float headerY = TopY(CONTENT_TOP, SUB_HEADER_HEIGHT);
+
+            var backObject = new GameObject("BackButton", typeof(RectTransform));
+            var backRect = (RectTransform)backObject.transform;
+            backRect.SetParent(root, false);
+            Centre(backRect, new Vector2(BACK_DISC_SIZE, BACK_DISC_SIZE));
+            backRect.anchoredPosition = new Vector2((-contentWidth * 0.5f) + (BACK_DISC_SIZE * 0.5f), headerY);
+
+            _plateShadows.Add(BuildCircle(backRect, "Shadow", BACK_DISC_SIZE, new Vector2(0f, -PLATE_SHADOW_DROP)));
+            _platePlates.Add(BuildCircle(backRect, "Disc", BACK_DISC_SIZE, Vector2.zero));
+            BuildChevron(backRect, new Vector2(-2f, 0f), -1f);
+
+            Text title = CreateLabel(
+                root, "Title", TITLE_FONT_SIZE, FontStyle.Normal, TextAnchor.MiddleLeft,
+                new Vector2((-contentWidth * 0.5f) + BACK_DISC_SIZE + 24f, headerY), _displayFont);
+            _inkTexts.Add(title);
+            RegisterLocalized(title, titleKey);
+
+            if (hintKey != null)
+            {
+                Text hint = CreateLabel(
+                    root, "Hint", LABEL_FONT_SIZE, FontStyle.Bold, TextAnchor.MiddleRight,
+                    new Vector2((contentWidth * 0.5f) - 8f, headerY));
+                _softInkTexts.Add(hint);
+                RegisterLocalized(hint, hintKey, uppercase: true);
+            }
+
+            return backRect;
+        }
+
+        private void BuildThemeScreen(RectTransform root)
+        {
+            _themeBackButtonRect = BuildSubHeader(root, LocalizationKeys.SETTINGS_THEME_SCREEN_TITLE, LocalizationKeys.SETTINGS_THEME_SCREEN_HINT);
+
             IReadOnlyList<ThemeDefinition> themes = _settingsModel.AvailableThemes;
-            int rowCount = Mathf.Max(1, Mathf.CeilToInt(themes.Count / (float)COLUMN_COUNT));
+            float cardWidth = (ContentWidth - (THEME_CARD_GAP * (THEME_COLUMN_COUNT - 1))) / THEME_COLUMN_COUNT;
+            var cardSize = new Vector2(cardWidth, THEME_CARD_HEIGHT);
 
             for (int themeIndex = 0; themeIndex < themes.Count; themeIndex++)
             {
@@ -1817,96 +2007,267 @@ namespace MustyBlockBlast.Presentation.Views
                     continue;
                 }
 
-                int column = themeIndex % COLUMN_COUNT;
-                int row = themeIndex / COLUMN_COUNT;
+                int column = themeIndex % THEME_COLUMN_COUNT;
+                int row = themeIndex / THEME_COLUMN_COUNT;
 
-                // Centre the grid on the card: columns spread around x = 0, rows around y = 0.
-                float x = (column - ((COLUMN_COUNT - 1) * 0.5f)) * _optionSpacing.x;
-                float y = (((rowCount - 1) * 0.5f) - row) * _optionSpacing.y;
+                float x = (column - ((THEME_COLUMN_COUNT - 1) * 0.5f)) * (cardWidth + THEME_CARD_GAP);
+                float y = TopY(SUB_CONTENT_TOP + (row * (THEME_CARD_HEIGHT + THEME_CARD_GAP)), THEME_CARD_HEIGHT);
 
-                _options.Add(BuildOption(root, theme, new Vector2(x, y)));
+                _themeOptions.Add(BuildThemeOption(root, theme, cardSize, new Vector2(x, y)));
             }
-        }
-
-        private ThemeOption BuildOption(RectTransform root, ThemeDefinition theme, Vector2 anchoredPosition)
-        {
-            var optionObject = new GameObject($"Option_{theme.Id}", typeof(RectTransform));
-            var optionRect = (RectTransform)optionObject.transform;
-            optionRect.SetParent(root, false);
-            Centre(optionRect, _optionSize);
-            optionRect.anchoredPosition = anchoredPosition;
-
-            var swatchSize = new Vector2(_optionSize.x - 24f, _optionSize.y - 100f);
-            var swatchPosition = new Vector2(0f, 40f);
-
-            // Sits behind the swatch and is inset-matched to it, so when it is tinted it reads as an
-            // outline around the swatch only — the label below stays legible.
-            var borderObject = new GameObject("Border", typeof(RectTransform), typeof(Image));
-            var borderRect = (RectTransform)borderObject.transform;
-            borderRect.SetParent(optionRect, false);
-            Centre(borderRect, swatchSize + (Vector2.one * (_selectionBorderThickness * 2f)));
-            borderRect.anchoredPosition = swatchPosition;
-            var borderImage = borderObject.GetComponent<Image>();
-            ConfigureRounded(borderImage);
-
-            // One gradient texture per theme, created once here and never regenerated — the swatch
-            // always previews its own theme, not the active one.
-            var swatchObject = new GameObject("Swatch", typeof(RectTransform), typeof(Image));
-            var swatchRect = (RectTransform)swatchObject.transform;
-            swatchRect.SetParent(optionRect, false);
-            Centre(swatchRect, swatchSize);
-            swatchRect.anchoredPosition = swatchPosition;
-
-            var swatchImage = swatchObject.GetComponent<Image>();
-            swatchImage.sprite = UiSpriteFactory.CreateVerticalGradient(theme.BackgroundBottom, theme.BackgroundTop);
-            swatchImage.type = Image.Type.Simple;
-            swatchImage.color = Color.white;
-            swatchImage.raycastTarget = false;
-
-            // Five dots (see ThemeDefinition.KIND_COUNT) at this pitch span 260 of the swatch's 356.
-            BuildKindDots(
-                swatchRect, theme, 36f, 56f, new Vector2(0f, (-swatchSize.y * 0.5f) + 44f), null);
-
-            Text nameText = UiTextFactory.Create(optionRect, "Name", 38, FontStyle.Bold, Color.clear);
-            nameText.text = ResolveThemeName(theme);
-            ((RectTransform)nameText.transform).anchoredPosition =
-                new Vector2(0f, (-_optionSize.y * 0.5f) + 40f);
-
-            return new ThemeOption(theme.Id, optionRect, borderImage, nameText);
         }
 
         /// <summary>
-        /// A row of one dot per piece kind, in that kind's fill colour. Pass a null
-        /// <paramref name="theme"/> to leave them unpainted and collect them in
-        /// <paramref name="output"/> instead, for dots that must follow the active theme.
+        /// One theme card: its own gradient with a mini board in its own kind colours, its name below,
+        /// and the ring and check disc the active one wears. The preview never changes — it shows its
+        /// own theme, not the active one — so only the ring, the disc and the name follow the theme.
         /// </summary>
-        private static void BuildKindDots(
-            RectTransform parent, ThemeDefinition theme, float dotSize, float spacing, Vector2 centre, Image[] output)
+        private ThemeOption BuildThemeOption(RectTransform root, ThemeDefinition theme, Vector2 cardSize, Vector2 anchoredPosition)
         {
-            for (int kindIndex = 0; kindIndex < ThemeDefinition.KIND_COUNT; kindIndex++)
+            RectTransform cardRect = BuildSelectablePlate(root, $"Theme_{theme.Id}", cardSize, anchoredPosition, out Selection selection);
+
+            var previewSize = new Vector2(cardSize.x - (THEME_CARD_PADDING * 2f), THEME_PREVIEW_HEIGHT);
+            var previewCentre = new Vector2(0f, (cardSize.y * 0.5f) - THEME_CARD_PADDING - (THEME_PREVIEW_HEIGHT * 0.5f));
+
+            // One gradient texture per theme, created once here and never regenerated.
+            var previewObject = new GameObject("Preview", typeof(RectTransform), typeof(Image));
+            var previewRect = (RectTransform)previewObject.transform;
+            previewRect.SetParent(cardRect, false);
+            Centre(previewRect, previewSize);
+            previewRect.anchoredPosition = previewCentre;
+            var previewImage = previewObject.GetComponent<Image>();
+            previewImage.sprite = UiSpriteFactory.CreateVerticalGradient(theme.BackgroundBottom, theme.BackgroundTop);
+            previewImage.type = Image.Type.Simple;
+            previewImage.color = Color.white;
+            previewImage.raycastTarget = false;
+
+            BuildMiniBoard(previewRect, theme);
+
+            Text nameText = CreateLabel(
+                cardRect, "Name", THEME_NAME_FONT_SIZE, FontStyle.Normal, TextAnchor.MiddleCenter,
+                new Vector2(0f, (-cardSize.y * 0.5f) + THEME_NAME_RISE), _displayFont);
+            _inkTexts.Add(nameText);
+            nameText.text = ResolveThemeName(theme);
+
+            AddCheckDisc(cardRect, selection);
+            return new ThemeOption(theme.Id, cardRect, selection, nameText);
+        }
+
+        /// <summary>
+        /// The 4×4 board on a theme card: a plate in that theme's card colour holding sixteen bevelled
+        /// cells — fill over shade, as <see cref="CellView"/> draws them — in that theme's real kind
+        /// colours, so the card shows exactly what the board will look like. Painted once, here: it is
+        /// its own theme's preview, so it never follows the active theme.
+        /// </summary>
+        private static void BuildMiniBoard(RectTransform previewRect, ThemeDefinition theme)
+        {
+            Image plate = BuildRounded(
+                previewRect, "MiniBoard", new Vector2(MINI_BOARD_WIDTH, MINI_BOARD_WIDTH), Vector2.zero, MINI_BOARD_CORNER_RADIUS);
+            plate.color = theme.CardBackground;
+
+            float cellSize = (MINI_BOARD_WIDTH - (MINI_BOARD_PADDING * 2f) - (MINI_CELL_GAP * (MINI_BOARD_SIZE - 1))) / MINI_BOARD_SIZE;
+            float pitch = cellSize + MINI_CELL_GAP;
+            float origin = -((MINI_BOARD_SIZE - 1) * 0.5f) * pitch;
+
+            for (int cellIndex = 0; cellIndex < MiniBoardPattern.Length; cellIndex++)
             {
-                var dotObject = new GameObject($"Kind_{kindIndex}", typeof(RectTransform), typeof(Image));
-                var dotRect = (RectTransform)dotObject.transform;
-                dotRect.SetParent(parent, false);
-                Centre(dotRect, new Vector2(dotSize, dotSize));
-                dotRect.anchoredPosition = centre + new Vector2(
-                    (kindIndex - ((ThemeDefinition.KIND_COUNT - 1) * 0.5f)) * spacing, 0f);
+                int column = cellIndex % MINI_BOARD_SIZE;
+                int row = cellIndex / MINI_BOARD_SIZE;
+                var centre = new Vector2(origin + (column * pitch), -origin - (row * pitch));
+                int kind = MiniBoardPattern[cellIndex];
 
-                var dotImage = dotObject.GetComponent<Image>();
-                ConfigureRounded(dotImage);
-
-                if (theme != null)
-                {
-                    // Colour ids are 1-based; 0 means "empty cell".
-                    dotImage.color = theme.GetFill(kindIndex + 1);
-                }
-
-                if (output != null)
-                {
-                    output[kindIndex] = dotImage;
-                }
+                // GetFill/GetShade fall back to the empty-cell pair for kind 0, so one path draws both.
+                Image shade = BuildRounded(previewRect, $"CellShade_{cellIndex}", new Vector2(cellSize, cellSize), centre, MINI_CELL_CORNER_RADIUS);
+                shade.color = theme.GetShade(kind);
+                Image fill = BuildRounded(
+                    previewRect, $"CellFill_{cellIndex}", new Vector2(cellSize, cellSize - MINI_CELL_LIP),
+                    centre + new Vector2(0f, MINI_CELL_LIP * 0.5f), MINI_CELL_CORNER_RADIUS);
+                fill.color = theme.GetFill(kind);
             }
         }
+
+        private void BuildModeScreen(RectTransform root)
+        {
+            _modeBackButtonRect = BuildSubHeader(root, LocalizationKeys.SETTINGS_MODE_SCREEN_TITLE, null);
+
+            // A genuine N-way picker over SelectableModes rather than a hardcoded trio, so shipping a
+            // mode is one entry in that array plus its String Table rows — nothing here moves.
+            for (int modeIndex = 0; modeIndex < SelectableModes.Length; modeIndex++)
+            {
+                float y = TopY(SUB_CONTENT_TOP + (modeIndex * (ROW_HEIGHT + ROW_GAP)), ROW_HEIGHT);
+                _modeOptions.Add(BuildModeOption(root, SelectableModes[modeIndex], new Vector2(0f, y)));
+            }
+
+            BuildConfirmCard(root);
+        }
+
+        /// <summary>One mode plate: the mode's tile and glyph, its name over a one-line description,
+        /// and the PLAYING tag on the right that only the active mode shows.</summary>
+        private ModeOption BuildModeOption(RectTransform root, GameMode mode, Vector2 anchoredPosition)
+        {
+            float contentWidth = ContentWidth;
+            RectTransform plateRect = BuildSelectablePlate(
+                root, $"ModeOption_{mode}", new Vector2(contentWidth, ROW_HEIGHT), anchoredPosition, out Selection selection);
+
+            int kind = ModeKind(mode);
+            RectTransform tileRect = BuildKindTile(plateRect, kind, new Vector2((-contentWidth * 0.5f) + ROW_PADDING_X + (TILE_SIZE * 0.5f), 0f));
+            BuildModeGlyph(tileRect, mode, kind);
+
+            float textX = (-contentWidth * 0.5f) + ROW_TEXT_INSET;
+            Text nameText = CreateLabel(
+                plateRect, "Name", MODE_NAME_FONT_SIZE, FontStyle.Normal, TextAnchor.MiddleLeft,
+                new Vector2(textX, MODE_NAME_RISE), _displayFont);
+            _inkTexts.Add(nameText);
+            RegisterLocalized(nameText, ModeNameKey(mode));
+
+            Text descriptionText = CreateLabel(
+                plateRect, "Description", DESCRIPTION_FONT_SIZE, FontStyle.Bold, TextAnchor.MiddleLeft,
+                new Vector2(textX, -MODE_DESCRIPTION_DROP));
+            _softInkTexts.Add(descriptionText);
+            RegisterLocalized(descriptionText, ModeDescriptionKey(mode));
+
+            // Painted by RefreshModeSelection rather than the ink bucket: it is accent or nothing.
+            Text playingText = CreateLabel(
+                plateRect, "Playing", LABEL_FONT_SIZE, FontStyle.Bold, TextAnchor.MiddleRight,
+                new Vector2((contentWidth * 0.5f) - ROW_PADDING_X, 0f));
+            RegisterLocalized(playingText, LocalizationKeys.SETTINGS_MODE_PLAYING, uppercase: true);
+
+            return new ModeOption(mode, plateRect, selection, playingText);
+        }
+
+        /// <summary>
+        /// The restart confirmation, a plate at the foot of the mode screen: "Switch to X?", a line
+        /// saying the run restarts, and KEEP PLAYING / RESTART. Hidden until a non-active mode is tapped.
+        /// </summary>
+        private void BuildConfirmCard(RectTransform root)
+        {
+            float contentWidth = ContentWidth;
+            float cardTop = _cardSize.y - WELL_INSET - WELL_PADDING_Y - CONFIRM_CARD_HEIGHT;
+            _confirmCardRect = BuildPlate(
+                root, "ConfirmCard", new Vector2(contentWidth, CONFIRM_CARD_HEIGHT), new Vector2(0f, TopY(cardTop, CONFIRM_CARD_HEIGHT)));
+
+            float leftX = (-contentWidth * 0.5f) + CONFIRM_PADDING;
+            float halfHeight = CONFIRM_CARD_HEIGHT * 0.5f;
+
+            _confirmTitleText = CreateLabel(
+                _confirmCardRect, "Title", CONFIRM_TITLE_FONT_SIZE, FontStyle.Normal, TextAnchor.MiddleLeft,
+                new Vector2(leftX, halfHeight - CONFIRM_TITLE_DROP), _displayFont);
+            _inkTexts.Add(_confirmTitleText);
+
+            Text body = CreateLabel(
+                _confirmCardRect, "Body", DESCRIPTION_FONT_SIZE, FontStyle.Bold, TextAnchor.MiddleLeft,
+                new Vector2(leftX, halfHeight - CONFIRM_BODY_DROP));
+            _softInkTexts.Add(body);
+            RegisterLocalized(body, LocalizationKeys.SETTINGS_CONFIRM_BODY);
+
+            float buttonWidth = (contentWidth - (CONFIRM_PADDING * 2f) - CONFIRM_BUTTON_GAP) * 0.5f;
+            var buttonSize = new Vector2(buttonWidth, CONFIRM_BUTTON_HEIGHT);
+            float buttonY = -halfHeight + CONFIRM_PADDING + (CONFIRM_BUTTON_HEIGHT * 0.5f);
+            float buttonOffsetX = (buttonWidth + CONFIRM_BUTTON_GAP) * 0.5f;
+
+            // KEEP PLAYING: the empty-cell pair with the tiles' lip — the quiet choice, on the left.
+            var noObject = new GameObject("ConfirmNo", typeof(RectTransform));
+            _confirmNoRect = (RectTransform)noObject.transform;
+            _confirmNoRect.SetParent(_confirmCardRect, false);
+            Centre(_confirmNoRect, buttonSize);
+            _confirmNoRect.anchoredPosition = new Vector2(-buttonOffsetX, buttonY);
+            _confirmNoLip = BuildRounded(_confirmNoRect, "Lip", buttonSize, Vector2.zero, PLATE_CORNER_RADIUS);
+            _confirmNoFace = BuildRounded(
+                _confirmNoRect, "Face", new Vector2(buttonWidth, CONFIRM_BUTTON_HEIGHT - TILE_LIP), new Vector2(0f, TILE_LIP * 0.5f), PLATE_CORNER_RADIUS);
+            _confirmNoText = CreateLabel(
+                _confirmNoRect, "Label", CONFIRM_BUTTON_FONT_SIZE, FontStyle.Normal, TextAnchor.MiddleCenter,
+                new Vector2(0f, BUTTON_LABEL_RISE), _displayFont);
+            RegisterLocalized(_confirmNoText, LocalizationKeys.SETTINGS_CONFIRM_NO, uppercase: true);
+
+            // RESTART: the glossy call-to-action, on the right.
+            _confirmYesRect = BuildGlossyButton(_confirmCardRect, "ConfirmYes", buttonSize, out _confirmYesPlate);
+            _confirmYesRect.anchoredPosition = new Vector2(buttonOffsetX, buttonY);
+            _confirmYesText = CreateLabel(
+                _confirmYesRect, "Label", CONFIRM_BUTTON_FONT_SIZE, FontStyle.Normal, TextAnchor.MiddleCenter,
+                new Vector2(0f, BUTTON_LABEL_RISE), _displayFont);
+            RegisterLocalized(_confirmYesText, LocalizationKeys.SETTINGS_CONFIRM_YES, uppercase: true);
+        }
+
+        private void BuildDurationScreen(RectTransform root)
+        {
+            _durationBackButtonRect = BuildSubHeader(root, LocalizationKeys.SETTINGS_DURATION_SCREEN_TITLE, null);
+
+            // Same grid idea as the theme cards, three across, so adding a duration to the config asset
+            // needs no change here.
+            IReadOnlyList<float> durations = _timedModeSystem.AvailableDurations;
+            float tileWidth = (ContentWidth - (OPTION_GAP * (DURATION_COLUMN_COUNT - 1))) / DURATION_COLUMN_COUNT;
+            var tileSize = new Vector2(tileWidth, ROW_HEIGHT);
+
+            for (int durationIndex = 0; durationIndex < durations.Count; durationIndex++)
+            {
+                int column = durationIndex % DURATION_COLUMN_COUNT;
+                int row = durationIndex / DURATION_COLUMN_COUNT;
+
+                float x = (column - ((DURATION_COLUMN_COUNT - 1) * 0.5f)) * (tileWidth + OPTION_GAP);
+                float y = TopY(SUB_CONTENT_TOP + (row * (ROW_HEIGHT + OPTION_GAP)), ROW_HEIGHT);
+
+                _durationOptions.Add(BuildDurationOption(root, durations[durationIndex], tileSize, new Vector2(x, y)));
+            }
+        }
+
+        private DurationOption BuildDurationOption(RectTransform root, float seconds, Vector2 tileSize, Vector2 anchoredPosition)
+        {
+            RectTransform plateRect = BuildSelectablePlate(
+                root, $"DurationOption_{Mathf.RoundToInt(seconds)}", tileSize, anchoredPosition, out Selection selection);
+
+            Text nameText = CreateLabel(
+                plateRect, "Name", OPTION_FONT_SIZE, FontStyle.Normal, TextAnchor.MiddleCenter, Vector2.zero, _displayFont);
+            _inkTexts.Add(nameText);
+            nameText.text = FormatDuration(seconds);
+
+            return new DurationOption(seconds, plateRect, selection, nameText);
+        }
+
+        /// <summary>
+        /// Built from <c>LocalizationModel.AvailableLocales</c> the same way the theme grid is built
+        /// from the theme catalogue, so shipping a language is a Locale asset plus its String Table
+        /// column — no change here.
+        /// </summary>
+        private void BuildLanguageScreen(RectTransform root)
+        {
+            _languageBackButtonRect = BuildSubHeader(root, LocalizationKeys.SETTINGS_LANGUAGE_SCREEN_TITLE, null);
+
+            IReadOnlyList<LocaleDefinition> locales = _localizationModel.AvailableLocales;
+            int built = 0;
+
+            for (int localeIndex = 0; localeIndex < locales.Count; localeIndex++)
+            {
+                LocaleDefinition locale = locales[localeIndex];
+                if (locale == null)
+                {
+                    continue;
+                }
+
+                float y = TopY(SUB_CONTENT_TOP + (built * (ROW_HEIGHT + ROW_GAP)), ROW_HEIGHT);
+                _languageOptions.Add(BuildLanguageOption(root, locale, new Vector2(0f, y)));
+                built++;
+            }
+        }
+
+        private LanguageOption BuildLanguageOption(RectTransform root, LocaleDefinition locale, Vector2 anchoredPosition)
+        {
+            float contentWidth = ContentWidth;
+            RectTransform plateRect = BuildSelectablePlate(
+                root, $"LanguageOption_{locale.Code}", new Vector2(contentWidth, ROW_HEIGHT), anchoredPosition, out Selection selection);
+
+            // Not a String Table lookup and deliberately never re-worded: a language is always
+            // labelled in its own language, so this plate reads the same in every locale.
+            Text nameText = CreateLabel(
+                plateRect, "Name", MODE_NAME_FONT_SIZE, FontStyle.Normal, TextAnchor.MiddleLeft,
+                new Vector2((-contentWidth * 0.5f) + ROW_PADDING_X + 8f, 0f), _displayFont);
+            _inkTexts.Add(nameText);
+            nameText.text = locale.DisplayName;
+
+            AddCheckDisc(plateRect, selection);
+            return new LanguageOption(locale.Code, plateRect, selection);
+        }
+
+        // ---------------------------------------------------------------------------- primitives
 
         /// <summary>
         /// Builds a wordless label. Callers fill it in, either through
@@ -1919,9 +2280,10 @@ namespace MustyBlockBlast.Presentation.Views
             int fontSize,
             FontStyle fontStyle,
             TextAnchor alignment,
-            Vector2 anchoredPosition)
+            Vector2 anchoredPosition,
+            Font font = null)
         {
-            Text text = UiTextFactory.Create(parent, objectName, fontSize, fontStyle, Color.clear);
+            Text text = UiTextFactory.Create(parent, objectName, fontSize, fontStyle, Color.clear, font);
             text.alignment = alignment;
 
             var rect = (RectTransform)text.transform;
@@ -1935,6 +2297,29 @@ namespace MustyBlockBlast.Presentation.Views
             return text;
         }
 
+        private static Image BuildRounded(RectTransform parent, string objectName, Vector2 size, Vector2 anchoredPosition, float radius)
+        {
+            var imageObject = new GameObject(objectName, typeof(RectTransform), typeof(Image));
+            var imageRect = (RectTransform)imageObject.transform;
+            imageRect.SetParent(parent, false);
+            Centre(imageRect, size);
+            imageRect.anchoredPosition = anchoredPosition;
+            return ConfigureRounded(imageObject.GetComponent<Image>(), radius);
+        }
+
+        private static Image BuildCircle(RectTransform parent, string objectName, float diameter, Vector2 anchoredPosition)
+            => BuildGlyph(parent, objectName, UiSpriteFactory.Circle, new Vector2(diameter, diameter), anchoredPosition);
+
+        private static Image BuildGlyph(RectTransform parent, string objectName, Sprite sprite, Vector2 size, Vector2 anchoredPosition)
+        {
+            var glyphObject = new GameObject(objectName, typeof(RectTransform), typeof(Image));
+            var glyphRect = (RectTransform)glyphObject.transform;
+            glyphRect.SetParent(parent, false);
+            Centre(glyphRect, size);
+            glyphRect.anchoredPosition = anchoredPosition;
+            return ConfigureGlyph(glyphObject.GetComponent<Image>(), sprite);
+        }
+
         private static void Centre(RectTransform rect, Vector2 size)
         {
             rect.anchorMin = new Vector2(0.5f, 0.5f);
@@ -1944,32 +2329,75 @@ namespace MustyBlockBlast.Presentation.Views
             rect.anchoredPosition = Vector2.zero;
         }
 
-        private static void ConfigureRounded(Image image)
+        /// <summary>Anchored Y of an element <paramref name="height"/> tall whose top edge sits
+        /// <paramref name="offsetFromTop"/> below the card's top edge.</summary>
+        private float TopY(float offsetFromTop, float height)
+            => (_cardSize.y * 0.5f) - offsetFromTop - (height * 0.5f);
+
+        // Raycasts stay off everywhere: taps arrive through BoardInputView's pointer action, not through
+        // an EventSystem, and this scene has none. Every rounded Image shares the one rounded-square
+        // sprite, sliced to its own radius, so the card batches with the rest of the HUD.
+        private static Image ConfigureRounded(Image image, float radius)
         {
             image.sprite = UiSpriteFactory.RoundedSquare;
             image.type = Image.Type.Sliced;
-            image.pixelsPerUnitMultiplier = 3f;
+            image.pixelsPerUnitMultiplier = UiSpriteFactory.ROUNDED_RADIUS / radius;
             image.color = Color.clear;
             image.raycastTarget = false;
+            return image;
         }
 
-        // The circle sprite has no border, so it must never be sliced.
-        private static void ConfigureCircle(Image image)
+        /// <summary>A non-interactive picture: aspect kept, no raycast, painted later. The circle and
+        /// check sprites have no border, so they must never be sliced.</summary>
+        private static Image ConfigureGlyph(Image image, Sprite sprite)
         {
-            image.sprite = UiSpriteFactory.Circle;
+            image.sprite = sprite;
             image.type = Image.Type.Simple;
+            image.preserveAspect = true;
             image.color = Color.clear;
             image.raycastTarget = false;
+            return image;
         }
 
-        /// <summary>One tappable swatch: its theme id plus the bits that repaint on selection.</summary>
+        /// <summary>The same hue, pulled toward black — a shade of the colour itself, not a blend with the
+        /// ink, so a blue-inked season still gets a gold shade rather than an olive one.</summary>
+        private static Color Darken(Color colour, float amount)
+            => new Color(colour.r * (1f - amount), colour.g * (1f - amount), colour.b * (1f - amount), colour.a);
+
+        private static Color WithAlpha(Color colour, float alphaScale)
+            => new Color(colour.r, colour.g, colour.b, colour.a * alphaScale);
+
+        // ---------------------------------------------------------------------------- option records
+
+        /// <summary>The parts of a choosable plate that repaint on selection: the ring, its gap and,
+        /// on the plates that have one, the check disc.</summary>
+        private sealed class Selection
+        {
+            internal Selection(Image ring, Image gap)
+            {
+                Ring = ring;
+                Gap = gap;
+            }
+
+            internal Image Ring { get; }
+
+            internal Image Gap { get; }
+
+            internal Image CheckLip { get; set; }
+
+            internal Image CheckDisc { get; set; }
+
+            internal Image CheckGlyph { get; set; }
+        }
+
+        /// <summary>One tappable theme card: its theme id plus the bits that repaint on selection.</summary>
         private sealed class ThemeOption
         {
-            internal ThemeOption(int themeId, RectTransform rect, Image borderImage, Text nameText)
+            internal ThemeOption(int themeId, RectTransform rect, Selection selection, Text nameText)
             {
                 ThemeId = themeId;
                 Rect = rect;
-                BorderImage = borderImage;
+                Selection = selection;
                 NameText = nameText;
             }
 
@@ -1977,59 +2405,56 @@ namespace MustyBlockBlast.Presentation.Views
 
             internal RectTransform Rect { get; }
 
-            internal Image BorderImage { get; }
+            internal Selection Selection { get; }
 
             internal Text NameText { get; }
         }
 
-        /// <summary>One tappable mode card: the mode it selects plus the bits that repaint on selection.</summary>
+        /// <summary>One tappable mode plate: the mode it selects plus the bits that repaint on selection.</summary>
         private sealed class ModeOption
         {
-            internal ModeOption(GameMode mode, RectTransform rect, Image borderImage, Text nameText)
+            internal ModeOption(GameMode mode, RectTransform rect, Selection selection, Text playingText)
             {
                 Mode = mode;
                 Rect = rect;
-                BorderImage = borderImage;
-                NameText = nameText;
+                Selection = selection;
+                PlayingText = playingText;
             }
 
             internal GameMode Mode { get; }
 
             internal RectTransform Rect { get; }
 
-            internal Image BorderImage { get; }
+            internal Selection Selection { get; }
 
-            internal Text NameText { get; }
+            internal Text PlayingText { get; }
         }
 
-        /// <summary>One tappable language chip: the locale it selects plus its selection visuals.</summary>
+        /// <summary>One tappable language plate: the locale it selects plus its selection visuals.</summary>
         private sealed class LanguageOption
         {
-            internal LanguageOption(string localeCode, RectTransform rect, Image borderImage, Text nameText)
+            internal LanguageOption(string localeCode, RectTransform rect, Selection selection)
             {
                 LocaleCode = localeCode;
                 Rect = rect;
-                BorderImage = borderImage;
-                NameText = nameText;
+                Selection = selection;
             }
 
             internal string LocaleCode { get; }
 
             internal RectTransform Rect { get; }
 
-            internal Image BorderImage { get; }
-
-            internal Text NameText { get; }
+            internal Selection Selection { get; }
         }
 
-        /// <summary>One tappable duration chip: the length it selects plus its selection visuals.</summary>
+        /// <summary>One tappable duration tile: the length it selects plus its selection visuals.</summary>
         private sealed class DurationOption
         {
-            internal DurationOption(float seconds, RectTransform rect, Image borderImage, Text nameText)
+            internal DurationOption(float seconds, RectTransform rect, Selection selection, Text nameText)
             {
                 Seconds = seconds;
                 Rect = rect;
-                BorderImage = borderImage;
+                Selection = selection;
                 NameText = nameText;
             }
 
@@ -2037,7 +2462,7 @@ namespace MustyBlockBlast.Presentation.Views
 
             internal RectTransform Rect { get; }
 
-            internal Image BorderImage { get; }
+            internal Selection Selection { get; }
 
             internal Text NameText { get; }
         }

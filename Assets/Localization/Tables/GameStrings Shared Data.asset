@@ -103,10 +103,6 @@ MonoBehaviour:
     m_Key: settings.duration_screen.title
     m_Metadata:
       m_Items: []
-  - m_Id: 766500881
-    m_Key: settings.confirm.title
-    m_Metadata:
-      m_Items: []
   - m_Id: 766500882
     m_Key: settings.confirm.body
     m_Metadata:
@@ -275,10 +271,6 @@ MonoBehaviour:
     m_Key: level_path.tap_hint
     m_Metadata:
       m_Items: []
-  - m_Id: 1253489991737344
-    m_Key: settings.row.remove_ads
-    m_Metadata:
-      m_Items: []
   - m_Id: 1253490004320256
     m_Key: settings.remove_ads.buy
     m_Metadata:
@@ -441,6 +433,46 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 1371178030587925
     m_Key: objective.colour_cleared
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587926
+    m_Key: settings.row.duration.timed_only
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587927
+    m_Key: settings.sound.on
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587928
+    m_Key: settings.sound.off
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587929
+    m_Key: settings.remove_ads.caption
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587930
+    m_Key: settings.theme_screen.hint
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587931
+    m_Key: settings.mode.playing
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587932
+    m_Key: settings.confirm.switch_title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587933
+    m_Key: mode.endless.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587934
+    m_Key: mode.timed.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587935
+    m_Key: mode.path.description
     m_Metadata:
       m_Items: []
   m_Metadata:

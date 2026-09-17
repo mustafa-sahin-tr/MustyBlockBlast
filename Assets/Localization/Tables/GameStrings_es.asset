@@ -106,20 +106,16 @@ MonoBehaviour:
     m_Localized: "Elige duraci\xF3n"
     m_Metadata:
       m_Items: []
-  - m_Id: 766500881
-    m_Localized: Cambiar modo
-    m_Metadata:
-      m_Items: []
   - m_Id: 766500882
-    m_Localized: "La partida se reiniciar\xE1. \xBFContinuar?"
+    m_Localized: "La partida actual se reinicia. Tu mejor puntuaci\u00F3n se mantiene."
     m_Metadata:
       m_Items: []
   - m_Id: 766500883
-    m_Localized: "S\xED, empezar"
+    m_Localized: "Reiniciar"
     m_Metadata:
       m_Items: []
   - m_Id: 766500884
-    m_Localized: Cancelar
+    m_Localized: "Seguir jugando"
     m_Metadata:
       m_Items: []
   - m_Id: 10990476320768
@@ -278,16 +274,12 @@ MonoBehaviour:
     m_Localized: Toca un nivel desbloqueado para jugarlo
     m_Metadata:
       m_Items: []
-  - m_Id: 1253489991737344
-    m_Localized: Quitar anuncios
-    m_Metadata:
-      m_Items: []
   - m_Id: 1253490004320256
-    m_Localized: COMPRAR
+    m_Localized: "Quitar anuncios"
     m_Metadata:
       m_Items: []
   - m_Id: 1253490004320257
-    m_Localized: ADQUIRIDO
+    m_Localized: "Anuncios eliminados \u00B7 gracias por apoyar el juego"
     m_Metadata:
       m_Items: []
   - m_Id: 1292508796542976
@@ -444,6 +436,46 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 1371178030587925
     m_Localized: Elimina bloques {0}
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587926
+    m_Localized: "Solo en modo contrarreloj"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587927
+    m_Localized: "Activado"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587928
+    m_Localized: "Desactivado"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587929
+    m_Localized: "Anuncios \u00B7 compra \u00FAnica"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587930
+    m_Localized: "Recolorea todo"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587931
+    m_Localized: "Jugando"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587932
+    m_Localized: "\u00BFCambiar a {0}?"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587933
+    m_Localized: "Juega hasta que se llene el tablero. Persigue tu mejor puntuaci\u00F3n."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587934
+    m_Localized: "Consigue todos los puntos que puedas antes de que se acabe el tiempo."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587935
+    m_Localized: "Completa un objetivo por nivel a lo largo de la ruta."
     m_Metadata:
       m_Items: []
   references:
