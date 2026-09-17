@@ -13,8 +13,9 @@ namespace MustyBlockBlast.Presentation.Views
 {
     /// <summary>
     /// The badges overlay: the whole lifetime-achievement wall as a grid of tiles, each locked or
-    /// unlocked, each showing how close the player is. Read-only — a tile is a status light, not a
-    /// button, so tapping one deliberately does nothing.
+    /// unlocked, each with its authored icon (see <see cref="BadgeConfig.Icon"/>), its name and how
+    /// close the player is. Read-only — a tile is a status light, not a button, so tapping one
+    /// deliberately does nothing.
     /// <para>
     /// Unpaged, unlike <see cref="LevelPathPanelView"/>: the authored set is small enough to fit the
     /// card in one 2x5 grid, and a wall you have to page through stops reading as a wall. Should the
@@ -57,6 +58,17 @@ namespace MustyBlockBlast.Presentation.Views
         private const float TILE_SPACING_Y = 172f;
         private const float TILE_TEXT_INSET = 26f;
         private const float TILE_DOT_SIZE = 28f;
+
+        /// <summary>The badge's icon disc on the tile's left, and the glyph drawn inside it. Sized so the
+        /// disc nearly fills the tile's height, as a medal would, and the name and counter sit to its
+        /// right.</summary>
+        private const float TILE_ICON_DISC_SIZE = 104f;
+        private const float TILE_ICON_GLYPH_SIZE = 64f;
+        private const float TILE_ICON_TEXT_GAP = 18f;
+
+        /// <summary>How far a locked tile's icon disc is tinted from the card towards the ink, so it
+        /// still separates from the (already tinted) locked plate behind it.</summary>
+        private const float LOCKED_DISC_TINT = 0.06f;
 
         /// <summary>
         /// Alpha applied to a locked tile. Deliberately the same dim <see cref="LevelPathPanelView"/>
@@ -107,11 +119,14 @@ namespace MustyBlockBlast.Presentation.Views
         private sealed class BadgeTile
         {
             internal BadgeTile(
-                RectTransform root, Image plateImage, Image shadowImage, Image doneDot, Text titleText, Text progressText)
+                RectTransform root, Image plateImage, Image shadowImage, Image iconDisc, Image iconGlyph,
+                Image doneDot, Text titleText, Text progressText)
             {
                 Root = root;
                 PlateImage = plateImage;
                 ShadowImage = shadowImage;
+                IconDisc = iconDisc;
+                IconGlyph = iconGlyph;
                 DoneDot = doneDot;
                 TitleText = titleText;
                 ProgressText = progressText;
@@ -122,6 +137,10 @@ namespace MustyBlockBlast.Presentation.Views
             internal Image PlateImage { get; }
 
             internal Image ShadowImage { get; }
+
+            internal Image IconDisc { get; }
+
+            internal Image IconGlyph { get; }
 
             internal Image DoneDot { get; }
 
@@ -312,23 +331,29 @@ namespace MustyBlockBlast.Presentation.Views
             tile.ShadowImage.color = WithAlpha(_currentTheme.CardShadow, alpha);
             tile.DoneDot.color = isUnlocked ? _currentTheme.CardBackground : Color.clear;
 
+            // The disc is always the card's own colour so the glyph has a calm ground on both plates;
+            // the glyph takes the accent once earned and the ink while it is still a goal.
+            BadgeConfig config = _badgeCatalog.Find(progress.Definition.Id);
+            Sprite icon = config != null ? config.Icon : null;
+            tile.IconDisc.color = WithAlpha(
+                isUnlocked
+                    ? _currentTheme.CardBackground
+                    : Color.Lerp(_currentTheme.CardBackground, _currentTheme.Ink, LOCKED_DISC_TINT),
+                alpha);
+            tile.IconGlyph.sprite = icon;
+            tile.IconGlyph.color = icon == null
+                ? Color.clear
+                : WithAlpha(isUnlocked ? _currentTheme.Accent : _currentTheme.Ink, alpha);
+
             tile.TitleText.color = WithAlpha(
                 isUnlocked ? _currentTheme.CardBackground : _currentTheme.Ink, alpha);
-            tile.TitleText.text = DisplayNameOf(progress.Definition.Id);
+            tile.TitleText.text = config != null && !string.IsNullOrEmpty(config.DisplayName)
+                ? config.DisplayName
+                : progress.Definition.Id;
 
             tile.ProgressText.color = WithAlpha(
                 isUnlocked ? _currentTheme.CardBackground : _currentTheme.SoftInk, alpha);
             tile.ProgressText.text = FormatCounter(progress.CurrentValue, progress.Definition.Threshold);
-        }
-
-        /// <summary>
-        /// The authored name for a badge. Falls back to the id, which is always present and always
-        /// unique, rather than to an empty tile that would read as a bug.
-        /// </summary>
-        private string DisplayNameOf(string badgeId)
-        {
-            BadgeConfig config = _badgeCatalog.Find(badgeId);
-            return config != null && !string.IsNullOrEmpty(config.DisplayName) ? config.DisplayName : badgeId;
         }
 
         private string FormatCounter(long value, long total)
@@ -424,7 +449,27 @@ namespace MustyBlockBlast.Presentation.Views
             var plateImage = plateObject.GetComponent<Image>();
             ConfigureRounded(plateImage);
 
-            float textX = (-TILE_WIDTH * 0.5f) + TILE_TEXT_INSET;
+            float discX = (-TILE_WIDTH * 0.5f) + TILE_TEXT_INSET + (TILE_ICON_DISC_SIZE * 0.5f);
+
+            var discObject = new GameObject("IconDisc", typeof(RectTransform), typeof(Image));
+            var discRect = (RectTransform)discObject.transform;
+            discRect.SetParent(tileRect, false);
+            Centre(discRect, new Vector2(TILE_ICON_DISC_SIZE, TILE_ICON_DISC_SIZE));
+            discRect.anchoredPosition = new Vector2(discX, 0f);
+            var discImage = discObject.GetComponent<Image>();
+            ConfigureCircle(discImage);
+
+            var glyphObject = new GameObject("IconGlyph", typeof(RectTransform), typeof(Image));
+            var glyphRect = (RectTransform)glyphObject.transform;
+            glyphRect.SetParent(discRect, false);
+            Centre(glyphRect, new Vector2(TILE_ICON_GLYPH_SIZE, TILE_ICON_GLYPH_SIZE));
+            var glyphImage = glyphObject.GetComponent<Image>();
+            glyphImage.type = Image.Type.Simple;
+            glyphImage.preserveAspect = true;
+            glyphImage.color = Color.clear;
+            glyphImage.raycastTarget = false;
+
+            float textX = discX + (TILE_ICON_DISC_SIZE * 0.5f) + TILE_ICON_TEXT_GAP;
 
             Text titleText = CreateLabel(
                 tileRect, "Title", _titleFontSize, FontStyle.Bold, TextAnchor.MiddleLeft,
@@ -434,17 +479,18 @@ namespace MustyBlockBlast.Presentation.Views
                 tileRect, "Progress", _progressFontSize, FontStyle.Normal, TextAnchor.MiddleLeft,
                 new Vector2(textX, -26f));
 
-            // Same filled dot the objective HUD and the level path use for "done", in the corner so it
-            // never crowds the name.
+            // Same filled dot the objective HUD and the level path use for "done", tucked into the
+            // top-right corner so even the longest name has the full text row to itself.
             var dotObject = new GameObject("DoneDot", typeof(RectTransform), typeof(Image));
             var dotRect = (RectTransform)dotObject.transform;
             dotRect.SetParent(tileRect, false);
             Centre(dotRect, new Vector2(TILE_DOT_SIZE, TILE_DOT_SIZE));
-            dotRect.anchoredPosition = new Vector2((TILE_WIDTH * 0.5f) - 30f, 0f);
+            dotRect.anchoredPosition = new Vector2((TILE_WIDTH * 0.5f) - 24f, (TILE_HEIGHT * 0.5f) - 24f);
             var dotImage = dotObject.GetComponent<Image>();
             ConfigureCircle(dotImage);
 
-            return new BadgeTile(tileRect, plateImage, shadowImage, dotImage, titleText, progressText);
+            return new BadgeTile(
+                tileRect, plateImage, shadowImage, discImage, glyphImage, dotImage, titleText, progressText);
         }
 
         /// <summary>Two bars crossed at right angles — the close glyph, as on the other two cards.</summary>

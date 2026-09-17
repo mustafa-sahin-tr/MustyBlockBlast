@@ -26,6 +26,10 @@ namespace MustyBlockBlast.Gameplay.Settings
         [Tooltip("Name shown on the badge tile. Authored content, not a String Table key.")]
         [SerializeField] private string _displayName = "Badge";
 
+        [Tooltip("White-on-transparent glyph shown on the badge tile, tinted at runtime from the theme. "
+            + "Authored content like the name; a badge without one draws no glyph.")]
+        [SerializeField] private Sprite _icon;
+
         [Tooltip("Which lifetime counter this badge watches.")]
         [SerializeField] private BadgeStatType _statType = BadgeStatType.TotalPiecesPlaced;
 
@@ -39,6 +43,9 @@ namespace MustyBlockBlast.Gameplay.Settings
         public string Id => _id;
 
         public string DisplayName => _displayName;
+
+        /// <summary>The tile glyph, or null when none is authored.</summary>
+        public Sprite Icon => _icon;
 
         public BadgeStatType StatType => _statType;
 
