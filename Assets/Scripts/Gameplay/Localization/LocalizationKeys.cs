@@ -85,6 +85,10 @@ namespace MustyBlockBlast.Gameplay.Localization
         /// <summary>Dismiss hint at the foot of the result card.</summary>
         public const string RUN_RESULT_TAP_HINT = "result.tap_hint";
 
+        /// <summary>Heading over the badges unlocked this run on the result card, which doubles as the
+        /// tap-to-claim instruction. Shown only when there is at least one (issue #221).</summary>
+        public const string RUN_RESULT_BADGES_TITLE = "result.badges_title";
+
         // --- Game modes ---
 
         public const string MODE_ENDLESS = "mode.endless";

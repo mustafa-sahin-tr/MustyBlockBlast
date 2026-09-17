@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using MessagePipe;
 using MustyBlockBlast.Core;
+using MustyBlockBlast.Gameplay.Messages;
 using MustyBlockBlast.Gameplay.Models;
 using MustyBlockBlast.Gameplay.Reactive;
 using MustyBlockBlast.Gameplay.Settings;
@@ -18,6 +20,11 @@ namespace MustyBlockBlast.Gameplay.Systems
     /// The coins are paid by <see cref="ClaimReward"/>, which a tap on the badge's tile reaches, and
     /// they go through <see cref="CurrencySystem"/> because that class is the one and only writer of
     /// the coin balance — this one never touches <see cref="ProfileModel"/> directly.
+    /// </para>
+    /// <para>
+    /// Each unlock is also announced as a <see cref="BadgeUnlockedMessage"/> and remembered in
+    /// <see cref="BadgeModel.UnlockedThisRun"/> until the next <see cref="RunStartedMessage"/>, which
+    /// is what lets the end-of-run result screen list exactly this run's badges (issue #221).
     /// </para>
     /// <para>
     /// Paying exactly once is structural rather than checked: <see cref="BadgeProgress.Evaluate"/> is
@@ -40,24 +47,37 @@ namespace MustyBlockBlast.Gameplay.Systems
 
         private readonly BadgeModel _badgeModel;
         private readonly CurrencySystem _currencySystem;
+        private readonly IPublisher<BadgeUnlockedMessage> _unlockedPublisher;
         private readonly BadgeSaveData _saveData;
         private readonly CompositeDisposable _disposables = new CompositeDisposable();
+        private readonly IDisposable _runStartedSubscription;
 
         /// <summary>Coin reward per tracked badge, index-aligned with <see cref="BadgeModel.Badges"/>.
         /// Held here so a claim does not have to scan the catalog for its own payout.</summary>
         private readonly List<int> _coinRewards = new List<int>();
 
+        /// <summary>Ids latched by the counter move being handled, reused across calls so the hot
+        /// placement path allocates nothing. Only ever non-empty inside <see cref="OnStatChanged"/>.</summary>
+        private readonly List<string> _justUnlocked = new List<string>();
+
         public BadgeSystem(
             BadgeModel badgeModel,
             BadgeStatsModel statsModel,
             BadgeCatalog badgeCatalog,
-            CurrencySystem currencySystem)
+            CurrencySystem currencySystem,
+            IPublisher<BadgeUnlockedMessage> unlockedPublisher,
+            ISubscriber<RunStartedMessage> runStartedSubscriber)
         {
             _badgeModel = badgeModel;
             _currencySystem = currencySystem;
+            _unlockedPublisher = unlockedPublisher;
             _saveData = Load();
 
             BuildBadges(badgeCatalog);
+
+            // A run's unlock list belongs to that run alone. Cleared on the start of the next one
+            // rather than on game over, because the result screen reads it *after* game over.
+            _runStartedSubscription = runStartedSubscriber.Subscribe(OnRunStarted);
 
             // Subscribing last, and only after the save file has re-latched every already-unlocked
             // badge: ReactiveProperty.Subscribe fires immediately with the current value, so this is
@@ -71,7 +91,11 @@ namespace MustyBlockBlast.Gameplay.Systems
             Watch(statsModel.TotalPowerUpsApplied, BadgeStatType.TotalPowerUpsApplied);
         }
 
-        public void Dispose() => _disposables.Dispose();
+        public void Dispose()
+        {
+            _disposables.Dispose();
+            _runStartedSubscription.Dispose();
+        }
 
         /// <summary>
         /// Coins <paramref name="badgeId"/> pays when claimed, or zero for an unknown badge. Read by
@@ -176,7 +200,7 @@ namespace MustyBlockBlast.Gameplay.Systems
         private void OnStatChanged(BadgeStatType statType, long value)
         {
             IReadOnlyList<BadgeProgress> badges = _badgeModel.Badges;
-            bool anyUnlocked = false;
+            _justUnlocked.Clear();
 
             for (int badgeIndex = 0; badgeIndex < badges.Count; badgeIndex++)
             {
@@ -192,18 +216,31 @@ namespace MustyBlockBlast.Gameplay.Systems
                 }
 
                 _saveData.unlockedBadgeIds.Add(progress.Definition.Id);
-                anyUnlocked = true;
+                _badgeModel.AddUnlockedThisRun(progress.Definition.Id);
+                _justUnlocked.Add(progress.Definition.Id);
+            }
+
+            if (_justUnlocked.Count == 0)
+            {
+                return;
             }
 
             // One write however many badges fell at once, and none at all on the overwhelmingly common
             // "counter moved, nothing unlocked" path. Flushed here so the unlock is on the disk before
-            // the tile that lets the player claim it can even be drawn.
-            if (anyUnlocked)
+            // the tile that lets the player claim it can even be drawn — and before it is announced,
+            // so no listener can act on an unlock the disk does not know about yet.
+            Save();
+            _badgeModel.Revision.Value += 1;
+
+            for (int unlockedIndex = 0; unlockedIndex < _justUnlocked.Count; unlockedIndex++)
             {
-                Save();
-                _badgeModel.Revision.Value += 1;
+                _unlockedPublisher.Publish(new BadgeUnlockedMessage(_justUnlocked[unlockedIndex]));
             }
+
+            _justUnlocked.Clear();
         }
+
+        private void OnRunStarted(RunStartedMessage message) => _badgeModel.ClearUnlockedThisRun();
 
         private bool IsClaimableAt(int badgeIndex)
         {

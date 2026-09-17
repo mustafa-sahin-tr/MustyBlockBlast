@@ -438,6 +438,10 @@ MonoBehaviour:
     m_Localized: Tap to continue
     m_Metadata:
       m_Items: []
+  - m_Id: 1371178030587924
+    m_Localized: "New badges \u2014 tap to claim"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []
