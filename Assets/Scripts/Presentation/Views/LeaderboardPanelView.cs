@@ -220,6 +220,21 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>True while the panel is showing. Read by <see cref="BoardInputView"/>.</summary>
         internal bool IsOpen => _panel != null && _panel.activeSelf;
 
+        /// <summary>The card's own rect, current size included. Read by <see cref="HubPanelView"/> to
+        /// sit its tab bar flush against whichever card is open, rather than at a fixed offset that
+        /// would gap open against a shorter card.</summary>
+        internal RectTransform CardRect => _cardRect;
+
+        /// <summary>This card's own close cross. Hidden by <see cref="HubPanelView"/> once opened
+        /// there, since the hub's own header now carries the one close button for whichever tab is
+        /// open.</summary>
+        internal RectTransform CloseButtonRect => _closeButtonRect;
+
+        /// <summary>This card's own title, which just repeats the tab it belongs to. Hidden by
+        /// <see cref="HubPanelView"/> once opened there, since the hub's own header now says the same
+        /// thing.</summary>
+        internal Text HeaderTitleText => _headerText;
+
         /// <summary>
         /// Shows the panel and asks for fresh standings. Re-opening never double-pauses the clock: an
         /// already-open panel returns immediately.
@@ -286,7 +301,12 @@ namespace MustyBlockBlast.Presentation.Views
             Close();
         }
 
-        private void Close()
+        /// <summary>
+        /// Shuts the card and releases the menu pause. Reachable by <c>HubPanelView</c>, which shuts the
+        /// outgoing card when the player switches tabs; every other caller is this class's own dismiss
+        /// paths.
+        /// </summary>
+        internal void Close()
         {
             _panel.SetActive(false);
             _timerRunSystem.SetMenuPaused(false);

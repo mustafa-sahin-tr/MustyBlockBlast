@@ -201,6 +201,7 @@ namespace MustyBlockBlast.Presentation.Views
 
         private Image _listImage;
         private RectTransform _closeButtonRect;
+        private Text _titleText;
         private RectTransform _modeRowRect;
         private RectTransform _themeRowRect;
         private RectTransform _soundRowRect;
@@ -328,6 +329,23 @@ namespace MustyBlockBlast.Presentation.Views
 
         /// <summary>True while the panel is showing. Read by <see cref="BoardInputView"/>.</summary>
         internal bool IsOpen => _panel != null && _panel.activeSelf;
+
+        /// <summary>The card's own rect, current size included. Read by <see cref="HubPanelView"/> to
+        /// sit its tab bar flush against whichever card is open, rather than at a fixed offset that
+        /// would gap open against a shorter card.</summary>
+        internal RectTransform CardRect => _cardRect;
+
+        /// <summary>This card's own close cross, on the Settings screen specifically — the only one of
+        /// its six screens with one; the others navigate back with a chevron instead. Hidden by
+        /// <see cref="HubPanelView"/> once opened there, since the hub's own header now carries the one
+        /// close button for whichever tab is open.</summary>
+        internal RectTransform CloseButtonRect => _closeButtonRect;
+
+        /// <summary>This card's own title, on the Settings screen specifically — its localized name.
+        /// Hidden by <see cref="HubPanelView"/> once opened there, since the hub's own header now says
+        /// the same thing (unlocalized, unlike this one — see <see cref="HubPanelView"/>'s own remarks
+        /// on that trade-off).</summary>
+        internal Text HeaderTitleText => _titleText;
 
         /// <summary>
         /// Shows the panel on top of everything else, including the game-over card. Always lands on
@@ -616,7 +634,12 @@ namespace MustyBlockBlast.Presentation.Views
             return false;
         }
 
-        private void Close()
+        /// <summary>
+        /// Shuts the card and releases the menu pause. Reachable by <c>HubPanelView</c>, which shuts the
+        /// outgoing card when the player switches tabs; every other caller is this class's own dismiss
+        /// paths.
+        /// </summary>
+        internal void Close()
         {
             _panel.SetActive(false);
             _timerRunSystem.SetMenuPaused(false);
@@ -1038,11 +1061,11 @@ namespace MustyBlockBlast.Presentation.Views
             float headerY = cardHalfHeight - HEADER_INSET;
             float halfWidth = SettingsCardSize.x * 0.5f;
 
-            Text title = CreateLabel(
+            _titleText = CreateLabel(
                 root, "Title", 64, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(-halfWidth + SIDE_INSET, headerY));
-            _inkTexts.Add(title);
-            RegisterLocalized(title, LocalizationKeys.SETTINGS_TITLE);
+            _inkTexts.Add(_titleText);
+            RegisterLocalized(_titleText, LocalizationKeys.SETTINGS_TITLE);
 
             BuildCloseButton(
                 root,

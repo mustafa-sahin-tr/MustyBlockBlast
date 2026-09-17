@@ -18,7 +18,7 @@ namespace MustyBlockBlast.Presentation.Views
     /// </para>
     /// <para>
     /// Some glyphs punch a hole — a "core" drawn in the backing plate's colour over a larger shape, the
-    /// same trick <see cref="BadgesButtonView"/>'s medal uses. Those Images go into a second bucket so
+    /// same trick <see cref="HubPanelView"/>'s tab glyphs use. Those Images go into a second bucket so
     /// the caller repaints them with the plate colour instead of the ink colour.
     /// </para>
     /// </summary>
