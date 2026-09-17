@@ -15,7 +15,7 @@ using VContainer;
 namespace MustyBlockBlast.Presentation.Views
 {
     /// <summary>
-    /// The power-up shop, drawn as a carnival stall (issue #234): a striped awning over a cream card,
+    /// The power-up shop, drawn as a carnival stall (issue #234) under the hub's striped awning: a cream card,
     /// the balance on a dark plate, three chunky sub-tabs, and a scrolling two-column grid of item
     /// cards — one per <see cref="PowerUpKind"/> — each with a glossy tinted tile, the kind's glyph,
     /// a one-line description, a held-count badge and a 3D price button. Shown as the shop tab of
@@ -113,20 +113,20 @@ namespace MustyBlockBlast.Presentation.Views
         // Layout, in canvas reference pixels, on the 880-wide card the other hub cards share. Offsets
         // are measured down from the card's top edge; TopY turns them into anchored positions.
         private const float SIDE_INSET = 24f;
-        private const float AWNING_TOP = 4f;
-        private const float AWNING_HEIGHT = 112f;
-        private const float BALANCE_TOP = 128f;
+        // No awning of its own any more: the stall's canopy is the hub's, drawn once above the tab
+        // bar for every tab (issue #235), so the card starts straight at the balance strip.
+        private const float BALANCE_TOP = 24f;
         private const float BALANCE_HEIGHT = 80f;
         private const float BALANCE_CORNER_RADIUS = 18f;
         private const float BALANCE_COIN_SIZE = 56f;
         private const float BALANCE_PADDING = 14f;
         private const float EARN_BUTTON_WIDTH = 300f;
         private const float EARN_BUTTON_HEIGHT = 60f;
-        private const float TABS_TOP = 224f;
+        private const float TABS_TOP = 120f;
         private const float TAB_HEIGHT = 72f;
         private const float TAB_GAP = 12f;
         private const int TAB_COUNT = 3;
-        private const float VIEWPORT_TOP = 312f;
+        private const float VIEWPORT_TOP = 208f;
         private const float VIEWPORT_BOTTOM_INSET = 24f;
         private const float ICON_BUTTON_SIZE = 92f;
         private const float HEADER_INSET = 84f;
@@ -289,9 +289,6 @@ namespace MustyBlockBlast.Presentation.Views
         [Tooltip("White glossy rounded tile behind each glyph. Tinted at runtime per kind.")]
         [SerializeField] private Sprite _tileSprite;
 
-        [Tooltip("The striped awning drawn across the top of the card.")]
-        [SerializeField] private Sprite _awningSprite;
-
         [Tooltip("White-on-transparent padlock glyph for a locked card's button.")]
         [SerializeField] private Sprite _lockSprite;
 
@@ -343,7 +340,6 @@ namespace MustyBlockBlast.Presentation.Views
         private Image _closeBarB;
         private Text _headerText;
 
-        private Image _awningImage;
         private Image _balancePlate;
         private Image _balanceCoin;
         private Text _balanceText;
@@ -969,7 +965,7 @@ namespace MustyBlockBlast.Presentation.Views
         // ---------------------------------------------------------------- painting the static chrome
 
         /// <summary>Paints everything that is neither a model value nor a card state: the card, the
-        /// awning, the balance strip, the tabs, the placeholder and the toast. Once, from the palette.</summary>
+        /// balance strip, the tabs, the placeholder and the toast. Once, from the palette.</summary>
         private void PaintChrome()
         {
             _cardImage.color = _palette.CardFace;
@@ -978,7 +974,6 @@ namespace MustyBlockBlast.Presentation.Views
             _closeBarA.color = _palette.DarkPlate;
             _closeBarB.color = _palette.DarkPlate;
 
-            _awningImage.color = Color.white;
             _balancePlate.color = _palette.DarkPlate;
             _balanceCoin.color = Color.white;
             _balanceText.color = _palette.CoinYellow;
@@ -1116,7 +1111,6 @@ namespace MustyBlockBlast.Presentation.Views
                 new Vector2(0f, (_cardSize.y * 0.5f) - (HEADER_INSET * 0.5f));
             _headerText.text = HEADER_TEXT;
 
-            BuildAwning();
             BuildBalanceStrip(_cardRect);
             BuildTabs(_cardRect);
             BuildViewport(_cardRect);
@@ -1125,22 +1119,6 @@ namespace MustyBlockBlast.Presentation.Views
             BuildCloseButton();
 
             _panel = panelObject;
-        }
-
-        private void BuildAwning()
-        {
-            var awningObject = new GameObject("Awning", typeof(RectTransform), typeof(Image));
-            var awningRect = (RectTransform)awningObject.transform;
-            awningRect.SetParent(_cardRect, false);
-            Centre(awningRect, new Vector2(_cardSize.x - (SIDE_INSET * 2f) + 8f, AWNING_HEIGHT));
-            awningRect.anchoredPosition = new Vector2(0f, TopY(AWNING_TOP, AWNING_HEIGHT));
-
-            _awningImage = awningObject.GetComponent<Image>();
-            _awningImage.sprite = _awningSprite;
-            _awningImage.type = Image.Type.Simple;
-            _awningImage.preserveAspect = false;
-            _awningImage.color = Color.clear;
-            _awningImage.raycastTarget = false;
         }
 
         /// <summary>The dark plate with the coin and the balance on the left and the earn button on the

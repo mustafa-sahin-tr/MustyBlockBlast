@@ -15,8 +15,9 @@ namespace MustyBlockBlast.Presentation.Views
     /// persistent HUD icon. The settings cog is now the only way in, and it lands on
     /// <see cref="HubTab.Settings"/> — so every section is exactly two taps from the board.
     /// <para>
-    /// This View owns no content of its own beyond a header (the active tab's name and the one close
-    /// button that now shuts the hub, whichever tab is open) and the tab bar beneath it. Each tab
+    /// This View owns no content of its own beyond a header (the striped awning across the top, the
+    /// active tab's name and the one round close button that now shuts the hub, whichever tab is
+    /// open) and the tab bar beneath it. Each tab
     /// *is* the existing panel View, opened and closed unchanged, which is what keeps this a
     /// navigation change rather than five screen rewrites — each card's own title and close button
     /// are simply hidden once it is opened here, since the header above now says both. It is the
@@ -83,10 +84,40 @@ namespace MustyBlockBlast.Presentation.Views
         /// to read as one surface, not as two plates touching at a knife edge.</summary>
         private const float BAR_CARD_OVERLAP = 2f;
 
-        private const float HEADER_HEIGHT = 120f;
-        private const float HEADER_SIDE_INSET = 44f;
-        private const float HEADER_CLOSE_SIZE = 88f;
-        private const int HEADER_FONT_SIZE = 56;
+        /// <summary>The striped awning across the very top of the hub (issue #235): the stall's canopy,
+        /// drawn once here above the tab bar rather than inside any one card, so every tab sits under
+        /// the same canopy. Its height is the sprite's aspect at the 880-wide card.</summary>
+        private const float AWNING_HEIGHT = 108f;
+
+        /// <summary>The awning outgrows the header plate a little on each side so its scalloped edge
+        /// hangs over the plate's rounded corners instead of stopping short of them.</summary>
+        private const float AWNING_OVERHANG = 6f;
+
+        /// <summary>The title row under the awning: the active tab's name, centred.</summary>
+        private const float TITLE_ROW_HEIGHT = 112f;
+
+        private const float HEADER_HEIGHT = AWNING_HEIGHT + TITLE_ROW_HEIGHT;
+        private const float HEADER_CLOSE_SIZE = 96f;
+
+        /// <summary>How far the round close button's centre sits in from the header's top-right corner,
+        /// so the disc overlaps the corner the way the reference's does.</summary>
+        private const float HEADER_CLOSE_CORNER_INSET = 40f;
+        private const int HEADER_FONT_SIZE = 60;
+
+        /// <summary>How much shorter an inactive tab plate is than the active one. The active tab is
+        /// the full <see cref="_tabSize"/>; its siblings drop this much from their top edge, so the
+        /// selected tab reads as lifted above the row (issue #235).</summary>
+        private const float TAB_INACTIVE_DROP = 16f;
+
+        /// <summary>Height of the solid lip drawn under every tab plate — a shade of the plate's own
+        /// colour, so the tab reads as a chunky 3D key rather than a flat swatch.</summary>
+        private const float TAB_LIP_HEIGHT = 8f;
+
+        /// <summary>How far the accent is pulled toward black for the active tab's lip and the title:
+        /// the accent's own shade, derived rather than taken from a kind (the kinds' hues are ordered
+        /// differently in every season's palette) and not blended with Ink (a blue ink would turn the
+        /// gold olive).</summary>
+        private const float ACCENT_SHADE = 0.35f;
 
         /// <summary>Mean of the five cards' own configured heights. Used only to pick a resting
         /// position for the header+bar that reads as vertically centred for a typical tab — actual
@@ -115,6 +146,15 @@ namespace MustyBlockBlast.Presentation.Views
 
         [Tooltip("Size of the glyph box inside a tab plate, in reference pixels.")]
         [SerializeField] private float _glyphSize = 68f;
+
+        [Header("Art")]
+        [Tooltip("The chunky display face for the header title. Falls back to the built-in runtime font "
+            + "when unassigned.")]
+        [SerializeField] private Font _displayFont;
+
+        [Tooltip("The striped awning drawn across the top of the hub, above the tab bar. Shared with the "
+            + "shop's stall art; drawn untinted.")]
+        [SerializeField] private Sprite _awningSprite;
 
         [Header("Tab icons")]
         [Tooltip("White-on-transparent glyphs, one per HubTab in declaration order (Settings, Power-up Shop, "
@@ -145,7 +185,10 @@ namespace MustyBlockBlast.Presentation.Views
         private Image _headerPlateImage;
         private Text _headerTitleText;
         private RectTransform _headerCloseRect;
+        private Image _headerCloseDisc;
+        private Image _headerCloseDiscShadow;
         private Image[] _headerCloseInk;
+        private Image _awningImage;
 
         private ThemeDefinition _currentTheme;
 
@@ -282,6 +325,18 @@ namespace MustyBlockBlast.Presentation.Views
                     SelectTab(_tabs[tabIndex].Tab);
                     return;
                 }
+            }
+
+            // The profile card's badge preview is a shortcut into the Badges tab (issue #235). Tested
+            // here, not in the profile card, because switching tabs is the hub's move and the card
+            // must not reach up into the hub that opened it.
+            if (_activeTab == HubTab.Profile
+                && _profilePanelView.BadgeWallRect != null
+                && RectTransformUtility.RectangleContainsScreenPoint(
+                    _profilePanelView.BadgeWallRect, screenPosition, eventCamera))
+            {
+                SelectTab(HubTab.Badges);
+                return;
             }
 
             HandlePanelTap(_activeTab, screenPosition);
@@ -465,10 +520,12 @@ namespace MustyBlockBlast.Presentation.Views
             _headerRect.sizeDelta = new Vector2(cardWidth, _headerRect.sizeDelta.y);
             _headerPlateImage.rectTransform.sizeDelta = new Vector2(cardWidth, _headerPlateImage.rectTransform.sizeDelta.y);
 
+            _awningImage.rectTransform.sizeDelta =
+                new Vector2(cardWidth + (AWNING_OVERHANG * 2f), _awningImage.rectTransform.sizeDelta.y);
+
             float headerHalfWidth = cardWidth * 0.5f;
-            ((RectTransform)_headerTitleText.transform).anchoredPosition =
-                new Vector2(-headerHalfWidth + HEADER_SIDE_INSET, 0f);
-            _headerCloseRect.anchoredPosition = new Vector2(headerHalfWidth - HEADER_SIDE_INSET, 0f);
+            _headerCloseRect.anchoredPosition = new Vector2(
+                headerHalfWidth - HEADER_CLOSE_CORNER_INSET, (HEADER_HEIGHT * 0.5f) - HEADER_CLOSE_CORNER_INSET);
         }
 
         private RectTransform ActiveCardRect(HubTab tab)
@@ -609,10 +666,19 @@ namespace MustyBlockBlast.Presentation.Views
             _stripShadowImage.color = theme.CardShadow;
 
             _headerPlateImage.color = theme.CardBackground;
-            _headerTitleText.color = theme.Ink;
+            _awningImage.color = _awningSprite != null ? Color.white : Color.clear;
+
+            // The title takes the accent's shade: the warm two-tone fill of the mockup's title,
+            // reduced to the one flat colour legacy Text can draw.
+            _headerTitleText.color = AccentShade(theme);
+
+            // The close disc is the card's own colour so it reads as a button laid over the awning, and
+            // its cross takes the first kind's shade — the reference's red cross, in-palette.
+            _headerCloseDisc.color = theme.CardBackground;
+            _headerCloseDiscShadow.color = theme.CardShadow;
             for (int inkIndex = 0; inkIndex < _headerCloseInk.Length; inkIndex++)
             {
-                _headerCloseInk[inkIndex].color = theme.SoftInk;
+                _headerCloseInk[inkIndex].color = theme.GetShade(1);
             }
 
             RefreshTabs();
@@ -640,12 +706,22 @@ namespace MustyBlockBlast.Presentation.Views
         /// </summary>
         private void PaintTab(TabEntry entry, bool isSelected)
         {
-            entry.Plate.color = isSelected ? _currentTheme.Accent : _currentTheme.CardBackground;
+            entry.Plate.color = isSelected ? _currentTheme.Accent : _currentTheme.EmptyCellFill;
+            entry.Lip.color = isSelected ? AccentShade(_currentTheme) : _currentTheme.EmptyCellOutline;
             entry.Glyph.color = isSelected ? _currentTheme.CardBackground : _currentTheme.SoftInk;
 
             Color shadow = _currentTheme.CardShadow;
             float strength = isSelected ? ACTIVE_TAB_SHADOW_STRENGTH : INACTIVE_TAB_SHADOW_STRENGTH;
             entry.Shadow.color = new Color(shadow.r, shadow.g, shadow.b, Mathf.Clamp01(shadow.a * strength));
+
+            // The selected plate stands the full tab height; its siblings drop from the top so the
+            // active tab is the tallest thing in the row. Every layer is bottom-anchored within the
+            // tab's fixed hit rect, so lifting changes only the drawn plate, never the tap target.
+            float drop = isSelected ? 0f : TAB_INACTIVE_DROP;
+            entry.Shadow.rectTransform.offsetMax = new Vector2(TAB_SHADOW_SPREAD, TAB_SHADOW_SPREAD - TAB_SHADOW_OFFSET - drop);
+            entry.Lip.rectTransform.offsetMax = new Vector2(0f, -drop);
+            entry.Plate.rectTransform.offsetMax = new Vector2(0f, -drop);
+            entry.Glyph.rectTransform.anchoredPosition = new Vector2(0f, (TAB_LIP_HEIGHT * 0.5f) - (drop * 0.5f));
         }
 
         private void BuildBar()
@@ -688,17 +764,31 @@ namespace MustyBlockBlast.Presentation.Views
             _headerPlateImage = headerPlateObject.GetComponent<Image>();
             ConfigureRounded(_headerPlateImage);
 
+            // The awning hangs across the header's top edge, over the plate's rounded corners.
+            var awningObject = new GameObject("HubAwning", typeof(RectTransform), typeof(Image));
+            var awningRect = (RectTransform)awningObject.transform;
+            awningRect.SetParent(_headerRect, false);
+            awningRect.anchorMin = new Vector2(0.5f, 1f);
+            awningRect.anchorMax = new Vector2(0.5f, 1f);
+            awningRect.pivot = new Vector2(0.5f, 1f);
+            awningRect.sizeDelta = new Vector2(stripWidth + (AWNING_OVERHANG * 2f), AWNING_HEIGHT);
+            awningRect.anchoredPosition = Vector2.zero;
+            _awningImage = awningObject.GetComponent<Image>();
+            _awningImage.sprite = _awningSprite;
+            _awningImage.type = Image.Type.Simple;
+            _awningImage.preserveAspect = false;
+            _awningImage.color = Color.clear;
+            _awningImage.raycastTarget = false;
+
+            // Centred in the title row under the awning, in the display face — the stall's signboard.
+            // The string overflows its rect by design (see UiTextFactory); centred on a 880-wide
+            // header even "POWER-UP SHOP" has room on both sides.
             _headerTitleText = UiTextFactory.Create(
-                _headerRect, "HeaderTitle", HEADER_FONT_SIZE, FontStyle.Bold, Color.clear);
-            _headerTitleText.alignment = TextAnchor.MiddleLeft;
+                _headerRect, "HeaderTitle", HEADER_FONT_SIZE, FontStyle.Normal, Color.clear, _displayFont);
+            _headerTitleText.alignment = TextAnchor.MiddleCenter;
 
             var headerTitleRect = (RectTransform)_headerTitleText.transform;
-
-            // Pivot on the left edge, matching every other header label in the HUD: the string
-            // overflows its rect by design (see UiTextFactory), so a centred pivot would grow the text
-            // off both sides and, for a title this long ("POWER-UP SHOP"), clip past the header itself.
-            headerTitleRect.pivot = new Vector2(0f, 0.5f);
-            headerTitleRect.anchoredPosition = new Vector2(-(stripWidth * 0.5f) + HEADER_SIDE_INSET, 0f);
+            headerTitleRect.anchoredPosition = new Vector2(0f, -(HEADER_HEIGHT * 0.5f) + (TITLE_ROW_HEIGHT * 0.5f));
 
             BuildHeaderCloseButton();
 
@@ -754,7 +844,27 @@ namespace MustyBlockBlast.Presentation.Views
             _headerCloseRect = (RectTransform)closeObject.transform;
             _headerCloseRect.SetParent(_headerRect, false);
             Centre(_headerCloseRect, new Vector2(HEADER_CLOSE_SIZE, HEADER_CLOSE_SIZE));
-            _headerCloseRect.anchoredPosition = new Vector2((_headerRect.sizeDelta.x * 0.5f) - HEADER_SIDE_INSET, 0f);
+            _headerCloseRect.anchoredPosition = new Vector2(
+                (_headerRect.sizeDelta.x * 0.5f) - HEADER_CLOSE_CORNER_INSET,
+                (HEADER_HEIGHT * 0.5f) - HEADER_CLOSE_CORNER_INSET);
+
+            // A round plate under the cross, so the button reads as a disc laid over the awning's
+            // corner (issue #235) rather than a bare glyph floating on the stripes.
+            var discShadowObject = new GameObject("CloseDiscShadow", typeof(RectTransform), typeof(Image));
+            var discShadowRect = (RectTransform)discShadowObject.transform;
+            discShadowRect.SetParent(_headerCloseRect, false);
+            Centre(discShadowRect, new Vector2(HEADER_CLOSE_SIZE, HEADER_CLOSE_SIZE));
+            discShadowRect.anchoredPosition = new Vector2(0f, -5f);
+            var discShadow = discShadowObject.GetComponent<Image>();
+            ConfigureCircle(discShadow);
+            _headerCloseDiscShadow = discShadow;
+
+            var discObject = new GameObject("CloseDisc", typeof(RectTransform), typeof(Image));
+            var discRect = (RectTransform)discObject.transform;
+            discRect.SetParent(_headerCloseRect, false);
+            Centre(discRect, new Vector2(HEADER_CLOSE_SIZE, HEADER_CLOSE_SIZE));
+            _headerCloseDisc = discObject.GetComponent<Image>();
+            ConfigureCircle(_headerCloseDisc);
 
             _headerCloseInk = new Image[2];
             for (int barIndex = 0; barIndex < 2; barIndex++)
@@ -791,14 +901,25 @@ namespace MustyBlockBlast.Presentation.Views
             var shadowRect = (RectTransform)shadowObject.transform;
             shadowRect.SetParent(tabRect, false);
             Stretch(shadowRect, TAB_SHADOW_SPREAD);
-            shadowRect.anchoredPosition = new Vector2(0f, -TAB_SHADOW_OFFSET);
+            shadowRect.offsetMin = new Vector2(-TAB_SHADOW_SPREAD, -TAB_SHADOW_SPREAD - TAB_SHADOW_OFFSET);
+            shadowRect.offsetMax = new Vector2(TAB_SHADOW_SPREAD, TAB_SHADOW_SPREAD - TAB_SHADOW_OFFSET);
             var shadow = shadowObject.GetComponent<Image>();
             ConfigureTabPlate(shadow);
+
+            // The lip is the plate's own shape shifted down by its height and painted in the plate's
+            // shade; the plate drawn over it leaves just that band showing along the bottom.
+            var lipObject = new GameObject("Lip", typeof(RectTransform), typeof(Image));
+            var lipRect = (RectTransform)lipObject.transform;
+            lipRect.SetParent(tabRect, false);
+            Stretch(lipRect, 0f);
+            var lip = lipObject.GetComponent<Image>();
+            ConfigureTabPlate(lip);
 
             var plateObject = new GameObject("Plate", typeof(RectTransform), typeof(Image));
             var plateRect = (RectTransform)plateObject.transform;
             plateRect.SetParent(tabRect, false);
             Stretch(plateRect, 0f);
+            plateRect.offsetMin = new Vector2(0f, TAB_LIP_HEIGHT);
             var plate = plateObject.GetComponent<Image>();
             ConfigureTabPlate(plate);
 
@@ -813,7 +934,7 @@ namespace MustyBlockBlast.Presentation.Views
             glyph.color = Color.clear;
             glyph.raycastTarget = false;
 
-            return new TabEntry(tab, tabRect, shadow, plate, glyph);
+            return new TabEntry(tab, tabRect, shadow, lip, plate, glyph);
         }
 
         /// <summary>HubTab's declaration order is the display order (see its own doc comment), and the
@@ -836,6 +957,21 @@ namespace MustyBlockBlast.Presentation.Views
         {
             ConfigureRounded(image);
             image.pixelsPerUnitMultiplier = UiSpriteFactory.ROUNDED_RADIUS / TAB_CORNER_RADIUS;
+        }
+
+        private static Color AccentShade(ThemeDefinition theme)
+            => new Color(
+                theme.Accent.r * (1f - ACCENT_SHADE),
+                theme.Accent.g * (1f - ACCENT_SHADE),
+                theme.Accent.b * (1f - ACCENT_SHADE),
+                theme.Accent.a);
+
+        private static void ConfigureCircle(Image image)
+        {
+            image.sprite = UiSpriteFactory.Circle;
+            image.type = Image.Type.Simple;
+            image.color = Color.clear;
+            image.raycastTarget = false;
         }
 
         private static void Centre(RectTransform rect, Vector2 size)
@@ -868,15 +1004,16 @@ namespace MustyBlockBlast.Presentation.Views
             image.raycastTarget = false;
         }
 
-        /// <summary>One built tab: its hotspot and the three Images a repaint touches — shadow, plate
-        /// and the single tinted glyph.</summary>
+        /// <summary>One built tab: its hotspot and the four Images a repaint touches — shadow, lip,
+        /// plate and the single tinted glyph.</summary>
         private readonly struct TabEntry
         {
-            internal TabEntry(HubTab tab, RectTransform rect, Image shadow, Image plate, Image glyph)
+            internal TabEntry(HubTab tab, RectTransform rect, Image shadow, Image lip, Image plate, Image glyph)
             {
                 Tab = tab;
                 Rect = rect;
                 Shadow = shadow;
+                Lip = lip;
                 Plate = plate;
                 Glyph = glyph;
             }
@@ -886,6 +1023,8 @@ namespace MustyBlockBlast.Presentation.Views
             internal RectTransform Rect { get; }
 
             internal Image Shadow { get; }
+
+            internal Image Lip { get; }
 
             internal Image Plate { get; }
 
