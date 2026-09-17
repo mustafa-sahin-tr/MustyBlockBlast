@@ -95,6 +95,11 @@ namespace MustyBlockBlast.Gameplay.Localization
         public const string MODE_TIMED = "mode.timed";
         public const string MODE_PATH = "mode.path";
 
+        /// <summary>One line under each mode's name in the settings card's mode picker (issue #260).</summary>
+        public const string MODE_ENDLESS_DESCRIPTION = "mode.endless.description";
+        public const string MODE_TIMED_DESCRIPTION = "mode.timed.description";
+        public const string MODE_PATH_DESCRIPTION = "mode.path.description";
+
         // --- Level path overlay ---
 
         /// <summary>The walk's running total on the level path card. <c>{0}</c> is the total. Shown
@@ -113,20 +118,37 @@ namespace MustyBlockBlast.Gameplay.Localization
         public const string SETTINGS_ROW_SOUND = "settings.row.sound";
         public const string SETTINGS_ROW_DURATION = "settings.row.duration";
         public const string SETTINGS_ROW_LANGUAGE = "settings.row.language";
-        public const string SETTINGS_ROW_REMOVE_ADS = "settings.row.remove_ads";
 
-        /// <summary>The Remove Ads row's pill before the purchase. A call to action, not a price: what
-        /// the product costs in money lives in the store consoles, so this card cannot state it.</summary>
+        /// <summary>The note under the round-length row's value, saying which mode unlocks it (issue #260).</summary>
+        public const string SETTINGS_ROW_DURATION_TIMED_ONLY = "settings.row.duration.timed_only";
+
+        /// <summary>The sound row's value beside its toggle (issue #260).</summary>
+        public const string SETTINGS_SOUND_ON = "settings.sound.on";
+        public const string SETTINGS_SOUND_OFF = "settings.sound.off";
+
+        /// <summary>Small caption over the Remove Ads button, naming what the purchase is (issue #260).</summary>
+        public const string SETTINGS_REMOVE_ADS_CAPTION = "settings.remove_ads.caption";
+
+        /// <summary>The Remove Ads button's label before the purchase. A call to action, not a price:
+        /// what the product costs in money lives in the store consoles, so this card cannot state it.</summary>
         public const string SETTINGS_REMOVE_ADS_BUY = "settings.remove_ads.buy";
 
-        /// <summary>The Remove Ads row's pill once the product is owned. A state, not an offer — a
-        /// non-consumable cannot be bought twice, so the row stops being a button.</summary>
+        /// <summary>The strip that replaces the Remove Ads button once the product is owned. A state,
+        /// not an offer — a non-consumable cannot be bought twice, so the button stops existing.</summary>
         public const string SETTINGS_REMOVE_ADS_OWNED = "settings.remove_ads.owned";
         public const string SETTINGS_THEME_SCREEN_TITLE = "settings.theme_screen.title";
+
+        /// <summary>The hint on the right of the theme picker's header row (issue #260).</summary>
+        public const string SETTINGS_THEME_SCREEN_HINT = "settings.theme_screen.hint";
         public const string SETTINGS_LANGUAGE_SCREEN_TITLE = "settings.language_screen.title";
         public const string SETTINGS_MODE_SCREEN_TITLE = "settings.mode_screen.title";
+
+        /// <summary>The tag on the mode plate that is being played (issue #260).</summary>
+        public const string SETTINGS_MODE_PLAYING = "settings.mode.playing";
         public const string SETTINGS_DURATION_SCREEN_TITLE = "settings.duration_screen.title";
-        public const string SETTINGS_CONFIRM_TITLE = "settings.confirm.title";
+
+        /// <summary>The restart confirmation's title. <c>{0}</c> is the mode being switched to.</summary>
+        public const string SETTINGS_CONFIRM_SWITCH_TITLE = "settings.confirm.switch_title";
         public const string SETTINGS_CONFIRM_BODY = "settings.confirm.body";
         public const string SETTINGS_CONFIRM_YES = "settings.confirm.yes";
         public const string SETTINGS_CONFIRM_NO = "settings.confirm.no";
