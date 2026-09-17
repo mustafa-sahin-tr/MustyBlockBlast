@@ -67,14 +67,14 @@ namespace MustyBlockBlast.Presentation.Views
         [Tooltip("Gap between the board card's top edge and the bottom of the icons, in reference " +
             "pixels. The row hangs from the board (see BoardView.StandardCardTopEdge), not from the " +
             "screen top, so it can never be pushed down into the card by a taller screen or a notch.")]
-        [SerializeField] private float _gapAboveBoard = 16f;
+        [SerializeField] private float _gapAboveBoard = 12f;
 
         [Tooltip("Diameter of one icon disc, in reference pixels. Matches the level-path icon so the " +
             "HUD's top band reads as one row of same-sized controls.")]
-        [SerializeField] private float _slotSize = 112f;
+        [SerializeField] private float _slotSize = 104f;
 
         [Tooltip("Centre-to-centre distance between icons, in reference pixels.")]
-        [SerializeField] private float _slotSpacing = 124f;
+        [SerializeField] private float _slotSpacing = 116f;
 
         [SerializeField] private int _progressFontSize = 26;
 

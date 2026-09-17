@@ -42,8 +42,10 @@ namespace MustyBlockBlast.Presentation.Views
 
         [Header("Layout")]
         [Tooltip("Offset from the top-right corner of the canvas, in reference pixels. Stacked under the settings icon.")]
-        [SerializeField] private Vector2 _cornerOffset = new Vector2(-60f, -196f);
-        [SerializeField] private float _buttonSize = 112f;
+        // Settings sits at -48 and is 104 tall; a 16px gap puts this at -168. See SettingsButtonView
+        // for why the column is this tight.
+        [SerializeField] private Vector2 _cornerOffset = new Vector2(-60f, -168f);
+        [SerializeField] private float _buttonSize = 104f;
 
         private readonly CompositeDisposable _disposables = new CompositeDisposable();
 

@@ -290,8 +290,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.CoinTotalHudView
   _rightInset: 60
-  _gapAboveBoard: 16
-  _coinSize: 112
+  _gapAboveBoard: 12
+  _coinSize: 104
   _fontSize: 40
   _coinSprite: {fileID: 21300000, guid: ef1b23357960542ca8a3614b7fbc2837, type: 3}
 --- !u!114 &322864019
@@ -1673,8 +1673,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ad084f7a7bda8453cae1db2d55edf2ae, type: 3}
   m_Name: 
   m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.SettingsButtonView
-  _cornerOffset: {x: -60, y: -60}
-  _buttonSize: 112
+  _cornerOffset: {x: -60, y: -48}
+  _buttonSize: 104
 --- !u!1 &1262375241
 GameObject:
   m_ObjectHideFlags: 0
@@ -2205,9 +2205,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.ObjectiveIconContainerView
   _leftInset: 16
-  _gapAboveBoard: 16
-  _slotSize: 112
-  _slotSpacing: 124
+  _gapAboveBoard: 12
+  _slotSize: 104
+  _slotSpacing: 116
   _progressFontSize: 26
 --- !u!1 &1552735300
 GameObject:
@@ -2400,8 +2400,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c6792af461bcc497e9c4dd3c17f0cebb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.LevelPathButtonView
-  _cornerOffset: {x: -60, y: -196}
-  _buttonSize: 112
+  _cornerOffset: {x: -60, y: -168}
+  _buttonSize: 104
 --- !u!1 &1618923934
 GameObject:
   m_ObjectHideFlags: 0
