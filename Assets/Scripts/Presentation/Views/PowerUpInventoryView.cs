@@ -26,11 +26,13 @@ namespace MustyBlockBlast.Presentation.Views
     /// the icon first and returns, so the two can never both claim the same press.
     /// </para>
     /// <para>
-    /// An empty slot doubles as the earn entry point for its own kind — one fixed kind per slot, never
-    /// a random or chosen one — so the slots are also the rewarded placements.
+    /// An empty slot doubles as the shop entry point: a tap on it asks <see cref="BoardInputView"/> to
+    /// open the power-up shop, because a power-up is only ever bought with coins (issue #216 — the
+    /// earlier "tap to earn one from an ad" gesture handed out a power-up the moment a greyed slot
+    /// was tapped, which read as a disabled slot coming alive for free).
     /// </para>
     /// <para>
-    /// A slot has two states, not three: held (a count) and empty (the earn offer). A kind still
+    /// A slot has two states, not three: held (a count) and empty (the shop offer). A kind still
     /// behind its level gate (see <see cref="PowerUpUnlockLevels"/>) is not drawn at all — no padlock,
     /// no reserved space — so the strip is only ever as wide as the kinds the player can actually use,
     /// and it reflows as kinds unlock. The level gate is a live subscription, so reaching a kind's
@@ -94,9 +96,9 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>Alpha of the whole strip once the run is over and nothing can be armed.</summary>
         private const float RUN_OVER_ALPHA = 0.4f;
 
-        /// <summary>Drawn in place of the count on a slot the player holds none of: that slot's tap is
-        /// the "earn one" gesture, so it reads as an offer rather than as a dead icon showing 0.</summary>
-        private const string EARN_AFFORDANCE_LABEL = "+";
+        /// <summary>Drawn in place of the count on a slot the player holds none of: that slot's tap opens
+        /// the shop, so it reads as an offer rather than as a dead icon showing 0.</summary>
+        private const string SHOP_AFFORDANCE_LABEL = "+";
 
         /// <summary>Side of a slot's icon glyph, as a fraction of the slot.</summary>
         private const float GLYPH_SIZE_FRACTION = 0.6f;
@@ -149,7 +151,6 @@ namespace MustyBlockBlast.Presentation.Views
 
         /// <summary>Per slot: a reward request is in flight. Guards against a rapid double tap firing
         /// two concurrent requests and banking two power-ups for one watch.</summary>
-        private readonly bool[] _isRequestingReward = new bool[SlotCount];
 
         private PowerUpModel _powerUpModel;
         private PowerUpSystem _powerUpSystem;
@@ -253,18 +254,21 @@ namespace MustyBlockBlast.Presentation.Views
 
         /// <summary>
         /// Routes a tap that landed on one of the icons: arms that kind, cancels it when it is already
-        /// the armed one, or — on a slot the player holds none of — asks for one to be earned. Returns
-        /// false when the point is on no icon, so <see cref="BoardInputView"/> can carry on down its
-        /// gate chain. Only the slots currently on screen are considered: a kind behind its level gate
-        /// is not drawn, so there is no point on the canvas that could resolve to it.
+        /// the armed one, or — on a slot the player holds none of — reports through
+        /// <paramref name="wantsShop"/> that the shop should open, since this View owns no card of its
+        /// own. Returns false when the point is on no icon, so <see cref="BoardInputView"/> can carry
+        /// on down its gate chain. Only the slots currently on screen are considered: a kind behind its
+        /// level gate is not drawn, so there is no point on the canvas that could resolve to it.
         /// <para>
         /// <see cref="PowerUpKind.Reroll"/> and <see cref="PowerUpKind.DoubleMultiplier"/> are the
         /// exceptions to the arm-then-aim flow: with no target to aim at there is no second tap to wait
         /// for, so a tap on one the player holds applies it there and then.
         /// </para>
         /// </summary>
-        internal bool TryHandleTap(Vector2 screenPosition)
+        internal bool TryHandleTap(Vector2 screenPosition, out bool wantsShop)
         {
+            wantsShop = false;
+
             if (_isRunOver || _powerUpSystem == null)
             {
                 return false;
@@ -304,9 +308,10 @@ namespace MustyBlockBlast.Presentation.Views
                 else if (_counts[slotIndex] <= 0)
                 {
                     // Arming a kind the player holds none of is refused by the System, so this tap
-                    // would otherwise be a dead press. It is instead the earn gesture, offered exactly
-                    // where a player reaches for a power-up they do not have.
-                    RequestReward(slotIndex, kind);
+                    // would otherwise be a dead press. It is instead the way into the shop, offered
+                    // exactly where a player reaches for a power-up they do not have. Nothing is
+                    // granted here: a power-up is only ever bought.
+                    wantsShop = true;
                 }
                 else
                 {
@@ -317,40 +322,6 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             return false;
-        }
-
-        /// <summary>
-        /// Fire-and-forget earn request for one fixed kind. The View banks nothing itself: the System
-        /// increments and persists the inventory, and the count subscription already bound in
-        /// <see cref="Start"/> repaints this slot from that. A grant never arms anything.
-        /// </summary>
-        private void RequestReward(int slotIndex, PowerUpKind kind)
-        {
-            if (_isRequestingReward[slotIndex])
-            {
-                return;
-            }
-
-            RequestRewardAsync(slotIndex, kind, this.GetCancellationTokenOnDestroy()).Forget();
-        }
-
-        private async UniTaskVoid RequestRewardAsync(
-            int slotIndex, PowerUpKind kind, CancellationToken cancellationToken)
-        {
-            _isRequestingReward[slotIndex] = true;
-            try
-            {
-                await _powerUpSystem.GrantRewardAsync(kind, cancellationToken);
-            }
-            catch (OperationCanceledException)
-            {
-                // The View went away mid-request. Nothing to undo: the System only banks a reward it
-                // was actually handed.
-            }
-            finally
-            {
-                _isRequestingReward[slotIndex] = false;
-            }
         }
 
         private bool ContainsScreenPoint(int slotIndex, Vector2 screenPosition)
@@ -492,7 +463,7 @@ namespace MustyBlockBlast.Presentation.Views
         /// Repaints one slot from the three inputs that can change how it looks: the theme, the count
         /// held, and whether this kind is the armed one. A kind behind its level gate never reaches
         /// here — it has no slot on screen at all — so there are two states, not three: "holds some"
-        /// (the count) and "holds none" (the earn affordance).
+        /// (the count) and "holds none" (the shop affordance).
         /// </summary>
         private void RefreshSlot(int slotIndex)
         {
@@ -524,7 +495,7 @@ namespace MustyBlockBlast.Presentation.Views
             // of the armed state's colour swap entirely: it is the one part of the slot that states a
             // number, and a number has to be legible in every state the plate can take.
             // Two tones, so the offer is never mistaken for a stock of one: the accent means "you hold
-            // this many", the softer ink means "tap to earn one".
+            // this many", the softer ink means "tap to buy one".
             _badgeImages[slotIndex].color = isAvailable ? _currentTheme.Accent : _currentTheme.SoftInk;
             _countTexts[slotIndex].color = _currentTheme.CardBackground;
 
@@ -538,7 +509,7 @@ namespace MustyBlockBlast.Presentation.Views
             }
             else
             {
-                _countBuilder.Append(EARN_AFFORDANCE_LABEL);
+                _countBuilder.Append(SHOP_AFFORDANCE_LABEL);
             }
 
             _countTexts[slotIndex].text = _countBuilder.ToString();
