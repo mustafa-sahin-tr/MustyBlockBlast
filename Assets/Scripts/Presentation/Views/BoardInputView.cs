@@ -534,8 +534,10 @@ namespace MustyBlockBlast.Presentation.Views
             // Dropping on the Hold slot is resolved before the board placement and is never ambiguous
             // with it: UpdateDrag drops the board anchor for any frame over the pocket, so the two
             // branches are mutually exclusive even where the pocket overlaps the board's preview margin.
+            // The park goes through PowerUpSystem because it costs a Hold charge; a refusal (none held)
+            // falls into the same "put the piece back" path as a missed board drop.
             bool consumed = _isOverHoldSlot
-                ? _boardSystem.TryHoldPiece(slotIndex)
+                ? _powerUpSystem.TryApplyHold(slotIndex)
                 : _hasAnchor && _boardSystem.TryPlacePiece(slotIndex, _currentAnchor);
 
             if (!consumed)

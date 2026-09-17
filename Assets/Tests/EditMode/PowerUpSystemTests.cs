@@ -100,6 +100,158 @@ namespace MustyBlockBlast.Tests.EditMode
             }
         }
 
+        // --- Hold as a charged power-up (issue #202) ---
+
+        private static readonly Piece HoldSingle = new Piece("hold_single", new[] { new GridPosition(0, 0) });
+
+        private static readonly Piece HoldPair = new Piece(
+            "hold_pair", new[] { new GridPosition(0, 0), new GridPosition(1, 0) });
+
+        private static readonly Piece HoldTriple = new Piece(
+            "hold_triple",
+            new[] { new GridPosition(0, 0), new GridPosition(0, 1), new GridPosition(0, 2) });
+
+        /// <summary>AC2's negative half, and the inventory contract at its plainest: with no charge the
+        /// drop is a true no-op — the dock and the pocket are exactly as they were.</summary>
+        [Test]
+        public void TryApplyHold_HoldingNone_ParksNothingAndChangesNothing()
+        {
+            var model = new PowerUpModel();
+            TrayModel trayModel = FilledTray();
+            PowerUpSystem system = CreateSystem(model, new BoardModel(), trayModel);
+
+            bool parked = system.TryApplyHold(0);
+
+            Assert.IsFalse(parked);
+            Assert.IsFalse(trayModel.IsHoldOccupied);
+            Assert.AreSame(HoldSingle, trayModel.GetPiece(0));
+            Assert.AreEqual(0, model.HoldCount.Value);
+        }
+
+        /// <summary>AC2: a park into an empty pocket is exactly the park it always was, and it costs one.</summary>
+        [Test]
+        public void TryApplyHold_IntoAnEmptyPocket_ParksThePieceAndSpendsOneCharge()
+        {
+            PersistCount(PowerUpKind.Hold, 2);
+            var model = new PowerUpModel();
+            TrayModel trayModel = FilledTray();
+            PowerUpSystem system = CreateSystem(model, new BoardModel(), trayModel);
+
+            bool parked = system.TryApplyHold(1);
+
+            Assert.IsTrue(parked);
+            Assert.AreSame(HoldPair, trayModel.HeldPiece);
+            Assert.IsNull(trayModel.GetPiece(1));
+            Assert.AreEqual(1, model.HoldCount.Value);
+            Assert.AreEqual(1, PlayerPrefs.GetInt(PowerUpInventoryKey.For(PowerUpKind.Hold), -1));
+        }
+
+        /// <summary>AC3: swapping a new piece into an occupied pocket is the same one charge as a park —
+        /// the previously parked piece comes back, and the count drops again.</summary>
+        [Test]
+        public void TryApplyHold_IntoAnOccupiedPocket_SwapsAndSpendsOneCharge()
+        {
+            PersistCount(PowerUpKind.Hold, 2);
+            var model = new PowerUpModel();
+            TrayModel trayModel = FilledTray();
+            PowerUpSystem system = CreateSystem(model, new BoardModel(), trayModel);
+            system.TryApplyHold(0);
+
+            bool swapped = system.TryApplyHold(2);
+
+            Assert.IsTrue(swapped);
+            Assert.AreSame(HoldTriple, trayModel.HeldPiece);
+            Assert.AreSame(HoldSingle, trayModel.GetPiece(2), "The previously parked piece takes the vacated slot.");
+            Assert.AreEqual(0, model.HoldCount.Value);
+        }
+
+        /// <summary>AC5, the negative test named in the issue: with the last charge already spent on the
+        /// park, the swap that would bring the piece back is refused — the dragged piece stays in the
+        /// dock and the parked one stays parked.</summary>
+        [Test]
+        public void TryApplyHold_IntoAnOccupiedPocketHoldingNone_IsRefusedAndStrandsTheParkedPiece()
+        {
+            PersistCount(PowerUpKind.Hold, 1);
+            var model = new PowerUpModel();
+            TrayModel trayModel = FilledTray();
+            PowerUpSystem system = CreateSystem(model, new BoardModel(), trayModel);
+            system.TryApplyHold(0);
+
+            bool swapped = system.TryApplyHold(2);
+
+            Assert.IsFalse(swapped);
+            Assert.AreSame(HoldSingle, trayModel.HeldPiece, "The parked piece must be untouched.");
+            Assert.AreSame(HoldTriple, trayModel.GetPiece(2), "The dragged piece must stay in its slot.");
+            Assert.AreEqual(0, model.HoldCount.Value);
+        }
+
+        /// <summary>The "peek before spend" contract: a park the mechanism refuses on its own terms —
+        /// here, the last dock piece into an empty pocket — must not be charged for.</summary>
+        [Test]
+        public void TryApplyHold_WhenTheParkItselfIsRefused_SpendsNothing()
+        {
+            PersistCount(PowerUpKind.Hold, 1);
+            var model = new PowerUpModel();
+            var trayModel = new TrayModel();
+            trayModel.SetSlot(0, HoldSingle, 1);
+            PowerUpSystem system = CreateSystem(model, new BoardModel(), trayModel);
+
+            bool parked = system.TryApplyHold(0);
+
+            Assert.IsFalse(parked);
+            Assert.IsFalse(trayModel.IsHoldOccupied);
+            Assert.AreEqual(1, model.HoldCount.Value);
+        }
+
+        /// <summary>The count survives a restart exactly as every other kind's does (AC1).</summary>
+        [Test]
+        public void HoldCount_IsLoadedFromItsOwnPersistedKeyOnConstruction()
+        {
+            PersistCount(PowerUpKind.Hold, 3);
+            var model = new PowerUpModel();
+
+            CreateSystem(model, new BoardModel());
+
+            Assert.AreEqual(3, model.HoldCount.Value);
+            Assert.AreEqual("PowerUp.Inventory.Hold", PowerUpInventoryKey.For(PowerUpKind.Hold));
+        }
+
+        /// <summary>A park is not an application: nothing is published for the score or badge paths to
+        /// misread as a clear, and the parked piece is a permutation rather than a consequence.</summary>
+        [Test]
+        public void TryApplyHold_PublishesNoApplication()
+        {
+            PersistCount(PowerUpKind.Hold, 1);
+            PowerUpSystem system = CreateSystem(new PowerUpModel(), new BoardModel(), FilledTray());
+
+            system.TryApplyHold(0);
+
+            Assert.AreEqual(0, _appliedBroker.Published.Count);
+        }
+
+        /// <summary>Hold is invoked by a drag onto the pocket, never armed and aimed: arming it is
+        /// refused however many the player holds, like the other targetless kinds.</summary>
+        [Test]
+        public void Arm_Hold_IsRefusedEvenWhenHeld()
+        {
+            PersistCount(PowerUpKind.Hold, 1);
+            var model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, new BoardModel());
+
+            system.Arm(PowerUpKind.Hold);
+
+            Assert.IsNull(model.Armed.Value);
+        }
+
+        private static TrayModel FilledTray()
+        {
+            var trayModel = new TrayModel();
+            trayModel.SetSlot(0, HoldSingle, 1);
+            trayModel.SetSlot(1, HoldPair, 2);
+            trayModel.SetSlot(2, HoldTriple, 3);
+            return trayModel;
+        }
+
         // --- The Coin Sower's bulk spend (issue #167) ---
 
         /// <summary>The ordinary case: the player holds what the level-start screen just bought, and the
@@ -2161,6 +2313,7 @@ namespace MustyBlockBlast.Tests.EditMode
             PlayerPrefs.DeleteKey(PowerUpInventoryKey.For(PowerUpKind.DoubleMultiplier));
             PlayerPrefs.DeleteKey(PowerUpInventoryKey.For(PowerUpKind.GhostFit));
             PlayerPrefs.DeleteKey(PowerUpInventoryKey.For(PowerUpKind.CoinSower));
+            PlayerPrefs.DeleteKey(PowerUpInventoryKey.For(PowerUpKind.Hold));
         }
 
         private static Piece FindPiece(string id)

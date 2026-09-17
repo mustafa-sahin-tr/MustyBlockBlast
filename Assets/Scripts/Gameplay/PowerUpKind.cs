@@ -86,5 +86,25 @@ namespace MustyBlockBlast.Gameplay
         /// </para>
         /// </summary>
         CoinSower,
+
+        /// <summary>
+        /// Parks a dock piece into the Hold slot ("pocket"), swapping it with whatever piece is
+        /// already parked there. Acts on the tray rather than the board, like <see cref="Rotate"/>
+        /// and <see cref="Reroll"/>: nothing clears and nothing scores.
+        /// <para>
+        /// The only kind invoked by a drag — a tray piece dropped onto the pocket — rather than by
+        /// arming from the strip and tapping a target, so it is never armed and lives in its own
+        /// slot beside the tray rather than in the power-up strip. Its whole interface is
+        /// <c>PowerUpSystem.TryApplyHold</c>.
+        /// </para>
+        /// <para>
+        /// Parking into an empty pocket costs one charge, and so does swapping a new piece into an
+        /// occupied one: that swap is the only way a parked piece ever comes back, so gating it the
+        /// same way is what keeps a zero-charge pocket from being free to empty. Holding none refuses
+        /// both, which can leave an already-parked piece stuck until a charge is earned — the
+        /// game-over check reads the count for exactly that reason.
+        /// </para>
+        /// </summary>
+        Hold,
     }
 }

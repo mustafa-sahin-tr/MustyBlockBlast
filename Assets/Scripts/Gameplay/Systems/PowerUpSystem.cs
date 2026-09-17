@@ -164,6 +164,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             LoadPersistedCount(PowerUpKind.DoubleMultiplier);
             LoadPersistedCount(PowerUpKind.GhostFit);
             LoadPersistedCount(PowerUpKind.CoinSower);
+            LoadPersistedCount(PowerUpKind.Hold);
 
             // An armed selection belongs to the run it was made in: it must not survive either end of
             // a run boundary, or the next run would open with a power-up already aimed and its clock
@@ -191,11 +192,17 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// mean anything — and an armed one would be released onto a board cell by an aim path that falls
         /// through to Bomb for every kind it does not name, spending a bomb for it.
         /// </para>
+        /// <para>
+        /// <see cref="PowerUpKind.Hold"/> is refused for the same shape of reason: it is invoked by
+        /// dragging a tray piece onto the pocket, never by arming and tapping a target, so
+        /// <see cref="TryApplyHold"/> is its whole interface and an armed Hold could only ever be
+        /// released onto a board cell that means nothing to it.
+        /// </para>
         /// </summary>
         public void Arm(PowerUpKind kind)
         {
             if (kind == PowerUpKind.Reroll || kind == PowerUpKind.DoubleMultiplier
-                || kind == PowerUpKind.GhostFit || kind == PowerUpKind.CoinSower
+                || kind == PowerUpKind.GhostFit || kind == PowerUpKind.CoinSower || kind == PowerUpKind.Hold
                 || _boardSystem.IsGameOver || IsLocked(kind) || CountOf(kind).Value <= 0)
             {
                 return;
@@ -533,6 +540,49 @@ namespace MustyBlockBlast.Gameplay.Systems
             return true;
         }
 
+        /// <summary>
+        /// Spends one Hold charge to park the dock piece in <paramref name="slotIndex"/> into the
+        /// pocket, swapping it with whatever was already parked there.
+        /// <see cref="BoardSystem.TryParkPiece"/> is the mechanism; this is its charge gate and its
+        /// spender. The third kind aimed at the tray rather than the board, so like Rotate and Reroll
+        /// it clears nothing and scores nothing.
+        /// <para>
+        /// Follows the "peek before spend" contract of <see cref="TryApplyJoker"/>: holding none is
+        /// refused outright before a single count is touched, and every other way a park can fail —
+        /// an out-of-range or empty slot, a demolition hammer, a park that would leave the dock with
+        /// nothing to drag, a run already over — is reported by <see cref="BoardSystem.TryParkPiece"/>
+        /// before anything is spent. Only a park that actually happened is charged for.
+        /// </para>
+        /// <para>
+        /// Parking into an empty pocket and swapping a new piece into an occupied one cost the same
+        /// one charge. The swap is the only way a parked piece ever comes back, so gating it exactly
+        /// like a park is what keeps a zero-charge pocket from being free to empty — and what can leave
+        /// a parked piece stuck until a charge is earned, which the game-over check accounts for.
+        /// </para>
+        /// <para>
+        /// Never armed (see <see cref="Arm"/>): the pocket is invoked by a drag, so there is no armed
+        /// selection to release here and, unlike the tray-aimed kinds above, nothing to
+        /// <see cref="Disarm"/>. Deliberately publishes no <see cref="PowerUpAppliedMessage"/> either:
+        /// a park is a permutation of dock and pocket, not an application with a consequence to score
+        /// or count, and the objectives keyed to that message are all about kinds that touch the board.
+        /// </para>
+        /// </summary>
+        public bool TryApplyHold(int slotIndex)
+        {
+            if (IsLocked(PowerUpKind.Hold) || CountOf(PowerUpKind.Hold).Value <= 0)
+            {
+                return false;
+            }
+
+            if (!_boardSystem.TryParkPiece(slotIndex))
+            {
+                return false;
+            }
+
+            TrySpend(PowerUpKind.Hold);
+            return true;
+        }
+
         /// <summary>Asks <see cref="IRewardSource"/> for one <paramref name="kind"/> and banks it if
         /// granted. Returns whether it was granted; a refusal leaves the inventory untouched.</summary>
         public async UniTask<bool> GrantRewardAsync(PowerUpKind kind, CancellationToken cancellationToken)
@@ -833,6 +883,8 @@ namespace MustyBlockBlast.Gameplay.Systems
                     return _powerUpModel.GhostFitCount;
                 case PowerUpKind.CoinSower:
                     return _powerUpModel.CoinSowerCount;
+                case PowerUpKind.Hold:
+                    return _powerUpModel.HoldCount;
                 default:
                     return _powerUpModel.BombCount;
             }

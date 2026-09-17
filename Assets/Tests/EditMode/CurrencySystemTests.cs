@@ -534,6 +534,14 @@ namespace MustyBlockBlast.Tests.EditMode
             PowerUpKind[] allKinds = (PowerUpKind[])System.Enum.GetValues(typeof(PowerUpKind));
             for (int kindIndex = 0; kindIndex < allKinds.Length; kindIndex++)
             {
+                // Hold is deliberately unpriced: it is earned through rewarded ads only and appears in
+                // no shop (issue #202); putting it on sale is a coin-economy decision for #160, not a
+                // row this test may demand into existence.
+                if (allKinds[kindIndex] == PowerUpKind.Hold)
+                {
+                    continue;
+                }
+
                 int price = _priceConfig.GetPrice(allKinds[kindIndex]);
                 Assert.Greater(price, 0, $"{allKinds[kindIndex]} has no usable price.");
                 Assert.Less(price, int.MaxValue, $"{allKinds[kindIndex]} is priced as unbuyable.");
