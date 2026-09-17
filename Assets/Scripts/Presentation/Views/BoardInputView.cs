@@ -569,11 +569,12 @@ namespace MustyBlockBlast.Presentation.Views
                 ? _canvas.worldCamera
                 : null;
 
+            bool hasLocal = RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                _dragLayer, targetScreen, eventCamera, out Vector2 local);
+
             // BuildGhost bails out when no theme is known yet, so the ghost can legitimately be
             // missing while a drag is in flight.
-            if (_ghostRoot != null
-                && RectTransformUtility.ScreenPointToLocalPointInRectangle(
-                    _dragLayer, targetScreen, eventCamera, out Vector2 local))
+            if (_ghostRoot != null && hasLocal)
             {
                 _ghostRoot.anchoredPosition = local;
             }
@@ -591,7 +592,11 @@ namespace MustyBlockBlast.Presentation.Views
             // The pocket claims the frame outright. It sits close enough to the board to fall inside the
             // board's generous preview-lead margin, so resolving it first is what keeps one pointer
             // position from meaning two different drops.
-            _isOverHoldSlot = _holdSlotView.ContainsScreenPoint(targetScreen);
+            // The whole dragged piece, not its centre point, decides this: the pocket is one small plate
+            // and the finger sits offset from the piece it is carrying. The same boolean drives the
+            // highlight and the release, so what lights up is what registers.
+            _isOverHoldSlot = _holdSlotView.Overlaps(
+                BuildGhostScreenBounds(piece, targetScreen, local, hasLocal, eventCamera));
             _holdSlotView.SetHovered(_isOverHoldSlot);
             if (_isOverHoldSlot)
             {
@@ -986,6 +991,39 @@ namespace MustyBlockBlast.Presentation.Views
                 cell.SetAlpha(_ghostAlpha);
                 _ghostCells.Add(cell);
             }
+        }
+
+        /// <summary>The dragged piece's screen-space bounding box, built from the same cell pitch and
+        /// centring <see cref="BuildGhost"/> lays the ghost out with, so the box is exactly what the
+        /// player sees in the air. Falls back to the drag point itself when the pointer cannot be mapped
+        /// into the drag layer — the same frame the ghost would not move either.</summary>
+        private Rect BuildGhostScreenBounds(
+            Piece piece, Vector2 targetScreen, Vector2 localCentre, bool hasLocal, Camera eventCamera)
+        {
+            if (!hasLocal)
+            {
+                return new Rect(targetScreen, Vector2.zero);
+            }
+
+            float pitch = _boardView.CellSize + _boardView.CellSpacing;
+            PieceLayout.GetBounds(piece, out int width, out int height);
+            float halfWidth = (((width - 1) * pitch) + _boardView.CellSize) * 0.5f;
+            float halfHeight = (((height - 1) * pitch) + _boardView.CellSize) * 0.5f;
+
+            Vector2 bottomLeft = RectTransformUtility.WorldToScreenPoint(
+                eventCamera,
+                _dragLayer.TransformPoint(
+                    new Vector3(localCentre.x - halfWidth, localCentre.y - halfHeight, 0f)));
+            Vector2 topRight = RectTransformUtility.WorldToScreenPoint(
+                eventCamera,
+                _dragLayer.TransformPoint(
+                    new Vector3(localCentre.x + halfWidth, localCentre.y + halfHeight, 0f)));
+
+            return Rect.MinMaxRect(
+                Mathf.Min(bottomLeft.x, topRight.x),
+                Mathf.Min(bottomLeft.y, topRight.y),
+                Mathf.Max(bottomLeft.x, topRight.x),
+                Mathf.Max(bottomLeft.y, topRight.y));
         }
 
         private void DestroyGhost()

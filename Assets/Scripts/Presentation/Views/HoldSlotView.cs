@@ -81,6 +81,10 @@ namespace MustyBlockBlast.Presentation.Views
         [SerializeField] private float _emptyLabelGap = 10f;
 
         private readonly List<CellView> _pieceCells = new List<CellView>(9);
+
+        /// <summary>Reused by the per-drag-frame overlap test so it allocates nothing.</summary>
+        private readonly Vector3[] _plateCorners = new Vector3[4];
+
         private readonly CompositeDisposable _disposables = new CompositeDisposable();
 
         private RectTransform _rectTransform;
@@ -147,8 +151,11 @@ namespace MustyBlockBlast.Presentation.Views
             }
         }
 
-        /// <summary>True when <paramref name="screenPosition"/> is on the pocket's plate.</summary>
-        internal bool ContainsScreenPoint(Vector2 screenPosition)
+        /// <summary>True when <paramref name="screenBounds"/> — the dragged piece's screen-space bounding
+        /// box — overlaps the pocket's plate at all. An overlap rather than a point test because the
+        /// plate is one small square and the finger both sits offset from the piece and hides it: asking
+        /// for the piece's exact centre made parking a piece a multi-attempt gesture.</summary>
+        internal bool Overlaps(Rect screenBounds)
         {
             if (_plateRect == null)
             {
@@ -159,7 +166,30 @@ namespace MustyBlockBlast.Presentation.Views
                 ? _canvas.worldCamera
                 : null;
 
-            return RectTransformUtility.RectangleContainsScreenPoint(_plateRect, screenPosition, eventCamera);
+            // Cached array: this runs every drag frame.
+            _plateRect.GetWorldCorners(_plateCorners);
+            Vector2 bottomLeft = RectTransformUtility.WorldToScreenPoint(eventCamera, _plateCorners[0]);
+            Vector2 topRight = RectTransformUtility.WorldToScreenPoint(eventCamera, _plateCorners[2]);
+
+            Rect plateScreenRect = Rect.MinMaxRect(
+                Mathf.Min(bottomLeft.x, topRight.x),
+                Mathf.Min(bottomLeft.y, topRight.y),
+                Mathf.Max(bottomLeft.x, topRight.x),
+                Mathf.Max(bottomLeft.y, topRight.y));
+
+            // The pocket scales up while hovered, so measuring the lit plate would widen the hit area
+            // the moment it lights and leave a sticky band the player never asked for. Measured at the
+            // resting size instead, so what lights up is exactly what registers on release.
+            float hoverScale = _rectTransform.localScale.x;
+            if (hoverScale > 0f && !Mathf.Approximately(hoverScale, 1f))
+            {
+                Vector2 centre = plateScreenRect.center;
+                Vector2 halfSize = plateScreenRect.size * (0.5f / hoverScale);
+                plateScreenRect = Rect.MinMaxRect(
+                    centre.x - halfSize.x, centre.y - halfSize.y, centre.x + halfSize.x, centre.y + halfSize.y);
+            }
+
+            return plateScreenRect.Overlaps(screenBounds);
         }
 
         /// <summary>Lights the pocket while a dragged piece hovers it, so the drop target is obvious
