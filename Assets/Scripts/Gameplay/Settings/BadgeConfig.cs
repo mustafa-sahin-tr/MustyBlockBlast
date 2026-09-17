@@ -23,8 +23,13 @@ namespace MustyBlockBlast.Gameplay.Settings
             + "re-locks the badge for existing players, so retune the threshold instead.")]
         [SerializeField] private string _id = "badge";
 
-        [Tooltip("Name shown on the badge tile. Authored content, not a String Table key.")]
+        [Tooltip("Fallback name shown on the badge tile when Display Name Key is empty or has no "
+            + "translation. Authored content, not a String Table key.")]
         [SerializeField] private string _displayName = "Badge";
+
+        [Tooltip("String Table key of the tile name (e.g. badge.name.first_steps), so the badge reads in "
+            + "the player's language. Leave empty to show Display Name as authored.")]
+        [SerializeField] private string _displayNameKey = string.Empty;
 
         [Tooltip("White-on-transparent glyph shown on the badge tile, tinted at runtime from the theme. "
             + "Authored content like the name; a badge without one draws no glyph.")]
@@ -43,6 +48,10 @@ namespace MustyBlockBlast.Gameplay.Settings
         public string Id => _id;
 
         public string DisplayName => _displayName;
+
+        /// <summary>String Table key of the tile name, or empty when the badge is named only by
+        /// <see cref="DisplayName"/>.</summary>
+        public string DisplayNameKey => _displayNameKey;
 
         /// <summary>The tile glyph, or null when none is authored.</summary>
         public Sprite Icon => _icon;

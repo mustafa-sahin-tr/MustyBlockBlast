@@ -382,6 +382,46 @@ MonoBehaviour:
     m_Localized: "En iyi hamleyi g\xF6sterir"
     m_Metadata:
       m_Items: []
+  - m_Id: 1371178001227776
+    m_Localized: "\u0130lk Ad\u0131mlar"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587904
+    m_Localized: "\xC7izgi Kesici"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587905
+    m_Localized: "Tahta S\xFCp\xFCr\xFCc\xFC"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587906
+    m_Localized: "Y\xFCksek Skorcu"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587907
+    m_Localized: "Y\xFCzler Kul\xFCb\xFC"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587908
+    m_Localized: "M\xFCkemmeliyet\xE7i"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587909
+    m_Localized: "K\u0131demli"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587910
+    m_Localized: "G\xFC\xE7 Oyuncusu"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587911
+    m_Localized: Maraton
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587912
+    m_Localized: Elit Skorcu
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

@@ -382,6 +382,46 @@ MonoBehaviour:
     m_Localized: "Se\xF1ala la mejor jugada"
     m_Metadata:
       m_Items: []
+  - m_Id: 1371178001227776
+    m_Localized: Primeros pasos
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587904
+    m_Localized: "Cortal\xEDneas"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587905
+    m_Localized: Barrendero
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587906
+    m_Localized: Gran anotador
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587907
+    m_Localized: Club de los cien
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587908
+    m_Localized: Perfeccionista
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587909
+    m_Localized: Veterano
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587910
+    m_Localized: Jugador poderoso
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587911
+    m_Localized: "Marat\xF3n"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1371178030587912
+    m_Localized: "Anotador de \xE9lite"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

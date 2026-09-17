@@ -15,60 +15,70 @@ MonoBehaviour:
   _badges:
   - _id: first_steps
     _displayName: First Steps
+    _displayNameKey: badge.name.first_steps
     _icon: {fileID: 21300000, guid: 12ae639770ecb4cbf9e2770d11e3be68, type: 3}
     _statType: 0
     _threshold: 50
     _reward: 0
   - _id: line_cutter
     _displayName: Line Cutter
+    _displayNameKey: badge.name.line_cutter
     _icon: {fileID: 21300000, guid: 4fb09bdcd4d8945c4aae394cc54baf65, type: 3}
     _statType: 1
     _threshold: 100
     _reward: 1
   - _id: board_sweeper
     _displayName: Board Sweeper
+    _displayNameKey: badge.name.board_sweeper
     _icon: {fileID: 21300000, guid: 8f3af067b0ccb4f3faa2dc98d9d122f0, type: 3}
     _statType: 2
     _threshold: 5
     _reward: 2
   - _id: high_scorer
     _displayName: High Scorer
+    _displayNameKey: badge.name.high_scorer
     _icon: {fileID: 21300000, guid: 8a808e1ec9b2541e6a666fb92b613474, type: 3}
     _statType: 3
     _threshold: 5000
     _reward: 0
   - _id: century_club
     _displayName: Century Club
+    _displayNameKey: badge.name.century_club
     _icon: {fileID: 21300000, guid: 54916145545b24224bad13394150124c, type: 3}
     _statType: 1
     _threshold: 500
     _reward: 1
   - _id: perfectionist
     _displayName: Perfectionist
+    _displayNameKey: badge.name.perfectionist
     _icon: {fileID: 21300000, guid: 706cf1d31ed604ec5bc5bfdcecb70275, type: 3}
     _statType: 2
     _threshold: 20
     _reward: 2
   - _id: veteran
     _displayName: Veteran
+    _displayNameKey: badge.name.veteran
     _icon: {fileID: 21300000, guid: 19add424271f142ad9a480848e7fd02a, type: 3}
     _statType: 4
     _threshold: 25
     _reward: 0
   - _id: power_player
     _displayName: Power Player
+    _displayNameKey: badge.name.power_player
     _icon: {fileID: 21300000, guid: 22237e6a0949a479d80678d3d216ef48, type: 3}
     _statType: 5
     _threshold: 10
     _reward: 1
   - _id: marathon
     _displayName: Marathon
+    _displayNameKey: badge.name.marathon
     _icon: {fileID: 21300000, guid: 03e0bf9ac3bf844bdaaa5869272f7b10, type: 3}
     _statType: 0
     _threshold: 1000
     _reward: 2
   - _id: elite_scorer
     _displayName: Elite Scorer
+    _displayNameKey: badge.name.elite_scorer
     _icon: {fileID: 21300000, guid: f4a2345f0ed2f488cbce7c986bd53ed7, type: 3}
     _statType: 3
     _threshold: 20000

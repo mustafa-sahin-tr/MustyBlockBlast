@@ -189,6 +189,23 @@ namespace MustyBlockBlast.Gameplay.Localization
         public const string POWERUP_DESC_DOUBLE_MULTIPLIER = "powerup.desc.double_multiplier";
         public const string POWERUP_DESC_GHOST_FIT = "powerup.desc.ghost_fit";
 
+        // --- Badges ---
+        //
+        // Tile names, one per authored badge id. The catalog row carries the key (BadgeConfig.
+        // DisplayNameKey) rather than the text, so a new badge is one content row plus one row per
+        // language here.
+
+        public const string BADGE_NAME_FIRST_STEPS = "badge.name.first_steps";
+        public const string BADGE_NAME_LINE_CUTTER = "badge.name.line_cutter";
+        public const string BADGE_NAME_BOARD_SWEEPER = "badge.name.board_sweeper";
+        public const string BADGE_NAME_HIGH_SCORER = "badge.name.high_scorer";
+        public const string BADGE_NAME_CENTURY_CLUB = "badge.name.century_club";
+        public const string BADGE_NAME_PERFECTIONIST = "badge.name.perfectionist";
+        public const string BADGE_NAME_VETERAN = "badge.name.veteran";
+        public const string BADGE_NAME_POWER_PLAYER = "badge.name.power_player";
+        public const string BADGE_NAME_MARATHON = "badge.name.marathon";
+        public const string BADGE_NAME_ELITE_SCORER = "badge.name.elite_scorer";
+
         // --- Hub ---
 
         /// <summary>Header titles of the hub's tabs. Settings reuses <see cref="SETTINGS_TITLE"/>.</summary>

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Text;
 using MustyBlockBlast.Core;
+using MustyBlockBlast.Gameplay.Localization;
 using MustyBlockBlast.Gameplay.Models;
 using MustyBlockBlast.Gameplay.Reactive;
 using MustyBlockBlast.Gameplay.Settings;
@@ -103,6 +104,8 @@ namespace MustyBlockBlast.Presentation.Views
         private BadgeModel _badgeModel;
         private BadgeCatalog _badgeCatalog;
         private SettingsModel _settingsModel;
+        private LocalizationModel _localizationModel;
+        private LocalizationSystem _localizationSystem;
         private TimerRunSystem _timerRunSystem;
 
         private Canvas _canvas;
@@ -154,11 +157,15 @@ namespace MustyBlockBlast.Presentation.Views
             BadgeModel badgeModel,
             BadgeCatalog badgeCatalog,
             SettingsModel settingsModel,
+            LocalizationModel localizationModel,
+            LocalizationSystem localizationSystem,
             TimerRunSystem timerRunSystem)
         {
             _badgeModel = badgeModel;
             _badgeCatalog = badgeCatalog;
             _settingsModel = settingsModel;
+            _localizationModel = localizationModel;
+            _localizationSystem = localizationSystem;
             _timerRunSystem = timerRunSystem;
         }
 
@@ -169,7 +176,8 @@ namespace MustyBlockBlast.Presentation.Views
 
         private void Start()
         {
-            if (_badgeModel == null || _badgeCatalog == null || _settingsModel == null || _timerRunSystem == null)
+            if (_badgeModel == null || _badgeCatalog == null || _settingsModel == null
+                || _localizationModel == null || _localizationSystem == null || _timerRunSystem == null)
             {
                 Debug.LogError(
                     $"{nameof(BadgesPanelView)} was not injected. Is it registered in the LifetimeScope?", this);
@@ -180,7 +188,12 @@ namespace MustyBlockBlast.Presentation.Views
             _panel.SetActive(false);
 
             _settingsModel.CurrentTheme.Subscribe(OnThemeChanged).AddTo(_disposables);
+
+            // Tile names come from the string tables, so a language change repaints them.
+            _localizationModel.CurrentLocale.Subscribe(OnLocaleChanged).AddTo(_disposables);
         }
+
+        private void OnLocaleChanged(LocaleDefinition locale) => Refresh();
 
         private void OnDestroy() => _disposables.Dispose();
 
@@ -347,13 +360,35 @@ namespace MustyBlockBlast.Presentation.Views
 
             tile.TitleText.color = WithAlpha(
                 isUnlocked ? _currentTheme.CardBackground : _currentTheme.Ink, alpha);
-            tile.TitleText.text = config != null && !string.IsNullOrEmpty(config.DisplayName)
-                ? config.DisplayName
-                : progress.Definition.Id;
+            tile.TitleText.text = DisplayNameOf(config, progress.Definition.Id);
 
             tile.ProgressText.color = WithAlpha(
                 isUnlocked ? _currentTheme.CardBackground : _currentTheme.SoftInk, alpha);
             tile.ProgressText.text = FormatCounter(progress.CurrentValue, progress.Definition.Threshold);
+        }
+
+        /// <summary>
+        /// The badge's name in the player's language: the string-table entry when a key is authored,
+        /// else the authored fallback name, else the id — which is always present and unique, so a
+        /// tile never reads as an empty bug.
+        /// </summary>
+        private string DisplayNameOf(BadgeConfig config, string badgeId)
+        {
+            if (config == null)
+            {
+                return badgeId;
+            }
+
+            if (!string.IsNullOrEmpty(config.DisplayNameKey))
+            {
+                string translated = _localizationSystem.Translate(config.DisplayNameKey);
+                if (!string.IsNullOrEmpty(translated) && translated != config.DisplayNameKey)
+                {
+                    return translated;
+                }
+            }
+
+            return !string.IsNullOrEmpty(config.DisplayName) ? config.DisplayName : badgeId;
         }
 
         private string FormatCounter(long value, long total)
