@@ -433,12 +433,20 @@ namespace MustyBlockBlast.Presentation.Views
 
             // Before the armed branch below: a tap that lands on the armed kind's own icon is the
             // cancel gesture, not an attempt to aim it at whatever is behind the icon.
-            if (_powerUpInventoryView.TryHandleTap(screenPosition))
+            if (_powerUpInventoryView.TryHandleTap(screenPosition, out bool wantsShop))
             {
                 // Reaching for the power-up strip is reaching for something else: drop any armed hammer
                 // rather than leave it armed behind an aim flow that would clear its slot highlight and
                 // make it invisible.
                 CancelHammerArm();
+
+                // An empty slot's tap is the way into the shop. Routed here rather than opened by the
+                // strip itself, because this View is the one that opens the hub for every other button.
+                if (wantsShop)
+                {
+                    _hubPanelView.Open(HubTab.PowerUpShop);
+                }
+
                 return;
             }
 
