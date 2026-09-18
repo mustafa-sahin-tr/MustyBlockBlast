@@ -1,0 +1,622 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MustyBlockBlast — Geliştirici &amp; İçerik Kılavuzu</title>
+<style>
+  :root{
+    --bg:#f5f3ee; --bg-elev:#ffffff; --ink:#241d33; --ink-soft:#6b6278;
+    --border:#e2ddd0; --accent:#7a4fd8; --accent-ink:#ffffff; --accent-soft:#efe8ff;
+    --good:#1f8f5f; --warn:#c9770b; --bad:#c0392b; --code-bg:#2b2455; --code-ink:#f2ecff;
+    --chip-bg:#efe8ff; --shadow:0 6px 18px rgba(40,30,70,.08);
+    --row-alt:#faf8f4;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#171325; --bg-elev:#221c38; --ink:#f1ecff; --ink-soft:#b6adcf;
+      --border:#332b52; --accent:#a481f0; --accent-ink:#1a1330; --accent-soft:#2c2450;
+      --good:#4fd399; --warn:#f0b23c; --bad:#f0685f; --code-bg:#0f0c1e; --code-ink:#dcd2ff;
+      --chip-bg:#2c2450; --shadow:0 6px 18px rgba(0,0,0,.35);
+      --row-alt:#1d1832;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#171325; --bg-elev:#221c38; --ink:#f1ecff; --ink-soft:#b6adcf;
+    --border:#332b52; --accent:#a481f0; --accent-ink:#1a1330; --accent-soft:#2c2450;
+    --good:#4fd399; --warn:#f0b23c; --bad:#f0685f; --code-bg:#0f0c1e; --code-ink:#dcd2ff;
+    --chip-bg:#2c2450; --shadow:0 6px 18px rgba(0,0,0,.35);
+    --row-alt:#1d1832;
+  }
+  *{box-sizing:border-box;}
+  body{background:var(--bg); color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,Arial,sans-serif; padding:0 16px; padding-block:0;}
+  a{color:var(--accent);}
+  h1,h2,h3,h4{line-height:1.25; letter-spacing:-.01em;}
+  h1{font-size:1.6rem; margin:0;}
+  h2{font-size:1.3rem; margin:0 0 4px;}
+  h3{font-size:1.05rem; margin:20px 0 8px;}
+  p{line-height:1.55;}
+  .muted{color:var(--ink-soft);}
+  code, .code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; background:var(--code-bg); color:var(--code-ink); padding:1px 6px; border-radius:5px; font-size:.85em;}
+  kbd{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; background:var(--chip-bg); border:1px solid var(--border); border-bottom-width:2px; padding:2px 7px; border-radius:6px; font-size:.85em; color:var(--ink);}
+
+  header.top{position:sticky; top:0; z-index:20; background:var(--bg); padding-top:16px; padding-bottom:10px; border-bottom:1px solid var(--border);}
+  .top-row{display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; max-width:1100px; margin:0 auto;}
+  .title-block{display:flex; flex-direction:column; gap:2px;}
+  .title-block .sub{font-size:.85rem; color:var(--ink-soft);}
+  nav{display:flex; gap:6px; flex-wrap:wrap; max-width:1100px; margin:10px auto 0;}
+  nav button{appearance:none; border:1px solid var(--border); background:var(--bg-elev); color:var(--ink); padding:7px 12px; border-radius:999px; font-size:.82rem; cursor:pointer; white-space:nowrap;}
+  nav button.active{background:var(--accent); color:var(--accent-ink); border-color:var(--accent);}
+  nav button:hover:not(.active){border-color:var(--accent);}
+
+  main{max-width:1100px; margin:0 auto; padding:22px 0 60px;}
+  section.tab{display:none;}
+  section.tab.active{display:block; animation:fade .15s ease;}
+  @keyframes fade{from{opacity:0} to{opacity:1}}
+
+  .card{background:var(--bg-elev); border:1px solid var(--border); border-radius:14px; padding:16px 18px; box-shadow:var(--shadow); margin-bottom:14px;}
+
+  /* Special-cell glyph: the actual shipped icon (Assets/Art/Icons/SpecialCells/*.png, fal.ai-generated),
+     pre-tinted to the exact colour BoardView.IconTint paints it with in-game, on a dark plate
+     approximating a filled board cell. */
+  .cell-icon{
+    display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;
+    width:34px; height:34px; border-radius:10px; margin-right:2px; vertical-align:-9px;
+    background:linear-gradient(160deg, #241b3d, #150f26);
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);
+  }
+  .cell-icon img{width:22px; height:22px;}
+  .grid{display:grid; gap:14px;}
+  .grid.cols-2{grid-template-columns:repeat(2,1fr);}
+  .grid.cols-3{grid-template-columns:repeat(3,1fr);}
+  @media (max-width:760px){ .grid.cols-2, .grid.cols-3{grid-template-columns:1fr;} }
+
+  table{width:100%; border-collapse:collapse; font-size:.88rem;}
+  table.wrap{display:block; overflow-x:auto;}
+  th,td{padding:7px 10px; text-align:left; border-bottom:1px solid var(--border); vertical-align:top;}
+  th{color:var(--ink-soft); font-weight:600; font-size:.78rem; text-transform:uppercase; letter-spacing:.03em; cursor:pointer; user-select:none; white-space:nowrap;}
+  th:hover{color:var(--accent);}
+  th.sorted::after{content:" ▾"; color:var(--accent);}
+  th.sorted.asc::after{content:" ▴";}
+  tbody tr:nth-child(even){background:var(--row-alt);}
+  tbody tr:hover{background:var(--accent-soft);}
+
+  .chip{display:inline-block; background:var(--chip-bg); color:var(--ink); padding:2px 9px; border-radius:999px; font-size:.75rem; font-weight:600;}
+  .chip.good{background:color-mix(in srgb, var(--good) 18%, transparent); color:var(--good);}
+  .chip.warn{background:color-mix(in srgb, var(--warn) 18%, transparent); color:var(--warn);}
+  .chip.bad{background:color-mix(in srgb, var(--bad) 18%, transparent); color:var(--bad);}
+  .chip.accent{background:var(--accent); color:var(--accent-ink);}
+
+  .keys{display:flex; flex-wrap:wrap; gap:8px; margin:10px 0;}
+  .keyrow{display:flex; align-items:baseline; gap:10px; padding:6px 0; border-bottom:1px dashed var(--border);}
+  .keyrow:last-child{border-bottom:none;}
+  .keyrow .desc{color:var(--ink-soft); font-size:.9rem;}
+
+  .filterbar{display:flex; gap:8px; align-items:center; margin-bottom:10px; flex-wrap:wrap;}
+  .filterbar input[type=search]{flex:1; min-width:180px; padding:8px 12px; border-radius:10px; border:1px solid var(--border); background:var(--bg); color:var(--ink); font-size:.9rem;}
+  .filterbar select{padding:8px 10px; border-radius:10px; border:1px solid var(--border); background:var(--bg); color:var(--ink); font-size:.9rem;}
+  .count-badge{font-size:.8rem; color:var(--ink-soft);}
+
+  .piece-card{display:flex; flex-direction:column; align-items:center; gap:6px; background:var(--bg-elev); border:1px solid var(--border); border-radius:12px; padding:10px; text-align:center;}
+  .piece-grid{display:grid; gap:2px;}
+  .piece-cell{width:14px; height:14px; border-radius:3px; background:var(--accent-soft);}
+  .piece-cell.on{background:var(--accent);}
+  .piece-id{font-size:.72rem; color:var(--ink-soft); word-break:break-all;}
+  .piece-wall{display:grid; grid-template-columns:repeat(auto-fill,minmax(84px,1fr)); gap:10px; margin-top:10px;}
+
+  .toc-note{font-size:.85rem; color:var(--ink-soft); margin-top:-4px;}
+  .anchor-badge{font-size:.72rem; color:var(--ink-soft); border:1px solid var(--border); border-radius:6px; padding:1px 6px; margin-left:6px;}
+
+  footer{max-width:1100px; margin:0 auto; padding:20px 0 40px; color:var(--ink-soft); font-size:.8rem; border-top:1px solid var(--border);}
+  ul.tight li{margin:4px 0;}
+  .callout{border-left:3px solid var(--accent); background:var(--accent-soft); padding:10px 14px; border-radius:8px; font-size:.9rem;}
+  .callout.warn{border-color:var(--warn); background:color-mix(in srgb, var(--warn) 12%, transparent);}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="top-row">
+    <div class="title-block">
+      <h1>MustyBlockBlast — Geliştirici &amp; İçerik Kılavuzu</h1>
+      <span class="sub">Dev test aracı · özel hücreler · power-up'lar · parça şekilleri · 100 level'ın hedefleri · ayarlar &amp; mağaza ekranları</span>
+    </div>
+  </div>
+  <nav id="tabnav"></nav>
+</header>
+
+<main>
+
+<!-- =========================== OVERVIEW =========================== -->
+<section class="tab" id="tab-overview">
+  <div class="card">
+    <h2>Bu doküman ne için</h2>
+    <p>Elle test yaparken ihtiyaç duyulan her şeyin tek yerde toplandığı bir referans: geliştirici için tahta üzerinde serbestçe boyama/şekil test aracı, oyunun tüm özel hücreleri nasıl tetikleniyor, tüm power-up'lar ne işe yarıyor ve kaça satılıyor, elimizdeki tüm parça şekilleri, 100 level'ın her birinin hedefi ve tahta şekli, ayarlar ve mağaza ekranlarının nasıl çalıştığı.</p>
+    <p class="muted">Tüm sayılar mevcut kod tabanından (2026-09-18 itibarıyla) doğrudan okunmuştur; oyun dengesi/economy değerleri hâlâ yer tutucu (placeholder) olarak işaretli olanlar koddaki uyarılarla birlikte belirtilmiştir.</p>
+  </div>
+  <div class="grid cols-3">
+    <div class="card"><div class="chip accent">100</div><h3 style="margin-top:8px">Level</h3><p class="muted" style="margin:0">4 hedef tipi arasında dönen bir rotasyonla, hepsi standart 8×8 tahtada.</p></div>
+    <div class="card"><div class="chip accent">27</div><h3 style="margin-top:8px">Parça şekli</h3><p class="muted" style="margin:0">1x1'den 3x3 kareye, tüm rotasyonlar dahil önceden tanımlı.</p></div>
+    <div class="card"><div class="chip accent">6+5</div><h3 style="margin-top:8px">Özel hücre / Power-up</h3><p class="muted" style="margin:0">6 özel hücre türü, 11 power-up/mağaza kalemi, 3 dock-injected özel parça.</p></div>
+  </div>
+</section>
+
+<!-- =========================== DEV TOOL =========================== -->
+<section class="tab" id="tab-devtool">
+  <div class="card">
+    <h2>Dev Test Aracı <span class="anchor-badge">Editor / Development Build only</span></h2>
+    <p>Play mode'da her zaman kullanılabilir, release build'e hiç girmez (<code>#if UNITY_EDITOR || DEVELOPMENT_BUILD</code>). Kod: <code>DebugCheatSystem.cs</code> + <code>DebugCheatInputView.cs</code>.</p>
+
+    <h3>F9 — Hazır senaryo: satır+sütun çapraz temizleme</h3>
+    <p>Board'u tamamen boşaltır, board şeklinin merkeze en yakın oynanabilir hücresini kesişim seçer, o hücre hariç aynı satır ve sütunu doldurur, dock slot 0'a tam kesişime oturan bir 1×1 parça koyar. Sürükleyip bırakınca satır+sütun aynı anda kapanır → <strong>Explosive Core</strong> spawn olur.</p>
+
+    <h3>P — Serbest boyama modu</h3>
+    <p>İstediğin rengi seç, tahtada istediğin hücreleri tıkla/sürükle-boya, dock'taki 3 slotu <strong>27 parçanın tamamı arasından</strong> istediğin şekle çevir. Herhangi bir level/hedef kısıtlaması yok.</p>
+    <div class="keys">
+      <div class="keyrow"><kbd>P</kbd><span class="desc">Boyama modunu aç/kapat (konsola ON/OFF yazar)</span></div>
+      <div class="keyrow"><kbd>1</kbd>–<kbd>5</kbd><span class="desc">Aktif rengi seç (Board.COLOUR_COUNT = 5 renk)</span></div>
+      <div class="keyrow"><kbd>0</kbd><span class="desc">Silgi moduna geç (bu moddayken her tıklama hücreyi boşaltır, doluysa bile)</span></div>
+      <div class="keyrow"><span class="chip">Pointer basılı + sürükle</span><span class="desc"><strong>Toggle (aç/kapa):</strong> geçtiği boş hücreyi aktif renkle doldurur, geçtiği dolu hücreyi (rengi ne olursa olsun) boşaltır — boyama ve silme aynı hareket. Aynı hücre üzerinde basılı beklemek tekrar tekrar tetiklemez, sadece stroke yeni bir hücreye girdiğinde toggle olur.</span></div>
+      <div class="keyrow"><kbd>A</kbd> / <kbd>S</kbd> / <kbd>D</kbd><span class="desc">Dock slot 1/2/3'ü <code>PieceCatalog</code>'daki 27 şekil arasında sırayla ileri döndürür (aktif renkle); <kbd>Shift</kbd> ile geri döner. Hangi şekle geçildiği konsola yazılır.</span></div>
+    </div>
+    <div class="callout">Kullanım akışı: <strong>P</strong> ile boyama modunu aç → bir renk seç (<strong>1–5</strong>) → tahtada istediğin deseni boya/sil (tıklayınca dolu hücre boşalır, boş hücre dolar) → <strong>A/S/D</strong> ile alttaki üç slotu istediğin şekillere çevir → test et.</div>
+  </div>
+</section>
+
+<!-- =========================== SPECIAL CELLS =========================== -->
+<section class="tab" id="tab-special">
+  <div class="card">
+    <h2>Özel Hücreler <span class="anchor-badge">SpecialCellKind</span></h2>
+    <p>Board üzerinde bazen özel bir ikonla işaretli bir hücre oluşur — bu, hücrenin özel bir davranışı olduğunu gösterir. Her tür kendi ikonuna sahip (<code>Assets/Art/Icons/SpecialCells/</code>, fal.ai ile üretildi) ve kendi rengiyle boyanır (<code>BoardView.IconTint</code>) — <em>2026-09-18'e kadar</em> hepsi aynı yıldız (starburst) şeklini paylaşıp sadece renkle ayrılıyordu; artık şekil de tür başına farklı.</p>
+    <div class="callout"><strong>Kombo streak (<code>ScoreModel.Streak</code>) nedir?</strong> Art arda, <em>en az bir satır/sütun tamamlayan</em> yerleşim sayısı. Her yerleşimde: o hamle ≥1 satır/sütun tamamlıyorsa streak +1 artar; hiçbir şey tamamlamıyorsa streak anında <strong>0'a sıfırlanır</strong>. Kaç satır/sütun aynı anda temizlendiği önemli değil — 1 satır da 3 satır+sütun birden de streak'i sadece +1 artırır; önemli olan art arda kaç hamledir ıskalamadığın. Laser (<b>==4</b>), Coin (<b>==6</b>) ve Golden 1×1 (<b>==5</b>) hepsi bu <em>aynı</em> sayacı, sadece farklı eşiklerde dinler — ve <code>==</code> kontrolü olduğu için (<code>&gt;=</code> değil) sadece tam o eşiğe <em>ulaştığın an</em> bir kez tetiklenirler; streak sıfırlanıp yeniden o eşiğe ulaşırsan tekrar tetiklenir.
+      <p style="margin:10px 0 0"><strong>Ekranda gördüğün sayı (skorun üstündeki "1,5 Streak" / "2 Streak" gibi rozet) streak'in kendisi değil, streak'in verdiği skor çarpanıdır</strong> (<code>StreakPillView</code> + <code>ScoreRules.StreakBonus</code>): <code>gösterilen = 1 + (streak × 0,5)</code>, en fazla <b>4</b>'te tavanlanır (streak ≥ 6 olduğunda). O anki hamlenin satır/sütun skoruna bu çarpan uygulanır.</p>
+      <table style="margin-top:8px"><thead><tr><th>Streak</th><th>Gösterilen çarpan</th></tr></thead><tbody>
+        <tr><td>1</td><td>1,5</td></tr><tr><td>2</td><td>2</td></tr><tr><td>3</td><td>2,5</td></tr>
+        <tr><td>4</td><td>3</td></tr><tr><td>5</td><td>3,5</td></tr><tr><td>6+</td><td>4 (tavan)</td></tr>
+      </tbody></table>
+    </div>
+    <div class="callout">Ayrıca <strong>Explosive Core</strong>, <strong>Laser</strong> ve (dock-injected) <strong>Piercing Rocket</strong>'in yok ettiği/sildiği <em>her hücre</em> için, kendi anlatılan etkisinin üstüne <strong>+1 skor</strong> (<code>ScoreRules.PlacementScore</code>, aktif bir Double Multiplier varsa ×2) ayrıca ödeniyor — ekranda "+N Bonus" olarak beliriyor (<code>BonusFeedbackView</code>). Score Gem ve Coin'in aksine bu üçünde <em>hem</em> board etkisi <em>hem</em> skor bonusu var. Vortex ve Chain Lightning'in kendine ait bir skor bonusu yok (sadece kendi tetiklediği zincirleme etki, o da tetiklerse ayrıca puanlanır).</div>
+  </div>
+
+  <div class="grid cols-2">
+    <div class="card">
+      <h3><span class="cell-icon"><img src="data:image/png;base64,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" alt=""></span> Explosive Core</h3>
+      <p><strong>Nasıl oluşur:</strong> Tek bir hamle aynı anda ≥1 satır <em>ve</em> ≥1 sütun temizlerse, temizlenen ilk sütun ile ilk satırın kesişim hücresine yerleşir. Kesişim zaten doluysa (standart 8x8'de imkansız, delikli tahtalarda olabilir) rastgele dolu bir komşu hücreye düşer.</p>
+      <p><strong>Etkisi:</strong> Yok edilince etrafındaki 3×3 alanı da yok eder (Bomb power-up ile aynı alan). Zincirdeki ikinci bir core da patlar. <strong>+1 skor / yok edilen hücre</strong> ayrıca öder (<code>ExplosiveCoreScoreSystem</code>) — 9 hücrelik tam bir patlama +9, kenar/köşede daha az hücre yok ederse (ör. +5) daha az öder.</p>
+      <p class="muted">Kod: <code>ExplosiveCoreSpawnSelector.cs</code>, <code>BoardSystem.TrySpawnExplosiveCore</code>, <code>ExplosiveCoreScoreSystem.cs</code></p>
+    </div>
+    <div class="card">
+      <h3><span class="cell-icon"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAEvElEQVR4nO2aTWhcVRTHf+e+N5lkPjJ+NIofBRHBhW5cFBStGBcNDaV00Rbc6EYXghXFFiyCk6IIuhCxK1fuXCRutDZpCHRSFW2hi25qCQq6EEFjbTIzycxk3rt/F5PUJm11oe+l1PeDC8Nj5t1z7v2fc+7HQEZGRkZGRkZGRkZGRsb/D9vMziX9Y/9mpjRsSR1pcwd/jU1WwGSeRlTG9/lrfsECo9lq2T27l5OywSX14ushyVStOqnWT8NOEQ78QMAcTt+va6Y58vYjxfCJ3u/GgyTsSV0BqlVDGz4SaeHEASqVD2nWIdgwD7GHUgnqja8ZzA/DrDc7cm2V/EvCJF56PVaTXqz5R8o4HaKz7PESPvprBMwEJtotEbpXzYajpGYfUg+BCWdmIsy9SLm8lfaKMALM7HLzEuViQKf7iRV3nJXGA7P9cVIWpTYAqlYd7POqf76FMDxIqy2crQ9BSeRCY3m5SZ5qTzHnEy2D6Slg7CEzM+GDg5RKQ6x0/VX9C0+h4FiJPrCBnT8BLqnYXyOVJChVHYyJ1vS9ePsOcwWi2LAr+heefM5YiX5mJX6Y2880YUxJL4RSUsDq7HfiwxSLJbqR1jkPPfnn+wz5N23LaB3GLI1VYOIKkOQA0Zh+kDA8h/c5Yr9x9mPKhYB68xwVHoWmYKgn/Yl52f7kkmAKZXDCzPZ7LRx/i4FinsVmjLP1yjMzunEHgufNRjrJ23RF10m+fK2EaWlmG86dphsB2pD4JPpyRmflF8zegLXKYJ5iPqDTmbfiyDFJiYREOguhqPsO5ZJjpRtfNeRmRjeCMLibYuFjWPUx9hBUIP71MHAMJhzwn4dCYgq4PPuL0zsp5CdptWPg71d0WnXQ1KVc7qfeeNcqO1+X5MwskXKYSBUQGOzzkgzzRxDxVe1aGAHyolzup7E03nN+PIDkqkEyIaBxZ2axFk+8wuCd24gXYbCwfvabLdAGv7wiKuWQpaWvuNj33GoF8WYkNgCJhMBawlJj+mkG8vfR7sTEcgQOYnkcFWL/HqHL41d984opDgR0u3PE/kkrj/wmVW+OleBG1JzcQb4wRastIMDLM9DniDXPUnO7De2ZS3oTtEaiK0FJTqqFkgLVaqF0NifVQrr2NoE5BHiJXAhYi3Z7rw3tmVOtGqbhPCRcBlczt4e1qjAcqT61nUJ+G82WBzkC58nnAhrLz9ptu76UaqHZcJSkXVeS4nnAvl6wi5fpy4HkMWJKxYDG8iG7dfTTtJ2H1HaDvTquhZn7Cf15IE/sIwYrORYX3rdbRl/bDOchLQXMzvb6segFiqV+omiFwcEc9fpEz/nxAJ5KJeY3ksZu0MDg0swgYXyBILiDQn/A0vIpivEInOmmse+/HikoYDYwQ4R+L6WBuwiDgFb7Ar6z12y0Azfx7Q+s3gNITpcmT0vfSEszv2jhswcANJ7cae8NgTQeSJjqxx9Xe9arfbKuxanHoHc/sNn2QQrbYTOkevASuX6j+fszVtn17WZl/FTpHYSCLp7Yqs5J6Y8vDgDo7Ee5zbUsJdZuc1SfOqrFqaO9Z7UbQvapIclpcWp373PV3ShX4hlpIslpk/+HkJGRkZGRkZGRkZGRkZGRsY4/AeLFUJxpWoPuAAAAAElFTkSuQmCC" alt=""></span> Laser</h3>
+      <p><strong>Nasıl oluşur:</strong> Art arda <strong>4 hamle boyunca hiç ıskalamadan</strong> — yani üst üste 4 yerleşimin her biri en az bir satır/sütun tamamlayarak — kombo streak'in tam <strong>4</strong>'e ulaştığı anda, board'da rastgele dolu bir hücreye yerleşir (yukarıdaki "Kombo streak nedir?" kutusuna bak). Aradaki bir hamle hiçbir şey temizlemezse sayaç sıfırlanır ve baştan başlaman gerekir.</p>
+      <p><strong>Etkisi:</strong> Yok edildiği eksene dik olan tam satır/sütunu siler (satır temizliğiyle öldüyse sütununu, sütun temizliğiyle öldüyse satırını; Bomb/Color Cleanser gibi eksensiz bir şeyle öldüyse ikisini de). Zincirlenebilir. Sildiği <strong>her hücre için +1 skor</strong> öder (<code>LaserScoreSystem</code>) — Row/Column Clear power-up'ının ödediği oranla birebir aynı.</p>
+      <p class="muted">Kod: <code>LaserSpawnSystem.cs</code> (SPAWN_STREAK=4), <code>LaserSpawnSelector.cs</code>, <code>LaserScoreSystem.cs</code></p>
+    </div>
+    <div class="card">
+      <h3><span class="cell-icon"><img src="data:image/png;base64,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" alt=""></span> Score Gem</h3>
+      <p><strong>Nasıl oluşur (2026-09-18'den itibaren):</strong> Aynı anda ≥1 satır <em>ve</em> ≥1 sütun temizleyen her hamle (Explosive Core'u tetikleyen koşulun <em>aynısı</em>) bir sayacı +1 artırır. Sayaç <strong>2</strong>'ye ulaştığında Score Gem spawn olur ve sayaç <strong>0</strong>'a sıfırlanır — sonra tekrar 2 kez yapınca yine verir, sürekli. <strong>Art arda olması gerekmez</strong>: aradaki sıradan hamleler (hiç temizlemeyen, veya sadece satır/sadece sütun temizleyen) sayacı bozmaz, sadece cross-clear'lar sayılır. Run başında sayaç sıfırlanır.</p>
+      <p><strong>Etkisi:</strong> Board'a etkisi yok. Onu yok eden hamlenin toplam skorunu (base + combo) <strong>×3</strong> (<code>ScoreRules.SCORE_GEM_FACTOR</code>) çarpar.</p>
+      <p class="muted">Kod: <code>ScoreGemProgressModel.cs</code>, <code>BoardSystem.TrySpawnScoreGem</code>, <code>ScoreGemSpawnSelector.cs</code></p>
+    </div>
+    <div class="card">
+      <h3><span class="cell-icon"><img src="data:image/png;base64,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" alt=""></span> Vortex</h3>
+      <p><strong>Nasıl oluşur:</strong> Board, temizlikten <em>hemen önce</em> oynanabilir hücrelerin <strong>%80'inden fazlası dolu</strong> iken bir satır/sütun temizliği olursa, temizlenen hücrelerden birine yerleşir.</p>
+      <p><strong>Etkisi:</strong> Yok edilince her <em>izole</em> bloğu (4 yönü de boş/delik/tahta dışı) kendine doğru 1 hücre çeker. Yok etmez, sadece taşır.</p>
+      <p class="muted">Kod: <code>VortexSpawnSelector.cs</code> (OCCUPANCY_THRESHOLD=0.8f), <code>VortexEffect.cs</code></p>
+    </div>
+    <div class="card">
+      <h3><span class="cell-icon"><img src="data:image/png;base64,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" alt=""></span> Chain Lightning</h3>
+      <p><strong>Nasıl oluşur:</strong> Yerleştirilen parça tam olarak <code>square_3x3</code>, <code>line_h5</code> veya <code>line_v5</code> ise <em>ve</em> bu yerleşim ≥1 satır/sütun temizlerse, temizlenen hücrelerden birine yerleşir. (Kasıtlı olarak kalabalık bir tahtada yapılması zor bir hamle.)</p>
+      <p><strong>Etkisi:</strong> Yok edilince board'da rastgele en fazla <strong>5</strong> dolu hücreye (<code>MAX_TARGETS_PER_STRIKE</code>) sıçrayıp onları da yok eder. Zincirlenebilir.</p>
+      <p class="muted">Kod: <code>ChainLightningSpawnSelector.cs</code>, <code>ChainLightningEffect.cs</code></p>
+    </div>
+    <div class="card">
+      <h3><span class="cell-icon"><img src="data:image/png;base64,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" alt=""></span> Coin</h3>
+      <p><strong>Nasıl oluşur (2 kaynak):</strong></p>
+      <ul class="tight">
+        <li><strong>Streak tetikleyici:</strong> Art arda 6 hamle hiç ıskalamadan kombo streak'i <strong>6</strong>'ya taşıdığında (Özel Hücreler sekmesinin başındaki "Kombo streak nedir?" kutusuna bak) rastgele dolu bir hücreye yerleşir.</li>
+        <li><strong>Level'a gömülü (authored):</strong> <code>LevelObjectiveConfig._coinCellCount</code> alanı kadar (bugün tüm 100 level'da 0) run başında borç olarak "silahlanır" ve parçalar yerleştikçe rastgele dolu hücrelere ödenir. Coin Sower power-up'ı bu borca ekstra miktar ekler.</li>
+      </ul>
+      <p><strong>Etkisi:</strong> Board'a etkisi yok. Cüzdana <strong>5 coin</strong> öder (<code>CurrencyConfig.CoinCellPayout</code>), satır+sütunu aynı anda kapattıysa (<code>ClearAxis.Both</code>) <strong>10 coin</strong>'e çıkar. Run bitince ayakta kalan coin hücresi hiçbir şey ödemez.</p>
+      <p class="muted">Kod: <code>CoinStreakTriggerSystem.cs</code> (SPAWN_STREAK=6), <code>LevelCoinCellSeedSystem.cs</code>, <code>CoinSpawnSelector.cs</code></p>
+      <p class="muted"><strong>Not:</strong> Coin, şu anda level içeriğiyle doğrudan besleyebildiğimiz <em>tek</em> özel hücre türü — diğer 5 tanesi sadece oyun içi tetikleyicilerle kazanılıyor.</p>
+    </div>
+  </div>
+</section>
+
+<!-- =========================== POWER-UPS =========================== -->
+<section class="tab" id="tab-powerups">
+  <div class="card">
+    <h2>Power-Up'lar</h2>
+    <p>9 mağazadan satın alınabilir power-up + Coin Sower (level-başı ekranından) + Hold (sadece reklamla kazanılır, satılmaz) = <strong>11 kalem</strong>. Ayrıca 3 tane <em>satın alınamayan</em>, sadece oyun durumuyla dock'a enjekte edilen özel parça var (Demolition Hammer, Golden 1×1, Piercing Rocket) — aşağıda ayrıca anlatıldı.</p>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">Özet tablo</h3>
+    <table class="wrap">
+      <thead><tr><th>Power-up</th><th>Etki</th><th>Ayak izi</th><th>Fiyat (coin)</th><th>Açılış level'ı</th><th>Nasıl hedefleniyor</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Bomb</strong></td><td>Hedeflenen hücre etrafında 3×3 alanı temizler</td><td>≤9 hücre (kenar/köşede daha az)</td><td>50</td><td>0 (baştan açık)</td><td>Şeritten seç → board hücresine dokun</td></tr>
+        <tr><td><strong>Row Clear</strong></td><td>Bir satırı, dolu olsun olmasın, tamamen temizler</td><td>tam satır</td><td>50</td><td>0 (baştan açık)</td><td>Şeritten seç → board hücresine dokun</td></tr>
+        <tr><td><strong>Column Clear</strong></td><td>Bir sütunu, dolu olsun olmasın, tamamen temizler</td><td>tam sütun</td><td>50</td><td>0 (baştan açık)</td><td>Şeritten seç → board hücresine dokun</td></tr>
+        <tr><td><strong>Joker</strong></td><td>1 boş hücreyi doldurur; sadece bu dolum satırı/sütunu tamamlarsa temizler</td><td>1 hücre</td><td>100</td><td>5</td><td>Şeritten seç → boş hücreye dokun</td></tr>
+        <tr><td><strong>Color Cleanser</strong></td><td>Hedeflenen hücreyle aynı renkteki <em>tüm</em> board hücrelerini temizler</td><td>değişken (tüm board taranır)</td><td>150</td><td>10</td><td>Şeritten seç → dolu hücreye dokun</td></tr>
+        <tr><td><strong>Rotate</strong></td><td>Dock'taki bir parçayı 90° saat yönünde döndürür (kataloğun döndürülmüş karşılığına geçer)</td><td>— (sadece dock)</td><td>200</td><td>15</td><td>Şeritten seç → dock slotuna dokun</td></tr>
+        <tr><td><strong>Reroll</strong></td><td>Dock'taki 3 parçayı atar, en az 1 geçerli yerleşimi garanti eden 3 yeni parça çeker</td><td>—</td><td>250</td><td>20</td><td>Şeritten dokunma = anında uygulanır</td></tr>
+        <tr><td><strong>Double Multiplier</strong></td><td>Belirli bir süre boyunca tüm skor kazanımlarını ×2 yapar</td><td>—</td><td>300</td><td>25</td><td>Şeritten dokunma = anında uygulanır</td></tr>
+        <tr><td><strong>Ghost Fit</strong></td><td>En iyi hamleyi siluet + dock vurgusuyla önerir; hiçbir şeyi değiştirmez</td><td>—</td><td>350</td><td>30</td><td>Şeritten dokunma = anında uygulanır/aç-kapa</td></tr>
+        <tr><td><strong>Coin Sower</strong></td><td>Run başlamadan önce board'a ekstra Coin hücresi boyar</td><td>N hücre (alıcı seçer, max 5)</td><td>60/adet</td><td>35</td><td>Sadece level-başı ekranı — asla şeritte değil</td></tr>
+        <tr><td><strong>Hold</strong></td><td>Dock parçasını cebe park eder (doluysa parçayı değiştirir)</td><td>— (sadece dock)</td><td>Mağazada satılmıyor — sadece reklamla kazanılır</td><td>0 (baştan açık)</td><td>Dock parçasını cebe sürükle</td></tr>
+      </tbody>
+    </table>
+    <p class="muted" style="margin-top:8px">Fiyat kaynağı: <code>PowerUpPriceConfig.cs</code>. Açılış seviyeleri: <code>PowerUpUnlockLevels.cs</code>. Aktif bir promosyon varsa fiyat geçici indirimli gösterilebilir (<code>CurrencySystem.QuotePriceFor</code>).</p>
+  </div>
+
+  <h3>Nasıl kazanılır / satın alınır</h3>
+  <div class="card">
+    <p>Coin Sower ve Hold dışındaki her power-up için iki paralel yol var, ikisi de <code>PowerUpUnlockLevels.IsUnlockedAt</code> ile kapılı (coin olsa da açılmamışsa satın alınamaz):</p>
+    <ol class="tight">
+      <li><strong>Mağazadan satın alma</strong> — <code>CurrencySystem.TryPurchasePowerUp</code>: coin düşer, envantere ekler.</li>
+      <li><strong>Ödüllü reklam</strong> — <code>PowerUpSystem.GrantRewardAsync</code>: şu anki implementasyon (<code>DeterministicRewardSource</code>) her zaman verir — gerçek reklam SDK'sı bağlanana kadar yer tutucu (kod içinde "DO NOT SHIP" uyarısı var).</li>
+    </ol>
+    <p>Ayrıca bir level tamamlandığında <code>LevelObjectiveConfig.GrantsLevelUpReward</code> ile ücretsiz, coin/açılış şartı olmadan doğrudan bir power-up verilebilir (bkz. Level'lar sekmesindeki "Ödül" sütunu).</p>
+  </div>
+
+  <h3>Mağazadan satılmayan, dock'a otomatik enjekte edilen özel parçalar</h3>
+  <div class="grid cols-3">
+    <div class="card">
+      <h4 style="margin-top:0">🔨 Demolition Hammer</h4>
+      <p class="muted" style="margin:0">Board tehlikeli derecede dolu ve hiç geçerli hamle kalmadığında son çare olarak dock'a düşer. Şeritteki gibi silah (dock slotuna dokun → board hücresine dokun) ama sadece tek bir hücreyi yok eder — o hücrenin özel efekti varsa yine tetiklenir, reinforced hücrede bir vuruş harcar. Satın alınamaz, envantere girmez.</p>
+    </div>
+    <div class="card">
+      <h4 style="margin-top:0">⭐ Golden 1×1</h4>
+      <p class="muted" style="margin:0">Art arda 5 hamle hiç ıskalamadan kombo streak'i <strong>5</strong>'e taşıdığında bir sonraki dock yenilemesine eklenir. Sıradan 1×1 gibi davranır (doldurur, tamamlarsa temizler) — "golden" etiketi sadece kozmetik.</p>
+    </div>
+    <div class="card">
+      <h4 style="margin-top:0">🚀 Piercing Rocket 1×1</h4>
+      <p class="muted" style="margin:0">Tek hamlede 3+ satır/sütun temizlenince kazanılır (bir sonraki dock'a eklenir). Yerleştirilince hücresine oturur, sonra o hücrenin <em>tam</em> satır ve <em>tam</em> sütununu siler — ikisi de tamamlanmış olsun olmasın. Sildiği hücre başına <strong>+1 skor</strong> öder (<code>PiercingRocketScoreSystem</code>), Laser'la aynı oranda.</p>
+    </div>
+  </div>
+</section>
+
+<!-- =========================== PIECES =========================== -->
+<section class="tab" id="tab-pieces">
+  <div class="card">
+    <h2>Parça Şekilleri <span class="anchor-badge">PieceCatalog · 27 parça</span></h2>
+    <p>Parçalar oyun sırasında hiç döndürülmez — her yönelim kataloğa ayrı bir girdi olarak önceden tanımlanmıştır. Bu yüzden katalog "90°'ye kapalı"dır: herhangi bir parçanın döndürülmüşü de kataloğun içindedir (1×1, 2×2, 3×3 kare kendi rotasyonuyla aynıdır). Rotate power-up'ı tam olarak bu özelliğe dayanır.</p>
+  </div>
+  <div id="pieceGroups"></div>
+</section>
+
+<!-- =========================== LEVELS =========================== -->
+<section class="tab" id="tab-levels">
+  <div class="card">
+    <h2>Level'lar &amp; Hedefler <span class="anchor-badge">LevelCatalog · 100 level</span></h2>
+    <p>Tüm level'lar standart <strong>8×8</strong> tahtada oynanıyor. <code>LevelObjectiveConfig</code> içinde özel tahta boyutu (<code>_boardWidth/_boardHeight</code>), delikler (<code>_boardHoles</code>), güçlendirilmiş hücreler (<code>_reinforcedCells</code>) ve coin hücresi sayısı (<code>_coinCellCount</code>) alanları koda eklenmiş ve tamamen çalışır durumda, ama <strong>bugüne kadar hiçbir level bunları kullanmıyor</strong> — hepsi varsayılan (standart 8×8, delik yok, reinforced yok, coin hücresi yok) değerlerde. Yani şu an sistemde 8×8 dışında tanımlı <strong>0 tahta şekli</strong> var; altyapı hazır, içerik henüz yazılmamış.</p>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">Hedef tipleri (ObjectiveType) — nasıl tamamlanır</h3>
+    <p class="muted">18 tip koda tanımlı; bugün authored 100 level'da sadece ilk 4'ü (0-3) kullanılıyor. Diğerleri (4-18) altyapıda hazır ama henüz hiçbir level'da kullanılmıyor.</p>
+    <table class="wrap">
+      <thead><tr><th>#</th><th>Tip</th><th>Kullanımda mı?</th><th>Nasıl tamamlanır</th></tr></thead>
+      <tbody>
+        <tr><td>0</td><td>SimultaneousLineClear</td><td><span class="chip good">Evet</span></td><td>Tek hamlede <strong>tam olarak</strong> <code>RequiredLineCount</code> satır/sütun temizleyen bir yerleşim yap, bunu <code>TargetValue</code> kere tekrarla.</td></tr>
+        <tr><td>1</td><td>PieceFamilyCount</td><td><span class="chip good">Evet</span></td><td><code>RequiredPieceFamily</code> ailesinden <code>TargetValue</code> parça yerleştir.</td></tr>
+        <tr><td>2</td><td>ScoreInRun</td><td><span class="chip good">Evet</span></td><td>Run içinde <code>TargetValue</code> skora ulaş.</td></tr>
+        <tr><td>3</td><td>BoardWipeCount</td><td><span class="chip good">Evet</span></td><td>Board'u tamamen boşaltan <code>TargetValue</code> yerleşim yap.</td></tr>
+        <tr><td>4</td><td>StreakThreshold</td><td><span class="chip warn">Hayır</span></td><td>Herhangi bir anda <code>TargetValue</code> kombo streak'e ulaş (en yüksek değer).</td></tr>
+        <tr><td>5</td><td>BombInducedLineClear</td><td><span class="chip warn">Hayır</span></td><td>Bomb power-up'ının bir satır/sütunu boşalttığı durumlardan <code>TargetValue</code> kere yaşa (sadece power-up kaynaklı).</td></tr>
+        <tr><td>6</td><td>RowAndColumnCrossClear</td><td><span class="chip warn">Hayır</span></td><td>Aynı hamlede ≥1 satır VE ≥1 sütun temizle, <code>TargetValue</code> kere.</td></tr>
+        <tr><td>7</td><td>ClutchRecoveryClear</td><td><span class="chip warn">Hayır</span></td><td>Board, temizlikten hemen önce ≥<code>RequiredOccupancyThreshold</code> doluyken bir satır/sütun temizle, <code>TargetValue</code> kere.</td></tr>
+        <tr><td>8</td><td>AtLeastLineClear</td><td><span class="chip warn">Hayır</span></td><td>Tek hamlede <strong>en az</strong> <code>RequiredLineCount</code> satır/sütun temizle, <code>TargetValue</code> kere.</td></tr>
+        <tr><td>9</td><td>PieceIdCount</td><td><span class="chip warn">Hayır</span></td><td>Tam olarak <code>RequiredPieceId</code> parçasını <code>TargetValue</code> kere yerleştir.</td></tr>
+        <tr><td>10</td><td>PieceIdLineClear</td><td><span class="chip warn">Hayır</span></td><td><code>RequiredPieceId</code> parçasını yerleştir VE aynı hamlede ≥1 satır/sütun temizle, <code>TargetValue</code> kere.</td></tr>
+        <tr><td>11</td><td>FourCornersCleared</td><td><span class="chip warn">Hayır</span></td><td>Bir board köşesine değen bir satır/sütun temizle, <code>TargetValue</code> kere.</td></tr>
+        <tr><td>12</td><td>CenterCoreEvacuated</td><td><span class="chip warn">Hayır</span></td><td>Ortadaki 4×4 çekirdeği tamamen boşalt, <code>TargetValue</code> kere.</td></tr>
+        <tr><td>13</td><td>NoIsolatedHolesStreak</td><td><span class="chip warn">Hayır</span></td><td>Art arda <code>TargetValue</code> yerleşim boyunca hiç izole boş hücre bırakma (en yüksek streak).</td></tr>
+        <tr><td>14</td><td>RollingLineClearWindow</td><td><span class="chip warn">Hayır</span></td><td>Herhangi bir <code>WindowSeconds</code> genişliğindeki kayan pencerede <code>TargetValue</code> satır/sütun temizle.</td></tr>
+        <tr><td>15</td><td>EarlyScoreRush</td><td><span class="chip warn">Hayır</span></td><td>Run'ın ilk <code>WindowSeconds</code> saniyesinde <code>TargetValue</code> skora ulaş.</td></tr>
+        <tr><td>16</td><td>RerollSave</td><td><span class="chip warn">Hayır</span></td><td>Dock'ta hiç geçerli hamle yokken Reroll harca, <code>TargetValue</code> kere (sadece power-up kaynaklı).</td></tr>
+        <tr><td>17</td><td>ReinforcedCellsCleared</td><td><span class="chip warn">Hayır</span></td><td>Level'ın authored ettiği <em>tüm</em> reinforced hücreleri yok et.</td></tr>
+        <tr><td>18</td><td>ColourCleared</td><td><span class="chip warn">Hayır</span></td><td><code>RequiredColourId</code> renginden <code>TargetValue</code> hücre yok et.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">Genel desen</h3>
+    <p>Level'lar 4 hedef tipi arasında dönen bir rotasyonla ilerliyor: <em>SimultaneousLineClear → PieceFamilyCount → SimultaneousLineClear → BoardWipeCount</em> (tekrar eder), level ~61'den itibaren ScoreInRun bu rotasyona bir slot olarak giriyor. Hedefler kademeli artıyor; SimultaneousLineClear'ın gereken satır sayısı 2→3→4 diye ilerliyor. 20 level'da (5, 10, 15… 100) tamamlanınca ücretsiz bir power-up ödülü var: <strong>Row Clear / Column Clear / Joker</strong> sırayla dönüyor.</p>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">Tüm level'lar</h3>
+    <div class="filterbar">
+      <input type="search" id="levelSearch" placeholder="Ara: level no, hedef tipi, aile, ödül…">
+      <select id="levelTypeFilter">
+        <option value="">Tüm hedef tipleri</option>
+        <option value="S">SimultaneousLineClear</option>
+        <option value="F">PieceFamilyCount</option>
+        <option value="W">BoardWipeCount</option>
+        <option value="R">ScoreInRun</option>
+      </select>
+      <span class="count-badge" id="levelCount"></span>
+    </div>
+    <table class="wrap" id="levelTable">
+      <thead>
+        <tr>
+          <th data-key="lvl">Level</th>
+          <th data-key="type">Hedef Tipi</th>
+          <th data-key="target">Hedef Değeri</th>
+          <th data-key="extra">Detay</th>
+          <th data-key="board">Tahta</th>
+          <th data-key="reward">Ödül</th>
+        </tr>
+      </thead>
+      <tbody id="levelTbody"></tbody>
+    </table>
+  </div>
+</section>
+
+<!-- =========================== SETTINGS =========================== -->
+<section class="tab" id="tab-settings">
+  <div class="card">
+    <h2>Ayarlar Ekranı <span class="anchor-badge">SettingsPanelView</span></h2>
+    <p>880×1140'lık tek bir kart; beş alt-ekranı vardır, hepsi baştan kurulur ve <code>SetActive</code> ile aç/kapa yapılır (yeniden inşa edilmez). Mağaza ile aynı "tezgah" görsel dilini paylaşır: her satırda renkli bir ikon karosu, büyük harf etiket, görüntü fontuyla bir değer, ve bir chevron (alt-ekran açar) ya da 3D toggle.</p>
+  </div>
+  <div class="grid cols-2">
+    <div class="card">
+      <h3 style="margin-top:0">Ana ekran — 4 satır</h3>
+      <ol class="tight">
+        <li><strong>Mode</strong> (chevron → Mode seçici) — aktif oyun modunun ikonu.</li>
+        <li><strong>Theme</strong> (chevron → Theme seçici) — aktif tema adı + paletinden küçük renk noktaları.</li>
+        <li><strong>Language</strong> (chevron → Language seçici) — aktif dil.</li>
+        <li><strong>Sound</strong> (3D toggle, alt ekran yok) — sesi doğrudan aç/kapatır.</li>
+      </ol>
+      <p>Altında <strong>Remove Ads</strong> aksiyonu: satın alınmamışsa gerçek para IAP butonu (fiyat App Store/Play Console'dan gelir, kodda sabit değil), satın alınmışsa onay işaretli "reklamlar kaldırıldı" şeridi.</p>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">Alt ekranlar</h3>
+      <ul class="tight">
+        <li><strong>Theme seçici</strong> — sabit 2×2 grid (4 tema), her kart kendi renkleriyle 4×4 mini-board önizlemesi gösterir. Sadece kozmetik.</li>
+        <li><strong>Mode seçici</strong> — Endless / Timed / Path, her biri açıklamalı, aktif olan "PLAYING" etiketli. Farklı bir moda geçiş onay ister (mod değişimi run'ı yeniden başlatır). Timed satırı kendi içinde round-süresi çipleri de gösterir.</li>
+        <li><strong>Language seçici</strong> — desteklenen her dil kendi dilinde yazılı bir kart; sadece metinleri etkiler.</li>
+      </ul>
+      <p class="muted">Profil adı düzenleme ve giriş durumu bu ekranda değil, ayrı Profile kartında.</p>
+    </div>
+  </div>
+</section>
+
+<!-- =========================== SHOP =========================== -->
+<section class="tab" id="tab-shop">
+  <div class="card">
+    <h2>Mağaza Ekranı <span class="anchor-badge">PowerUpShopView</span></h2>
+    <p>Üstte coin bakiyesi şeridi, altında <strong>3 sekme</strong>: <em>Power-Ups</em>, <em>Coins</em>, <em>Deals</em>.</p>
+  </div>
+  <div class="grid cols-3">
+    <div class="card">
+      <h3 style="margin-top:0">1 · Power-Ups</h3>
+      <p>Her <code>PowerUpKind</code> için bir kart (Coin Sower hariç — o level-başı ekranından satılıyor): ikon, isim, açıklama, sahip olunan adet rozeti, BUY butonu. Satın alma sonucu: Başarılı / Kilitli (açılış level'ına ulaşılmamış) / Yetersiz coin. Fiyatlar Power-Up'lar sekmesindeki tabloyla aynı.</p>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">2 · Coins</h3>
+      <p><strong>Dönüştürme paneli:</strong> toplam kazanılan skor, dönüştürülebilir miktar, ±50 adımlı stepper. Oran: <code>ScoreToCoinRate=0.1</code> → <strong>100 skor = 10 coin</strong>. Ayrıca "Reklam izle" butonu sabit <strong>25 coin</strong> veriyor.</p>
+      <p><strong>Coin paketleri</strong> (gerçek para IAP):</p>
+      <table><tbody>
+        <tr><td>Handful of Coins</td><td>500 coin</td></tr>
+        <tr><td>Bag of Coins</td><td>1200 coin</td></tr>
+        <tr><td>Chest of Coins</td><td>2800 coin</td></tr>
+        <tr><td>Vault of Coins</td><td>6000 coin</td></tr>
+      </tbody></table>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">3 · Deals</h3>
+      <p class="muted">Henüz uygulanmadı — sadece statik bir yer tutucu metin gösteriyor (<code>DEALS_PLACEHOLDER_TEXT</code>). <code>PromotionConfig</code> altyapısı var ama bu sekmeye bağlanmamış.</p>
+    </div>
+  </div>
+  <div class="callout">Coin hücresini yok etmek (oyun içi) doğrudan <strong>5 coin</strong> öder (satır+sütun kesişimiyse 10) — bu, mağazadaki dönüştürme/satın alma/reklam kaynaklarından bağımsız, pasif bir coin kaynağıdır.</div>
+</section>
+
+</main>
+
+<footer>MustyBlockBlast — dahili geliştirici dokümanı. Kaynak kod referansları koddaki dosya adlarına göre verilmiştir; sayılar 2026-09-18 itibarıyla doğrudan kod/asset okumasıyla derlenmiştir.</footer>
+
+<script>
+(function(){
+  // ---------- Tabs ----------
+  var tabs = [
+    {id:'overview', label:'Genel Bakış'},
+    {id:'devtool', label:'Dev Test Aracı'},
+    {id:'special', label:'Özel Hücreler'},
+    {id:'powerups', label:"Power-Up'lar"},
+    {id:'pieces', label:'Parça Şekilleri'},
+    {id:'levels', label:"Level'lar"},
+    {id:'settings', label:'Ayarlar'},
+    {id:'shop', label:'Mağaza'}
+  ];
+  var nav = document.getElementById('tabnav');
+  tabs.forEach(function(t, i){
+    var b = document.createElement('button');
+    b.textContent = t.label;
+    b.dataset.tab = t.id;
+    if(i===0) b.classList.add('active');
+    b.addEventListener('click', function(){ selectTab(t.id); });
+    nav.appendChild(b);
+  });
+  function selectTab(id){
+    document.querySelectorAll('nav#tabnav button').forEach(function(b){ b.classList.toggle('active', b.dataset.tab===id); });
+    document.querySelectorAll('section.tab').forEach(function(s){ s.classList.toggle('active', s.id === 'tab-'+id); });
+    try { history.replaceState(null,'','#'+id); } catch(e){}
+  }
+  var initial = (location.hash||'').replace('#','');
+  if(!tabs.some(function(t){return t.id===initial;})) initial = tabs[0].id;
+  selectTab(initial);
+
+  // ---------- Pieces ----------
+  var pieces = [
+    ["single_1x1",[[0,0]]],
+    ["line_h2",[[0,0],[1,0]]],["line_v2",[[0,0],[0,1]]],
+    ["line_h3",[[0,0],[1,0],[2,0]]],["line_v3",[[0,0],[0,1],[0,2]]],
+    ["line_h4",[[0,0],[1,0],[2,0],[3,0]]],["line_v4",[[0,0],[0,1],[0,2],[0,3]]],
+    ["line_h5",[[0,0],[1,0],[2,0],[3,0],[4,0]]],["line_v5",[[0,0],[0,1],[0,2],[0,3],[0,4]]],
+    ["square_2x2",[[0,0],[1,0],[0,1],[1,1]]],
+    ["square_3x3",[[0,0],[1,0],[2,0],[0,1],[1,1],[2,1],[0,2],[1,2],[2,2]]],
+    ["corner2_missing_tr",[[0,0],[1,0],[0,1]]],
+    ["corner2_missing_tl",[[0,0],[1,0],[1,1]]],
+    ["corner2_missing_bl",[[1,0],[0,1],[1,1]]],
+    ["corner2_missing_br",[[0,0],[0,1],[1,1]]],
+    ["corner3_bl",[[0,0],[1,0],[2,0],[0,1],[0,2]]],
+    ["corner3_br",[[0,0],[1,0],[2,0],[2,1],[2,2]]],
+    ["corner3_tl",[[0,0],[0,1],[0,2],[1,2],[2,2]]],
+    ["corner3_tr",[[2,0],[2,1],[2,2],[1,2],[0,2]]],
+    ["t_up",[[0,0],[1,0],[2,0],[1,1]]],
+    ["t_down",[[0,1],[1,1],[2,1],[1,0]]],
+    ["t_right",[[0,0],[0,1],[0,2],[1,1]]],
+    ["t_left",[[1,0],[1,1],[1,2],[0,1]]],
+    ["s_horizontal",[[0,1],[1,1],[1,0],[2,0]]],
+    ["s_vertical",[[1,1],[1,2],[0,0],[0,1]]],
+    ["z_horizontal",[[0,0],[1,0],[1,1],[2,1]]],
+    ["z_vertical",[[0,1],[0,2],[1,0],[1,1]]]
+  ];
+  var families = [
+    {title:"Tek hücre (1)", match:function(id){return id==="single_1x1";}},
+    {title:"Çizgiler — yatay/dikey, 2–5 uzunluk (8)", match:function(id){return id.indexOf("line_")===0;}},
+    {title:"Kareler (2)", match:function(id){return id.indexOf("square_")===0;}},
+    {title:"L-tromino — 2×2 eksik köşe (4)", match:function(id){return id.indexOf("corner2_")===0;}},
+    {title:"L-pentomino — 3×3 eksik köşe (4)", match:function(id){return id.indexOf("corner3_")===0;}},
+    {title:"T-tetromino (4)", match:function(id){return id.indexOf("t_")===0;}},
+    {title:"S-tetromino (2)", match:function(id){return id.indexOf("s_")===0;}},
+    {title:"Z-tetromino (2)", match:function(id){return id.indexOf("z_")===0;}}
+  ];
+  var groupsEl = document.getElementById('pieceGroups');
+  families.forEach(function(fam){
+    var items = pieces.filter(function(p){ return fam.match(p[0]); });
+    if(!items.length) return;
+    var card = document.createElement('div'); card.className='card';
+    var h = document.createElement('h3'); h.style.marginTop='0'; h.textContent = fam.title;
+    card.appendChild(h);
+    var wall = document.createElement('div'); wall.className='piece-wall';
+    items.forEach(function(p){
+      var id = p[0], cells = p[1];
+      var maxX=0, maxY=0;
+      cells.forEach(function(c){ maxX=Math.max(maxX,c[0]); maxY=Math.max(maxY,c[1]); });
+      var w = maxX+1, h2 = maxY+1;
+      var pc = document.createElement('div'); pc.className='piece-card';
+      var grid = document.createElement('div'); grid.className='piece-grid';
+      grid.style.gridTemplateColumns = 'repeat('+w+', 14px)';
+      grid.style.gridTemplateRows = 'repeat('+h2+', 14px)';
+      var on = {};
+      cells.forEach(function(c){ on[c[0]+','+c[1]] = true; });
+      for(var y=0;y<h2;y++){
+        for(var x=0;x<w;x++){
+          var cell = document.createElement('div');
+          cell.className = 'piece-cell' + (on[x+','+y] ? ' on' : '');
+          grid.appendChild(cell);
+        }
+      }
+      pc.appendChild(grid);
+      var label = document.createElement('div'); label.className='piece-id'; label.textContent = id + ' ('+cells.length+')';
+      pc.appendChild(label);
+      wall.appendChild(pc);
+    });
+    card.appendChild(wall);
+    groupsEl.appendChild(card);
+  });
+
+  // ---------- Levels ----------
+  // [level, type('S'|'F'|'W'|'R'), target, extra, rewardCode(0=none,1=RowClear,2=ColumnClear,3=Joker)]
+  var FAM = {Single:"Tek Hücre", Line:"Çizgi", Square:"Kare", Corner:"L Şekli", TShape:"T Şekli", SShape:"S Şekli", ZShape:"Z Şekli"};
+  var levels = [
+    [1,'S',2,2,0],[2,'S',2,2,0],[3,'S',2,2,0],[4,'S',2,2,0],[5,'S',3,2,1],
+    [6,'S',3,2,0],[7,'S',3,2,0],[8,'S',3,2,0],[9,'S',4,2,0],[10,'S',4,2,2],
+    [11,'F',5,'Single',0],[12,'F',5,'Line',0],[13,'S',4,2,0],[14,'F',6,'Corner',0],[15,'F',6,'TShape',3],
+    [16,'S',4,2,0],[17,'F',7,'ZShape',0],[18,'F',7,'Single',0],[19,'S',5,2,0],[20,'F',24,'Square',1],
+    [21,'F',25,'Corner',0],[22,'S',5,2,0],[23,'F',27,'SShape',0],[24,'F',28,'ZShape',0],[25,'S',6,2,2],
+    [26,'F',30,'Line',0],[27,'F',31,'Square',0],[28,'S',6,2,0],[29,'F',33,'TShape',0],[30,'F',34,'SShape',3],
+    [31,'S',3,3,0],[32,'F',42,'Line',0],[33,'W',1,null,0],[34,'S',3,3,0],[35,'F',48,'TShape',1],
+    [36,'W',2,null,0],[37,'S',3,3,0],[38,'F',54,'Single',0],[39,'W',1,null,0],[40,'S',3,3,2],
+    [41,'F',60,'Corner',0],[42,'W',3,null,0],[43,'S',4,4,0],[44,'F',66,'ZShape',0],[45,'W',1,null,3],
+    [46,'S',4,4,0],[47,'F',72,'Square',0],[48,'W',3,null,0],[49,'S',4,4,0],[50,'F',78,'SShape',1],
+    [51,'W',1,null,0],[52,'S',5,4,0],[53,'F',84,'Line',0],[54,'W',4,null,0],[55,'S',5,3,2],
+    [56,'F',90,'TShape',0],[57,'W',1,null,0],[58,'S',5,3,0],[59,'F',96,'Single',0],[60,'W',4,null,3],
+    [61,'R',3000,null,0],[62,'S',5,3,0],[63,'F',110,'Square',0],[64,'W',5,null,0],[65,'R',4000,null,1],
+    [66,'S',5,3,0],[67,'F',130,'ZShape',0],[68,'W',5,null,0],[69,'R',5000,null,0],[70,'S',5,4,2],
+    [71,'F',150,'Corner',0],[72,'W',6,null,0],[73,'R',6000,null,0],[74,'S',6,4,0],[75,'F',170,'Single',3],
+    [76,'W',6,null,0],[77,'R',7000,null,0],[78,'S',6,3,0],[79,'F',190,'TShape',0],[80,'W',7,null,1],
+    [81,'R',8000,null,0],[82,'S',7,3,0],[83,'F',210,'Line',0],[84,'W',7,null,0],[85,'R',9000,null,2],
+    [86,'S',7,4,0],[87,'F',230,'SShape',0],[88,'W',8,null,0],[89,'R',10000,null,0],[90,'S',7,4,3],
+    [91,'F',250,'Square',0],[92,'W',8,null,0],[93,'R',11000,null,0],[94,'S',8,3,0],[95,'F',270,'ZShape',1],
+    [96,'W',9,null,0],[97,'R',12000,null,0],[98,'S',8,3,0],[99,'F',290,'Corner',0],[100,'W',9,null,2]
+  ];
+  var TYPE_LABEL = {S:'SimultaneousLineClear', F:'PieceFamilyCount', W:'BoardWipeCount', R:'ScoreInRun'};
+  var REWARD_LABEL = {0:'—', 1:'Row Clear', 2:'Column Clear', 3:'Joker'};
+
+  function extraText(row){
+    if(row[1]==='S') return row[3] + ' satır/sütun aynı anda';
+    if(row[1]==='F') return (FAM[row[3]]||row[3]) + ' ailesinden';
+    if(row[1]==='W') return "Board'u tamamen boşalt";
+    if(row[1]==='R') return 'Run skoru';
+    return '';
+  }
+
+  var tbody = document.getElementById('levelTbody');
+  function renderLevels(filterText, filterType){
+    tbody.innerHTML = '';
+    var ft = (filterText||'').toLowerCase();
+    var shown = 0;
+    levels.forEach(function(row){
+      if(filterType && row[1] !== filterType) return;
+      var typeLabel = TYPE_LABEL[row[1]];
+      var rewardLabel = REWARD_LABEL[row[4]];
+      var extra = extraText(row);
+      var hay = (row[0]+' '+typeLabel+' '+extra+' '+rewardLabel).toLowerCase();
+      if(ft && hay.indexOf(ft)===-1) return;
+      shown++;
+      var tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td><strong>'+row[0]+'</strong></td>'+
+        '<td>'+typeLabel+'</td>'+
+        '<td>'+row[2]+'</td>'+
+        '<td>'+extra+'</td>'+
+        '<td><span class="chip good">8×8 standart</span></td>'+
+        '<td>'+(row[4] ? '<span class="chip accent">'+rewardLabel+'</span>' : '<span class="muted">—</span>')+'</td>';
+      tbody.appendChild(tr);
+    });
+    document.getElementById('levelCount').textContent = shown + ' / ' + levels.length + ' level gösteriliyor';
+  }
+  renderLevels('', '');
+  document.getElementById('levelSearch').addEventListener('input', function(){
+    renderLevels(this.value, document.getElementById('levelTypeFilter').value);
+  });
+  document.getElementById('levelTypeFilter').addEventListener('change', function(){
+    renderLevels(document.getElementById('levelSearch').value, this.value);
+  });
+
+  // sortable columns
+  var sortState = {key:null, asc:true};
+  document.querySelectorAll('#levelTable th[data-key]').forEach(function(th){
+    th.addEventListener('click', function(){
+      var key = th.dataset.key;
+      var asc = sortState.key === key ? !sortState.asc : true;
+      sortState = {key:key, asc:asc};
+      document.querySelectorAll('#levelTable th').forEach(function(h){ h.classList.remove('sorted','asc'); });
+      th.classList.add('sorted'); if(asc) th.classList.add('asc');
+      var idxMap = {lvl:0, type:1, target:2, extra:3, reward:4};
+      var idx = idxMap[key];
+      levels.sort(function(a,b){
+        var va, vb;
+        if(key==='type'){ va = TYPE_LABEL[a[1]]; vb = TYPE_LABEL[b[1]]; }
+        else if(key==='extra'){ va = extraText(a); vb = extraText(b); }
+        else if(key==='reward'){ va = a[4]; vb = b[4]; }
+        else if(key==='lvl'){ va = a[0]; vb = b[0]; }
+        else if(key==='target'){ va = a[2]; vb = b[2]; }
+        else { va = a[idx]; vb = b[idx]; }
+        if(typeof va === 'string') return asc ? va.localeCompare(vb) : vb.localeCompare(va);
+        return asc ? va-vb : vb-va;
+      });
+      renderLevels(document.getElementById('levelSearch').value, document.getElementById('levelTypeFilter').value);
+    });
+  });
+})();
+</script>
+</body>
+</html>

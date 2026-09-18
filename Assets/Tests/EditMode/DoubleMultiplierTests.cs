@@ -409,7 +409,7 @@ namespace MustyBlockBlast.Tests.EditMode
             return new BoardSystem(
                 new BoardModel(),
                 new TrayModel(),
-                new PerfectRoundModel(),
+                new ScoreGemProgressModel(),
                 new WeightedPieceDraw(),
                 new TestMessageBroker<RunStartedMessage>(),
                 new TestMessageBroker<PiecePlacedMessage>(),

@@ -49,7 +49,7 @@ namespace MustyBlockBlast.Tests.EditMode
             _system = new BoardSystem(
                 _boardModel,
                 _trayModel,
-                new PerfectRoundModel(),
+                new ScoreGemProgressModel(),
                 new WeightedPieceDraw(seed: 1),
                 _runStartedBroker,
                 _piecePlacedBroker,
@@ -388,7 +388,7 @@ namespace MustyBlockBlast.Tests.EditMode
             return new BoardSystem(
                 _boardModel,
                 _trayModel,
-                new PerfectRoundModel(),
+                new ScoreGemProgressModel(),
                 new WeightedPieceDraw(seed: 1),
                 _runStartedBroker,
                 _piecePlacedBroker,

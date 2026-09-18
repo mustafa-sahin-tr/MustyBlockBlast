@@ -207,7 +207,7 @@ namespace MustyBlockBlast.Presentation
 
             builder.Register<BoardModel>(Lifetime.Singleton);
             builder.Register<TrayModel>(Lifetime.Singleton);
-            builder.Register<PerfectRoundModel>(Lifetime.Singleton);
+            builder.Register<ScoreGemProgressModel>(Lifetime.Singleton);
             builder.Register<ScoreModel>(Lifetime.Singleton);
             builder.Register<TimedHighScoreModel>(Lifetime.Singleton);
             builder.Register<GameModeModel>(Lifetime.Singleton);
@@ -535,6 +535,12 @@ namespace MustyBlockBlast.Presentation
             // Same reason: the 2x window has to expire on its own schedule, whether or not the player
             // places anything while it is open.
             builder.RegisterEntryPoint<DoubleMultiplierSystem>(Lifetime.Singleton).AsSelf();
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            // Development-only manual test scenarios (F9: row+column cross-clear setup). Compiled out
+            // of release builds entirely — see DebugCheatSystem.
+            builder.Register<DebugCheatSystem>(Lifetime.Singleton);
+#endif
         }
 
         private static void RegisterViews(IContainerBuilder builder)
@@ -592,6 +598,19 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterComponentInHierarchy<NewRecordSfxView>();
             builder.RegisterComponentInHierarchy<BonusSfxView>();
             builder.RegisterComponentInHierarchy<PiercingRocketSfxView>();
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            // Its own new GameObject rather than a scene entry: it exists only in editor/development
+            // builds, so nothing has to be added to or removed from the shipped scene.
+            //
+            // Unlike RegisterComponentInHierarchy, RegisterComponentOnNewGameObject does not force its
+            // own resolution — nothing else depends on an input adapter, so without this callback the
+            // registration sits unused and the GameObject is never spawned. The force-resolve callback
+            // mirrors the one RegisterComponentInHierarchy adds internally.
+            builder.RegisterComponentOnNewGameObject<DebugCheatInputView>(
+                Lifetime.Singleton, nameof(DebugCheatInputView));
+            builder.RegisterBuildCallback(container => container.Resolve<DebugCheatInputView>());
+#endif
         }
     }
 }

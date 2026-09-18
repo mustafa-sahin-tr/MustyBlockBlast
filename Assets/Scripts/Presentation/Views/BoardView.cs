@@ -71,6 +71,15 @@ namespace MustyBlockBlast.Presentation.Views
         [Tooltip("Seconds a block dragged by a vortex takes to slide the one cell it was pulled.")]
         [SerializeField] private float _pullDuration = 0.18f;
 
+        [Header("Special Cell Icons")]
+        [Tooltip("Falls back to UiSpriteFactory.Starburst, tinted, for any kind left unassigned here.")]
+        [SerializeField] private Sprite _explosiveCoreIconSprite;
+        [SerializeField] private Sprite _laserIconSprite;
+        [SerializeField] private Sprite _scoreGemIconSprite;
+        [SerializeField] private Sprite _vortexIconSprite;
+        [SerializeField] private Sprite _chainLightningIconSprite;
+        [SerializeField] private Sprite _coinIconSprite;
+
         private static readonly Color FlashTint = Color.white;
 
         /// <summary>Colour the special-cell icon is drawn in. Fixed rather than themed: it is a
@@ -1042,6 +1051,16 @@ namespace MustyBlockBlast.Presentation.Views
         /// publishing a <see cref="LinesClearedMessage"/> to claim them.</summary>
         private void OnRunStarted(RunStartedMessage message) => RedrawAll();
 
+        /// <summary>
+        /// Claims every cell still waiting for a fade, exactly as <see cref="OnPowerUpApplied"/> does.
+        /// The one caller today is the development paint tool (<c>DebugCheatInputView</c>): its single
+        /// cell erases go straight through <c>BoardModel.Clear</c>, the same low-level write
+        /// <c>BoardModel.ClearAll</c> makes, so they leave the same unclaimed pending cell —
+        /// <see cref="OnRunStarted"/>'s <c>RedrawAll</c> would flush it, but nothing here should ever
+        /// trigger a run reset just to repaint one erased cell.
+        /// </summary>
+        internal void ForceSweepPendingCells() => SweepPendingCells(1);
+
         /// <summary>A cell became special — a placement that closed a row and a column spawning an
         /// explosive core on their intersection, or a combo streak converting a block into a laser. The
         /// icon is drawn per kind, not per spawn rule, so a new kind needs nothing here. Losing a kind
@@ -1426,7 +1445,7 @@ namespace MustyBlockBlast.Presentation.Views
                 return;
             }
 
-            _cells[index].SetSpecialIcon(IconTint(kind));
+            _cells[index].SetSpecialIcon(IconTint(kind), IconSprite(kind));
         }
 
         /// <summary>The tint one kind's icon is drawn in. Stated once, as a switch rather than a chain
@@ -1446,6 +1465,43 @@ namespace MustyBlockBlast.Presentation.Views
                 default:
                     return SpecialIconTint;
             }
+        }
+
+        /// <summary>
+        /// The glyph one kind's icon is drawn with — a distinct shape per kind (issue: "her özel hücrenin
+        /// kendine özgü bir ikonu olsun"), tinted by <see cref="IconTint"/> on top exactly as the shared
+        /// <c>UiSpriteFactory.Starburst</c> was. Falls back to that starburst, unfilled inspector slots
+        /// included, so a kind added before its art exists still renders something rather than nothing.
+        /// </summary>
+        private Sprite IconSprite(SpecialCellKind kind)
+        {
+            Sprite sprite;
+            switch (kind)
+            {
+                case SpecialCellKind.Laser:
+                    sprite = _laserIconSprite;
+                    break;
+                case SpecialCellKind.ScoreGem:
+                    sprite = _scoreGemIconSprite;
+                    break;
+                case SpecialCellKind.Vortex:
+                    sprite = _vortexIconSprite;
+                    break;
+                case SpecialCellKind.ChainLightning:
+                    sprite = _chainLightningIconSprite;
+                    break;
+                case SpecialCellKind.Coin:
+                    sprite = _coinIconSprite;
+                    break;
+                case SpecialCellKind.ExplosiveCore:
+                    sprite = _explosiveCoreIconSprite;
+                    break;
+                default:
+                    sprite = null;
+                    break;
+            }
+
+            return sprite != null ? sprite : UiSpriteFactory.Starburst;
         }
 
         /// <summary>Draws a clearing cell blended towards the flash tint, keeping it on the same

@@ -42,9 +42,11 @@ namespace MustyBlockBlast.Presentation.Views
         private const float GLOSS_ALPHA = 0.7f;
 
         /// <summary>How many bevel thicknesses the special-cell icon is inset by, on top of the cell's
-        /// own inset. Two keeps the icon clear of the bottom bevel on every side, so it sits on the
-        /// block's flat face at any cell size.</summary>
-        private const float SPECIAL_ICON_BEVEL_INSET_MULTIPLIER = 2f;
+        /// own inset. Half keeps the icon just clear of the bottom bevel on every side, so it sits on
+        /// the block's flat face at any cell size, while still reading clearly as the mark it is — the
+        /// old 2x made the distinct per-kind glyphs (see BoardView's icon sprite fields) too small to
+        /// tell apart at a glance.</summary>
+        private const float SPECIAL_ICON_BEVEL_INSET_MULTIPLIER = 0.5f;
 
         private Image _outerImage;
         private Image _flatFaceImage;

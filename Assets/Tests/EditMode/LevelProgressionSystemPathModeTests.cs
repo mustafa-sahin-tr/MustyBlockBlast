@@ -880,7 +880,7 @@ namespace MustyBlockBlast.Tests.EditMode
             _boardSystem = new BoardSystem(
                 _boardModel,
                 _trayModel,
-                new PerfectRoundModel(),
+                new ScoreGemProgressModel(),
                 new WeightedPieceDraw(),
                 _runStartedBroker,
                 _piecePlacedBroker,
