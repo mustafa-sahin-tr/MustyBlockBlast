@@ -1,7 +1,7 @@
 import json
 import subprocess
-import time
 import sys
+import time
 
 UVX_PATH = "/Users/mustafasahin/.local/bin/uvx"
 CMD = [
@@ -13,6 +13,7 @@ CMD = [
     "--transport",
     "stdio"
 ]
+
 
 def send_rpc(proc, req_id, method, params=None):
     payload = {
@@ -36,6 +37,37 @@ def send_rpc(proc, req_id, method, params=None):
         except json.JSONDecodeError:
             continue
 
+
+def call_tool(proc, req_id, name, arguments):
+    """Calls an MCP tool and returns (structured_content, is_error, raw_text).
+
+    manage_build's real result is JSON *text* inside result.content[0].text;
+    result.structuredContent mirrors it when the call succeeds, but on a
+    validation error (e.g. an unknown/misspelled argument) there is no
+    structuredContent at all and result.isError is true - that must be
+    checked explicitly, or a bad argument silently looks like "no job_id"
+    instead of the actual rejection.
+    """
+    res = send_rpc(proc, req_id, "tools/call", {"name": name, "arguments": arguments})
+    result = res.get("result", {})
+    is_error = bool(result.get("isError"))
+    raw_text = ""
+    content_list = result.get("content") or []
+    if content_list and isinstance(content_list[0], dict):
+        raw_text = content_list[0].get("text", "")
+
+    structured = result.get("structuredContent")
+    if structured is None:
+        # No structuredContent (typically a tool-call/validation error): fall back
+        # to parsing the text block so callers still see *something* useful.
+        try:
+            structured = json.loads(raw_text) if raw_text else {}
+        except json.JSONDecodeError:
+            structured = {}
+
+    return structured, is_error, raw_text
+
+
 def main():
     print("🚀 MCP Sunucusu başlatılıyor...")
     proc = subprocess.Popen(
@@ -47,7 +79,6 @@ def main():
 
     req_id = 1
 
-    # 1. Initialize
     print("🤝 MCP Handshake yapılıyor...")
     send_rpc(proc, req_id, "initialize", {
         "protocolVersion": "2024-11-05",
@@ -56,55 +87,75 @@ def main():
     })
     req_id += 1
 
-    # 2. Build Başlat
     print("📦 iOS Build tetikleniyor...")
-    build_res = send_rpc(proc, req_id, "tools/call", {
-        "name": "manage_build",
-        "arguments": {
-            "action": "build",
-            "target": "iOS",
-            "outputPath": "Builds/iOS"
-        }
+    structured, is_error, raw_text = call_tool(proc, req_id, "manage_build", {
+        "action": "build",
+        "target": "iOS",
+        # manage_build takes snake_case arguments - "outputPath" is silently
+        # rejected as an unknown keyword (Pydantic validation error) and the
+        # build never starts.
+        "output_path": "Builds/iOS"
     })
     req_id += 1
 
-    # Dönen yanıtı parse et
-    structured = build_res.get("result", {}).get("structuredContent", {})
+    if is_error or not structured.get("success", False):
+        print("\n❌ Build başlatılamadı:")
+        print(raw_text or json.dumps(structured, indent=2))
+        proc.terminate()
+        sys.exit(1)
+
     job_id = structured.get("data", {}).get("job_id")
     poll_interval = structured.get("_mcp_poll_interval", 5.0)
 
+    if not job_id:
+        print("\n❌ Build başlatıldı ama job_id alınamadı, durduruluyor:")
+        print(raw_text or json.dumps(structured, indent=2))
+        proc.terminate()
+        sys.exit(1)
+
     print(f"⏳ Build kuyruğa alındı (Job: {job_id}). Durum sorgulanıyor...")
 
-    # 3. Status Polling Döngüsü
+    # A job that hasn't shown up as "succeeded"/"failed" yet is simply still
+    # running - only bail out early on an explicit failure result. Missing
+    # job_id is handled above so it can never silently poll job_id=None,
+    # which the server answers with the *last* completed build instead of
+    # an error, making a build that never started look like a success.
     while True:
         time.sleep(poll_interval)
-        status_res = send_rpc(proc, req_id, "tools/call", {
-            "name": "manage_build",
-            "arguments": {
-                "action": "status",
-                "job_id": job_id
-            }
+        structured, is_error, raw_text = call_tool(proc, req_id, "manage_build", {
+            "action": "status",
+            "job_id": job_id
         })
         req_id += 1
 
-        content = status_res.get("result", {}).get("structuredContent", {})
-        status = content.get("_mcp_status") or content.get("status")
+        if is_error:
+            print("\n❌ Durum sorgulanamadı:")
+            print(raw_text)
+            break
 
-        if status == "pending" or status == "in_progress":
-            print(f"⌛ Derleme devam ediyor... ({time.strftime('%H:%M:%S')})")
+        if not structured.get("success", False):
+            print(f"⌛ Henüz hazır değil, tekrar denenecek... ({time.strftime('%H:%M:%S')})")
             continue
-        elif content.get("success") is True or status == "completed":
+
+        data = structured.get("data", {})
+        result_state = data.get("result")
+
+        if result_state == "succeeded":
             print("\n🎉 Build başarıyla tamamlandı!")
-            output_path = content.get("data", {}).get("output_path", "Builds/iOS")
+            output_path = data.get("output_path", "Builds/iOS")
             print(f"📍 Xcode Proje Yolu: {output_path}")
             print(f"👉 Sonraki adım: open {output_path}/Unity-iPhone.xcworkspace")
             break
-        else:
-            print("\n❌ Build başarısız oldu veya hata verdi:")
-            print(json.dumps(content, indent=2))
+        elif result_state == "failed":
+            print("\n❌ Build başarısız oldu:")
+            print(json.dumps(data, indent=2))
             break
+        else:
+            print(f"⌛ Derleme devam ediyor... ({time.strftime('%H:%M:%S')})")
+            continue
 
     proc.terminate()
+
 
 if __name__ == "__main__":
     main()
