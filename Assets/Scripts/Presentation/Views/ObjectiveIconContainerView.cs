@@ -44,6 +44,12 @@ namespace MustyBlockBlast.Presentation.Views
     /// and a run reset — which resets progress without publishing anything — is picked up from
     /// <see cref="RunStartedMessage"/> the same way.
     /// </para>
+    /// <para>
+    /// Goals belong to Path mode only (issue #269): in Endless and Timed the row hides itself whatever
+    /// the model tracks, and the level pill in its trailing slot follows the same rule on its own
+    /// group. <see cref="CentreSlot"/> stays usable while the row is hidden, so the band it leaves
+    /// empty in Timed mode can host the streak pill.
+    /// </para>
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class ObjectiveIconContainerView : MonoBehaviour
@@ -82,6 +88,11 @@ namespace MustyBlockBlast.Presentation.Views
         [Tooltip("Gap between the caption and the first chip, and between chips.")]
         [SerializeField] private float _chipSpacing = 18f;
 
+        [Tooltip("How far in from the row's right edge the trailing group ends, in reference pixels: " +
+            "room for the level pill's star badge, which overhangs the pill's corner by its offset plus " +
+            "half its diameter, to stay inside the score card's edge (issue #269).")]
+        [SerializeField] private float _trailingInset = 30f;
+
         [SerializeField] private int _progressFontSize = 38;
         [SerializeField] private int _captionFontSize = 28;
 
@@ -102,6 +113,7 @@ namespace MustyBlockBlast.Presentation.Views
         private DoubleMultiplierModel _doubleMultiplierModel;
         private LocalizationModel _localizationModel;
         private LocalizationSystem _localizationSystem;
+        private GameModeSystem _gameModeSystem;
         private ISubscriber<ObjectiveProgressChangedMessage> _progressChangedSubscriber;
         private ISubscriber<ObjectiveCompletedMessage> _completedSubscriber;
         private ISubscriber<RunStartedMessage> _runStartedSubscriber;
@@ -110,6 +122,7 @@ namespace MustyBlockBlast.Presentation.Views
         private CanvasGroup _canvasGroup;
         private RectTransform _rowRect;
         private RectTransform _trailingSlot;
+        private RectTransform _centreSlot;
         private Text _captionText;
         private RectTransform _captionRect;
         private ThemeDefinition _currentTheme;
@@ -198,11 +211,17 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>
         /// A zero-width rect pinned to the row's right end: the trailing group. Its children are laid
         /// out right to left in sibling order, last sibling flush with the row's edge, by
-        /// <see cref="NotifyTrailingChanged"/>. <see cref="LevelPathButtonView"/> lives here always;
-        /// <see cref="StreakPillView"/> visits when the timer has the score card's centre slot. Built in
+        /// <see cref="NotifyTrailingChanged"/>. <see cref="LevelPathButtonView"/> lives here. Built in
         /// Awake, so it is safe to parent onto from any sibling's Start.
         /// </summary>
         internal RectTransform TrailingSlot => _trailingSlot;
+
+        /// <summary>
+        /// A zero-sized anchor at the row's centre for a guest that should sit in the goals band
+        /// while the row itself is hidden — <see cref="StreakPillView"/> in Timed mode. The guest must
+        /// ignore parent groups (both do), since this slot is under the row's CanvasGroup.
+        /// </summary>
+        internal RectTransform CentreSlot => _centreSlot;
 
         /// <summary>
         /// Called by a trailing child whenever it is added, shown, hidden or re-measured. Re-packs the
@@ -223,6 +242,7 @@ namespace MustyBlockBlast.Presentation.Views
             DoubleMultiplierModel doubleMultiplierModel,
             LocalizationModel localizationModel,
             LocalizationSystem localizationSystem,
+            GameModeSystem gameModeSystem,
             ISubscriber<ObjectiveProgressChangedMessage> progressChangedSubscriber,
             ISubscriber<ObjectiveCompletedMessage> completedSubscriber,
             ISubscriber<RunStartedMessage> runStartedSubscriber)
@@ -233,6 +253,7 @@ namespace MustyBlockBlast.Presentation.Views
             _doubleMultiplierModel = doubleMultiplierModel;
             _localizationModel = localizationModel;
             _localizationSystem = localizationSystem;
+            _gameModeSystem = gameModeSystem;
             _progressChangedSubscriber = progressChangedSubscriber;
             _completedSubscriber = completedSubscriber;
             _runStartedSubscriber = runStartedSubscriber;
@@ -257,7 +278,7 @@ namespace MustyBlockBlast.Presentation.Views
         {
             if (_objectiveModel == null || _settingsModel == null || _iconCatalog == null
                 || _doubleMultiplierModel == null
-                || _localizationModel == null || _localizationSystem == null
+                || _localizationModel == null || _localizationSystem == null || _gameModeSystem == null
                 || _progressChangedSubscriber == null || _completedSubscriber == null
                 || _runStartedSubscriber == null)
             {
@@ -271,6 +292,7 @@ namespace MustyBlockBlast.Presentation.Views
             _settingsModel.CurrentTheme.Subscribe(OnThemeChanged).AddTo(_disposables);
 
             _localizationModel.CurrentLocale.Subscribe(_ => Refresh()).AddTo(_disposables);
+            _gameModeSystem.CurrentMode.Subscribe(_ => Refresh()).AddTo(_disposables);
             _doubleMultiplierModel.RemainingSeconds.Subscribe(OnMultiplierRemainingChanged).AddTo(_disposables);
             _progressChangedSubscriber.Subscribe(OnObjectiveProgressChanged).AddTo(_disposables);
             _completedSubscriber.Subscribe(OnObjectiveCompleted).AddTo(_disposables);
@@ -366,9 +388,11 @@ namespace MustyBlockBlast.Presentation.Views
                 _objectiveModel != null ? _objectiveModel.TrackedObjectives : null;
 
             int objectiveCount = tracked != null ? Mathf.Min(tracked.Count, MAX_SLOT_COUNT) : 0;
-            if (objectiveCount == 0 || _currentTheme == null || _isYieldingToMultiplier)
+            bool isPathMode = _gameModeSystem != null && _gameModeSystem.CurrentMode.Value == GameMode.Path;
+            if (!isPathMode || objectiveCount == 0 || _currentTheme == null || _isYieldingToMultiplier)
             {
-                // Nothing tracked (or no theme to paint with): an empty row reads as a bug, so the row
+                // Outside Path mode the goals are not the player's concern (issue #269). Otherwise,
+                // nothing tracked (or no theme to paint with): an empty row reads as a bug, so the row
                 // hides itself rather than leaving placeholders on screen.
                 _visibleSlotCount = 0;
                 SetVisible(false);
@@ -387,7 +411,7 @@ namespace MustyBlockBlast.Presentation.Views
             float limit = _rowSize.x * 0.5f;
             if (_trailingWidth > 0f)
             {
-                limit -= _trailingWidth + _chipSpacing;
+                limit -= _trailingInset + _trailingWidth + _chipSpacing;
             }
 
             bool isClipped = false;
@@ -628,7 +652,9 @@ namespace MustyBlockBlast.Presentation.Views
             _trailingSlot.anchorMax = new Vector2(1f, 0.5f);
             _trailingSlot.pivot = new Vector2(1f, 0.5f);
             _trailingSlot.sizeDelta = new Vector2(0f, _rowSize.y);
-            _trailingSlot.anchoredPosition = Vector2.zero;
+            _trailingSlot.anchoredPosition = new Vector2(-_trailingInset, 0f);
+
+            _centreSlot = HudChrome.CreateRect(_rowRect, "CentreSlot", new Vector2(0f, _rowSize.y), Vector2.zero);
         }
 
         private Chip BuildChip(int slotIndex)

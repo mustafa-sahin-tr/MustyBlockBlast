@@ -50,22 +50,6 @@ MonoBehaviour:
     m_Localized: "S\xDCRE DOLDU"
     m_Metadata:
       m_Items: []
-  - m_Id: 766500867
-    m_Localized: "Tekrar oynamak i\xE7in dokun"
-    m_Metadata:
-      m_Items: []
-  - m_Id: 766500868
-    m_Localized: "Modu de\u011Fi\u015Ftir"
-    m_Metadata:
-      m_Items: []
-  - m_Id: 766500869
-    m_Localized: '{0} rekoru: {1}'
-    m_Metadata:
-      m_Items: []
-  - m_Id: 766500870
-    m_Localized: Skor {0}   Rekor {1}
-    m_Metadata:
-      m_Items: []
   - m_Id: 766500871
     m_Localized: Sonsuz
     m_Metadata:
@@ -258,10 +242,6 @@ MonoBehaviour:
     m_Localized: "B\xF6l\xFCm {0} Tamamland\u0131!"
     m_Metadata:
       m_Items: []
-  - m_Id: 781257951666176
-    m_Localized: "B\xF6l\xFCm {0} \xB7 Yol {1}"
-    m_Metadata:
-      m_Items: []
   - m_Id: 781257951666177
     m_Localized: Yol
     m_Metadata:
@@ -414,26 +394,6 @@ MonoBehaviour:
     m_Localized: Elit Skorcu
     m_Metadata:
       m_Items: []
-  - m_Id: 1371178030587920
-    m_Localized: "OYUN B\u0130TT\u0130"
-    m_Metadata:
-      m_Items: []
-  - m_Id: 1371178030587921
-    m_Localized: Skor {0}
-    m_Metadata:
-      m_Items: []
-  - m_Id: 1371178030587922
-    m_Localized: Toplam {0}
-    m_Metadata:
-      m_Items: []
-  - m_Id: 1371178030587923
-    m_Localized: "Devam etmek i\xE7in dokun"
-    m_Metadata:
-      m_Items: []
-  - m_Id: 1371178030587924
-    m_Localized: "Yeni rozetler \u2014 almak i\xE7in dokun"
-    m_Metadata:
-      m_Items: []
   - m_Id: 1371178030587925
     m_Localized: "{0} bloklar\u0131 temizle"
     m_Metadata:
@@ -500,6 +460,62 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 1673053435060224
     m_Localized: CEP
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1720781875699712
+    m_Localized: "Tepsideki par\xE7alar tahtaya s\u0131\u011Fm\u0131yor"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1720781938614272
+    m_Localized: "{0} s\xFCreli tur bitti"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1720781938614273
+    m_Localized: "T\xFCm hedefler tamamland\u0131"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1720781938614274
+    m_Localized: "Seviye {0} hen\xFCz ge\xE7ilmedi"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1720781938614275
+    m_Localized: TOPLAM PUAN
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1720781938614276
+    m_Localized: "SEV\u0130YE PUANI"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1720781938614277
+    m_Localized: PATH TOPLAMI
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1720781938614278
+    m_Localized: "YEN\u0130!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1720781938614279
+    m_Localized: "BU KO\u015EUDA A\xC7ILAN ROZETLER"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1720781942808576
+    m_Localized: "DOKUN \xB7 COIN AL"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1720781942808577
+    m_Localized: TEKRAR OYNA
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1720781942808578
+    m_Localized: "MODU DE\u011E\u0130\u015ET\u0130R"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1720781942808579
+    m_Localized: "SONRAK\u0130 SEV\u0130YE \xB7 {0}"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1720781947002880
+    m_Localized: TEKRAR DENE
     m_Metadata:
       m_Items: []
   references:

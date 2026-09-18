@@ -1,6 +1,8 @@
 using System.Text;
+using MessagePipe;
 using MustyBlockBlast.Gameplay;
 using MustyBlockBlast.Gameplay.Localization;
+using MustyBlockBlast.Gameplay.Messages;
 using MustyBlockBlast.Gameplay.Models;
 using MustyBlockBlast.Gameplay.Reactive;
 using MustyBlockBlast.Gameplay.Settings;
@@ -12,17 +14,20 @@ using VContainer;
 namespace MustyBlockBlast.Presentation.Views
 {
     /// <summary>
-    /// Persistent pill that opens the level path overlay (issue #265): a card-coloured pill with a
-    /// purple disc wearing the trail glyph, then "LV" and the frontier level number. In Path mode it
-    /// reads "LEVEL n" for the level being played instead, and <see cref="PathLevelBadgeView"/> pins
-    /// the accent star to its top-right corner. Sits at the right end of the goal row
+    /// The pill that opens the level path overlay (issue #265): a card-coloured pill with a purple
+    /// disc wearing the trail glyph and "LEVEL n" for the level being played, with
+    /// <see cref="PathLevelBadgeView"/> pinning the accent star to its top-right corner. Shown in Path
+    /// mode only (issue #269): Endless and Timed have no level, so there it is hidden and does not
+    /// answer the hit test. Path mode itself is entered from the settings' mode row, which is what
+    /// makes the pill safe to hide — outside Path mode it named the frontier ("LV n") and that
+    /// wording is kept for the moment between entering the mode and the first run starting. Sits at the right end of the goal row
     /// (<see cref="ObjectiveIconContainerView.TrailingSlot"/>), not in the top bar: right-of-centre
     /// up there put it under the iPhone's Dynamic Island.
     /// <para>
     /// Parented onto the row in <see cref="Start"/> rather than Awake: the row builds its slot in
     /// Awake and sibling Awake order is not guaranteed. The row hides itself when nothing is tracked
-    /// and dims for a 2× window; the pill ignores that group so it stays visible and tappable in every
-    /// mode.
+    /// and dims for a 2× window; the pill ignores that group so it stays visible and tappable through
+    /// both, and hides through its own group instead.
     /// </para>
     /// <para>
     /// Like <see cref="SettingsButtonView"/> it only knows how to draw itself and whether a screen
@@ -74,6 +79,7 @@ namespace MustyBlockBlast.Presentation.Views
         private LocalizationModel _localizationModel;
         private LocalizationSystem _localizationSystem;
         private ObjectiveIconContainerView _objectiveIconContainerView;
+        private ISubscriber<RunStartedMessage> _runStartedSubscriber;
 
         private RectTransform _rect;
         private CanvasGroup _group;
@@ -90,6 +96,9 @@ namespace MustyBlockBlast.Presentation.Views
         private RectTransform _numberRect;
         private Canvas _canvas;
 
+        /// <summary>True while the pill is drawn; the hit test answers only then.</summary>
+        private bool _isVisible;
+
         /// <summary>
         /// The pill's own rect — the right-anchored root that the plate, shadow and contents hang off.
         /// <see cref="PathLevelBadgeView"/> parents onto this so the badge follows the pill wherever
@@ -105,7 +114,8 @@ namespace MustyBlockBlast.Presentation.Views
             GameModeSystem gameModeSystem,
             LocalizationModel localizationModel,
             LocalizationSystem localizationSystem,
-            ObjectiveIconContainerView objectiveIconContainerView)
+            ObjectiveIconContainerView objectiveIconContainerView,
+            ISubscriber<RunStartedMessage> runStartedSubscriber)
         {
             _settingsModel = settingsModel;
             _levelProgressionModel = levelProgressionModel;
@@ -114,6 +124,7 @@ namespace MustyBlockBlast.Presentation.Views
             _localizationModel = localizationModel;
             _localizationSystem = localizationSystem;
             _objectiveIconContainerView = objectiveIconContainerView;
+            _runStartedSubscriber = runStartedSubscriber;
         }
 
         private void Awake()
@@ -126,7 +137,7 @@ namespace MustyBlockBlast.Presentation.Views
         {
             if (_settingsModel == null || _levelProgressionModel == null || _pathRunModel == null
                 || _gameModeSystem == null || _localizationModel == null || _localizationSystem == null
-                || _objectiveIconContainerView == null)
+                || _objectiveIconContainerView == null || _runStartedSubscriber == null)
             {
                 Debug.LogError(
                     $"{nameof(LevelPathButtonView)} was not injected. Is it registered in the LifetimeScope?", this);
@@ -145,6 +156,11 @@ namespace MustyBlockBlast.Presentation.Views
             _gameModeSystem.CurrentMode.Subscribe(_ => RefreshLabel()).AddTo(_disposables);
             _levelProgressionModel.CurrentLevelNumber.Subscribe(_ => RefreshLabel()).AddTo(_disposables);
             _pathRunModel.ActiveLevelNumber.Subscribe(_ => RefreshLabel()).AddTo(_disposables);
+
+            // Whether the pill shows at all follows the mode; a run starting is re-checked too, since
+            // a mode switch restarts the run and this is the one edge that is sure to land after it.
+            _gameModeSystem.CurrentMode.Subscribe(_ => RefreshVisibility()).AddTo(_disposables);
+            _runStartedSubscriber.Subscribe(_ => RefreshVisibility()).AddTo(_disposables);
         }
 
         private void OnDestroy() => _disposables.Dispose();
@@ -152,7 +168,7 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>True when the given screen point is on the pill. Called by <see cref="BoardInputView"/>.</summary>
         internal bool ContainsScreenPoint(Vector2 screenPosition)
         {
-            if (_buttonRect == null)
+            if (_buttonRect == null || !_isVisible)
             {
                 return false;
             }
@@ -178,6 +194,24 @@ namespace MustyBlockBlast.Presentation.Views
             _trailImage.color = _trailSprite != null ? Color.white : Color.clear;
             _captionText.color = theme.Ink;
             _numberText.color = theme.Ink;
+        }
+
+        /// <summary>
+        /// Path mode only (issue #269). Through the pill's own CanvasGroup, which already ignores the
+        /// row's: the row hides itself for the same reason, and the pill must not depend on that.
+        /// The badge is a child of <see cref="RootRect"/> under this group, so it hides with the pill.
+        /// </summary>
+        private void RefreshVisibility()
+        {
+            _isVisible = _gameModeSystem.CurrentMode.Value == GameMode.Path;
+            _group.alpha = _isVisible ? 1f : 0f;
+            _group.interactable = _isVisible;
+            _group.blocksRaycasts = _isVisible;
+
+            // The row packs its trailing group from the children that are showing, so it must re-pack
+            // whenever the pill comes or goes — otherwise the chips would run under a pill that just
+            // reappeared.
+            _objectiveIconContainerView.NotifyTrailingChanged();
         }
 
         /// <summary>

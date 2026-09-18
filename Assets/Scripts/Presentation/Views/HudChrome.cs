@@ -364,6 +364,33 @@ namespace MustyBlockBlast.Presentation.Views
             return text;
         }
 
+        /// <summary>
+        /// A glossy block tile as the board draws one: a shade in the fill's darker tone, the face
+        /// lifted off the bottom edge by <paramref name="bevel"/> so the shade reads as the tile's
+        /// underside, and a translucent white highlight across the top third. Painted at build time
+        /// from <paramref name="fill"/> (alpha kept on every layer), for the splash screen's static
+        /// palette; themed tiles stay with <see cref="CellView"/>.
+        /// </summary>
+        internal static RectTransform BuildBlock(
+            RectTransform parent, string objectName, float size, Vector2 anchoredPosition, float radius, float bevel, Color fill)
+        {
+            RectTransform rootRect = CreateRect(parent, objectName, new Vector2(size, size), anchoredPosition);
+
+            Image shade = BuildRounded(rootRect, "Shade", new Vector2(size, size), Vector2.zero, radius);
+            shade.color = Darken(fill, LIP_SHADE);
+
+            Image face = BuildRounded(
+                rootRect, "Face", new Vector2(size, size - bevel), new Vector2(0f, bevel * 0.5f), radius);
+            face.color = fill;
+
+            float highlightHeight = Mathf.Max(2f, size * 0.32f);
+            Image highlight = BuildRounded(
+                rootRect, "Highlight", new Vector2(size * 0.76f, highlightHeight),
+                new Vector2(0f, (size * 0.5f) - (highlightHeight * 0.5f) - (size * 0.08f)), highlightHeight * 0.5f);
+            highlight.color = new Color(1f, 1f, 1f, 0.4f * fill.a);
+            return rootRect;
+        }
+
         internal static Image ConfigureRounded(Image image, float radius)
         {
             image.sprite = UiSpriteFactory.RoundedSquare;

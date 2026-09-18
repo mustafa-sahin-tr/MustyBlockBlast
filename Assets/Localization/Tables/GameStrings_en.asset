@@ -50,22 +50,6 @@ MonoBehaviour:
     m_Localized: TIME'S UP
     m_Metadata:
       m_Items: []
-  - m_Id: 766500867
-    m_Localized: Tap anywhere to play again
-    m_Metadata:
-      m_Items: []
-  - m_Id: 766500868
-    m_Localized: Change mode
-    m_Metadata:
-      m_Items: []
-  - m_Id: 766500869
-    m_Localized: 'Best for {0}: {1}'
-    m_Metadata:
-      m_Items: []
-  - m_Id: 766500870
-    m_Localized: Score {0}   Best {1}
-    m_Metadata:
-      m_Items: []
   - m_Id: 766500871
     m_Localized: Endless
     m_Metadata:
@@ -258,10 +242,6 @@ MonoBehaviour:
     m_Localized: Level {0} Complete!
     m_Metadata:
       m_Items: []
-  - m_Id: 781257951666176
-    m_Localized: "Level {0} \xB7 Path {1}"
-    m_Metadata:
-      m_Items: []
   - m_Id: 781257951666177
     m_Localized: Path
     m_Metadata:
@@ -414,26 +394,6 @@ MonoBehaviour:
     m_Localized: Elite Scorer
     m_Metadata:
       m_Items: []
-  - m_Id: 1371178030587920
-    m_Localized: RUN OVER
-    m_Metadata:
-      m_Items: []
-  - m_Id: 1371178030587921
-    m_Localized: Score {0}
-    m_Metadata:
-      m_Items: []
-  - m_Id: 1371178030587922
-    m_Localized: Total {0}
-    m_Metadata:
-      m_Items: []
-  - m_Id: 1371178030587923
-    m_Localized: Tap to continue
-    m_Metadata:
-      m_Items: []
-  - m_Id: 1371178030587924
-    m_Localized: "New badges \u2014 tap to claim"
-    m_Metadata:
-      m_Items: []
   - m_Id: 1371178030587925
     m_Localized: Clear {0} blocks
     m_Metadata:
@@ -500,6 +460,62 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 1673053435060224
     m_Localized: POCKET
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1720781875699712
+    m_Localized: The tray pieces don't fit the board
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1720781938614272
+    m_Localized: The {0} round is over
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1720781938614273
+    m_Localized: Every goal is done
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1720781938614274
+    m_Localized: Level {0} is not cleared yet
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1720781938614275
+    m_Localized: TOTAL SCORE
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1720781938614276
+    m_Localized: LEVEL SCORE
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1720781938614277
+    m_Localized: PATH TOTAL
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1720781938614278
+    m_Localized: NEW!
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1720781938614279
+    m_Localized: BADGES UNLOCKED THIS RUN
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1720781942808576
+    m_Localized: "TAP \xB7 GET COINS"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1720781942808577
+    m_Localized: PLAY AGAIN
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1720781942808578
+    m_Localized: CHANGE MODE
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1720781942808579
+    m_Localized: "NEXT LEVEL \xB7 {0}"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1720781947002880
+    m_Localized: TRY AGAIN
     m_Metadata:
       m_Items: []
   references:

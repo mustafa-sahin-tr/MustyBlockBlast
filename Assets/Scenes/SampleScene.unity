@@ -167,8 +167,22 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bfb7e8251f22a4dc2b07b63ec4765fab, type: 3}
   m_Name: 
   m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.RunResultView
-  _cardSize: {x: 760, y: 460}
+  _cardWidth: 960
   _scrimColour: {r: 0.17, g: 0.15, b: 0.2, a: 0.55}
+  _titleFontSize: 60
+  _reasonFontSize: 30
+  _captionFontSize: 26
+  _scoreFontSize: 120
+  _statFontSize: 52
+  _badgeNameFontSize: 34
+  _claimFontSize: 36
+  _buttonFontSize: 48
+  _displayFont: {fileID: 12800000, guid: 0879445ee55bb4fc5bfdc99e4b94f899, type: 3}
+  _labelFont: {fileID: 12800000, guid: 6537f3bea187e4d82b1d0969d9d00fa6, type: 3}
+  _buttonSprite: {fileID: 21300000, guid: be54dd355e70442e6885fd6762cac582, type: 3}
+  _trophySprite: {fileID: 21300000, guid: d8372834e562f4948bd9696e268073d3, type: 3}
+  _clockSprite: {fileID: 21300000, guid: 81df2d59ed6e24011a379b7a4e619259, type: 3}
+  _coinSprite: {fileID: 21300000, guid: ef1b23357960542ca8a3614b7fbc2837, type: 3}
 --- !u!1 &201649901
 GameObject:
   m_ObjectHideFlags: 0
@@ -869,58 +883,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.PathLevelBadgeView
   _cornerOffset: {x: 2, y: 2}
-  _badgeDiameter: 60
-  _rimThickness: 8
---- !u!1 &680048523
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 680048524}
-  - component: {fileID: 680048525}
-  m_Layer: 0
-  m_Name: GameOver
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!224 &680048524
-RectTransform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 680048523}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1595068338}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.5, y: 0.5}
-  m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 100, y: 100}
-  m_Pivot: {x: 0.5, y: 0.5}
---- !u!114 &680048525
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 680048523}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 352f915ee544143df9c7a3d980e31e93, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.GameOverView
-  _cardSize: {x: 760, y: 420}
-  _scrimColour: {r: 0.17, g: 0.15, b: 0.2, a: 0.55}
+  _badgeDiameter: 48
+  _rimThickness: 6
 --- !u!1 &737113204
 GameObject:
   m_ObjectHideFlags: 0
@@ -2261,6 +2225,7 @@ MonoBehaviour:
   _chipPaddingRight: 22
   _chipGap: 13
   _chipSpacing: 18
+  _trailingInset: 30
   _progressFontSize: 38
   _captionFontSize: 28
   _displayFont: {fileID: 12800000, guid: 0879445ee55bb4fc5bfdc99e4b94f899, type: 3}
@@ -2368,7 +2333,6 @@ RectTransform:
   - {fileID: 663350232}
   - {fileID: 1770068465}
   - {fileID: 1274277862}
-  - {fileID: 680048524}
   - {fileID: 1506044382}
   - {fileID: 1443061545}
   - {fileID: 436960494}
@@ -2458,15 +2422,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c6792af461bcc497e9c4dd3c17f0cebb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.LevelPathButtonView
-  _cornerOffset: {x: -156, y: -32}
-  _pillHeight: 92
-  _discSize: 66
-  _glyphSize: 40
-  _paddingLeft: 16
-  _paddingRight: 30
-  _gap: 14
-  _captionFontSize: 30
-  _numberFontSize: 47
+  _pillHeight: 70
+  _discSize: 52
+  _glyphSize: 32
+  _paddingLeft: 10
+  _paddingRight: 22
+  _gap: 10
+  _captionFontSize: 24
+  _numberFontSize: 38
   _displayFont: {fileID: 12800000, guid: 0879445ee55bb4fc5bfdc99e4b94f899, type: 3}
   _labelFont: {fileID: 12800000, guid: 6537f3bea187e4d82b1d0969d9d00fa6, type: 3}
   _trailSprite: {fileID: 21300000, guid: 094a691f57671453a914e0a347f9164b, type: 3}

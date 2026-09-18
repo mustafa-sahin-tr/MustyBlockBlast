@@ -1,5 +1,4 @@
 using UnityEngine;
-using UnityEngine.UI;
 
 namespace MustyBlockBlast.Presentation.Views
 {
@@ -30,13 +29,19 @@ namespace MustyBlockBlast.Presentation.Views
 
         private const float MAX_TILT_DEGREES = 14f;
 
-        /// <summary>Piece palette from the approved mockup: pink, green, purple, orange.</summary>
+        /// <summary>Corner radius and bottom bevel of one cell, the board tile look at this cell size.</summary>
+        private const float CELL_RADIUS = 9f;
+        private const float CELL_BEVEL = 6f;
+
+        /// <summary>Piece palette: the İlkbahar theme's five block fills (Ilkbahar.asset kindFills), baked
+        /// because the splash boots before any theme state exists (issue #267).</summary>
         private static readonly Color[] PieceColours =
         {
-            new Color32(240, 98, 156, 255),
-            new Color32(102, 187, 106, 255),
-            new Color32(186, 104, 200, 255),
-            new Color32(251, 140, 0, 255),
+            new Color32(232, 120, 90, 255),
+            new Color32(111, 184, 176, 255),
+            new Color32(224, 195, 107, 255),
+            new Color32(142, 124, 195, 255),
+            new Color32(123, 196, 127, 255),
         };
 
         /// <summary>
@@ -131,8 +136,8 @@ namespace MustyBlockBlast.Presentation.Views
             Vector2Int[] shape = Shapes[pieceIndex % Shapes.Length];
             Color colour = PieceColours[pieceIndex % PieceColours.Length];
 
-            // 0.35 .. 0.50, the opacity band the mockup uses for the background pieces.
-            colour.a = 0.35f + ((pieceIndex % 4) * 0.05f);
+            // 0.25 .. 0.35, the opacity band the storefront mockup uses for the background pieces.
+            colour.a = 0.25f + ((pieceIndex % 3) * 0.05f);
 
             int maxColumn = 0;
             int maxRow = 0;
@@ -152,24 +157,14 @@ namespace MustyBlockBlast.Presentation.Views
                     break;
                 }
 
-                var cellObject = new GameObject($"Cell_{cellIndex}", typeof(RectTransform), typeof(Image));
-                var cellRect = (RectTransform)cellObject.transform;
-                cellRect.SetParent(pieceRect, false);
-                cellRect.anchorMin = new Vector2(0.5f, 0.5f);
-                cellRect.anchorMax = new Vector2(0.5f, 0.5f);
-                cellRect.pivot = new Vector2(0.5f, 0.5f);
-                cellRect.sizeDelta = new Vector2(CELL_SIZE, CELL_SIZE);
-                cellRect.anchoredPosition = new Vector2(
-                    (shape[cellIndex].x - centreColumn) * CELL_STEP,
-                    -(shape[cellIndex].y - centreRow) * CELL_STEP);
-
-                var image = cellObject.GetComponent<Image>();
-                image.sprite = UiSpriteFactory.RoundedSquare;
-                image.type = Image.Type.Sliced;
-                // ~11 canvas-unit corner radius on a 34-unit cell — the mockup's small rounded square.
-                image.pixelsPerUnitMultiplier = 1.5f;
-                image.color = colour;
-                image.raycastTarget = false;
+                // Drawn as the board draws a tile: shade, bevelled face and top highlight, so the
+                // silhouettes read as the game's own blocks rather than flat squares.
+                HudChrome.BuildBlock(
+                    pieceRect, $"Cell_{cellIndex}", CELL_SIZE,
+                    new Vector2(
+                        (shape[cellIndex].x - centreColumn) * CELL_STEP,
+                        -(shape[cellIndex].y - centreRow) * CELL_STEP),
+                    CELL_RADIUS, CELL_BEVEL, colour);
             }
 
             _pieceRects[pieceIndex] = pieceRect;
