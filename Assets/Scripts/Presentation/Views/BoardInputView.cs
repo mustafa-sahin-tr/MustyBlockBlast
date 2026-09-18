@@ -97,7 +97,6 @@ namespace MustyBlockBlast.Presentation.Views
         private LevelPathButtonView _levelPathButtonView;
         private LevelPathPanelView _levelPathPanelView;
         private CoinSowerPickerView _coinSowerPickerView;
-        private GameOverView _gameOverView;
         private RunResultView _runResultView;
         private CoinConversionView _coinConversionView;
         private PowerUpInventoryView _powerUpInventoryView;
@@ -156,7 +155,6 @@ namespace MustyBlockBlast.Presentation.Views
             LevelPathButtonView levelPathButtonView,
             LevelPathPanelView levelPathPanelView,
             CoinSowerPickerView coinSowerPickerView,
-            GameOverView gameOverView,
             RunResultView runResultView,
             CoinConversionView coinConversionView,
             PowerUpInventoryView powerUpInventoryView,
@@ -179,7 +177,6 @@ namespace MustyBlockBlast.Presentation.Views
             _levelPathButtonView = levelPathButtonView;
             _levelPathPanelView = levelPathPanelView;
             _coinSowerPickerView = coinSowerPickerView;
-            _gameOverView = gameOverView;
             _runResultView = runResultView;
             _coinConversionView = coinConversionView;
             _powerUpInventoryView = powerUpInventoryView;
@@ -382,39 +379,37 @@ namespace MustyBlockBlast.Presentation.Views
                 return;
             }
 
-            // Game over is checked before the HUD icon: the game-over card covers the whole screen,
-            // so honouring a tap on the icon hidden underneath it would be a hidden hotspot. The
-            // "change mode" link, "Play Again" and "Next Level" are the exceptions — each is drawn on
-            // the card itself, so each is visible and must win over the card-wide restart tap.
-            // The result summary opens on the same message the game-over card does and sits over it,
-            // so it is showing exactly when the card-wide restart tap below is live. Routing into it
-            // first is what keeps the tap that dismisses the summary from also restarting the run.
+            // Game over is checked before the HUD icon: the end-of-run card covers the whole screen,
+            // so honouring a tap on the icon hidden underneath it would be a hidden hotspot. The card
+            // resolves the tap itself — a claimable badge is claimed in place, a button comes back as
+            // the action to carry out, and anything else (the scrim, a label) is nothing at all.
             if (_runResultView.IsOpen)
             {
-                _runResultView.HandleTap(screenPosition);
+                switch (_runResultView.HandleTap(screenPosition))
+                {
+                    case RunEndAction.ChangeMode:
+                        // Straight to the settings tab, which is where the mode row lives — the button
+                        // names a setting, so it opens on the section that holds it rather than on the
+                        // hub's front door.
+                        _hubPanelView.Open(HubTab.Settings);
+                        break;
+                    case RunEndAction.NextLevel:
+                        _levelProgressionSystem.TryStartPathLevel(_runResultView.NextLevelNumber);
+                        break;
+                    case RunEndAction.PlayAgain:
+                        // "Play again" and Path's "Try again" are the same restart: the mode and, in
+                        // Path, the active level are untouched, so the run that starts is the same one.
+                        _boardSystem.StartNewRun();
+                        break;
+                }
+
                 return;
             }
 
             if (_boardSystem.IsGameOver)
             {
-                if (_gameOverView.ContainsChangeModeScreenPoint(screenPosition))
-                {
-                    // Straight to the settings tab, which is where the mode row lives — the link names
-                    // a setting, so it opens on the section that holds it rather than on the hub's
-                    // front door.
-                    _hubPanelView.Open(HubTab.Settings);
-                    return;
-                }
-
-                if (_gameOverView.ContainsNextLevelScreenPoint(screenPosition))
-                {
-                    _levelProgressionSystem.TryStartPathLevel(_gameOverView.NextLevelNumber);
-                    return;
-                }
-
-                // Reached either from an explicit tap on the "Play Again" button (two-button layout) or
-                // from anywhere else on the card (every other game-over reason) — both mean the same
-                // thing, so both fall through to the same restart.
+                // The card was not there to take the tap — it only ever happens if the game over
+                // arrived before the card had subscribed. Restarting is the one sane thing left.
                 _boardSystem.StartNewRun();
                 return;
             }

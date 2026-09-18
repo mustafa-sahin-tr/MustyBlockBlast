@@ -72,7 +72,7 @@ namespace MustyBlockBlast.Gameplay.Localization
         /// <summary>Caption inside the empty Hold pocket at the end of the tray card.</summary>
         public const string HUD_POCKET_LABEL = "hud.pocket_label";
 
-        // --- Game over ---
+        // --- Game over / run result (issues #220, #221, #266) ---
 
         public const string GAME_OVER_TITLE_NO_MOVES = "gameover.title.no_moves";
         public const string GAME_OVER_TITLE_TIME_UP = "gameover.title.time_up";
@@ -81,37 +81,46 @@ namespace MustyBlockBlast.Gameplay.Localization
         /// end-of-run card that is a congratulation rather than a commiseration. <c>{0}</c> is the
         /// completed level's number.</summary>
         public const string GAME_OVER_TITLE_LEVEL_COMPLETE = "gameover.title.level_complete";
-        public const string GAME_OVER_HINT = "gameover.hint";
-        public const string GAME_OVER_CHANGE_MODE = "gameover.change_mode";
 
-        /// <summary><c>{0}</c> is the formatted round length, <c>{1}</c> the best score.</summary>
-        public const string GAME_OVER_BEST_FOR_DURATION = "gameover.best_for_duration";
+        /// <summary>Reason line under the title when no tray piece fits (Endless and Timed).</summary>
+        public const string RUN_RESULT_REASON_NO_MOVES = "result.reason.no_moves";
 
-        /// <summary><c>{0}</c> is the final score, <c>{1}</c> the best score.</summary>
-        public const string GAME_OVER_SCORE_AND_BEST = "gameover.score_and_best";
+        /// <summary>Reason line when the timed clock ran out. <c>{0}</c> is the formatted round length.</summary>
+        public const string RUN_RESULT_REASON_TIME_UP = "result.reason.time_up";
 
-        /// <summary>Path mode's score line. <c>{0}</c> is this level's own score, <c>{1}</c> the
-        /// running total for the whole walk of the path — both, because a level resets the first and
-        /// only ever adds to the second.</summary>
-        public const string GAME_OVER_SCORE_AND_PATH_TOTAL = "gameover.score_and_path_total";
+        /// <summary>Reason line under a Path level's "complete" title.</summary>
+        public const string RUN_RESULT_REASON_LEVEL_COMPLETE = "result.reason.level_complete";
 
-        // --- Run result (issue #220) ---
+        /// <summary>Reason line when a Path level ran out of moves before its objective. <c>{0}</c> is
+        /// the level's number.</summary>
+        public const string RUN_RESULT_REASON_LEVEL_FAILED = "result.reason.level_failed";
 
-        /// <summary>Title of the result summary card shown on game over, before the game-over card.</summary>
-        public const string RUN_RESULT_TITLE = "result.title";
+        /// <summary>Caption over the lifetime total of every point ever scored, this run included.</summary>
+        public const string RUN_RESULT_TOTAL_LABEL = "result.total_label";
 
-        /// <summary><c>{0}</c> is the score of the run that just ended.</summary>
-        public const string RUN_RESULT_RUN_SCORE = "result.run_score";
+        /// <summary>Caption over the just-ended Path level's own score.</summary>
+        public const string RUN_RESULT_LEVEL_SCORE_LABEL = "result.level_score_label";
 
-        /// <summary><c>{0}</c> is the lifetime total of every point ever scored, this run included.</summary>
-        public const string RUN_RESULT_LIFETIME_TOTAL = "result.lifetime_total";
+        /// <summary>Caption over the running total of the whole walk of the path.</summary>
+        public const string RUN_RESULT_PATH_TOTAL_LABEL = "result.path_total_label";
 
-        /// <summary>Dismiss hint at the foot of the result card.</summary>
-        public const string RUN_RESULT_TAP_HINT = "result.tap_hint";
+        /// <summary>Tag on the record plate when this run set a new record.</summary>
+        public const string RUN_RESULT_NEW_RECORD = "result.new_record";
 
-        /// <summary>Heading over the badges unlocked this run on the result card, which doubles as the
-        /// tap-to-claim instruction. Shown only when there is at least one (issue #221).</summary>
-        public const string RUN_RESULT_BADGES_TITLE = "result.badges_title";
+        /// <summary>Heading over the badges unlocked this run. Shown only when there is at least one.</summary>
+        public const string RUN_RESULT_BADGES_HEADING = "result.badges_heading";
+
+        /// <summary>The tap-to-claim instruction beside the badges heading.</summary>
+        public const string RUN_RESULT_CLAIM_HINT = "result.claim_hint";
+
+        public const string RUN_RESULT_PLAY_AGAIN = "result.play_again";
+        public const string RUN_RESULT_CHANGE_MODE = "result.change_mode";
+
+        /// <summary>The Path-mode advance button. <c>{0}</c> is the next level's number.</summary>
+        public const string RUN_RESULT_NEXT_LEVEL = "result.next_level";
+
+        /// <summary>The restart button when a Path level was failed rather than cleared.</summary>
+        public const string RUN_RESULT_TRY_AGAIN = "result.try_again";
 
         // --- Game modes ---
 

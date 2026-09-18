@@ -576,10 +576,10 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterComponentInHierarchy<PowerUpInventoryView>();
             builder.RegisterComponentInHierarchy<ObjectiveIconContainerView>();
             builder.RegisterComponentInHierarchy<ObjectiveInfoPopupView>();
-            builder.RegisterComponentInHierarchy<GameOverView>();
 
-            // Opens on the same GameOverMessage as GameOverView and sits over it until tapped away
-            // (issue #220); BoardInputView routes into it ahead of the game-over restart tap.
+            // The one end-of-run card (issue #266): result, badges and the restart / change mode /
+            // next level actions together. Opens on GameOverMessage; BoardInputView routes every tap
+            // into it while it is up and carries out the action it resolves.
             builder.RegisterComponentInHierarchy<RunResultView>();
             builder.RegisterComponentInHierarchy<CoinConversionView>();
             builder.RegisterComponentInHierarchy<BoardInputView>();

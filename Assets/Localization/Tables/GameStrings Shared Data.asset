@@ -47,22 +47,6 @@ MonoBehaviour:
     m_Key: gameover.title.time_up
     m_Metadata:
       m_Items: []
-  - m_Id: 766500867
-    m_Key: gameover.hint
-    m_Metadata:
-      m_Items: []
-  - m_Id: 766500868
-    m_Key: gameover.change_mode
-    m_Metadata:
-      m_Items: []
-  - m_Id: 766500869
-    m_Key: gameover.best_for_duration
-    m_Metadata:
-      m_Items: []
-  - m_Id: 766500870
-    m_Key: gameover.score_and_best
-    m_Metadata:
-      m_Items: []
   - m_Id: 766500871
     m_Key: mode.endless
     m_Metadata:
@@ -255,10 +239,6 @@ MonoBehaviour:
     m_Key: gameover.title.level_complete
     m_Metadata:
       m_Items: []
-  - m_Id: 781257951666176
-    m_Key: gameover.score_and_path_total
-    m_Metadata:
-      m_Items: []
   - m_Id: 781257951666177
     m_Key: mode.path
     m_Metadata:
@@ -411,26 +391,6 @@ MonoBehaviour:
     m_Key: badge.name.elite_scorer
     m_Metadata:
       m_Items: []
-  - m_Id: 1371178030587920
-    m_Key: result.title
-    m_Metadata:
-      m_Items: []
-  - m_Id: 1371178030587921
-    m_Key: result.run_score
-    m_Metadata:
-      m_Items: []
-  - m_Id: 1371178030587922
-    m_Key: result.lifetime_total
-    m_Metadata:
-      m_Items: []
-  - m_Id: 1371178030587923
-    m_Key: result.tap_hint
-    m_Metadata:
-      m_Items: []
-  - m_Id: 1371178030587924
-    m_Key: result.badges_title
-    m_Metadata:
-      m_Items: []
   - m_Id: 1371178030587925
     m_Key: objective.colour_cleared
     m_Metadata:
@@ -497,6 +457,62 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 1673053435060224
     m_Key: hud.pocket_label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1720781875699712
+    m_Key: result.reason.no_moves
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1720781938614272
+    m_Key: result.reason.time_up
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1720781938614273
+    m_Key: result.reason.level_complete
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1720781938614274
+    m_Key: result.reason.level_failed
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1720781938614275
+    m_Key: result.total_label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1720781938614276
+    m_Key: result.level_score_label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1720781938614277
+    m_Key: result.path_total_label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1720781938614278
+    m_Key: result.new_record
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1720781938614279
+    m_Key: result.badges_heading
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1720781942808576
+    m_Key: result.claim_hint
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1720781942808577
+    m_Key: result.play_again
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1720781942808578
+    m_Key: result.change_mode
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1720781942808579
+    m_Key: result.next_level
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1720781947002880
+    m_Key: result.try_again
     m_Metadata:
       m_Items: []
   m_Metadata:
