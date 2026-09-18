@@ -241,6 +241,12 @@ MonoBehaviour:
   _fadeDuration: 0.2
   _intersectionFlashDuration: 0.08
   _pullDuration: 0.18
+  _explosiveCoreIconSprite: {fileID: 21300000, guid: c53af4cf0f2a44f729553516acd704af, type: 3}
+  _laserIconSprite: {fileID: 21300000, guid: 862e09e595fe24172ab289c448ac6599, type: 3}
+  _scoreGemIconSprite: {fileID: 21300000, guid: 4875adc60070e484fa8ef1b7f7b07c8f, type: 3}
+  _vortexIconSprite: {fileID: 21300000, guid: f501855d8b05649a1a6f12ade4eba680, type: 3}
+  _chainLightningIconSprite: {fileID: 21300000, guid: 7c5a5346691b04f91a27bf12d5fb5b03, type: 3}
+  _coinIconSprite: {fileID: 21300000, guid: 268a8cfa1d5d54ed193641c4b8a91502, type: 3}
 --- !u!114 &211238137
 MonoBehaviour:
   m_ObjectHideFlags: 0

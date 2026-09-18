@@ -13,11 +13,12 @@ using VContainer;
 namespace MustyBlockBlast.Presentation.Views
 {
     /// <summary>
-    /// The combo streak as a glossy pill — a flame and "x2,5 STREAK" — shown while
+    /// The combo streak as a glossy pill — a flame and "x4 STREAK" — shown while
     /// <see cref="ScoreModel.Streak"/> is above zero and hidden otherwise (issue #265). Binds to the
     /// streak and renders the score multiplier it has earned, via the same
-    /// <see cref="ScoreRules.StreakBonus"/> the scoring uses, so the pill can never promise a bonus
-    /// the next clear does not pay.
+    /// <see cref="ScoreRules.ComboStreakBonus"/> the scoring uses, so the pill can never promise a
+    /// bonus the next clear does not pay. Uncapped, so the number on the pill is always exactly the
+    /// streak count itself — a chain long enough to matter is its own limiter.
     /// <para>
     /// It lives in <see cref="ScoreView.CentreSlot"/>, unless the countdown wants that slot: in Timed
     /// mode the timer wins and the pill moves to the centre of the goals band
@@ -203,13 +204,17 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         /// <summary>
-        /// "2" or "2,5": one plus the streak's bonus, to the half. Built on the cached builder rather
-        /// than through a culture format, so a streak tick allocates the one string it hands to the
-        /// template rather than a formatter's scratch.
+        /// "4": one plus the streak's bonus, which — since <see cref="ScoreRules.ComboStreakBonus"/> is
+        /// uncapped and steps by a whole 1x — always resolves to the streak count itself. Still split
+        /// into whole/fraction (fraction is always 0 now) rather than simplified to `streak.ToString()`
+        /// directly: this stays the one place that reads the score formula, so a future rule change
+        /// that reintroduces a fractional step needs no second edit here. Built on the cached builder
+        /// rather than through a culture format, so a streak tick allocates the one string it hands to
+        /// the template rather than a formatter's scratch.
         /// </summary>
         private string FormatMultiplier(int streak)
         {
-            int tenths = Mathf.RoundToInt((float)(1.0 + ScoreRules.StreakBonus(streak)) * 10f);
+            int tenths = Mathf.RoundToInt((float)(1.0 + ScoreRules.ComboStreakBonus(streak)) * 10f);
             int whole = tenths / 10;
             int fraction = tenths % 10;
 

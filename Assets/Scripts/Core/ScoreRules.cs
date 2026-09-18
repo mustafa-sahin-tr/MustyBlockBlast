@@ -48,7 +48,11 @@ namespace MustyBlockBlast.Core
             }
         }
 
-        /// <summary>+0.5x per consecutive clearing placement, capped at +3x.</summary>
+        /// <summary>+0.5x per consecutive clearing placement, capped at +3x. Used only by
+        /// <see cref="MultiClearStreakScoreRule"/>'s own chain (consecutive 2+-line clears) — a much
+        /// rarer event than <see cref="ComboStreakBonus"/>'s ordinary any-clear streak, which is why
+        /// the two no longer share a cap: the sub-issue that split them decided this one still should.
+        /// </summary>
         public static double StreakBonus(int streak)
         {
             if (streak <= 0)
@@ -58,6 +62,15 @@ namespace MustyBlockBlast.Core
 
             return Math.Min(streak * STREAK_BONUS_PER_STEP, MAX_STREAK_BONUS);
         }
+
+        /// <summary>
+        /// +1x per consecutive clearing placement beyond the first, uncapped: the multiplier a player
+        /// sees on the streak pill is exactly <c>1 + ComboStreakBonus(streak)</c>, i.e. the streak count
+        /// itself. Deliberately has no ceiling — a chain that long is its own limiter; the board runs
+        /// out of room to keep completing lines back to back long before any cap would matter — so
+        /// unlike <see cref="StreakBonus"/> this never plateaus.
+        /// </summary>
+        public static double ComboStreakBonus(int streak) => streak <= 1 ? 0 : streak - 1;
 
         /// <summary>+0.5x per cleared line that was entirely one colour, stacking additively into the clear
         /// multiplier alongside the combo multiplier and streak bonus.</summary>
@@ -121,7 +134,8 @@ namespace MustyBlockBlast.Core
         public static int ScoreGemMultiplied(int points, int destroyedScoreGemCount)
             => destroyedScoreGemCount > 0 ? points * SCORE_GEM_FACTOR : points;
 
-        /// <summary>10 x lines x (comboMultiplier(lines) + streakBonus(streak)). Zero when no lines cleared.</summary>
+        /// <summary>10 x lines x (comboMultiplier(lines) + comboStreakBonus(streak)). Zero when no lines
+        /// cleared.</summary>
         public static int ClearScore(int lines, int streak)
         {
             if (lines <= 0)
@@ -129,7 +143,7 @@ namespace MustyBlockBlast.Core
                 return 0;
             }
 
-            double multiplier = ComboMultiplier(lines) + StreakBonus(streak);
+            double multiplier = ComboMultiplier(lines) + ComboStreakBonus(streak);
             double rawScore = POINTS_PER_LINE * lines * multiplier;
             return (int)Math.Round(rawScore, MidpointRounding.AwayFromZero);
         }

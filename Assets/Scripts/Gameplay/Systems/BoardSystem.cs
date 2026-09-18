@@ -31,7 +31,7 @@ namespace MustyBlockBlast.Gameplay.Systems
 
         private readonly BoardModel _boardModel;
         private readonly TrayModel _trayModel;
-        private readonly PerfectRoundModel _perfectRoundModel;
+        private readonly ScoreGemProgressModel _scoreGemProgressModel;
         private readonly WeightedPieceDraw _pieceDraw;
 
         /// <summary>
@@ -172,7 +172,7 @@ namespace MustyBlockBlast.Gameplay.Systems
         public BoardSystem(
             BoardModel boardModel,
             TrayModel trayModel,
-            PerfectRoundModel perfectRoundModel,
+            ScoreGemProgressModel scoreGemProgressModel,
             WeightedPieceDraw pieceDraw,
             IPublisher<RunStartedMessage> runStartedPublisher,
             IPublisher<PiecePlacedMessage> piecePlacedPublisher,
@@ -189,7 +189,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             LevelReinforcedCellSeeder reinforcedCellSeeder,
             PowerUpModel powerUpModel = null)
             : this(
-                boardModel, trayModel, perfectRoundModel, pieceDraw, runStartedPublisher,
+                boardModel, trayModel, scoreGemProgressModel, pieceDraw, runStartedPublisher,
                 piecePlacedPublisher, linesClearedPublisher, gameOverPublisher, trayRefilledPublisher,
                 explosiveCoreDetonatedPublisher, laserFiredPublisher, piercingRocketFiredPublisher,
                 vortexPulledPublisher, chainLightningTriggeredPublisher, coinCellsClearedPublisher,
@@ -200,7 +200,7 @@ namespace MustyBlockBlast.Gameplay.Systems
         internal BoardSystem(
             BoardModel boardModel,
             TrayModel trayModel,
-            PerfectRoundModel perfectRoundModel,
+            ScoreGemProgressModel scoreGemProgressModel,
             WeightedPieceDraw pieceDraw,
             IPublisher<RunStartedMessage> runStartedPublisher,
             IPublisher<PiecePlacedMessage> piecePlacedPublisher,
@@ -241,7 +241,7 @@ namespace MustyBlockBlast.Gameplay.Systems
                 _coinEffect);
             _boardModel = boardModel;
             _trayModel = trayModel;
-            _perfectRoundModel = perfectRoundModel;
+            _scoreGemProgressModel = scoreGemProgressModel;
             _pieceDraw = pieceDraw;
             _runStartedPublisher = runStartedPublisher;
             _piecePlacedPublisher = piecePlacedPublisher;
@@ -275,6 +275,10 @@ namespace MustyBlockBlast.Gameplay.Systems
             _goldenInjectionPending = false;
             _piercingRocketInjectionPending = false;
             _hammerGrantedThisRun = false;
+
+            // Same reason: cross-clear progress towards the next Score Gem belongs to the run that
+            // earned it and must not carry into the next one.
+            _scoreGemProgressModel.Reset();
 
             // A parked piece belongs to the run that parked it; carrying it into the next one would
             // hand the player a free piece they never drew.
@@ -571,14 +575,19 @@ namespace MustyBlockBlast.Gameplay.Systems
             // one already read above, not a second reading — see TrySpawnVortex.
             TrySpawnVortex(clearResult, colourId, occupiedCellCountBeforeClear);
 
-            // Same section, same reasons, and last of the three: one placement can earn more than one
+            // Same section, same reasons, and last of the four: one placement can earn more than one
             // reward, and each selector skips a cell that already carries a kind, so spawning in a fixed
             // order is what keeps two rewards off the same cell. The shape that earned this one is read
             // from the piece itself — the only spawn rule in the game that depends on what was placed
             // rather than only on what cleared.
             TrySpawnChainLightning(clearResult, colourId, piece.Id);
 
-            // Armed in the same section and for the same reason as the spawn above: it is this
+            // Read off this placement's own (primary) clear, same as the three spawns above — a gem is
+            // owed to the placement that reached its cross-clear count, not deferred to whenever the
+            // dock happens to empty.
+            TrySpawnScoreGem(clearResult);
+
+            // Armed in the same section and for the same reason as the spawns above: it is this
             // placement's reward, read off the placement's own (primary) clear rather than off the whole
             // cascade, because the reward is for the lines the player lined up. Unlike a core it is not
             // put on the board — it is owed to the next refill, which is where a dock injection can
@@ -588,16 +597,8 @@ namespace MustyBlockBlast.Gameplay.Systems
                 _piercingRocketInjectionPending = true;
             }
 
-            // Recorded after the placement has been fully reported, for the same reason the spawn above
-            // is: this is bookkeeping about the round, and nothing that reads the placement should see
-            // it half-updated.
-            _perfectRoundModel.RecordPlacement(clearResult.AnyCleared);
-
             if (_trayModel.IsEmpty)
             {
-                // Before the refill, which is what resets the round: this placement emptied the dock, so
-                // the cycle ends here and its reward — if it earned one — is owed now.
-                TrySpawnScoreGem();
                 RefillTray();
             }
 
@@ -1017,9 +1018,17 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// reward.
         /// </para>
         /// </summary>
-        private void TrySpawnScoreGem()
+        /// <summary>
+        /// Every placement that clears a row and a column at the same time — the same condition
+        /// <see cref="TrySpawnExplosiveCore"/> reacts to — advances the cross-clear count by one; the
+        /// count reaching two is what actually spawns the gem, and resets it back to zero for the next
+        /// pair. Deliberately not gated by a streak: an ordinary placement in between two cross-clears
+        /// advances neither count, so it cannot cost the player progress already earned.
+        /// </summary>
+        private void TrySpawnScoreGem(LineClearResult clearResult)
         {
-            if (!_perfectRoundModel.IsPerfectRound)
+            bool clearedBothAxes = clearResult.ClearedRows.Count > 0 && clearResult.ClearedColumns.Count > 0;
+            if (!clearedBothAxes || !_scoreGemProgressModel.RecordCrossClear())
             {
                 return;
             }
@@ -1193,11 +1202,6 @@ namespace MustyBlockBlast.Gameplay.Systems
             // After the ordinary draw, never instead of it: the injection overrides the slots it claims
             // and leaves the rest weighted exactly as they were drawn (AC3).
             ApplyPendingInjections();
-
-            // Every refill starts a fresh round, whether or not the one that just ended earned anything
-            // — and a run start goes through here too (StartNewRun refills), so no round state can
-            // survive into the next run.
-            _perfectRoundModel.ResetCycle();
 
             // Published from here rather than from the two call sites, so the opening draw of a run
             // and every mid-run refill are indistinguishable to subscribers.

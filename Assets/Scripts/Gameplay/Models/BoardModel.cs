@@ -102,6 +102,17 @@ namespace MustyBlockBlast.Gameplay.Models
             CellChanged?.Invoke(position, colourId);
         }
 
+        /// <summary>Empties one cell and announces it, exactly as <see cref="Occupy"/> announces a fill
+        /// — the single-cell counterpart <see cref="ClearAll"/> does not offer. Debug tooling only
+        /// today (see <see cref="Systems.DebugCheatSystem"/>); nothing in the ordinary rules ever
+        /// empties one cell in isolation outside a line clear or a special effect, which go through
+        /// <see cref="Core.Board"/> directly and notify through their own messages.</summary>
+        internal void Clear(GridPosition position)
+        {
+            _board.Clear(position);
+            CellChanged?.Invoke(position, Board.EMPTY);
+        }
+
         /// <summary>Occupies a cell as a reinforced one and announces both halves of it — the block
         /// that appeared, then how much punishment it will take — in the order a View needs them, which
         /// is the same order <see cref="SetSpecialKind"/> establishes for a special cell's icon.
