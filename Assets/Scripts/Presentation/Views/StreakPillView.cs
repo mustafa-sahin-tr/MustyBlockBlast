@@ -20,12 +20,13 @@ namespace MustyBlockBlast.Presentation.Views
     /// the next clear does not pay.
     /// <para>
     /// It lives in <see cref="ScoreView.CentreSlot"/>, unless the countdown wants that slot: in Timed
-    /// mode the timer wins and the pill moves to the goal row's trailing group
-    /// (<see cref="ObjectiveIconContainerView.TrailingSlot"/>) instead, just left of the level pill
-    /// that lives there. The row packs that group and clips its chips short of it, so the pill tells
-    /// the row whenever it shows, hides or re-measures. Parented in <see cref="Start"/>
-    /// rather than Awake: both hosts build their rects in Awake and sibling Awake order is not
-    /// guaranteed, so they are only safe to attach to once every Awake has run.
+    /// mode the timer wins and the pill moves to the centre of the goals band
+    /// (<see cref="ObjectiveIconContainerView.CentreSlot"/>) instead. The goal row and the level pill
+    /// are Path-mode only (issue #269), so in Timed mode that band is otherwise empty and the streak
+    /// pill has it to itself; it ignores the row's CanvasGroup so the hidden row does not hide it.
+    /// Parented in <see cref="Start"/> rather than Awake: both hosts build their rects in Awake and
+    /// sibling Awake order is not guaranteed, so they are only safe to attach to once every Awake
+    /// has run.
     /// </para>
     /// </summary>
     [DisallowMultipleComponent]
@@ -144,33 +145,22 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         /// <summary>
-        /// The countdown has first claim on the card's centre; the pill yields to it in Timed mode. In
-        /// the row's trailing group it goes first, not last: the group is packed right to left in
-        /// sibling order, and the level pill keeps the row's edge.
+        /// The countdown has first claim on the card's centre; the pill yields to it in Timed mode and
+        /// takes the centre of the goals band, which nothing else uses outside Path mode. Centred in
+        /// either slot, so a re-measure grows it evenly from the middle.
         /// </summary>
         private void OnModeChanged(GameMode mode)
         {
-            if (mode == GameMode.Timed)
-            {
-                _rect.SetParent(_objectiveIconContainerView.TrailingSlot, false);
-                _rect.anchorMin = new Vector2(1f, 0.5f);
-                _rect.anchorMax = new Vector2(1f, 0.5f);
-                _rect.pivot = new Vector2(1f, 0.5f);
-                _rect.anchoredPosition = Vector2.zero;
-                _rect.SetAsFirstSibling();
-            }
-            else
-            {
-                _rect.SetParent(_scoreView.CentreSlot, false);
-                _rect.anchorMin = new Vector2(0.5f, 0.5f);
-                _rect.anchorMax = new Vector2(0.5f, 0.5f);
-                _rect.pivot = new Vector2(0.5f, 0.5f);
-                _rect.anchoredPosition = Vector2.zero;
-                _rect.SetAsLastSibling();
-            }
+            RectTransform host = mode == GameMode.Timed
+                ? _objectiveIconContainerView.CentreSlot
+                : _scoreView.CentreSlot;
 
-            // Either way the trailing group changed: the pill joined it or left it.
-            _objectiveIconContainerView.NotifyTrailingChanged();
+            _rect.SetParent(host, false);
+            _rect.anchorMin = new Vector2(0.5f, 0.5f);
+            _rect.anchorMax = new Vector2(0.5f, 0.5f);
+            _rect.pivot = new Vector2(0.5f, 0.5f);
+            _rect.anchoredPosition = Vector2.zero;
+            _rect.SetAsLastSibling();
         }
 
         private void OnStreakChanged(int streak)
@@ -196,7 +186,6 @@ namespace MustyBlockBlast.Presentation.Views
 
             if (!isVisible)
             {
-                NotifyRowIfTrailing();
                 return;
             }
 
@@ -211,20 +200,6 @@ namespace MustyBlockBlast.Presentation.Views
             float left = -pillWidth * 0.5f + _paddingX;
             _flameRect.anchoredPosition = new Vector2(left + (_glyphSize * 0.5f), 0f);
             _labelRect.anchoredPosition = new Vector2(left + glyphWidth, 0f);
-
-            NotifyRowIfTrailing();
-        }
-
-        /// <summary>
-        /// The row only needs to hear about the pill while the pill is in its trailing group; in the
-        /// score card's centre slot a streak coming or going is nobody else's business.
-        /// </summary>
-        private void NotifyRowIfTrailing()
-        {
-            if (_rect.parent == _objectiveIconContainerView.TrailingSlot)
-            {
-                _objectiveIconContainerView.NotifyTrailingChanged();
-            }
         }
 
         /// <summary>
@@ -265,8 +240,8 @@ namespace MustyBlockBlast.Presentation.Views
             _group.interactable = false;
             _group.blocksRaycasts = false;
 
-            // The goal row fades itself out when nothing is tracked; a streak earned in Timed mode
-            // must still show while the pill is a guest of that row.
+            // The goal row hides itself outside Path mode; a streak earned in Timed mode must still
+            // show while the pill is a guest of that row's band.
             _group.ignoreParentGroups = true;
 
             _pillPlate = HudChrome.BuildGlossyPill(_rect, "Pill", _rect.sizeDelta, Vector2.zero, _buttonSprite);
