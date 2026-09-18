@@ -4,42 +4,31 @@ using NUnit.Framework;
 namespace MustyBlockBlast.Tests.EditMode
 {
     /// <summary>
-    /// Covers when a clutch clear earns a vortex and where it lands: the occupancy threshold and its
-    /// boundary, the cell of the clear it converts, and the three ways the answer is "spawn nothing" —
-    /// none of which is an error.
+    /// Covers where a clear that already earned a vortex (per <c>VortexProgressModel</c>) lands: the
+    /// cell of the clear it converts, and the ways the answer is "spawn nothing" — none of which is an
+    /// error. Whether a clear earned a vortex at all is <c>VortexProgressModel</c>'s own tests.
     /// </summary>
     public class VortexSpawnSelectorTests
     {
-        /// <summary>More than 80% of the standard board's 64 playable cells.</summary>
-        private const int CROWDED = 52;
-
-        /// <summary>The fullest board that still does not qualify: 51 of 64 is 79.7%, and 80% of 64 —
-        /// 51.2 cells — is not a board any number of blocks can produce, so this is the boundary.</summary>
-        private const int BELOW_THRESHOLD = 51;
-
-        /// <summary>AC1/AC3: a line cleared on a crowded board always spawns one, with no roll.</summary>
         [Test]
-        public void SelectSpawnPosition_WithAClearOnACrowdedBoard_SpawnsOnACellTheClearEmptied()
+        public void SelectSpawnPosition_WithARowCleared_SpawnsOnACellTheClearEmptied()
         {
             Board board = BoardWithClearedRow(3);
 
-            GridPosition? spawn = VortexSpawnSelector.SelectSpawnPosition(
-                board, new[] { 3 }, new int[0], CROWDED);
+            GridPosition? spawn = VortexSpawnSelector.SelectSpawnPosition(board, new[] { 3 }, new int[0]);
 
             Assert.IsTrue(spawn.HasValue);
             Assert.AreEqual(new GridPosition(0, 3), spawn.Value);
         }
 
-        /// <summary>AC3: deterministic — the same clear resolves to the same cell every time.</summary>
+        /// <summary>Deterministic — the same clear resolves to the same cell every time.</summary>
         [Test]
         public void SelectSpawnPosition_CalledTwiceWithTheSameClear_ReturnsTheSameCell()
         {
             Board board = BoardWithClearedRow(3);
 
-            GridPosition? first = VortexSpawnSelector.SelectSpawnPosition(
-                board, new[] { 3 }, new int[0], CROWDED);
-            GridPosition? second = VortexSpawnSelector.SelectSpawnPosition(
-                board, new[] { 3 }, new int[0], CROWDED);
+            GridPosition? first = VortexSpawnSelector.SelectSpawnPosition(board, new[] { 3 }, new int[0]);
+            GridPosition? second = VortexSpawnSelector.SelectSpawnPosition(board, new[] { 3 }, new int[0]);
 
             Assert.AreEqual(first, second);
         }
@@ -59,45 +48,17 @@ namespace MustyBlockBlast.Tests.EditMode
                 }
             }
 
-            GridPosition? spawn = VortexSpawnSelector.SelectSpawnPosition(
-                board, new int[0], new[] { 5 }, CROWDED);
+            GridPosition? spawn = VortexSpawnSelector.SelectSpawnPosition(board, new int[0], new[] { 5 });
 
             Assert.AreEqual(new GridPosition(5, 0), spawn.Value);
         }
 
-        /// <summary>The threshold is strictly greater than: the fullest board below 80% has not earned
-        /// one, so the boundary belongs to the ordinary case.</summary>
-        [Test]
-        public void SelectSpawnPosition_WithOccupancyAtTheBoundary_SpawnsNothing()
-        {
-            Board board = BoardWithClearedRow(3);
-
-            GridPosition? spawn = VortexSpawnSelector.SelectSpawnPosition(
-                board, new[] { 3 }, new int[0], BELOW_THRESHOLD);
-
-            Assert.IsNull(spawn);
-        }
-
-        [Test]
-        public void SelectSpawnPosition_WithAnEmptyBoardBeforeTheClear_SpawnsNothing()
-        {
-            Board board = BoardWithClearedRow(3);
-
-            GridPosition? spawn = VortexSpawnSelector.SelectSpawnPosition(
-                board, new[] { 3 }, new int[0], 0);
-
-            Assert.IsNull(spawn);
-        }
-
-        /// <summary>The reward is for a clear, not for a crowded board: a placement that completed no
-        /// line earns nothing however full the board was.</summary>
         [Test]
         public void SelectSpawnPosition_WithNothingCleared_SpawnsNothing()
         {
             var board = new Board();
 
-            GridPosition? spawn = VortexSpawnSelector.SelectSpawnPosition(
-                board, new int[0], new int[0], Board.SIZE * Board.SIZE);
+            GridPosition? spawn = VortexSpawnSelector.SelectSpawnPosition(board, new int[0], new int[0]);
 
             Assert.IsNull(spawn);
         }
@@ -107,14 +68,13 @@ namespace MustyBlockBlast.Tests.EditMode
         {
             var board = new Board();
 
-            GridPosition? spawn = VortexSpawnSelector.SelectSpawnPosition(
-                board, null, null, Board.SIZE * Board.SIZE);
+            GridPosition? spawn = VortexSpawnSelector.SelectSpawnPosition(board, null, null);
 
             Assert.IsNull(spawn);
         }
 
-        /// <summary>AC4: no valid cell to spawn on is silently skipped, not an error. Here every cell of
-        /// the cleared row has been refilled by a later cascade phase.</summary>
+        /// <summary>No valid cell to spawn on is silently skipped, not an error. Here every cell of the
+        /// cleared row has been refilled by a later cascade phase.</summary>
         [Test]
         public void SelectSpawnPosition_WithNoFreeCellInTheClearedLine_SpawnsNothingAndDoesNotThrow()
         {
@@ -124,8 +84,7 @@ namespace MustyBlockBlast.Tests.EditMode
                 board.Occupy(new GridPosition(x, 3), 1);
             }
 
-            GridPosition? spawn = VortexSpawnSelector.SelectSpawnPosition(
-                board, new[] { 3 }, new int[0], CROWDED);
+            GridPosition? spawn = VortexSpawnSelector.SelectSpawnPosition(board, new[] { 3 }, new int[0]);
 
             Assert.IsNull(spawn);
         }
@@ -143,8 +102,7 @@ namespace MustyBlockBlast.Tests.EditMode
 
             var board = new Board(new BoardShape(Board.SIZE, Board.SIZE, holes));
 
-            GridPosition? spawn = VortexSpawnSelector.SelectSpawnPosition(
-                board, new[] { 3 }, new int[0], CROWDED);
+            GridPosition? spawn = VortexSpawnSelector.SelectSpawnPosition(board, new[] { 3 }, new int[0]);
 
             Assert.IsNull(spawn);
         }
@@ -157,8 +115,7 @@ namespace MustyBlockBlast.Tests.EditMode
             Board board = BoardWithClearedRow(3);
             board.SetSpecialKind(new GridPosition(0, 3), SpecialCellKind.Laser);
 
-            GridPosition? spawn = VortexSpawnSelector.SelectSpawnPosition(
-                board, new[] { 3 }, new int[0], CROWDED);
+            GridPosition? spawn = VortexSpawnSelector.SelectSpawnPosition(board, new[] { 3 }, new int[0]);
 
             Assert.AreEqual(new GridPosition(1, 3), spawn.Value);
         }

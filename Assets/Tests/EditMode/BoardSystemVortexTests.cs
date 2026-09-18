@@ -9,8 +9,8 @@ using UnityEngine;
 namespace MustyBlockBlast.Tests.EditMode
 {
     /// <summary>
-    /// End-to-end cover for the placement side of the vortex: the occupancy the spawn rule is read
-    /// against is the pre-clear one, a destroyed vortex drags the board's strays inwards, the pulls are
+    /// End-to-end cover for the placement side of the vortex: the run-wide line-clear count the spawn
+    /// rule is read against, a destroyed vortex drags the board's strays inwards, the pulls are
     /// reported, and a snapshot taken beforehand restores everything.
     /// </summary>
     public class BoardSystemVortexTests
@@ -38,6 +38,7 @@ namespace MustyBlockBlast.Tests.EditMode
                 _boardModel,
                 _trayModel,
                 new ScoreGemProgressModel(),
+                new VortexProgressModel(),
                 new WeightedPieceDraw(seed: 1),
                 new TestMessageBroker<RunStartedMessage>(),
                 new TestMessageBroker<PiecePlacedMessage>(),
@@ -61,71 +62,71 @@ namespace MustyBlockBlast.Tests.EditMode
             _trayModel.SetSlot(2, Single, 1);
         }
 
-        /// <summary>AC1/AC3: a clear on a board that was more than 80% full always spawns a vortex, on a
-        /// cell the clear itself emptied, with no roll deciding whether it appears.</summary>
+        /// <summary>Five separate single-line clears sum to the threshold, and the fifth spawns the
+        /// vortex on a cell that clear itself emptied, with no roll deciding whether it appears. The
+        /// four before it are checked to carry no kind, so the assertion actually exercises the
+        /// threshold rather than a coincidence.</summary>
         [Test]
-        public void TryPlacePiece_ClearingALineOnACrowdedBoard_SpawnsAVortex()
+        public void TryPlacePiece_ReachingFiveClearedLinesTotal_SpawnsAVortexOnTheFifthClear()
         {
-            LayOutCrowdedBoard();
+            ClearOneLine(new GridPosition(0, 0));
+            ClearOneLine(new GridPosition(0, 1));
+            ClearOneLine(new GridPosition(0, 2));
+            ClearOneLine(new GridPosition(0, 3));
+            Assert.IsNull(FindVortex(), "Four cleared lines have not reached the threshold yet.");
 
-            bool placed = _system.TryPlacePiece(0, Gap);
+            ClearOneLine(new GridPosition(0, 4));
 
-            Assert.IsTrue(placed);
-            var spawn = new GridPosition(0, 5);
-            Assert.AreEqual(SpecialCellKind.Vortex, _boardModel.GetSpecialKind(spawn));
-            Assert.AreNotEqual(Board.EMPTY, _boardModel.GetCell(spawn), "The tile needs a block to sit on.");
+            Assert.AreEqual(SpecialCellKind.Vortex, _boardModel.GetSpecialKind(new GridPosition(0, 4)));
         }
 
-        /// <summary>The occupancy that matters is the one from before the clear. Measuring it afterwards
-        /// would read the board the reward exists to rescue the player from, which by then is exactly
-        /// the board they are no longer on — and the reward would never fire.</summary>
+        /// <summary>Deliberately not streak-gated: an ordinary placement that clears nothing sits between
+        /// two batches of clears and adds zero, so the run-wide total still reaches five on schedule.</summary>
         [Test]
-        public void TryPlacePiece_OnACrowdedBoard_ReadsOccupancyFromBeforeTheClear()
+        public void TryPlacePiece_WithANonClearingPlacementBetweenClears_StillReachesFiveAndSpawns()
         {
-            LayOutCrowdedBoard();
+            ClearOneLine(new GridPosition(0, 0));
+            ClearOneLine(new GridPosition(0, 1));
+            ClearOneLine(new GridPosition(0, 2));
 
-            _system.TryPlacePiece(0, Gap);
+            _trayModel.SetSlot(0, Single, 1);
+            var elsewhere = new GridPosition(7, 7);
+            Assert.IsTrue(_system.TryPlacePiece(0, elsewhere), "A lone cell placement completes nothing.");
+            Assert.IsNull(FindVortex());
 
-            int occupiedAfter = _boardModel.Board.OccupiedCellCount();
-            float threshold = VortexSpawnSelector.OCCUPANCY_THRESHOLD * _boardModel.Board.PlayableCellCount;
-            Assert.IsTrue(
-                occupiedAfter <= threshold,
-                $"The post-clear board holds {occupiedAfter} of {threshold:0.0}, so only a pre-clear reading can have fired.");
+            ClearOneLine(new GridPosition(0, 3));
+            Assert.IsNull(FindVortex(), "Still only four real clears.");
+
+            ClearOneLine(new GridPosition(0, 4));
+            Assert.AreEqual(SpecialCellKind.Vortex, _boardModel.GetSpecialKind(new GridPosition(0, 4)));
+        }
+
+        /// <summary>The count resets to zero once it spawns a vortex: earning one costs the run nothing
+        /// towards the next, and the next five cleared lines earn another.</summary>
+        [Test]
+        public void TryPlacePiece_AfterASpawnedVortex_CounterResetsAndEarnsAnotherAtTheNextFive()
+        {
+            ClearOneLine(new GridPosition(0, 0));
+            ClearOneLine(new GridPosition(0, 1));
+            ClearOneLine(new GridPosition(0, 2));
+            ClearOneLine(new GridPosition(0, 3));
+            ClearOneLine(new GridPosition(0, 4));
+            Assert.AreEqual(SpecialCellKind.Vortex, _boardModel.GetSpecialKind(new GridPosition(0, 4)));
+
+            // A fresh batch of five, skipping row 4: the selector hands a cleared row's vortex to
+            // column 0 of that row whenever column 0 is available — which, once a row clears, it always
+            // is, gap column aside — and row 4's column 0 is unavailable only because it still carries
+            // the first vortex's own tile. Any other row's fifth clear lands at its own column 0.
+            ClearOneLine(new GridPosition(0, 0));
+            ClearOneLine(new GridPosition(0, 1));
+            ClearOneLine(new GridPosition(0, 2));
+            ClearOneLine(new GridPosition(0, 3));
+            Assert.AreEqual(
+                SpecialCellKind.None, _boardModel.GetSpecialKind(new GridPosition(0, 3)),
+                "Only four of the new batch have cleared so far.");
+
+            ClearOneLine(new GridPosition(0, 5));
             Assert.AreEqual(SpecialCellKind.Vortex, _boardModel.GetSpecialKind(new GridPosition(0, 5)));
-        }
-
-        /// <summary>The other side of the threshold: the same clear on a board that was nowhere near full
-        /// earns nothing.</summary>
-        [Test]
-        public void TryPlacePiece_ClearingALineOnASparseBoard_SpawnsNothing()
-        {
-            FillRowExcept(y: 5, Gap);
-
-            _system.TryPlacePiece(0, Gap);
-
-            for (int x = 0; x < Board.SIZE; x++)
-            {
-                Assert.AreEqual(
-                    SpecialCellKind.None,
-                    _boardModel.GetSpecialKind(new GridPosition(x, 5)),
-                    $"({x}, 5) should carry no kind.");
-            }
-        }
-
-        /// <summary>A crowded board is not enough on its own: the reward is for a clear.</summary>
-        [Test]
-        public void TryPlacePiece_OnACrowdedBoardWithoutClearingALine_SpawnsNothing()
-        {
-            LayOutCrowdedBoard();
-
-            // Row 4 keeps its other empty cell and column 5 keeps its other one, so filling this
-            // completes nothing.
-            var elsewhere = new GridPosition(5, 4);
-
-            _system.TryPlacePiece(0, elsewhere);
-
-            Assert.AreEqual(SpecialCellKind.None, _boardModel.GetSpecialKind(elsewhere));
-            Assert.AreEqual(SpecialCellKind.None, _boardModel.GetSpecialKind(new GridPosition(0, 5)));
         }
 
         /// <summary>AC2: destroying one drags every isolated block one cell towards where it stood, and
@@ -326,54 +327,30 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.AreEqual(SpecialCellKind.Vortex, _boardModel.GetSpecialKind(vortex), "The vortex is back.");
         }
 
-        /// <summary>
-        /// A board 54/64 full with exactly one line one cell short of complete.
-        /// <para>
-        /// The ten empty cells are placed so that every row other than 5 and every column keeps at
-        /// least one of them: filling <see cref="Gap"/> must complete row 5 and nothing else, or a second
-        /// line clearing would change which cells the spawn rule has to choose from.
-        /// </para>
-        /// </summary>
-        private void LayOutCrowdedBoard()
+        /// <summary>Fills <paramref name="gap"/>'s row around it and places a fresh single there,
+        /// completing and clearing that one row — the run-wide-line-count test's one building block.</summary>
+        private void ClearOneLine(GridPosition gap)
         {
-            var empties = new[]
-            {
-                Gap,
-                new GridPosition(3, 0),
-                new GridPosition(0, 1),
-                new GridPosition(1, 2),
-                new GridPosition(2, 3),
-                new GridPosition(4, 4),
-                new GridPosition(5, 4),
-                new GridPosition(5, 6),
-                new GridPosition(6, 7),
-                new GridPosition(7, 7),
-            };
+            FillRowExcept(gap.Y, gap);
+            _trayModel.SetSlot(0, Single, 1);
+            Assert.IsTrue(_system.TryPlacePiece(0, gap), $"expected {gap} to complete its row.");
+        }
 
+        private GridPosition? FindVortex()
+        {
             for (int y = 0; y < Board.SIZE; y++)
             {
                 for (int x = 0; x < Board.SIZE; x++)
                 {
                     var position = new GridPosition(x, y);
-                    if (!Contains(empties, position))
+                    if (_boardModel.GetSpecialKind(position) == SpecialCellKind.Vortex)
                     {
-                        _boardModel.Occupy(position, 1);
+                        return position;
                     }
                 }
             }
-        }
 
-        private static bool Contains(GridPosition[] cells, GridPosition position)
-        {
-            for (int i = 0; i < cells.Length; i++)
-            {
-                if (cells[i].X == position.X && cells[i].Y == position.Y)
-                {
-                    return true;
-                }
-            }
-
-            return false;
+            return null;
         }
 
         private void FillRowExcept(int y, GridPosition gap)

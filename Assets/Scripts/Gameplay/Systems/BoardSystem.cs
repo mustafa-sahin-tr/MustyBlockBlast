@@ -32,6 +32,7 @@ namespace MustyBlockBlast.Gameplay.Systems
         private readonly BoardModel _boardModel;
         private readonly TrayModel _trayModel;
         private readonly ScoreGemProgressModel _scoreGemProgressModel;
+        private readonly VortexProgressModel _vortexProgressModel;
         private readonly WeightedPieceDraw _pieceDraw;
 
         /// <summary>
@@ -173,6 +174,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             BoardModel boardModel,
             TrayModel trayModel,
             ScoreGemProgressModel scoreGemProgressModel,
+            VortexProgressModel vortexProgressModel,
             WeightedPieceDraw pieceDraw,
             IPublisher<RunStartedMessage> runStartedPublisher,
             IPublisher<PiecePlacedMessage> piecePlacedPublisher,
@@ -189,11 +191,12 @@ namespace MustyBlockBlast.Gameplay.Systems
             LevelReinforcedCellSeeder reinforcedCellSeeder,
             PowerUpModel powerUpModel = null)
             : this(
-                boardModel, trayModel, scoreGemProgressModel, pieceDraw, runStartedPublisher,
-                piecePlacedPublisher, linesClearedPublisher, gameOverPublisher, trayRefilledPublisher,
-                explosiveCoreDetonatedPublisher, laserFiredPublisher, piercingRocketFiredPublisher,
-                vortexPulledPublisher, chainLightningTriggeredPublisher, coinCellsClearedPublisher,
-                currencyConfig, Environment.TickCount, reinforcedCellSeeder, powerUpModel)
+                boardModel, trayModel, scoreGemProgressModel, vortexProgressModel, pieceDraw,
+                runStartedPublisher, piecePlacedPublisher, linesClearedPublisher, gameOverPublisher,
+                trayRefilledPublisher, explosiveCoreDetonatedPublisher, laserFiredPublisher,
+                piercingRocketFiredPublisher, vortexPulledPublisher, chainLightningTriggeredPublisher,
+                coinCellsClearedPublisher, currencyConfig, Environment.TickCount, reinforcedCellSeeder,
+                powerUpModel)
         {
         }
 
@@ -201,6 +204,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             BoardModel boardModel,
             TrayModel trayModel,
             ScoreGemProgressModel scoreGemProgressModel,
+            VortexProgressModel vortexProgressModel,
             WeightedPieceDraw pieceDraw,
             IPublisher<RunStartedMessage> runStartedPublisher,
             IPublisher<PiecePlacedMessage> piecePlacedPublisher,
@@ -242,6 +246,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             _boardModel = boardModel;
             _trayModel = trayModel;
             _scoreGemProgressModel = scoreGemProgressModel;
+            _vortexProgressModel = vortexProgressModel;
             _pieceDraw = pieceDraw;
             _runStartedPublisher = runStartedPublisher;
             _piecePlacedPublisher = piecePlacedPublisher;
@@ -276,9 +281,11 @@ namespace MustyBlockBlast.Gameplay.Systems
             _piercingRocketInjectionPending = false;
             _hammerGrantedThisRun = false;
 
-            // Same reason: cross-clear progress towards the next Score Gem belongs to the run that
-            // earned it and must not carry into the next one.
+            // Same reason: cross-clear progress towards the next Score Gem, and line-clear progress
+            // towards the next Vortex, belong to the run that earned them and must not carry into the
+            // next one.
             _scoreGemProgressModel.Reset();
+            _vortexProgressModel.Reset();
 
             // A parked piece belongs to the run that parked it; carrying it into the next one would
             // hand the player a free piece they never drew.
@@ -571,9 +578,8 @@ namespace MustyBlockBlast.Gameplay.Systems
 
             // Same section, same reasons, and deliberately after the core: the two rewards can be
             // earned by one placement, and the core picks its cell first so a vortex can never take the
-            // intersection the core's rule is defined on. The occupancy handed over is the pre-clear
-            // one already read above, not a second reading — see TrySpawnVortex.
-            TrySpawnVortex(clearResult, colourId, occupiedCellCountBeforeClear);
+            // intersection the core's rule is defined on.
+            TrySpawnVortex(clearResult, colourId);
 
             // Same section, same reasons, and last of the four: one placement can earn more than one
             // reward, and each selector skips a cell that already carries a kind, so spawning in a fixed
@@ -926,30 +932,26 @@ namespace MustyBlockBlast.Gameplay.Systems
         }
 
         /// <summary>
-        /// Spawns this placement's <see cref="SpecialCellKind.Vortex"/> reward, when it earned one: a
-        /// placement that cleared at least one line on a board that was more than
-        /// <see cref="VortexSpawnSelector.OCCUPANCY_THRESHOLD"/>-full always does, with no probability
-        /// roll (see <see cref="VortexSpawnSelector"/>). A placement that earned none, or one whose
+        /// Spawns this placement's <see cref="SpecialCellKind.Vortex"/> reward, when it earned one:
+        /// every row and column cleared, run-wide, feeds one running total
+        /// (<see cref="VortexProgressModel"/>), and the placement that carries the total to 5 or beyond
+        /// always spawns one, with no probability roll. A placement that earned none, or one whose
         /// cleared lines hold no valid cell, is silently skipped — not an error state.
         /// <para>
-        /// <paramref name="occupiedCellCountBeforeClear"/> is the reading taken in
-        /// <see cref="TryPlacePiece"/> the moment the piece landed, and is threaded through rather than
-        /// re-measured here: by now the clear has already emptied the very cells that made the board
-        /// crowded, so a second reading would answer a different question and the reward would never
-        /// fire. It is the same value <see cref="PiecePlacedMessage"/> reports, so the vortex and the
-        /// clutch-recovery objective can never disagree about how full the board was.
-        /// </para>
-        /// <para>
         /// Reads <paramref name="clearResult"/>, the placement's own (primary) clear, rather than the
-        /// whole cascade, exactly as the explosive core's rule does: the reward is for the line the
+        /// whole cascade, exactly as the explosive core's rule does: the reward is for the lines the
         /// player lined up.
         /// </para>
         /// </summary>
-        private void TrySpawnVortex(LineClearResult clearResult, int colourId, int occupiedCellCountBeforeClear)
+        private void TrySpawnVortex(LineClearResult clearResult, int colourId)
         {
+            if (!_vortexProgressModel.RecordLinesCleared(clearResult.LineCount))
+            {
+                return;
+            }
+
             GridPosition? spawn = VortexSpawnSelector.SelectSpawnPosition(
-                _boardModel.Board, clearResult.ClearedRows, clearResult.ClearedColumns,
-                occupiedCellCountBeforeClear);
+                _boardModel.Board, clearResult.ClearedRows, clearResult.ClearedColumns);
             if (spawn == null)
             {
                 return;

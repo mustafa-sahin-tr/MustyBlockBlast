@@ -2241,6 +2241,7 @@ namespace MustyBlockBlast.Tests.EditMode
                 boardModel,
                 trayModel,
                 new ScoreGemProgressModel(),
+                new VortexProgressModel(),
                 pieceDraw,
                 new TestMessageBroker<RunStartedMessage>(),
                 new TestMessageBroker<PiecePlacedMessage>(),
