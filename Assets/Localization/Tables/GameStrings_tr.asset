@@ -115,7 +115,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 766500884
-    m_Localized: "Oynamaya devam"
+    m_Localized: Oynamaya devam
     m_Metadata:
       m_Items: []
   - m_Id: 10990476320768
@@ -279,7 +279,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1253490004320257
-    m_Localized: "Reklamlar kald\u0131r\u0131ld\u0131 \u00B7 deste\u011Fin i\u00E7in te\u015Fekk\u00FCrler"
+    m_Localized: "Reklamlar kald\u0131r\u0131ld\u0131 \xB7 deste\u011Fin i\xE7in te\u015Fekk\xFCrler"
     m_Metadata:
       m_Items: []
   - m_Id: 1292508796542976
@@ -439,11 +439,11 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1371178030587926
-    m_Localized: "Yaln\u0131zca s\u00FCreli modda"
+    m_Localized: "Yaln\u0131zca s\xFCreli modda"
     m_Metadata:
       m_Items: []
   - m_Id: 1371178030587927
-    m_Localized: "A\u00E7\u0131k"
+    m_Localized: "A\xE7\u0131k"
     m_Metadata:
       m_Items: []
   - m_Id: 1371178030587928
@@ -451,7 +451,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1371178030587929
-    m_Localized: "Reklamlar \u00B7 tek seferlik sat\u0131n alma"
+    m_Localized: "Reklamlar \xB7 tek seferlik sat\u0131n alma"
     m_Metadata:
       m_Items: []
   - m_Id: 1371178030587930
@@ -463,19 +463,43 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1371178030587932
-    m_Localized: "{0} moduna ge\u00E7ilsin mi?"
+    m_Localized: "{0} moduna ge\xE7ilsin mi?"
     m_Metadata:
       m_Items: []
   - m_Id: 1371178030587933
-    m_Localized: "Tahta dolana kadar oyna. En iyi skorunun pe\u015Fine d\u00FC\u015F."
+    m_Localized: "Tahta dolana kadar oyna. En iyi skorunun pe\u015Fine d\xFC\u015F."
     m_Metadata:
       m_Items: []
   - m_Id: 1371178030587934
-    m_Localized: "S\u00FCre dolmadan olabildi\u011Fince puan topla."
+    m_Localized: "S\xFCre dolmadan olabildi\u011Fince puan topla."
     m_Metadata:
       m_Items: []
   - m_Id: 1371178030587935
-    m_Localized: "Yol boyunca her seviyede bir hedefi tamamla."
+    m_Localized: Yol boyunca her seviyede bir hedefi tamamla.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1665464840216576
+    m_Localized: PUAN
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1665464869576704
+    m_Localized: "x{0} SER\u0130"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1665464869576705
+    m_Localized: HEDEF
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1665464869576706
+    m_Localized: SV
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1665464869576708
+    m_Localized: "SEV\u0130YE {0}"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1673053435060224
+    m_Localized: CEP
     m_Metadata:
       m_Items: []
   references:

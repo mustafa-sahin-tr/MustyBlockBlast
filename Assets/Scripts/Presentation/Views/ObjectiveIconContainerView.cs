@@ -2,10 +2,13 @@ using System.Collections.Generic;
 using System.Text;
 using MessagePipe;
 using MustyBlockBlast.Core;
+using MustyBlockBlast.Gameplay;
+using MustyBlockBlast.Gameplay.Localization;
 using MustyBlockBlast.Gameplay.Messages;
 using MustyBlockBlast.Gameplay.Models;
 using MustyBlockBlast.Gameplay.Reactive;
 using MustyBlockBlast.Gameplay.Settings;
+using MustyBlockBlast.Gameplay.Systems;
 using UnityEngine;
 using UnityEngine.UI;
 using VContainer;
@@ -13,28 +16,27 @@ using VContainer;
 namespace MustyBlockBlast.Presentation.Views
 {
     /// <summary>
-    /// The run's objectives, as a left-aligned row of icons pinned to the top-left corner of the
-    /// screen, directly below <see cref="ScoreView"/>'s "Best" block and growing rightward under the
-    /// score. One disc per objective the current level asks for, the size of the level-path icon: an
-    /// authored silhouette (or the procedural glyph, for a type without one) for what it measures, a
-    /// "2/3" counter for how far along it is, and a tick once that particular objective is done.
+    /// The run's objectives as the goal row under the score card (issue #265): a "goal" caption,
+    /// then one chip per objective the current level asks for — a
+    /// card-coloured pill holding a kind-tinted plate with the objective's silhouette, a "2/5" counter
+    /// in the display face, and a green tick disc once that objective is done.
     /// <para>
-    /// Replaces the old single-line text strip. A level may now carry several objectives at once
-    /// (<see cref="ObjectiveModel.TrackedObjectives"/>), and a sentence per objective would not fit the
-    /// HUD — an icon does, and the full wording is one tap away in
-    /// <see cref="ObjectiveInfoPopupView"/>.
+    /// A level may carry several objectives at once (<see cref="ObjectiveModel.TrackedObjectives"/>),
+    /// and a sentence per objective would not fit the HUD — a chip does, and the full wording is one
+    /// tap away in <see cref="ObjectiveInfoPopupView"/>.
     /// </para>
     /// <para>
-    /// The row is a fixed size whatever it holds, so the score, the best score and the countdown can
-    /// never push it around or be pushed by it. Slots are built once and shown or hidden by colour
+    /// The row is a fixed size whatever it holds. Chips are built once and shown or hidden by colour
     /// alone — toggling their GameObjects would rebuild the shared canvas mesh every time an objective
     /// appeared or cleared, which is the same reason <see cref="PowerUpInventoryView"/> dims its strip
-    /// rather than deactivating it.
+    /// rather than deactivating it. A chip's silhouette is the one thing rebuilt rather than repainted,
+    /// because which one it wears depends on the objective's type — and that only changes on a level
+    /// change, never on a progress tick.
     /// </para>
     /// <para>
-    /// A slot's glyph is the one thing rebuilt rather than repainted, because which silhouette a slot
-    /// wears depends on the objective's type. That only ever happens when the tracked objectives are
-    /// replaced — a level change — and never on a progress tick, so no placement can cost a rebuild.
+    /// The row also yields its band to <see cref="DoubleMultiplierHudView"/> for the fifteen seconds
+    /// a 2× window is open, dimming itself rather than moving: the goals are still tracked, they are
+    /// just not the thing the player needs to see right then.
     /// </para>
     /// <para>
     /// Every refresh re-reads the model rather than accumulating message payloads, so the row cannot
@@ -47,45 +49,59 @@ namespace MustyBlockBlast.Presentation.Views
     public sealed class ObjectiveIconContainerView : MonoBehaviour
     {
         /// <summary>
-        /// Icons the row can draw. Five is headroom rather than a target: no level authors more than a
-        /// couple of objectives today, and a row growing rightward from under the "Best" label would
-        /// reach the right-hand icon column on a narrow device well before it held many more. A level
-        /// authored with more simply shows the first five — a truncated row reads better than one that
-        /// overflows the screen.
+        /// Chips the row can draw. Five is headroom rather than a target: no level authors more than a
+        /// couple of objectives today, and a row of pills would run off a narrow device well before it
+        /// held many more. A level authored with more simply shows the first five — a truncated row
+        /// reads better than one that overflows the screen.
         /// </summary>
         private const int MAX_SLOT_COUNT = 5;
 
-        /// <summary>Alpha of an objective that is still in progress, against the completed one's full
-        /// opacity. The same "not yet" dim the badge wall and the level path use.</summary>
-        private const float IN_PROGRESS_ALPHA = 0.88f;
+        /// <summary>Which theme kind each chip's plate takes, by slot: the mockup's teal, purple, gold
+        /// order first, so three chips on the spring theme match the design exactly.</summary>
+        private static readonly int[] KindBySlot = { 2, 4, 3, 1, 5 };
+
+        /// <summary>Which theme kind the tick disc takes: the fifth kind — every season's green.</summary>
+        private const int CHECK_KIND = 5;
+
+        /// <summary>Corner radius of a chip's inner kind-tinted plate: the mockup's 9px on a 30px plate.</summary>
+        private const float ICON_PLATE_RADIUS = 20f;
 
         [Header("Layout")]
-        [Tooltip("Left edge of the row, in reference pixels from the canvas's left edge. " +
-            "CoinTotalHudView sits on the same band at the right edge.")]
-        [SerializeField] private float _leftInset = 16f;
+        [Tooltip("Centre of the row, in reference pixels from the canvas centre. The band under the score card.")]
+        [SerializeField] private Vector2 _anchoredPosition = new Vector2(0f, 590f);
 
-        [Tooltip("Gap between the board card's top edge and the bottom of the icons, in reference " +
-            "pixels. The row hangs from the board (see BoardView.StandardCardTopEdge), not from the " +
-            "screen top, so it can never be pushed down into the card by a taller screen or a notch.")]
-        [SerializeField] private float _gapAboveBoard = 12f;
+        [SerializeField] private Vector2 _rowSize = new Vector2(960f, 80f);
+        [SerializeField] private float _chipHeight = 80f;
+        [SerializeField] private float _iconPlateSize = 66f;
+        [SerializeField] private float _iconSize = 36f;
+        [SerializeField] private float _checkSize = 40f;
+        [SerializeField] private float _chipPaddingLeft = 11f;
+        [SerializeField] private float _chipPaddingRight = 22f;
+        [SerializeField] private float _chipGap = 13f;
 
-        [Tooltip("Diameter of one icon disc, in reference pixels. Matches the level-path icon so the " +
-            "HUD's top band reads as one row of same-sized controls.")]
-        [SerializeField] private float _slotSize = 104f;
+        [Tooltip("Gap between the caption and the first chip, and between chips.")]
+        [SerializeField] private float _chipSpacing = 18f;
 
-        [Tooltip("Centre-to-centre distance between icons, in reference pixels.")]
-        [SerializeField] private float _slotSpacing = 116f;
+        [SerializeField] private int _progressFontSize = 38;
+        [SerializeField] private int _captionFontSize = 28;
 
-        [SerializeField] private int _progressFontSize = 26;
+        [Header("Art")]
+        [Tooltip("The chunky display face for the counters. Falls back to the builtin font when unassigned.")]
+        [SerializeField] private Font _displayFont;
+
+        [Tooltip("The heavy label face for the small uppercase caption. Falls back to the builtin font when unassigned.")]
+        [SerializeField] private Font _labelFont;
 
         private readonly CompositeDisposable _disposables = new CompositeDisposable();
-        private readonly StringBuilder _progressBuilder = new StringBuilder(8);
-        private readonly IconSlot[] _slots = new IconSlot[MAX_SLOT_COUNT];
+        private readonly StringBuilder _stringBuilder = new StringBuilder(8);
+        private readonly Chip[] _chips = new Chip[MAX_SLOT_COUNT];
 
-        private BoardView _boardView;
         private ObjectiveModel _objectiveModel;
         private SettingsModel _settingsModel;
         private ObjectiveIconCatalog _iconCatalog;
+        private DoubleMultiplierModel _doubleMultiplierModel;
+        private LocalizationModel _localizationModel;
+        private LocalizationSystem _localizationSystem;
         private ISubscriber<ObjectiveProgressChangedMessage> _progressChangedSubscriber;
         private ISubscriber<ObjectiveCompletedMessage> _completedSubscriber;
         private ISubscriber<RunStartedMessage> _runStartedSubscriber;
@@ -93,33 +109,50 @@ namespace MustyBlockBlast.Presentation.Views
         private Canvas _canvas;
         private CanvasGroup _canvasGroup;
         private RectTransform _rowRect;
+        private RectTransform _trailingSlot;
+        private Text _captionText;
+        private RectTransform _captionRect;
         private ThemeDefinition _currentTheme;
 
-        /// <summary>How many slots are currently showing an objective. Read by the hit test so a tap on
-        /// a hidden slot's rectangle cannot open a popup for an objective that is not there.</summary>
+        /// <summary>How many chips are currently showing an objective. Read by the hit test so a tap on
+        /// a hidden chip's rectangle cannot open a popup for an objective that is not there.</summary>
         private int _visibleSlotCount;
 
-        /// <summary>One built icon widget. Rebuilt never — except its glyph, on a level change.</summary>
-        private sealed class IconSlot
+        /// <summary>True while a 2× window has the band; the row stays dimmed whatever it holds.</summary>
+        private bool _isYieldingToMultiplier;
+
+        /// <summary>Width of the trailing group as last laid out, gaps included; zero when it is empty.
+        /// The chips may not run into it.</summary>
+        private float _trailingWidth;
+
+        /// <summary>One built chip. Rebuilt never — except its silhouette, on a level change.</summary>
+        private sealed class Chip
         {
-            internal IconSlot(
+            internal Chip(
                 RectTransform root,
-                RectTransform plateRect,
-                Image plateImage,
                 Image shadowImage,
+                Image plateImage,
+                RectTransform iconPlateRect,
+                Image iconPlateImage,
                 RectTransform glyphRoot,
                 Image iconImage,
-                Image checkMark,
-                Text progressText)
+                Text progressText,
+                RectTransform checkRect,
+                Image checkDisc,
+                Image checkMark)
             {
                 Root = root;
-                PlateRect = plateRect;
-                PlateImage = plateImage;
                 ShadowImage = shadowImage;
+                PlateImage = plateImage;
+                IconPlateRect = iconPlateRect;
+                IconPlateImage = iconPlateImage;
                 GlyphRoot = glyphRoot;
                 IconImage = iconImage;
-                CheckMark = checkMark;
                 ProgressText = progressText;
+                ProgressRect = (RectTransform)progressText.transform;
+                CheckRect = checkRect;
+                CheckDisc = checkDisc;
+                CheckMark = checkMark;
                 GlyphInkImages = new List<Image>(4);
                 GlyphCoreImages = new List<Image>(2);
                 HasGlyph = false;
@@ -127,21 +160,29 @@ namespace MustyBlockBlast.Presentation.Views
 
             internal RectTransform Root { get; }
 
-            internal RectTransform PlateRect { get; }
+            internal Image ShadowImage { get; }
 
             internal Image PlateImage { get; }
 
-            internal Image ShadowImage { get; }
+            internal RectTransform IconPlateRect { get; }
+
+            internal Image IconPlateImage { get; }
 
             internal RectTransform GlyphRoot { get; }
 
-            /// <summary>The authored silhouette, when the catalog has one for the slot's type. Listed
+            /// <summary>The authored silhouette, when the catalog has one for the chip's type. Listed
             /// among <see cref="GlyphInkImages"/> while in use so it is tinted like any other ink.</summary>
             internal Image IconImage { get; }
 
-            internal Image CheckMark { get; }
-
             internal Text ProgressText { get; }
+
+            internal RectTransform ProgressRect { get; }
+
+            internal RectTransform CheckRect { get; }
+
+            internal Image CheckDisc { get; }
+
+            internal Image CheckMark { get; }
 
             internal List<Image> GlyphInkImages { get; }
 
@@ -154,20 +195,44 @@ namespace MustyBlockBlast.Presentation.Views
             internal bool HasGlyph { get; set; }
         }
 
+        /// <summary>
+        /// A zero-width rect pinned to the row's right end: the trailing group. Its children are laid
+        /// out right to left in sibling order, last sibling flush with the row's edge, by
+        /// <see cref="NotifyTrailingChanged"/>. <see cref="LevelPathButtonView"/> lives here always;
+        /// <see cref="StreakPillView"/> visits when the timer has the score card's centre slot. Built in
+        /// Awake, so it is safe to parent onto from any sibling's Start.
+        /// </summary>
+        internal RectTransform TrailingSlot => _trailingSlot;
+
+        /// <summary>
+        /// Called by a trailing child whenever it is added, shown, hidden or re-measured. Re-packs the
+        /// trailing group against the row's right edge and repaints the chips, since how many of them
+        /// fit depends on how much of the row the group takes.
+        /// </summary>
+        internal void NotifyTrailingChanged()
+        {
+            LayOutTrailingGroup();
+            Refresh();
+        }
+
         [Inject]
         public void Construct(
-            BoardView boardView,
             ObjectiveModel objectiveModel,
             SettingsModel settingsModel,
             ObjectiveIconCatalog iconCatalog,
+            DoubleMultiplierModel doubleMultiplierModel,
+            LocalizationModel localizationModel,
+            LocalizationSystem localizationSystem,
             ISubscriber<ObjectiveProgressChangedMessage> progressChangedSubscriber,
             ISubscriber<ObjectiveCompletedMessage> completedSubscriber,
             ISubscriber<RunStartedMessage> runStartedSubscriber)
         {
-            _boardView = boardView;
             _objectiveModel = objectiveModel;
             _settingsModel = settingsModel;
             _iconCatalog = iconCatalog;
+            _doubleMultiplierModel = doubleMultiplierModel;
+            _localizationModel = localizationModel;
+            _localizationSystem = localizationSystem;
             _progressChangedSubscriber = progressChangedSubscriber;
             _completedSubscriber = completedSubscriber;
             _runStartedSubscriber = runStartedSubscriber;
@@ -190,7 +255,9 @@ namespace MustyBlockBlast.Presentation.Views
 
         private void Start()
         {
-            if (_boardView == null || _objectiveModel == null || _settingsModel == null || _iconCatalog == null
+            if (_objectiveModel == null || _settingsModel == null || _iconCatalog == null
+                || _doubleMultiplierModel == null
+                || _localizationModel == null || _localizationSystem == null
                 || _progressChangedSubscriber == null || _completedSubscriber == null
                 || _runStartedSubscriber == null)
             {
@@ -200,15 +267,11 @@ namespace MustyBlockBlast.Presentation.Views
                 return;
             }
 
-            // Positioned here rather than in BuildRow: the board's layout is read off an injected View,
-            // and injection has only certainly happened by Start. The row's pivot is its top-left corner,
-            // so the y is the top of the icons: the board's edge, the gap, then one icon's height.
-            _rowRect.anchoredPosition = new Vector2(
-                _leftInset, _boardView.StandardCardTopEdge + _gapAboveBoard + _slotSize);
-
             // Subscribed first so _currentTheme is set before the first Refresh paints anything.
             _settingsModel.CurrentTheme.Subscribe(OnThemeChanged).AddTo(_disposables);
 
+            _localizationModel.CurrentLocale.Subscribe(_ => Refresh()).AddTo(_disposables);
+            _doubleMultiplierModel.RemainingSeconds.Subscribe(OnMultiplierRemainingChanged).AddTo(_disposables);
             _progressChangedSubscriber.Subscribe(OnObjectiveProgressChanged).AddTo(_disposables);
             _completedSubscriber.Subscribe(OnObjectiveCompleted).AddTo(_disposables);
             _runStartedSubscriber.Subscribe(OnRunStarted).AddTo(_disposables);
@@ -219,19 +282,20 @@ namespace MustyBlockBlast.Presentation.Views
         private void OnDestroy() => _disposables.Dispose();
 
         /// <summary>
-        /// Resolves a tap to the objective whose icon it landed on, if any. Called by
+        /// Resolves a tap to the objective whose chip it landed on, if any. Called by
         /// <see cref="BoardInputView"/>, which owns pointer input — this scene has no EventSystem, and
         /// every Image here has its raycast target off.
         /// <para>
-        /// Only populated slots answer: the hidden ones are transparent but still occupy their
-        /// rectangle, and a tap on one must not open a popup about an objective that is not there.
+        /// Only populated chips answer: the hidden ones are transparent but still occupy their
+        /// rectangle, and a tap on one must not open a popup about an objective that is not there. A
+        /// dimmed row (see <see cref="_isYieldingToMultiplier"/>) does not answer either.
         /// </para>
         /// </summary>
         internal bool TryGetTappedObjectiveIndex(Vector2 screenPosition, out int objectiveIndex)
         {
             objectiveIndex = -1;
 
-            if (_visibleSlotCount <= 0)
+            if (_visibleSlotCount <= 0 || _isYieldingToMultiplier)
             {
                 return false;
             }
@@ -243,7 +307,7 @@ namespace MustyBlockBlast.Presentation.Views
             for (int slotIndex = 0; slotIndex < _visibleSlotCount; slotIndex++)
             {
                 if (RectTransformUtility.RectangleContainsScreenPoint(
-                    _slots[slotIndex].PlateRect, screenPosition, eventCamera))
+                    _chips[slotIndex].Root, screenPosition, eventCamera))
                 {
                     objectiveIndex = slotIndex;
                     return true;
@@ -269,7 +333,7 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>
         /// Runs inside the placement that moved the objective — the publisher is synchronous — so the
         /// row is already correct in the frame the qualifying placement resolves. Repaints the whole row
-        /// rather than the one slot that moved: the row is at most five slots, and finding the slot
+        /// rather than the one chip that moved: the row is at most five chips, and finding the chip
         /// would cost the same scan the repaint does.
         /// </summary>
         private void OnObjectiveProgressChanged(ObjectiveProgressChangedMessage message) => Refresh();
@@ -281,7 +345,20 @@ namespace MustyBlockBlast.Presentation.Views
         /// </summary>
         private void OnObjectiveCompleted(ObjectiveCompletedMessage message) => Refresh();
 
-        /// <summary>Repaints the whole row from the model: which slots are filled, with what, and how
+        /// <summary>Dims the row for as long as the 2× bar has the band, and only repaints on the edges.</summary>
+        private void OnMultiplierRemainingChanged(float remainingSeconds)
+        {
+            bool isYielding = remainingSeconds > 0f;
+            if (isYielding == _isYieldingToMultiplier)
+            {
+                return;
+            }
+
+            _isYieldingToMultiplier = isYielding;
+            Refresh();
+        }
+
+        /// <summary>Repaints the whole row from the model: which chips are filled, with what, and how
         /// far along each is.</summary>
         private void Refresh()
         {
@@ -289,7 +366,7 @@ namespace MustyBlockBlast.Presentation.Views
                 _objectiveModel != null ? _objectiveModel.TrackedObjectives : null;
 
             int objectiveCount = tracked != null ? Mathf.Min(tracked.Count, MAX_SLOT_COUNT) : 0;
-            if (objectiveCount == 0 || _currentTheme == null)
+            if (objectiveCount == 0 || _currentTheme == null || _isYieldingToMultiplier)
             {
                 // Nothing tracked (or no theme to paint with): an empty row reads as a bug, so the row
                 // hides itself rather than leaving placeholders on screen.
@@ -299,147 +376,220 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             SetVisible(true);
-            _visibleSlotCount = objectiveCount;
-            LayOutSlots(objectiveCount);
+            _visibleSlotCount = 0;
 
+            float x = -_rowSize.x * 0.5f;
+            x = RefreshLeading(x);
+
+            // The chips flow from the left and stop short of the trailing group: one that would run
+            // into it is hidden rather than drawn underneath, and so are those after it, so the row
+            // never shows chip three without chip two.
+            float limit = _rowSize.x * 0.5f;
+            if (_trailingWidth > 0f)
+            {
+                limit -= _trailingWidth + _chipSpacing;
+            }
+
+            bool isClipped = false;
             for (int slotIndex = 0; slotIndex < MAX_SLOT_COUNT; slotIndex++)
             {
-                RefreshSlot(slotIndex, slotIndex < objectiveCount ? tracked[slotIndex] : null);
-            }
-        }
+                ObjectiveProgress objective = !isClipped && slotIndex < objectiveCount ? tracked[slotIndex] : null;
 
-        private void RefreshSlot(int slotIndex, ObjectiveProgress objective)
-        {
-            IconSlot slot = _slots[slotIndex];
-
-            if (objective == null)
-            {
-                HideSlot(slot);
-                return;
-            }
-
-            EnsureGlyph(slot, objective.Definition.Type);
-
-            bool isComplete = objective.IsComplete;
-            float alpha = isComplete ? 1f : IN_PROGRESS_ALPHA;
-
-            // Complete inverts onto the accent plate, the same way the badge wall marks an unlocked
-            // badge and the level path the node the player is on.
-            Color plateColour = isComplete
-                ? _currentTheme.Accent
-                : Color.Lerp(_currentTheme.CardBackground, _currentTheme.Ink, 0.1f);
-            Color inkColour = isComplete ? _currentTheme.CardBackground : _currentTheme.Ink;
-
-            slot.PlateImage.color = WithAlpha(plateColour, alpha);
-            slot.ShadowImage.color = WithAlpha(_currentTheme.CardShadow, alpha);
-
-            for (int inkIndex = 0; inkIndex < slot.GlyphInkImages.Count; inkIndex++)
-            {
-                slot.GlyphInkImages[inkIndex].color = WithAlpha(inkColour, alpha);
-            }
-
-            // The punched-out parts follow the plate, not the ink — that is what makes them read as
-            // holes rather than as another stroke of the glyph.
-            for (int coreIndex = 0; coreIndex < slot.GlyphCoreImages.Count; coreIndex++)
-            {
-                slot.GlyphCoreImages[coreIndex].color = WithAlpha(plateColour, alpha);
-            }
-
-            slot.CheckMark.color = isComplete ? _currentTheme.CardBackground : Color.clear;
-
-            // The tick already says "done", so the counter would only repeat it — and at target it
-            // always reads "3/3", which is the least informative thing the badge could show.
-            slot.ProgressText.color = isComplete ? Color.clear : WithAlpha(_currentTheme.SoftInk, alpha);
-            slot.ProgressText.text = isComplete
-                ? string.Empty
-                : FormatProgress(objective.CurrentValue, objective.Definition.TargetValue);
-        }
-
-        private static void HideSlot(IconSlot slot)
-        {
-            slot.PlateImage.color = Color.clear;
-            slot.ShadowImage.color = Color.clear;
-            slot.CheckMark.color = Color.clear;
-            slot.ProgressText.color = Color.clear;
-
-            for (int inkIndex = 0; inkIndex < slot.GlyphInkImages.Count; inkIndex++)
-            {
-                slot.GlyphInkImages[inkIndex].color = Color.clear;
-            }
-
-            for (int coreIndex = 0; coreIndex < slot.GlyphCoreImages.Count; coreIndex++)
-            {
-                slot.GlyphCoreImages[coreIndex].color = Color.clear;
+                x = RefreshChip(slotIndex, objective, x, limit, out bool isShown);
+                if (isShown)
+                {
+                    _visibleSlotCount++;
+                }
+                else if (objective != null)
+                {
+                    isClipped = true;
+                }
             }
         }
 
         /// <summary>
-        /// Builds this slot's glyph if it is not already drawing <paramref name="type"/>. The authored
+        /// Packs the trailing slot's visible children against the row's right edge, right to left in
+        /// sibling order, a chip's spacing apart. A child hidden through its own CanvasGroup takes no
+        /// room, so a streak that breaks hands its width back to the chips.
+        /// </summary>
+        private void LayOutTrailingGroup()
+        {
+            float x = 0f;
+            for (int childIndex = _trailingSlot.childCount - 1; childIndex >= 0; childIndex--)
+            {
+                var child = (RectTransform)_trailingSlot.GetChild(childIndex);
+                if (child.TryGetComponent(out CanvasGroup childGroup) && childGroup.alpha <= 0f)
+                {
+                    continue;
+                }
+
+                child.anchoredPosition = new Vector2(-x, 0f);
+                x += child.sizeDelta.x + _chipSpacing;
+            }
+
+            _trailingWidth = x > 0f ? x - _chipSpacing : 0f;
+        }
+
+        /// <summary>
+        /// The row's head: the "goal" caption. Always the plain caption — the level a Path run is on
+        /// is named once, on the level pill at the row's trailing end, and nowhere else. Returns the x the first chip
+        /// starts at.
+        /// </summary>
+        private float RefreshLeading(float x)
+        {
+            _captionText.text = _localizationSystem.Translate(LocalizationKeys.HUD_GOAL_LABEL);
+            _captionText.color = _currentTheme.Ink;
+            _captionRect.anchoredPosition = new Vector2(x + 4f, 0f);
+
+            return x + 4f + _captionText.preferredWidth + _chipSpacing;
+        }
+
+        /// <summary>
+        /// Repaints and re-measures one chip, laid out from <paramref name="x"/>; returns the x the
+        /// next chip starts at. A chip whose right edge would pass <paramref name="limit"/> is hidden
+        /// instead, and <paramref name="isShown"/> says which happened.
+        /// </summary>
+        private float RefreshChip(int slotIndex, ObjectiveProgress objective, float x, float limit, out bool isShown)
+        {
+            Chip chip = _chips[slotIndex];
+            isShown = false;
+
+            if (objective == null)
+            {
+                HideChip(chip);
+                return x;
+            }
+
+            EnsureGlyph(chip, objective.Definition.Type);
+
+            bool isComplete = objective.IsComplete;
+            int kind = KindBySlot[slotIndex % KindBySlot.Length];
+            Color plateColour = _currentTheme.GetFill(kind);
+
+            chip.ShadowImage.color = _currentTheme.CardShadow;
+            chip.PlateImage.color = _currentTheme.CardBackground;
+            chip.IconPlateImage.color = plateColour;
+
+            // White on the kind plate, as every power-up and objective glyph is on its tile.
+            for (int inkIndex = 0; inkIndex < chip.GlyphInkImages.Count; inkIndex++)
+            {
+                chip.GlyphInkImages[inkIndex].color = Color.white;
+            }
+
+            // The punched-out parts follow the plate, not the ink — that is what makes them read as
+            // holes rather than as another stroke of the glyph.
+            for (int coreIndex = 0; coreIndex < chip.GlyphCoreImages.Count; coreIndex++)
+            {
+                chip.GlyphCoreImages[coreIndex].color = plateColour;
+            }
+
+            chip.ProgressText.color = _currentTheme.Ink;
+            chip.ProgressText.text = FormatProgress(objective.CurrentValue, objective.Definition.TargetValue);
+
+            chip.CheckDisc.color = isComplete ? _currentTheme.GetFill(CHECK_KIND) : Color.clear;
+            chip.CheckMark.color = isComplete ? Color.white : Color.clear;
+
+            // Left to right: plate, counter, and the tick only when earned — the chip grows to fit it.
+            float progressWidth = chip.ProgressText.preferredWidth;
+            float checkWidth = isComplete ? _chipGap + _checkSize : 0f;
+            float chipWidth = _chipPaddingLeft + _iconPlateSize + _chipGap + progressWidth + checkWidth + _chipPaddingRight;
+
+            // Measured after the counter is set, since the text is what decides the width; a chip
+            // that would run into the trailing group is cleared again rather than drawn under it.
+            if (x + chipWidth > limit)
+            {
+                HideChip(chip);
+                return x;
+            }
+
+            isShown = true;
+
+            var chipSize = new Vector2(chipWidth, _chipHeight);
+            chip.Root.sizeDelta = chipSize;
+            chip.ShadowImage.rectTransform.sizeDelta = chipSize;
+            chip.PlateImage.rectTransform.sizeDelta = chipSize;
+            chip.Root.anchoredPosition = new Vector2(x + (chipWidth * 0.5f), 0f);
+
+            float innerX = (-chipWidth * 0.5f) + _chipPaddingLeft;
+            chip.IconPlateRect.anchoredPosition = new Vector2(innerX + (_iconPlateSize * 0.5f), 0f);
+            innerX += _iconPlateSize + _chipGap;
+            chip.ProgressRect.anchoredPosition = new Vector2(innerX, 0f);
+            innerX += progressWidth + _chipGap;
+            chip.CheckRect.anchoredPosition = new Vector2(innerX + (_checkSize * 0.5f), 0f);
+
+            return x + chipWidth + _chipSpacing;
+        }
+
+        private static void HideChip(Chip chip)
+        {
+            chip.ShadowImage.color = Color.clear;
+            chip.PlateImage.color = Color.clear;
+            chip.IconPlateImage.color = Color.clear;
+            chip.CheckDisc.color = Color.clear;
+            chip.CheckMark.color = Color.clear;
+            chip.ProgressText.color = Color.clear;
+
+            for (int inkIndex = 0; inkIndex < chip.GlyphInkImages.Count; inkIndex++)
+            {
+                chip.GlyphInkImages[inkIndex].color = Color.clear;
+            }
+
+            for (int coreIndex = 0; coreIndex < chip.GlyphCoreImages.Count; coreIndex++)
+            {
+                chip.GlyphCoreImages[coreIndex].color = Color.clear;
+            }
+        }
+
+        /// <summary>
+        /// Builds this chip's glyph if it is not already drawing <paramref name="type"/>. The authored
         /// silhouette from <see cref="ObjectiveIconCatalog"/> is preferred; a type without one falls
         /// back to the procedural glyph. Destroying and rebuilding is only reached on a level change —
         /// a progress tick never changes an objective's type — so the canvas rebuild it costs is paid
         /// once per level rather than per placement.
         /// </summary>
-        private void EnsureGlyph(IconSlot slot, ObjectiveType type)
+        private void EnsureGlyph(Chip chip, ObjectiveType type)
         {
-            if (slot.HasGlyph && slot.GlyphType == type)
+            if (chip.HasGlyph && chip.GlyphType == type)
             {
                 return;
             }
 
-            for (int childIndex = slot.GlyphRoot.childCount - 1; childIndex >= 0; childIndex--)
+            for (int childIndex = chip.GlyphRoot.childCount - 1; childIndex >= 0; childIndex--)
             {
-                Destroy(slot.GlyphRoot.GetChild(childIndex).gameObject);
+                Destroy(chip.GlyphRoot.GetChild(childIndex).gameObject);
             }
 
-            slot.GlyphInkImages.Clear();
-            slot.GlyphCoreImages.Clear();
+            chip.GlyphInkImages.Clear();
+            chip.GlyphCoreImages.Clear();
 
             // Cleared before deciding: an Image with no sprite draws a solid square, so the authored
             // image must be invisible whenever it is not the glyph in use.
-            slot.IconImage.sprite = null;
-            slot.IconImage.color = Color.clear;
+            chip.IconImage.sprite = null;
+            chip.IconImage.color = Color.clear;
 
             Sprite authoredIcon = _iconCatalog.Find(type);
             if (authoredIcon != null)
             {
-                slot.IconImage.sprite = authoredIcon;
-                slot.GlyphInkImages.Add(slot.IconImage);
+                chip.IconImage.sprite = authoredIcon;
+                chip.GlyphInkImages.Add(chip.IconImage);
             }
             else
             {
                 ObjectiveIconFactory.Build(
-                    slot.GlyphRoot, type, _slotSize * 0.62f, slot.GlyphInkImages, slot.GlyphCoreImages);
+                    chip.GlyphRoot, type, _iconSize * 1.15f, chip.GlyphInkImages, chip.GlyphCoreImages);
             }
 
-            slot.GlyphType = type;
-            slot.HasGlyph = true;
-        }
-
-        /// <summary>Lays the populated slots out left to right from the row's top-left corner, the
-        /// first icon's left edge flush with the row's. The row's own size never changes — only how
-        /// much of it the icons fill — so nothing else in the HUD can be pushed around by an objective
-        /// appearing or clearing.</summary>
-        private void LayOutSlots(int objectiveCount)
-        {
-            // Slot roots are anchored to the row's top-left corner but centre-pivoted (see BuildSlot),
-            // so the first one is pushed in by half a slot to put its edge, not its centre, on the corner.
-            float y = -_slotSize * 0.5f;
-
-            for (int slotIndex = 0; slotIndex < objectiveCount; slotIndex++)
-            {
-                float x = (slotIndex * _slotSpacing) + (_slotSize * 0.5f);
-                _slots[slotIndex].Root.anchoredPosition = new Vector2(x, y);
-            }
+            chip.GlyphType = type;
+            chip.HasGlyph = true;
         }
 
         private string FormatProgress(int currentValue, int targetValue)
         {
-            _progressBuilder.Clear();
-            _progressBuilder.Append(currentValue);
-            _progressBuilder.Append('/');
-            _progressBuilder.Append(targetValue);
-            return _progressBuilder.ToString();
+            _stringBuilder.Clear();
+            _stringBuilder.Append(currentValue);
+            _stringBuilder.Append('/');
+            _stringBuilder.Append(targetValue);
+            return _stringBuilder.ToString();
         }
 
         /// <summary>
@@ -453,133 +603,68 @@ namespace MustyBlockBlast.Presentation.Views
             _canvasGroup.blocksRaycasts = isVisible;
         }
 
-        private static Color WithAlpha(Color colour, float alphaScale)
-            => new Color(colour.r, colour.g, colour.b, colour.a * alphaScale);
-
+        /// <summary>The row, its head (caption and level tag, one of which is always clear), the five
+        /// chips and the trailing slot. Built before the theme is known; Refresh paints it.</summary>
         private void BuildRow()
         {
             _rowRect = (RectTransform)transform;
-
-            // Anchored to the left edge and the vertical centre — the same vertical anchor the board
-            // card uses — so the row keeps its gap above the board whatever the screen's height or safe
-            // area. The slots inside are laid out from the row's top-left corner (see LayOutSlots),
-            // which is what makes the row left-aligned. The position itself is set in Start.
-            _rowRect.anchorMin = new Vector2(0f, 0.5f);
-            _rowRect.anchorMax = new Vector2(0f, 0.5f);
-            _rowRect.pivot = new Vector2(0f, 1f);
-
-            // Fixed, and deliberately independent of how many objectives there are: the row is a
-            // reserved band, not a widget that grows.
-            _rowRect.sizeDelta = new Vector2(MAX_SLOT_COUNT * _slotSpacing, _slotSize);
-
-            // Every size here is in canvas reference units, so the row owns its own scale rather than
-            // inheriting whatever the scene object happened to be created with.
+            HudChrome.Centre(_rowRect, _rowSize);
+            _rowRect.anchoredPosition = _anchoredPosition;
             _rowRect.localScale = Vector3.one;
+
+            _captionText = HudChrome.CreateLabel(
+                _rowRect, "Caption", _captionFontSize, FontStyle.Bold, TextAnchor.MiddleLeft, Vector2.zero, _labelFont);
+            _captionRect = (RectTransform)_captionText.transform;
 
             for (int slotIndex = 0; slotIndex < MAX_SLOT_COUNT; slotIndex++)
             {
-                _slots[slotIndex] = BuildSlot(slotIndex);
+                _chips[slotIndex] = BuildChip(slotIndex);
             }
+
+            var trailingObject = new GameObject("TrailingSlot", typeof(RectTransform));
+            _trailingSlot = (RectTransform)trailingObject.transform;
+            _trailingSlot.SetParent(_rowRect, false);
+            _trailingSlot.anchorMin = new Vector2(1f, 0.5f);
+            _trailingSlot.anchorMax = new Vector2(1f, 0.5f);
+            _trailingSlot.pivot = new Vector2(1f, 0.5f);
+            _trailingSlot.sizeDelta = new Vector2(0f, _rowSize.y);
+            _trailingSlot.anchoredPosition = Vector2.zero;
         }
 
-        private IconSlot BuildSlot(int slotIndex)
+        private Chip BuildChip(int slotIndex)
         {
-            var slotSize = new Vector2(_slotSize, _slotSize);
+            var chipSize = new Vector2(_chipHeight * 2f, _chipHeight);
+            RectTransform chipRect = HudChrome.CreateRect(_rowRect, $"Chip_{slotIndex}", chipSize, Vector2.zero);
 
-            var slotObject = new GameObject($"ObjectiveIcon_{slotIndex}", typeof(RectTransform));
-            var slotRect = (RectTransform)slotObject.transform;
-            slotRect.SetParent(_rowRect, false);
-            Centre(slotRect, slotSize);
+            Image shadowImage = HudChrome.BuildRounded(
+                chipRect, "Shadow", chipSize, new Vector2(0f, -HudChrome.PILL_SHADOW_DROP), _chipHeight * 0.5f);
+            Image plateImage = HudChrome.BuildRounded(chipRect, "Plate", chipSize, Vector2.zero, _chipHeight * 0.5f);
 
-            // Anchored to the row's top-left corner, not its centre, so LayOutSlots can measure from
-            // the row's left edge — the row is left-aligned and its slots must be too.
-            slotRect.anchorMin = new Vector2(0f, 1f);
-            slotRect.anchorMax = new Vector2(0f, 1f);
-
-            var shadowObject = new GameObject("Shadow", typeof(RectTransform), typeof(Image));
-            var shadowRect = (RectTransform)shadowObject.transform;
-            shadowRect.SetParent(slotRect, false);
-            Centre(shadowRect, slotSize + new Vector2(8f, 8f));
-            shadowRect.anchoredPosition = new Vector2(0f, -5f);
-            Image shadowImage = ConfigureDisc(shadowObject.GetComponent<Image>());
-
-            var plateObject = new GameObject("Plate", typeof(RectTransform), typeof(Image));
-            var plateRect = (RectTransform)plateObject.transform;
-            plateRect.SetParent(slotRect, false);
-            Centre(plateRect, slotSize);
-            Image plateImage = ConfigureDisc(plateObject.GetComponent<Image>());
+            RectTransform iconPlateRect = HudChrome.CreateRect(
+                chipRect, "IconPlate", new Vector2(_iconPlateSize, _iconPlateSize), Vector2.zero);
+            Image iconPlateImage = HudChrome.BuildRounded(
+                iconPlateRect, "Plate", iconPlateRect.sizeDelta, Vector2.zero, ICON_PLATE_RADIUS);
 
             // An empty container: the glyph itself depends on the objective type, so it is filled in on
-            // the first repaint and rebuilt only when that type changes. Lifted off centre so the
-            // progress counter fits inside the disc's lower curve beneath it.
-            var glyphObject = new GameObject("Glyph", typeof(RectTransform));
-            var glyphRoot = (RectTransform)glyphObject.transform;
-            glyphRoot.SetParent(slotRect, false);
-            Centre(glyphRoot, slotSize);
-            glyphRoot.anchoredPosition = new Vector2(0f, _slotSize * 0.09f);
+            // the first repaint and rebuilt only when that type changes.
+            RectTransform glyphRoot = HudChrome.CreateRect(
+                iconPlateRect, "Glyph", new Vector2(_iconPlateSize, _iconPlateSize), Vector2.zero);
 
-            // The authored silhouette lives beside the procedural glyph root, at the same offset, so
-            // either can stand in for the other without moving anything else in the slot.
-            var iconObject = new GameObject("Icon", typeof(RectTransform), typeof(Image));
-            var iconRect = (RectTransform)iconObject.transform;
-            iconRect.SetParent(slotRect, false);
-            Centre(iconRect, new Vector2(_slotSize * 0.54f, _slotSize * 0.54f));
-            iconRect.anchoredPosition = glyphRoot.anchoredPosition;
+            // The authored silhouette lives beside the procedural glyph root so either can stand in
+            // for the other without moving anything else in the chip.
+            Image iconImage = HudChrome.BuildGlyph(iconPlateRect, "Icon", null, new Vector2(_iconSize, _iconSize), Vector2.zero);
 
-            var iconImage = iconObject.GetComponent<Image>();
-            iconImage.type = Image.Type.Simple;
-            iconImage.preserveAspect = true;
-            iconImage.color = Color.clear;
-            iconImage.raycastTarget = false;
+            Text progressText = HudChrome.CreateLabel(
+                chipRect, "Progress", _progressFontSize, FontStyle.Normal, TextAnchor.MiddleLeft, Vector2.zero, _displayFont);
 
-            // Pulled in from the corner compared with a square plate: a disc has no corner to tuck
-            // the tick into, so it sits on the rim's 45° point instead.
-            var checkObject = new GameObject("CheckMark", typeof(RectTransform), typeof(Image));
-            var checkRect = (RectTransform)checkObject.transform;
-            checkRect.SetParent(slotRect, false);
-            Centre(checkRect, new Vector2(_slotSize * 0.36f, _slotSize * 0.36f));
-            checkRect.anchoredPosition = new Vector2(_slotSize * 0.22f, -_slotSize * 0.22f);
+            RectTransform checkRect = HudChrome.CreateRect(chipRect, "Check", new Vector2(_checkSize, _checkSize), Vector2.zero);
+            Image checkDisc = HudChrome.BuildCircle(checkRect, "Disc", _checkSize, Vector2.zero);
+            Image checkMark = HudChrome.BuildGlyph(
+                checkRect, "Mark", UiSpriteFactory.CheckMark, new Vector2(_checkSize * 0.6f, _checkSize * 0.6f), Vector2.zero);
 
-            var checkImage = checkObject.GetComponent<Image>();
-
-            // The tick sprite has no border, so it must never be sliced.
-            checkImage.sprite = UiSpriteFactory.CheckMark;
-            checkImage.type = Image.Type.Simple;
-            checkImage.color = Color.clear;
-            checkImage.raycastTarget = false;
-
-            Text progressText = UiTextFactory.Create(
-                slotRect, "Progress", _progressFontSize, FontStyle.Bold, Color.clear);
-            var progressRect = (RectTransform)progressText.transform;
-            progressRect.anchorMin = new Vector2(0.5f, 0f);
-            progressRect.anchorMax = new Vector2(0.5f, 0f);
-            progressRect.pivot = new Vector2(0.5f, 0f);
-            progressRect.anchoredPosition = new Vector2(0f, _slotSize * 0.11f);
-            progressText.alignment = TextAnchor.LowerCenter;
-
-            return new IconSlot(
-                slotRect, plateRect, plateImage, shadowImage, glyphRoot, iconImage, checkImage, progressText);
-        }
-
-        private static void Centre(RectTransform rect, Vector2 size)
-        {
-            rect.anchorMin = new Vector2(0.5f, 0.5f);
-            rect.anchorMax = new Vector2(0.5f, 0.5f);
-            rect.pivot = new Vector2(0.5f, 0.5f);
-            rect.sizeDelta = size;
-            rect.anchoredPosition = Vector2.zero;
-        }
-
-        // Raycasts stay off everywhere: taps arrive through BoardInputView's pointer action, not
-        // through an EventSystem, and this scene has none. The circle sprite has no border, so it
-        // must never be sliced.
-        private static Image ConfigureDisc(Image image)
-        {
-            image.sprite = UiSpriteFactory.Circle;
-            image.type = Image.Type.Simple;
-            image.color = Color.clear;
-            image.raycastTarget = false;
-            return image;
+            return new Chip(
+                chipRect, shadowImage, plateImage, iconPlateRect, iconPlateImage, glyphRoot, iconImage,
+                progressText, checkRect, checkDisc, checkMark);
         }
     }
 }

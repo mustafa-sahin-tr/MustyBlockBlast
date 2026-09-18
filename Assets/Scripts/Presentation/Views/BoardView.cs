@@ -21,15 +21,40 @@ namespace MustyBlockBlast.Presentation.Views
     [DisallowMultipleComponent]
     public sealed class BoardView : MonoBehaviour
     {
+        /// <summary>Corner radius of the board card: the mockup's 24px at the canvas's scale.</summary>
+        private const float CARD_CORNER_RADIUS = 66f;
+
+        /// <summary>Corner radius of the sunken well inside the card: the mockup's 16px.</summary>
+        private const float WELL_CORNER_RADIUS = 44f;
+
+        /// <summary>The card's drop: the mockup's 8px, the deepest on the HUD — the board is the one
+        /// plate everything else is arranged around.</summary>
+        private const float CARD_SHADOW_DROP = 16f;
+
+        /// <summary>How much of <see cref="_cardPadding"/> is card rim, outside the well; the rest is
+        /// the well's own padding around the grid.</summary>
+        private const float WELL_RIM = 12f;
+
+        /// <summary>Which theme kind the Ghost Fit silhouette borrows: the second kind, every season's
+        /// cool blue-green — the mockup's blue ghost, told apart from the green valid preview by hue
+        /// rather than by a role no theme authors.</summary>
+        private const int GHOST_KIND = 2;
+
+        /// <summary>Alpha of the ghost silhouette's fill at full pulse: the mockup's 0.22.</summary>
+        private const float GHOST_FILL_ALPHA = 0.3f;
+
         [Header("Layout")]
-        [SerializeField] private Vector2 _anchoredPosition = new Vector2(0f, 120f);
-        [SerializeField] private float _cellSize = 108f;
+        [Tooltip("Centre of the board card, in reference pixels from the canvas centre.")]
+        [SerializeField] private Vector2 _anchoredPosition = new Vector2(0f, 10f);
+        [SerializeField] private float _cellSize = 100f;
         [SerializeField] private float _cellSpacing = 8f;
-        [SerializeField] private float _cardPadding = 24f;
+
+        [Tooltip("Distance from the grid's edge to the card's edge: the card rim plus the well's padding.")]
+        [SerializeField] private float _cardPadding = 22f;
 
         [Header("Cell style")]
         [SerializeField] private float _cellInset = 3f;
-        [SerializeField] private float _cellBevelThickness = 12f;
+        [SerializeField] private float _cellBevelThickness = 11f;
 
         [Header("Drag Preview")]
         [Tooltip("Fraction of a cell's size added as a margin around the grid rect where the placement preview starts appearing, ahead of the pointer strictly entering the grid.")]
@@ -194,6 +219,8 @@ namespace MustyBlockBlast.Presentation.Views
         private CellView[] _cells;
         private Image _cardImage;
         private Image _cardShadowImage;
+        private Image _wellLipImage;
+        private Image _wellFaceImage;
 
         // Per-cell bookkeeping, parallel to _cells and indexed by CellIndex.
         private int[] _cellColourIds;
@@ -339,12 +366,22 @@ namespace MustyBlockBlast.Presentation.Views
             _rectTransform.sizeDelta = new Vector2(cardExtent, cardExtent);
             _rectTransform.anchoredPosition = _anchoredPosition;
 
-            _cardRoot = CellFactory.CreateCard(
+            // The storefront plate (issue #265): a card over a dropped shadow, with the grid sunk into
+            // a well inset by the rim. Both are painted by the theme subscription in Start.
+            _cardRoot = HudChrome.BuildPlate(
                 _rectTransform,
                 "BoardCard",
                 new Vector2(cardExtent, cardExtent),
-                out _cardImage,
-                out _cardShadowImage);
+                Vector2.zero,
+                CARD_CORNER_RADIUS,
+                CARD_SHADOW_DROP,
+                out _cardShadowImage,
+                out _cardImage);
+
+            float wellExtent = cardExtent - (WELL_RIM * 2f);
+            HudChrome.BuildWell(
+                _cardRoot, "Well", new Vector2(wellExtent, wellExtent), Vector2.zero, WELL_CORNER_RADIUS,
+                out _wellLipImage, out _wellFaceImage);
 
             BuildCells(BuildCellLayer(_cardRoot));
         }
@@ -571,8 +608,13 @@ namespace MustyBlockBlast.Presentation.Views
                 return;
             }
 
-            Color tint = Color.Lerp(
-                _currentTheme.EmptyCellFill, _currentTheme.ValidPreview, Mathf.Clamp01(pulse));
+            // The mockup's ghost: the kind's fill at a translucent alpha inside a ring of the same
+            // kind, both breathing with the pulse. The fill is blended over the empty cell rather than
+            // drawn with alpha so the cell underneath never shows through at a partial tint.
+            Color ghost = _currentTheme.GetFill(GHOST_KIND);
+            float breath = Mathf.Clamp01(pulse);
+            Color fill = Color.Lerp(_currentTheme.EmptyCellFill, ghost, GHOST_FILL_ALPHA * breath);
+            Color ring = HudChrome.WithAlpha(ghost, breath);
 
             for (int i = 0; i < piece.Offsets.Count && _ghostFitCount < _ghostFitCells.Length; i++)
             {
@@ -588,7 +630,8 @@ namespace MustyBlockBlast.Presentation.Views
                 // the instant the tint claims it, or the tint would be drawn at partial alpha.
                 CancelFade(index);
 
-                _cells[index].SetColours(tint, tint);
+                _cells[index].SetColours(fill, fill);
+                _cells[index].SetGhostRing(ring);
                 _ghostFitCells[_ghostFitCount] = cell;
                 _ghostFitCount++;
             }
@@ -601,6 +644,7 @@ namespace MustyBlockBlast.Presentation.Views
             for (int i = 0; i < _ghostFitCount; i++)
             {
                 GridPosition cell = _ghostFitCells[i];
+                _cells[CellIndex(cell)].ClearGhostRing();
                 ApplyCellColour(cell, _boardModel != null ? _boardModel.GetCell(cell) : Board.EMPTY);
             }
 
@@ -1295,6 +1339,8 @@ namespace MustyBlockBlast.Presentation.Views
 
             _cardImage.color = theme.CardBackground;
             _cardShadowImage.color = theme.CardShadow;
+            _wellLipImage.color = HudChrome.WellLipTint(theme.CardBackground, theme.Ink);
+            _wellFaceImage.color = HudChrome.WellTint(theme.CardBackground, theme.Ink);
 
             RepaintCells();
             RepaintHighlight();

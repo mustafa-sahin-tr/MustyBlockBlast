@@ -48,6 +48,30 @@ namespace MustyBlockBlast.Gameplay.Localization
         /// <summary>Best label in timed mode. <c>{0}</c> is the already-formatted round length.</summary>
         public const string SCORE_BEST_TIMED = "score.best_timed";
 
+        // --- Storefront HUD (issue #265) ---
+        // The small uppercase captions on the score card, the goal row and the level pill. Kept
+        // short: they sit beside a number in the display face and must not out-measure it.
+
+        /// <summary>Caption over the run score on the score card.</summary>
+        public const string HUD_SCORE_LABEL = "hud.score_label";
+
+        /// <summary>The combo streak pill. <c>{0}</c> is the already-formatted score multiplier the
+        /// streak has earned (e.g. "2,5"), so the template only supplies the "x" and the word.</summary>
+        public const string HUD_STREAK = "hud.streak";
+
+        /// <summary>Caption at the head of the goal row in endless and timed modes.</summary>
+        public const string HUD_GOAL_LABEL = "hud.goal_label";
+
+        /// <summary>The abbreviated "level" caption on the level-path pill, beside the frontier number.</summary>
+        public const string HUD_LEVEL_SHORT = "hud.level_short";
+
+        /// <summary>The full "Level n" caption on the level-path pill in Path mode. <c>{0}</c> is the
+        /// active level's number.</summary>
+        public const string HUD_LEVEL_NUMBER = "hud.level_number";
+
+        /// <summary>Caption inside the empty Hold pocket at the end of the tray card.</summary>
+        public const string HUD_POCKET_LABEL = "hud.pocket_label";
+
         // --- Game over ---
 
         public const string GAME_OVER_TITLE_NO_MOVES = "gameover.title.no_moves";

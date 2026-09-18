@@ -1,6 +1,7 @@
 using System.Text;
 using MustyBlockBlast.Gameplay.Models;
 using MustyBlockBlast.Gameplay.Reactive;
+using MustyBlockBlast.Gameplay.Settings;
 using UnityEngine;
 using UnityEngine.UI;
 using VContainer;
@@ -8,27 +9,21 @@ using VContainer;
 namespace MustyBlockBlast.Presentation.Views
 {
     /// <summary>
-    /// The running coin total, drawn as one authored gold coin with the number centred on its face,
-    /// stacked under the settings and level-path icons in the right-hand HUD column. Binds to
-    /// <see cref="ProfileModel.CoinBalance"/>.
+    /// The running coin total as the top bar's left-hand pill (issue #265): a card-coloured pill
+    /// ringed in the accent, the authored gold coin on its left, the balance in the display face,
+    /// and a green "+" disc on its right. Binds to <see cref="ProfileModel.CoinBalance"/>.
     /// <para>
-    /// Reactive, never polled — which is the whole point of it. Coins now arrive from three unrelated
+    /// Reactive, never polled — which is the whole point of it. Coins arrive from three unrelated
     /// places (a score conversion, a rewarded ad, and a destroyed
     /// <see cref="MustyBlockBlast.Core.SpecialCellKind.Coin"/> cell mid-placement), and the last of
     /// those happens with no screen open and nothing else to repaint. Subscribing to the property means
-    /// this label cannot be stale for a frame, whichever of the three moved it, and means no future
-    /// faucet has to remember to tell the HUD about itself.
+    /// this label cannot be stale for a frame, whichever of the three moved it.
     /// </para>
     /// <para>
     /// Deliberately always visible, unlike <see cref="DoubleMultiplierHudView"/>: a wallet is a standing
     /// fact rather than a temporary state, and a total that vanished at zero would read as "coins are
-    /// not a thing in this game" to exactly the player who has not earned one yet.
-    /// </para>
-    /// <para>
-    /// The coin is a full-colour authored sprite rather than a tinted primitive, so it is drawn with
-    /// <see cref="Color.white"/> and never themed; the number on it is a fixed dark ink for the same
-    /// reason a board icon's tint is fixed — legibility on gold, not decoration. Without a sprite
-    /// assigned it falls back to the tinted disc the HUD drew before any art existed.
+    /// not a thing in this game" to exactly the player who has not earned one yet. The "+" disc is
+    /// the mockup's affordance only — the pill routes no tap of its own today.
     /// </para>
     /// </summary>
     [DisallowMultipleComponent]
@@ -38,102 +33,69 @@ namespace MustyBlockBlast.Presentation.Views
         /// <c>BoardView.CoinIconTint</c> paints a coin cell with.</summary>
         private static readonly Color CoinTint = new Color(1f, 0.82f, 0.25f, 1f);
 
-        /// <summary>Ink for the number on the coin face. Dark and fixed: it has to read on gold in
-        /// every theme.</summary>
-        private static readonly Color NumberInk = new Color(0.36f, 0.22f, 0.05f, 1f);
+        /// <summary>Which theme kind's fill the "+" disc takes: the fifth kind — every season's green.</summary>
+        private const int PLUS_KIND = 5;
+
+        /// <summary>How far the accent is pulled toward black for the balance's ink (the mockup's #91700F).</summary>
+        private const float VALUE_SHADE = 0.35f;
+
+        /// <summary>Thickness of the "+" strokes as a fraction of the disc.</summary>
+        private const float PLUS_STROKE = 0.16f;
+        private const float PLUS_LENGTH = 0.5f;
 
         [Header("Layout")]
-        // Sits on the band directly above the board card, flush with its right edge, with the
-        // objective icons on the same band at the left — not stacked under the right-column buttons
-        // any more: three 112px icons plus their gaps never fit between the board's top edge and the
-        // safe area on a tall phone, and the coin was the one being pushed into the card (issue #229).
-        [Tooltip("Right edge of the coin, in reference pixels from the canvas's right edge. Matches " +
-            "SettingsButtonView and LevelPathButtonView's corner offset so the three read as one " +
-            "right-aligned column.")]
-        [SerializeField] private float _rightInset = 60f;
+        [Tooltip("Offset of the pill's top-left corner from the safe area's top-left corner, in reference pixels.")]
+        [SerializeField] private Vector2 _cornerOffset = new Vector2(24f, -32f);
 
-        [Tooltip("Gap between the board card's top edge and the bottom of the coin, in reference " +
-            "pixels. The coin hangs from the board (see BoardView.StandardCardTopEdge), not from the " +
-            "screen top, so it can never be pushed down into the card by a taller screen or a notch.")]
-        [SerializeField] private float _gapAboveBoard = 12f;
+        [SerializeField] private float _pillHeight = 92f;
 
-        [Tooltip("Side of the coin, in reference pixels. Matches the icons above it and the power-up strip.")]
-        [SerializeField] private float _coinSize = 104f;
+        [Tooltip("Thickness of the accent ring around the pill.")]
+        [SerializeField] private float _ringThickness = 8f;
 
-        [SerializeField] private int _fontSize = 40;
+        [SerializeField] private float _coinSize = 70f;
+        [SerializeField] private float _plusDiscSize = 56f;
+        [SerializeField] private float _paddingLeft = 12f;
+        [SerializeField] private float _paddingRight = 16f;
+        [SerializeField] private float _gap = 14f;
+        [SerializeField] private int _fontSize = 47;
 
         [Header("Art")]
-        [Tooltip("Full-colour coin face. Drawn untinted; the balance is centred on it. Leave empty to " +
-            "fall back to a plain gold disc.")]
+        [Tooltip("Full-colour coin face. Drawn untinted. Leave empty to fall back to a plain gold disc.")]
         [SerializeField] private Sprite _coinSprite;
+
+        [Tooltip("The chunky display face for the balance. Falls back to the builtin font when unassigned.")]
+        [SerializeField] private Font _displayFont;
 
         private readonly CompositeDisposable _disposables = new CompositeDisposable();
         private readonly StringBuilder _stringBuilder = new StringBuilder(16);
 
-        private BoardView _boardView;
         private ProfileModel _profileModel;
+        private SettingsModel _settingsModel;
+
         private RectTransform _rect;
+        private Image _shadowImage;
+        private Image _ringImage;
+        private Image _plateImage;
+        private RectTransform _coinRect;
+        private Image _coinImage;
         private Text _totalText;
+        private RectTransform _totalRect;
+        private RectTransform _plusRect;
+        private Image _plusDiscImage;
+        private Image _plusDiscLipImage;
+        private Image _plusBarHorizontal;
+        private Image _plusBarVertical;
 
         [Inject]
-        public void Construct(BoardView boardView, ProfileModel profileModel)
+        public void Construct(ProfileModel profileModel, SettingsModel settingsModel)
         {
-            _boardView = boardView;
             _profileModel = profileModel;
+            _settingsModel = settingsModel;
         }
 
         private void Awake()
         {
-            var rect = (RectTransform)transform;
-            _rect = rect;
-
-            // Right edge and vertical centre, the board card's own vertical anchor. Bottom-right pivot
-            // so the position set in Start is simply "this far in, this far above the board".
-            rect.anchorMin = new Vector2(1f, 0.5f);
-            rect.anchorMax = new Vector2(1f, 0.5f);
-            rect.pivot = new Vector2(1f, 0f);
-            rect.sizeDelta = new Vector2(_coinSize, _coinSize);
-
-            // Every size here is in canvas reference units, so the coin owns its own scale rather than
-            // inheriting whatever the scene object happened to be created with.
-            rect.localScale = Vector3.one;
-
-            var coinObject = new GameObject("CoinFace", typeof(RectTransform), typeof(Image));
-            var coinRect = (RectTransform)coinObject.transform;
-            coinRect.SetParent(rect, false);
-            coinRect.anchorMin = Vector2.zero;
-            coinRect.anchorMax = Vector2.one;
-            coinRect.offsetMin = Vector2.zero;
-            coinRect.offsetMax = Vector2.zero;
-
-            var coinImage = coinObject.GetComponent<Image>();
-            coinImage.type = Image.Type.Simple;
-            coinImage.preserveAspect = true;
-            coinImage.raycastTarget = false;
-
-            if (_coinSprite != null)
-            {
-                coinImage.sprite = _coinSprite;
-                coinImage.color = Color.white;
-            }
-            else
-            {
-                // The circle sprite has no border, so it must never be sliced.
-                coinImage.sprite = UiSpriteFactory.Circle;
-                coinImage.color = CoinTint;
-            }
-
-            // Centred on the face, created after the coin so it draws over it.
-            _totalText = UiTextFactory.Create(rect, "CoinTotalValue", _fontSize, FontStyle.Bold, NumberInk);
-            var textRect = (RectTransform)_totalText.transform;
-            textRect.anchorMin = Vector2.zero;
-            textRect.anchorMax = Vector2.one;
-            textRect.offsetMin = Vector2.zero;
-            textRect.offsetMax = Vector2.zero;
-            _totalText.alignment = TextAnchor.MiddleCenter;
-            _totalText.resizeTextForBestFit = true;
-            _totalText.resizeTextMaxSize = _fontSize;
-            _totalText.resizeTextMinSize = Mathf.Max(12, _fontSize / 3);
+            BuildPill();
 
             // Painted by the subscription in Start rather than left blank: the balance is loaded before
             // any View starts, so there is no "unknown" state to render.
@@ -142,7 +104,7 @@ namespace MustyBlockBlast.Presentation.Views
 
         private void Start()
         {
-            if (_boardView == null || _profileModel == null)
+            if (_profileModel == null || _settingsModel == null)
             {
                 Debug.LogError(
                     $"{nameof(CoinTotalHudView)} was not injected. Is it registered in the LifetimeScope?",
@@ -150,9 +112,7 @@ namespace MustyBlockBlast.Presentation.Views
                 return;
             }
 
-            // Positioned here rather than in Awake: the board's layout is read off an injected View,
-            // and injection has only certainly happened by Start.
-            _rect.anchoredPosition = new Vector2(-_rightInset, _boardView.StandardCardTopEdge + _gapAboveBoard);
+            _settingsModel.CurrentTheme.Subscribe(OnThemeChanged).AddTo(_disposables);
 
             // Fires immediately with the current balance, so the label is correct from the first frame
             // and no separate initial read is needed.
@@ -161,13 +121,97 @@ namespace MustyBlockBlast.Presentation.Views
 
         private void OnDestroy() => _disposables.Dispose();
 
+        private void OnThemeChanged(ThemeDefinition theme)
+        {
+            if (theme == null)
+            {
+                return;
+            }
+
+            _shadowImage.color = theme.CardShadow;
+            _ringImage.color = theme.Accent;
+            _plateImage.color = theme.CardBackground;
+            _totalText.color = HudChrome.Darken(theme.Accent, VALUE_SHADE);
+
+            Color green = theme.GetFill(PLUS_KIND);
+            _plusDiscImage.color = green;
+            _plusDiscLipImage.color = theme.GetShade(PLUS_KIND);
+            _plusBarHorizontal.color = Color.white;
+            _plusBarVertical.color = Color.white;
+
+            // The coin is a full-colour authored sprite, so it is drawn white and never themed; the
+            // fallback disc is the fixed gold a coin cell wears.
+            _coinImage.color = _coinSprite != null ? Color.white : CoinTint;
+        }
+
         /// <summary>One integer through the shared builder, so a change allocates the one string it
-        /// hands to the label rather than the several a concatenation would.</summary>
+        /// hands to the label rather than the several a concatenation would. The pill is re-measured
+        /// around the number: "1240" is wider than "0".</summary>
         private void RenderTotal(int balance)
         {
             _stringBuilder.Clear();
             _stringBuilder.Append(balance);
             _totalText.text = _stringBuilder.ToString();
+            LayOut();
+        }
+
+        private void LayOut()
+        {
+            float textWidth = _totalText.preferredWidth;
+            float width = _paddingLeft + _coinSize + _gap + textWidth + _gap + _plusDiscSize + _paddingRight;
+            var size = new Vector2(width, _pillHeight);
+
+            _rect.sizeDelta = size;
+            _shadowImage.rectTransform.sizeDelta = size;
+            _ringImage.rectTransform.sizeDelta = size;
+            _plateImage.rectTransform.sizeDelta = size - (Vector2.one * (_ringThickness * 2f));
+
+            float x = (-width * 0.5f) + _paddingLeft;
+            _coinRect.anchoredPosition = new Vector2(x + (_coinSize * 0.5f), 0f);
+            x += _coinSize + _gap;
+            _totalRect.anchoredPosition = new Vector2(x, 0f);
+            x += textWidth + _gap;
+            _plusRect.anchoredPosition = new Vector2(x + (_plusDiscSize * 0.5f), 0f);
+        }
+
+        /// <summary>Built before the theme is known; the theme subscription in Start paints it.</summary>
+        private void BuildPill()
+        {
+            _rect = (RectTransform)transform;
+            _rect.anchorMin = new Vector2(0f, 1f);
+            _rect.anchorMax = new Vector2(0f, 1f);
+            _rect.pivot = new Vector2(0f, 1f);
+            _rect.sizeDelta = new Vector2(_pillHeight * 3f, _pillHeight);
+            _rect.anchoredPosition = _cornerOffset;
+
+            // Every size here is in canvas reference units, so the pill owns its own scale rather than
+            // inheriting whatever the scene object happened to be created with.
+            _rect.localScale = Vector3.one;
+
+            float radius = _pillHeight * 0.5f;
+            _shadowImage = HudChrome.BuildRounded(
+                _rect, "Shadow", _rect.sizeDelta, new Vector2(0f, -HudChrome.PILL_SHADOW_DROP), radius);
+            _ringImage = HudChrome.BuildRounded(_rect, "Ring", _rect.sizeDelta, Vector2.zero, radius);
+            _plateImage = HudChrome.BuildRounded(_rect, "Plate", _rect.sizeDelta, Vector2.zero, radius - _ringThickness);
+
+            _coinImage = HudChrome.BuildGlyph(
+                _rect, "CoinFace", _coinSprite != null ? _coinSprite : UiSpriteFactory.Circle,
+                new Vector2(_coinSize, _coinSize), Vector2.zero);
+            _coinRect = (RectTransform)_coinImage.transform;
+
+            _totalText = HudChrome.CreateLabel(
+                _rect, "CoinTotalValue", _fontSize, FontStyle.Normal, TextAnchor.MiddleLeft, Vector2.zero, _displayFont);
+            _totalRect = (RectTransform)_totalText.transform;
+
+            // The "+" disc: a shade-coloured lip under a green disc, with two white bars over it.
+            _plusRect = HudChrome.CreateRect(_rect, "PlusDisc", new Vector2(_plusDiscSize, _plusDiscSize), Vector2.zero);
+            _plusDiscLipImage = HudChrome.BuildCircle(_plusRect, "Lip", _plusDiscSize, new Vector2(0f, -4f));
+            _plusDiscImage = HudChrome.BuildCircle(_plusRect, "Disc", _plusDiscSize, Vector2.zero);
+
+            float stroke = _plusDiscSize * PLUS_STROKE;
+            float length = _plusDiscSize * PLUS_LENGTH;
+            _plusBarHorizontal = HudChrome.BuildRounded(_plusRect, "PlusH", new Vector2(length, stroke), Vector2.zero, stroke * 0.5f);
+            _plusBarVertical = HudChrome.BuildRounded(_plusRect, "PlusV", new Vector2(stroke, length), Vector2.zero, stroke * 0.5f);
         }
     }
 }

@@ -475,6 +475,30 @@ MonoBehaviour:
     m_Key: mode.path.description
     m_Metadata:
       m_Items: []
+  - m_Id: 1665464840216576
+    m_Key: hud.score_label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1665464869576704
+    m_Key: hud.streak
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1665464869576705
+    m_Key: hud.goal_label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1665464869576706
+    m_Key: hud.level_short
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1665464869576708
+    m_Key: hud.level_number
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1673053435060224
+    m_Key: hud.pocket_label
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

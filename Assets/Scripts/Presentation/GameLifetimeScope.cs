@@ -563,6 +563,11 @@ namespace MustyBlockBlast.Presentation
             // Worn on the corner of LevelPathButtonView (registered above), which it takes as a dependency.
             builder.RegisterComponentInHierarchy<PathLevelBadgeView>();
             builder.RegisterComponentInHierarchy<TimerHudView>();
+
+            // The combo streak pill (issue #265). Takes ScoreView and ObjectiveIconContainerView as
+            // dependencies: it sits in the score card's centre slot, or at the goal row's end when the
+            // timer has the slot.
+            builder.RegisterComponentInHierarchy<StreakPillView>();
             builder.RegisterComponentInHierarchy<DoubleMultiplierHudView>();
             builder.RegisterComponentInHierarchy<CoinTotalHudView>();
             builder.RegisterComponentInHierarchy<GhostFitView>();

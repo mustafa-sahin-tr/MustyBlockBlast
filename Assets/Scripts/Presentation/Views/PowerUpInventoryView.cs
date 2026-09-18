@@ -16,8 +16,17 @@ using VContainer;
 namespace MustyBlockBlast.Presentation.Views
 {
     /// <summary>
-    /// The power-up inventory strip between the board and the tray: one icon per kind with the count
-    /// the player holds. Binds to <see cref="PowerUpModel"/> and shows which kind is currently armed.
+    /// The power-up inventory strip between the board and the tray: one slot per unlocked kind with
+    /// the count the player holds. Binds to <see cref="PowerUpModel"/> and shows which kind is
+    /// currently armed.
+    /// <para>
+    /// Drawn in the storefront vocabulary (issue #265). A slot is a card-coloured plate over a dropped
+    /// shadow with a kind-tinted icon plate on it and a count badge on its top-right corner, and it
+    /// has three looks: held (a green "xN" badge), empty (the plate goes translucent inside an outline
+    /// ring, the icon fades, and a pink "+" badge offers the shop), and armed (an accent ring around
+    /// the plate). When more kinds are unlocked than fit at the preferred size, every slot shrinks so
+    /// the strip never runs past the board's width — the mockup's 36px slots at nine kinds.
+    /// </para>
     /// <para>
     /// Like <see cref="SettingsButtonView"/> it only knows how to draw itself and whether a screen
     /// point is on one of its icons — the tap that arms or cancels is routed by
@@ -27,17 +36,14 @@ namespace MustyBlockBlast.Presentation.Views
     /// </para>
     /// <para>
     /// An empty slot doubles as the shop entry point: a tap on it asks <see cref="BoardInputView"/> to
-    /// open the power-up shop, because a power-up is only ever bought with coins (issue #216 — the
-    /// earlier "tap to earn one from an ad" gesture handed out a power-up the moment a greyed slot
-    /// was tapped, which read as a disabled slot coming alive for free).
+    /// open the power-up shop, because a power-up is only ever bought with coins (issue #216).
     /// </para>
     /// <para>
-    /// A slot has two states, not three: held (a count) and empty (the shop offer). A kind still
-    /// behind its level gate (see <see cref="PowerUpUnlockLevels"/>) is not drawn at all — no padlock,
-    /// no reserved space — so the strip is only ever as wide as the kinds the player can actually use,
-    /// and it reflows as kinds unlock. The level gate is a live subscription, so reaching a kind's
-    /// level reveals it in the same run; the reveal is animated rather than snapped, because the whole
-    /// strip shifts when it happens.
+    /// A kind still behind its level gate (see <see cref="PowerUpUnlockLevels"/>) is not drawn at all —
+    /// no padlock, no reserved space — so the strip is only ever as wide as the kinds the player can
+    /// actually use, and it reflows as kinds unlock. The level gate is a live subscription, so reaching
+    /// a kind's level reveals it in the same run; the reveal is animated rather than snapped, because
+    /// the whole strip shifts when it happens.
     /// </para>
     /// <para>
     /// Slot index and kind are bound in exactly one place, <see cref="SlotKinds"/>: every parallel
@@ -66,28 +72,47 @@ namespace MustyBlockBlast.Presentation.Views
         /// disagree about how many slots there are.</summary>
         private static readonly int SlotCount = SlotKinds.Length;
 
-        /// <summary>Alpha applied to a slot the player holds none of, so "empty" reads at a glance.</summary>
-        private const float EMPTY_SLOT_ALPHA = 0.35f;
+        /// <summary>How many theme kinds the icon plates cycle through: one per block colour.</summary>
+        private const int KIND_COUNT = 5;
 
-        /// <summary>Side of the count badge, as a fraction of the slot.</summary>
-        private const float BADGE_SIZE = 0.36f;
+        /// <summary>Alpha of the plate on a slot the player holds none of: the mockup's 0.55.</summary>
+        private const float EMPTY_PLATE_ALPHA = 0.55f;
 
-        /// <summary>How far the badge is pushed past the plate's bottom-right corner. Sitting slightly
-        /// outside the plate is what makes it read as a chip stuck onto the slot rather than as part of
-        /// the icon.</summary>
-        private const float BADGE_CORNER_OVERLAP = 4f;
+        /// <summary>Alpha of the icon plate on a slot the player holds none of: the mockup's 0.5.</summary>
+        private const float EMPTY_ICON_ALPHA = 0.5f;
 
-        /// <summary>Fraction of the badge the count glyph may fill. The serialized font size is a
-        /// preference, not a promise: the badge is small enough that an unclamped size would spill off
-        /// the chip, and a number that overhangs its own badge reads as a glitch.</summary>
-        private const float BADGE_FONT_FILL = 0.66f;
+        /// <summary>Corner radius of the slot plate as a fraction of the slot: the mockup's 15px on 52.</summary>
+        private const float PLATE_RADIUS_FRACTION = 0.29f;
 
-        /// <summary>
-        /// Divides the rounded square's baked 16px corner radius when the sprite is sliced: the lower
-        /// the multiplier, the larger the rendered radius. Tuned so the plate reads as a rounded pill
-        /// rather than as a softened square at <see cref="_slotSize"/>.
-        /// </summary>
-        private const float PLATE_CORNER_MULTIPLIER = 1.7f;
+        /// <summary>Side of the kind-tinted icon plate as a fraction of the slot: the mockup's 38px on 52.</summary>
+        private const float ICON_PLATE_FRACTION = 0.73f;
+
+        /// <summary>Corner radius of the icon plate as a fraction of its own side: the mockup's 11px on 38.</summary>
+        private const float ICON_PLATE_RADIUS_FRACTION = 0.29f;
+
+        /// <summary>The icon plate's bottom bevel as a fraction of the slot: the mockup's 3px on 52.</summary>
+        private const float ICON_BEVEL_FRACTION = 0.06f;
+
+        /// <summary>Side of a slot's glyph as a fraction of the slot: the mockup's 22px on 52.</summary>
+        private const float GLYPH_SIZE_FRACTION = 0.42f;
+
+        /// <summary>Diameter of the count badge as a fraction of the slot: the mockup's 22px on 52.</summary>
+        private const float BADGE_SIZE_FRACTION = 0.42f;
+
+        /// <summary>How far the badge's centre sits inside the plate's top-right corner, as a fraction
+        /// of the slot: the mockup's 4px on 52. Most of the chip hangs outside the plate.</summary>
+        private const float BADGE_INSET_FRACTION = 0.077f;
+
+        /// <summary>Thickness of the empty slot's outline ring: the mockup's 2px.</summary>
+        private const float EMPTY_RING_THICKNESS = 6f;
+
+        /// <summary>Thickness of the armed slot's accent ring, and how far it stands off the plate:
+        /// the mockup's 3px halo.</summary>
+        private const float ARMED_RING_THICKNESS = 8f;
+
+        /// <summary>Alpha of the Ghost Fit glyph, drawn semi-transparent so it reads as the ghost it is
+        /// named after.</summary>
+        private const float GHOST_FIT_GLYPH_ALPHA = 0.55f;
 
         /// <summary>How long the strip takes to slide to its new width when a kind unlocks. Long enough
         /// to be read as a reveal, short enough not to delay the tap that follows it.</summary>
@@ -100,27 +125,25 @@ namespace MustyBlockBlast.Presentation.Views
         /// the shop, so it reads as an offer rather than as a dead icon showing 0.</summary>
         private const string SHOP_AFFORDANCE_LABEL = "+";
 
-        /// <summary>Side of a slot's icon glyph, as a fraction of the slot.</summary>
-        private const float GLYPH_SIZE_FRACTION = 0.6f;
-
-        /// <summary>Alpha of the Ghost Fit glyph, drawn semi-transparent so it reads as the ghost it is
-        /// named after — kept from the placeholder era because it is still the right look for it.</summary>
-        private const float GHOST_FIT_GLYPH_ALPHA = 0.55f;
+        /// <summary>Prefix of a held count: the mockup's "x2".</summary>
+        private const string COUNT_PREFIX = "x";
 
         [Header("Layout")]
         [Tooltip("Strip centre in canvas space. Sits in the gap between the board card and the tray.")]
-        [SerializeField] private Vector2 _anchoredPosition = new Vector2(0f, -460f);
+        [SerializeField] private Vector2 _anchoredPosition = new Vector2(0f, -520f);
 
-        [SerializeField] private float _slotSize = 104f;
+        [Tooltip("Side of a slot at the preferred size. Slots shrink below this only when the strip would otherwise run past its width limit.")]
+        [SerializeField] private float _slotSize = 144f;
 
-        [Tooltip("Preferred horizontal distance between neighbouring slot centres.")]
-        [SerializeField] private float _slotSpacing = 180f;
+        [Tooltip("Preferred gap between neighbouring slots.")]
+        [SerializeField] private float _slotGap = 28f;
 
-        [Tooltip("Widest the strip may grow, in canvas units. Spacing is squeezed below the preferred "
-            + "value rather than letting the strip run off the canvas as kinds are added.")]
-        [SerializeField] private float _maxStripWidth = 1000f;
+        [Tooltip("The gap slots close up to before they start shrinking.")]
+        [SerializeField] private float _minSlotGap = 16f;
 
-        [SerializeField] private int _countFontSize = 34;
+        [Tooltip("Widest the strip may grow, in canvas units. Slots are shrunk rather than letting the "
+            + "strip run past the board as kinds are added.")]
+        [SerializeField] private float _maxStripWidth = 960f;
 
         [Header("Icons")]
         [Tooltip("White-on-transparent glyphs, one per slot in display order (Bomb, Row Clear, Column Clear, "
@@ -128,8 +151,9 @@ namespace MustyBlockBlast.Presentation.Views
             + "rows draw, so a power-up looks the same wherever it is met. Tinted at runtime.")]
         [SerializeField] private Sprite[] _slotIcons = new Sprite[SlotCount];
 
-        [Tooltip("Extra scale applied to the armed slot, so the selection reads without any new art.")]
-        [SerializeField] private float _armedScale = 1.12f;
+        [Header("Art")]
+        [Tooltip("The heavy label face for the count badges. Falls back to the builtin font when unassigned.")]
+        [SerializeField] private Font _labelFont;
 
         private readonly CompositeDisposable _disposables = new CompositeDisposable();
         private readonly StringBuilder _countBuilder = new StringBuilder(8);
@@ -137,20 +161,19 @@ namespace MustyBlockBlast.Presentation.Views
         private readonly RectTransform[] _slotRects = new RectTransform[SlotCount];
         private readonly Image[] _plateImages = new Image[SlotCount];
         private readonly Image[] _shadowImages = new Image[SlotCount];
+        private readonly Image[] _emptyRingImages = new Image[SlotCount];
+        private readonly Image[] _armedRingImages = new Image[SlotCount];
+        private readonly Image[] _iconShadeImages = new Image[SlotCount];
+        private readonly Image[] _iconFillImages = new Image[SlotCount];
         private readonly Image[] _glyphImages = new Image[SlotCount];
+        private readonly Image[] _badgeRimImages = new Image[SlotCount];
+        private readonly Image[] _badgeDiscImages = new Image[SlotCount];
         private readonly Text[] _countTexts = new Text[SlotCount];
         private readonly int[] _counts = new int[SlotCount];
-
-        /// <summary>The chip the count (or the earn offer's "+") is drawn on, overlapping the plate's
-        /// bottom-right corner.</summary>
-        private readonly Image[] _badgeImages = new Image[SlotCount];
 
         /// <summary>Where each slot sat when the current reflow started, so the animation can slide from
         /// there. Pre-allocated because a reflow runs per frame and must not allocate.</summary>
         private readonly float[] _reflowStartX = new float[SlotCount];
-
-        /// <summary>Per slot: a reward request is in flight. Guards against a rapid double tap firing
-        /// two concurrent requests and banking two power-ups for one watch.</summary>
 
         private PowerUpModel _powerUpModel;
         private PowerUpSystem _powerUpSystem;
@@ -462,8 +485,8 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>
         /// Repaints one slot from the three inputs that can change how it looks: the theme, the count
         /// held, and whether this kind is the armed one. A kind behind its level gate never reaches
-        /// here — it has no slot on screen at all — so there are two states, not three: "holds some"
-        /// (the count) and "holds none" (the shop affordance).
+        /// here — it has no slot on screen at all. Held and empty are exclusive; armed is a ring laid
+        /// over either, though in practice only a held kind can be armed.
         /// </summary>
         private void RefreshSlot(int slotIndex)
         {
@@ -474,37 +497,42 @@ namespace MustyBlockBlast.Presentation.Views
 
             bool isArmed = _armed == SlotKinds[slotIndex];
             bool isAvailable = _counts[slotIndex] > 0;
-            float alpha = isAvailable ? 1f : EMPTY_SLOT_ALPHA;
+            float plateAlpha = isAvailable ? 1f : EMPTY_PLATE_ALPHA;
+            float iconAlpha = isAvailable ? 1f : EMPTY_ICON_ALPHA;
+            int kind = KindFor(slotIndex);
 
-            // The armed slot inverts: the accent fills the plate and the glyph is punched out of it in
-            // the plate's usual colour, which reads as "selected" without needing a second sprite.
-            Color plateColour = isArmed ? _currentTheme.Accent : _currentTheme.CardBackground;
-            Color glyphColour = isArmed ? _currentTheme.CardBackground : _currentTheme.Ink;
+            _plateImages[slotIndex].color = HudChrome.WithAlpha(_currentTheme.CardBackground, plateAlpha);
 
-            // Ghost Fit's glyph is the one drawn see-through; every other kind's takes the slot's own
+            // An empty slot has no drop shadow: it reads as a socket in the background rather than as
+            // a chip sat on it, which is the mockup's inset ring look.
+            _shadowImages[slotIndex].color = isAvailable ? _currentTheme.CardShadow : Color.clear;
+            _emptyRingImages[slotIndex].color = isAvailable ? Color.clear : _currentTheme.EmptyCellOutline;
+            _armedRingImages[slotIndex].color = isArmed ? _currentTheme.Accent : Color.clear;
+
+            _iconShadeImages[slotIndex].color = HudChrome.WithAlpha(_currentTheme.GetShade(kind), iconAlpha);
+            _iconFillImages[slotIndex].color = HudChrome.WithAlpha(_currentTheme.GetFill(kind), iconAlpha);
+
+            // Ghost Fit's glyph is the one drawn see-through; every other kind's takes the icon plate's
             // alpha unchanged.
             float glyphAlpha = SlotKinds[slotIndex] == PowerUpKind.GhostFit
-                ? alpha * GHOST_FIT_GLYPH_ALPHA
-                : alpha;
+                ? iconAlpha * GHOST_FIT_GLYPH_ALPHA
+                : iconAlpha;
+            _glyphImages[slotIndex].color = HudChrome.WithAlpha(Color.white, glyphAlpha);
 
-            _plateImages[slotIndex].color = WithAlpha(plateColour, alpha);
-            _shadowImages[slotIndex].color = WithAlpha(_currentTheme.CardShadow, alpha);
-            _glyphImages[slotIndex].color = WithAlpha(glyphColour, glyphAlpha);
-
-            // The badge is drawn at full strength over an otherwise dimmed empty slot, and is left out
-            // of the armed state's colour swap entirely: it is the one part of the slot that states a
-            // number, and a number has to be legible in every state the plate can take.
-            // Two tones, so the offer is never mistaken for a stock of one: the accent means "you hold
-            // this many", the softer ink means "tap to buy one".
-            _badgeImages[slotIndex].color = isAvailable ? _currentTheme.Accent : _currentTheme.SoftInk;
-            _countTexts[slotIndex].color = _currentTheme.CardBackground;
-
-            float scale = isArmed ? _armedScale : 1f;
-            _slotRects[slotIndex].localScale = new Vector3(scale, scale, 1f);
+            // The badge is drawn at full strength over an otherwise dimmed empty slot: it is the one
+            // part of the slot that states a number, and a number has to be legible in every state.
+            // Two tones, so the offer is never mistaken for a stock of one: green means "you hold this
+            // many", pink means "tap to buy one".
+            _badgeRimImages[slotIndex].color = _currentTheme.CardBackground;
+            _badgeDiscImages[slotIndex].color = isAvailable
+                ? _currentTheme.GetFill(HudChrome.GREEN_KIND)
+                : HudChrome.OfferPink;
+            _countTexts[slotIndex].color = Color.white;
 
             _countBuilder.Clear();
             if (isAvailable)
             {
+                _countBuilder.Append(COUNT_PREFIX);
                 _countBuilder.Append(_counts[slotIndex]);
             }
             else
@@ -515,8 +543,9 @@ namespace MustyBlockBlast.Presentation.Views
             _countTexts[slotIndex].text = _countBuilder.ToString();
         }
 
-        private static Color WithAlpha(Color colour, float alphaScale)
-            => new Color(colour.r, colour.g, colour.b, colour.a * alphaScale);
+        /// <summary>The theme kind a slot's icon plate is tinted with: the block colours in order,
+        /// wrapping after the fifth, so the strip reads as the same palette as the board.</summary>
+        private static int KindFor(int slotIndex) => (slotIndex % KIND_COUNT) + 1;
 
         /// <summary>
         /// Builds every slot up front, including the ones still behind their level gate, and then hands
@@ -536,13 +565,9 @@ namespace MustyBlockBlast.Presentation.Views
             // than inheriting whatever the scene object happened to be created with.
             rect.localScale = Vector3.one;
 
-            // The widest the strip can ever be, so the shadow padding a slot is built with does not
-            // have to be revised every time the strip reflows.
-            float spacing = SpacingFor(SlotCount);
-
             for (int slotIndex = 0; slotIndex < SlotCount; slotIndex++)
             {
-                BuildSlot(rect, slotIndex, spacing);
+                BuildSlot(rect, slotIndex);
             }
 
             _visibleCount = ResolveVisibleCount();
@@ -550,36 +575,48 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         /// <summary>
-        /// The spacing the strip is actually laid out with: the preferred value, squeezed just enough
-        /// to keep the whole strip inside <see cref="_maxStripWidth"/>. Measured from the slots on
-        /// screen rather than from <see cref="SlotCount"/>, so the strip only pays the squeeze once the
-        /// kinds that need it have actually unlocked.
+        /// The side and gap the visible slots are actually laid out with. At the preferred size and gap
+        /// while they fit inside <see cref="_maxStripWidth"/>; past that the gap closes to
+        /// <see cref="_minSlotGap"/> and every slot shrinks by the same factor, so nine kinds sit in the
+        /// width five did. Measured from the slots on screen rather than from <see cref="SlotCount"/>,
+        /// so the strip only pays the squeeze once the kinds that need it have actually unlocked.
         /// </summary>
-        private float ResolveSlotSpacing() => SpacingFor(_visibleCount);
-
-        private float SpacingFor(int slotCount)
+        private void ResolveSlotLayout(int slotCount, out float slotSide, out float gap)
         {
+            slotSide = _slotSize;
+            gap = _slotGap;
+
             if (slotCount <= 1)
             {
-                return _slotSpacing;
+                return;
             }
 
-            float maxSpacing = (_maxStripWidth - _slotSize) / (slotCount - 1);
-            return _slotSpacing <= maxSpacing ? _slotSpacing : maxSpacing;
+            float preferredWidth = (slotCount * _slotSize) + ((slotCount - 1) * _slotGap);
+            if (preferredWidth <= _maxStripWidth)
+            {
+                return;
+            }
+
+            gap = Mathf.Min(_slotGap, _minSlotGap);
+            slotSide = Mathf.Min(_slotSize, (_maxStripWidth - ((slotCount - 1) * gap)) / slotCount);
         }
 
         /// <summary>
         /// Places the visible slots and sizes the strip around them. A growth is slid rather than
         /// snapped: every slot already on screen shifts when one is revealed, and a whole strip jumping
-        /// sideways under the player's thumb reads as a glitch rather than as a reward.
+        /// sideways under the player's thumb reads as a glitch rather than as a reward. A shrink in
+        /// slot size is applied at once — it is a scale on the slot, and the slide covers the shift.
         /// </summary>
         private void ApplyLayout(bool animate)
         {
             CancelReflow();
 
-            float spacing = ResolveSlotSpacing();
+            ResolveSlotLayout(_visibleCount, out float slotSide, out float gap);
+            float spacing = slotSide + gap;
             float originX = -spacing * ((_visibleCount - 1) * 0.5f);
-            float width = _visibleCount > 0 ? (spacing * (_visibleCount - 1)) + _slotSize : 0f;
+            float width = _visibleCount > 0 ? (spacing * (_visibleCount - 1)) + slotSide : 0f;
+            float scale = _slotSize > 0f ? slotSide / _slotSize : 1f;
+            var scaleVector = new Vector3(scale, scale, 1f);
             var rect = (RectTransform)transform;
 
             for (int slotIndex = 0; slotIndex < SlotCount; slotIndex++)
@@ -594,12 +631,13 @@ namespace MustyBlockBlast.Presentation.Views
                 _reflowStartX[slotIndex] = slotRect.gameObject.activeSelf
                     ? slotRect.anchoredPosition.x
                     : originX + (slotIndex * spacing);
+                slotRect.localScale = scaleVector;
                 slotRect.gameObject.SetActive(isVisible);
             }
 
             if (!animate)
             {
-                rect.sizeDelta = new Vector2(width, _slotSize);
+                rect.sizeDelta = new Vector2(width, slotSide);
                 for (int slotIndex = 0; slotIndex < _visibleCount; slotIndex++)
                 {
                     _slotRects[slotIndex].anchoredPosition = new Vector2(originX + (slotIndex * spacing), 0f);
@@ -609,11 +647,16 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             _reflowCts = CancellationTokenSource.CreateLinkedTokenSource(this.GetCancellationTokenOnDestroy());
-            ReflowAsync(rect, originX, spacing, width, _reflowCts.Token).Forget();
+            ReflowAsync(rect, originX, spacing, width, slotSide, _reflowCts.Token).Forget();
         }
 
         private async UniTaskVoid ReflowAsync(
-            RectTransform rect, float originX, float spacing, float width, CancellationToken cancellationToken)
+            RectTransform rect,
+            float originX,
+            float spacing,
+            float width,
+            float slotSide,
+            CancellationToken cancellationToken)
         {
             float startWidth = rect.sizeDelta.x;
             int animatedCount = _visibleCount;
@@ -626,12 +669,12 @@ namespace MustyBlockBlast.Presentation.Views
                     // Unscaled: the strip must still reveal itself while the run is paused behind a
                     // level-up panel, which is exactly when a kind unlocks.
                     float progress = EaseOutCubic(elapsed / REFLOW_DURATION_SECONDS);
-                    ApplyReflowFrame(rect, originX, spacing, width, startWidth, animatedCount, progress);
+                    ApplyReflowFrame(rect, originX, spacing, width, slotSide, startWidth, animatedCount, progress);
                     await UniTask.Yield(PlayerLoopTiming.Update, cancellationToken);
                     elapsed += Time.unscaledDeltaTime;
                 }
 
-                ApplyReflowFrame(rect, originX, spacing, width, startWidth, animatedCount, 1f);
+                ApplyReflowFrame(rect, originX, spacing, width, slotSide, startWidth, animatedCount, 1f);
             }
             catch (OperationCanceledException)
             {
@@ -645,11 +688,12 @@ namespace MustyBlockBlast.Presentation.Views
             float originX,
             float spacing,
             float width,
+            float slotSide,
             float startWidth,
             int animatedCount,
             float progress)
         {
-            rect.sizeDelta = new Vector2(Mathf.Lerp(startWidth, width, progress), _slotSize);
+            rect.sizeDelta = new Vector2(Mathf.Lerp(startWidth, width, progress), slotSide);
 
             for (int slotIndex = 0; slotIndex < animatedCount; slotIndex++)
             {
@@ -683,80 +727,63 @@ namespace MustyBlockBlast.Presentation.Views
             return 1f - (inverse * inverse * inverse);
         }
 
-        private void BuildSlot(RectTransform parent, int slotIndex, float spacing)
+        /// <summary>
+        /// One slot at the preferred size, bottom to top: the armed ring standing off the plate, the
+        /// plate over its shadow, the empty ring inset on the plate, the kind-tinted icon plate (a shade
+        /// base with the fill lifted off its bottom edge, the same bevel a block wears) with the glyph
+        /// on it, and the count badge hung on the top-right corner. Everything is painted clear here
+        /// and coloured by <see cref="RefreshSlot"/>.
+        /// </summary>
+        private void BuildSlot(RectTransform parent, int slotIndex)
         {
             var slotObject = new GameObject($"PowerUpSlot_{SlotKinds[slotIndex]}", typeof(RectTransform));
             var slotRect = (RectTransform)slotObject.transform;
             slotRect.SetParent(parent, false);
-            Centre(slotRect, new Vector2(_slotSize, _slotSize));
+            HudChrome.Centre(slotRect, new Vector2(_slotSize, _slotSize));
             _slotRects[slotIndex] = slotRect;
 
-            // The shadow reads as a drop shadow by being larger than the plate it sits behind — but at
-            // a narrow squeeze (ResolveSlotSpacing), the preferred +10f padding can make two neighbours'
-            // shadows overlap. Clamped to leave at least 4px of daylight between adjacent shadows, so
-            // the strip never has to choose between "no shadow" and "shadows collide" as slots are added.
-            float shadowPadding = Mathf.Max(0f, Mathf.Min(10f, spacing - _slotSize - 4f));
-            var shadowObject = new GameObject("Shadow", typeof(RectTransform), typeof(Image));
-            var shadowRect = (RectTransform)shadowObject.transform;
-            shadowRect.SetParent(slotRect, false);
-            Centre(shadowRect, new Vector2(_slotSize + shadowPadding, _slotSize + shadowPadding));
-            shadowRect.anchoredPosition = new Vector2(0f, -6f);
-            _shadowImages[slotIndex] = ConfigurePlate(shadowObject.GetComponent<Image>());
+            float plateRadius = _slotSize * PLATE_RADIUS_FRACTION;
+            var slotSize = new Vector2(_slotSize, _slotSize);
 
-            var plateObject = new GameObject("Plate", typeof(RectTransform), typeof(Image));
-            var plateRect = (RectTransform)plateObject.transform;
-            plateRect.SetParent(slotRect, false);
-            Centre(plateRect, new Vector2(_slotSize, _slotSize));
-            _plateImages[slotIndex] = ConfigurePlate(plateObject.GetComponent<Image>());
+            float armedSide = _slotSize + (ARMED_RING_THICKNESS * 2f);
+            _armedRingImages[slotIndex] = HudChrome.BuildOutline(
+                slotRect, "ArmedRing", new Vector2(armedSide, armedSide), Vector2.zero,
+                plateRadius + ARMED_RING_THICKNESS, ARMED_RING_THICKNESS);
 
-            _glyphImages[slotIndex] = BuildGlyph(plateRect, SlotKinds[slotIndex]);
+            RectTransform plateRect = HudChrome.BuildPlate(
+                slotRect, "Plate", slotSize, Vector2.zero, plateRadius, HudChrome.PLATE_SHADOW_DROP,
+                out _shadowImages[slotIndex], out _plateImages[slotIndex]);
+
+            _emptyRingImages[slotIndex] = HudChrome.BuildOutline(
+                plateRect, "EmptyRing", slotSize, Vector2.zero, plateRadius, EMPTY_RING_THICKNESS);
+
+            float iconSide = _slotSize * ICON_PLATE_FRACTION;
+            float iconRadius = iconSide * ICON_PLATE_RADIUS_FRACTION;
+            float iconBevel = _slotSize * ICON_BEVEL_FRACTION;
+            RectTransform iconRect = HudChrome.CreateRect(plateRect, "Icon", new Vector2(iconSide, iconSide), Vector2.zero);
+            _iconShadeImages[slotIndex] = HudChrome.BuildRounded(
+                iconRect, "Shade", new Vector2(iconSide, iconSide), Vector2.zero, iconRadius);
+            _iconFillImages[slotIndex] = HudChrome.BuildRounded(
+                iconRect, "Fill", new Vector2(iconSide, iconSide - iconBevel), new Vector2(0f, iconBevel * 0.5f), iconRadius);
+
+            float glyphSide = _slotSize * GLYPH_SIZE_FRACTION;
+            _glyphImages[slotIndex] = HudChrome.BuildGlyph(
+                iconRect, "Glyph", IconFor(SlotKinds[slotIndex]), new Vector2(glyphSide, glyphSide),
+                new Vector2(0f, iconBevel * 0.5f));
 
             // The badge is a sibling of the plate rather than a child of it, and built after it, so it
-            // draws over both the plate and the glyph without inheriting the plate's colour.
-            float badgeSide = _slotSize * BADGE_SIZE;
-            var badgeObject = new GameObject("CountBadge", typeof(RectTransform), typeof(Image));
-            var badgeRect = (RectTransform)badgeObject.transform;
-            badgeRect.SetParent(slotRect, false);
-            badgeRect.anchorMin = new Vector2(1f, 0f);
-            badgeRect.anchorMax = new Vector2(1f, 0f);
-            badgeRect.pivot = new Vector2(0.5f, 0.5f);
-            badgeRect.sizeDelta = new Vector2(badgeSide, badgeSide);
-            badgeRect.anchoredPosition = new Vector2(BADGE_CORNER_OVERLAP, -BADGE_CORNER_OVERLAP);
-            _badgeImages[slotIndex] = ConfigureCircle(badgeObject.GetComponent<Image>());
-
-            // Counts are built here, before the theme or the inventory is known; the subscriptions in
-            // Start fill in both.
-            int fontSize = Mathf.Min(_countFontSize, Mathf.RoundToInt(badgeSide * BADGE_FONT_FILL));
-            Text countText = UiTextFactory.Create(
-                badgeRect, "Count", fontSize, FontStyle.Bold, Color.clear);
-            ((RectTransform)countText.transform).sizeDelta = new Vector2(badgeSide, badgeSide);
-            _countTexts[slotIndex] = countText;
+            // draws over both the plate and the icon without inheriting the plate's colour. Counts are
+            // built before the theme or the inventory is known; the subscriptions in Start fill in both.
+            float badgeInset = _slotSize * BADGE_INSET_FRACTION;
+            var badgePosition = new Vector2((_slotSize * 0.5f) - badgeInset, (_slotSize * 0.5f) - badgeInset);
+            HudChrome.BuildBadge(
+                slotRect, "CountBadge", _slotSize * BADGE_SIZE_FRACTION, badgePosition, _labelFont,
+                out _badgeRimImages[slotIndex], out _badgeDiscImages[slotIndex], out _countTexts[slotIndex]);
         }
 
-        /// <summary>
-        /// One tinted sprite per kind from <see cref="_slotIcons"/> — the same icons the shop rows draw,
-        /// so the thing the player bought is the thing they see in the strip. The sprites live in the
-        /// hub icon atlas, so the strip still batches with the rest of the UI. The placeholder
-        /// silhouettes assembled from the rounded square and the circle are gone with this.
-        /// </summary>
-        private Image BuildGlyph(RectTransform parent, PowerUpKind kind)
-        {
-            var glyphObject = new GameObject("Glyph", typeof(RectTransform), typeof(Image));
-            var glyphRect = (RectTransform)glyphObject.transform;
-            glyphRect.SetParent(parent, false);
-            float side = _slotSize * GLYPH_SIZE_FRACTION;
-            Centre(glyphRect, new Vector2(side, side));
-
-            var glyphImage = glyphObject.GetComponent<Image>();
-            glyphImage.sprite = IconFor(kind);
-            glyphImage.type = Image.Type.Simple;
-            glyphImage.preserveAspect = true;
-            glyphImage.color = Color.clear;
-            glyphImage.raycastTarget = false;
-            return glyphImage;
-        }
-
-        /// <summary>The icon for <paramref name="kind"/>, authored in <see cref="SlotKinds"/> order.</summary>
+        /// <summary>The icon for <paramref name="kind"/>, authored in <see cref="SlotKinds"/> order —
+        /// the same sprites the shop rows draw, so the thing the player bought is the thing they see
+        /// in the strip.</summary>
         private Sprite IconFor(PowerUpKind kind)
         {
             int slotIndex = SlotIndexOf(kind);
@@ -769,37 +796,6 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             return icon;
-        }
-
-        private static void Centre(RectTransform rect, Vector2 size)
-        {
-            rect.anchorMin = new Vector2(0.5f, 0.5f);
-            rect.anchorMax = new Vector2(0.5f, 0.5f);
-            rect.pivot = new Vector2(0.5f, 0.5f);
-            rect.sizeDelta = size;
-            rect.anchoredPosition = Vector2.zero;
-        }
-
-        // Raycasts stay off everywhere: taps arrive through BoardInputView's pointer action, not
-        // through an EventSystem, and this scene has none.
-        private static Image ConfigurePlate(Image image)
-        {
-            image.sprite = UiSpriteFactory.RoundedSquare;
-            image.type = Image.Type.Sliced;
-            image.pixelsPerUnitMultiplier = PLATE_CORNER_MULTIPLIER;
-            image.color = Color.clear;
-            image.raycastTarget = false;
-            return image;
-        }
-
-        // The circle sprite has no border, so it must never be sliced.
-        private static Image ConfigureCircle(Image image)
-        {
-            image.sprite = UiSpriteFactory.Circle;
-            image.type = Image.Type.Simple;
-            image.color = Color.clear;
-            image.raycastTarget = false;
-            return image;
         }
     }
 }

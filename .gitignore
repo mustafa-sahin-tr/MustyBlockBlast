@@ -124,3 +124,7 @@ InitTestScene*.unity*
 
 # Local Editor preference, not shared project state
 /ProjectSettings/SceneTemplateSettings.json
+
+# AI-generated mockup candidates (fal.ai etc.) — never shipped
+Assets/Art/Mockups/
+Assets/Art/Mockups.meta

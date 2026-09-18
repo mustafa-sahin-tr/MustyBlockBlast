@@ -7,88 +7,100 @@ namespace MustyBlockBlast.Presentation.Views
     /// One rounded board/tray square, able to render in two looks that are both built once and
     /// toggled (never rebuilt), because cells are reused across redraws, previews and fades:
     /// <list type="bullet">
-    /// <item>Flat — two stacked Images (outer shade silhouette, inset inner face). Used for empty
-    /// board cells and for the flat preview tint.</item>
-    /// <item>Embossed — four rotated triangle facets (top/left lit, right/bottom shaded) with a
-    /// symmetrically inset face square drawn on top, which covers the facets' pointed centre tips
-    /// and leaves the four trapezoid bevels visible. Used for filled piece cells.</item>
+    /// <item>Flat — two stacked Images (an outer ring silhouette, an evenly inset inner face). Used
+    /// for empty board cells and for the flat preview tint: the mockup's <c>.empty</c> cell, a fill
+    /// inside a one-pixel outline.</item>
+    /// <item>Block — the storefront <c>.blk</c> (issue #265): a rounded base in the kind's shade, the
+    /// kind's fill sat on it and lifted off the bottom edge so the shade shows as a bevel under it,
+    /// and a soft glossy ellipse across the top in the kind's highlight. The same volume language the
+    /// shop tiles are drawn in.</item>
     /// </list>
-    /// On top of both sits an independent outline layer (see <see cref="SetHighlight"/>) that is
-    /// toggled on its own and never disturbs the colours of the two looks underneath.
-    /// Pure visual — it is told a colour, it never decides one.
+    /// On top of both sit two independent ring layers — the would-clear outline
+    /// (<see cref="SetHighlight"/>) and the Ghost Fit ring (<see cref="SetGhostRing"/>) — each toggled
+    /// on its own, so a suggestion and a clear preview can share a cell without one taking the other
+    /// down. Pure visual — it is told a colour, it never decides one.
     /// </summary>
     [RequireComponent(typeof(Image))]
     public sealed class CellView : MonoBehaviour
     {
-        private const int FACET_COUNT = 4;
+        /// <summary>Thickness of the would-clear outline, in reference pixels: the mockup's 3px.</summary>
+        private const float HIGHLIGHT_THICKNESS = 8f;
 
-        /// <summary>Lower than the shared layers' multiplier (see <see cref="ConfigureSliced"/>) so the
-        /// nine-slice border renders noticeably thicker than the cell's other frame lines, keeping the
-        /// would-clear outline legible at a glance.</summary>
-        private const float HighlightPixelsPerUnitMultiplier = 1.25f;
+        /// <summary>Thickness of the Ghost Fit ring: the mockup's 2px.</summary>
+        private const float GHOST_RING_THICKNESS = 6f;
+
+        /// <summary>The gloss ellipse's box, as fractions of the cell: the mockup's
+        /// <c>left 12%, top 8%, width 76%, height 32%</c>.</summary>
+        private const float GLOSS_LEFT = 0.12f;
+        private const float GLOSS_RIGHT = 0.88f;
+        private const float GLOSS_TOP = 0.92f;
+        private const float GLOSS_BOTTOM = 0.55f;
+
+        /// <summary>Alpha the gloss ellipse is drawn at: the mockup's white at 0.5 fading to nothing,
+        /// which the soft glow sprite supplies as a falloff. Stored so <see cref="SetAlpha"/> can fade
+        /// it in proportion rather than snapping it to full strength.</summary>
+        private const float GLOSS_ALPHA = 0.7f;
 
         /// <summary>How many bevel thicknesses the special-cell icon is inset by, on top of the cell's
-        /// own inset. Two keeps the icon clear of the four bevel facets on every side, so it sits on
-        /// the block's flat face at any cell size.</summary>
+        /// own inset. Two keeps the icon clear of the bottom bevel on every side, so it sits on the
+        /// block's flat face at any cell size.</summary>
         private const float SPECIAL_ICON_BEVEL_INSET_MULTIPLIER = 2f;
-
-        /// <summary>Facet index order, matching a -90 degree step per index from the top facet.</summary>
-        private const int FACET_TOP = 0;
-        private const int FACET_RIGHT = 1;
-        private const int FACET_BOTTOM = 2;
-        private const int FACET_LEFT = 3;
-
-        private readonly Image[] _facetImages = new Image[FACET_COUNT];
 
         private Image _outerImage;
         private Image _flatFaceImage;
-        private GameObject _embossRoot;
-        private Image _embossFaceImage;
+        private GameObject _blockRoot;
+        private Image _blockShadeImage;
+        private Image _blockFaceImage;
+        private Image _blockGlossImage;
         private Image _specialIconImage;
         private Image _highlightImage;
+        private Image _ghostRingImage;
 
         private void Awake() => CacheOuter();
 
-        /// <summary>Creates both layer sets. Called by the builder right after AddComponent.</summary>
-        internal void Build(Sprite roundedSprite, float inset, float bevelThickness)
+        /// <summary>Creates both layer sets. Called by the builder right after AddComponent.
+        /// <paramref name="cornerRadius"/> is in reference pixels; every rounded layer shares it.</summary>
+        internal void Build(Sprite roundedSprite, float inset, float bevelThickness, float cornerRadius)
         {
             CacheOuter();
-            ConfigureSliced(_outerImage, roundedSprite);
+            HudChrome.ConfigureRounded(_outerImage, cornerRadius);
 
             _flatFaceImage = CreateStretchedImage(transform, "Face");
-            ConfigureSliced(_flatFaceImage, roundedSprite);
-            SetStretchInsets((RectTransform)_flatFaceImage.transform, inset, inset + bevelThickness, inset, inset);
+            HudChrome.ConfigureRounded(_flatFaceImage, Mathf.Max(1f, cornerRadius - inset));
+            SetStretchInsets((RectTransform)_flatFaceImage.transform, inset, inset, inset, inset);
 
-            var embossObject = new GameObject("Emboss", typeof(RectTransform));
-            _embossRoot = embossObject;
-            var embossRect = (RectTransform)embossObject.transform;
-            embossRect.SetParent(transform, false);
-            StretchToParent(embossRect);
+            var blockObject = new GameObject("Block", typeof(RectTransform));
+            _blockRoot = blockObject;
+            var blockRect = (RectTransform)blockObject.transform;
+            blockRect.SetParent(transform, false);
+            StretchToParent(blockRect);
 
-            for (int facetIndex = 0; facetIndex < FACET_COUNT; facetIndex++)
-            {
-                Image facet = CreateStretchedImage(embossRect, $"Facet_{facetIndex}");
-                facet.sprite = UiSpriteFactory.TriangleFacet;
-                facet.type = Image.Type.Simple;
-                facet.raycastTarget = false;
+            _blockShadeImage = CreateStretchedImage(blockRect, "Shade");
+            HudChrome.ConfigureRounded(_blockShadeImage, cornerRadius);
 
-                var facetRect = (RectTransform)facet.transform;
-                facetRect.localRotation = Quaternion.Euler(0f, 0f, -90f * facetIndex);
-                _facetImages[facetIndex] = facet;
-            }
+            // Lifted off the bottom edge by the bevel, so the shade underneath reads as the block's
+            // shaded base — the mockup's "inset 0 -4px 0" — and nowhere else.
+            _blockFaceImage = CreateStretchedImage(blockRect, "Face");
+            HudChrome.ConfigureRounded(_blockFaceImage, cornerRadius);
+            SetStretchInsets((RectTransform)_blockFaceImage.transform, 0f, bevelThickness, 0f, 0f);
 
-            // Built last so it is the last sibling and therefore drawn over the facet tips.
-            _embossFaceImage = CreateStretchedImage(embossRect, "EmbossFace");
-            ConfigureSliced(_embossFaceImage, roundedSprite);
+            // The soft glow stretched into a wide ellipse across the top of the face: its falloff is
+            // what makes the highlight read as a sheen rather than a sticker.
+            _blockGlossImage = CreateStretchedImage(blockRect, "Gloss");
+            _blockGlossImage.sprite = UiSpriteFactory.RadialGlow;
+            _blockGlossImage.type = Image.Type.Simple;
+            _blockGlossImage.raycastTarget = false;
+            var glossRect = (RectTransform)_blockGlossImage.transform;
+            glossRect.anchorMin = new Vector2(GLOSS_LEFT, GLOSS_BOTTOM);
+            glossRect.anchorMax = new Vector2(GLOSS_RIGHT, GLOSS_TOP);
+            glossRect.offsetMin = Vector2.zero;
+            glossRect.offsetMax = Vector2.zero;
 
-            float faceInset = inset + bevelThickness;
-            SetStretchInsets((RectTransform)_embossFaceImage.transform, faceInset, faceInset, faceInset, faceInset);
-
-            _embossRoot.SetActive(false);
+            _blockRoot.SetActive(false);
 
             // Built after both looks so it draws on top of whichever is active. In practice only an
-            // occupied (embossed) cell ever wears one — a special kind belongs to the block standing on
-            // the cell — but it is parented to the cell rather than to the emboss root so toggling
+            // occupied (block) cell ever wears one — a special kind belongs to the block standing on
+            // the cell — but it is parented to the cell rather than to the block root so toggling
             // looks can never take the icon down with it. Inset well inside the bevel so it reads as a
             // mark on the block's face rather than as a second silhouette.
             _specialIconImage = CreateStretchedImage(transform, "SpecialIcon");
@@ -101,46 +113,33 @@ namespace MustyBlockBlast.Presentation.Views
             SetStretchInsets((RectTransform)_specialIconImage.transform, iconInset, iconInset, iconInset, iconInset);
             _specialIconImage.gameObject.SetActive(false);
 
-            // Built after the emboss root so it is the cell's last sibling and therefore draws over
-            // whichever look is active. fillCenter is off, so the sliced sprite renders only its
-            // nine-slice border: a constant-thickness rounded frame with a hollow middle. Reusing
-            // RoundedSquare keeps it on the same texture as every other cell layer, so the outline
-            // costs no extra draw call and its corner radius matches the cell silhouette exactly.
+            // The two rings are built last so they are the cell's last siblings and therefore draw
+            // over whichever look is active. Both use the hollow outline sprite family, so the wall is
+            // a constant thickness whatever the corner radius, and they cost no extra draw call
+            // between them.
+            _ghostRingImage = CreateStretchedImage(transform, "GhostRing");
+            HudChrome.ConfigureOutline(_ghostRingImage, cornerRadius, GHOST_RING_THICKNESS);
+            _ghostRingImage.gameObject.SetActive(false);
+
             _highlightImage = CreateStretchedImage(transform, "Highlight");
-            ConfigureSliced(_highlightImage, roundedSprite, HighlightPixelsPerUnitMultiplier);
-            _highlightImage.fillCenter = false;
-            _highlightImage.color = Color.clear;
+            HudChrome.ConfigureOutline(_highlightImage, cornerRadius, HIGHLIGHT_THICKNESS);
             _highlightImage.gameObject.SetActive(false);
         }
 
         /// <summary>Shows the outline frame in <paramref name="colour"/>. Independent of both looks:
         /// it neither reads nor writes the face/fill/shade layers, so a cell can be tinted, embossed
         /// or empty underneath an outline.</summary>
-        internal void SetHighlight(Color colour)
-        {
-            if (_highlightImage == null)
-            {
-                return;
-            }
-
-            _highlightImage.color = colour;
-
-            if (!_highlightImage.gameObject.activeSelf)
-            {
-                _highlightImage.gameObject.SetActive(true);
-            }
-        }
+        internal void SetHighlight(Color colour) => ShowLayer(_highlightImage, colour);
 
         /// <summary>Hides the outline frame. Safe to call on a cell that never had one.</summary>
-        internal void ClearHighlight()
-        {
-            if (_highlightImage == null || !_highlightImage.gameObject.activeSelf)
-            {
-                return;
-            }
+        internal void ClearHighlight() => HideLayer(_highlightImage);
 
-            _highlightImage.gameObject.SetActive(false);
-        }
+        /// <summary>Shows the Ghost Fit ring in <paramref name="colour"/>. Its own layer, separate from
+        /// the would-clear outline, so a drag that would clear the suggested line keeps both.</summary>
+        internal void SetGhostRing(Color colour) => ShowLayer(_ghostRingImage, colour);
+
+        /// <summary>Hides the Ghost Fit ring. Safe to call on a cell that never had one.</summary>
+        internal void ClearGhostRing() => HideLayer(_ghostRingImage);
 
         /// <summary>Shows the special-cell icon in <paramref name="colour"/>. Independent of both looks
         /// and of the outline, exactly as <see cref="SetHighlight"/> is: it neither reads nor writes any
@@ -166,26 +165,14 @@ namespace MustyBlockBlast.Presentation.Views
                 _specialIconImage.sprite = sprite;
             }
 
-            _specialIconImage.color = colour;
-
-            if (!_specialIconImage.gameObject.activeSelf)
-            {
-                _specialIconImage.gameObject.SetActive(true);
-            }
+            ShowLayer(_specialIconImage, colour);
         }
 
         /// <summary>Hides the special-cell icon. Safe to call on a cell that never had one.</summary>
-        internal void ClearSpecialIcon()
-        {
-            if (_specialIconImage == null || !_specialIconImage.gameObject.activeSelf)
-            {
-                return;
-            }
+        internal void ClearSpecialIcon() => HideLayer(_specialIconImage);
 
-            _specialIconImage.gameObject.SetActive(false);
-        }
-
-        /// <summary>Flat two-layer look: empty cells and the drag preview tint.</summary>
+        /// <summary>Flat two-layer look: empty cells and the drag preview tint. <paramref name="shade"/>
+        /// is the outline ring, <paramref name="face"/> the fill inside it.</summary>
         internal void SetColours(Color face, Color shade)
         {
             CacheOuter();
@@ -198,13 +185,14 @@ namespace MustyBlockBlast.Presentation.Views
                 _flatFaceImage.color = face;
             }
 
-            if (_embossRoot != null)
+            if (_blockRoot != null)
             {
-                _embossRoot.SetActive(false);
+                _blockRoot.SetActive(false);
             }
         }
 
-        /// <summary>Four-facet embossed look: filled piece cells on the board, tray and ghost.</summary>
+        /// <summary>Block look: filled piece cells on the board, tray, pocket and ghost. The three
+        /// tones are the theme's fill, highlight and shade for the kind.</summary>
         internal void SetEmbossedColours(Color fill, Color highlight, Color shade)
         {
             CacheOuter();
@@ -215,17 +203,15 @@ namespace MustyBlockBlast.Presentation.Views
                 _flatFaceImage.gameObject.SetActive(false);
             }
 
-            if (_embossRoot == null)
+            if (_blockRoot == null)
             {
                 return;
             }
 
-            _embossRoot.SetActive(true);
-            _facetImages[FACET_TOP].color = highlight;
-            _facetImages[FACET_LEFT].color = highlight;
-            _facetImages[FACET_RIGHT].color = shade;
-            _facetImages[FACET_BOTTOM].color = shade;
-            _embossFaceImage.color = fill;
+            _blockRoot.SetActive(true);
+            _blockShadeImage.color = shade;
+            _blockFaceImage.color = fill;
+            _blockGlossImage.color = new Color(highlight.r, highlight.g, highlight.b, highlight.a * GLOSS_ALPHA);
         }
 
         /// <summary>Applies one alpha to every layer of both looks, so whichever is showing fades
@@ -235,20 +221,46 @@ namespace MustyBlockBlast.Presentation.Views
             CacheOuter();
             ApplyAlpha(_outerImage, alpha);
             ApplyAlpha(_flatFaceImage, alpha);
-            ApplyAlpha(_embossFaceImage, alpha);
+            ApplyAlpha(_blockShadeImage, alpha);
+            ApplyAlpha(_blockFaceImage, alpha);
 
-            // The outline fades with the rest so a highlighted cell cannot stay solid mid-fade. Its
-            // own alpha is restored in full by the next SetHighlight call.
+            // The gloss is translucent by design, so it fades in proportion to its resting alpha
+            // rather than being snapped to the cell's.
+            ApplyAlpha(_blockGlossImage, alpha * GLOSS_ALPHA);
+
+            // The rings fade with the rest so a highlighted cell cannot stay solid mid-fade. Their own
+            // alpha is restored in full by the next SetHighlight / SetGhostRing call.
             ApplyAlpha(_highlightImage, alpha);
+            ApplyAlpha(_ghostRingImage, alpha);
 
             // The icon likewise: a destroyed special cell fades out as one block, never as a fading
             // block with a solid mark left floating over it. Restored by the next SetSpecialIcon call.
             ApplyAlpha(_specialIconImage, alpha);
+        }
 
-            for (int facetIndex = 0; facetIndex < FACET_COUNT; facetIndex++)
+        private static void ShowLayer(Image image, Color colour)
+        {
+            if (image == null)
             {
-                ApplyAlpha(_facetImages[facetIndex], alpha);
+                return;
             }
+
+            image.color = colour;
+
+            if (!image.gameObject.activeSelf)
+            {
+                image.gameObject.SetActive(true);
+            }
+        }
+
+        private static void HideLayer(Image image)
+        {
+            if (image == null || !image.gameObject.activeSelf)
+            {
+                return;
+            }
+
+            image.gameObject.SetActive(false);
         }
 
         private static void ApplyAlpha(Image image, float alpha)
@@ -261,14 +273,6 @@ namespace MustyBlockBlast.Presentation.Views
             Color colour = image.color;
             colour.a = alpha;
             image.color = colour;
-        }
-
-        private static void ConfigureSliced(Image image, Sprite roundedSprite, float pixelsPerUnitMultiplier = 3f)
-        {
-            image.sprite = roundedSprite;
-            image.type = Image.Type.Sliced;
-            image.pixelsPerUnitMultiplier = pixelsPerUnitMultiplier;
-            image.raycastTarget = false;
         }
 
         private static Image CreateStretchedImage(Transform parent, string objectName)

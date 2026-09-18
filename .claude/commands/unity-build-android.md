@@ -23,7 +23,7 @@ Use the `unity-build-runner` agent to:
 
 Via `manage_build`:
 - Switch active platform to **Android** if not already active.
-- Player settings: package name — the project has no Android `applicationIdentifier` configured yet, so ask the user for one (e.g. `com.mtafasahin.mustyblockblast`, matching the iOS bundle id) the first time this command runs, rather than guessing.
+- Player settings: package name: keep the existing `com.mtafasahin.blockioblast` (matches the iOS bundle id) — do not overwrite it.
 - Minimum API level: 24+ unless the project already specifies otherwise.
 - IL2CPP scripting backend, ARM64 only (disable ARMv7) for a modern device build.
 - Output format: ask the user once — **APK** (for direct install/sideload on a test device) or **AAB** (for Play Store upload) — if not already clear from context. Default to APK for local device testing since that matches "open and run on my device" workflows.

@@ -217,12 +217,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8c2762531709440109a38ee3d1d6b2fb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.BoardView
-  _anchoredPosition: {x: 0, y: 120}
-  _cellSize: 108
+  _anchoredPosition: {x: 0, y: 77}
+  _cellSize: 100
   _cellSpacing: 8
-  _cardPadding: 24
+  _cardPadding: 28
   _cellInset: 3
-  _cellBevelThickness: 12
+  _cellBevelThickness: 11
   _previewLeadMarginFraction: 0.5
   _fadeDuration: 0.2
   _intersectionFlashDuration: 0.08
@@ -289,11 +289,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1e9454aa92f5949329208080f1c305c5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.CoinTotalHudView
-  _rightInset: 60
-  _gapAboveBoard: 12
-  _coinSize: 104
-  _fontSize: 40
+  _cornerOffset: {x: 24, y: -32}
+  _pillHeight: 92
+  _ringThickness: 8
+  _coinSize: 70
+  _plusDiscSize: 56
+  _paddingLeft: 12
+  _paddingRight: 16
+  _gap: 14
+  _fontSize: 47
   _coinSprite: {fileID: 21300000, guid: ef1b23357960542ca8a3614b7fbc2837, type: 3}
+  _displayFont: {fileID: 12800000, guid: 0879445ee55bb4fc5bfdc99e4b94f899, type: 3}
 --- !u!114 &322864019
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -862,8 +868,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3f3ac9e6aa63c435eb22ebfd1c34a8b6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.PathLevelBadgeView
-  _cornerOffset: {x: 14, y: 14}
-  _badgeDiameter: 68
+  _cornerOffset: {x: 2, y: 2}
+  _badgeDiameter: 60
+  _rimThickness: 8
 --- !u!1 &680048523
 GameObject:
   m_ObjectHideFlags: 0
@@ -1086,11 +1093,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2fa247d31f9544a5dbae29ce994ca36e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.PowerUpInventoryView
-  _anchoredPosition: {x: 0, y: -460}
-  _slotSize: 104
-  _slotSpacing: 180
-  _maxStripWidth: 1000
-  _countFontSize: 34
+  _anchoredPosition: {x: 0, y: -501}
+  _slotSize: 136
+  _slotGap: 28
+  _minSlotGap: 16
+  _maxStripWidth: 960
   _slotIcons:
   - {fileID: 21300000, guid: 4eb7949ce29df43d7b0049a7da99d113, type: 3}
   - {fileID: 21300000, guid: a78c069ff5050429a949119407ba55bc, type: 3}
@@ -1101,7 +1108,7 @@ MonoBehaviour:
   - {fileID: 21300000, guid: 3ed537dccdd5e431bb0d9db764852859, type: 3}
   - {fileID: 21300000, guid: b1457f48ecdf546ad82e33b5da56435f, type: 3}
   - {fileID: 21300000, guid: df082345de6c341249b4b446e357c822, type: 3}
-  _armedScale: 1.12
+  _labelFont: {fileID: 12800000, guid: 6537f3bea187e4d82b1d0969d9d00fa6, type: 3}
 --- !u!1 &941606219
 GameObject:
   m_ObjectHideFlags: 0
@@ -1423,18 +1430,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ab665808a81b24e68aacd369faf71e14, type: 3}
   m_Name: 
   m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.HoldSlotView
-  _anchoredPosition: {x: 0, y: -897}
-  _slotSize: 104
-  _pieceAreaSize: 84
-  _maxPieceCellSize: 26
+  _anchoredPosition: {x: 352, y: -734}
+  _pocketSize: {x: 200, y: 198}
+  _pieceAreaSize: 150
+  _maxPieceCellSize: 44
   _pieceCellSpacingFraction: 0.12
   _cellInset: 1
-  _cellBevelThickness: 2
-  _hoverScale: 1.14
-  _emptyGlyphSize: 40
-  _emptyLabelFontSize: 20
-  _emptyLabelGap: 10
-  _countFontSize: 34
+  _cellBevelThickness: 5
+  _hoverScale: 1.08
+  _glyphSize: 66
+  _captionFontSize: 26
+  _pocketSprite: {fileID: 4788146807900507653, guid: a2f15835957a64e618b6eb4a9068dd49, type: 3}
+  _labelFont: {fileID: 12800000, guid: 6537f3bea187e4d82b1d0969d9d00fa6, type: 3}
 --- !u!1 &1077023708
 GameObject:
   m_ObjectHideFlags: 0
@@ -1483,13 +1490,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 68ba96d3839704fa08f743580b834d0c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.PieceTrayView
-  _anchoredPosition: {x: 0, y: -670}
-  _cardSize: {x: 1000, y: 300}
-  _slotWidth: 300
-  _trayCellSize: 56
-  _trayCellSpacing: 5
+  _anchoredPosition: {x: 0, y: -734}
+  _cardSize: {x: 960, y: 250}
+  _cardPadding: 26
+  _slotGap: 18
+  _pocketWidth: 200
+  _trayCellSize: 35
+  _trayCellSpacing: 4
   _cellInset: 2
-  _cellBevelThickness: 6
+  _cellBevelThickness: 5
   _aimedSlotScale: 1.06
 --- !u!114 &1078373157
 MonoBehaviour:
@@ -1698,8 +1707,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ad084f7a7bda8453cae1db2d55edf2ae, type: 3}
   m_Name: 
   m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.SettingsButtonView
-  _cornerOffset: {x: -60, y: -48}
-  _buttonSize: 104
+  _cornerOffset: {x: -24, y: -32}
+  _buttonSize: 108
+  _iconSize: 54
+  _gearSprite: {fileID: 21300000, guid: 06d98da7ba1aa48d6a84be0daf4094b5, type: 3}
 --- !u!1 &1262375241
 GameObject:
   m_ObjectHideFlags: 0
@@ -1748,15 +1759,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c8516e940a83147b4b944629e2f94172, type: 3}
   m_Name: 
   m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.ScoreView
-  _anchoredPosition: {x: 0, y: 810}
-  _scoreFontSize: 130
-  _bestLabelFontSize: 36
-  _bestValueFontSize: 96
-  _bestCornerOffset: {x: 32, y: -32}
+  _anchoredPosition: {x: 0, y: 770}
+  _cardSize: {x: 960, y: 150}
+  _contentInset: 40
+  _scoreFontSize: 92
+  _labelFontSize: 28
+  _bestValueFontSize: 58
   _countUpDuration: 0.4
   _celebrationDuration: 0.7
   _celebrationScale: 1.8
   _scoreFont: {fileID: 12800000, guid: 0879445ee55bb4fc5bfdc99e4b94f899, type: 3}
+  _labelFont: {fileID: 12800000, guid: 6537f3bea187e4d82b1d0969d9d00fa6, type: 3}
+  _trophySprite: {fileID: 21300000, guid: d8372834e562f4948bd9696e268073d3, type: 3}
 --- !u!1 &1274277861
 GameObject:
   m_ObjectHideFlags: 0
@@ -1805,8 +1819,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c9d42a8e9073e4ac78debce84d373cd3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.DoubleMultiplierHudView
-  _anchoredPosition: {x: 0, y: -285}
-  _fontSize: 44
+  _anchoredPosition: {x: 0, y: 590}
+  _barSize: {x: 960, y: 80}
+  _paddingX: 34
+  _trackHeight: 26
+  _trackGap: 24
+  _multiplierFontSize: 50
+  _secondsFontSize: 40
+  _displayFont: {fileID: 12800000, guid: 0879445ee55bb4fc5bfdc99e4b94f899, type: 3}
+  _buttonSprite: {fileID: 21300000, guid: be54dd355e70442e6885fd6762cac582, type: 3}
 --- !u!1 &1279388993
 GameObject:
   m_ObjectHideFlags: 0
@@ -2230,11 +2251,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d283a9361c4c94785852a8425936e6af, type: 3}
   m_Name: 
   m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.ObjectiveIconContainerView
-  _leftInset: 16
-  _gapAboveBoard: 12
-  _slotSize: 104
-  _slotSpacing: 116
-  _progressFontSize: 26
+  _anchoredPosition: {x: 0, y: 627}
+  _rowSize: {x: 960, y: 80}
+  _chipHeight: 80
+  _iconPlateSize: 66
+  _iconSize: 36
+  _checkSize: 40
+  _chipPaddingLeft: 11
+  _chipPaddingRight: 22
+  _chipGap: 13
+  _chipSpacing: 18
+  _progressFontSize: 38
+  _captionFontSize: 28
+  _displayFont: {fileID: 12800000, guid: 0879445ee55bb4fc5bfdc99e4b94f899, type: 3}
+  _labelFont: {fileID: 12800000, guid: 6537f3bea187e4d82b1d0969d9d00fa6, type: 3}
 --- !u!1 &1552735300
 GameObject:
   m_ObjectHideFlags: 0
@@ -2359,6 +2389,7 @@ RectTransform:
   - {fileID: 1101196077}
   - {fileID: 759772934}
   - {fileID: 98212318}
+  - {fileID: 1934059591}
   m_Father: {fileID: 979778625}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
@@ -2427,8 +2458,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c6792af461bcc497e9c4dd3c17f0cebb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.LevelPathButtonView
-  _cornerOffset: {x: -60, y: -168}
-  _buttonSize: 104
+  _cornerOffset: {x: -156, y: -32}
+  _pillHeight: 92
+  _discSize: 66
+  _glyphSize: 40
+  _paddingLeft: 16
+  _paddingRight: 30
+  _gap: 14
+  _captionFontSize: 30
+  _numberFontSize: 47
+  _displayFont: {fileID: 12800000, guid: 0879445ee55bb4fc5bfdc99e4b94f899, type: 3}
+  _labelFont: {fileID: 12800000, guid: 6537f3bea187e4d82b1d0969d9d00fa6, type: 3}
+  _trailSprite: {fileID: 21300000, guid: 094a691f57671453a914e0a347f9164b, type: 3}
 --- !u!1 &1618923934
 GameObject:
   m_ObjectHideFlags: 0
@@ -2690,10 +2731,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5887502baf04649e5b0ffa5364022790, type: 3}
   m_Name: 
   m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.TimerHudView
-  _anchoredPosition: {x: 0, y: 634}
-  _fontSize: 48
-  _normalTimerColor: {r: 0, g: 0, b: 0, a: 0}
+  _pillHeight: 88
+  _paddingX: 30
+  _glyphSize: 40
+  _glyphGap: 12
+  _fontSize: 50
+  _timerKind: 2
   _lowTimeWarningColor: {r: 0.85, g: 0.17, b: 0.17, a: 1}
+  _displayFont: {fileID: 12800000, guid: 0879445ee55bb4fc5bfdc99e4b94f899, type: 3}
+  _buttonSprite: {fileID: 21300000, guid: be54dd355e70442e6885fd6762cac582, type: 3}
+  _clockSprite: {fileID: 21300000, guid: 81df2d59ed6e24011a379b7a4e619259, type: 3}
 --- !u!114 &1808930827
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2757,6 +2804,62 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1934059590
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1934059591}
+  - component: {fileID: 1934059592}
+  m_Layer: 0
+  m_Name: StreakPill
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &1934059591
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1934059590}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1595068338}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 100, y: 100}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &1934059592
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1934059590}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d5974d1f6e8db47f59f3e2d53451d3e3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.StreakPillView
+  _pillHeight: 88
+  _paddingX: 30
+  _glyphSize: 40
+  _glyphGap: 12
+  _fontSize: 44
+  _displayFont: {fileID: 12800000, guid: 0879445ee55bb4fc5bfdc99e4b94f899, type: 3}
+  _buttonSprite: {fileID: 21300000, guid: be54dd355e70442e6885fd6762cac582, type: 3}
+  _flameSprite: {fileID: 21300000, guid: 42fc2fb984c9e44c484a75a2089ae62e, type: 3}
 --- !u!114 &2074415552
 MonoBehaviour:
   m_ObjectHideFlags: 0

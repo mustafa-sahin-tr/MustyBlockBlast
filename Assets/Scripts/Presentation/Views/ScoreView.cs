@@ -11,33 +11,79 @@ using MustyBlockBlast.Gameplay.Reactive;
 using MustyBlockBlast.Gameplay.Settings;
 using MustyBlockBlast.Gameplay.Systems;
 using UnityEngine;
+using UnityEngine.Serialization;
 using UnityEngine.UI;
 using VContainer;
 
 namespace MustyBlockBlast.Presentation.Views
 {
     /// <summary>
-    /// Large score at the top-centre; "Best" is pinned to the top-left corner instead of sitting
-    /// under the score, so it stays legible and out of the score's way. Binds to <see cref="ScoreModel"/>.
+    /// The storefront score card (issue #265): a plain card-coloured plate over its shadow under the
+    /// top bar — no awning, by decision: on the play screen it only ate height the score could use —
+    /// with the run score on the left under a "score" caption, the best score on the right under a
+    /// trophy caption, and a centre slot between them that <see cref="TimerHudView"/> and
+    /// <see cref="StreakPillView"/> take turns occupying. Binds to <see cref="ScoreModel"/>.
+    /// <para>
+    /// Only the card's own labels are drawn here. The slot is exposed as a bare rect on purpose: the
+    /// card neither knows nor decides what sits in it, so adding a third occupant is a matter of
+    /// parenting onto <see cref="CentreSlot"/> rather than of teaching the card another state.
+    /// </para>
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class ScoreView : MonoBehaviour
     {
+        /// <summary>Corner radius of the card: the mockup's 20px at the canvas's scale.</summary>
+        private const float CARD_CORNER_RADIUS = 44f;
+
+        /// <summary>The card's drop: deeper than a pill's, since it is the one plate on the HUD that
+        /// reads as a piece of furniture rather than a chip.</summary>
+        private const float CARD_SHADOW_DROP = 12f;
+
+        /// <summary>Width and height of the slot in the middle of the card: wide enough for a
+        /// "x2,5 STREAK" pill or a "mm:ss" clock, never wider than the gap between the two columns.</summary>
+        private static readonly Vector2 CentreSlotSize = new Vector2(400f, 100f);
+
+        /// <summary>Side of the trophy glyph beside the best caption.</summary>
+        private const float TROPHY_SIZE = 30f;
+
+        /// <summary>Gap between the trophy and the best caption's first letter.</summary>
+        private const float TROPHY_GAP = 8f;
+
+        /// <summary>The best value's ink: the accent pulled toward black — the mockup's #91700F on
+        /// the gold accent — so the record reads as gold without washing out on the pale card.</summary>
+        private const float BEST_VALUE_SHADE = 0.35f;
+
         [Header("Layout")]
-        [SerializeField] private Vector2 _anchoredPosition = new Vector2(0f, 810f);
-        [SerializeField] private int _scoreFontSize = 130;
-        [SerializeField] private int _bestLabelFontSize = 36;
-        [SerializeField] private int _bestValueFontSize = 96;
-        [SerializeField] private Vector2 _bestCornerOffset = new Vector2(32f, -32f);
+        [Tooltip("Centre of the card, in reference pixels from the canvas centre. Sits under the top bar.")]
+        [SerializeField] private Vector2 _anchoredPosition = new Vector2(0f, 728f);
+
+        [Tooltip("Size of the card plate, in reference pixels. A full-width bar, as wide as the board card.")]
+        [SerializeField] private Vector2 _cardSize = new Vector2(960f, 150f);
+
+        [Tooltip("Horizontal inset of the two columns from the card's edges, in reference pixels.")]
+        [SerializeField] private float _contentInset = 40f;
+
+        [SerializeField] private int _scoreFontSize = 92;
+
+        [Tooltip("Size of the two small uppercase captions (score, best).")]
+        [FormerlySerializedAs("_bestLabelFontSize")]
+        [SerializeField] private int _labelFontSize = 28;
+        [SerializeField] private int _bestValueFontSize = 55;
         [SerializeField] private float _countUpDuration = 0.4f;
 
         [Header("New Record Celebration")]
         [SerializeField] private float _celebrationDuration = 0.7f;
         [SerializeField] private float _celebrationScale = 1.8f;
 
-        [Header("Score Style")]
-        [Tooltip("Decorative font for the score label only. Leave empty to fall back to the builtin font.")]
+        [Header("Art")]
+        [Tooltip("The chunky display face for the two numbers. Falls back to the builtin font when unassigned.")]
         [SerializeField] private Font _scoreFont;
+
+        [Tooltip("The heavy label face for the small uppercase captions. Falls back to the builtin font when unassigned.")]
+        [SerializeField] private Font _labelFont;
+
+        [Tooltip("White trophy silhouette beside the best caption. Tinted with the accent; hidden when unassigned.")]
+        [SerializeField] private Sprite _trophySprite;
 
         private readonly CompositeDisposable _disposables = new CompositeDisposable();
         private readonly StringBuilder _stringBuilder = new StringBuilder(16);
@@ -51,17 +97,31 @@ namespace MustyBlockBlast.Presentation.Views
         private TimedModeSystem _timedModeSystem;
         private ISubscriber<RunStartedMessage> _runStartedSubscriber;
         private ISubscriber<NewRecordMessage> _newRecordSubscriber;
+
+        private Image _cardShadow;
+        private Image _cardPlate;
+        private Text _scoreLabelText;
         private Text _scoreText;
         private Text _bestLabelText;
         private Text _bestValueText;
+        private Image _trophyImage;
+        private RectTransform _trophyRect;
         private RectTransform _bestLabelRect;
         private RectTransform _bestValueRect;
+        private RectTransform _centreSlot;
 
         private CancellationToken _destroyToken;
         private CancellationTokenSource _countUpCts;
         private CancellationTokenSource _celebrationCts;
         private int _displayedScore;
         private ThemeDefinition _currentTheme;
+
+        /// <summary>
+        /// The empty rect in the middle of the card, between the score and the best columns. Built in
+        /// Awake, so it is safe to parent onto from any sibling's Start. Its occupants centre
+        /// themselves in it; the card never resizes it.
+        /// </summary>
+        internal RectTransform CentreSlot => _centreSlot;
 
         [Inject]
         public void Construct(
@@ -89,39 +149,7 @@ namespace MustyBlockBlast.Presentation.Views
         private void Awake()
         {
             _destroyToken = this.GetCancellationTokenOnDestroy();
-
-            var rect = (RectTransform)transform;
-            rect.anchorMin = new Vector2(0.5f, 0.5f);
-            rect.anchorMax = new Vector2(0.5f, 0.5f);
-            rect.pivot = new Vector2(0.5f, 0.5f);
-            rect.sizeDelta = new Vector2(600f, 220f);
-            rect.anchoredPosition = _anchoredPosition;
-
-            // Labels are built in Awake, before the theme is known; the theme subscription in Start
-            // paints them (and repaints them on every later theme switch).
-            _scoreText = UiTextFactory.Create(rect, "ScoreLabel", _scoreFontSize, FontStyle.Bold, Color.clear, _scoreFont);
-
-            // "Best" is pinned to the Canvas's top-left corner rather than nested under the centred
-            // score box, so its position doesn't depend on where the score sits. Label and value are
-            // two stacked labels rather than one line with a space, so a timed duration suffix (e.g.
-            // "BEST (15s)") never pushes the number sideways.
-            var canvasRect = (RectTransform)transform.parent;
-
-            _bestLabelText = UiTextFactory.Create(canvasRect, "BestLabel", _bestLabelFontSize, FontStyle.Bold, Color.clear);
-            _bestLabelRect = (RectTransform)_bestLabelText.transform;
-            _bestLabelRect.anchorMin = new Vector2(0f, 1f);
-            _bestLabelRect.anchorMax = new Vector2(0f, 1f);
-            _bestLabelRect.pivot = new Vector2(0f, 1f);
-            _bestLabelRect.anchoredPosition = _bestCornerOffset;
-            _bestLabelText.alignment = TextAnchor.UpperLeft;
-
-            _bestValueText = UiTextFactory.Create(canvasRect, "BestValue", _bestValueFontSize, FontStyle.Bold, Color.clear);
-            _bestValueRect = (RectTransform)_bestValueText.transform;
-            _bestValueRect.anchorMin = new Vector2(0f, 1f);
-            _bestValueRect.anchorMax = new Vector2(0f, 1f);
-            _bestValueRect.pivot = new Vector2(0f, 1f);
-            _bestValueRect.anchoredPosition = _bestCornerOffset + new Vector2(0f, -(_bestLabelFontSize + 8f));
-            _bestValueText.alignment = TextAnchor.UpperLeft;
+            BuildCard();
         }
 
         private void Start()
@@ -158,6 +186,59 @@ namespace MustyBlockBlast.Presentation.Views
             CancelCelebrationToken();
         }
 
+        /// <summary>
+        /// The card, then the three regions left to right: the score column, the centre slot and the
+        /// best column. Built in Awake, before the theme is known; the theme subscription in Start
+        /// paints it (and repaints it on every later switch).
+        /// </summary>
+        private void BuildCard()
+        {
+            var rect = (RectTransform)transform;
+            HudChrome.Centre(rect, _cardSize);
+            rect.anchoredPosition = _anchoredPosition;
+
+            // Every size here is in canvas reference units, so the card owns its own scale rather than
+            // inheriting whatever the scene object happened to be created with.
+            rect.localScale = Vector3.one;
+
+            RectTransform cardRect = HudChrome.BuildPlate(
+                rect, "Card", _cardSize, Vector2.zero, CARD_CORNER_RADIUS, CARD_SHADOW_DROP,
+                out _cardShadow, out _cardPlate);
+
+            // With nothing along the card's top edge, the content band is the whole card: both columns
+            // and the slot are laid out around its vertical centre. The captions sit above it and the
+            // numbers hang a little below it, so a caption-and-number pair reads as centred.
+            float bandCentreY = 0f;
+            float labelY = bandCentreY + (_labelFontSize * 1.2f);
+            float leftX = (-_cardSize.x * 0.5f) + _contentInset;
+            float rightX = (_cardSize.x * 0.5f) - _contentInset;
+
+            _scoreLabelText = HudChrome.CreateLabel(
+                cardRect, "ScoreCaption", _labelFontSize, FontStyle.Bold, TextAnchor.MiddleLeft,
+                new Vector2(leftX, labelY), _labelFont);
+            _scoreText = HudChrome.CreateLabel(
+                cardRect, "ScoreLabel", _scoreFontSize, FontStyle.Normal, TextAnchor.MiddleLeft,
+                new Vector2(leftX, bandCentreY - (_scoreFontSize * 0.2f)), _scoreFont);
+
+            _centreSlot = HudChrome.CreateRect(cardRect, "CentreSlot", CentreSlotSize, new Vector2(0f, bandCentreY));
+
+            _bestLabelText = HudChrome.CreateLabel(
+                cardRect, "BestLabel", _labelFontSize, FontStyle.Bold, TextAnchor.MiddleRight,
+                new Vector2(rightX, labelY), _labelFont);
+            _bestLabelRect = (RectTransform)_bestLabelText.transform;
+
+            // Positioned once the caption's width is known (see PlaceTrophy); centre-pivoted so its
+            // anchored position is simply where it sits.
+            _trophyImage = HudChrome.BuildGlyph(
+                cardRect, "Trophy", _trophySprite, new Vector2(TROPHY_SIZE, TROPHY_SIZE), new Vector2(rightX, labelY));
+            _trophyRect = (RectTransform)_trophyImage.transform;
+
+            _bestValueText = HudChrome.CreateLabel(
+                cardRect, "BestValue", _bestValueFontSize, FontStyle.Normal, TextAnchor.MiddleRight,
+                new Vector2(rightX, bandCentreY - (_bestValueFontSize * 0.35f)), _scoreFont);
+            _bestValueRect = (RectTransform)_bestValueText.transform;
+        }
+
         private void OnThemeChanged(ThemeDefinition theme)
         {
             if (theme == null)
@@ -166,16 +247,22 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             _currentTheme = theme;
-            _scoreText.color = theme.Accent;
+            _cardShadow.color = theme.CardShadow;
+            _cardPlate.color = theme.CardBackground;
+            _scoreLabelText.color = theme.SoftInk;
+            _scoreText.color = theme.Ink;
+            _trophyImage.color = _trophySprite != null ? theme.Accent : Color.clear;
 
             // Skip repainting the best label/value while a celebration is mid-flight — it owns their
             // colour for its duration and will restore the themed colour itself when it ends.
             if (_celebrationCts == null)
             {
                 _bestLabelText.color = theme.SoftInk;
-                _bestValueText.color = theme.Ink;
+                _bestValueText.color = BestValueColour(theme);
             }
         }
+
+        private static Color BestValueColour(ThemeDefinition theme) => HudChrome.Darken(theme.Accent, BEST_VALUE_SHADE);
 
         private void OnScoreChanged(int score) => AnimateScoreToAsync(score).Forget();
 
@@ -304,7 +391,7 @@ namespace MustyBlockBlast.Presentation.Views
             if (_currentTheme != null)
             {
                 _bestLabelText.color = Color.Lerp(_currentTheme.SoftInk, flashColor, pulse);
-                _bestValueText.color = Color.Lerp(_currentTheme.Ink, flashColor, pulse);
+                _bestValueText.color = Color.Lerp(BestValueColour(_currentTheme), flashColor, pulse);
             }
         }
 
@@ -328,27 +415,29 @@ namespace MustyBlockBlast.Presentation.Views
             if (_currentTheme != null)
             {
                 _bestLabelText.color = _currentTheme.SoftInk;
-                _bestValueText.color = _currentTheme.Ink;
+                _bestValueText.color = BestValueColour(_currentTheme);
             }
         }
 
-        private void OnLocaleChanged(LocaleDefinition locale) => RefreshBestLabel();
+        private void OnLocaleChanged(LocaleDefinition locale) => RefreshCaptions();
 
-        private void OnModeChanged(GameMode mode) => RefreshBestLabel();
+        private void OnModeChanged(GameMode mode) => RefreshCaptions();
 
-        private void OnHighScoreChanged(int highScore) => RefreshBestLabel();
+        private void OnHighScoreChanged(int highScore) => RefreshCaptions();
 
-        private void OnTimedBestChanged(int timedBest) => RefreshBestLabel();
+        private void OnTimedBestChanged(int timedBest) => RefreshCaptions();
 
-        private void OnSelectedDurationChanged(float durationSeconds) => RefreshBestLabel();
+        private void OnSelectedDurationChanged(float durationSeconds) => RefreshCaptions();
 
         /// <summary>
-        /// Repaints the "BEST" label and value from whichever best is authoritative for the active
-        /// mode. Timed mode names its duration in the label (e.g. "BEST (15s)") since a best is only
-        /// comparable within its own duration; endless keeps the plain "BEST" label.
+        /// Repaints the score caption and the best caption and value from whichever best is
+        /// authoritative for the active mode. Timed mode names its duration in the caption since a
+        /// best is only comparable within its own duration; endless keeps the plain caption.
         /// </summary>
-        private void RefreshBestLabel()
+        private void RefreshCaptions()
         {
+            _scoreLabelText.text = _localizationSystem.Translate(LocalizationKeys.HUD_SCORE_LABEL);
+
             bool isTimed = _gameModeSystem.CurrentMode.Value == GameMode.Timed;
             int best = isTimed ? _timedHighScoreModel.Best.Value : _scoreModel.HighScore.Value;
 
@@ -368,9 +457,23 @@ namespace MustyBlockBlast.Presentation.Views
                 _bestLabelText.text = _localizationSystem.Translate(LocalizationKeys.SCORE_BEST);
             }
 
+            PlaceTrophy();
+
             _stringBuilder.Clear();
             _stringBuilder.Append(best);
             _bestValueText.text = _stringBuilder.ToString();
+        }
+
+        /// <summary>
+        /// Sits the trophy just left of the caption's first letter. The caption is right-aligned and
+        /// overflows its rect, so its left edge is its right edge less its preferred width — measured
+        /// off the text generator, which is current as soon as the text is set.
+        /// </summary>
+        private void PlaceTrophy()
+        {
+            float captionLeft = _bestLabelRect.anchoredPosition.x - _bestLabelText.preferredWidth;
+            _trophyRect.anchoredPosition = new Vector2(
+                captionLeft - TROPHY_GAP - (TROPHY_SIZE * 0.5f), _bestLabelRect.anchoredPosition.y);
         }
     }
 }
