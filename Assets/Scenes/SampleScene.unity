@@ -2018,6 +2018,9 @@ MonoBehaviour:
   _headerFontSize: 56
   _bodyFontSize: 40
   _scrimColour: {r: 0.17, g: 0.15, b: 0.2, a: 0.55}
+  _goldenIconSprite: {fileID: 21300000, guid: b8f67c499b113492bafaca1d0553e5d3, type: 3}
+  _piercingRocketIconSprite: {fileID: 21300000, guid: af774f734464949a1823335bc64f6b5a, type: 3}
+  _demolitionHammerIconSprite: {fileID: 21300000, guid: 67d7b98e40bda44f293e8ca8fcf43cc4, type: 3}
 --- !u!1 &1462423334
 GameObject:
   m_ObjectHideFlags: 0

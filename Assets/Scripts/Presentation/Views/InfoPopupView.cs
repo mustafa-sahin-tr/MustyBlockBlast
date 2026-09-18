@@ -24,11 +24,14 @@ namespace MustyBlockBlast.Presentation.Views
     /// another panel, which is what keeps that single shared pause flag from having two owners.
     /// </para>
     /// <para>
-    /// The hero icon is never authored here: it borrows whichever View already owns the authored sprite
-    /// for the popup's subject — <see cref="BoardView"/> for a special cell, <see cref="PowerUpInventoryView"/>
-    /// for a power-up, <see cref="HoldSlotView"/> for the Hold pocket — so one glyph is never drawn
-    /// twice. A special piece has no authored icon of its own (see <see cref="ResolveIcon"/>) and falls
-    /// back to the shared starburst placeholder every other unauthored glyph in this game uses.
+    /// The hero icon is never authored here for a special cell, a power-up or the Hold pocket: it
+    /// borrows whichever View already owns the authored sprite for that subject —
+    /// <see cref="BoardView"/>, <see cref="PowerUpInventoryView"/>, <see cref="HoldSlotView"/> — so one
+    /// glyph is never drawn twice. A special piece has no other View that owns a hero-sized glyph for
+    /// it (dock plates show <c>SpecialPieceVisuals</c>' small mark, not this card's icon), so this View
+    /// is the one owner of the three <see cref="SpecialPieceKind"/> hero sprites, authored the same
+    /// white-silhouette-plus-runtime-tint way <see cref="BoardView"/>'s special cell icons are (see
+    /// <see cref="ResolveIcon"/>).
     /// </para>
     /// </summary>
     [DisallowMultipleComponent]
@@ -50,6 +53,11 @@ namespace MustyBlockBlast.Presentation.Views
 
         [Header("Palette")]
         [SerializeField] private Color _scrimColour = new Color(0.17f, 0.15f, 0.20f, 0.55f);
+
+        [Header("Special piece icons (issue #283)")]
+        [SerializeField] private Sprite _goldenIconSprite;
+        [SerializeField] private Sprite _piercingRocketIconSprite;
+        [SerializeField] private Sprite _demolitionHammerIconSprite;
 
         private InfoPopupModel _infoPopupModel;
         private InfoPopupSystem _infoPopupSystem;
@@ -76,6 +84,24 @@ namespace MustyBlockBlast.Presentation.Views
 
         private ThemeDefinition _currentTheme;
         private InfoPopupContent? _currentContent;
+
+        /// <summary>
+        /// Colour a <see cref="SpecialPieceKind.Golden"/>'s hero icon is drawn in. The same gold
+        /// <c>SpecialPieceVisuals.GoldFill</c> paints the piece's own dock plate with — "this one is
+        /// golden" should read as the one consistent hue everywhere it appears.
+        /// </summary>
+        private static readonly Color GoldenIconTint = new Color(1f, 0.78f, 0.20f, 1f);
+
+        /// <summary>Colour a <see cref="SpecialPieceKind.PiercingRocket"/>'s hero icon is drawn in. A
+        /// distinct warm hue from <see cref="GoldenIconTint"/>, matching what the piece itself
+        /// launches: fire, not gold — see the negative-test requirement in issue #283 that Golden and
+        /// Demolition Hammer must never again share one undistinguished placeholder.</summary>
+        private static readonly Color PiercingRocketIconTint = new Color(1f, 0.47f, 0.24f, 1f);
+
+        /// <summary>Colour a <see cref="SpecialPieceKind.DemolitionHammer"/>'s hero icon is drawn in. A
+        /// cool steel hue, deliberately the furthest from <see cref="GoldenIconTint"/> of the three, for
+        /// the reason <see cref="PiercingRocketIconTint"/> is.</summary>
+        private static readonly Color DemolitionHammerIconTint = new Color(0.72f, 0.76f, 0.84f, 1f);
 
         [Inject]
         public void Construct(
@@ -257,10 +283,45 @@ namespace MustyBlockBlast.Presentation.Views
                     icon = _holdSlotView.PocketSprite;
                     tint = Color.white;
                     return;
+                case InfoPopupSubjectKind.SpecialPiece:
+                    ResolveSpecialPieceIcon((SpecialPieceKind)content.KindValue, out icon, out tint);
+                    return;
                 default:
                     icon = UiSpriteFactory.Starburst;
                     tint = Color.white;
                     return;
+            }
+        }
+
+        /// <summary>The authored hero sprite and tint for <paramref name="kind"/>, falling back to the
+        /// shared starburst placeholder only for a kind with no authored art (there is none as of issue
+        /// #283 — every <see cref="SpecialPieceKind"/> but <see cref="SpecialPieceKind.None"/> has one).</summary>
+        private void ResolveSpecialPieceIcon(SpecialPieceKind kind, out Sprite icon, out Color tint)
+        {
+            switch (kind)
+            {
+                case SpecialPieceKind.Golden:
+                    icon = _goldenIconSprite;
+                    tint = GoldenIconTint;
+                    break;
+                case SpecialPieceKind.PiercingRocket:
+                    icon = _piercingRocketIconSprite;
+                    tint = PiercingRocketIconTint;
+                    break;
+                case SpecialPieceKind.DemolitionHammer:
+                    icon = _demolitionHammerIconSprite;
+                    tint = DemolitionHammerIconTint;
+                    break;
+                default:
+                    icon = UiSpriteFactory.Starburst;
+                    tint = Color.white;
+                    break;
+            }
+
+            if (icon == null)
+            {
+                icon = UiSpriteFactory.Starburst;
+                tint = Color.white;
             }
         }
 

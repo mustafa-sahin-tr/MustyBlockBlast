@@ -518,20 +518,20 @@ MonoBehaviour:
     m_Localized: TRY AGAIN
     m_Metadata:
       m_Items: []
-  - m_Id: 1869058117984256
-    m_Localized: New tile!
+  - m_Id: 1892479862300676
+    m_Localized: Instantly clears the whole column it's used on. Tap a column to use it.
     m_Metadata:
       m_Items: []
-  - m_Id: 1869058130567168
-    m_Localized: This is a special tile. It does something extra when you clear it.
+  - m_Id: 1892479862300675
+    m_Localized: Column Clear
     m_Metadata:
       m_Items: []
-  - m_Id: 1869058130567169
-    m_Localized: New power-up!
+  - m_Id: 1892479862300674
+    m_Localized: Instantly clears the whole row it's used on. Tap a row to use it.
     m_Metadata:
       m_Items: []
-  - m_Id: 1869058130567170
-    m_Localized: Tap its icon to arm it, then tap the board to use it.
+  - m_Id: 1892479862300673
+    m_Localized: Row Clear
     m_Metadata:
       m_Items: []
   - m_Id: 1869058130567171
@@ -542,12 +542,140 @@ MonoBehaviour:
     m_Localized: Drag a piece here to save it for later. Drag it back out any time.
     m_Metadata:
       m_Items: []
-  - m_Id: 1869058130567173
-    m_Localized: Special piece!
+  - m_Id: 1892479862300672
+    m_Localized: Instantly clears the 3x3 area around it. Tap anywhere on the board to use it.
     m_Metadata:
       m_Items: []
-  - m_Id: 1869058130567174
-    m_Localized: This piece does something extra. Place it to see what it does.
+  - m_Id: 1892479841329152
+    m_Localized: Bomb
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300677
+    m_Localized: Joker
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300678
+    m_Localized: Places a single block that matches any colour, instantly clearing any row or column it completes.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300679
+    m_Localized: Colour Cleanser
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300680
+    m_Localized: Instantly clears every block of one colour you choose from the board.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300681
+    m_Localized: Rotate
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300682
+    m_Localized: Lets you rotate a dock piece 90 degrees before placing it.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300683
+    m_Localized: Reroll
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300684
+    m_Localized: Replaces all three dock pieces with new ones.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300685
+    m_Localized: 2x Multiplier
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300686
+    m_Localized: Doubles the score you earn for a limited time.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300687
+    m_Localized: Ghost Fit
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300688
+    m_Localized: Shows the best spot on the board for one of your dock pieces as a ghost outline.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300689
+    m_Localized: Coin Sower
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300690
+    m_Localized: "Scatters random coin cells across the board \u2014 clear them to earn coins."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300691
+    m_Localized: Explosive Core
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300692
+    m_Localized: When destroyed, it blasts the cells around it too.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300693
+    m_Localized: Laser
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300694
+    m_Localized: When destroyed, it clears its entire row and column.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300695
+    m_Localized: Vortex
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300696
+    m_Localized: Pulls the blocks around it toward its centre. Place a piece on it to clear it.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300697
+    m_Localized: Chain Lightning
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300698
+    m_Localized: When destroyed, it jumps to nearby special cells and triggers them too.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300699
+    m_Localized: Score Gem
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300700
+    m_Localized: Awards bonus points when destroyed.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300701
+    m_Localized: Coin Cell
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300702
+    m_Localized: Awards a coin when destroyed.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300703
+    m_Localized: Golden Piece
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300704
+    m_Localized: "Earned with a five-streak combo. Plays like an ordinary piece \u2014 a visual reward."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300705
+    m_Localized: Piercing Rocket
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300706
+    m_Localized: Earned by clearing three or more lines in one move. When placed, it clears its whole row and column.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479866494976
+    m_Localized: Demolition Hammer
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479866494977
+    m_Localized: Given as a last resort when the board is nearly full. Tap a cell on the board to destroy it.
     m_Metadata:
       m_Items: []
   references:

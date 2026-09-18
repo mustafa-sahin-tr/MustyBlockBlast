@@ -37,22 +37,55 @@ namespace MustyBlockBlast.Gameplay.Localization
         public const string POWERUP_GHOST_FIT_NO_PLACEMENTS = "powerup.ghost_fit_no_placements";
 
         // --- Info popups ---
-        // One header+body pair per subject-kind class (not per specific enum value — the same
-        // "infrastructure ships a shared placeholder, future content work splits per kind" precedent
-        // the old TUTORIAL_* keys set). Shown automatically the first time a kind of that subject class
-        // first appears, and reopenable on demand afterward — see InfoPopupSystem.
-
-        public const string INFO_POPUP_SPECIAL_CELL_HEADER = "info_popup.special_cell.header";
-        public const string INFO_POPUP_SPECIAL_CELL_BODY = "info_popup.special_cell.body";
-
-        public const string INFO_POPUP_POWERUP_HEADER = "info_popup.powerup.header";
-        public const string INFO_POPUP_POWERUP_BODY = "info_popup.powerup.body";
+        // One header+body pair per specific enum value (issue #283 content pass) — every PowerUpKind
+        // except Hold, every SpecialCellKind and every SpecialPieceKind gets its own copy. Hold has
+        // only one subject, so its "class" key already is its "specific" key and is kept as-is. Shown
+        // automatically the first time a kind first appears, and reopenable on demand afterward — see
+        // InfoPopupSystem.
 
         public const string INFO_POPUP_HOLD_HEADER = "info_popup.hold.header";
         public const string INFO_POPUP_HOLD_BODY = "info_popup.hold.body";
 
-        public const string INFO_POPUP_SPECIAL_PIECE_HEADER = "info_popup.special_piece.header";
-        public const string INFO_POPUP_SPECIAL_PIECE_BODY = "info_popup.special_piece.body";
+        public const string INFO_POPUP_POWERUP_BOMB_HEADER = "info_popup.powerup.bomb.header";
+        public const string INFO_POPUP_POWERUP_BOMB_BODY = "info_popup.powerup.bomb.body";
+        public const string INFO_POPUP_POWERUP_ROW_CLEAR_HEADER = "info_popup.powerup.row_clear.header";
+        public const string INFO_POPUP_POWERUP_ROW_CLEAR_BODY = "info_popup.powerup.row_clear.body";
+        public const string INFO_POPUP_POWERUP_COLUMN_CLEAR_HEADER = "info_popup.powerup.column_clear.header";
+        public const string INFO_POPUP_POWERUP_COLUMN_CLEAR_BODY = "info_popup.powerup.column_clear.body";
+        public const string INFO_POPUP_POWERUP_JOKER_HEADER = "info_popup.powerup.joker.header";
+        public const string INFO_POPUP_POWERUP_JOKER_BODY = "info_popup.powerup.joker.body";
+        public const string INFO_POPUP_POWERUP_COLOR_CLEANSER_HEADER = "info_popup.powerup.color_cleanser.header";
+        public const string INFO_POPUP_POWERUP_COLOR_CLEANSER_BODY = "info_popup.powerup.color_cleanser.body";
+        public const string INFO_POPUP_POWERUP_ROTATE_HEADER = "info_popup.powerup.rotate.header";
+        public const string INFO_POPUP_POWERUP_ROTATE_BODY = "info_popup.powerup.rotate.body";
+        public const string INFO_POPUP_POWERUP_REROLL_HEADER = "info_popup.powerup.reroll.header";
+        public const string INFO_POPUP_POWERUP_REROLL_BODY = "info_popup.powerup.reroll.body";
+        public const string INFO_POPUP_POWERUP_DOUBLE_MULTIPLIER_HEADER = "info_popup.powerup.double_multiplier.header";
+        public const string INFO_POPUP_POWERUP_DOUBLE_MULTIPLIER_BODY = "info_popup.powerup.double_multiplier.body";
+        public const string INFO_POPUP_POWERUP_GHOST_FIT_HEADER = "info_popup.powerup.ghost_fit.header";
+        public const string INFO_POPUP_POWERUP_GHOST_FIT_BODY = "info_popup.powerup.ghost_fit.body";
+        public const string INFO_POPUP_POWERUP_COIN_SOWER_HEADER = "info_popup.powerup.coin_sower.header";
+        public const string INFO_POPUP_POWERUP_COIN_SOWER_BODY = "info_popup.powerup.coin_sower.body";
+
+        public const string INFO_POPUP_SPECIAL_CELL_EXPLOSIVE_CORE_HEADER = "info_popup.special_cell.explosive_core.header";
+        public const string INFO_POPUP_SPECIAL_CELL_EXPLOSIVE_CORE_BODY = "info_popup.special_cell.explosive_core.body";
+        public const string INFO_POPUP_SPECIAL_CELL_LASER_HEADER = "info_popup.special_cell.laser.header";
+        public const string INFO_POPUP_SPECIAL_CELL_LASER_BODY = "info_popup.special_cell.laser.body";
+        public const string INFO_POPUP_SPECIAL_CELL_VORTEX_HEADER = "info_popup.special_cell.vortex.header";
+        public const string INFO_POPUP_SPECIAL_CELL_VORTEX_BODY = "info_popup.special_cell.vortex.body";
+        public const string INFO_POPUP_SPECIAL_CELL_CHAIN_LIGHTNING_HEADER = "info_popup.special_cell.chain_lightning.header";
+        public const string INFO_POPUP_SPECIAL_CELL_CHAIN_LIGHTNING_BODY = "info_popup.special_cell.chain_lightning.body";
+        public const string INFO_POPUP_SPECIAL_CELL_SCORE_GEM_HEADER = "info_popup.special_cell.score_gem.header";
+        public const string INFO_POPUP_SPECIAL_CELL_SCORE_GEM_BODY = "info_popup.special_cell.score_gem.body";
+        public const string INFO_POPUP_SPECIAL_CELL_COIN_HEADER = "info_popup.special_cell.coin.header";
+        public const string INFO_POPUP_SPECIAL_CELL_COIN_BODY = "info_popup.special_cell.coin.body";
+
+        public const string INFO_POPUP_SPECIAL_PIECE_GOLDEN_HEADER = "info_popup.special_piece.golden.header";
+        public const string INFO_POPUP_SPECIAL_PIECE_GOLDEN_BODY = "info_popup.special_piece.golden.body";
+        public const string INFO_POPUP_SPECIAL_PIECE_PIERCING_ROCKET_HEADER = "info_popup.special_piece.piercing_rocket.header";
+        public const string INFO_POPUP_SPECIAL_PIECE_PIERCING_ROCKET_BODY = "info_popup.special_piece.piercing_rocket.body";
+        public const string INFO_POPUP_SPECIAL_PIECE_DEMOLITION_HAMMER_HEADER = "info_popup.special_piece.demolition_hammer.header";
+        public const string INFO_POPUP_SPECIAL_PIECE_DEMOLITION_HAMMER_BODY = "info_popup.special_piece.demolition_hammer.body";
 
         // --- Splash ---
 

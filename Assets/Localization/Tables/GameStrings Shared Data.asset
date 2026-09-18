@@ -515,22 +515,6 @@ MonoBehaviour:
     m_Key: result.try_again
     m_Metadata:
       m_Items: []
-  - m_Id: 1869058117984256
-    m_Key: info_popup.special_cell.header
-    m_Metadata:
-      m_Items: []
-  - m_Id: 1869058130567168
-    m_Key: info_popup.special_cell.body
-    m_Metadata:
-      m_Items: []
-  - m_Id: 1869058130567169
-    m_Key: info_popup.powerup.header
-    m_Metadata:
-      m_Items: []
-  - m_Id: 1869058130567170
-    m_Key: info_popup.powerup.body
-    m_Metadata:
-      m_Items: []
   - m_Id: 1869058130567171
     m_Key: info_popup.hold.header
     m_Metadata:
@@ -539,12 +523,156 @@ MonoBehaviour:
     m_Key: info_popup.hold.body
     m_Metadata:
       m_Items: []
-  - m_Id: 1869058130567173
-    m_Key: info_popup.special_piece.header
+  - m_Id: 1892479841329152
+    m_Key: info_popup.powerup.bomb.header
     m_Metadata:
       m_Items: []
-  - m_Id: 1869058130567174
-    m_Key: info_popup.special_piece.body
+  - m_Id: 1892479862300672
+    m_Key: info_popup.powerup.bomb.body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300673
+    m_Key: info_popup.powerup.row_clear.header
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300674
+    m_Key: info_popup.powerup.row_clear.body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300675
+    m_Key: info_popup.powerup.column_clear.header
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300676
+    m_Key: info_popup.powerup.column_clear.body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300677
+    m_Key: info_popup.powerup.joker.header
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300678
+    m_Key: info_popup.powerup.joker.body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300679
+    m_Key: info_popup.powerup.color_cleanser.header
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300680
+    m_Key: info_popup.powerup.color_cleanser.body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300681
+    m_Key: info_popup.powerup.rotate.header
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300682
+    m_Key: info_popup.powerup.rotate.body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300683
+    m_Key: info_popup.powerup.reroll.header
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300684
+    m_Key: info_popup.powerup.reroll.body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300685
+    m_Key: info_popup.powerup.double_multiplier.header
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300686
+    m_Key: info_popup.powerup.double_multiplier.body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300687
+    m_Key: info_popup.powerup.ghost_fit.header
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300688
+    m_Key: info_popup.powerup.ghost_fit.body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300689
+    m_Key: info_popup.powerup.coin_sower.header
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300690
+    m_Key: info_popup.powerup.coin_sower.body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300691
+    m_Key: info_popup.special_cell.explosive_core.header
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300692
+    m_Key: info_popup.special_cell.explosive_core.body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300693
+    m_Key: info_popup.special_cell.laser.header
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300694
+    m_Key: info_popup.special_cell.laser.body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300695
+    m_Key: info_popup.special_cell.vortex.header
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300696
+    m_Key: info_popup.special_cell.vortex.body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300697
+    m_Key: info_popup.special_cell.chain_lightning.header
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300698
+    m_Key: info_popup.special_cell.chain_lightning.body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300699
+    m_Key: info_popup.special_cell.score_gem.header
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300700
+    m_Key: info_popup.special_cell.score_gem.body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300701
+    m_Key: info_popup.special_cell.coin.header
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300702
+    m_Key: info_popup.special_cell.coin.body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300703
+    m_Key: info_popup.special_piece.golden.header
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300704
+    m_Key: info_popup.special_piece.golden.body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300705
+    m_Key: info_popup.special_piece.piercing_rocket.header
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300706
+    m_Key: info_popup.special_piece.piercing_rocket.body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479866494976
+    m_Key: info_popup.special_piece.demolition_hammer.header
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479866494977
+    m_Key: info_popup.special_piece.demolition_hammer.body
     m_Metadata:
       m_Items: []
   m_Metadata:

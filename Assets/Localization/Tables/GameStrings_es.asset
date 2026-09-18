@@ -518,20 +518,20 @@ MonoBehaviour:
     m_Localized: REINTENTAR
     m_Metadata:
       m_Items: []
-  - m_Id: 1869058117984256
-    m_Localized: "\xA1Nueva ficha!"
+  - m_Id: 1892479862300676
+    m_Localized: Despeja al instante toda la columna donde se usa. Toca una columna para usarla.
     m_Metadata:
       m_Items: []
-  - m_Id: 1869058130567168
-    m_Localized: Esta es una ficha especial. Hace algo extra cuando la despejas.
+  - m_Id: 1892479862300675
+    m_Localized: Despeje de Columna
     m_Metadata:
       m_Items: []
-  - m_Id: 1869058130567169
-    m_Localized: "\xA1Nuevo potenciador!"
+  - m_Id: 1892479862300674
+    m_Localized: Despeja al instante toda la fila donde se usa. Toca una fila para usarla.
     m_Metadata:
       m_Items: []
-  - m_Id: 1869058130567170
-    m_Localized: Toca su icono para activarlo y luego toca el tablero para usarlo.
+  - m_Id: 1892479862300673
+    m_Localized: Despeje de Fila
     m_Metadata:
       m_Items: []
   - m_Id: 1869058130567171
@@ -542,12 +542,140 @@ MonoBehaviour:
     m_Localized: "Arrastra una pieza aqu\xED para guardarla. Puedes sacarla cuando quieras."
     m_Metadata:
       m_Items: []
-  - m_Id: 1869058130567173
-    m_Localized: "\xA1Pieza especial!"
+  - m_Id: 1892479862300672
+    m_Localized: "Despeja al instante el \xE1rea de 3x3 a su alrededor. Toca cualquier punto del tablero para usarla."
     m_Metadata:
       m_Items: []
-  - m_Id: 1869058130567174
-    m_Localized: "Esta pieza hace algo extra. Col\xF3cala para ver qu\xE9 hace."
+  - m_Id: 1892479841329152
+    m_Localized: Bomba
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300677
+    m_Localized: "Comod\xEDn"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300678
+    m_Localized: Coloca un bloque que encaja con cualquier color, despejando al instante la fila o columna que complete.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300679
+    m_Localized: Limpiador de Color
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300680
+    m_Localized: Despeja al instante todos los bloques de un color que elijas en el tablero.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300681
+    m_Localized: Rotar
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300682
+    m_Localized: Te permite girar 90 grados una pieza de la bandeja antes de colocarla.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300683
+    m_Localized: Redistribuir
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300684
+    m_Localized: Reemplaza las tres piezas de la bandeja por otras nuevas.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300685
+    m_Localized: Multiplicador 2x
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300686
+    m_Localized: Duplica los puntos que ganas durante un tiempo limitado.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300687
+    m_Localized: Ajuste Fantasma
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300688
+    m_Localized: Muestra el mejor lugar del tablero para una de tus piezas con una silueta fantasma.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300689
+    m_Localized: Sembrador de Monedas
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300690
+    m_Localized: "Esparce celdas de monedas aleatorias por el tablero; desp\xE9jalas para ganar monedas."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300691
+    m_Localized: "N\xFAcleo Explosivo"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300692
+    m_Localized: "Al destruirse, tambi\xE9n hace estallar las celdas a su alrededor."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300693
+    m_Localized: "L\xE1ser"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300694
+    m_Localized: Al destruirse, despeja toda su fila y columna.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300695
+    m_Localized: "V\xF3rtice"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300696
+    m_Localized: "Atrae hacia su centro los bloques que lo rodean. Coloca una pieza sobre \xE9l para despejarlo."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300697
+    m_Localized: Rayo en Cadena
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300698
+    m_Localized: "Al destruirse, salta a celdas especiales cercanas y tambi\xE9n las activa."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300699
+    m_Localized: Gema de Puntos
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300700
+    m_Localized: Otorga puntos extra al destruirse.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300701
+    m_Localized: Celda de Moneda
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300702
+    m_Localized: Otorga una moneda al destruirse.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300703
+    m_Localized: Pieza Dorada
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300704
+    m_Localized: 'Se gana con una combo de cinco seguidas. Se coloca como una pieza normal: es una recompensa visual.'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300705
+    m_Localized: Cohete Perforante
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300706
+    m_Localized: "Se gana al despejar tres o m\xE1s l\xEDneas en un solo movimiento. Al colocarla, despeja toda su fila y columna."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479866494976
+    m_Localized: Martillo Demoledor
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479866494977
+    m_Localized: "Se entrega como \xFAltimo recurso cuando el tablero est\xE1 casi lleno. Toca una celda del tablero para destruirla."
     m_Metadata:
       m_Items: []
   references:

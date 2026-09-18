@@ -174,21 +174,131 @@ namespace MustyBlockBlast.Gameplay.Systems
             {
                 case InfoPopupSubjectKind.SpecialCell:
                     id = SPECIAL_CELL_ID_PREFIX + (SpecialCellKind)kindValue;
-                    headerKey = LocalizationKeys.INFO_POPUP_SPECIAL_CELL_HEADER;
-                    bodyKey = LocalizationKeys.INFO_POPUP_SPECIAL_CELL_BODY;
+                    KeysForSpecialCell((SpecialCellKind)kindValue, out headerKey, out bodyKey);
                     break;
                 case InfoPopupSubjectKind.PowerUp:
                     id = POWERUP_ID_PREFIX + (PowerUpKind)kindValue;
-                    headerKey = LocalizationKeys.INFO_POPUP_POWERUP_HEADER;
-                    bodyKey = LocalizationKeys.INFO_POPUP_POWERUP_BODY;
+                    KeysForPowerUp((PowerUpKind)kindValue, out headerKey, out bodyKey);
                     break;
                 case InfoPopupSubjectKind.SpecialPiece:
                     id = SPECIAL_PIECE_ID_PREFIX + (SpecialPieceKind)kindValue;
-                    headerKey = LocalizationKeys.INFO_POPUP_SPECIAL_PIECE_HEADER;
-                    bodyKey = LocalizationKeys.INFO_POPUP_SPECIAL_PIECE_BODY;
+                    KeysForSpecialPiece((SpecialPieceKind)kindValue, out headerKey, out bodyKey);
                     break;
                 default:
                     id = HOLD_ID;
+                    headerKey = LocalizationKeys.INFO_POPUP_HOLD_HEADER;
+                    bodyKey = LocalizationKeys.INFO_POPUP_HOLD_BODY;
+                    break;
+            }
+        }
+
+        /// <summary>Per-kind header/body key pair for a <see cref="PowerUpKind"/> (every kind except
+        /// <see cref="PowerUpKind.Hold"/>, which never reaches here — see <see cref="BuildContent"/>).</summary>
+        private static void KeysForPowerUp(PowerUpKind kind, out string headerKey, out string bodyKey)
+        {
+            switch (kind)
+            {
+                case PowerUpKind.Bomb:
+                    headerKey = LocalizationKeys.INFO_POPUP_POWERUP_BOMB_HEADER;
+                    bodyKey = LocalizationKeys.INFO_POPUP_POWERUP_BOMB_BODY;
+                    break;
+                case PowerUpKind.RowClear:
+                    headerKey = LocalizationKeys.INFO_POPUP_POWERUP_ROW_CLEAR_HEADER;
+                    bodyKey = LocalizationKeys.INFO_POPUP_POWERUP_ROW_CLEAR_BODY;
+                    break;
+                case PowerUpKind.ColumnClear:
+                    headerKey = LocalizationKeys.INFO_POPUP_POWERUP_COLUMN_CLEAR_HEADER;
+                    bodyKey = LocalizationKeys.INFO_POPUP_POWERUP_COLUMN_CLEAR_BODY;
+                    break;
+                case PowerUpKind.Joker:
+                    headerKey = LocalizationKeys.INFO_POPUP_POWERUP_JOKER_HEADER;
+                    bodyKey = LocalizationKeys.INFO_POPUP_POWERUP_JOKER_BODY;
+                    break;
+                case PowerUpKind.ColorCleanser:
+                    headerKey = LocalizationKeys.INFO_POPUP_POWERUP_COLOR_CLEANSER_HEADER;
+                    bodyKey = LocalizationKeys.INFO_POPUP_POWERUP_COLOR_CLEANSER_BODY;
+                    break;
+                case PowerUpKind.Rotate:
+                    headerKey = LocalizationKeys.INFO_POPUP_POWERUP_ROTATE_HEADER;
+                    bodyKey = LocalizationKeys.INFO_POPUP_POWERUP_ROTATE_BODY;
+                    break;
+                case PowerUpKind.Reroll:
+                    headerKey = LocalizationKeys.INFO_POPUP_POWERUP_REROLL_HEADER;
+                    bodyKey = LocalizationKeys.INFO_POPUP_POWERUP_REROLL_BODY;
+                    break;
+                case PowerUpKind.DoubleMultiplier:
+                    headerKey = LocalizationKeys.INFO_POPUP_POWERUP_DOUBLE_MULTIPLIER_HEADER;
+                    bodyKey = LocalizationKeys.INFO_POPUP_POWERUP_DOUBLE_MULTIPLIER_BODY;
+                    break;
+                case PowerUpKind.GhostFit:
+                    headerKey = LocalizationKeys.INFO_POPUP_POWERUP_GHOST_FIT_HEADER;
+                    bodyKey = LocalizationKeys.INFO_POPUP_POWERUP_GHOST_FIT_BODY;
+                    break;
+                case PowerUpKind.CoinSower:
+                    headerKey = LocalizationKeys.INFO_POPUP_POWERUP_COIN_SOWER_HEADER;
+                    bodyKey = LocalizationKeys.INFO_POPUP_POWERUP_COIN_SOWER_BODY;
+                    break;
+                default:
+                    headerKey = LocalizationKeys.INFO_POPUP_HOLD_HEADER;
+                    bodyKey = LocalizationKeys.INFO_POPUP_HOLD_BODY;
+                    break;
+            }
+        }
+
+        /// <summary>Per-kind header/body key pair for a <see cref="SpecialCellKind"/>.</summary>
+        private static void KeysForSpecialCell(SpecialCellKind kind, out string headerKey, out string bodyKey)
+        {
+            switch (kind)
+            {
+                case SpecialCellKind.ExplosiveCore:
+                    headerKey = LocalizationKeys.INFO_POPUP_SPECIAL_CELL_EXPLOSIVE_CORE_HEADER;
+                    bodyKey = LocalizationKeys.INFO_POPUP_SPECIAL_CELL_EXPLOSIVE_CORE_BODY;
+                    break;
+                case SpecialCellKind.Laser:
+                    headerKey = LocalizationKeys.INFO_POPUP_SPECIAL_CELL_LASER_HEADER;
+                    bodyKey = LocalizationKeys.INFO_POPUP_SPECIAL_CELL_LASER_BODY;
+                    break;
+                case SpecialCellKind.ScoreGem:
+                    headerKey = LocalizationKeys.INFO_POPUP_SPECIAL_CELL_SCORE_GEM_HEADER;
+                    bodyKey = LocalizationKeys.INFO_POPUP_SPECIAL_CELL_SCORE_GEM_BODY;
+                    break;
+                case SpecialCellKind.Vortex:
+                    headerKey = LocalizationKeys.INFO_POPUP_SPECIAL_CELL_VORTEX_HEADER;
+                    bodyKey = LocalizationKeys.INFO_POPUP_SPECIAL_CELL_VORTEX_BODY;
+                    break;
+                case SpecialCellKind.ChainLightning:
+                    headerKey = LocalizationKeys.INFO_POPUP_SPECIAL_CELL_CHAIN_LIGHTNING_HEADER;
+                    bodyKey = LocalizationKeys.INFO_POPUP_SPECIAL_CELL_CHAIN_LIGHTNING_BODY;
+                    break;
+                case SpecialCellKind.Coin:
+                    headerKey = LocalizationKeys.INFO_POPUP_SPECIAL_CELL_COIN_HEADER;
+                    bodyKey = LocalizationKeys.INFO_POPUP_SPECIAL_CELL_COIN_BODY;
+                    break;
+                default:
+                    headerKey = LocalizationKeys.INFO_POPUP_HOLD_HEADER;
+                    bodyKey = LocalizationKeys.INFO_POPUP_HOLD_BODY;
+                    break;
+            }
+        }
+
+        /// <summary>Per-kind header/body key pair for a <see cref="SpecialPieceKind"/>.</summary>
+        private static void KeysForSpecialPiece(SpecialPieceKind kind, out string headerKey, out string bodyKey)
+        {
+            switch (kind)
+            {
+                case SpecialPieceKind.Golden:
+                    headerKey = LocalizationKeys.INFO_POPUP_SPECIAL_PIECE_GOLDEN_HEADER;
+                    bodyKey = LocalizationKeys.INFO_POPUP_SPECIAL_PIECE_GOLDEN_BODY;
+                    break;
+                case SpecialPieceKind.PiercingRocket:
+                    headerKey = LocalizationKeys.INFO_POPUP_SPECIAL_PIECE_PIERCING_ROCKET_HEADER;
+                    bodyKey = LocalizationKeys.INFO_POPUP_SPECIAL_PIECE_PIERCING_ROCKET_BODY;
+                    break;
+                case SpecialPieceKind.DemolitionHammer:
+                    headerKey = LocalizationKeys.INFO_POPUP_SPECIAL_PIECE_DEMOLITION_HAMMER_HEADER;
+                    bodyKey = LocalizationKeys.INFO_POPUP_SPECIAL_PIECE_DEMOLITION_HAMMER_BODY;
+                    break;
+                default:
                     headerKey = LocalizationKeys.INFO_POPUP_HOLD_HEADER;
                     bodyKey = LocalizationKeys.INFO_POPUP_HOLD_BODY;
                     break;

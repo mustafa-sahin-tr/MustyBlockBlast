@@ -518,20 +518,20 @@ MonoBehaviour:
     m_Localized: TEKRAR DENE
     m_Metadata:
       m_Items: []
-  - m_Id: 1869058117984256
-    m_Localized: "Yeni \xF6zel kare!"
+  - m_Id: 1892479862300676
+    m_Localized: "Bulundu\u011Fu s\xFCtunun tamam\u0131n\u0131 an\u0131nda temizler. Kullanmak i\xE7in bir s\xFCtuna dokun."
     m_Metadata:
       m_Items: []
-  - m_Id: 1869058130567168
-    m_Localized: "Bu \xF6zel bir kare. Temizledi\u011Finde ekstra bir \u015Fey yapar."
+  - m_Id: 1892479862300675
+    m_Localized: "S\xFCtun Temizleyici"
     m_Metadata:
       m_Items: []
-  - m_Id: 1869058130567169
-    m_Localized: "Yeni g\xFC\xE7 kart\u0131!"
+  - m_Id: 1892479862300674
+    m_Localized: "Bulundu\u011Fu sat\u0131r\u0131n tamam\u0131n\u0131 an\u0131nda temizler. Kullanmak i\xE7in bir sat\u0131ra dokun."
     m_Metadata:
       m_Items: []
-  - m_Id: 1869058130567170
-    m_Localized: "Kullanmak i\xE7in simgesine, ard\u0131ndan tahtaya dokun."
+  - m_Id: 1892479862300673
+    m_Localized: "Sat\u0131r Temizleyici"
     m_Metadata:
       m_Items: []
   - m_Id: 1869058130567171
@@ -542,12 +542,140 @@ MonoBehaviour:
     m_Localized: "Bir par\xE7ay\u0131 buraya s\xFCr\xFCkleyerek sakla. \u0130stedi\u011Fin zaman geri \xE7\u0131kar."
     m_Metadata:
       m_Items: []
-  - m_Id: 1869058130567173
-    m_Localized: "\xD6zel par\xE7a!"
+  - m_Id: 1892479862300672
+    m_Localized: "Etraf\u0131ndaki 3x3 alan\u0131 an\u0131nda temizler. Tahtada istedi\u011Fin bir noktaya dokunarak kullan."
     m_Metadata:
       m_Items: []
-  - m_Id: 1869058130567174
-    m_Localized: "Bu par\xE7a ekstra bir \u015Fey yapar. Ne yapt\u0131\u011F\u0131n\u0131 g\xF6rmek i\xE7in yerle\u015Ftir."
+  - m_Id: 1892479841329152
+    m_Localized: Bomba
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300677
+    m_Localized: Joker
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300678
+    m_Localized: "Her renge uyan tek bir blok yerle\u015Ftirir; tamamlad\u0131\u011F\u0131 sat\u0131r ya da s\xFCtunu an\u0131nda temizler."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300679
+    m_Localized: Renk Temizleyici
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300680
+    m_Localized: "Se\xE7ti\u011Fin bir rengin tahtadaki t\xFCm bloklar\u0131n\u0131 an\u0131nda temizler."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300681
+    m_Localized: "D\xF6nd\xFCr"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300682
+    m_Localized: "Elindeki bir par\xE7ay\u0131 yerle\u015Ftirmeden \xF6nce 90 derece d\xF6nd\xFCrmene izin verir."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300683
+    m_Localized: "Yeniden \xC7ek"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300684
+    m_Localized: "Tepsideki \xFC\xE7 par\xE7an\u0131n tamam\u0131n\u0131 yenileriyle de\u011Fi\u015Ftirir."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300685
+    m_Localized: "2x \xC7arpan"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300686
+    m_Localized: "Belirli bir s\xFCre boyunca kazand\u0131\u011F\u0131n puan\u0131 ikiye katlar."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300687
+    m_Localized: "Hayalet Yerle\u015Fim"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300688
+    m_Localized: "Elindeki par\xE7alardan biri i\xE7in tahtadaki en iyi yeri hayalet bir siluetle g\xF6sterir."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300689
+    m_Localized: "Coin Ya\u011Fmuru"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300690
+    m_Localized: "Tahtaya rastgele coin h\xFCcreleri serper; onlar\u0131 temizledik\xE7e coin kazan\u0131rs\u0131n."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300691
+    m_Localized: "Patlay\u0131c\u0131 \xC7ekirdek"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300692
+    m_Localized: "Yok edildi\u011Finde etraf\u0131ndaki h\xFCcreleri de birlikte patlat\u0131r."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300693
+    m_Localized: Lazer
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300694
+    m_Localized: "Yok edildi\u011Finde bulundu\u011Fu sat\u0131r\u0131 ve s\xFCtunu u\xE7tan uca temizler."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300695
+    m_Localized: Vortex
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300696
+    m_Localized: "Etraf\u0131ndaki bloklar\u0131 merkeze do\u011Fru \xE7eker. Temizlemek i\xE7in \xFCst\xFCne bir par\xE7a yerle\u015Ftir."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300697
+    m_Localized: "Zincirleme \u015Eim\u015Fek"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300698
+    m_Localized: "Yok edildi\u011Finde kom\u015Fu \xF6zel h\xFCcrelere s\u0131\xE7rayarak onlar\u0131 da tetikler."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300699
+    m_Localized: "Puan M\xFCcevheri"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300700
+    m_Localized: "Yok edildi\u011Finde ekstra puan kazand\u0131r\u0131r."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300701
+    m_Localized: "Coin H\xFCcresi"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300702
+    m_Localized: "Yok edildi\u011Finde coin kazand\u0131r\u0131r."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300703
+    m_Localized: "Alt\u0131n Par\xE7a"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300704
+    m_Localized: "Be\u015Fli bir kombo ile kazan\u0131l\u0131r. S\u0131radan bir par\xE7a gibi davran\u0131r, g\xF6rsel bir \xF6d\xFCld\xFCr."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300705
+    m_Localized: Delici Roket
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479862300706
+    m_Localized: "Tek hamlede \xFC\xE7 veya daha fazla sat\u0131r temizlersen kazan\u0131l\u0131r. Yerle\u015Ftirildi\u011Finde bulundu\u011Fu sat\u0131r ve s\xFCtunu tamamen temizler."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479866494976
+    m_Localized: "Y\u0131k\u0131m \xC7eki"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1892479866494977
+    m_Localized: "Tahta doluyken son \xE7are olarak verilir. Bir h\xFCcreyi yok etmek i\xE7in tahtaya dokun."
     m_Metadata:
       m_Items: []
   references:
