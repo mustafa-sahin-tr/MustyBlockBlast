@@ -759,6 +759,11 @@ namespace MustyBlockBlast.Presentation.Views
             return (RectTransform)_cells[CellIndex(cell)].transform;
         }
 
+        /// <summary>The on-screen rect of the whole board, for <see cref="TutorialOverlayView"/> to
+        /// spotlight and for <see cref="BoardInputView"/>'s tutorial input guard to hit-test against
+        /// (issue #279's power-up effect-area coach-mark step).</summary>
+        internal RectTransform GetBoardRectTransform() => _rectTransform;
+
         /// <summary>True when <paramref name="cell"/> is on the board and not a hole — the one gate
         /// every legality-feedback path (drag preview, ghost-fit silhouette, power-up target highlight)
         /// passes through, so none of them can tint a cell a piece could never occupy.</summary>
@@ -1462,8 +1467,10 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         /// <summary>The tint one kind's icon is drawn in. Stated once, as a switch rather than a chain
-        /// of conditionals, so a new kind is one line here and nothing else.</summary>
-        private static Color IconTint(SpecialCellKind kind)
+        /// of conditionals, so a new kind is one line here and nothing else. Internal so
+        /// <see cref="InfoPopupView"/> can reuse it for a special cell's popup hero icon rather than
+        /// duplicating this table.</summary>
+        internal static Color IconTint(SpecialCellKind kind)
         {
             switch (kind)
             {
@@ -1485,8 +1492,10 @@ namespace MustyBlockBlast.Presentation.Views
         /// kendine özgü bir ikonu olsun"), tinted by <see cref="IconTint"/> on top exactly as the shared
         /// <c>UiSpriteFactory.Starburst</c> was. Falls back to that starburst, unfilled inspector slots
         /// included, so a kind added before its art exists still renders something rather than nothing.
+        /// Internal so <see cref="InfoPopupView"/> can reuse it, for the same reason as
+        /// <see cref="IconTint"/>.
         /// </summary>
-        private Sprite IconSprite(SpecialCellKind kind)
+        internal Sprite IconSprite(SpecialCellKind kind)
         {
             Sprite sprite;
             switch (kind)

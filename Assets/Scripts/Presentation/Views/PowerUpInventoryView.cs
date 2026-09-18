@@ -347,10 +347,36 @@ namespace MustyBlockBlast.Presentation.Views
             return false;
         }
 
-        /// <summary>The on-screen rect of <paramref name="kind"/>'s strip slot, for
-        /// <see cref="TutorialOverlayView"/> to spotlight and for <see cref="BoardInputView"/>'s
-        /// tutorial input guard to hit-test against. Null for a kind with no slot in the strip (Reroll,
-        /// CoinSower, Hold — see the class summary).</summary>
+        /// <summary>Slot index under a screen point, or -1. Hit-tests only the slots currently on
+        /// screen, exactly like <see cref="TryHandleTap"/> does — unlike that call, this does not act on
+        /// what it finds. Used by <see cref="BoardInputView"/> to resolve a power-up strip press to a
+        /// slot without firing the press's tap action, so the action can be deferred to release and
+        /// resolved as either an ordinary tap or the long-press "show info" gesture.</summary>
+        internal int GetSlotIndexAt(Vector2 screenPosition)
+        {
+            if (_isRunOver || _powerUpSystem == null)
+            {
+                return -1;
+            }
+
+            for (int slotIndex = 0; slotIndex < _visibleCount; slotIndex++)
+            {
+                if (ContainsScreenPoint(slotIndex, screenPosition))
+                {
+                    return slotIndex;
+                }
+            }
+
+            return -1;
+        }
+
+        /// <summary>The <see cref="PowerUpKind"/> drawn in slot <paramref name="slotIndex"/>. Static
+        /// because the mapping is fixed at compile time (see <see cref="SlotKinds"/>) and does not
+        /// depend on any instance state.</summary>
+        internal static PowerUpKind KindAt(int slotIndex) => SlotKinds[slotIndex];
+
+        /// <summary>The on-screen rect of <paramref name="kind"/>'s strip slot. Null for a kind with no
+        /// slot in the strip (Reroll, CoinSower, Hold — see the class summary).</summary>
         internal RectTransform GetSlotRectTransform(PowerUpKind kind)
         {
             for (int slotIndex = 0; slotIndex < SlotKinds.Length; slotIndex++)
@@ -800,8 +826,9 @@ namespace MustyBlockBlast.Presentation.Views
 
         /// <summary>The icon for <paramref name="kind"/>, authored in <see cref="SlotKinds"/> order —
         /// the same sprites the shop rows draw, so the thing the player bought is the thing they see
-        /// in the strip.</summary>
-        private Sprite IconFor(PowerUpKind kind)
+        /// in the strip. Internal so <see cref="InfoPopupView"/> can reuse it for a power-up popup's
+        /// hero icon.</summary>
+        internal Sprite IconFor(PowerUpKind kind)
         {
             int slotIndex = SlotIndexOf(kind);
             Sprite icon = _slotIcons != null && slotIndex >= 0 && slotIndex < _slotIcons.Length

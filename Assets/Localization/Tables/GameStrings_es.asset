@@ -518,20 +518,36 @@ MonoBehaviour:
     m_Localized: REINTENTAR
     m_Metadata:
       m_Items: []
-  - m_Id: 1843521244880896
-    m_Localized: "\xA1Nuevo poder desbloqueado! T\xF3calo para probarlo."
+  - m_Id: 1869058117984256
+    m_Localized: "\xA1Nueva ficha!"
     m_Metadata:
       m_Items: []
-  - m_Id: 1843521362321408
-    m_Localized: "\xA1Apareci\xF3 una ficha especial en el tablero! T\xF3cala."
+  - m_Id: 1869058130567168
+    m_Localized: Esta es una ficha especial. Hace algo extra cuando la despejas.
     m_Metadata:
       m_Items: []
-  - m_Id: 1843521362321409
-    m_Localized: "\xA1Apareci\xF3 una pieza especial en tu bandeja! T\xF3cala."
+  - m_Id: 1869058130567169
+    m_Localized: "\xA1Nuevo potenciador!"
     m_Metadata:
       m_Items: []
-  - m_Id: 1843521362321410
-    m_Localized: "Suelta una pieza aqu\xED para guardarla."
+  - m_Id: 1869058130567170
+    m_Localized: Toca su icono para activarlo y luego toca el tablero para usarlo.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1869058130567171
+    m_Localized: Bolsillo de reserva
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1869058130567172
+    m_Localized: "Arrastra una pieza aqu\xED para guardarla. Puedes sacarla cuando quieras."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1869058130567173
+    m_Localized: "\xA1Pieza especial!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1869058130567174
+    m_Localized: "Esta pieza hace algo extra. Col\xF3cala para ver qu\xE9 hace."
     m_Metadata:
       m_Items: []
   references:

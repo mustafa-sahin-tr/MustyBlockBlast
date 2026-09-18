@@ -151,11 +151,11 @@ namespace MustyBlockBlast.Presentation
                 container.Resolve<BadgeStatsSystem>();
                 container.Resolve<BadgeSystem>();
 
-                // Subscribes to PowerUpUnlockedMessage, SpecialCellSpawnedMessage,
-                // SpecialPieceSpawnedMessage and HoldFirstUseMessage in its constructor (issue #278), so
-                // it must be listening before the first of any of those can fire, not constructed by
-                // one. Also runs its one-shot already-unlocked-power-ups migration here, on boot.
-                container.Resolve<TutorialSystem>();
+                // Subscribes to SpecialCellSpawnedMessage, PowerUpGrantedMessage, HoldFirstUseMessage
+                // and SpecialPieceSpawnedMessage in its constructor, so it must be listening before the
+                // first of any of those can fire, not constructed by one. Also runs its one-shot
+                // already-unlocked-power-ups migration here, on boot.
+                container.Resolve<InfoPopupSystem>();
             });
         }
 
@@ -189,8 +189,11 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterMessageBroker<CoinCellsClearedMessage>(options);
             builder.RegisterMessageBroker<CoinsGrantedFromPurchaseMessage>(options);
 
-            // Tutorial spotlight/coach-mark infrastructure (issue #278): TutorialSystem is the one
-            // subscriber to all four today.
+            // Info popup infrastructure: InfoPopupSystem subscribes to SpecialCellSpawnedMessage,
+            // SpecialPieceSpawnedMessage and HoldFirstUseMessage (PowerUpGrantedMessage, registered
+            // elsewhere, is its fourth trigger). PowerUpUnlockedMessage was the old TutorialSystem's
+            // trigger and has no subscriber left today; kept registered since PowerUpSystem still
+            // publishes it.
             builder.RegisterMessageBroker<PowerUpUnlockedMessage>(options);
             builder.RegisterMessageBroker<SpecialCellSpawnedMessage>(options);
             builder.RegisterMessageBroker<SpecialPieceSpawnedMessage>(options);
@@ -242,7 +245,7 @@ namespace MustyBlockBlast.Presentation
             builder.Register<PendingScoreModel>(Lifetime.Singleton);
             builder.Register<ProfileModel>(Lifetime.Singleton);
             builder.Register<LeaderboardModel>(Lifetime.Singleton);
-            builder.Register<TutorialModel>(Lifetime.Singleton);
+            builder.Register<InfoPopupModel>(Lifetime.Singleton);
         }
 
         /// <summary>
@@ -543,9 +546,9 @@ namespace MustyBlockBlast.Presentation
             builder.Register<BadgeStatsSystem>(Lifetime.Singleton);
             builder.Register<BadgeSystem>(Lifetime.Singleton);
 
-            // Subscribes to all four tutorial triggers in its constructor (issue #278), so it must be
-            // resolved eagerly in the build callback below rather than waiting for a lazy resolve.
-            builder.Register<TutorialSystem>(Lifetime.Singleton);
+            // Subscribes to all four of its triggers in its constructor, so it must be resolved eagerly
+            // in the build callback below rather than waiting for a lazy resolve.
+            builder.Register<InfoPopupSystem>(Lifetime.Singleton);
 
             // Entry point because it is an ITickable: the countdown is driven by VContainer's player
             // loop, not by a MonoBehaviour Update.
@@ -601,13 +604,13 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterComponentInHierarchy<PowerUpInventoryView>();
             builder.RegisterComponentInHierarchy<ObjectiveIconContainerView>();
             builder.RegisterComponentInHierarchy<ObjectiveInfoPopupView>();
+            builder.RegisterComponentInHierarchy<InfoPopupView>();
 
             // The one end-of-run card (issue #266): result, badges and the restart / change mode /
             // next level actions together. Opens on GameOverMessage; BoardInputView routes every tap
             // into it while it is up and carries out the action it resolves.
             builder.RegisterComponentInHierarchy<RunResultView>();
             builder.RegisterComponentInHierarchy<CoinConversionView>();
-            builder.RegisterComponentInHierarchy<TutorialOverlayView>();
             builder.RegisterComponentInHierarchy<BoardInputView>();
             builder.RegisterComponentInHierarchy<SfxPlayerView>();
             builder.RegisterComponentInHierarchy<MusicPlayerView>();

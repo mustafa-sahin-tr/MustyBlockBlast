@@ -515,20 +515,36 @@ MonoBehaviour:
     m_Key: result.try_again
     m_Metadata:
       m_Items: []
-  - m_Id: 1843521244880896
-    m_Key: tutorial.powerup_unlocked
+  - m_Id: 1869058117984256
+    m_Key: info_popup.special_cell.header
     m_Metadata:
       m_Items: []
-  - m_Id: 1843521362321408
-    m_Key: tutorial.special_cell_spawned
+  - m_Id: 1869058130567168
+    m_Key: info_popup.special_cell.body
     m_Metadata:
       m_Items: []
-  - m_Id: 1843521362321409
-    m_Key: tutorial.special_piece_spawned
+  - m_Id: 1869058130567169
+    m_Key: info_popup.powerup.header
     m_Metadata:
       m_Items: []
-  - m_Id: 1843521362321410
-    m_Key: tutorial.hold_first_use
+  - m_Id: 1869058130567170
+    m_Key: info_popup.powerup.body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1869058130567171
+    m_Key: info_popup.hold.header
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1869058130567172
+    m_Key: info_popup.hold.body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1869058130567173
+    m_Key: info_popup.special_piece.header
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1869058130567174
+    m_Key: info_popup.special_piece.body
     m_Metadata:
       m_Items: []
   m_Metadata:

@@ -518,20 +518,36 @@ MonoBehaviour:
     m_Localized: TRY AGAIN
     m_Metadata:
       m_Items: []
-  - m_Id: 1843521244880896
-    m_Localized: New power-up unlocked! Tap it to try it out.
+  - m_Id: 1869058117984256
+    m_Localized: New tile!
     m_Metadata:
       m_Items: []
-  - m_Id: 1843521362321408
-    m_Localized: A special tile appeared on the board! Tap it.
+  - m_Id: 1869058130567168
+    m_Localized: This is a special tile. It does something extra when you clear it.
     m_Metadata:
       m_Items: []
-  - m_Id: 1843521362321409
-    m_Localized: A special piece appeared in your tray! Tap it.
+  - m_Id: 1869058130567169
+    m_Localized: New power-up!
     m_Metadata:
       m_Items: []
-  - m_Id: 1843521362321410
-    m_Localized: Drop a piece here to hold it for later.
+  - m_Id: 1869058130567170
+    m_Localized: Tap its icon to arm it, then tap the board to use it.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1869058130567171
+    m_Localized: Hold pocket
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1869058130567172
+    m_Localized: Drag a piece here to save it for later. Drag it back out any time.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1869058130567173
+    m_Localized: Special piece!
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1869058130567174
+    m_Localized: This piece does something extra. Place it to see what it does.
     m_Metadata:
       m_Items: []
   references:
