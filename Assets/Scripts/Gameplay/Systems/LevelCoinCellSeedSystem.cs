@@ -89,6 +89,10 @@ namespace MustyBlockBlast.Gameplay.Systems
         private int _queuedExtraCoinCells;
 
         /// <summary>DI entry point — VContainer must not pick the seeded constructor.</summary>
+        /// <summary>Optional: null in every existing test construction, which predates issue #278.
+        /// Guarded on publish so an un-injected instance behaves exactly as it did before.</summary>
+        private readonly IPublisher<SpecialCellSpawnedMessage> _specialCellSpawnedPublisher;
+
         [Inject]
         public LevelCoinCellSeedSystem(
             BoardModel boardModel,
@@ -96,10 +100,11 @@ namespace MustyBlockBlast.Gameplay.Systems
             LevelProgressionModel progressionModel,
             PathRunModel pathRunModel,
             ISubscriber<RunStartedMessage> runStartedSubscriber,
-            ISubscriber<PiecePlacedMessage> piecePlacedSubscriber)
+            ISubscriber<PiecePlacedMessage> piecePlacedSubscriber,
+            IPublisher<SpecialCellSpawnedMessage> specialCellSpawnedPublisher = null)
             : this(
                 boardModel, levelCatalog, progressionModel, pathRunModel, runStartedSubscriber,
-                piecePlacedSubscriber, Environment.TickCount)
+                piecePlacedSubscriber, Environment.TickCount, specialCellSpawnedPublisher)
         {
         }
 
@@ -110,13 +115,15 @@ namespace MustyBlockBlast.Gameplay.Systems
             PathRunModel pathRunModel,
             ISubscriber<RunStartedMessage> runStartedSubscriber,
             ISubscriber<PiecePlacedMessage> piecePlacedSubscriber,
-            int seed)
+            int seed,
+            IPublisher<SpecialCellSpawnedMessage> specialCellSpawnedPublisher = null)
         {
             _boardModel = boardModel;
             _levelCatalog = levelCatalog;
             _progressionModel = progressionModel;
             _pathRunModel = pathRunModel;
             _random = new Random(seed);
+            _specialCellSpawnedPublisher = specialCellSpawnedPublisher;
 
             DisposableBagBuilder bag = DisposableBag.CreateBuilder();
             runStartedSubscriber.Subscribe(OnRunStarted).AddTo(bag);
@@ -182,6 +189,13 @@ namespace MustyBlockBlast.Gameplay.Systems
                 }
 
                 _boardModel.SetSpecialKind(spawn.Value, SpecialCellKind.Coin);
+
+                if (_specialCellSpawnedPublisher != null)
+                {
+                    _specialCellSpawnedPublisher.Publish(
+                        new SpecialCellSpawnedMessage(SpecialCellKind.Coin, spawn.Value));
+                }
+
                 _pendingCoinCells--;
             }
         }

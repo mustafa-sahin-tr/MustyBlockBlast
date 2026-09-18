@@ -102,6 +102,8 @@ namespace MustyBlockBlast.Presentation.Views
         private PowerUpInventoryView _powerUpInventoryView;
         private ObjectiveIconContainerView _objectiveIconContainerView;
         private ObjectiveInfoPopupView _objectiveInfoPopupView;
+        private TutorialModel _tutorialModel;
+        private TutorialSystem _tutorialSystem;
 
         private int _draggedSlot = -1;
         private GridPosition _currentAnchor;
@@ -159,7 +161,9 @@ namespace MustyBlockBlast.Presentation.Views
             CoinConversionView coinConversionView,
             PowerUpInventoryView powerUpInventoryView,
             ObjectiveIconContainerView objectiveIconContainerView,
-            ObjectiveInfoPopupView objectiveInfoPopupView)
+            ObjectiveInfoPopupView objectiveInfoPopupView,
+            TutorialModel tutorialModel,
+            TutorialSystem tutorialSystem)
         {
             _boardSystem = boardSystem;
             _boardModel = boardModel;
@@ -182,6 +186,8 @@ namespace MustyBlockBlast.Presentation.Views
             _powerUpInventoryView = powerUpInventoryView;
             _objectiveIconContainerView = objectiveIconContainerView;
             _objectiveInfoPopupView = objectiveInfoPopupView;
+            _tutorialModel = tutorialModel;
+            _tutorialSystem = tutorialSystem;
         }
 
         private void Awake()
@@ -330,6 +336,15 @@ namespace MustyBlockBlast.Presentation.Views
         {
             Vector2 screenPosition = _pointerPositionAction.ReadValue<Vector2>();
 
+            // The one gate above every other, including the modal overlays below: while a coach-mark is
+            // active, the only press this View honours is one that lands on that step's own spotlighted
+            // target (see TutorialSystem, TutorialOverlayView) — the coach-mark forces the action rather
+            // than merely explaining it. Every other press, wherever it lands, is swallowed outright.
+            if (!IsPressOnActiveTutorialTarget(screenPosition))
+            {
+                return;
+            }
+
             // The conversion card sits above every other gate, the hub's included: it is opened from
             // the shop tab, so the hub is still open underneath it, and the hub's own router would
             // otherwise swallow every tap meant for the card. Its scrim tap closes it and hands the next
@@ -452,6 +467,11 @@ namespace MustyBlockBlast.Presentation.Views
                 {
                     _hubPanelView.Open(HubTab.PowerUpShop);
                 }
+                else if (_powerUpModel.Armed.Value != null)
+                {
+                    _tutorialSystem.NotifyTargetInteracted(
+                        TutorialTargetId.PowerUpStripSlot, slotIndex: (int)_powerUpModel.Armed.Value.Value);
+                }
 
                 return;
             }
@@ -509,6 +529,7 @@ namespace MustyBlockBlast.Presentation.Views
                 // hammer from ever entering a drag the System would only refuse to place.
                 _ghostFitSystem.Dismiss();
                 ArmHammer(slotIndex);
+                _tutorialSystem.NotifyTargetInteracted(TutorialTargetId.TraySlot, slotIndex: slotIndex);
                 return;
             }
 
@@ -525,6 +546,7 @@ namespace MustyBlockBlast.Presentation.Views
             _ghostFitSystem.DismissUnlessSuggestedSlot(slotIndex);
 
             BeginDrag(slotIndex, screenPosition);
+            _tutorialSystem.NotifyTargetInteracted(TutorialTargetId.TraySlot, slotIndex: slotIndex);
         }
 
         private void OnPressReleased(InputAction.CallbackContext context)
@@ -563,7 +585,18 @@ namespace MustyBlockBlast.Presentation.Views
                 ? _powerUpSystem.TryApplyHold(slotIndex)
                 : _hasAnchor && _boardSystem.TryPlacePiece(slotIndex, _currentAnchor);
 
-            if (!consumed)
+            if (consumed)
+            {
+                if (_isOverHoldSlot)
+                {
+                    _tutorialSystem.NotifyTargetInteracted(TutorialTargetId.HoldSlot);
+                }
+                else
+                {
+                    _tutorialSystem.NotifyTargetInteracted(TutorialTargetId.BoardCell, _currentAnchor);
+                }
+            }
+            else
             {
                 _trayView.SetSlotVisible(slotIndex, true);
             }
@@ -1058,6 +1091,53 @@ namespace MustyBlockBlast.Presentation.Views
             {
                 Destroy(_ghostRoot.gameObject);
                 _ghostRoot = null;
+            }
+        }
+
+        /// <summary>
+        /// True whenever no coach-mark is active, or the active one is and <paramref name="screenPosition"/>
+        /// lands on its own spotlighted target. False for every other press while one is active — the
+        /// guard that makes a coach-mark forced rather than merely advisory (see the class remarks).
+        /// A target that cannot currently be resolved to an on-screen rect (not built yet, or hidden)
+        /// blocks every press rather than none, since there is nothing on screen for a "correct" press
+        /// to land on.
+        /// </summary>
+        private bool IsPressOnActiveTutorialTarget(Vector2 screenPosition)
+        {
+            TutorialStep? active = _tutorialModel.ActiveStep.Value;
+            if (active == null)
+            {
+                return true;
+            }
+
+            RectTransform target = ResolveTutorialTargetRect(active.Value);
+            if (target == null)
+            {
+                return false;
+            }
+
+            Camera eventCamera = _canvas != null && _canvas.renderMode != RenderMode.ScreenSpaceOverlay
+                ? _canvas.worldCamera
+                : null;
+            return RectTransformUtility.RectangleContainsScreenPoint(target, screenPosition, eventCamera);
+        }
+
+        private RectTransform ResolveTutorialTargetRect(TutorialStep step)
+        {
+            switch (step.TargetId)
+            {
+                case TutorialTargetId.BoardCell:
+                    return step.BoardPosition != null
+                        ? _boardView.GetCellRectTransform(step.BoardPosition.Value)
+                        : null;
+                case TutorialTargetId.PowerUpStripSlot:
+                    return _powerUpInventoryView.GetSlotRectTransform((PowerUpKind)step.SlotIndex);
+                case TutorialTargetId.TraySlot:
+                    return _trayView.GetSlotRectTransform(step.SlotIndex);
+                case TutorialTargetId.HoldSlot:
+                    return _holdSlotView.GetPocketRectTransform();
+                default:
+                    return null;
             }
         }
     }

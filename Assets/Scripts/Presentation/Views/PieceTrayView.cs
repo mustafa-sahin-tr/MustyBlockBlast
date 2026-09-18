@@ -181,6 +181,19 @@ namespace MustyBlockBlast.Presentation.Views
             return -1;
         }
 
+        /// <summary>The on-screen rect of dock slot <paramref name="slotIndex"/>, for
+        /// <see cref="TutorialOverlayView"/> to spotlight and for <see cref="BoardInputView"/>'s
+        /// tutorial input guard to hit-test against. Null when out of range or not yet built.</summary>
+        internal RectTransform GetSlotRectTransform(int slotIndex)
+        {
+            if (_slotRects == null || slotIndex < 0 || slotIndex >= _slotRects.Length)
+            {
+                return null;
+            }
+
+            return _slotRects[slotIndex];
+        }
+
         /// <summary>
         /// Marks one dock slot as the live target of an armed Rotate, or -1 for none. Lifting the slot
         /// costs no extra object and no extra draw call — the same trick the armed power-up icon uses —

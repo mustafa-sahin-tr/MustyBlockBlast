@@ -73,6 +73,13 @@ namespace MustyBlockBlast.Gameplay.Systems
         private readonly IPublisher<ChainLightningTriggeredMessage> _chainLightningTriggeredPublisher;
         private readonly IPublisher<CoinCellsClearedMessage> _coinCellsClearedPublisher;
 
+        /// <summary>Optional: null in every existing test construction, which predates issue #278.
+        /// Guarded on every publish so an un-injected instance behaves exactly as it did before.</summary>
+        private readonly IPublisher<SpecialCellSpawnedMessage> _specialCellSpawnedPublisher;
+
+        /// <summary>Optional, for the same reason <see cref="_specialCellSpawnedPublisher"/> is.</summary>
+        private readonly IPublisher<SpecialPieceSpawnedMessage> _specialPieceSpawnedPublisher;
+
         // One long-lived effect per kind, reset per placement rather than reallocated — each owns the
         // buffer its destroyed cells are reported through.
         private readonly ExplosiveCoreEffect _explosiveCoreEffect = new ExplosiveCoreEffect();
@@ -189,14 +196,16 @@ namespace MustyBlockBlast.Gameplay.Systems
             IPublisher<CoinCellsClearedMessage> coinCellsClearedPublisher,
             CurrencyConfig currencyConfig,
             LevelReinforcedCellSeeder reinforcedCellSeeder,
-            PowerUpModel powerUpModel = null)
+            PowerUpModel powerUpModel = null,
+            IPublisher<SpecialCellSpawnedMessage> specialCellSpawnedPublisher = null,
+            IPublisher<SpecialPieceSpawnedMessage> specialPieceSpawnedPublisher = null)
             : this(
                 boardModel, trayModel, scoreGemProgressModel, vortexProgressModel, pieceDraw,
                 runStartedPublisher, piecePlacedPublisher, linesClearedPublisher, gameOverPublisher,
                 trayRefilledPublisher, explosiveCoreDetonatedPublisher, laserFiredPublisher,
                 piercingRocketFiredPublisher, vortexPulledPublisher, chainLightningTriggeredPublisher,
                 coinCellsClearedPublisher, currencyConfig, Environment.TickCount, reinforcedCellSeeder,
-                powerUpModel)
+                powerUpModel, specialCellSpawnedPublisher, specialPieceSpawnedPublisher)
         {
         }
 
@@ -220,10 +229,14 @@ namespace MustyBlockBlast.Gameplay.Systems
             CurrencyConfig currencyConfig,
             int seed,
             LevelReinforcedCellSeeder reinforcedCellSeeder = null,
-            PowerUpModel powerUpModel = null)
+            PowerUpModel powerUpModel = null,
+            IPublisher<SpecialCellSpawnedMessage> specialCellSpawnedPublisher = null,
+            IPublisher<SpecialPieceSpawnedMessage> specialPieceSpawnedPublisher = null)
         {
             _reinforcedCellSeeder = reinforcedCellSeeder;
             _powerUpModel = powerUpModel;
+            _specialCellSpawnedPublisher = specialCellSpawnedPublisher;
+            _specialPieceSpawnedPublisher = specialPieceSpawnedPublisher;
             _random = new Random(seed);
 
             // After the stream it draws from, necessarily: the effect keeps the reference it is handed,
@@ -929,6 +942,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             // After any occupancy write, so the View is told the cell is filled before it is told what
             // the filled cell is.
             _boardModel.SetSpecialKind(position, SpecialCellKind.ExplosiveCore);
+            PublishSpecialCellSpawned(SpecialCellKind.ExplosiveCore, position);
         }
 
         /// <summary>
@@ -967,6 +981,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             // After the occupancy write, so the View is told the cell is filled before it is told what
             // the filled cell is.
             _boardModel.SetSpecialKind(position, SpecialCellKind.Vortex);
+            PublishSpecialCellSpawned(SpecialCellKind.Vortex, position);
         }
 
         /// <summary>
@@ -1005,6 +1020,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             // After the occupancy write, so the View is told the cell is filled before it is told what
             // the filled cell is.
             _boardModel.SetSpecialKind(position, SpecialCellKind.ChainLightning);
+            PublishSpecialCellSpawned(SpecialCellKind.ChainLightning, position);
         }
 
         /// <summary>
@@ -1042,6 +1058,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             }
 
             _boardModel.SetSpecialKind(spawn.Value, SpecialCellKind.ScoreGem);
+            PublishSpecialCellSpawned(SpecialCellKind.ScoreGem, spawn.Value);
         }
 
         /// <summary>
@@ -1192,6 +1209,19 @@ namespace MustyBlockBlast.Gameplay.Systems
         private void InjectSpecialPiece(int slotIndex, SpecialPieceKind kind)
         {
             _trayModel.SetSlot(slotIndex, PieceCatalog.SingleCell, _pieceDraw.DrawColourId(), kind);
+
+            if (_specialPieceSpawnedPublisher != null)
+            {
+                _specialPieceSpawnedPublisher.Publish(new SpecialPieceSpawnedMessage(kind, slotIndex));
+            }
+        }
+
+        private void PublishSpecialCellSpawned(SpecialCellKind kind, GridPosition position)
+        {
+            if (_specialCellSpawnedPublisher != null)
+            {
+                _specialCellSpawnedPublisher.Publish(new SpecialCellSpawnedMessage(kind, position));
+            }
         }
 
         private void RefillTray()

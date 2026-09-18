@@ -518,6 +518,22 @@ MonoBehaviour:
     m_Localized: TEKRAR DENE
     m_Metadata:
       m_Items: []
+  - m_Id: 1843521244880896
+    m_Localized: "Yeni g\xFC\xE7 a\xE7\u0131ld\u0131! Denemek i\xE7in dokun."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1843521362321408
+    m_Localized: "Tahtada \xF6zel bir h\xFCcre belirdi! Dokun."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1843521362321409
+    m_Localized: "Raf\u0131nda \xF6zel bir par\xE7a belirdi! Dokun."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1843521362321410
+    m_Localized: "Daha sonra kullanmak i\xE7in par\xE7ay\u0131 buraya b\u0131rak."
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

@@ -518,6 +518,22 @@ MonoBehaviour:
     m_Localized: REINTENTAR
     m_Metadata:
       m_Items: []
+  - m_Id: 1843521244880896
+    m_Localized: "\xA1Nuevo poder desbloqueado! T\xF3calo para probarlo."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1843521362321408
+    m_Localized: "\xA1Apareci\xF3 una ficha especial en el tablero! T\xF3cala."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1843521362321409
+    m_Localized: "\xA1Apareci\xF3 una pieza especial en tu bandeja! T\xF3cala."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1843521362321410
+    m_Localized: "Suelta una pieza aqu\xED para guardarla."
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

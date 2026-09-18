@@ -515,6 +515,22 @@ MonoBehaviour:
     m_Key: result.try_again
     m_Metadata:
       m_Items: []
+  - m_Id: 1843521244880896
+    m_Key: tutorial.powerup_unlocked
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1843521362321408
+    m_Key: tutorial.special_cell_spawned
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1843521362321409
+    m_Key: tutorial.special_piece_spawned
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1843521362321410
+    m_Key: tutorial.hold_first_use
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

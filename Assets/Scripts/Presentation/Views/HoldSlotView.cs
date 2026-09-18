@@ -277,6 +277,10 @@ namespace MustyBlockBlast.Presentation.Views
             RefreshPlate();
         }
 
+        /// <summary>The pocket's on-screen rect, for <see cref="TutorialOverlayView"/> to spotlight and
+        /// for <see cref="BoardInputView"/>'s tutorial input guard to hit-test against.</summary>
+        internal RectTransform GetPocketRectTransform() => _plateRect;
+
         private bool ContainsScreenPoint(Vector2 screenPosition)
         {
             Camera eventCamera = _canvas != null && _canvas.renderMode != RenderMode.ScreenSpaceOverlay
