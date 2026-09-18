@@ -518,20 +518,36 @@ MonoBehaviour:
     m_Localized: TEKRAR DENE
     m_Metadata:
       m_Items: []
-  - m_Id: 1843521244880896
-    m_Localized: "Yeni g\xFC\xE7 a\xE7\u0131ld\u0131! Denemek i\xE7in dokun."
+  - m_Id: 1869058117984256
+    m_Localized: "Yeni \xF6zel kare!"
     m_Metadata:
       m_Items: []
-  - m_Id: 1843521362321408
-    m_Localized: "Tahtada \xF6zel bir h\xFCcre belirdi! Dokun."
+  - m_Id: 1869058130567168
+    m_Localized: "Bu \xF6zel bir kare. Temizledi\u011Finde ekstra bir \u015Fey yapar."
     m_Metadata:
       m_Items: []
-  - m_Id: 1843521362321409
-    m_Localized: "Raf\u0131nda \xF6zel bir par\xE7a belirdi! Dokun."
+  - m_Id: 1869058130567169
+    m_Localized: "Yeni g\xFC\xE7 kart\u0131!"
     m_Metadata:
       m_Items: []
-  - m_Id: 1843521362321410
-    m_Localized: "Daha sonra kullanmak i\xE7in par\xE7ay\u0131 buraya b\u0131rak."
+  - m_Id: 1869058130567170
+    m_Localized: "Kullanmak i\xE7in simgesine, ard\u0131ndan tahtaya dokun."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1869058130567171
+    m_Localized: Sakla cebi
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1869058130567172
+    m_Localized: "Bir par\xE7ay\u0131 buraya s\xFCr\xFCkleyerek sakla. \u0130stedi\u011Fin zaman geri \xE7\u0131kar."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1869058130567173
+    m_Localized: "\xD6zel par\xE7a!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1869058130567174
+    m_Localized: "Bu par\xE7a ekstra bir \u015Fey yapar. Ne yapt\u0131\u011F\u0131n\u0131 g\xF6rmek i\xE7in yerle\u015Ftir."
     m_Metadata:
       m_Items: []
   references:

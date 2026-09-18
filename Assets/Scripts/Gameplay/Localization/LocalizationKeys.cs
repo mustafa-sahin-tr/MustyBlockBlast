@@ -36,21 +36,23 @@ namespace MustyBlockBlast.Gameplay.Localization
         /// Shown instead of a suggestion, and nothing is charged for it.</summary>
         public const string POWERUP_GHOST_FIT_NO_PLACEMENTS = "powerup.ghost_fit_no_placements";
 
-        // --- Tutorial (issue #278) ---
+        // --- Info popups ---
+        // One header+body pair per subject-kind class (not per specific enum value — the same
+        // "infrastructure ships a shared placeholder, future content work splits per kind" precedent
+        // the old TUTORIAL_* keys set). Shown automatically the first time a kind of that subject class
+        // first appears, and reopenable on demand afterward — see InfoPopupSystem.
 
-        /// <summary>Generic coach-mark body for a newly-unlocked power-up's first appearance. Future
-        /// content work may split this into one key per <see cref="PowerUpKind"/>; this infrastructure
-        /// slice ships one shared placeholder so the seam exists before any copy is authored.</summary>
-        public const string TUTORIAL_POWERUP_UNLOCKED = "tutorial.powerup_unlocked";
+        public const string INFO_POPUP_SPECIAL_CELL_HEADER = "info_popup.special_cell.header";
+        public const string INFO_POPUP_SPECIAL_CELL_BODY = "info_popup.special_cell.body";
 
-        /// <summary>Generic coach-mark body for a newly-spawned special board cell.</summary>
-        public const string TUTORIAL_SPECIAL_CELL_SPAWNED = "tutorial.special_cell_spawned";
+        public const string INFO_POPUP_POWERUP_HEADER = "info_popup.powerup.header";
+        public const string INFO_POPUP_POWERUP_BODY = "info_popup.powerup.body";
 
-        /// <summary>Generic coach-mark body for a newly-spawned special dock piece.</summary>
-        public const string TUTORIAL_SPECIAL_PIECE_SPAWNED = "tutorial.special_piece_spawned";
+        public const string INFO_POPUP_HOLD_HEADER = "info_popup.hold.header";
+        public const string INFO_POPUP_HOLD_BODY = "info_popup.hold.body";
 
-        /// <summary>Coach-mark body shown the first time the player parks a piece in the Hold slot.</summary>
-        public const string TUTORIAL_HOLD_FIRST_USE = "tutorial.hold_first_use";
+        public const string INFO_POPUP_SPECIAL_PIECE_HEADER = "info_popup.special_piece.header";
+        public const string INFO_POPUP_SPECIAL_PIECE_BODY = "info_popup.special_piece.body";
 
         // --- Splash ---
 

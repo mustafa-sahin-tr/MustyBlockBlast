@@ -102,12 +102,37 @@ namespace MustyBlockBlast.Presentation.Views
         private PowerUpInventoryView _powerUpInventoryView;
         private ObjectiveIconContainerView _objectiveIconContainerView;
         private ObjectiveInfoPopupView _objectiveInfoPopupView;
-        private TutorialModel _tutorialModel;
-        private TutorialSystem _tutorialSystem;
+        private InfoPopupView _infoPopupView;
+        private InfoPopupSystem _infoPopupSystem;
 
         private int _draggedSlot = -1;
+
+        /// <summary>Screen position the current drag's press started at, for the special-piece manual
+        /// info popup reopen gesture (see <see cref="OnPressReleased"/>'s snap-back branch): a tap that
+        /// moved too far reads as an aborted drag rather than a look-again tap.</summary>
+        private Vector2 _dragStartScreenPosition;
+
         private GridPosition _currentAnchor;
         private bool _hasAnchor;
+
+        /// <summary>Screen position a press landed on a power-up strip slot at, recorded so the tap's
+        /// action (arm/cancel/shop) can be deferred to release and resolved as either a normal tap or
+        /// the long-press "show info" gesture. -1 slot means no tap is pending.</summary>
+        private Vector2 _pendingPowerUpTapScreenPosition;
+        private float _pendingPowerUpTapStartTime;
+        private bool _hasPendingPowerUpTap;
+
+        /// <summary>Held duration, in unscaled seconds, that turns a power-up strip press into the
+        /// "show info" gesture instead of its normal tap action.</summary>
+        private const float POWERUP_LONG_PRESS_SECONDS = 0.48f;
+
+        /// <summary>Screen-space movement, in pixels, a power-up strip press may drift by and still
+        /// count as a long-press rather than an aborted drag.</summary>
+        private const float POWERUP_LONG_PRESS_MOVE_TOLERANCE = 14f;
+
+        /// <summary>Screen-space movement, in pixels, a dock press may drift by and still count as a tap
+        /// (rather than a drag) for the special-piece info popup reopen gesture.</summary>
+        private const float TRAY_TAP_MOVE_TOLERANCE = 14f;
 
         /// <summary>Whether this drag frame's ghost sits over the Hold slot. Resolved during the drag
         /// rather than on release, so the drop and the highlight can never disagree about the target.</summary>
@@ -162,8 +187,8 @@ namespace MustyBlockBlast.Presentation.Views
             PowerUpInventoryView powerUpInventoryView,
             ObjectiveIconContainerView objectiveIconContainerView,
             ObjectiveInfoPopupView objectiveInfoPopupView,
-            TutorialModel tutorialModel,
-            TutorialSystem tutorialSystem)
+            InfoPopupView infoPopupView,
+            InfoPopupSystem infoPopupSystem)
         {
             _boardSystem = boardSystem;
             _boardModel = boardModel;
@@ -186,8 +211,8 @@ namespace MustyBlockBlast.Presentation.Views
             _powerUpInventoryView = powerUpInventoryView;
             _objectiveIconContainerView = objectiveIconContainerView;
             _objectiveInfoPopupView = objectiveInfoPopupView;
-            _tutorialModel = tutorialModel;
-            _tutorialSystem = tutorialSystem;
+            _infoPopupView = infoPopupView;
+            _infoPopupSystem = infoPopupSystem;
         }
 
         private void Awake()
@@ -218,6 +243,12 @@ namespace MustyBlockBlast.Presentation.Views
             // never receive the release that would end it: drop it here, with its reticle and its
             // lifted dock plate, rather than leave a highlight on screen with nothing able to clear it.
             CancelHammerArm();
+
+            // Same reasoning as the arm above: a power-up strip press deferred to release (see
+            // OnPressStarted/ResolvePendingPowerUpTap) can never reach its release while disabled either.
+            // Left true, the next OnPressReleased after re-enabling — for whatever unrelated gesture is
+            // in flight by then — would wrongly resolve as this stale tap instead.
+            _hasPendingPowerUpTap = false;
         }
 
         private void Start()
@@ -336,15 +367,6 @@ namespace MustyBlockBlast.Presentation.Views
         {
             Vector2 screenPosition = _pointerPositionAction.ReadValue<Vector2>();
 
-            // The one gate above every other, including the modal overlays below: while a coach-mark is
-            // active, the only press this View honours is one that lands on that step's own spotlighted
-            // target (see TutorialSystem, TutorialOverlayView) — the coach-mark forces the action rather
-            // than merely explaining it. Every other press, wherever it lands, is swallowed outright.
-            if (!IsPressOnActiveTutorialTarget(screenPosition))
-            {
-                return;
-            }
-
             // The conversion card sits above every other gate, the hub's included: it is opened from
             // the shop tab, so the hub is still open underneath it, and the hub's own router would
             // otherwise swallow every tap meant for the card. Its scrim tap closes it and hands the next
@@ -381,6 +403,16 @@ namespace MustyBlockBlast.Presentation.Views
             if (_objectiveInfoPopupView.IsOpen)
             {
                 _objectiveInfoPopupView.HandleTap(screenPosition);
+                return;
+            }
+
+            // Same tier as the objective card: an ordinary optional modal, opened automatically the
+            // first time one of its subjects appears and reopenable on demand afterward (see
+            // InfoPopupSystem). Placed beside the objective gate rather than above the hub/conversion
+            // gates above, since neither of those can be open at the same time as this one opens.
+            if (_infoPopupView.IsOpen)
+            {
+                _infoPopupView.HandleTap(screenPosition);
                 return;
             }
 
@@ -454,25 +486,21 @@ namespace MustyBlockBlast.Presentation.Views
 
             // Before the armed branch below: a tap that lands on the armed kind's own icon is the
             // cancel gesture, not an attempt to aim it at whatever is behind the icon.
-            if (_powerUpInventoryView.TryHandleTap(screenPosition, out bool wantsShop))
+            //
+            // The action itself (arm/cancel/shop) is deferred to release rather than fired here on
+            // press-down: a long-press on the icon is the "show info" gesture instead, and the two must
+            // not both fire for the same press. Only the hit-test happens here; see OnPressReleased for
+            // where TryHandleTap actually runs on an ordinary short tap.
+            if (_powerUpInventoryView.GetSlotIndexAt(screenPosition) >= 0)
             {
                 // Reaching for the power-up strip is reaching for something else: drop any armed hammer
                 // rather than leave it armed behind an aim flow that would clear its slot highlight and
                 // make it invisible.
                 CancelHammerArm();
 
-                // An empty slot's tap is the way into the shop. Routed here rather than opened by the
-                // strip itself, because this View is the one that opens the hub for every other button.
-                if (wantsShop)
-                {
-                    _hubPanelView.Open(HubTab.PowerUpShop);
-                }
-                else if (_powerUpModel.Armed.Value != null)
-                {
-                    _tutorialSystem.NotifyTargetInteracted(
-                        TutorialTargetId.PowerUpStripSlot, slotIndex: (int)_powerUpModel.Armed.Value.Value);
-                }
-
+                _hasPendingPowerUpTap = true;
+                _pendingPowerUpTapScreenPosition = screenPosition;
+                _pendingPowerUpTapStartTime = Time.unscaledTime;
                 return;
             }
 
@@ -482,6 +510,16 @@ namespace MustyBlockBlast.Presentation.Views
             if (_holdSlotView.TryHandleTap(screenPosition))
             {
                 CancelHammerArm();
+                return;
+            }
+
+            // TryHandleTap above only handles the "earn one" gesture (no charge held); a tap on the
+            // pocket while a charge IS held used to be a dead press. It is now the manual reopen for the
+            // Hold info popup.
+            if (_powerUpModel.HoldCount.Value > 0 && _holdSlotView.ContainsScreenPoint(screenPosition))
+            {
+                CancelHammerArm();
+                _infoPopupSystem.Open(InfoPopupSubjectKind.Hold, -1);
                 return;
             }
 
@@ -529,14 +567,25 @@ namespace MustyBlockBlast.Presentation.Views
                 // hammer from ever entering a drag the System would only refuse to place.
                 _ghostFitSystem.Dismiss();
                 ArmHammer(slotIndex);
-                _tutorialSystem.NotifyTargetInteracted(TutorialTargetId.TraySlot, slotIndex: slotIndex);
                 return;
             }
 
             if (slotIndex < 0 || _trayModel.GetPiece(slotIndex) == null)
             {
-                // A press on the board itself, or on nothing — the acceptance criterion's "touches any
-                // cell". Dead press otherwise, and dismissing nothing is a no-op.
+                // A press on the board itself, or on nothing. Resolve it to a board cell first: a press
+                // on a special cell is the manual reopen for its info popup, which takes the place of
+                // what used to be a dead press here. Any other press (on nothing, or on an ordinary
+                // cell) dismisses a Ghost Fit suggestion exactly as before.
+                if (_boardView.TryGetCell(screenPosition, out GridPosition pressedCell))
+                {
+                    SpecialCellKind cellKind = _boardModel.GetSpecialKind(pressedCell);
+                    if (cellKind != SpecialCellKind.None)
+                    {
+                        _infoPopupSystem.Open(InfoPopupSubjectKind.SpecialCell, (int)cellKind);
+                        return;
+                    }
+                }
+
                 _ghostFitSystem.Dismiss();
                 return;
             }
@@ -546,11 +595,16 @@ namespace MustyBlockBlast.Presentation.Views
             _ghostFitSystem.DismissUnlessSuggestedSlot(slotIndex);
 
             BeginDrag(slotIndex, screenPosition);
-            _tutorialSystem.NotifyTargetInteracted(TutorialTargetId.TraySlot, slotIndex: slotIndex);
         }
 
         private void OnPressReleased(InputAction.CallbackContext context)
         {
+            if (_hasPendingPowerUpTap)
+            {
+                ResolvePendingPowerUpTap();
+                return;
+            }
+
             if (_isAimingPowerUp)
             {
                 ReleasePowerUpAim();
@@ -585,29 +639,68 @@ namespace MustyBlockBlast.Presentation.Views
                 ? _powerUpSystem.TryApplyHold(slotIndex)
                 : _hasAnchor && _boardSystem.TryPlacePiece(slotIndex, _currentAnchor);
 
-            if (consumed)
-            {
-                if (_isOverHoldSlot)
-                {
-                    _tutorialSystem.NotifyTargetInteracted(TutorialTargetId.HoldSlot);
-                }
-                else
-                {
-                    _tutorialSystem.NotifyTargetInteracted(TutorialTargetId.BoardCell, _currentAnchor);
-                }
-            }
-            else
+            if (!consumed)
             {
                 _trayView.SetSlotVisible(slotIndex, true);
+
+                // A failed placement snaps the piece back to its slot. A short tap that never really
+                // dragged — the manual reopen gesture for a special piece's info popup — looks exactly
+                // like this from here: a press on the slot followed by a release with no valid anchor.
+                SpecialPieceKind specialKind = _trayModel.GetSpecialKind(slotIndex);
+                if (specialKind != SpecialPieceKind.None)
+                {
+                    Vector2 releasePosition = _pointerPositionAction.ReadValue<Vector2>();
+                    float movedDistance = Vector2.Distance(_dragStartScreenPosition, releasePosition);
+                    if (movedDistance <= TRAY_TAP_MOVE_TOLERANCE)
+                    {
+                        _infoPopupSystem.Open(InfoPopupSubjectKind.SpecialPiece, (int)specialKind);
+                    }
+                }
             }
 
             _hasAnchor = false;
             _isOverHoldSlot = false;
         }
 
+        /// <summary>
+        /// Resolves a press that landed on a power-up strip slot and was deferred rather than acted on
+        /// immediately (see <see cref="OnPressStarted"/>). Held past <see cref="POWERUP_LONG_PRESS_SECONDS"/>
+        /// with little enough movement is the manual reopen gesture for that slot's info popup; anything
+        /// else — a normal short tap, or a tap that moved off the icon — is the ordinary arm/cancel/shop
+        /// tap, fired here exactly as it used to fire on press-down.
+        /// </summary>
+        private void ResolvePendingPowerUpTap()
+        {
+            _hasPendingPowerUpTap = false;
+
+            Vector2 pressPosition = _pendingPowerUpTapScreenPosition;
+            float heldSeconds = Time.unscaledTime - _pendingPowerUpTapStartTime;
+            Vector2 releasePosition = _pointerPositionAction.ReadValue<Vector2>();
+            float movedDistance = Vector2.Distance(pressPosition, releasePosition);
+
+            if (heldSeconds >= POWERUP_LONG_PRESS_SECONDS && movedDistance <= POWERUP_LONG_PRESS_MOVE_TOLERANCE)
+            {
+                int slotIndex = _powerUpInventoryView.GetSlotIndexAt(pressPosition);
+                if (slotIndex >= 0)
+                {
+                    _infoPopupSystem.Open(
+                        InfoPopupSubjectKind.PowerUp, (int)PowerUpInventoryView.KindAt(slotIndex));
+                    return;
+                }
+            }
+
+            if (_powerUpInventoryView.TryHandleTap(pressPosition, out bool wantsShop) && wantsShop)
+            {
+                // An empty slot's tap is the way into the shop. Routed here rather than opened by the
+                // strip itself, because this View is the one that opens the hub for every other button.
+                _hubPanelView.Open(HubTab.PowerUpShop);
+            }
+        }
+
         private void BeginDrag(int slotIndex, Vector2 screenPosition)
         {
             _draggedSlot = slotIndex;
+            _dragStartScreenPosition = screenPosition;
             _hasAnchor = false;
             _isOverHoldSlot = false;
             _boardSystem.BeginPlacementPreview();
@@ -1094,51 +1187,5 @@ namespace MustyBlockBlast.Presentation.Views
             }
         }
 
-        /// <summary>
-        /// True whenever no coach-mark is active, or the active one is and <paramref name="screenPosition"/>
-        /// lands on its own spotlighted target. False for every other press while one is active — the
-        /// guard that makes a coach-mark forced rather than merely advisory (see the class remarks).
-        /// A target that cannot currently be resolved to an on-screen rect (not built yet, or hidden)
-        /// blocks every press rather than none, since there is nothing on screen for a "correct" press
-        /// to land on.
-        /// </summary>
-        private bool IsPressOnActiveTutorialTarget(Vector2 screenPosition)
-        {
-            TutorialStep? active = _tutorialModel.ActiveStep.Value;
-            if (active == null)
-            {
-                return true;
-            }
-
-            RectTransform target = ResolveTutorialTargetRect(active.Value);
-            if (target == null)
-            {
-                return false;
-            }
-
-            Camera eventCamera = _canvas != null && _canvas.renderMode != RenderMode.ScreenSpaceOverlay
-                ? _canvas.worldCamera
-                : null;
-            return RectTransformUtility.RectangleContainsScreenPoint(target, screenPosition, eventCamera);
-        }
-
-        private RectTransform ResolveTutorialTargetRect(TutorialStep step)
-        {
-            switch (step.TargetId)
-            {
-                case TutorialTargetId.BoardCell:
-                    return step.BoardPosition != null
-                        ? _boardView.GetCellRectTransform(step.BoardPosition.Value)
-                        : null;
-                case TutorialTargetId.PowerUpStripSlot:
-                    return _powerUpInventoryView.GetSlotRectTransform((PowerUpKind)step.SlotIndex);
-                case TutorialTargetId.TraySlot:
-                    return _trayView.GetSlotRectTransform(step.SlotIndex);
-                case TutorialTargetId.HoldSlot:
-                    return _holdSlotView.GetPocketRectTransform();
-                default:
-                    return null;
-            }
-        }
     }
 }

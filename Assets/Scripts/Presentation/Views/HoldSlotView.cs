@@ -277,11 +277,19 @@ namespace MustyBlockBlast.Presentation.Views
             RefreshPlate();
         }
 
-        /// <summary>The pocket's on-screen rect, for <see cref="TutorialOverlayView"/> to spotlight and
-        /// for <see cref="BoardInputView"/>'s tutorial input guard to hit-test against.</summary>
+        /// <summary>The pocket's on-screen rect.</summary>
         internal RectTransform GetPocketRectTransform() => _plateRect;
 
-        private bool ContainsScreenPoint(Vector2 screenPosition)
+        /// <summary>The white pocket silhouette shown while the pocket is empty, for
+        /// <see cref="InfoPopupView"/> to reuse as the Hold popup's hero icon rather than authoring a
+        /// second copy of it.</summary>
+        internal Sprite PocketSprite => _pocketSprite;
+
+        /// <summary>True when <paramref name="screenPosition"/> lands on the pocket. Used by
+        /// <see cref="TryHandleTap"/> for the "earn one" gesture, and by <see cref="BoardInputView"/> to
+        /// resolve the manual reopen gesture for the Hold info popup when a charge is already held (the
+        /// one state <see cref="TryHandleTap"/> itself refuses).</summary>
+        internal bool ContainsScreenPoint(Vector2 screenPosition)
         {
             Camera eventCamera = _canvas != null && _canvas.renderMode != RenderMode.ScreenSpaceOverlay
                 ? _canvas.worldCamera
