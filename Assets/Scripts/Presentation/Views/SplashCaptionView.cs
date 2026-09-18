@@ -34,14 +34,26 @@ namespace MustyBlockBlast.Presentation.Views
         private const int SKIP_FONT_SIZE = 40;
         private const int JINGLE_FONT_SIZE = 30;
 
-        /// <summary>#FFFFFF — white used by the dots and the skip hint.</summary>
-        private static readonly Color PrimaryCaption = Color.white;
+        /// <summary>#FDFCFB — İlkbahar cardBackground, the loading dots (issue #267).</summary>
+        private static readonly Color DotColour = new Color32(253, 252, 251, 255);
 
-        /// <summary>#C7C2E8 — soft lavender used by the jingle note.</summary>
-        private static readonly Color SecondaryCaption = new Color32(199, 194, 232, 255);
+        /// <summary>rgba(43,38,51,0.2) — the soft drop shadow under each dot.</summary>
+        private static readonly Color DotShadow = new Color(0.17f, 0.15f, 0.2f, 0.2f);
+
+        /// <summary>#33691E — İlkbahar ink, the skip hint.</summary>
+        private static readonly Color PrimaryCaption = new Color32(51, 105, 30, 255);
+
+        /// <summary>#79A568 — İlkbahar softInk, the jingle note.</summary>
+        private static readonly Color SecondaryCaption = new Color32(121, 165, 104, 255);
 
         /// <summary>Dot opacities, fading left to right exactly as in the mockup.</summary>
-        private static readonly float[] DotAlphas = { 0.85f, 0.55f, 0.3f };
+        private static readonly float[] DotAlphas = { 1f, 0.65f, 0.35f };
+
+        private const float DOT_SHADOW_DROP = 4f;
+
+        [Header("Fonts")]
+        [Tooltip("Label face for both captions (Baloo2 ExtraBold). Falls back to the builtin font.")]
+        [SerializeField] private Font _labelFont;
 
         private readonly CompositeDisposable _disposables = new CompositeDisposable();
 
@@ -73,9 +85,9 @@ namespace MustyBlockBlast.Presentation.Views
             // Built wordless: the locale subscription in Start fills both captions in and refills them
             // on every later language switch.
             _skipHintText = BuildCaption(
-                rootRect, "SkipHint", SKIP_FONT_SIZE, FontStyle.Bold, PrimaryCaption, 0.75f, SKIP_TEXT_Y);
+                rootRect, "SkipHint", SKIP_FONT_SIZE, FontStyle.Bold, PrimaryCaption, 1f, SKIP_TEXT_Y, _labelFont);
             _jingleNoteText = BuildCaption(
-                rootRect, "JingleNote", JINGLE_FONT_SIZE, FontStyle.Normal, SecondaryCaption, 1f, JINGLE_TEXT_Y);
+                rootRect, "JingleNote", JINGLE_FONT_SIZE, FontStyle.Bold, SecondaryCaption, 1f, JINGLE_TEXT_Y, _labelFont);
         }
 
         private void Start()
@@ -113,23 +125,14 @@ namespace MustyBlockBlast.Presentation.Views
 
             for (int dotIndex = 0; dotIndex < DOT_COUNT; dotIndex++)
             {
-                var dotObject = new GameObject($"Dot_{dotIndex}", typeof(RectTransform), typeof(Image));
-                var dotRect = (RectTransform)dotObject.transform;
-                dotRect.SetParent(rowRect, false);
-                dotRect.anchorMin = new Vector2(0.5f, 0.5f);
-                dotRect.anchorMax = new Vector2(0.5f, 0.5f);
-                dotRect.pivot = new Vector2(0.5f, 0.5f);
-                dotRect.sizeDelta = new Vector2(DOT_SIZE, DOT_SIZE);
-                dotRect.anchoredPosition = new Vector2(firstX + (dotIndex * DOT_SPACING), 0f);
+                var dotPosition = new Vector2(firstX + (dotIndex * DOT_SPACING), 0f);
 
-                Color colour = PrimaryCaption;
-                colour.a = DotAlphas[dotIndex];
+                Image shadow = HudChrome.BuildCircle(
+                    rowRect, $"DotShadow_{dotIndex}", DOT_SIZE, dotPosition + new Vector2(0f, -DOT_SHADOW_DROP));
+                shadow.color = HudChrome.WithAlpha(DotShadow, DotAlphas[dotIndex]);
 
-                var image = dotObject.GetComponent<Image>();
-                image.sprite = UiSpriteFactory.Circle;
-                image.type = Image.Type.Simple;
-                image.color = colour;
-                image.raycastTarget = false;
+                Image dot = HudChrome.BuildCircle(rowRect, $"Dot_{dotIndex}", DOT_SIZE, dotPosition);
+                dot.color = HudChrome.WithAlpha(DotColour, DotAlphas[dotIndex]);
             }
         }
 
@@ -140,11 +143,12 @@ namespace MustyBlockBlast.Presentation.Views
             FontStyle fontStyle,
             Color colour,
             float alpha,
-            float y)
+            float y,
+            Font font)
         {
             colour.a = alpha;
 
-            Text text = UiTextFactory.Create(parent, objectName, fontSize, fontStyle, colour);
+            Text text = UiTextFactory.Create(parent, objectName, fontSize, fontStyle, colour, font);
 
             var rect = (RectTransform)text.transform;
             rect.anchorMin = new Vector2(0.5f, 0f);

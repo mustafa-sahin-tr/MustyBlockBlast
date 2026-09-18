@@ -526,6 +526,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a85616d9ced9149f0827599fd1065670, type: 3}
   m_Name: 
   m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.SplashCaptionView
+  _labelFont: {fileID: 12800000, guid: 6537f3bea187e4d82b1d0969d9d00fa6, type: 3}
 --- !u!1 &965873061
 GameObject:
   m_ObjectHideFlags: 0
@@ -576,6 +577,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 28696aeeca65843479821c321262106d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.SafeAreaView
+  _applyTopInset: 0
 --- !u!1 &1135045212
 GameObject:
   m_ObjectHideFlags: 0
@@ -713,6 +715,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a322a8b7557e04a15808b4b4536e05ce, type: 3}
   m_Name: 
   m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.SplashLogoView
+  _displayFont: {fileID: 12800000, guid: 0879445ee55bb4fc5bfdc99e4b94f899, type: 3}
 --- !u!1 &1523687282
 GameObject:
   m_ObjectHideFlags: 0

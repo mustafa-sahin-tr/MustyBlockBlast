@@ -4,69 +4,119 @@ using UnityEngine.UI;
 namespace MustyBlockBlast.Presentation.Views
 {
     /// <summary>
-    /// Splash screen mark: three overlapping colour blocks plus the "Blockio Blast" / "TIME RUSH"
-    /// wordmark, matching the approved splash mockup. Procedural like the rest of the splash views —
-    /// no baked artwork, so it never goes stale when the palette or name changes again.
+    /// Splash screen mark in the storefront language (issue #267): a card plate with a 3D drop shadow,
+    /// a sunken well holding the same L-shaped block mark as the app icon, the "BLOCKIO BLAST" wordmark
+    /// in the display face and a gold "TIME RUSH" pill under it. Procedural like the rest of the splash
+    /// views — no baked artwork — and painted from constants that mirror the İlkbahar theme, because
+    /// the splash scene boots before any theme state exists.
     /// </summary>
     [DisallowMultipleComponent]
     [RequireComponent(typeof(RectTransform))]
     public sealed class SplashLogoView : MonoBehaviour
     {
-        private const float CLUSTER_Y = 210f;
-        private const float TITLE_Y = -40f;
-        private const float SUBTITLE_Y = -140f;
+        private const float CARD_WIDTH = 830f;
+        private const float CARD_HEIGHT = 720f;
+        private const float CARD_RADIUS = 80f;
+        private const float CARD_SHADOW_DROP = 26f;
 
-        /// <summary>#5E96FF — blue block, drawn first (bottom of the cluster).</summary>
-        private static readonly Color32 BlueBlock = new Color32(94, 150, 255, 255);
+        private const float WELL_SIZE = 340f;
+        private const float WELL_RADIUS = 60f;
+        private const float WELL_Y = 150f;
 
-        /// <summary>#6ED68C — green block, drawn second.</summary>
-        private static readonly Color32 GreenBlock = new Color32(110, 214, 140, 255);
+        private const float TILE_SIZE = 84f;
+        private const float TILE_STEP = 96f;
+        private const float TILE_RADIUS = 22f;
+        private const float TILE_BEVEL = 14f;
 
-        /// <summary>#FF9E50 — orange block, drawn last (top of the cluster).</summary>
-        private static readonly Color32 OrangeBlock = new Color32(255, 158, 80, 255);
+        private const float TITLE_Y = -120f;
+        private const float TITLE_LINE_GAP = 84f;
+        private const int TITLE_FONT_SIZE = 84;
 
-        /// <summary>#FFD678 — warm accent used by the "TIME RUSH" subtitle.</summary>
-        private static readonly Color32 SubtitleColour = new Color32(255, 214, 120, 255);
+        private const float SUBTITLE_Y = -270f;
+        private const float SUBTITLE_WIDTH = 300f;
+        private const float SUBTITLE_HEIGHT = 74f;
+        private const int SUBTITLE_FONT_SIZE = 34;
+
+        /// <summary>#FDFCFB — İlkbahar cardBackground.</summary>
+        private static readonly Color CardColour = new Color32(253, 252, 251, 255);
+
+        /// <summary>rgba(43,38,51,0.16) — the mockup's card drop shadow.</summary>
+        private static readonly Color CardShadow = new Color(0.17f, 0.15f, 0.2f, 0.16f);
+
+        /// <summary>#33691E — İlkbahar ink, the wordmark colour.</summary>
+        private static readonly Color Ink = new Color32(51, 105, 30, 255);
+
+        /// <summary>#E0A72E — İlkbahar accent, the "TIME RUSH" pill.</summary>
+        private static readonly Color Accent = new Color32(224, 167, 46, 255);
+
+        /// <summary>İlkbahar kind 1 (coral) and kind 2 (teal): the icon's L mark.</summary>
+        private static readonly Color CoralTile = new Color32(232, 120, 90, 255);
+        private static readonly Color TealTile = new Color32(111, 184, 176, 255);
+
+        [Header("Fonts")]
+        [Tooltip("Display face for the wordmark and the TIME RUSH pill (Bowlby One SC). Falls back to the builtin font.")]
+        [SerializeField] private Font _displayFont;
 
         private void Awake()
         {
             var rootRect = (RectTransform)transform;
 
-            BuildBlock(rootRect, "Block_Blue", BlueBlock, 190f, new Vector2(-8f, CLUSTER_Y + 26f), -8f);
-            BuildBlock(rootRect, "Block_Green", GreenBlock, 140f, new Vector2(-120f, CLUSTER_Y - 40f), -14f);
-            BuildBlock(rootRect, "Block_Orange", OrangeBlock, 150f, new Vector2(96f, CLUSTER_Y - 30f), 12f);
+            RectTransform cardRect = HudChrome.BuildPlate(
+                rootRect, "Card", new Vector2(CARD_WIDTH, CARD_HEIGHT), Vector2.zero, CARD_RADIUS, CARD_SHADOW_DROP,
+                out Image cardShadow, out Image cardPlate);
+            cardShadow.color = CardShadow;
+            cardPlate.color = CardColour;
 
-            Text title = UiTextFactory.Create(rootRect, "Title", 96, FontStyle.Bold, Color.white);
-            title.text = "Blockio Blast";
-            var titleRect = (RectTransform)title.transform;
-            titleRect.anchoredPosition = new Vector2(0f, TITLE_Y);
-            titleRect.sizeDelta = new Vector2(860f, 130f);
-
-            Text subtitle = UiTextFactory.Create(rootRect, "Subtitle", 40, FontStyle.Bold, SubtitleColour);
-            subtitle.text = "T I M E   R U S H";
-            var subtitleRect = (RectTransform)subtitle.transform;
-            subtitleRect.anchoredPosition = new Vector2(0f, SUBTITLE_Y);
-            subtitleRect.sizeDelta = new Vector2(860f, 60f);
+            BuildMark(cardRect);
+            BuildWordmark(cardRect);
+            BuildSubtitlePill(cardRect);
         }
 
-        private static void BuildBlock(RectTransform parent, string objectName, Color colour, float size, Vector2 position, float rotationDegrees)
+        /// <summary>The sunken well with the icon's mark: three coral tiles in an L plus one teal tile.</summary>
+        private static void BuildMark(RectTransform cardRect)
         {
-            var blockObject = new GameObject(objectName, typeof(RectTransform), typeof(Image));
-            var blockRect = (RectTransform)blockObject.transform;
-            blockRect.SetParent(parent, false);
-            blockRect.anchorMin = new Vector2(0.5f, 0.5f);
-            blockRect.anchorMax = new Vector2(0.5f, 0.5f);
-            blockRect.pivot = new Vector2(0.5f, 0.5f);
-            blockRect.sizeDelta = new Vector2(size, size);
-            blockRect.anchoredPosition = position;
-            blockRect.localRotation = Quaternion.Euler(0f, 0f, rotationDegrees);
+            RectTransform wellRect = HudChrome.BuildWell(
+                cardRect, "MarkWell", new Vector2(WELL_SIZE, WELL_SIZE), new Vector2(0f, WELL_Y), WELL_RADIUS,
+                out Image lip, out Image face);
+            lip.color = HudChrome.WellLipTint(CardColour, Ink);
+            face.color = HudChrome.WellTint(CardColour, Ink);
 
-            var image = blockObject.GetComponent<Image>();
-            image.sprite = UiSpriteFactory.RoundedSquare;
-            image.type = Image.Type.Sliced;
-            image.pixelsPerUnitMultiplier = 3f;
-            image.color = colour;
-            image.raycastTarget = false;
+            // Three rows centred on the well: the L's column sits half a step left, its foot half a step right.
+            float half = TILE_STEP * 0.5f;
+            HudChrome.BuildBlock(wellRect, "Tile_TopLeft", TILE_SIZE, new Vector2(-half, TILE_STEP), TILE_RADIUS, TILE_BEVEL, CoralTile);
+            HudChrome.BuildBlock(wellRect, "Tile_MidLeft", TILE_SIZE, new Vector2(-half, 0f), TILE_RADIUS, TILE_BEVEL, CoralTile);
+            HudChrome.BuildBlock(wellRect, "Tile_BottomLeft", TILE_SIZE, new Vector2(-half, -TILE_STEP), TILE_RADIUS, TILE_BEVEL, CoralTile);
+            HudChrome.BuildBlock(wellRect, "Tile_BottomRight", TILE_SIZE, new Vector2(half, -TILE_STEP), TILE_RADIUS, TILE_BEVEL, TealTile);
+        }
+
+        private void BuildWordmark(RectTransform cardRect)
+        {
+            Text first = HudChrome.CreateLabel(
+                cardRect, "Title_Blockio", TITLE_FONT_SIZE, FontStyle.Normal, TextAnchor.MiddleCenter,
+                new Vector2(0f, TITLE_Y), _displayFont);
+            first.text = "BLOCKIO";
+            first.color = Ink;
+
+            Text second = HudChrome.CreateLabel(
+                cardRect, "Title_Blast", TITLE_FONT_SIZE, FontStyle.Normal, TextAnchor.MiddleCenter,
+                new Vector2(0f, TITLE_Y - TITLE_LINE_GAP), _displayFont);
+            second.text = "BLAST";
+            second.color = Ink;
+        }
+
+        /// <summary>The gold "TIME RUSH" pill: accent plate over its darker lip, white display text.</summary>
+        private void BuildSubtitlePill(RectTransform cardRect)
+        {
+            RectTransform pillRect = HudChrome.BuildPill(
+                cardRect, "SubtitlePill", new Vector2(SUBTITLE_WIDTH, SUBTITLE_HEIGHT), new Vector2(0f, SUBTITLE_Y),
+                out Image lip, out Image plate);
+            lip.color = HudChrome.Darken(Accent, HudChrome.LIP_SHADE);
+            plate.color = Accent;
+
+            Text subtitle = HudChrome.CreateLabel(
+                pillRect, "Subtitle", SUBTITLE_FONT_SIZE, FontStyle.Normal, TextAnchor.MiddleCenter, Vector2.zero, _displayFont);
+            subtitle.text = "TIME RUSH";
+            subtitle.color = Color.white;
         }
     }
 }
