@@ -347,6 +347,23 @@ namespace MustyBlockBlast.Presentation.Views
             return false;
         }
 
+        /// <summary>The on-screen rect of <paramref name="kind"/>'s strip slot, for
+        /// <see cref="TutorialOverlayView"/> to spotlight and for <see cref="BoardInputView"/>'s
+        /// tutorial input guard to hit-test against. Null for a kind with no slot in the strip (Reroll,
+        /// CoinSower, Hold — see the class summary).</summary>
+        internal RectTransform GetSlotRectTransform(PowerUpKind kind)
+        {
+            for (int slotIndex = 0; slotIndex < SlotKinds.Length; slotIndex++)
+            {
+                if (SlotKinds[slotIndex] == kind)
+                {
+                    return _slotRects[slotIndex];
+                }
+            }
+
+            return null;
+        }
+
         private bool ContainsScreenPoint(int slotIndex, Vector2 screenPosition)
         {
             RectTransform slotRect = _slotRects[slotIndex];

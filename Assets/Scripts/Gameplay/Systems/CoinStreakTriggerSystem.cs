@@ -1,5 +1,7 @@
 using System;
+using MessagePipe;
 using MustyBlockBlast.Core;
+using MustyBlockBlast.Gameplay.Messages;
 using MustyBlockBlast.Gameplay.Models;
 using VContainer;
 
@@ -48,17 +50,29 @@ namespace MustyBlockBlast.Gameplay.Systems
 
         private readonly IDisposable _subscription;
 
+        /// <summary>Optional: null in every existing test construction, which predates issue #278.
+        /// Guarded on publish so an un-injected instance behaves exactly as it did before.</summary>
+        private readonly IPublisher<SpecialCellSpawnedMessage> _specialCellSpawnedPublisher;
+
         /// <summary>DI entry point — VContainer must not pick the seeded constructor.</summary>
         [Inject]
-        public CoinStreakTriggerSystem(ScoreModel scoreModel, BoardModel boardModel)
-            : this(scoreModel, boardModel, Environment.TickCount)
+        public CoinStreakTriggerSystem(
+            ScoreModel scoreModel,
+            BoardModel boardModel,
+            IPublisher<SpecialCellSpawnedMessage> specialCellSpawnedPublisher = null)
+            : this(scoreModel, boardModel, Environment.TickCount, specialCellSpawnedPublisher)
         {
         }
 
-        internal CoinStreakTriggerSystem(ScoreModel scoreModel, BoardModel boardModel, int seed)
+        internal CoinStreakTriggerSystem(
+            ScoreModel scoreModel,
+            BoardModel boardModel,
+            int seed,
+            IPublisher<SpecialCellSpawnedMessage> specialCellSpawnedPublisher = null)
         {
             _boardModel = boardModel;
             _random = new Random(seed);
+            _specialCellSpawnedPublisher = specialCellSpawnedPublisher;
 
             // Subscribing fires immediately with the current streak, which is 0 at construction and at
             // every run start — never the threshold — so nothing can spawn from merely starting to
@@ -87,6 +101,12 @@ namespace MustyBlockBlast.Gameplay.Systems
             // marks it as special. Nothing is occupied here, so a placement that emptied the board
             // cannot have that achievement quietly taken back by its own reward.
             _boardModel.SetSpecialKind(spawn.Value, SpecialCellKind.Coin);
+
+            if (_specialCellSpawnedPublisher != null)
+            {
+                _specialCellSpawnedPublisher.Publish(
+                    new SpecialCellSpawnedMessage(SpecialCellKind.Coin, spawn.Value));
+            }
         }
     }
 }

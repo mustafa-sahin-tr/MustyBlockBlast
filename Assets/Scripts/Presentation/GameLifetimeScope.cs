@@ -150,6 +150,12 @@ namespace MustyBlockBlast.Presentation
                 // already-loaded counters at its own construction to decide what is already unlocked.
                 container.Resolve<BadgeStatsSystem>();
                 container.Resolve<BadgeSystem>();
+
+                // Subscribes to PowerUpUnlockedMessage, SpecialCellSpawnedMessage,
+                // SpecialPieceSpawnedMessage and HoldFirstUseMessage in its constructor (issue #278), so
+                // it must be listening before the first of any of those can fire, not constructed by
+                // one. Also runs its one-shot already-unlocked-power-ups migration here, on boot.
+                container.Resolve<TutorialSystem>();
             });
         }
 
@@ -182,6 +188,13 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterMessageBroker<CoinsGrantedFromAdMessage>(options);
             builder.RegisterMessageBroker<CoinCellsClearedMessage>(options);
             builder.RegisterMessageBroker<CoinsGrantedFromPurchaseMessage>(options);
+
+            // Tutorial spotlight/coach-mark infrastructure (issue #278): TutorialSystem is the one
+            // subscriber to all four today.
+            builder.RegisterMessageBroker<PowerUpUnlockedMessage>(options);
+            builder.RegisterMessageBroker<SpecialCellSpawnedMessage>(options);
+            builder.RegisterMessageBroker<SpecialPieceSpawnedMessage>(options);
+            builder.RegisterMessageBroker<HoldFirstUseMessage>(options);
         }
 
         // Instance method: the theme list and the timed-mode config are scene-configured on this
@@ -229,6 +242,7 @@ namespace MustyBlockBlast.Presentation
             builder.Register<PendingScoreModel>(Lifetime.Singleton);
             builder.Register<ProfileModel>(Lifetime.Singleton);
             builder.Register<LeaderboardModel>(Lifetime.Singleton);
+            builder.Register<TutorialModel>(Lifetime.Singleton);
         }
 
         /// <summary>
@@ -529,6 +543,10 @@ namespace MustyBlockBlast.Presentation
             builder.Register<BadgeStatsSystem>(Lifetime.Singleton);
             builder.Register<BadgeSystem>(Lifetime.Singleton);
 
+            // Subscribes to all four tutorial triggers in its constructor (issue #278), so it must be
+            // resolved eagerly in the build callback below rather than waiting for a lazy resolve.
+            builder.Register<TutorialSystem>(Lifetime.Singleton);
+
             // Entry point because it is an ITickable: the countdown is driven by VContainer's player
             // loop, not by a MonoBehaviour Update.
             builder.RegisterEntryPoint<TimerRunSystem>(Lifetime.Singleton).AsSelf();
@@ -589,6 +607,7 @@ namespace MustyBlockBlast.Presentation
             // into it while it is up and carries out the action it resolves.
             builder.RegisterComponentInHierarchy<RunResultView>();
             builder.RegisterComponentInHierarchy<CoinConversionView>();
+            builder.RegisterComponentInHierarchy<TutorialOverlayView>();
             builder.RegisterComponentInHierarchy<BoardInputView>();
             builder.RegisterComponentInHierarchy<SfxPlayerView>();
             builder.RegisterComponentInHierarchy<MusicPlayerView>();

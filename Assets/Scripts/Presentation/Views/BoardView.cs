@@ -746,6 +746,19 @@ namespace MustyBlockBlast.Presentation.Views
 
         private int CellIndex(GridPosition cell) => (cell.Y * _width) + cell.X;
 
+        /// <summary>The on-screen rect of one board cell, for <see cref="TutorialOverlayView"/> to
+        /// spotlight and for <see cref="BoardInputView"/>'s tutorial input guard to hit-test against.
+        /// Null when <paramref name="cell"/> is off the board or the cells have not been built yet.</summary>
+        internal RectTransform GetCellRectTransform(GridPosition cell)
+        {
+            if (_cells == null || !IsPlayableCell(cell))
+            {
+                return null;
+            }
+
+            return (RectTransform)_cells[CellIndex(cell)].transform;
+        }
+
         /// <summary>True when <paramref name="cell"/> is on the board and not a hole — the one gate
         /// every legality-feedback path (drag preview, ghost-fit silhouette, power-up target highlight)
         /// passes through, so none of them can tint a cell a piece could never occupy.</summary>

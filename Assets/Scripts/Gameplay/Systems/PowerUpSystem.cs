@@ -79,8 +79,31 @@ namespace MustyBlockBlast.Gameplay.Systems
         private readonly IPublisher<ExplosiveCoreDetonatedMessage> _explosiveCoreDetonatedPublisher;
         private readonly IPublisher<LaserFiredMessage> _laserFiredPublisher;
         private readonly IPublisher<VortexPulledMessage> _vortexPulledPublisher;
+
+        /// <summary>Optional: null in every existing test construction, which predates issue #278.
+        /// Guarded on every publish so an un-injected instance behaves exactly as it did before.</summary>
+        private readonly IPublisher<PowerUpUnlockedMessage> _powerUpUnlockedPublisher;
+
+        /// <summary>Optional, for the same reason <see cref="_powerUpUnlockedPublisher"/> is.</summary>
+        private readonly IPublisher<HoldFirstUseMessage> _holdFirstUsePublisher;
+
         private readonly IDisposable _runStartedSubscription;
         private readonly IDisposable _gameOverSubscription;
+
+        /// <summary>
+        /// Watches the player's progression frontier for a power-up's level gate (see
+        /// <see cref="PowerUpUnlockLevels"/>) being newly crossed, and publishes
+        /// <see cref="PowerUpUnlockedMessage"/> for exactly that kind — never retroactively for a kind
+        /// already unlocked when this System was constructed (see <see cref="OnLevelNumberChanged"/>).
+        /// Owned here rather than by a dedicated System: this class already loads and owns every power-up's
+        /// unlock state, so the crossing that first makes one spendable is this class's event to notice.
+        /// </summary>
+        private readonly IDisposable _levelNumberSubscription;
+
+        /// <summary>Baseline for <see cref="OnLevelNumberChanged"/>: the frontier last observed, so the
+        /// immediate replay every <c>ReactiveProperty{T}.Subscribe</c> fires on subscription is treated
+        /// as "this is where the player already is", never as a crossing to announce.</summary>
+        private int _lastObservedLevelNumber;
 
         /// <summary>
         /// Its own instance rather than the one <see cref="BoardSystem"/> owns. The two can never run
@@ -134,12 +157,16 @@ namespace MustyBlockBlast.Gameplay.Systems
             IPublisher<CoinCellsClearedMessage> coinCellsClearedPublisher,
             CurrencyConfig currencyConfig,
             ISubscriber<RunStartedMessage> runStartedSubscriber,
-            ISubscriber<GameOverMessage> gameOverSubscriber)
+            ISubscriber<GameOverMessage> gameOverSubscriber,
+            IPublisher<PowerUpUnlockedMessage> powerUpUnlockedPublisher = null,
+            IPublisher<HoldFirstUseMessage> holdFirstUsePublisher = null)
         {
             _explosiveCoreDetonatedPublisher = explosiveCoreDetonatedPublisher;
             _laserFiredPublisher = laserFiredPublisher;
             _vortexPulledPublisher = vortexPulledPublisher;
             _coinCellsClearedPublisher = coinCellsClearedPublisher;
+            _powerUpUnlockedPublisher = powerUpUnlockedPublisher;
+            _holdFirstUsePublisher = holdFirstUsePublisher;
             _coinEffect = new CoinEffect(currencyConfig.CoinCellPayout);
             _powerUpModel = powerUpModel;
             _levelProgressionModel = levelProgressionModel;
@@ -153,6 +180,12 @@ namespace MustyBlockBlast.Gameplay.Systems
             _rewardSource = rewardSource;
             _appliedPublisher = appliedPublisher;
             _grantedPublisher = grantedPublisher;
+
+            // Baseline before subscribing, so the immediate replay every ReactiveProperty<T>.Subscribe
+            // fires with the current value is recognised as "already there" rather than a crossing —
+            // see _lastObservedLevelNumber.
+            _lastObservedLevelNumber = levelProgressionModel.CurrentLevelNumber.Value;
+            _levelNumberSubscription = levelProgressionModel.CurrentLevelNumber.Subscribe(OnLevelNumberChanged);
 
             LoadPersistedCount(PowerUpKind.Bomb);
             LoadPersistedCount(PowerUpKind.RowClear);
@@ -581,6 +614,14 @@ namespace MustyBlockBlast.Gameplay.Systems
             }
 
             TrySpend(PowerUpKind.Hold);
+
+            // Published on every successful use, not only the first — see HoldFirstUseMessage, whose
+            // publisher stays deliberately dumb about "firstness".
+            if (_holdFirstUsePublisher != null)
+            {
+                _holdFirstUsePublisher.Publish(new HoldFirstUseMessage());
+            }
+
             return true;
         }
 
@@ -686,6 +727,7 @@ namespace MustyBlockBlast.Gameplay.Systems
         {
             _runStartedSubscription.Dispose();
             _gameOverSubscription.Dispose();
+            _levelNumberSubscription.Dispose();
         }
 
         /// <summary>Shared exit from armed mode: a successful application, an explicit cancel and both
@@ -699,6 +741,41 @@ namespace MustyBlockBlast.Gameplay.Systems
         private void OnRunStarted(RunStartedMessage message) => Disarm();
 
         private void OnGameOver(GameOverMessage message) => Disarm();
+
+        /// <summary>
+        /// Publishes <see cref="PowerUpUnlockedMessage"/> for every kind whose gate falls strictly
+        /// between the last observed frontier and <paramref name="newLevelNumber"/> — a range rather
+        /// than a single equality check, so a frontier that jumps by more than one level (a Path replay,
+        /// a debug skip) still announces every gate it crossed instead of only the last. The immediate
+        /// replay <c>Subscribe</c> fires with the value already recorded as the baseline is a no-op here.
+        /// </summary>
+        private void OnLevelNumberChanged(int newLevelNumber)
+        {
+            int previousLevelNumber = _lastObservedLevelNumber;
+            _lastObservedLevelNumber = newLevelNumber;
+
+            if (newLevelNumber <= previousLevelNumber || _powerUpUnlockedPublisher == null)
+            {
+                return;
+            }
+
+            PublishNewlyUnlockedKind(PowerUpKind.Joker, previousLevelNumber, newLevelNumber);
+            PublishNewlyUnlockedKind(PowerUpKind.ColorCleanser, previousLevelNumber, newLevelNumber);
+            PublishNewlyUnlockedKind(PowerUpKind.Rotate, previousLevelNumber, newLevelNumber);
+            PublishNewlyUnlockedKind(PowerUpKind.Reroll, previousLevelNumber, newLevelNumber);
+            PublishNewlyUnlockedKind(PowerUpKind.DoubleMultiplier, previousLevelNumber, newLevelNumber);
+            PublishNewlyUnlockedKind(PowerUpKind.GhostFit, previousLevelNumber, newLevelNumber);
+            PublishNewlyUnlockedKind(PowerUpKind.CoinSower, previousLevelNumber, newLevelNumber);
+        }
+
+        private void PublishNewlyUnlockedKind(PowerUpKind kind, int previousLevelNumber, int newLevelNumber)
+        {
+            int gateLevel = PowerUpUnlockLevels.LevelFor(kind);
+            if (gateLevel > previousLevelNumber && gateLevel <= newLevelNumber)
+            {
+                _powerUpUnlockedPublisher.Publish(new PowerUpUnlockedMessage(kind));
+            }
+        }
 
         /// <summary>Delegates to Core so the index a power-up will accept and the geometry the preview
         /// draws for it can never disagree about which rows/columns exist.</summary>

@@ -36,6 +36,22 @@ namespace MustyBlockBlast.Gameplay.Localization
         /// Shown instead of a suggestion, and nothing is charged for it.</summary>
         public const string POWERUP_GHOST_FIT_NO_PLACEMENTS = "powerup.ghost_fit_no_placements";
 
+        // --- Tutorial (issue #278) ---
+
+        /// <summary>Generic coach-mark body for a newly-unlocked power-up's first appearance. Future
+        /// content work may split this into one key per <see cref="PowerUpKind"/>; this infrastructure
+        /// slice ships one shared placeholder so the seam exists before any copy is authored.</summary>
+        public const string TUTORIAL_POWERUP_UNLOCKED = "tutorial.powerup_unlocked";
+
+        /// <summary>Generic coach-mark body for a newly-spawned special board cell.</summary>
+        public const string TUTORIAL_SPECIAL_CELL_SPAWNED = "tutorial.special_cell_spawned";
+
+        /// <summary>Generic coach-mark body for a newly-spawned special dock piece.</summary>
+        public const string TUTORIAL_SPECIAL_PIECE_SPAWNED = "tutorial.special_piece_spawned";
+
+        /// <summary>Coach-mark body shown the first time the player parks a piece in the Hold slot.</summary>
+        public const string TUTORIAL_HOLD_FIRST_USE = "tutorial.hold_first_use";
+
         // --- Splash ---
 
         public const string SPLASH_SKIP_HINT = "splash.skip_hint";
