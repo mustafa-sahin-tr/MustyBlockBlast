@@ -128,3 +128,6 @@ InitTestScene*.unity*
 # AI-generated mockup candidates (fal.ai etc.) — never shipped
 Assets/Art/Mockups/
 Assets/Art/Mockups.meta
+
+# graft's local graph cache — regenerable, not committed (run `graft build`).
+/graft/

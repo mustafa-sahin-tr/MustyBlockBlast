@@ -31,13 +31,15 @@ namespace MustyBlockBlast.Presentation.Views
     /// <item>Mode — one plate per entry in <see cref="SelectableModes"/>, with a one-line description
     /// and a PLAYING tag on the active one. Picking the active mode just returns; picking any other
     /// opens the confirmation card at the bottom of the same screen, because switching restarts the
-    /// run.</item>
+    /// run. The Timed plate is taller than the other two: it carries a 3-column row of duration chips
+    /// under its header, so the length is picked in place rather than on a separate screen (issue
+    /// #270). Picking a chip always applies immediately; it only opens the confirmation card too when
+    /// Timed was not already the active mode.</item>
     /// <item>ModeConfirm — the Mode screen with that card showing: KEEP PLAYING steps back, RESTART
     /// calls <see cref="GameModeSystem.SelectMode"/>, which owns the restart.</item>
     /// <item>Language — one plate per shipped language, each labelled in its own language. Picking one
     /// calls <see cref="LocalizationSystem.SetLocale"/>; the re-wording is handled by the reactive
     /// locale subscriptions in every View, this one included.</item>
-    /// <item>Duration — a 3-column grid of round lengths, timed mode only.</item>
     /// </list>
     /// Every screen is built once in <see cref="Start"/> and toggled with SetActive — the same "build
     /// once, never rebuild" approach <see cref="CellView"/> uses for its two looks — and every screen
@@ -94,12 +96,6 @@ namespace MustyBlockBlast.Presentation.Views
 
         private const float ROW_LABEL_RISE = 30f;
         private const float ROW_VALUE_DROP = 14f;
-
-        // The round-length row carries a third line (the "timed mode only" note), so its three lines
-        // are spread wider than the other rows' two.
-        private const float NOTED_ROW_LABEL_RISE = 44f;
-        private const float NOTED_ROW_VALUE_DROP = 2f;
-        private const float NOTED_ROW_NOTE_DROP = 46f;
 
         /// <summary>The chevron disc on a row that steps to a picker screen: a disc in the empty-cell
         /// fill over a slightly lower one in the empty-cell outline, so it has the same lip the tiles
@@ -198,12 +194,21 @@ namespace MustyBlockBlast.Presentation.Views
         private const int DURATION_COLUMN_COUNT = 3;
         private const float OPTION_GAP = 24f;
 
+        /// <summary>
+        /// The Timed plate on the mode screen carries a row of duration chips under its header, so it
+        /// is taller than the other two mode plates (issue #270). The header fills the top
+        /// <see cref="ROW_HEIGHT"/> of the plate exactly as every other mode plate does, and the chip
+        /// row fills the rest, with one <see cref="ROW_GAP"/> between them — the same "no extra
+        /// padding, the row height IS the content" language every other row already uses.
+        /// </summary>
+        private const float TIMED_CHIP_ROW_HEIGHT = 110f;
+        private const float TIMED_PLATE_HEIGHT = ROW_HEIGHT + ROW_GAP + TIMED_CHIP_ROW_HEIGHT;
+
         // Type sizes. The display face is Bowlby One SC where the mock-up uses it (values, names,
         // buttons); everything else is the built-in face in bold, as on the profile card.
         private const int TITLE_FONT_SIZE = 48;
         private const int LABEL_FONT_SIZE = 24;
         private const int VALUE_FONT_SIZE = 44;
-        private const int NOTE_FONT_SIZE = 22;
         private const int THEME_NAME_FONT_SIZE = 36;
         private const int MODE_NAME_FONT_SIZE = 40;
         private const int DESCRIPTION_FONT_SIZE = 24;
@@ -224,9 +229,6 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>How far the accent is pulled toward black for a check disc's lip.</summary>
         private const float ACCENT_SHADE = 0.35f;
 
-        /// <summary>The round-length row's whole plate, in a mode where a round length means nothing.</summary>
-        private const float DIMMED_ALPHA = 0.5f;
-
         /// <summary>How far a busy Remove Ads button fades toward SoftInk while the store prompt is up.</summary>
         private const float BUSY_FADE = 0.5f;
 
@@ -243,13 +245,6 @@ namespace MustyBlockBlast.Presentation.Views
         private const int OWNED_KIND = 5;
 
         /// <summary>
-        /// Shown in the round-length value while endless is active, where a length means nothing. An em
-        /// dash, not a word — deliberately left out of the String Table, since there is nothing here
-        /// for a translator to translate.
-        /// </summary>
-        private const string DURATION_NOT_APPLICABLE = "—";
-
-        /// <summary>
         /// Every mode the picker offers, in display order. The single source of "which modes exist to
         /// choose from": adding one here (with its tile kind, glyph and description key) is all the
         /// picker needs.
@@ -257,8 +252,8 @@ namespace MustyBlockBlast.Presentation.Views
         private static readonly GameMode[] SelectableModes =
         {
             GameMode.Endless,
-            GameMode.Timed,
             GameMode.Path,
+            GameMode.Timed,
         };
 
         private readonly CompositeDisposable _disposables = new CompositeDisposable();
@@ -344,7 +339,6 @@ namespace MustyBlockBlast.Presentation.Views
         private GameObject _settingsScreenRoot;
         private GameObject _themeScreenRoot;
         private GameObject _modeScreenRoot;
-        private GameObject _durationScreenRoot;
         private GameObject _languageScreenRoot;
 
         private RectTransform _closeButtonRect;
@@ -354,12 +348,9 @@ namespace MustyBlockBlast.Presentation.Views
         private RectTransform _themeRowRect;
         private RectTransform _languageRowRect;
         private RectTransform _soundRowRect;
-        private RectTransform _durationRowRect;
-        private CanvasGroup _durationRowGroup;
 
         private RectTransform _themeBackButtonRect;
         private RectTransform _modeBackButtonRect;
-        private RectTransform _durationBackButtonRect;
         private RectTransform _languageBackButtonRect;
 
         private RectTransform _confirmCardRect;
@@ -380,7 +371,6 @@ namespace MustyBlockBlast.Presentation.Views
         private RectTransform _themeValueRect;
         private Text _modeValueText;
         private Text _soundValueText;
-        private Text _durationValueText;
         private Text _languageValueText;
 
         /// <summary>The mode row's tile wears the active mode's own glyph, one per selectable mode.</summary>
@@ -401,7 +391,6 @@ namespace MustyBlockBlast.Presentation.Views
             Theme,
             Mode,
             ModeConfirm,
-            Duration,
             Language,
         }
 
@@ -561,7 +550,6 @@ namespace MustyBlockBlast.Presentation.Views
                 PanelScreen.Theme => HandleThemeScreenTap(screenPosition, eventCamera),
                 PanelScreen.Mode => HandleModeScreenTap(screenPosition, eventCamera),
                 PanelScreen.ModeConfirm => HandleConfirmScreenTap(screenPosition, eventCamera),
-                PanelScreen.Duration => HandleDurationScreenTap(screenPosition, eventCamera),
                 PanelScreen.Language => HandleLanguageScreenTap(screenPosition, eventCamera),
                 _ => HandleSettingsScreenTap(screenPosition, eventCamera),
             };
@@ -639,19 +627,7 @@ namespace MustyBlockBlast.Presentation.Views
                 return true;
             }
 
-            if (!RectTransformUtility.RectangleContainsScreenPoint(_durationRowRect, screenPosition, eventCamera))
-            {
-                return false;
-            }
-
-            // A round length is meaningless in an endless run, so the row is dimmed and inert there —
-            // but it still swallows the tap, so it never behaves like the scrim.
-            if (_gameModeSystem.CurrentMode.Value == GameMode.Timed)
-            {
-                SetScreen(PanelScreen.Duration);
-            }
-
-            return true;
+            return false;
         }
 
         private bool HandleThemeScreenTap(Vector2 screenPosition, Camera eventCamera)
@@ -676,8 +652,46 @@ namespace MustyBlockBlast.Presentation.Views
             return false;
         }
 
+        /// <summary>
+        /// The duration chips live inside the Timed plate, so they are tested before the plates
+        /// themselves — the same "options before the row that hosts them" order
+        /// <see cref="HandleThemeScreenTap"/> and the language screen use for their own option lists
+        /// (issue #270).
+        /// </summary>
         private bool HandleModeScreenTap(Vector2 screenPosition, Camera eventCamera)
         {
+            for (int optionIndex = 0; optionIndex < _durationOptions.Count; optionIndex++)
+            {
+                DurationOption durationOption = _durationOptions[optionIndex];
+                if (!RectTransformUtility.RectangleContainsScreenPoint(durationOption.Rect, screenPosition, eventCamera))
+                {
+                    continue;
+                }
+
+                // Applied immediately either way. When Timed is not yet the active mode, this also asks
+                // to switch to it, folding "pick Timed, then pick a length" into the one tap plus the
+                // one restart confirmation every mode switch already requires. When Timed is already
+                // active, a genuinely different length restarts the run right away rather than waiting
+                // for the next natural restart — the player is looking at the new length and expects
+                // the run in front of them to use it, not the length it started on.
+                bool lengthChanged = !Mathf.Approximately(_timedModeSystem.SelectedDuration.Value, durationOption.Seconds);
+                _timedModeSystem.SelectDuration(durationOption.Seconds);
+                RefreshDurationSelection();
+
+                if (_gameModeSystem.CurrentMode.Value != GameMode.Timed)
+                {
+                    _pendingMode = GameMode.Timed;
+                    SetScreen(PanelScreen.ModeConfirm);
+                }
+                else if (lengthChanged)
+                {
+                    _gameModeSystem.RestartRun();
+                    SetScreen(PanelScreen.Settings);
+                }
+
+                return true;
+            }
+
             for (int optionIndex = 0; optionIndex < _modeOptions.Count; optionIndex++)
             {
                 ModeOption option = _modeOptions[optionIndex];
@@ -729,32 +743,6 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             return HandleModeScreenTap(screenPosition, eventCamera);
-        }
-
-        private bool HandleDurationScreenTap(Vector2 screenPosition, Camera eventCamera)
-        {
-            for (int optionIndex = 0; optionIndex < _durationOptions.Count; optionIndex++)
-            {
-                DurationOption option = _durationOptions[optionIndex];
-                if (!RectTransformUtility.RectangleContainsScreenPoint(option.Rect, screenPosition, eventCamera))
-                {
-                    continue;
-                }
-
-                // No confirmation step: unlike a mode switch this does not restart the run. The new
-                // length takes effect on the next tray refill.
-                _timedModeSystem.SelectDuration(option.Seconds);
-                SetScreen(PanelScreen.Settings);
-                return true;
-            }
-
-            if (RectTransformUtility.RectangleContainsScreenPoint(_durationBackButtonRect, screenPosition, eventCamera))
-            {
-                SetScreen(PanelScreen.Settings);
-                return true;
-            }
-
-            return false;
         }
 
         private bool HandleLanguageScreenTap(Vector2 screenPosition, Camera eventCamera)
@@ -826,7 +814,6 @@ namespace MustyBlockBlast.Presentation.Views
             _themeScreenRoot.SetActive(screen == PanelScreen.Theme);
             _modeScreenRoot.SetActive(isModeScreen);
             _confirmCardRect.gameObject.SetActive(screen == PanelScreen.ModeConfirm);
-            _durationScreenRoot.SetActive(screen == PanelScreen.Duration);
             _languageScreenRoot.SetActive(screen == PanelScreen.Language);
 
             if (isModeScreen)
@@ -925,10 +912,9 @@ namespace MustyBlockBlast.Presentation.Views
             RefreshLanguageSelection();
             RefreshRemoveAdsAction();
 
-            // Last: the bulk loops above repaint the toggle's and the round-length row's parts too, so
-            // their state-dependent colours have to be reapplied on top of them.
+            // Last: the bulk loop above repaints the toggle's parts too, so its state-dependent colours
+            // have to be reapplied on top of it.
             OnMutedChanged(_sfxModel.IsMuted.Value);
-            RefreshDurationRow();
         }
 
         /// <summary>
@@ -948,7 +934,6 @@ namespace MustyBlockBlast.Presentation.Views
             RefreshDurationOptionLabels();
             RefreshModeValue();
             RefreshSoundValue();
-            RefreshDurationRow();
             RefreshThemeNames();
             RefreshConfirmTitle();
 
@@ -990,14 +975,9 @@ namespace MustyBlockBlast.Presentation.Views
 
             RefreshModeValue();
             RefreshModeSelection();
-            RefreshDurationRow();
         }
 
-        private void OnSelectedDurationChanged(float seconds)
-        {
-            RefreshDurationRow();
-            RefreshDurationSelection();
-        }
+        private void OnSelectedDurationChanged(float seconds) => RefreshDurationSelection();
 
         /// <summary>
         /// The foot of the well: the one call to action while there is something to buy, or the owned
@@ -1264,27 +1244,6 @@ namespace MustyBlockBlast.Presentation.Views
             }
         }
 
-        /// <summary>
-        /// Repaints the round-length row's value and dims the whole plate outside timed mode. Shared by
-        /// the theme, mode and duration handlers, all three of which can invalidate it.
-        /// </summary>
-        private void RefreshDurationRow()
-        {
-            if (_durationValueText == null)
-            {
-                return;
-            }
-
-            bool isTimed = _gameModeSystem.CurrentMode.Value == GameMode.Timed;
-            _durationValueText.text = isTimed
-                ? FormatDuration(_timedModeSystem.SelectedDuration.Value)
-                : DURATION_NOT_APPLICABLE;
-
-            // Dimmed rather than hidden: the plate staying in place keeps the list stable and tells the
-            // player the setting exists and which mode unlocks it (the note under the value says which).
-            _durationRowGroup.alpha = isTimed ? 1f : DIMMED_ALPHA;
-        }
-
         /// <summary>Repaints the duration tiles' rings.</summary>
         private void RefreshDurationSelection()
         {
@@ -1409,13 +1368,11 @@ namespace MustyBlockBlast.Presentation.Views
             _settingsScreenRoot = CreateScreenRoot("SettingsScreen");
             _themeScreenRoot = CreateScreenRoot("ThemeScreen");
             _modeScreenRoot = CreateScreenRoot("ModeScreen");
-            _durationScreenRoot = CreateScreenRoot("DurationScreen");
             _languageScreenRoot = CreateScreenRoot("LanguageScreen");
 
             BuildSettingsScreen((RectTransform)_settingsScreenRoot.transform);
             BuildThemeScreen((RectTransform)_themeScreenRoot.transform);
             BuildModeScreen((RectTransform)_modeScreenRoot.transform);
-            BuildDurationScreen((RectTransform)_durationScreenRoot.transform);
             BuildLanguageScreen((RectTransform)_languageScreenRoot.transform);
 
             _panel = panelObject;
@@ -1469,8 +1426,6 @@ namespace MustyBlockBlast.Presentation.Views
             // faster in the top half of the list.
             _languageRowRect = BuildRow(root, 2, "LanguageRow", LANGUAGE_KIND, LocalizationKeys.SETTINGS_ROW_LANGUAGE, out _, out _languageValueText, out RectTransform languageTile);
             _soundRowRect = BuildRow(root, 3, "SoundRow", SOUND_KIND, LocalizationKeys.SETTINGS_ROW_SOUND, out _, out _soundValueText, out RectTransform soundTile);
-            _durationRowRect = BuildNotedRow(root, 4, "DurationRow", DURATION_KIND, LocalizationKeys.SETTINGS_ROW_DURATION,
-                LocalizationKeys.SETTINGS_ROW_DURATION_TIMED_ONLY, out _durationValueText, out RectTransform durationTile);
 
             _themeValueRect = (RectTransform)_themeValueText.transform;
 
@@ -1484,12 +1439,10 @@ namespace MustyBlockBlast.Presentation.Views
             BuildPaletteGlyph(themeTile, THEME_KIND);
             BuildGlobeGlyph(languageTile, LANGUAGE_KIND);
             BuildVolumeGlyph(soundTile);
-            BuildClockGlyph(durationTile, DURATION_KIND);
 
             BuildChevronDisc(_modeRowRect, contentWidth);
             BuildChevronDisc(_themeRowRect, contentWidth);
             BuildChevronDisc(_languageRowRect, contentWidth);
-            BuildChevronDisc(_durationRowRect, contentWidth);
             BuildToggle(_soundRowRect, contentWidth);
 
             // Same dots as the theme cards' boards use, just smaller, moved into the value: one visual
@@ -1530,34 +1483,6 @@ namespace MustyBlockBlast.Presentation.Views
                 rowRect, "Value", VALUE_FONT_SIZE, FontStyle.Normal, TextAnchor.MiddleLeft,
                 new Vector2(textX, -ROW_VALUE_DROP), _displayFont);
             _inkTexts.Add(valueText);
-
-            return rowRect;
-        }
-
-        /// <summary>
-        /// The round-length plate: <see cref="BuildRow"/> with a third line under the value, and a
-        /// CanvasGroup on the whole plate so it can dim as one piece outside timed mode.
-        /// </summary>
-        private RectTransform BuildNotedRow(
-            RectTransform root, int rowIndex, string objectName, int kind, string labelKey, string noteKey,
-            out Text valueText, out RectTransform tileRect)
-        {
-            RectTransform rowRect = BuildRow(root, rowIndex, objectName, kind, labelKey, out Text labelText, out valueText, out tileRect);
-
-            float textX = (-ContentWidth * 0.5f) + ROW_TEXT_INSET;
-
-            // Re-seat the two lines BuildRow made so the three are evenly spread.
-            ((RectTransform)labelText.transform).anchoredPosition = new Vector2(textX, NOTED_ROW_LABEL_RISE);
-            ((RectTransform)valueText.transform).anchoredPosition = new Vector2(textX, -NOTED_ROW_VALUE_DROP);
-
-            Text noteText = CreateLabel(
-                rowRect, "Note", NOTE_FONT_SIZE, FontStyle.Bold, TextAnchor.MiddleLeft, new Vector2(textX, -NOTED_ROW_NOTE_DROP));
-            _softInkTexts.Add(noteText);
-            RegisterLocalized(noteText, noteKey);
-
-            _durationRowGroup = rowRect.gameObject.AddComponent<CanvasGroup>();
-            _durationRowGroup.interactable = false;
-            _durationRowGroup.blocksRaycasts = false;
 
             return rowRect;
         }
@@ -2090,12 +2015,22 @@ namespace MustyBlockBlast.Presentation.Views
         {
             _modeBackButtonRect = BuildSubHeader(root, LocalizationKeys.SETTINGS_MODE_SCREEN_TITLE, null);
 
-            // A genuine N-way picker over SelectableModes rather than a hardcoded trio, so shipping a
-            // mode is one entry in that array plus its String Table rows — nothing here moves.
+            // A running cursor rather than a fixed row stride: the Timed plate is taller than the other
+            // two, since it carries its duration chips inline rather than on a separate screen (issue
+            // #270), and a genuine N-way picker over SelectableModes means shipping a mode is one entry
+            // in that array plus its String Table rows — nothing here moves.
+            float cursorY = SUB_CONTENT_TOP;
             for (int modeIndex = 0; modeIndex < SelectableModes.Length; modeIndex++)
             {
-                float y = TopY(SUB_CONTENT_TOP + (modeIndex * (ROW_HEIGHT + ROW_GAP)), ROW_HEIGHT);
-                _modeOptions.Add(BuildModeOption(root, SelectableModes[modeIndex], new Vector2(0f, y)));
+                GameMode mode = SelectableModes[modeIndex];
+                float plateHeight = mode == GameMode.Timed ? TIMED_PLATE_HEIGHT : ROW_HEIGHT;
+                var anchoredPosition = new Vector2(0f, TopY(cursorY, plateHeight));
+
+                _modeOptions.Add(mode == GameMode.Timed
+                    ? BuildTimedModeOption(root, anchoredPosition)
+                    : BuildModeOption(root, mode, anchoredPosition));
+
+                cursorY += plateHeight + ROW_GAP;
             }
 
             BuildConfirmCard(root);
@@ -2133,6 +2068,71 @@ namespace MustyBlockBlast.Presentation.Views
             RegisterLocalized(playingText, LocalizationKeys.SETTINGS_MODE_PLAYING, uppercase: true);
 
             return new ModeOption(mode, plateRect, selection, playingText);
+        }
+
+        /// <summary>
+        /// The Timed plate: the same header <see cref="BuildModeOption"/> draws — tile, name,
+        /// description, PLAYING tag — plus a row of duration chips underneath, so picking Timed and
+        /// picking its length happen on the one plate instead of two separate screens (issue #270). The
+        /// header fills the plate's top <see cref="ROW_HEIGHT"/> exactly as every other mode plate
+        /// fills its own height, and the chip row fills the rest below one <see cref="ROW_GAP"/>.
+        /// </summary>
+        private ModeOption BuildTimedModeOption(RectTransform root, Vector2 anchoredPosition)
+        {
+            const GameMode mode = GameMode.Timed;
+            float contentWidth = ContentWidth;
+            RectTransform plateRect = BuildSelectablePlate(
+                root, "ModeOption_Timed", new Vector2(contentWidth, TIMED_PLATE_HEIGHT), anchoredPosition, out Selection selection);
+
+            // The header content sits where it would in a plain ROW_HEIGHT plate, just lifted to the
+            // top of the taller one.
+            float headerCentreY = (TIMED_PLATE_HEIGHT * 0.5f) - (ROW_HEIGHT * 0.5f);
+
+            int kind = ModeKind(mode);
+            RectTransform tileRect = BuildKindTile(
+                plateRect, kind, new Vector2((-contentWidth * 0.5f) + ROW_PADDING_X + (TILE_SIZE * 0.5f), headerCentreY));
+            BuildModeGlyph(tileRect, mode, kind);
+
+            float textX = (-contentWidth * 0.5f) + ROW_TEXT_INSET;
+            Text nameText = CreateLabel(
+                plateRect, "Name", MODE_NAME_FONT_SIZE, FontStyle.Normal, TextAnchor.MiddleLeft,
+                new Vector2(textX, headerCentreY + MODE_NAME_RISE), _displayFont);
+            _inkTexts.Add(nameText);
+            RegisterLocalized(nameText, ModeNameKey(mode));
+
+            Text descriptionText = CreateLabel(
+                plateRect, "Description", DESCRIPTION_FONT_SIZE, FontStyle.Bold, TextAnchor.MiddleLeft,
+                new Vector2(textX, headerCentreY - MODE_DESCRIPTION_DROP));
+            _softInkTexts.Add(descriptionText);
+            RegisterLocalized(descriptionText, ModeDescriptionKey(mode));
+
+            Text playingText = CreateLabel(
+                plateRect, "Playing", LABEL_FONT_SIZE, FontStyle.Bold, TextAnchor.MiddleRight,
+                new Vector2((contentWidth * 0.5f) - ROW_PADDING_X, headerCentreY));
+            RegisterLocalized(playingText, LocalizationKeys.SETTINGS_MODE_PLAYING, uppercase: true);
+
+            BuildDurationChips(plateRect, contentWidth, headerCentreY);
+
+            return new ModeOption(mode, plateRect, selection, playingText);
+        }
+
+        /// <summary>
+        /// The Timed plate's duration chips: the same 3-column grid <see cref="BuildDurationOption"/>
+        /// used to build for the old stand-alone duration screen, just parented under the Timed plate
+        /// and seated below its header instead of under a sub-header (issue #270).
+        /// </summary>
+        private void BuildDurationChips(RectTransform plateRect, float contentWidth, float headerCentreY)
+        {
+            IReadOnlyList<float> durations = _timedModeSystem.AvailableDurations;
+            float tileWidth = (contentWidth - (OPTION_GAP * (DURATION_COLUMN_COUNT - 1))) / DURATION_COLUMN_COUNT;
+            var tileSize = new Vector2(tileWidth, TIMED_CHIP_ROW_HEIGHT);
+            float chipCentreY = headerCentreY - (ROW_HEIGHT * 0.5f) - ROW_GAP - (TIMED_CHIP_ROW_HEIGHT * 0.5f);
+
+            for (int durationIndex = 0; durationIndex < durations.Count; durationIndex++)
+            {
+                float x = (durationIndex - ((DURATION_COLUMN_COUNT - 1) * 0.5f)) * (tileWidth + OPTION_GAP);
+                _durationOptions.Add(BuildDurationOption(plateRect, durations[durationIndex], tileSize, new Vector2(x, chipCentreY)));
+            }
         }
 
         /// <summary>
@@ -2188,28 +2188,8 @@ namespace MustyBlockBlast.Presentation.Views
             RegisterLocalized(_confirmYesText, LocalizationKeys.SETTINGS_CONFIRM_YES, uppercase: true);
         }
 
-        private void BuildDurationScreen(RectTransform root)
-        {
-            _durationBackButtonRect = BuildSubHeader(root, LocalizationKeys.SETTINGS_DURATION_SCREEN_TITLE, null);
-
-            // Same grid idea as the theme cards, three across, so adding a duration to the config asset
-            // needs no change here.
-            IReadOnlyList<float> durations = _timedModeSystem.AvailableDurations;
-            float tileWidth = (ContentWidth - (OPTION_GAP * (DURATION_COLUMN_COUNT - 1))) / DURATION_COLUMN_COUNT;
-            var tileSize = new Vector2(tileWidth, ROW_HEIGHT);
-
-            for (int durationIndex = 0; durationIndex < durations.Count; durationIndex++)
-            {
-                int column = durationIndex % DURATION_COLUMN_COUNT;
-                int row = durationIndex / DURATION_COLUMN_COUNT;
-
-                float x = (column - ((DURATION_COLUMN_COUNT - 1) * 0.5f)) * (tileWidth + OPTION_GAP);
-                float y = TopY(SUB_CONTENT_TOP + (row * (ROW_HEIGHT + OPTION_GAP)), ROW_HEIGHT);
-
-                _durationOptions.Add(BuildDurationOption(root, durations[durationIndex], tileSize, new Vector2(x, y)));
-            }
-        }
-
+        /// <summary>One duration chip: built for the Timed mode plate's inline picker (issue #270), the
+        /// same look the old stand-alone duration screen used.</summary>
         private DurationOption BuildDurationOption(RectTransform root, float seconds, Vector2 tileSize, Vector2 anchoredPosition)
         {
             RectTransform plateRect = BuildSelectablePlate(

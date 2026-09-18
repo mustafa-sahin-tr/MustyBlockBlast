@@ -53,5 +53,12 @@ namespace MustyBlockBlast.Gameplay.Systems
             PlayerPrefs.SetInt(GAME_MODE_PREFS_KEY, (int)mode);
             _boardSystem.StartNewRun();
         }
+
+        /// <summary>
+        /// Restarts the run in the active mode, without changing or persisting the mode itself. Used
+        /// when a mode's own settings change in a way that should apply to the run right away — e.g. a
+        /// timed round's length — rather than waiting for the next natural restart.
+        /// </summary>
+        public void RestartRun() => _boardSystem.StartNewRun();
     }
 }
