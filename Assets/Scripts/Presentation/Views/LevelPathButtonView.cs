@@ -1,7 +1,10 @@
-using System.Collections.Generic;
+using System.Text;
+using MustyBlockBlast.Gameplay;
+using MustyBlockBlast.Gameplay.Localization;
 using MustyBlockBlast.Gameplay.Models;
 using MustyBlockBlast.Gameplay.Reactive;
 using MustyBlockBlast.Gameplay.Settings;
+using MustyBlockBlast.Gameplay.Systems;
 using UnityEngine;
 using UnityEngine.UI;
 using VContainer;
@@ -9,14 +12,17 @@ using VContainer;
 namespace MustyBlockBlast.Presentation.Views
 {
     /// <summary>
-    /// Persistent HUD icon that opens the level path overlay. Sits directly under
-    /// <see cref="SettingsButtonView"/> on the right edge, so the two overlay entry points read as one
-    /// column of icons and neither collides with the score at the top centre, the best score in the
-    /// top-left corner, or the countdown below them.
+    /// Persistent pill that opens the level path overlay (issue #265): a card-coloured pill with a
+    /// purple disc wearing the trail glyph, then "LV" and the frontier level number. In Path mode it
+    /// reads "LEVEL n" for the level being played instead, and <see cref="PathLevelBadgeView"/> pins
+    /// the accent star to its top-right corner. Sits at the right end of the goal row
+    /// (<see cref="ObjectiveIconContainerView.TrailingSlot"/>), not in the top bar: right-of-centre
+    /// up there put it under the iPhone's Dynamic Island.
     /// <para>
-    /// Draws a three-stop route — two dots on a rising zig-zag with a flag at the end — from the shared
-    /// circle and rounded-square sprites, so it needs no art asset and batches with every other UI
-    /// Image.
+    /// Parented onto the row in <see cref="Start"/> rather than Awake: the row builds its slot in
+    /// Awake and sibling Awake order is not guaranteed. The row hides itself when nothing is tracked
+    /// and dims for a 2× window; the pill ignores that group so it stays visible and tappable in every
+    /// mode.
     /// </para>
     /// <para>
     /// Like <see cref="SettingsButtonView"/> it only knows how to draw itself and whether a screen
@@ -24,52 +30,90 @@ namespace MustyBlockBlast.Presentation.Views
     /// the single owner of pointer input.
     /// </para>
     /// <para>
-    /// In Path mode it also hosts <see cref="PathLevelBadgeView"/>, which parents itself onto
-    /// <see cref="RootRect"/> to sit on the icon's top-right corner. The badge is a sibling of the
-    /// plate, not a child of it, so it never widens the plate's hit test.
+    /// The badge parents itself onto <see cref="RootRect"/>, the pill's own rect, so it follows the
+    /// pill however wide the number makes it. The badge is a sibling of the plate, not a child of
+    /// it, so it never widens the plate's hit test.
     /// </para>
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class LevelPathButtonView : MonoBehaviour
     {
-        /// <summary>Stops on the route, in button-relative units (-0.5..0.5 across the plate).</summary>
-        private static readonly Vector2[] RouteStops =
-        {
-            new Vector2(-0.26f, -0.19f),
-            new Vector2(-0.02f, 0.10f),
-            new Vector2(0.25f, -0.08f),
-        };
+        /// <summary>Which theme kind's fill the disc takes: the fourth kind — every season's purple.</summary>
+        private const int DISC_KIND = 4;
 
         [Header("Layout")]
-        [Tooltip("Offset from the top-right corner of the canvas, in reference pixels. Stacked under the settings icon.")]
-        // Settings sits at -48 and is 104 tall; a 16px gap puts this at -168. See SettingsButtonView
-        // for why the column is this tight.
-        [SerializeField] private Vector2 _cornerOffset = new Vector2(-60f, -168f);
-        [SerializeField] private float _buttonSize = 104f;
+        [Tooltip("Pill height in reference pixels. A touch under the goal row's 80 so the row stays " +
+            "its height with the pill's shadow inside it.")]
+        [SerializeField] private float _pillHeight = 70f;
+
+        [SerializeField] private float _discSize = 52f;
+        [SerializeField] private float _glyphSize = 32f;
+        [SerializeField] private float _paddingLeft = 10f;
+        [SerializeField] private float _paddingRight = 22f;
+        [SerializeField] private float _gap = 10f;
+        [SerializeField] private int _captionFontSize = 24;
+        [SerializeField] private int _numberFontSize = 38;
+
+        [Header("Art")]
+        [Tooltip("The chunky display face for the level number. Falls back to the builtin font when unassigned.")]
+        [SerializeField] private Font _displayFont;
+
+        [Tooltip("The heavy label face for the small uppercase caption. Falls back to the builtin font when unassigned.")]
+        [SerializeField] private Font _labelFont;
+
+        [Tooltip("White trail silhouette on the purple disc. The disc is plain when unassigned.")]
+        [SerializeField] private Sprite _trailSprite;
 
         private readonly CompositeDisposable _disposables = new CompositeDisposable();
-
-        /// <summary>Repaint bucket: every part of the glyph that is inked — the stops, the segments
-        /// between them and the flag on the last stop.</summary>
-        private readonly List<Image> _inkImages = new List<Image>(8);
+        private readonly StringBuilder _stringBuilder = new StringBuilder(8);
 
         private SettingsModel _settingsModel;
+        private LevelProgressionModel _levelProgressionModel;
+        private PathRunModel _pathRunModel;
+        private GameModeSystem _gameModeSystem;
+        private LocalizationModel _localizationModel;
+        private LocalizationSystem _localizationSystem;
+        private ObjectiveIconContainerView _objectiveIconContainerView;
+
+        private RectTransform _rect;
+        private CanvasGroup _group;
         private RectTransform _buttonRect;
         private Image _plateImage;
         private Image _shadowImage;
+        private Image _discLipImage;
+        private Image _discImage;
+        private Image _trailImage;
+        private RectTransform _discRect;
+        private Text _captionText;
+        private RectTransform _captionRect;
+        private Text _numberText;
+        private RectTransform _numberRect;
         private Canvas _canvas;
 
         /// <summary>
-        /// The icon's own rect — the 112x112 top-right anchored root that the plate, shadow and glyph
-        /// hang off. <see cref="PathLevelBadgeView"/> parents onto this so the badge follows the icon
-        /// wherever <see cref="_cornerOffset"/> puts it, without being able to see or alter the plate.
+        /// The pill's own rect — the right-anchored root that the plate, shadow and contents hang off.
+        /// <see cref="PathLevelBadgeView"/> parents onto this so the badge follows the pill wherever
+        /// the goal row puts it, without being able to see or alter the plate.
         /// </summary>
         internal RectTransform RootRect => (RectTransform)transform;
 
         [Inject]
-        public void Construct(SettingsModel settingsModel)
+        public void Construct(
+            SettingsModel settingsModel,
+            LevelProgressionModel levelProgressionModel,
+            PathRunModel pathRunModel,
+            GameModeSystem gameModeSystem,
+            LocalizationModel localizationModel,
+            LocalizationSystem localizationSystem,
+            ObjectiveIconContainerView objectiveIconContainerView)
         {
             _settingsModel = settingsModel;
+            _levelProgressionModel = levelProgressionModel;
+            _pathRunModel = pathRunModel;
+            _gameModeSystem = gameModeSystem;
+            _localizationModel = localizationModel;
+            _localizationSystem = localizationSystem;
+            _objectiveIconContainerView = objectiveIconContainerView;
         }
 
         private void Awake()
@@ -80,21 +124,32 @@ namespace MustyBlockBlast.Presentation.Views
 
         private void Start()
         {
-            if (_settingsModel == null)
+            if (_settingsModel == null || _levelProgressionModel == null || _pathRunModel == null
+                || _gameModeSystem == null || _localizationModel == null || _localizationSystem == null
+                || _objectiveIconContainerView == null)
             {
                 Debug.LogError(
                     $"{nameof(LevelPathButtonView)} was not injected. Is it registered in the LifetimeScope?", this);
                 return;
             }
 
-            // The icon is built in Awake, before the theme is known; this subscription paints it and
+            AttachToGoalRow();
+
+            // The pill is built in Awake, before the theme is known; this subscription paints it and
             // repaints it on every later theme switch.
             _settingsModel.CurrentTheme.Subscribe(OnThemeChanged).AddTo(_disposables);
+
+            // Which level the pill names depends on the mode, the frontier, the active path level and
+            // the language the caption is written in; any of the four repaints it.
+            _localizationModel.CurrentLocale.Subscribe(_ => RefreshLabel()).AddTo(_disposables);
+            _gameModeSystem.CurrentMode.Subscribe(_ => RefreshLabel()).AddTo(_disposables);
+            _levelProgressionModel.CurrentLevelNumber.Subscribe(_ => RefreshLabel()).AddTo(_disposables);
+            _pathRunModel.ActiveLevelNumber.Subscribe(_ => RefreshLabel()).AddTo(_disposables);
         }
 
         private void OnDestroy() => _disposables.Dispose();
 
-        /// <summary>True when the given screen point is on the icon. Called by <see cref="BoardInputView"/>.</summary>
+        /// <summary>True when the given screen point is on the pill. Called by <see cref="BoardInputView"/>.</summary>
         internal bool ContainsScreenPoint(Vector2 screenPosition)
         {
             if (_buttonRect == null)
@@ -118,143 +173,119 @@ namespace MustyBlockBlast.Presentation.Views
 
             _plateImage.color = theme.CardBackground;
             _shadowImage.color = theme.CardShadow;
+            _discImage.color = theme.GetFill(DISC_KIND);
+            _discLipImage.color = theme.GetShade(DISC_KIND);
+            _trailImage.color = _trailSprite != null ? Color.white : Color.clear;
+            _captionText.color = theme.Ink;
+            _numberText.color = theme.Ink;
+        }
 
-            for (int inkIndex = 0; inkIndex < _inkImages.Count; inkIndex++)
+        /// <summary>
+        /// Outside Path mode the pill names the frontier — the furthest level unlocked — since that is
+        /// where the path panel will land. In a Path run it names the level being played, which may be
+        /// an earlier one the player chose to replay, so the two can legitimately differ.
+        /// </summary>
+        private void RefreshLabel()
+        {
+            int activeLevel = _pathRunModel.ActiveLevelNumber.Value;
+            bool isPathRun = _gameModeSystem.CurrentMode.Value == GameMode.Path
+                && activeLevel != PathRunModel.NO_ACTIVE_LEVEL;
+
+            _stringBuilder.Clear();
+            _stringBuilder.Append(isPathRun ? activeLevel : _levelProgressionModel.CurrentLevelNumber.Value);
+            string number = _stringBuilder.ToString();
+
+            if (isPathRun)
             {
-                _inkImages[inkIndex].color = theme.Ink;
+                // "LEVEL 7" as one caption in the label face, with the number left empty: the mockup
+                // spells the full word here and the number is part of the phrase.
+                _captionText.text = _localizationSystem.Format(LocalizationKeys.HUD_LEVEL_NUMBER, number);
+                _numberText.text = string.Empty;
             }
+            else
+            {
+                _captionText.text = _localizationSystem.Translate(LocalizationKeys.HUD_LEVEL_SHORT);
+                _numberText.text = number;
+            }
+
+            LayOut();
+        }
+
+        private void LayOut()
+        {
+            float captionWidth = _captionText.preferredWidth;
+            float numberWidth = _numberText.text.Length > 0 ? _numberText.preferredWidth + (_gap * 0.5f) : 0f;
+            float width = _paddingLeft + _discSize + _gap + captionWidth + numberWidth + _paddingRight;
+            var size = new Vector2(width, _pillHeight);
+
+            _rect.sizeDelta = size;
+            _buttonRect.sizeDelta = size;
+            _shadowImage.rectTransform.sizeDelta = size;
+
+            float x = (-width * 0.5f) + _paddingLeft;
+            _discRect.anchoredPosition = new Vector2(x + (_discSize * 0.5f), 0f);
+            x += _discSize + _gap;
+            _captionRect.anchoredPosition = new Vector2(x, 0f);
+            x += captionWidth + (_gap * 0.5f);
+            _numberRect.anchoredPosition = new Vector2(x, 0f);
+
+            // The row lays its trailing group out right to left from the pill's width, and clips its
+            // chips short of it, so a wider number must reach it.
+            _objectiveIconContainerView.NotifyTrailingChanged();
+        }
+
+        /// <summary>
+        /// Moves the pill under the goal row's trailing slot, flush with the row's right edge. Last
+        /// sibling on purpose: the row places its trailing children right to left in sibling order, so
+        /// the pill is the rightmost and the streak pill, when it visits, sits to its left.
+        /// </summary>
+        private void AttachToGoalRow()
+        {
+            _rect.SetParent(_objectiveIconContainerView.TrailingSlot, false);
+            _rect.SetAsLastSibling();
+            _rect.anchoredPosition = Vector2.zero;
+            _objectiveIconContainerView.NotifyTrailingChanged();
         }
 
         private void BuildButton()
         {
-            var rect = (RectTransform)transform;
-            rect.anchorMin = Vector2.one;
-            rect.anchorMax = Vector2.one;
-            rect.pivot = Vector2.one;
-            rect.sizeDelta = new Vector2(_buttonSize, _buttonSize);
-            rect.anchoredPosition = _cornerOffset;
+            _rect = (RectTransform)transform;
+            _rect.anchorMin = new Vector2(1f, 0.5f);
+            _rect.anchorMax = new Vector2(1f, 0.5f);
+            _rect.pivot = new Vector2(1f, 0.5f);
+            _rect.sizeDelta = new Vector2(_pillHeight * 2f, _pillHeight);
+            _rect.anchoredPosition = Vector2.zero;
 
-            // Every size here is in canvas reference units, so the icon owns its own scale rather than
+            // Every size here is in canvas reference units, so the pill owns its own scale rather than
             // inheriting whatever the scene object happened to be created with.
-            rect.localScale = Vector3.one;
+            _rect.localScale = Vector3.one;
 
-            var shadowObject = new GameObject("LevelPathButtonShadow", typeof(RectTransform), typeof(Image));
-            var shadowRect = (RectTransform)shadowObject.transform;
-            shadowRect.SetParent(rect, false);
-            Centre(shadowRect, new Vector2(_buttonSize + 10f, _buttonSize + 10f));
-            shadowRect.anchoredPosition = new Vector2(0f, -6f);
-            _shadowImage = shadowObject.GetComponent<Image>();
-            ConfigurePlate(_shadowImage);
-
-            var plateObject = new GameObject("LevelPathButtonPlate", typeof(RectTransform), typeof(Image));
-            _buttonRect = (RectTransform)plateObject.transform;
-            _buttonRect.SetParent(rect, false);
-            Centre(_buttonRect, new Vector2(_buttonSize, _buttonSize));
-            _plateImage = plateObject.GetComponent<Image>();
-            ConfigurePlate(_plateImage);
-
-            BuildRoute();
-        }
-
-        // Segments first, then the stops on top of their ends: sibling order is the only thing keeping
-        // the glyph readable, since nothing here is masked.
-        private void BuildRoute()
-        {
-            float stopDiameter = _buttonSize * 0.17f;
-            float segmentThickness = _buttonSize * 0.07f;
-
-            for (int stopIndex = 0; stopIndex < RouteStops.Length - 1; stopIndex++)
+            // The goal row fades itself out when nothing is tracked and dims for a 2× window; the pill
+            // is not a goal and must stay on screen through both.
+            if (!TryGetComponent(out _group))
             {
-                Vector2 from = RouteStops[stopIndex] * _buttonSize;
-                Vector2 to = RouteStops[stopIndex + 1] * _buttonSize;
-                Vector2 delta = to - from;
-
-                var segmentObject = new GameObject($"RouteSegment_{stopIndex}", typeof(RectTransform), typeof(Image));
-                var segmentRect = (RectTransform)segmentObject.transform;
-                segmentRect.SetParent(_buttonRect, false);
-                Centre(segmentRect, new Vector2(delta.magnitude, segmentThickness));
-                segmentRect.anchoredPosition = from + (delta * 0.5f);
-                segmentRect.localRotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg);
-
-                var segmentImage = segmentObject.GetComponent<Image>();
-                ConfigurePlate(segmentImage);
-                _inkImages.Add(segmentImage);
+                _group = gameObject.AddComponent<CanvasGroup>();
             }
 
-            for (int stopIndex = 0; stopIndex < RouteStops.Length; stopIndex++)
-            {
-                var stopObject = new GameObject($"RouteStop_{stopIndex}", typeof(RectTransform), typeof(Image));
-                var stopRect = (RectTransform)stopObject.transform;
-                stopRect.SetParent(_buttonRect, false);
-                Centre(stopRect, new Vector2(stopDiameter, stopDiameter));
-                stopRect.anchoredPosition = RouteStops[stopIndex] * _buttonSize;
+            _group.ignoreParentGroups = true;
 
-                var stopImage = stopObject.GetComponent<Image>();
-                ConfigureCircle(stopImage);
-                _inkImages.Add(stopImage);
-            }
+            _buttonRect = HudChrome.BuildPill(
+                _rect, "LevelPathButtonPlate", _rect.sizeDelta, Vector2.zero, out _shadowImage, out _plateImage);
 
-            BuildFlag(RouteStops[RouteStops.Length - 1] * _buttonSize, stopDiameter);
-        }
+            // Children hang off the root rather than the plate so the plate stays the one hit rect.
+            _discRect = HudChrome.CreateRect(_rect, "Disc", new Vector2(_discSize, _discSize), Vector2.zero);
+            _discLipImage = HudChrome.BuildCircle(_discRect, "Lip", _discSize, new Vector2(0f, -5f));
+            _discImage = HudChrome.BuildCircle(_discRect, "Face", _discSize, Vector2.zero);
+            _trailImage = HudChrome.BuildGlyph(
+                _discRect, "Trail", _trailSprite, new Vector2(_glyphSize, _glyphSize), Vector2.zero);
 
-        /// <summary>
-        /// A mast and a pennant on the last stop, so the glyph reads as "a route with an end" rather
-        /// than as a generic scatter of dots.
-        /// </summary>
-        private void BuildFlag(Vector2 lastStop, float stopDiameter)
-        {
-            float mastHeight = _buttonSize * 0.30f;
-            float mastThickness = _buttonSize * 0.055f;
+            _captionText = HudChrome.CreateLabel(
+                _rect, "Caption", _captionFontSize, FontStyle.Bold, TextAnchor.MiddleLeft, Vector2.zero, _labelFont);
+            _captionRect = (RectTransform)_captionText.transform;
 
-            var mastObject = new GameObject("FlagMast", typeof(RectTransform), typeof(Image));
-            var mastRect = (RectTransform)mastObject.transform;
-            mastRect.SetParent(_buttonRect, false);
-            Centre(mastRect, new Vector2(mastThickness, mastHeight));
-            mastRect.anchoredPosition = lastStop + new Vector2(0f, (mastHeight * 0.5f) - (stopDiameter * 0.25f));
-
-            var mastImage = mastObject.GetComponent<Image>();
-            ConfigurePlate(mastImage);
-            _inkImages.Add(mastImage);
-
-            var pennantObject = new GameObject("FlagPennant", typeof(RectTransform), typeof(Image));
-            var pennantRect = (RectTransform)pennantObject.transform;
-            pennantRect.SetParent(_buttonRect, false);
-            Centre(pennantRect, new Vector2(_buttonSize * 0.17f, _buttonSize * 0.13f));
-            pennantRect.anchoredPosition = lastStop + new Vector2(
-                -(_buttonSize * 0.10f), mastHeight - (stopDiameter * 0.25f) - (_buttonSize * 0.08f));
-
-            var pennantImage = pennantObject.GetComponent<Image>();
-            ConfigurePlate(pennantImage);
-            _inkImages.Add(pennantImage);
-        }
-
-        private static void Centre(RectTransform rect, Vector2 size)
-        {
-            rect.anchorMin = new Vector2(0.5f, 0.5f);
-            rect.anchorMax = new Vector2(0.5f, 0.5f);
-            rect.pivot = new Vector2(0.5f, 0.5f);
-            rect.sizeDelta = size;
-            rect.anchoredPosition = Vector2.zero;
-        }
-
-        // Every Image here shares the one rounded-square sprite, so the whole icon batches into the
-        // surrounding UI instead of adding draw calls of its own.
-        private static void ConfigurePlate(Image image)
-        {
-            image.sprite = UiSpriteFactory.RoundedSquare;
-            image.type = Image.Type.Sliced;
-            image.pixelsPerUnitMultiplier = 3f;
-            image.color = Color.clear;
-            image.raycastTarget = false;
-        }
-
-        // The circle sprite has no border, so it must never be sliced.
-        private static void ConfigureCircle(Image image)
-        {
-            image.sprite = UiSpriteFactory.Circle;
-            image.type = Image.Type.Simple;
-            image.color = Color.clear;
-            image.raycastTarget = false;
+            _numberText = HudChrome.CreateLabel(
+                _rect, "Number", _numberFontSize, FontStyle.Normal, TextAnchor.MiddleLeft, Vector2.zero, _displayFont);
+            _numberRect = (RectTransform)_numberText.transform;
         }
     }
 }

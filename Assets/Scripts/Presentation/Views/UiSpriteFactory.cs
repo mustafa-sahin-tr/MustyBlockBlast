@@ -55,7 +55,26 @@ namespace MustyBlockBlast.Presentation.Views
         /// fat enough waist that the shape keeps a solid core instead of reading as loose rays.</summary>
         private const float STARBURST_INNER_RADIUS = 0.42f;
 
+        /// <summary>Points and waist of <see cref="FivePointStar"/>: five, with a waist wide enough
+        /// that the badge-sized glyph keeps a solid body between its points.</summary>
+        private const int STAR_POINTS = 5;
+        private const float STAR_INNER_RADIUS = 0.55f;
+
+        /// <summary>Width of one awning tile in sprite pixels — one stripe plus one gap, or one
+        /// scallop. Rendered at 100 pixels per unit it is also the tile width in reference pixels
+        /// before an Image's <c>pixelsPerUnitMultiplier</c> rescales it.</summary>
+        private const int AWNING_TILE_WIDTH = 64;
+        private const int AWNING_STRIPE_TILE_HEIGHT = 8;
+        private const int AWNING_SCALLOP_TILE_HEIGHT = 32;
+
+        /// <summary>Alpha of the awning's light stripes over the accent plate (the mockup's 0.28).</summary>
+        private const byte AWNING_STRIPE_ALPHA = 72;
+
         private static Sprite _roundedSquare;
+        private static Sprite _fivePointStar;
+        private static Sprite _awningStripes;
+        private static Sprite _awningScallops;
+        private static readonly Sprite[] _roundedOutlines = new Sprite[ROUNDED_RADIUS + 1];
         private static Sprite _radialGlow;
         private static Sprite _triangleFacet;
         private static Sprite _circle;
@@ -77,6 +96,24 @@ namespace MustyBlockBlast.Presentation.Views
 
                 return _roundedSquare;
             }
+        }
+
+        /// <summary>
+        /// 9-sliced hollow rounded frame, white: the outline of <see cref="RoundedSquare"/> with a
+        /// <paramref name="thickness"/>-pixel wall (1..<see cref="ROUNDED_RADIUS"/>). Sliced at a
+        /// radius, the wall renders at <c>thickness * radius / ROUNDED_RADIUS</c>, so callers pick the
+        /// thickness from the radius they slice at (see <c>HudChrome.BuildOutline</c>). One instance per
+        /// thickness, cached, so every ring of one weight batches together.
+        /// </summary>
+        internal static Sprite RoundedOutline(int thickness)
+        {
+            int clamped = Mathf.Clamp(thickness, 1, ROUNDED_RADIUS);
+            if (_roundedOutlines[clamped] == null)
+            {
+                _roundedOutlines[clamped] = CreateRoundedOutline(ROUNDED_SIZE, ROUNDED_RADIUS, clamped);
+            }
+
+            return _roundedOutlines[clamped];
         }
 
         /// <summary>Soft radial falloff, white. One shared instance so every glow batches together.</summary>
@@ -219,6 +256,61 @@ namespace MustyBlockBlast.Presentation.Views
                 }
 
                 return _checkMark;
+            }
+        }
+
+        /// <summary>
+        /// A five-pointed star, white — the badge glyph the level-path pill wears in Path mode. The
+        /// same sweep as <see cref="Starburst"/> with five points and a fatter waist, so it reads as a
+        /// star rather than a spark. Tint via Image.color and use <c>Image.Type.Simple</c>.
+        /// </summary>
+        internal static Sprite FivePointStar
+        {
+            get
+            {
+                if (_fivePointStar == null)
+                {
+                    _fivePointStar = CreateStarburst(STARBURST_SIZE, STAR_POINTS, STAR_INNER_RADIUS);
+                }
+
+                return _fivePointStar;
+            }
+        }
+
+        /// <summary>
+        /// One tile of the awning's stripes: the left half a translucent white bar, the right half
+        /// clear. Drawn <c>Image.Type.Tiled</c> over an accent-tinted plate it lightens every other
+        /// stripe of it, which is how the storefront awning gets its two-tone canvas from one tint.
+        /// Left untinted (white) so the stripes stay lighter than whatever accent sits under them.
+        /// </summary>
+        internal static Sprite AwningStripes
+        {
+            get
+            {
+                if (_awningStripes == null)
+                {
+                    _awningStripes = CreateAwningStripes(AWNING_TILE_WIDTH, AWNING_STRIPE_TILE_HEIGHT);
+                }
+
+                return _awningStripes;
+            }
+        }
+
+        /// <summary>
+        /// One tile of the awning's scalloped hem: a disc centred on the tile's top edge, so only its
+        /// lower half shows. Tiled along the bottom of the awning plate in the plate's own colour it
+        /// hangs a row of half-discs off the hem. Tint via Image.color and use <c>Image.Type.Tiled</c>.
+        /// </summary>
+        internal static Sprite AwningScallops
+        {
+            get
+            {
+                if (_awningScallops == null)
+                {
+                    _awningScallops = CreateAwningScallops(AWNING_TILE_WIDTH, AWNING_SCALLOP_TILE_HEIGHT);
+                }
+
+                return _awningScallops;
             }
         }
 
@@ -783,6 +875,53 @@ namespace MustyBlockBlast.Presentation.Views
             return sprite;
         }
 
+        /// <summary>The rounded square minus a copy of itself inset by <paramref name="thickness"/>
+        /// on every side, leaving an anti-aliased frame whose corners follow the outer radius.</summary>
+        private static Sprite CreateRoundedOutline(int size, int radius, int thickness)
+        {
+            var texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
+            {
+                name = "MustyBlockBlast_RoundedOutline_" + thickness,
+                wrapMode = TextureWrapMode.Clamp,
+                filterMode = FilterMode.Bilinear,
+                hideFlags = HideFlags.HideAndDontSave,
+            };
+
+            int innerSize = size - (thickness * 2);
+            int innerRadius = Mathf.Max(0, radius - thickness);
+
+            var pixels = new Color32[size * size];
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float outer = CornerCoverage(x, y, size, radius);
+                    int innerX = x - thickness;
+                    int innerY = y - thickness;
+                    float inner = innerX >= 0 && innerY >= 0 && innerX < innerSize && innerY < innerSize
+                        ? CornerCoverage(innerX, innerY, innerSize, innerRadius)
+                        : 0f;
+                    float alpha = Mathf.Clamp01(outer - inner);
+                    pixels[(y * size) + x] = new Color32(255, 255, 255, (byte)Mathf.RoundToInt(alpha * 255f));
+                }
+            }
+
+            texture.SetPixels32(pixels);
+            texture.Apply(false, true);
+
+            Sprite sprite = Sprite.Create(
+                texture,
+                new Rect(0f, 0f, size, size),
+                new Vector2(0.5f, 0.5f),
+                100f,
+                0,
+                SpriteMeshType.FullRect,
+                new Vector4(radius, radius, radius, radius));
+            sprite.name = "MustyBlockBlast_RoundedOutlineSprite_" + thickness;
+            sprite.hideFlags = HideFlags.HideAndDontSave;
+            return sprite;
+        }
+
         /// <summary>Anti-aliased coverage of a rounded-rect corner for one pixel.</summary>
         private static float CornerCoverage(int x, int y, int size, int radius)
         {
@@ -793,6 +932,77 @@ namespace MustyBlockBlast.Presentation.Views
             float centreY = pixelY < radius ? radius : (pixelY > size - radius ? size - radius : pixelY);
 
             return CircleCoverage(pixelX, pixelY, centreX, centreY, radius);
+        }
+
+        /// <summary>The left half of the tile is a translucent white bar, the right half clear — see
+        /// <see cref="AwningStripes"/>. Repeat wrap, so a tiled Image's seams are invisible.</summary>
+        private static Sprite CreateAwningStripes(int width, int height)
+        {
+            var texture = new Texture2D(width, height, TextureFormat.RGBA32, false)
+            {
+                name = "MustyBlockBlast_AwningStripes",
+                wrapMode = TextureWrapMode.Repeat,
+                filterMode = FilterMode.Bilinear,
+                hideFlags = HideFlags.HideAndDontSave,
+            };
+
+            var pixels = new Color32[width * height];
+            int stripeWidth = width / 2;
+
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    byte alpha = x < stripeWidth ? AWNING_STRIPE_ALPHA : (byte)0;
+                    pixels[(y * width) + x] = new Color32(255, 255, 255, alpha);
+                }
+            }
+
+            texture.SetPixels32(pixels);
+            texture.Apply(false, true);
+
+            Sprite sprite = Sprite.Create(
+                texture, new Rect(0f, 0f, width, height), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect);
+            sprite.name = "MustyBlockBlast_AwningStripesSprite";
+            sprite.hideFlags = HideFlags.HideAndDontSave;
+            return sprite;
+        }
+
+        /// <summary>A white disc centred on the tile's top edge, so only its lower half is inside the
+        /// tile — see <see cref="AwningScallops"/>. Slightly narrower than the tile so neighbouring
+        /// scallops read as separate lobes rather than one wavy line.</summary>
+        private static Sprite CreateAwningScallops(int width, int height)
+        {
+            var texture = new Texture2D(width, height, TextureFormat.RGBA32, false)
+            {
+                name = "MustyBlockBlast_AwningScallops",
+                wrapMode = TextureWrapMode.Repeat,
+                filterMode = FilterMode.Bilinear,
+                hideFlags = HideFlags.HideAndDontSave,
+            };
+
+            var pixels = new Color32[width * height];
+            float centreX = width * 0.5f;
+            float radius = (width * 0.5f) - 2f;
+
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    // Texture rows count up from the bottom, so the disc's centre sits on the top row.
+                    float alpha = CircleCoverage(x + 0.5f, y + 0.5f, centreX, height, radius);
+                    pixels[(y * width) + x] = new Color32(255, 255, 255, (byte)Mathf.RoundToInt(alpha * 255f));
+                }
+            }
+
+            texture.SetPixels32(pixels);
+            texture.Apply(false, true);
+
+            Sprite sprite = Sprite.Create(
+                texture, new Rect(0f, 0f, width, height), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect);
+            sprite.name = "MustyBlockBlast_AwningScallopsSprite";
+            sprite.hideFlags = HideFlags.HideAndDontSave;
+            return sprite;
         }
 
         /// <summary>Anti-aliased coverage of one pixel against a circle of <paramref name="radius"/>.</summary>

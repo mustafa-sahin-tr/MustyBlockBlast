@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using MustyBlockBlast.Core;
@@ -17,36 +18,24 @@ using VContainer;
 namespace MustyBlockBlast.Presentation.Views
 {
     /// <summary>
-    /// The Hold slot ("pocket"): one plate showing the single parked piece, or an empty outline when
-    /// nothing is parked, with a badge counting the Hold charges left. Reads <see cref="TrayModel"/>
-    /// for what is parked and <see cref="PowerUpModel.HoldCount"/> for whether parking can be paid for.
+    /// The Hold slot ("pocket"): the bay at the right end of <see cref="PieceTrayView"/>'s card showing
+    /// the single parked piece, or the pocket glyph and its caption when nothing is parked, with a
+    /// badge on its corner counting the Hold charges left. Reads <see cref="TrayModel"/> for what is
+    /// parked and <see cref="PowerUpModel.HoldCount"/> for whether parking can be paid for.
     /// <para>
-    /// The charge is drawn the way the power-up strip draws its counts — a chip on the bottom-right
-    /// corner, accent when the player holds some, soft ink when none — and a pocket with no charge dims
-    /// to the strip's empty-slot alpha, so "cannot park right now" reads in the same language as
-    /// "holds no bombs". The parked-piece miniature never dims: a piece stuck behind an empty inventory
-    /// is still a real piece the player owns and must be able to see.
+    /// Drawn in the storefront vocabulary (issue #265) and in the same language as the power-up strip:
+    /// empty, the pocket is an outline ring with the glyph and the "pocket" caption inside it;
+    /// occupied, it is a sunken well like the tray's own with the parked piece drawn in it. The badge
+    /// is green with the count while the player holds a charge, and pink when none is left — "+" on
+    /// an empty pocket, whose tap is the "earn one" gesture, and "x0" on an occupied one, whose piece
+    /// is locked in until a charge is earned. The parked-piece miniature never dims: a piece stuck
+    /// behind an empty inventory is still a real piece the player owns and must be able to see.
     /// </para>
     /// <para>
-    /// Centred beneath <see cref="PieceTrayView"/>'s card, sharing its horizontal centre, rather than
-    /// corner-anchored near the score readout: the pocket is a tray affordance, not a HUD button, and
-    /// sitting far from the tray it swaps pieces with was read as an unrelated, half-disabled control.
-    /// The gap below the tray card is the only clearance the layout has — the power-up strip sits
-    /// directly above the tray with almost none to spare, and the tray card itself already spans nearly
-    /// the full canvas width — so "below" is the one placement that cannot collide with a tray piece at
-    /// its largest footprint or with the power-up strip at any aspect ratio.
-    /// </para>
-    /// <para>
-    /// Like <see cref="PowerUpInventoryView"/> it knows how to draw itself and whether a screen point is
-    /// on it, nothing more. The gesture that fills it — dropping a dragged dock piece here — is routed
-    /// by <see cref="BoardInputView"/>, the single owner of pointer input in this scene, which also asks
-    /// this View to light up while a drag hovers it.
-    /// </para>
-    /// <para>
-    /// A pocket with no charge left is also the place to earn one: a tap on it is the "earn one"
-    /// gesture, routed here by <see cref="BoardInputView"/> exactly as a tap on an empty strip slot is
-    /// routed to <see cref="PowerUpInventoryView"/>, and it asks <see cref="PowerUpSystem"/> for the
-    /// reward the same way. The View banks nothing itself; the count subscription repaints the badge.
+    /// It sits over the tray card's right-hand bay rather than being built by the tray: the pocket
+    /// has its own drag-overlap and tap hit-testing, routed by <see cref="BoardInputView"/>, the
+    /// single owner of pointer input in this scene, which also asks this View to light up while a drag
+    /// hovers it. Its anchored position is authored to land in the bay the tray reserves.
     /// </para>
     /// <para>
     /// There is no gesture for taking a piece <em>out</em> of the pocket, and none is needed: dropping
@@ -57,70 +46,82 @@ namespace MustyBlockBlast.Presentation.Views
     [DisallowMultipleComponent]
     public sealed class HoldSlotView : MonoBehaviour
     {
-        /// <summary>Alpha of the plate while the pocket is empty, so "nothing parked" reads at a glance.</summary>
-        private const float EMPTY_PLATE_ALPHA = 0.45f;
+        /// <summary>Corner radius of the pocket: the mockup's 16px, the tray wells' radius.</summary>
+        private const float CORNER_RADIUS = 44f;
 
-        /// <summary>Alpha of the empty-state arrow and label. Kept well above <see cref="EMPTY_PLATE_ALPHA"/>
-        /// so the "drop a piece here" hint stays legible even while the plate itself fades.</summary>
-        private const float EMPTY_HINT_ALPHA = 0.85f;
+        /// <summary>Thickness of the empty pocket's outline: the mockup's 2px dashed border, drawn solid.</summary>
+        private const float OUTLINE_THICKNESS = 6f;
 
-        /// <summary>Alpha of the plate while the player holds no Hold charge, occupied or not. The same
-        /// figure as the strip's empty slot, so the two kinds of "cannot use this" read alike.</summary>
-        private const float NO_CHARGE_PLATE_ALPHA = 0.35f;
+        /// <summary>Thickness of the accent ring a hovering drag lights, and how far it stands off the
+        /// pocket: the strip's armed halo.</summary>
+        private const float HOVER_RING_THICKNESS = 8f;
 
-        /// <summary>Side of the charge badge, as a fraction of the slot — the strip's ratio.</summary>
-        private const float BADGE_SIZE = 0.36f;
+        /// <summary>How far the well's face is pulled toward the accent while a drag hovers it.</summary>
+        private const float HOVER_FACE_TINT = 0.3f;
 
-        /// <summary>How far the badge is pushed past the plate's bottom-right corner, as on the strip.</summary>
-        private const float BADGE_CORNER_OVERLAP = 4f;
+        /// <summary>Alpha of the glyph and caption while no charge is left to park with: the invitation
+        /// is still there, dimmed, and the pink badge says what to do about it.</summary>
+        private const float NO_CHARGE_HINT_ALPHA = 0.5f;
 
-        /// <summary>Fraction of the badge the count glyph may fill, so a large serialized font size
-        /// cannot spill the number off its own chip.</summary>
-        private const float BADGE_FONT_FILL = 0.66f;
+        /// <summary>Diameter of the charge badge: the mockup's 22px chip.</summary>
+        private const float BADGE_DIAMETER = 61f;
 
-        /// <summary>Drawn in place of the count when the player holds no charge: that state's tap is the
-        /// "earn one" gesture, so the chip reads as an offer rather than as a dead 0 — the strip's label.</summary>
+        /// <summary>How far the badge's centre sits inside the pocket's top-right corner: the mockup's 4px.</summary>
+        private const float BADGE_INSET = 11f;
+
+        /// <summary>Gap between the glyph's bottom edge and the caption's centre line.</summary>
+        private const float CAPTION_GAP = 26f;
+
+        /// <summary>Drawn in place of the count when the player holds no charge and nothing is parked:
+        /// that state's tap is the "earn one" gesture, so the chip reads as an offer — the strip's label.</summary>
         private const string EARN_AFFORDANCE_LABEL = "+";
+
+        /// <summary>Prefix of the charge count: the mockup's "x1" / "x0".</summary>
+        private const string COUNT_PREFIX = "x";
 
         [Header("Layout")]
         [FormerlySerializedAs("_cornerOffset")]
-        [Tooltip("Plate centre in canvas space. Sits below the piece tray, sharing its horizontal centre.")]
-        [SerializeField] private Vector2 _anchoredPosition = new Vector2(0f, -897f);
+        [Tooltip("Pocket centre in canvas space. Authored to sit in the bay PieceTrayView reserves at its card's right edge.")]
+        [SerializeField] private Vector2 _anchoredPosition = new Vector2(352f, -720f);
 
-        [SerializeField] private float _slotSize = 104f;
+        [Tooltip("Size of the pocket, in reference pixels. Fits inside the tray card's bay.")]
+        [SerializeField] private Vector2 _pocketSize = new Vector2(200f, 204f);
 
         [Header("Parked piece")]
-        [Tooltip("Side of the square the parked piece's miniature is scaled to fit, inside the plate.")]
-        [SerializeField] private float _pieceAreaSize = 84f;
+        [Tooltip("Side of the square the parked piece's miniature is scaled to fit, inside the pocket.")]
+        [SerializeField] private float _pieceAreaSize = 150f;
 
-        [Tooltip("Largest cell size the miniature uses. Small pieces stop growing here rather than filling the plate.")]
-        [SerializeField] private float _maxPieceCellSize = 26f;
+        [Tooltip("Largest cell size the miniature uses. Small pieces stop growing here rather than filling the pocket.")]
+        [SerializeField] private float _maxPieceCellSize = 44f;
 
         [Tooltip("Gap between miniature cells, as a fraction of the cell size.")]
         [SerializeField] private float _pieceCellSpacingFraction = 0.12f;
 
         [SerializeField] private float _cellInset = 1f;
-        [SerializeField] private float _cellBevelThickness = 2f;
+        [SerializeField] private float _cellBevelThickness = 5f;
 
         [Header("Drag feedback")]
         [Tooltip("Scale applied while a dragged piece hovers the pocket, so the drop target reads without new art.")]
-        [SerializeField] private float _hoverScale = 1.14f;
+        [SerializeField] private float _hoverScale = 1.08f;
 
         [Header("Empty-state hint")]
-        [Tooltip("Side of the downward arrow shown while the pocket is empty.")]
-        [SerializeField] private float _emptyGlyphSize = 40f;
+        [Tooltip("Side of the pocket glyph shown while the pocket is empty.")]
+        [FormerlySerializedAs("_emptyGlyphSize")]
+        [SerializeField] private float _glyphSize = 66f;
 
-        [Tooltip("Font size of the short label under the plate while the pocket is empty.")]
-        [SerializeField] private int _emptyLabelFontSize = 20;
+        [Tooltip("Font size of the short uppercase caption under the glyph while the pocket is empty.")]
+        [FormerlySerializedAs("_emptyLabelFontSize")]
+        [SerializeField] private int _captionFontSize = 26;
 
-        [Tooltip("Gap between the plate's bottom edge and the empty-state label.")]
-        [SerializeField] private float _emptyLabelGap = 10f;
+        [Header("Art")]
+        [Tooltip("White pocket silhouette shown while the pocket is empty. Tinted with the soft ink; hidden when unassigned.")]
+        [SerializeField] private Sprite _pocketSprite;
 
-        [Header("Charge badge")]
-        [Tooltip("Preferred font size of the charge count. Clamped to the badge so it can never overhang it.")]
-        [SerializeField] private int _countFontSize = 34;
+        [Tooltip("The heavy label face for the caption and the charge badge. Falls back to the builtin font when unassigned.")]
+        [SerializeField] private Font _labelFont;
 
         private readonly List<CellView> _pieceCells = new List<CellView>(9);
+        private readonly StringBuilder _countBuilder = new StringBuilder(8);
 
         /// <summary>Reused by the per-drag-frame overlap test so it allocates nothing.</summary>
         private readonly Vector3[] _plateCorners = new Vector3[4];
@@ -131,11 +132,14 @@ namespace MustyBlockBlast.Presentation.Views
         private RectTransform _plateRect;
         private RectTransform _pieceRoot;
         private Canvas _canvas;
-        private Image _plateImage;
-        private Image _shadowImage;
-        private Image _emptyGlyphImage;
-        private Text _emptyLabelText;
-        private Image _badgeImage;
+        private Image _hoverRingImage;
+        private Image _wellLipImage;
+        private Image _wellFaceImage;
+        private Image _outlineImage;
+        private Image _glyphImage;
+        private Text _captionText;
+        private Image _badgeRimImage;
+        private Image _badgeDiscImage;
         private Text _countText;
 
         private TrayModel _trayModel;
@@ -203,9 +207,9 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         /// <summary>True when <paramref name="screenBounds"/> — the dragged piece's screen-space bounding
-        /// box — overlaps the pocket's plate at all. An overlap rather than a point test because the
-        /// plate is one small square and the finger both sits offset from the piece and hides it: asking
-        /// for the piece's exact centre made parking a piece a multi-attempt gesture.</summary>
+        /// box — overlaps the pocket at all. An overlap rather than a point test because the pocket is
+        /// one small plate and the finger both sits offset from the piece and hides it: asking for the
+        /// piece's exact centre made parking a piece a multi-attempt gesture.</summary>
         internal bool Overlaps(Rect screenBounds)
         {
             if (_plateRect == null)
@@ -324,7 +328,7 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         private void OnLocaleChanged(LocaleDefinition locale)
-            => _emptyLabelText.text = _localizationSystem.Translate(LocalizationKeys.HOLD_SLOT_EMPTY_HINT);
+            => _captionText.text = _localizationSystem.Translate(LocalizationKeys.HUD_POCKET_LABEL);
 
         private void OnThemeChanged(ThemeDefinition theme)
         {
@@ -349,11 +353,11 @@ namespace MustyBlockBlast.Presentation.Views
             }
         }
 
-        /// <summary>Repaints the plate from the three things that change how it looks: whether something
+        /// <summary>Repaints the pocket from the three things that change how it looks: whether something
         /// is parked, whether a charge is left to park with, and whether a drag is hovering it.</summary>
         private void RefreshPlate()
         {
-            if (_currentTheme == null || _plateImage == null)
+            if (_currentTheme == null || _wellFaceImage == null)
             {
                 return;
             }
@@ -361,36 +365,54 @@ namespace MustyBlockBlast.Presentation.Views
             bool isOccupied = _trayModel != null && _trayModel.IsHoldOccupied;
             bool hasCharge = _holdCount > 0;
 
-            // No charge dims the plate whatever is parked in it — the drop would be refused, and the
-            // piece's own miniature (never dimmed) is what says "something is still in here".
-            float alpha = !hasCharge
-                ? NO_CHARGE_PLATE_ALPHA
-                : isOccupied ? 1f : EMPTY_PLATE_ALPHA;
-
-            // Hovering inverts the plate to the accent colour, the same "selected" language the
-            // power-up strip uses for an armed icon — no second sprite needed. Only when the drop
-            // could be paid for: lighting a pocket that will refuse the piece would promise a park
-            // the System is about to decline.
+            // Hovering lights the pocket in the accent, the same "selected" language the power-up strip
+            // uses for an armed slot. Only when the drop could be paid for: lighting a pocket that will
+            // refuse the piece would promise a park the System is about to decline.
             bool isLit = _isHovered && hasCharge;
-            Color plateColour = isLit ? _currentTheme.Accent : _currentTheme.CardBackground;
 
-            _plateImage.color = WithAlpha(plateColour, isLit ? 1f : alpha);
-            _shadowImage.color = WithAlpha(_currentTheme.CardShadow, alpha);
+            // Occupied, the pocket is a well like the tray's own; empty, an outline with the invitation
+            // inside it. Never both.
+            Color wellLip = HudChrome.WellLipTint(_currentTheme.CardBackground, _currentTheme.Ink);
+            Color wellFace = HudChrome.WellTint(_currentTheme.CardBackground, _currentTheme.Ink);
+            if (isLit)
+            {
+                wellFace = Color.Lerp(wellFace, _currentTheme.Accent, HOVER_FACE_TINT);
+            }
 
-            // The "drop a piece here" hint is an invitation, so it is shown only when accepting the
-            // invitation would work: an empty pocket with a charge to spend on it.
-            Color hintColour = isOccupied || !hasCharge
+            bool showWell = isOccupied || isLit;
+            _wellLipImage.color = showWell ? wellLip : Color.clear;
+            _wellFaceImage.color = showWell ? wellFace : Color.clear;
+            _outlineImage.color = isOccupied ? Color.clear : _currentTheme.EmptyCellOutline;
+            _hoverRingImage.color = isLit ? _currentTheme.Accent : Color.clear;
+
+            // The glyph and caption are the invitation to park, so they show only while there is
+            // room; dimmed while no charge could pay for the park, but not hidden — the pink badge
+            // beside them says how to fix that.
+            Color hintColour = isOccupied
                 ? Color.clear
-                : WithAlpha(_currentTheme.SoftInk, EMPTY_HINT_ALPHA);
-            _emptyGlyphImage.color = hintColour;
-            _emptyLabelText.color = hintColour;
+                : HudChrome.WithAlpha(_currentTheme.SoftInk, hasCharge ? 1f : NO_CHARGE_HINT_ALPHA);
+            _glyphImage.color = _pocketSprite != null ? hintColour : Color.clear;
+            _captionText.color = hintColour;
 
-            // The badge is drawn at full strength over an otherwise dimmed plate, exactly as on the
-            // strip: it states a number, and a number has to be legible in every state. Two tones for
-            // the same reason — accent means "you hold this many", soft ink means "tap to earn one".
-            _badgeImage.color = hasCharge ? _currentTheme.Accent : _currentTheme.SoftInk;
-            _countText.color = _currentTheme.CardBackground;
-            _countText.text = hasCharge ? _holdCount.ToString() : EARN_AFFORDANCE_LABEL;
+            // The badge states a number and has to be legible in every state. Two tones, as on the
+            // strip: green means "you hold this many", pink means "none left" — "+" (tap to earn one)
+            // while the pocket is empty, "x0" (the piece is locked in) while something is parked.
+            _badgeRimImage.color = _currentTheme.CardBackground;
+            _badgeDiscImage.color = hasCharge ? _currentTheme.GetFill(HudChrome.GREEN_KIND) : HudChrome.OfferPink;
+            _countText.color = Color.white;
+
+            _countBuilder.Clear();
+            if (hasCharge || isOccupied)
+            {
+                _countBuilder.Append(COUNT_PREFIX);
+                _countBuilder.Append(_holdCount);
+            }
+            else
+            {
+                _countBuilder.Append(EARN_AFFORDANCE_LABEL);
+            }
+
+            _countText.text = _countBuilder.ToString();
 
             float scale = isLit ? _hoverScale : 1f;
             _rectTransform.localScale = new Vector3(scale, scale, 1f);
@@ -454,104 +476,55 @@ namespace MustyBlockBlast.Presentation.Views
             RefreshPlate();
         }
 
+        /// <summary>
+        /// Bottom to top: the hover ring standing off the pocket, the well (lip and face), the empty
+        /// outline on the same rect, the glyph with the caption under it, the parked piece's root, and
+        /// the charge badge hung on the top-right corner. Everything is painted clear here and coloured
+        /// by <see cref="RefreshPlate"/>.
+        /// </summary>
         private void Build()
         {
             // Centre-anchored like PieceTrayView, so _anchoredPosition sits in the same coordinate
             // space as the tray it is placed relative to.
-            _rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
-            _rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
-            _rectTransform.pivot = new Vector2(0.5f, 0.5f);
-            _rectTransform.sizeDelta = new Vector2(_slotSize, _slotSize);
+            HudChrome.Centre(_rectTransform, _pocketSize);
             _rectTransform.anchoredPosition = _anchoredPosition;
 
             // Every size here is in canvas reference units, so the pocket owns its own scale rather
             // than inheriting whatever the scene object happened to be created with.
             _rectTransform.localScale = Vector3.one;
 
-            var shadowObject = new GameObject("Shadow", typeof(RectTransform), typeof(Image));
-            var shadowRect = (RectTransform)shadowObject.transform;
-            shadowRect.SetParent(_rectTransform, false);
-            Centre(shadowRect, new Vector2(_slotSize + 10f, _slotSize + 10f));
-            shadowRect.anchoredPosition = new Vector2(0f, -6f);
-            _shadowImage = ConfigurePlate(shadowObject.GetComponent<Image>());
+            var ringSize = new Vector2(
+                _pocketSize.x + (HOVER_RING_THICKNESS * 2f), _pocketSize.y + (HOVER_RING_THICKNESS * 2f));
+            _hoverRingImage = HudChrome.BuildOutline(
+                _rectTransform, "HoverRing", ringSize, Vector2.zero,
+                CORNER_RADIUS + HOVER_RING_THICKNESS, HOVER_RING_THICKNESS);
 
-            var plateObject = new GameObject("Plate", typeof(RectTransform), typeof(Image));
-            _plateRect = (RectTransform)plateObject.transform;
-            _plateRect.SetParent(_rectTransform, false);
-            Centre(_plateRect, new Vector2(_slotSize, _slotSize));
-            _plateImage = ConfigurePlate(plateObject.GetComponent<Image>());
+            _plateRect = HudChrome.BuildWell(
+                _rectTransform, "Plate", _pocketSize, Vector2.zero, CORNER_RADIUS,
+                out _wellLipImage, out _wellFaceImage);
 
-            // A downward arrow into the plate, not the old translucent square outline: an empty pocket
-            // otherwise reads as a dim, disabled button rather than a live drop target. Rotated 180°
-            // from the shared upward RocketIcon, so no new art is drawn just for this.
-            var glyphObject = new GameObject("EmptyGlyph", typeof(RectTransform), typeof(Image));
-            var glyphRect = (RectTransform)glyphObject.transform;
-            glyphRect.SetParent(_plateRect, false);
-            Centre(glyphRect, new Vector2(_emptyGlyphSize, _emptyGlyphSize));
-            glyphRect.localRotation = Quaternion.Euler(0f, 0f, 180f);
-            _emptyGlyphImage = glyphObject.GetComponent<Image>();
-            _emptyGlyphImage.sprite = UiSpriteFactory.RocketIcon;
-            _emptyGlyphImage.type = Image.Type.Simple;
-            _emptyGlyphImage.color = Color.clear;
-            _emptyGlyphImage.raycastTarget = false;
+            _outlineImage = HudChrome.BuildOutline(
+                _plateRect, "Outline", _pocketSize, Vector2.zero, CORNER_RADIUS, OUTLINE_THICKNESS);
 
-            var pieceObject = new GameObject("HeldPiece", typeof(RectTransform));
-            _pieceRoot = (RectTransform)pieceObject.transform;
-            _pieceRoot.SetParent(_plateRect, false);
-            Centre(_pieceRoot, Vector2.zero);
+            // The glyph sits a little above centre so the caption under it leaves the pair centred.
+            float captionHalfHeight = _captionFontSize * 0.7f;
+            float glyphY = (CAPTION_GAP + captionHalfHeight) * 0.5f;
+            _glyphImage = HudChrome.BuildGlyph(
+                _plateRect, "PocketGlyph", _pocketSprite, new Vector2(_glyphSize, _glyphSize), new Vector2(0f, glyphY));
 
-            // Below the plate rather than inside it: the plate is one small square shared with the
-            // parked-piece miniature, with no room to also fit a legible word.
-            _emptyLabelText = UiTextFactory.Create(
-                _rectTransform, "EmptyLabel", _emptyLabelFontSize, FontStyle.Bold, Color.clear);
-            var labelRect = (RectTransform)_emptyLabelText.transform;
-            labelRect.anchoredPosition = new Vector2(0f, -((_slotSize * 0.5f) + _emptyLabelGap));
+            _captionText = HudChrome.CreateLabel(
+                _plateRect, "Caption", _captionFontSize, FontStyle.Bold, TextAnchor.MiddleCenter,
+                new Vector2(0f, glyphY - (_glyphSize * 0.5f) - CAPTION_GAP), _labelFont);
+
+            _pieceRoot = HudChrome.CreateRect(_plateRect, "HeldPiece", Vector2.zero, Vector2.zero);
 
             // A sibling of the plate rather than a child of it, and built last, so it draws over both
-            // the plate and the parked-piece miniature without inheriting the plate's colour — the
-            // same construction as the strip's count chip, in the same corner.
-            float badgeSide = _slotSize * BADGE_SIZE;
-            var badgeObject = new GameObject("CountBadge", typeof(RectTransform), typeof(Image));
-            var badgeRect = (RectTransform)badgeObject.transform;
-            badgeRect.SetParent(_rectTransform, false);
-            badgeRect.anchorMin = new Vector2(1f, 0f);
-            badgeRect.anchorMax = new Vector2(1f, 0f);
-            badgeRect.pivot = new Vector2(0.5f, 0.5f);
-            badgeRect.sizeDelta = new Vector2(badgeSide, badgeSide);
-            badgeRect.anchoredPosition = new Vector2(BADGE_CORNER_OVERLAP, -BADGE_CORNER_OVERLAP);
-            _badgeImage = badgeObject.GetComponent<Image>();
-            _badgeImage.sprite = UiSpriteFactory.Circle;
-            _badgeImage.type = Image.Type.Simple;
-            _badgeImage.color = Color.clear;
-            _badgeImage.raycastTarget = false;
-
-            int fontSize = Mathf.Min(_countFontSize, Mathf.RoundToInt(badgeSide * BADGE_FONT_FILL));
-            _countText = UiTextFactory.Create(badgeRect, "Count", fontSize, FontStyle.Bold, Color.clear);
-            ((RectTransform)_countText.transform).sizeDelta = new Vector2(badgeSide, badgeSide);
-        }
-
-        private static Color WithAlpha(Color colour, float alphaScale)
-            => new Color(colour.r, colour.g, colour.b, colour.a * alphaScale);
-
-        private static void Centre(RectTransform rect, Vector2 size)
-        {
-            rect.anchorMin = new Vector2(0.5f, 0.5f);
-            rect.anchorMax = new Vector2(0.5f, 0.5f);
-            rect.pivot = new Vector2(0.5f, 0.5f);
-            rect.sizeDelta = size;
-            rect.anchoredPosition = Vector2.zero;
-        }
-
-        // Raycasts stay off everywhere: pointer events arrive through BoardInputView's own action, not
-        // through an EventSystem, and this scene has none.
-        private static Image ConfigurePlate(Image image)
-        {
-            image.sprite = UiSpriteFactory.RoundedSquare;
-            image.type = Image.Type.Sliced;
-            image.pixelsPerUnitMultiplier = 3f;
-            image.color = Color.clear;
-            image.raycastTarget = false;
-            return image;
+            // the plate and the parked-piece miniature — the same construction as the strip's chip, in
+            // the same corner.
+            var badgePosition = new Vector2((_pocketSize.x * 0.5f) - BADGE_INSET, (_pocketSize.y * 0.5f) - BADGE_INSET);
+            HudChrome.BuildBadge(
+                _rectTransform, "CountBadge", BADGE_DIAMETER, badgePosition, _labelFont,
+                out _badgeRimImage, out _badgeDiscImage, out _countText);
         }
     }
 }

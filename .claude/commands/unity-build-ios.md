@@ -25,7 +25,7 @@ Use the `unity-build-runner` agent to:
 
 Via `manage_build`:
 - Switch active platform to **iOS** if not already active.
-- Player settings: keep the existing bundle identifier (`com.mtafasahin.mustyblockblast`) unless the user asks to change it — do not silently overwrite it.
+- Player settings: keep the existing bundle identifier (`com.mtafasahin.blockioblast`, read it from ProjectSettings first) unless the user asks to change it — do not silently overwrite it.
 - Minimum iOS version: 15.0+ unless the project already specifies otherwise (check current settings first, don't downgrade).
 - Target devices: iPhone (confirm with user if iPad support is also expected).
 - Signing team ID: leave as configured in Xcode/Unity — this command does not manage signing. If unset, note it in the report rather than guessing a team ID.

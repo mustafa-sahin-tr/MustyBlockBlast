@@ -10,26 +10,34 @@ using VContainer;
 namespace MustyBlockBlast.Presentation.Views
 {
     /// <summary>
-    /// Accent-coloured circular badge showing the active path level number, worn on the top-right
-    /// corner of <see cref="LevelPathButtonView"/> the way an app icon wears a notification count.
-    /// Hidden outside Path mode and while no level is active.
+    /// Accent-coloured star badge worn on the top-right corner of <see cref="LevelPathButtonView"/>
+    /// while a Path-mode level is being played (issue #265) — the way an app icon wears a
+    /// notification dot. The pill itself names the level; the badge only says "this run is on the
+    /// path". Hidden outside Path mode and while no level is active.
     /// <para>
-    /// Parented onto the icon's <see cref="LevelPathButtonView.RootRect"/> in <see cref="Start"/>
+    /// Parented onto the pill's <see cref="LevelPathButtonView.RootRect"/> in <see cref="Start"/>
     /// rather than in Awake: both views build their hierarchy in Awake and sibling Awake order is not
-    /// guaranteed, so the icon's rect is only safe to attach to once every Awake has run. The badge is
-    /// a sibling of the icon's plate, not a child, so it neither widens nor blocks the plate's tap
+    /// guaranteed, so the pill's rect is only safe to attach to once every Awake has run. The badge is
+    /// a sibling of the pill's plate, not a child, so it neither widens nor blocks the plate's tap
     /// target — it is non-interactive throughout.
     /// </para>
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class PathLevelBadgeView : MonoBehaviour
     {
+        /// <summary>The star inside the badge, as a fraction of the badge's diameter.</summary>
+        private const float STAR_FRACTION = 0.5f;
+
         [Header("Layout")]
-        [Tooltip("Badge centre relative to the top-right corner of the level-path icon, in reference " +
-            "pixels. Positive x and y push it outward past the corner, notification-badge style, so " +
-            "it covers as little of the route glyph as possible.")]
-        [SerializeField] private Vector2 _cornerOffset = new Vector2(14f, 14f);
-        [SerializeField] private float _badgeDiameter = 68f;
+        [Tooltip("Badge centre relative to the top-right corner of the level-path pill, in reference " +
+            "pixels. Positive x and y push it outward past the corner, notification-badge style.")]
+        [SerializeField] private Vector2 _cornerOffset = new Vector2(2f, 2f);
+
+        [SerializeField] private float _badgeDiameter = 48f;
+
+        [Tooltip("Thickness of the card-coloured rim around the accent disc, so the badge reads as " +
+            "sitting on the pill rather than painted onto it.")]
+        [SerializeField] private float _rimThickness = 6f;
 
         private readonly CompositeDisposable _disposables = new CompositeDisposable();
 
@@ -39,8 +47,9 @@ namespace MustyBlockBlast.Presentation.Views
         private LevelPathButtonView _levelPathButtonView;
 
         private CanvasGroup _badgeGroup;
-        private Image _badgeCircleImage;
-        private Text _badgeText;
+        private Image _rimImage;
+        private Image _discImage;
+        private Image _starImage;
 
         [Inject]
         public void Construct(
@@ -67,7 +76,7 @@ namespace MustyBlockBlast.Presentation.Views
                 return;
             }
 
-            AttachToLevelPathIcon();
+            AttachToLevelPathPill();
 
             // The badge is built in Awake, before the theme is known; this subscription paints it and
             // repaints it on every later theme switch.
@@ -88,7 +97,9 @@ namespace MustyBlockBlast.Presentation.Views
                 return;
             }
 
-            _badgeCircleImage.color = theme.Accent;
+            _rimImage.color = theme.CardBackground;
+            _discImage.color = theme.Accent;
+            _starImage.color = Color.white;
         }
 
         /// <summary>
@@ -98,24 +109,18 @@ namespace MustyBlockBlast.Presentation.Views
         /// </summary>
         private void RefreshBadge()
         {
-            int activeLevelNumber = _pathRunModel.ActiveLevelNumber.Value;
             bool isVisible = _gameModeSystem.CurrentMode.Value == GameMode.Path
-                && activeLevelNumber != PathRunModel.NO_ACTIVE_LEVEL;
+                && _pathRunModel.ActiveLevelNumber.Value != PathRunModel.NO_ACTIVE_LEVEL;
 
             _badgeGroup.alpha = isVisible ? 1f : 0f;
-
-            if (isVisible)
-            {
-                _badgeText.text = activeLevelNumber.ToString();
-            }
         }
 
         /// <summary>
-        /// Moves the badge under the icon's root and pins it to that rect's top-right corner. Last
-        /// sibling on purpose: the icon's shadow and plate are earlier siblings, and sibling order is
+        /// Moves the badge under the pill's root and pins it to that rect's top-right corner. Last
+        /// sibling on purpose: the pill's shadow and plate are earlier siblings, and sibling order is
         /// the only thing keeping the badge drawn over them, since nothing here is masked.
         /// </summary>
-        private void AttachToLevelPathIcon()
+        private void AttachToLevelPathPill()
         {
             var rect = (RectTransform)transform;
             rect.SetParent(_levelPathButtonView.RootRect, false);
@@ -130,7 +135,7 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>
         /// Built hidden and non-interactive — visibility is driven entirely by <see cref="RefreshBadge"/>
         /// once the reactive subscriptions are live. Only the badge's own size and children are laid out
-        /// here; where it sits is decided by <see cref="AttachToLevelPathIcon"/> once its host exists.
+        /// here; where it sits is decided by <see cref="AttachToLevelPathPill"/> once its host exists.
         /// </summary>
         private void BuildBadge()
         {
@@ -141,8 +146,7 @@ namespace MustyBlockBlast.Presentation.Views
             // than inheriting whatever the scene object happened to be created with.
             rect.localScale = Vector3.one;
 
-            _badgeGroup = gameObject.GetComponent<CanvasGroup>();
-            if (_badgeGroup == null)
+            if (!TryGetComponent(out _badgeGroup))
             {
                 _badgeGroup = gameObject.AddComponent<CanvasGroup>();
             }
@@ -151,24 +155,12 @@ namespace MustyBlockBlast.Presentation.Views
             _badgeGroup.interactable = false;
             _badgeGroup.blocksRaycasts = false;
 
-            var circleObject = new GameObject("PathLevelBadgeCircle", typeof(RectTransform), typeof(Image));
-            var circleRect = (RectTransform)circleObject.transform;
-            circleRect.SetParent(rect, false);
-            circleRect.anchorMin = new Vector2(0.5f, 0.5f);
-            circleRect.anchorMax = new Vector2(0.5f, 0.5f);
-            circleRect.pivot = new Vector2(0.5f, 0.5f);
-            circleRect.sizeDelta = new Vector2(_badgeDiameter, _badgeDiameter);
-            circleRect.anchoredPosition = Vector2.zero;
+            _rimImage = HudChrome.BuildCircle(rect, "Rim", _badgeDiameter, Vector2.zero);
+            _discImage = HudChrome.BuildCircle(rect, "Disc", _badgeDiameter - (_rimThickness * 2f), Vector2.zero);
 
-            // The circle sprite has no border, so it must never be sliced.
-            _badgeCircleImage = circleObject.GetComponent<Image>();
-            _badgeCircleImage.sprite = UiSpriteFactory.Circle;
-            _badgeCircleImage.type = Image.Type.Simple;
-            _badgeCircleImage.color = Color.clear;
-            _badgeCircleImage.raycastTarget = false;
-
-            _badgeText = UiTextFactory.Create(
-                rect, "PathLevelBadgeText", Mathf.RoundToInt(_badgeDiameter * 0.72f), FontStyle.Bold, Color.white);
+            float starSize = _badgeDiameter * STAR_FRACTION;
+            _starImage = HudChrome.BuildGlyph(
+                rect, "Star", UiSpriteFactory.FivePointStar, new Vector2(starSize, starSize), Vector2.zero);
         }
     }
 }

@@ -12,8 +12,15 @@ using VContainer;
 namespace MustyBlockBlast.Presentation.Views
 {
     /// <summary>
-    /// The timed-mode countdown, sitting just under the score. Binds to <see cref="TimerModel"/> and
-    /// shows nothing at all in endless runs.
+    /// The timed-mode countdown as a glossy pill — a clock and "mm:ss" — in the score card's centre
+    /// slot (issue #265). Binds to <see cref="TimerModel"/> and shows nothing at all in endless and
+    /// path runs. Under the low-time threshold the pill turns the warning pink, which is not
+    /// theme-derived: "you are nearly out of time" has to read the same in every season.
+    /// <para>
+    /// Parented onto <see cref="ScoreView.CentreSlot"/> in <see cref="Start"/> rather than Awake: the
+    /// card builds its slot in Awake and sibling Awake order is not guaranteed. When both this and the
+    /// streak want the slot the countdown wins; <see cref="StreakPillView"/> yields by mode.
+    /// </para>
     /// <para>
     /// This is also the single place the app-lifecycle pause is observed: Unity only delivers
     /// <see cref="OnApplicationPause"/> to MonoBehaviours, so the View forwards it to
@@ -23,19 +30,30 @@ namespace MustyBlockBlast.Presentation.Views
     [DisallowMultipleComponent]
     public sealed class TimerHudView : MonoBehaviour
     {
-        // Reads as a third line under the score/best pair: the band between the "BEST" label (~665)
-        // and the top of the board card (~604) is the only free strip up there.
         [Header("Layout")]
-        [SerializeField] private Vector2 _anchoredPosition = new Vector2(0f, 634f);
-        [SerializeField] private int _fontSize = 48;
+        [SerializeField] private float _pillHeight = 88f;
+        [SerializeField] private float _paddingX = 30f;
+        [SerializeField] private float _glyphSize = 40f;
+        [SerializeField] private float _glyphGap = 12f;
+        [SerializeField] private int _fontSize = 50;
 
-        // Not theme-derived: "you are nearly out of time" has to read the same in every theme, and a
-        // theme's Ink is the colour the countdown already wears when nothing is wrong.
-        [Header("Low Time Warning")]
-        [Tooltip("Countdown colour while there is plenty of time left. Left fully transparent to follow the active theme's ink.")]
-        [SerializeField] private Color _normalTimerColor = Color.clear;
-        [Tooltip("Countdown colour once the low-time threshold is crossed.")]
-        [SerializeField] private Color _lowTimeWarningColor = new Color(0.85f, 0.17f, 0.17f, 1f);
+        [Header("Colour")]
+        [Tooltip("Which theme kind's fill the pill takes while there is plenty of time: the blue-ish " +
+            "kind of each season, so the clock recolours with the board.")]
+        [SerializeField] private int _timerKind = 2;
+
+        [Tooltip("Pill colour once the low-time threshold is crossed. Fixed across themes on purpose.")]
+        [SerializeField] private Color _lowTimeWarningColor = new Color(0.94f, 0.38f, 0.57f, 1f);
+
+        [Header("Art")]
+        [Tooltip("The chunky display face for the clock. Falls back to the builtin font when unassigned.")]
+        [SerializeField] private Font _displayFont;
+
+        [Tooltip("White 9-sliced glossy button, shared with the shop. Tinted at runtime from the theme.")]
+        [SerializeField] private Sprite _buttonSprite;
+
+        [Tooltip("White clock silhouette on the pill's left. Hidden when unassigned.")]
+        [SerializeField] private Sprite _clockSprite;
 
         private readonly CompositeDisposable _disposables = new CompositeDisposable();
         private readonly StringBuilder _stringBuilder = new StringBuilder(8);
@@ -46,13 +64,21 @@ namespace MustyBlockBlast.Presentation.Views
         private SettingsModel _settingsModel;
         private LocalizationModel _localizationModel;
         private LocalizationSystem _localizationSystem;
+        private ScoreView _scoreView;
+
+        private RectTransform _rect;
+        private CanvasGroup _group;
+        private Image _pillPlate;
+        private Image _clockImage;
+        private RectTransform _clockRect;
         private Text _timerText;
+        private RectTransform _timerRect;
 
         /// <summary>Last value rendered, so a per-frame tick only touches the label when it changes.</summary>
         private int _displayedSeconds = -1;
 
-        /// <summary>Theme ink, kept so the countdown can fall back to it when the normal colour is unset.</summary>
-        private Color _themeInk = Color.clear;
+        /// <summary>Kept so the low-time toggle can repaint without waiting for a theme switch.</summary>
+        private ThemeDefinition _currentTheme;
 
         /// <summary>Mirrors <see cref="TimerModel.IsLowTime"/>, so a theme switch repaints the right look.</summary>
         private bool _isLowTime;
@@ -64,7 +90,8 @@ namespace MustyBlockBlast.Presentation.Views
             TimerRunSystem timerRunSystem,
             SettingsModel settingsModel,
             LocalizationModel localizationModel,
-            LocalizationSystem localizationSystem)
+            LocalizationSystem localizationSystem,
+            ScoreView scoreView)
         {
             _timerModel = timerModel;
             _gameModeSystem = gameModeSystem;
@@ -72,30 +99,23 @@ namespace MustyBlockBlast.Presentation.Views
             _settingsModel = settingsModel;
             _localizationModel = localizationModel;
             _localizationSystem = localizationSystem;
+            _scoreView = scoreView;
         }
 
-        private void Awake()
-        {
-            var rect = (RectTransform)transform;
-            rect.anchorMin = new Vector2(0.5f, 0.5f);
-            rect.anchorMax = new Vector2(0.5f, 0.5f);
-            rect.pivot = new Vector2(0.5f, 0.5f);
-            rect.sizeDelta = new Vector2(400f, 100f);
-            rect.anchoredPosition = _anchoredPosition;
-
-            // Built in Awake, before the theme is known; the theme subscription in Start paints it.
-            _timerText = UiTextFactory.Create(rect, "TimerLabel", _fontSize, FontStyle.Bold, Color.clear);
-            _timerText.gameObject.SetActive(false);
-        }
+        private void Awake() => BuildPill();
 
         private void Start()
         {
             if (_timerModel == null || _gameModeSystem == null || _timerRunSystem == null || _settingsModel == null
-                || _localizationModel == null || _localizationSystem == null)
+                || _localizationModel == null || _localizationSystem == null || _scoreView == null)
             {
                 Debug.LogError($"{nameof(TimerHudView)} was not injected. Is it registered in the LifetimeScope?", this);
                 return;
             }
+
+            _rect.SetParent(_scoreView.CentreSlot, false);
+            HudChrome.Centre(_rect, _rect.sizeDelta);
+            _rect.SetAsLastSibling();
 
             _settingsModel.CurrentTheme.Subscribe(OnThemeChanged).AddTo(_disposables);
             _localizationModel.CurrentLocale.Subscribe(OnLocaleChanged).AddTo(_disposables);
@@ -132,34 +152,36 @@ namespace MustyBlockBlast.Presentation.Views
                 return;
             }
 
-            _themeInk = theme.Ink;
-            ApplyTimerColour();
+            _currentTheme = theme;
+            _timerText.color = Color.white;
+            _clockImage.color = _clockSprite != null ? Color.white : Color.clear;
+            ApplyPillColour();
         }
 
         private void OnLowTimeChanged(bool isLowTime)
         {
             _isLowTime = isLowTime;
-            ApplyTimerColour();
+            ApplyPillColour();
         }
 
         /// <summary>
-        /// The single writer of the countdown's colour, so the theme subscription and the low-time
-        /// subscription can never fight over it. An unset <see cref="_normalTimerColor"/> (fully
-        /// transparent, the serialized default) falls back to the theme's ink rather than rendering
-        /// the countdown invisible.
+        /// The single writer of the pill's colour, so the theme subscription and the low-time
+        /// subscription can never fight over it.
         /// </summary>
-        private void ApplyTimerColour()
+        private void ApplyPillColour()
         {
             if (_isLowTime)
             {
-                _timerText.color = _lowTimeWarningColor;
+                _pillPlate.color = _lowTimeWarningColor;
                 return;
             }
 
-            _timerText.color = _normalTimerColor.a > 0f ? _normalTimerColor : _themeInk;
+            _pillPlate.color = _currentTheme != null ? _currentTheme.GetFill(_timerKind) : Color.clear;
         }
 
-        private void OnModeChanged(GameMode mode) => _timerText.gameObject.SetActive(mode == GameMode.Timed);
+        /// <summary>Shown through the CanvasGroup rather than by toggling the GameObject, so a mode
+        /// switch never rebuilds the shared canvas mesh.</summary>
+        private void OnModeChanged(GameMode mode) => _group.alpha = mode == GameMode.Timed ? 1f : 0f;
 
         /// <summary>
         /// Re-renders the countdown in the new language. Skipped before the first tick, when there is
@@ -192,7 +214,8 @@ namespace MustyBlockBlast.Presentation.Views
         /// Paints <see cref="_displayedSeconds"/> as <c>mm:ss</c>. Deliberately not a String Table
         /// entry: a zero-padded clock is a universal numeric format, not a phrase, so there is nothing
         /// here for a translator to translate. Built on the cached builder rather than with
-        /// interpolation, so a per-second repaint stays free of throwaway strings.
+        /// interpolation, so a per-second repaint stays free of throwaway strings. The pill is
+        /// re-measured around the text each time, since a proportional face draws "11" narrower than "00".
         /// </summary>
         private void RenderCountdown()
         {
@@ -204,6 +227,15 @@ namespace MustyBlockBlast.Presentation.Views
             _stringBuilder.Append(':');
             AppendPadded(seconds);
             _timerText.text = _stringBuilder.ToString();
+
+            float glyphWidth = _clockSprite != null ? _glyphSize + _glyphGap : 0f;
+            float pillWidth = (_paddingX * 2f) + glyphWidth + _timerText.preferredWidth;
+            _rect.sizeDelta = new Vector2(pillWidth, _pillHeight);
+            ((RectTransform)_pillPlate.transform).sizeDelta = _rect.sizeDelta;
+
+            float left = (-pillWidth * 0.5f) + _paddingX;
+            _clockRect.anchoredPosition = new Vector2(left + (_glyphSize * 0.5f), 0f);
+            _timerRect.anchoredPosition = new Vector2(left + glyphWidth, 0f);
         }
 
         /// <summary>Appends <paramref name="value"/> zero-padded to two digits.</summary>
@@ -215,6 +247,33 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             _stringBuilder.Append(value);
+        }
+
+        /// <summary>Built hidden, before the theme is known; the theme subscription in Start paints it.</summary>
+        private void BuildPill()
+        {
+            _rect = (RectTransform)transform;
+            HudChrome.Centre(_rect, new Vector2(_pillHeight * 3f, _pillHeight));
+            _rect.localScale = Vector3.one;
+
+            if (!TryGetComponent(out _group))
+            {
+                _group = gameObject.AddComponent<CanvasGroup>();
+            }
+
+            _group.alpha = 0f;
+            _group.interactable = false;
+            _group.blocksRaycasts = false;
+
+            _pillPlate = HudChrome.BuildGlossyPill(_rect, "Pill", _rect.sizeDelta, Vector2.zero, _buttonSprite);
+
+            _clockImage = HudChrome.BuildGlyph(
+                _rect, "Clock", _clockSprite, new Vector2(_glyphSize, _glyphSize), Vector2.zero);
+            _clockRect = (RectTransform)_clockImage.transform;
+
+            _timerText = HudChrome.CreateLabel(
+                _rect, "TimerLabel", _fontSize, FontStyle.Normal, TextAnchor.MiddleLeft, Vector2.zero, _displayFont);
+            _timerRect = (RectTransform)_timerText.transform;
         }
     }
 }
