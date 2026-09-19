@@ -247,6 +247,7 @@ MonoBehaviour:
   _vortexIconSprite: {fileID: 21300000, guid: f501855d8b05649a1a6f12ade4eba680, type: 3}
   _chainLightningIconSprite: {fileID: 21300000, guid: 7c5a5346691b04f91a27bf12d5fb5b03, type: 3}
   _coinIconSprite: {fileID: 21300000, guid: 268a8cfa1d5d54ed193641c4b8a91502, type: 3}
+  _timerIconSprite: {fileID: 3304427637661687229, guid: 8ebc62a0972e440f3b50bbdf82f06b06, type: 3}
 --- !u!114 &211238137
 MonoBehaviour:
   m_ObjectHideFlags: 0

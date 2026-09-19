@@ -79,6 +79,7 @@ namespace MustyBlockBlast.Presentation.Views
         [SerializeField] private Sprite _vortexIconSprite;
         [SerializeField] private Sprite _chainLightningIconSprite;
         [SerializeField] private Sprite _coinIconSprite;
+        [SerializeField] private Sprite _timerIconSprite;
 
         private static readonly Color FlashTint = Color.white;
 
@@ -1544,6 +1545,8 @@ namespace MustyBlockBlast.Presentation.Views
                     return ChainLightningIconTint;
                 case SpecialCellKind.Coin:
                     return CoinIconTint;
+                case SpecialCellKind.Timer:
+                    return SpecialIconTint;
                 default:
                     return SpecialIconTint;
             }
@@ -1579,6 +1582,9 @@ namespace MustyBlockBlast.Presentation.Views
                     break;
                 case SpecialCellKind.ExplosiveCore:
                     sprite = _explosiveCoreIconSprite;
+                    break;
+                case SpecialCellKind.Timer:
+                    sprite = _timerIconSprite;
                     break;
                 default:
                     sprite = null;
