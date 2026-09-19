@@ -1502,6 +1502,9 @@ namespace MustyBlockBlast.Tests.EditMode
             _powerUpSystem = new PowerUpSystem(
                 _powerUpModel,
                 _levelProgressionModel,
+                ScriptableObject.CreateInstance<LevelCatalog>(),
+                new GameModeModel(),
+                new PathRunModel(),
                 boardModel,
                 trayModel,
                 boardSystem,

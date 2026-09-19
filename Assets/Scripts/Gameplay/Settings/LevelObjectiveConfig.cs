@@ -30,6 +30,10 @@ namespace MustyBlockBlast.Gameplay.Settings
         private static readonly ReinforcedCellAuthoring[] EmptyReinforcedCells =
             new ReinforcedCellAuthoring[0];
 
+        /// <summary>Shared, never-mutated empty for a row whose <see cref="_bannedPowerUps"/> field is
+        /// null — the same never-existed-yet case <see cref="EmptyReinforcedCells"/> covers.</summary>
+        private static readonly PowerUpKind[] EmptyBannedPowerUps = new PowerUpKind[0];
+
         [Tooltip("1-based level number. This is the identity of the level, not its position in the list.")]
         [SerializeField] private int _levelNumber = 1;
 
@@ -100,6 +104,11 @@ namespace MustyBlockBlast.Gameplay.Settings
         [SerializeField] private List<ReinforcedCellAuthoring> _reinforcedCells =
             new List<ReinforcedCellAuthoring>();
 
+        [Tooltip("Power-up kinds this level's Path-mode run refuses to arm or spend. Empty (the " +
+            "default) bans nothing, which is what every level authored before this field existed " +
+            "does. Ignored entirely outside Path mode.")]
+        [SerializeField] private List<PowerUpKind> _bannedPowerUps = new List<PowerUpKind>();
+
         /// <summary>1-based level number; <see cref="LevelCatalog"/> looks levels up by this, not by index.</summary>
         public int LevelNumber => _levelNumber;
 
@@ -161,6 +170,22 @@ namespace MustyBlockBlast.Gameplay.Settings
         /// </summary>
         public IReadOnlyList<ReinforcedCellAuthoring> ReinforcedCells =>
             _reinforcedCells ?? (IReadOnlyList<ReinforcedCellAuthoring>)EmptyReinforcedCells;
+
+        /// <summary>
+        /// Power-up kinds this level's Path-mode run refuses to arm or spend (see
+        /// <see cref="PowerUpSystem"/>). Empty for a level that bans none, which is every level
+        /// authored before this mechanic existed.
+        /// <para>
+        /// Never null — a row deserialized without the field at all gets the empty list the field
+        /// initialiser supplies, mirroring <see cref="ReinforcedCells"/>.
+        /// </para>
+        /// <para>
+        /// This is also the public seam a future View binds to (e.g. to grey out a banned power-up's
+        /// icon) — no separate System-level API is exposed for that; the accessor is the whole seam.
+        /// </para>
+        /// </summary>
+        public IReadOnlyList<PowerUpKind> BannedPowerUps =>
+            _bannedPowerUps ?? (IReadOnlyList<PowerUpKind>)EmptyBannedPowerUps;
 
         /// <summary>
         /// Builds this level's board outline. Returns the shared <see cref="BoardShape.Standard"/>
@@ -406,6 +431,26 @@ namespace MustyBlockBlast.Gameplay.Settings
                 {
                     error = $"{_objectiveType} objectives cannot be Cumulative — their window is measured against a per-run clock.";
                     return false;
+                }
+            }
+
+            IReadOnlyList<PowerUpKind> bannedPowerUps = BannedPowerUps;
+            for (int i = 0; i < bannedPowerUps.Count; i++)
+            {
+                PowerUpKind banned = bannedPowerUps[i];
+                if (!Enum.IsDefined(typeof(PowerUpKind), banned))
+                {
+                    error = $"Banned power-up entry {i} is not a defined PowerUpKind value.";
+                    return false;
+                }
+
+                for (int earlier = 0; earlier < i; earlier++)
+                {
+                    if (bannedPowerUps[earlier] == banned)
+                    {
+                        error = $"\"{banned}\" is banned more than once — remove the duplicate entry.";
+                        return false;
+                    }
                 }
             }
 
