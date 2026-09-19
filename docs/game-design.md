@@ -484,6 +484,62 @@ leaves the choice of ad provider (Unity LevelPlay, AdMob) open.
 
 **Open decision:** ad provider is not chosen yet. Nothing in v1's rules depends on it.
 
+## Tutorial / first-time experience (FTUE)
+
+There is no forced, input-blocking tutorial. Every explainer is an ordinary, optional modal
+card — an icon, a bold title and a short description, closeable at any time — never a sequence
+the player is required to complete before playing on.
+
+**Subjects.** Four kinds of thing earn a card the first time they are seen:
+
+| Subject | Trigger | Count |
+|---|---|---|
+| A power-up | First time it is granted (any source: ad, level-up reward, badge, purchase) | 11 |
+| A special board cell | First time that kind spawns on the board | 6 |
+| The Hold pocket | First successful park | 1 |
+| A special dock piece | First time that kind is drawn into the dock | 3 |
+
+A level-goal ("objective") card is a separate, older feature (`ObjectiveInfoPopupView`) with no
+auto-open — it only ever opens on tap. It shares the same card look (see "Shared chrome" below)
+but is not part of the auto-open FTUE flow above.
+
+**Auto-open, once.** The first time a subject is seen, its card opens automatically. A
+`PlayerPrefs` flag (`InfoPopup.Seen.<id>`) is set the moment it opens, so it is never shown
+automatically again — including on a Path replay of an already-completed level. A power-up
+already granted before this feature shipped is marked seen by a one-shot migration at boot, so
+a returning player is never auto-shown a card for something they have had all along; there is
+no equivalent migration for special cells/Hold/special pieces, since none of them has a
+reliable "already had it" signal the way a power-up's inventory count does.
+
+**Reopen on demand.** After the first time, the same card is reachable again by interacting
+with the subject's own on-screen element — deliberately not a Settings-menu list, since the
+in-context gesture already answers "what does this do" exactly where the question comes up:
+
+- Special cell: tap it on the board.
+- Power-up: **long-press** its strip icon (≈0.5s, small movement tolerance) — a normal short tap
+  keeps its existing meaning (arm / cancel / open the shop for an empty slot) unchanged. Tapping
+  the icon in the Power-up Shop also reopens the card, ordinary short tap this time, since a shop
+  row's icon has no other meaning to protect.
+- Hold pocket: tap it while a charge is held (a tap with no charge is the separate "earn one" ad
+  gesture, unchanged).
+- Special dock piece: tap it without dragging (a real drag that snaps back without a valid board
+  anchor still counts as "no drag" for this purpose).
+- Objective: tap its icon in the GOAL row (existing behaviour, unchanged).
+
+**Not mandatory.** Nothing about a card blocks any other input beyond being an ordinary modal —
+opening one does not pause anything it doesn't already pause for another reason, and the
+countdown in Timed mode pauses/resumes exactly as it does for every other modal panel. A card
+can be open at the same time as the Power-up Shop (reached by tapping a shop row's icon), in
+which case it does not touch the shared menu-pause flag at all — the shop already owns it for
+its own lifetime.
+
+**Shared chrome.** Every card (`InfoPopupView` and `ObjectiveInfoPopupView`) is built from one
+shared visual component, `InfoCardChrome`: a rounded card that grows to fit its content, a large
+circular icon in a lightened ring, a bold title, a description below, and a close button that
+floats outside the card's top-right corner. A new "explain this thing" surface anywhere else in
+the game should reuse this same component (icon + title + description in, card out) rather than
+building a bespoke one.
+
 ## Explicitly out of scope for v1
 
 - Progression map
