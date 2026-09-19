@@ -267,10 +267,21 @@ namespace MustyBlockBlast.Presentation.Views
         internal void Open() => Open(HubTab.Settings);
 
         /// <summary>
-        /// Opens the hub on <paramref name="tab"/>. Re-opening an already-open hub switches to that tab
-        /// rather than stacking a second open, so the menu pause can only ever be taken once.
+        /// Opens the hub on <paramref name="tab"/>, landed on the PowerUps shop sub-tab when
+        /// <paramref name="tab"/> is <see cref="HubTab.PowerUpShop"/> — the default every existing call
+        /// site (the empty power-up slot's shop entry among them) still gets unchanged.
         /// </summary>
-        internal void Open(HubTab tab)
+        internal void Open(HubTab tab) => Open(tab, PowerUpShopView.ShopTab.PowerUps);
+
+        /// <summary>
+        /// Opens the hub on <paramref name="tab"/>, and — when <paramref name="tab"/> is
+        /// <see cref="HubTab.PowerUpShop"/> — landed on <paramref name="shopTab"/>. The coin pill's "+"
+        /// disc uses this to land straight on the Coins sub-tab (issue #271), reusing the same
+        /// <c>PowerUpShopView.Open(ShopTab)</c> machinery the default overload does. Re-opening an
+        /// already-open hub switches to that tab rather than stacking a second open, so the menu pause
+        /// can only ever be taken once.
+        /// </summary>
+        internal void Open(HubTab tab, PowerUpShopView.ShopTab shopTab)
         {
             if (_barRoot == null)
             {
@@ -279,7 +290,7 @@ namespace MustyBlockBlast.Presentation.Views
 
             if (_isOpen)
             {
-                SelectTab(tab);
+                SelectTab(tab, shopTab);
                 return;
             }
 
@@ -287,7 +298,7 @@ namespace MustyBlockBlast.Presentation.Views
             _activeTab = tab;
             _barRoot.SetActive(true);
             _headerRoot.SetActive(true);
-            OpenPanel(tab);
+            OpenPanel(tab, shopTab);
             RefreshTabs();
             RepositionBarAboveActiveCard();
 
@@ -373,7 +384,9 @@ namespace MustyBlockBlast.Presentation.Views
             _headerRoot.SetActive(false);
         }
 
-        private void SelectTab(HubTab tab)
+        private void SelectTab(HubTab tab) => SelectTab(tab, PowerUpShopView.ShopTab.PowerUps);
+
+        private void SelectTab(HubTab tab, PowerUpShopView.ShopTab shopTab)
         {
             if (tab == _activeTab && IsPanelOpen(tab))
             {
@@ -382,7 +395,7 @@ namespace MustyBlockBlast.Presentation.Views
 
             ClosePanel(_activeTab);
             _activeTab = tab;
-            OpenPanel(tab);
+            OpenPanel(tab, shopTab);
             RefreshTabs();
             RepositionBarAboveActiveCard();
             transform.SetAsLastSibling();
@@ -545,12 +558,12 @@ namespace MustyBlockBlast.Presentation.Views
             }
         }
 
-        private void OpenPanel(HubTab tab)
+        private void OpenPanel(HubTab tab, PowerUpShopView.ShopTab shopTab)
         {
             switch (tab)
             {
                 case HubTab.PowerUpShop:
-                    _powerUpShopView.Open();
+                    _powerUpShopView.Open(shopTab);
                     break;
                 case HubTab.Leaderboard:
                     _leaderboardPanelView.Open();

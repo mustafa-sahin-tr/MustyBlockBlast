@@ -19,7 +19,7 @@ namespace MustyBlockBlast.Presentation.Views
     /// A press is resolved by a single ordered gate chain, so exactly one claimant handles it: the
     /// four modal overlays (the hub — which is itself the one owner of the settings, power-up shop,
     /// leaderboard, profile and badges cards — level path, objective info, Coin Sower picker), game
-    /// over, the settings icon, the level path icon, an objective icon, a
+    /// over, the settings icon, the level path icon, an objective icon, the coin pill's "+" disc, a
     /// power-up inventory icon, an armed power-up being aimed at the board, and finally a tray piece
     /// being picked up. HUD icons are resolved
     /// here rather than by an EventSystem: the scene has one, but every UI Image outside
@@ -99,6 +99,7 @@ namespace MustyBlockBlast.Presentation.Views
         private CoinSowerPickerView _coinSowerPickerView;
         private RunResultView _runResultView;
         private CoinConversionView _coinConversionView;
+        private CoinTotalHudView _coinTotalHudView;
         private PowerUpInventoryView _powerUpInventoryView;
         private ObjectiveIconContainerView _objectiveIconContainerView;
         private ObjectiveInfoPopupView _objectiveInfoPopupView;
@@ -184,6 +185,7 @@ namespace MustyBlockBlast.Presentation.Views
             CoinSowerPickerView coinSowerPickerView,
             RunResultView runResultView,
             CoinConversionView coinConversionView,
+            CoinTotalHudView coinTotalHudView,
             PowerUpInventoryView powerUpInventoryView,
             ObjectiveIconContainerView objectiveIconContainerView,
             ObjectiveInfoPopupView objectiveInfoPopupView,
@@ -208,6 +210,7 @@ namespace MustyBlockBlast.Presentation.Views
             _coinSowerPickerView = coinSowerPickerView;
             _runResultView = runResultView;
             _coinConversionView = coinConversionView;
+            _coinTotalHudView = coinTotalHudView;
             _powerUpInventoryView = powerUpInventoryView;
             _objectiveIconContainerView = objectiveIconContainerView;
             _objectiveInfoPopupView = objectiveInfoPopupView;
@@ -483,6 +486,16 @@ namespace MustyBlockBlast.Presentation.Views
             if (_objectiveIconContainerView.TryGetTappedObjectiveIndex(screenPosition, out int objectiveIndex))
             {
                 _objectiveInfoPopupView.Open(objectiveIndex);
+                return;
+            }
+
+            // Same tier as the three icons above, for the same reason: a HUD widget that answers "was I
+            // tapped" and opens an overlay, resolved before anything an armed power-up or a dock press
+            // could claim below. Only the "+" disc's own bounds count — the coin icon and the balance
+            // number either side of it stay inert, exactly as they are today (issue #271).
+            if (_coinTotalHudView.ContainsPlusDisc(screenPosition))
+            {
+                _hubPanelView.Open(HubTab.PowerUpShop, PowerUpShopView.ShopTab.Coins);
                 return;
             }
 
