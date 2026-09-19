@@ -21,6 +21,11 @@ namespace MustyBlockBlast.Gameplay.Settings
         [Tooltip("Coins one rewarded ad grants. Separate from the conversion rate — an ad grant is not a conversion.")]
         [SerializeField] private int _adRewardCoins = 25;
 
+        [Tooltip("How many coin-rewarding ads the Coins tab will pay out per local calendar day. A "
+            + "placeholder like the figures above, and scoped to coin ads only — the power-up earn-by-ad "
+            + "path (IRewardSource) has no cap and reads nothing from this field.")]
+        [SerializeField] private int _dailyAdRewardCap = 3;
+
         [Header("Coin cells")]
         [Tooltip("Coins one destroyed Coin cell pays. Doubled when the cell is destroyed at the " +
             "intersection of a cleared row and a cleared column.")]
@@ -34,6 +39,12 @@ namespace MustyBlockBlast.Gameplay.Settings
 
         /// <summary>Coins one rewarded ad is worth. Clamped for the reason the rate is.</summary>
         public int AdRewardCoins => Mathf.Max(0, _adRewardCoins);
+
+        /// <summary>How many coin-rewarding ads <see cref="Systems.CurrencySystem"/> will grant per local
+        /// day. Clamped for the reason the two above are: a negative cap would make every request of the
+        /// day a refusal, which is not what "zero" ads a day is supposed to mean — zero is spelled with
+        /// zero, not with a number that reads as an authoring mistake.</summary>
+        public int DailyAdRewardCap => Mathf.Max(0, _dailyAdRewardCap);
 
         /// <summary>
         /// Coins one destroyed <see cref="MustyBlockBlast.Core.SpecialCellKind.Coin"/> cell pays, before

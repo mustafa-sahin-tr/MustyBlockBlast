@@ -871,6 +871,10 @@ MonoBehaviour:
     m_Key: shop.toast.locked
     m_Metadata:
       m_Items: []
+  - m_Id: 2191545129230336
+    m_Key: shop.ad.caption_exhausted
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

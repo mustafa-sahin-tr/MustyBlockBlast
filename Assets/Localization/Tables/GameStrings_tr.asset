@@ -775,7 +775,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 2136016131400258
-    m_Localized: "POWER-UP MA\u011eAZASI"
+    m_Localized: "POWER-UP MA\u011EAZASI"
     m_Metadata:
       m_Items: []
   - m_Id: 2136016131400322
@@ -799,7 +799,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 2136016131400642
-    m_Localized: "\u00dcCRETS\u0130Z KAZAN"
+    m_Localized: "\xDCCRETS\u0130Z KAZAN"
     m_Metadata:
       m_Items: []
   - m_Id: 2136016131400706
@@ -807,7 +807,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 2136016131400770
-    m_Localized: "Puan\u0131 paraya \u00e7evir"
+    m_Localized: "Puan\u0131 paraya \xE7evir"
     m_Metadata:
       m_Items: []
   - m_Id: 2136016131400834
@@ -815,15 +815,15 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 2136016131400898
-    m_Localized: "\u00c7EVR\u0130LEB\u0130L\u0130R"
+    m_Localized: "\xC7EVR\u0130LEB\u0130L\u0130R"
     m_Metadata:
       m_Items: []
   - m_Id: 2136016131400962
-    m_Localized: "\u00c7EV\u0130R"
+    m_Localized: "\xC7EV\u0130R"
     m_Metadata:
       m_Items: []
   - m_Id: 2136016131401026
-    m_Localized: "{0} puan = {1} para"
+    m_Localized: '{0} puan = {1} para'
     m_Metadata:
       m_Items: []
   - m_Id: 2136016131401090
@@ -831,7 +831,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 2136016131401154
-    m_Localized: "Reklam ba\u015f\u0131na {0} para"
+    m_Localized: "Bug\xFCn {0} hak kald\u0131"
     m_Metadata:
       m_Items: []
   - m_Id: 2136016131401218
@@ -839,15 +839,15 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 2136016131401282
-    m_Localized: "Yap\u0131land\u0131r\u0131lm\u0131\u015f para paketi yok."
+    m_Localized: "Yap\u0131land\u0131r\u0131lm\u0131\u015F para paketi yok."
     m_Metadata:
       m_Items: []
   - m_Id: 2136016131401346
-    m_Localized: "\u00c7evrildi!"
+    m_Localized: "\xC7evrildi!"
     m_Metadata:
       m_Items: []
   - m_Id: 2136016131401410
-    m_Localized: "Hen\u00fcz \u00e7evrilecek bir \u015fey yok."
+    m_Localized: "Hen\xFCz \xE7evrilecek bir \u015Fey yok."
     m_Metadata:
       m_Items: []
   - m_Id: 2136016131401474
@@ -855,7 +855,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 2136016131401538
-    m_Localized: "\u015eu anda reklam yok."
+    m_Localized: "\u015Eu anda reklam yok."
     m_Metadata:
       m_Items: []
   - m_Id: 2136016131401602
@@ -871,7 +871,11 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 2136016131401794
-    m_Localized: "Bunu a\u00e7mak i\u00e7in seviye atla."
+    m_Localized: "Bunu a\xE7mak i\xE7in seviye atla."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2191545129230336
+    m_Localized: "Yar\u0131n tekrar gel"
     m_Metadata:
       m_Items: []
   references:

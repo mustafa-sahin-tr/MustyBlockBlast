@@ -415,9 +415,17 @@ namespace MustyBlockBlast.Gameplay.Localization
 
         public const string SHOP_AD_TITLE = "shop.ad.title";
 
-        /// <summary>The watch-an-ad row's reward caption. <c>{0}</c> is the ad's coin reward, e.g.
-        /// "25 coins per ad".</summary>
+        /// <summary>
+        /// The watch-an-ad row's caption while at least one grant remains today (issue #257). <c>{0}</c>
+        /// is <see cref="MustyBlockBlast.Gameplay.Systems.CurrencySystem.RemainingAdGrantsToday"/>, e.g.
+        /// "2 left today".
+        /// </summary>
         public const string SHOP_AD_CAPTION_FORMAT = "shop.ad.caption_format";
+
+        /// <summary>The watch-an-ad row's caption once the daily coin-ad cap is spent (issue #257): "Come
+        /// back tomorrow". Shown in place of <see cref="SHOP_AD_CAPTION_FORMAT"/>, alongside the same
+        /// unaffordable-grey the button takes.</summary>
+        public const string SHOP_AD_CAPTION_EXHAUSTED = "shop.ad.caption_exhausted";
 
         public const string SHOP_BUNDLE_BUTTON = "shop.bundle.button";
         public const string SHOP_NO_BUNDLES = "shop.bundle.none";

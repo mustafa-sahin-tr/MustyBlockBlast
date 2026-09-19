@@ -358,6 +358,7 @@ namespace MustyBlockBlast.Tests.EditMode
             var levelProgressionModel = new LevelProgressionModel();
             return new CurrencySystem(
                 profileModel,
+                new DailyAdGrantModel(),
                 new ScoreModel(),
                 levelProgressionModel,
                 ScriptableObject.CreateInstance<CurrencyConfig>(),

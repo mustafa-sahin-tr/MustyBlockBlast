@@ -6,6 +6,7 @@ using Cysharp.Threading.Tasks;
 using MessagePipe;
 using MustyBlockBlast.Gameplay.Messages;
 using MustyBlockBlast.Gameplay.Models;
+using MustyBlockBlast.Gameplay.Reactive;
 using MustyBlockBlast.Gameplay.Settings;
 using UnityEngine;
 using VContainer;
@@ -70,6 +71,20 @@ namespace MustyBlockBlast.Gameplay.Systems
         private const string CONSUMED_TRANSACTION_IDS_KEY = "Profile.ConsumedTransactionIds";
 
         /// <summary>
+        /// The two keys behind the daily coin-ad cap (issue #257). Named in the same "Profile.*" family
+        /// as every other key above even though the value they hold is deliberately device-local rather
+        /// than account-bound (see <see cref="DailyAdGrantModel"/>) — the prefix is this project's flat
+        /// PlayerPrefs namespace for "state this class owns", not a claim about what carries across a
+        /// linked-account migration.
+        /// </summary>
+        private const string DAILY_AD_GRANTS_REMAINING_KEY = "Profile.DailyAdGrantsRemaining";
+        private const string DAILY_AD_GRANT_DAY_MARKER_KEY = "Profile.DailyAdGrantDayMarker";
+
+        /// <summary>Format the local day marker is compared and stored in: sortable, unambiguous across
+        /// locales, and stable regardless of the device's date-format setting.</summary>
+        private const string DAY_MARKER_FORMAT = "yyyyMMdd";
+
+        /// <summary>
         /// Separator for the persisted transaction-id list. A newline because store transaction ids are
         /// opaque single-line tokens — Apple's are numeric, Google's are base64url purchase tokens — so
         /// none of them can contain one, which is what lets a flat string stand in for a set without a
@@ -78,6 +93,7 @@ namespace MustyBlockBlast.Gameplay.Systems
         private const char CONSUMED_ID_SEPARATOR = '\n';
 
         private readonly ProfileModel _profileModel;
+        private readonly DailyAdGrantModel _dailyAdGrantModel;
         private readonly ScoreModel _scoreModel;
         private readonly LevelProgressionModel _levelProgressionModel;
         private readonly CurrencyConfig _config;
@@ -109,6 +125,17 @@ namespace MustyBlockBlast.Gameplay.Systems
         private readonly Func<DateTime> _utcNowProvider;
 
         /// <summary>
+        /// Where "today" comes from when the daily ad cap's rollover is checked. A second, separate
+        /// delegate from <see cref="_utcNowProvider"/> rather than a conversion of it, for the reason the
+        /// two are decided differently in the issue: the promotion window is one UTC instant worldwide,
+        /// but the daily ad cap resets on the device's own calendar day (issue #257) — converting a
+        /// seeded UTC instant with <see cref="DateTime.ToLocalTime"/> would make every day-rollover test
+        /// depend on the timezone of whatever machine runs it. Behind a delegate for the same reason the
+        /// UTC one is: production supplies the real local clock, only a test reaches the seeded overload.
+        /// </summary>
+        private readonly Func<DateTime> _localNowProvider;
+
+        /// <summary>
         /// DI entry point. Explicitly marked because VContainer, absent an <see cref="InjectAttribute"/>,
         /// resolves the constructor with the most parameters — which is the seeded-clock one below, not
         /// this one, now that it carries an extra <see cref="Func{DateTime}"/> parameter. Without this
@@ -120,6 +147,7 @@ namespace MustyBlockBlast.Gameplay.Systems
         [Inject]
         public CurrencySystem(
             ProfileModel profileModel,
+            DailyAdGrantModel dailyAdGrantModel,
             ScoreModel scoreModel,
             LevelProgressionModel levelProgressionModel,
             CurrencyConfig config,
@@ -136,6 +164,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             ISubscriber<CoinCellsClearedMessage> coinCellsClearedSubscriber)
             : this(
                 profileModel,
+                dailyAdGrantModel,
                 scoreModel,
                 levelProgressionModel,
                 config,
@@ -150,12 +179,14 @@ namespace MustyBlockBlast.Gameplay.Systems
                 purchaseGrantPublisher,
                 gameOverSubscriber,
                 coinCellsClearedSubscriber,
-                UtcNow)
+                UtcNow,
+                LocalNow)
         {
         }
 
         internal CurrencySystem(
             ProfileModel profileModel,
+            DailyAdGrantModel dailyAdGrantModel,
             ScoreModel scoreModel,
             LevelProgressionModel levelProgressionModel,
             CurrencyConfig config,
@@ -170,11 +201,14 @@ namespace MustyBlockBlast.Gameplay.Systems
             IPublisher<CoinsGrantedFromPurchaseMessage> purchaseGrantPublisher,
             ISubscriber<GameOverMessage> gameOverSubscriber,
             ISubscriber<CoinCellsClearedMessage> coinCellsClearedSubscriber,
-            Func<DateTime> utcNowProvider)
+            Func<DateTime> utcNowProvider,
+            Func<DateTime> localNowProvider = null)
         {
             _promotionConfig = promotionConfig;
             _utcNowProvider = utcNowProvider ?? UtcNow;
+            _localNowProvider = localNowProvider ?? LocalNow;
             _profileModel = profileModel;
+            _dailyAdGrantModel = dailyAdGrantModel;
             _scoreModel = scoreModel;
             _levelProgressionModel = levelProgressionModel;
             _config = config;
@@ -226,6 +260,26 @@ namespace MustyBlockBlast.Gameplay.Systems
         public int AdRewardCoins => _config.AdRewardCoins;
 
         /// <summary>
+        /// Coin-rewarding ads still available today (issue #257). The Coins tab's read-only window onto
+        /// <see cref="DailyAdGrantModel.RemainingToday"/> — this class is the property's only writer, by
+        /// way of <see cref="EnsureDailyAdCounterCurrent"/> and <see cref="GrantCoinsFromAdAsync"/>.
+        /// <para>
+        /// The getter itself rolls the counter over when the stored day has passed, rather than leaving
+        /// that to whichever caller happens to ask first. That is what lets a tab reopened after midnight
+        /// read the fresh cap without an app restart: every read through this property — including the
+        /// Coins tab's own repaint — is a chance to notice the day changed, not just the one at launch.
+        /// </para>
+        /// </summary>
+        public ReactiveProperty<int> RemainingAdGrantsToday
+        {
+            get
+            {
+                EnsureDailyAdCounterCurrent();
+                return _dailyAdGrantModel.RemainingToday;
+            }
+        }
+
+        /// <summary>
         /// Turns <paramref name="scoreAmount"/> of the convertible pool into coins. Partial by design:
         /// converting 60 of 100 available leaves 40 still available, forever, until the player converts
         /// that too.
@@ -275,10 +329,24 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// <see cref="AvailableToConvert"/> exactly as it found it. The player has not sold any score
         /// here, they have watched an ad.
         /// </para>
+        /// <para>
+        /// Gated by the daily coin-ad cap (issue #257) before <see cref="ICoinRewardSource"/> is ever
+        /// asked: once <see cref="RemainingAdGrantsToday"/> reads zero for today, this method returns
+        /// <c>false</c> without requesting a reward at all — not a request that is granted and then
+        /// discarded. A successful grant decrements the counter and persists it, in the same
+        /// <see cref="PlayerPrefs.Save"/> as the coin credit, so a crash between the two can lose the
+        /// whole grant or keep the whole grant, never bank the coins without spending the allowance.
+        /// </para>
         /// </summary>
         public async UniTask<bool> GrantCoinsFromAdAsync(int amount, CancellationToken cancellationToken)
         {
             if (amount <= 0)
+            {
+                return false;
+            }
+
+            EnsureDailyAdCounterCurrent();
+            if (_dailyAdGrantModel.RemainingToday.Value <= 0)
             {
                 return false;
             }
@@ -290,6 +358,12 @@ namespace MustyBlockBlast.Gameplay.Systems
             }
 
             int newBalance = CreditCoins(result.Amount);
+
+            int newRemaining = _dailyAdGrantModel.RemainingToday.Value - 1;
+            _dailyAdGrantModel.RemainingToday.Value = newRemaining;
+            PlayerPrefs.SetInt(DAILY_AD_GRANTS_REMAINING_KEY, newRemaining);
+            PlayerPrefs.SetString(DAILY_AD_GRANT_DAY_MARKER_KEY, _dailyAdGrantModel.DayMarker.Value);
+
             PlayerPrefs.Save();
 
             _adGrantPublisher.Publish(new CoinsGrantedFromAdMessage(result.Amount, newBalance));
@@ -569,6 +643,38 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// </summary>
         private static DateTime UtcNow() => DateTime.UtcNow;
 
+        /// <summary>The real device clock, in local time. Behind a named method for the reason
+        /// <see cref="UtcNow"/> is — see <see cref="_localNowProvider"/> for why this is a second
+        /// delegate rather than a conversion of the UTC one.</summary>
+        private static DateTime LocalNow() => DateTime.Now;
+
+        /// <summary>
+        /// Rolls <see cref="DailyAdGrantModel.RemainingToday"/> over to a fresh
+        /// <see cref="CurrencyConfig.DailyAdRewardCap"/> the moment the stored day marker stops matching
+        /// today — issue #257's AC4. Called from every path that reads or spends the counter
+        /// (<see cref="RemainingAdGrantsToday"/>'s getter and <see cref="GrantCoinsFromAdAsync"/>) rather
+        /// than only at construction, which is what lets a shop tab reopened after midnight show the
+        /// fresh cap without the app having restarted in between.
+        /// <para>
+        /// Deliberately does not flush to PlayerPrefs itself. The reset is idempotent — recomputed from
+        /// the stored marker on every call — so an in-memory rollover that is never followed by a grant
+        /// is safely rediscovered the same way next launch; only <see cref="GrantCoinsFromAdAsync"/>'s
+        /// own save needs to reach the disk, and it always persists whatever day marker this method last
+        /// settled on.
+        /// </para>
+        /// </summary>
+        private void EnsureDailyAdCounterCurrent()
+        {
+            string today = _localNowProvider().ToString(DAY_MARKER_FORMAT);
+            if (_dailyAdGrantModel.DayMarker.Value == today)
+            {
+                return;
+            }
+
+            _dailyAdGrantModel.DayMarker.Value = today;
+            _dailyAdGrantModel.RemainingToday.Value = _config.DailyAdRewardCap;
+        }
+
         /// <summary>
         /// Banks the coins a resolution's destroyed coin cells earned. Goes through the same
         /// <see cref="CreditCoins"/> the other two faucets do, then flushes — one write, so one flush,
@@ -677,6 +783,23 @@ namespace MustyBlockBlast.Gameplay.Systems
             _profileModel.ScoreConverted.Value = Mathf.Max(0, PlayerPrefs.GetInt(SCORE_CONVERTED_KEY, 0));
 
             LoadConsumedTransactionIds();
+            LoadDailyAdGrantCounter();
+        }
+
+        /// <summary>
+        /// Reads the daily ad cap's two keys back as-is, with no rollover decided here: a save from
+        /// yesterday is loaded verbatim and only turned stale by <see cref="EnsureDailyAdCounterCurrent"/>
+        /// on the next read, exactly as issue #257's AC4 asks for. Clamped to the configured cap rather
+        /// than trusted outright, so a save written under a higher cap that was since retuned down can
+        /// never leave more remaining today than the current config allows.
+        /// </summary>
+        private void LoadDailyAdGrantCounter()
+        {
+            _dailyAdGrantModel.DayMarker.Value = PlayerPrefs.GetString(DAILY_AD_GRANT_DAY_MARKER_KEY, string.Empty);
+            _dailyAdGrantModel.RemainingToday.Value = Mathf.Clamp(
+                PlayerPrefs.GetInt(DAILY_AD_GRANTS_REMAINING_KEY, _config.DailyAdRewardCap),
+                0,
+                _config.DailyAdRewardCap);
         }
 
         /// <summary>
