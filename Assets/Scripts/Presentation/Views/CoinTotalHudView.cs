@@ -23,7 +23,10 @@ namespace MustyBlockBlast.Presentation.Views
     /// Deliberately always visible, unlike <see cref="DoubleMultiplierHudView"/>: a wallet is a standing
     /// fact rather than a temporary state, and a total that vanished at zero would read as "coins are
     /// not a thing in this game" to exactly the player who has not earned one yet. The "+" disc is
-    /// the mockup's affordance only — the pill routes no tap of its own today.
+    /// the mockup's affordance, and, like <see cref="SettingsButtonView"/> and
+    /// <see cref="PowerUpInventoryView"/>, this View only knows how to draw itself and whether a screen
+    /// point is on the disc — see <see cref="ContainsPlusDisc"/> — the tap that opens the shop's Coins
+    /// tab is routed by <see cref="BoardInputView"/>, the single owner of pointer input in this scene.
     /// </para>
     /// </summary>
     [DisallowMultipleComponent]
@@ -72,6 +75,7 @@ namespace MustyBlockBlast.Presentation.Views
         private ProfileModel _profileModel;
         private SettingsModel _settingsModel;
 
+        private Canvas _canvas;
         private RectTransform _rect;
         private Image _shadowImage;
         private Image _ringImage;
@@ -95,6 +99,7 @@ namespace MustyBlockBlast.Presentation.Views
 
         private void Awake()
         {
+            _canvas = GetComponentInParent<Canvas>();
             BuildPill();
 
             // Painted by the subscription in Start rather than left blank: the balance is loaded before
@@ -120,6 +125,24 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         private void OnDestroy() => _disposables.Dispose();
+
+        /// <summary>Whether <paramref name="screenPosition"/> lands on the "+" disc — and only the
+        /// disc, not the coin icon or the balance number either side of it — so
+        /// <see cref="BoardInputView"/> can resolve a tap on it exactly as it does
+        /// <see cref="SettingsButtonView.ContainsScreenPoint"/>.</summary>
+        internal bool ContainsPlusDisc(Vector2 screenPosition)
+        {
+            if (_plusRect == null)
+            {
+                return false;
+            }
+
+            Camera eventCamera = _canvas != null && _canvas.renderMode != RenderMode.ScreenSpaceOverlay
+                ? _canvas.worldCamera
+                : null;
+
+            return RectTransformUtility.RectangleContainsScreenPoint(_plusRect, screenPosition, eventCamera);
+        }
 
         private void OnThemeChanged(ThemeDefinition theme)
         {

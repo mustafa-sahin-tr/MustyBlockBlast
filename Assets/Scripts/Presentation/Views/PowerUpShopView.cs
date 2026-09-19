@@ -90,8 +90,10 @@ namespace MustyBlockBlast.Presentation.Views
         /// this screen has not had.</summary>
         private const int PURCHASE_QUANTITY = 1;
 
-        /// <summary>The three sub-tabs, each drawing its own content in the grid's place.</summary>
-        private enum ShopTab
+        /// <summary>The three sub-tabs, each drawing its own content in the grid's place. Internal
+        /// rather than private so <see cref="HubPanelView"/> can ask this card to open landed on a
+        /// specific one (issue #271) without a second, parallel enum to keep in sync with it.</summary>
+        internal enum ShopTab
         {
             PowerUps,
             Coins,
@@ -503,7 +505,15 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>The card's own header, which the hub hides in favour of its own.</summary>
         internal Text HeaderTitleText => _headerText;
 
-        internal void Open()
+        /// <summary>Opens the card landed on its default sub-tab, PowerUps.</summary>
+        internal void Open() => Open(ShopTab.PowerUps);
+
+        /// <summary>
+        /// Opens the card landed on <paramref name="tab"/> — <see cref="HubPanelView"/>'s way of
+        /// landing directly on the Coins sub-tab from the coin pill's "+" disc (issue #271), reusing
+        /// this same entry point rather than duplicating what it does.
+        /// </summary>
+        internal void Open(ShopTab tab)
         {
             if (_panel == null || IsOpen)
             {
@@ -512,7 +522,7 @@ namespace MustyBlockBlast.Presentation.Views
 
             _message = string.Empty;
             _pendingAmount = _currencySystem.AvailableToConvert;
-            SelectTab(ShopTab.PowerUps);
+            SelectTab(tab);
             _scrollRect.verticalNormalizedPosition = 1f;
             _coinsScrollRect.verticalNormalizedPosition = 1f;
             Refresh();
