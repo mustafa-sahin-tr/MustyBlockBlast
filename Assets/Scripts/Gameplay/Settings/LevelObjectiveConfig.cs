@@ -30,6 +30,10 @@ namespace MustyBlockBlast.Gameplay.Settings
         private static readonly ReinforcedCellAuthoring[] EmptyReinforcedCells =
             new ReinforcedCellAuthoring[0];
 
+        /// <summary>Shared, never-mutated empty for a row whose <see cref="_timerCells"/> field is null
+        /// — the same never-existed-yet case <see cref="EmptyReinforcedCells"/> covers.</summary>
+        private static readonly TimerCellAuthoring[] EmptyTimerCells = new TimerCellAuthoring[0];
+
         /// <summary>Shared, never-mutated empty for a row whose <see cref="_bannedPowerUps"/> field is
         /// null — the same never-existed-yet case <see cref="EmptyReinforcedCells"/> covers.</summary>
         private static readonly PowerUpKind[] EmptyBannedPowerUps = new PowerUpKind[0];
@@ -104,6 +108,11 @@ namespace MustyBlockBlast.Gameplay.Settings
         [SerializeField] private List<ReinforcedCellAuthoring> _reinforcedCells =
             new List<ReinforcedCellAuthoring>();
 
+        [Tooltip("Cells pre-filled with a timer block that converts to an ordinary cell once its " +
+            "placement countdown reaches 0. Empty (the default) means the level authors none, which " +
+            "is what every level authored before timer cells existed does.")]
+        [SerializeField] private List<TimerCellAuthoring> _timerCells = new List<TimerCellAuthoring>();
+
         [Tooltip("Power-up kinds this level's Path-mode run refuses to arm or spend. Empty (the " +
             "default) bans nothing, which is what every level authored before this field existed " +
             "does. Ignored entirely outside Path mode.")]
@@ -170,6 +179,16 @@ namespace MustyBlockBlast.Gameplay.Settings
         /// </summary>
         public IReadOnlyList<ReinforcedCellAuthoring> ReinforcedCells =>
             _reinforcedCells ?? (IReadOnlyList<ReinforcedCellAuthoring>)EmptyReinforcedCells;
+
+        /// <summary>
+        /// The timer cells this level pre-fills its board with, in authored order. Empty for a level
+        /// that authors none, which is every level authored before the mechanic existed.
+        /// <para>
+        /// Never null, mirroring <see cref="ReinforcedCells"/>.
+        /// </para>
+        /// </summary>
+        public IReadOnlyList<TimerCellAuthoring> TimerCells =>
+            _timerCells ?? (IReadOnlyList<TimerCellAuthoring>)EmptyTimerCells;
 
         /// <summary>
         /// Power-up kinds this level's Path-mode run refuses to arm or spend (see
@@ -377,6 +396,53 @@ namespace MustyBlockBlast.Gameplay.Settings
                 }
             }
 
+            IReadOnlyList<TimerCellAuthoring> timerCells = TimerCells;
+            for (int i = 0; i < timerCells.Count; i++)
+            {
+                TimerCellAuthoring timerCell = timerCells[i];
+                if (timerCell == null)
+                {
+                    error = "A timer cell entry is empty — remove the row or fill it in.";
+                    return false;
+                }
+
+                GridPosition position = timerCell.ToGridPosition();
+                if (position.X < 0 || position.X >= _boardWidth
+                    || position.Y < 0 || position.Y >= _boardHeight)
+                {
+                    error = $"Timer cell {position} is outside this level's {_boardWidth}x{_boardHeight} board.";
+                    return false;
+                }
+
+                if (timerCell.StartingCountdown < TimerCellAuthoring.MIN_STARTING_COUNTDOWN
+                    || timerCell.StartingCountdown > TimerCellAuthoring.MAX_STARTING_COUNTDOWN)
+                {
+                    error = $"Timer cell {position} needs a starting countdown between "
+                        + $"{TimerCellAuthoring.MIN_STARTING_COUNTDOWN} and {TimerCellAuthoring.MAX_STARTING_COUNTDOWN}.";
+                    return false;
+                }
+
+                // A cell cannot be both: a hole can never hold a block, so a timer block authored on one
+                // could never be placed, and the level would silently open without it.
+                if (IsAuthoredHole(position))
+                {
+                    error = $"Timer cell {position} is also authored as a hole — a cell cannot be both.";
+                    return false;
+                }
+
+                // Nor can a cell be authored as both a reinforced cell and a timer cell: each mechanic
+                // brings its own block to a previously empty cell, and a cell cannot be pre-filled twice.
+                for (int reinforcedIndex = 0; reinforcedIndex < reinforcedCells.Count; reinforcedIndex++)
+                {
+                    ReinforcedCellAuthoring reinforced = reinforcedCells[reinforcedIndex];
+                    if (reinforced != null && reinforced.ToGridPosition().Equals(position))
+                    {
+                        error = $"Timer cell {position} is also authored as a reinforced cell — a cell cannot be both.";
+                        return false;
+                    }
+                }
+            }
+
             // The target for this type is the reinforced-cell count (see EffectiveTargetValue), so a
             // level authoring none would build an ObjectiveDefinition with target 0 — which throws.
             // Caught here, where every other type-specific precondition is, rather than at construction.
@@ -551,6 +617,17 @@ namespace MustyBlockBlast.Gameplay.Settings
                     if (_reinforcedCells[i] != null)
                     {
                         _reinforcedCells[i].ValidateInEditor();
+                    }
+                }
+            }
+
+            if (_timerCells != null)
+            {
+                for (int i = 0; i < _timerCells.Count; i++)
+                {
+                    if (_timerCells[i] != null)
+                    {
+                        _timerCells[i].ValidateInEditor();
                     }
                 }
             }

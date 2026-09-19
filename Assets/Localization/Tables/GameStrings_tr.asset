@@ -758,6 +758,22 @@ MonoBehaviour:
     m_Localized: "G\xFC\xE7lendirilmi\u015F bir h\xFCcrenin koruyucu z\u0131rh\u0131n\u0131, yeterince temizleyerek k\u0131r ve tahtadan kald\u0131r."
     m_Metadata:
       m_Items: []
+  - m_Id: 2136016063291392
+    m_Localized: "S\xFCre Doldu"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016130400256
+    m_Localized: "Seviye {0}'de bir zamanlay\u0131c\u0131 blok s\xFCresi doldu"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016130400257
+    m_Localized: "Zamanlay\u0131c\u0131 Blok"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016130400258
+    m_Localized: "Saniyede de\u011Fil, her par\xE7a yerle\u015Ftirdi\u011Finde bir azal\u0131r. S\u0131f\u0131ra ula\u015Fmadan \xF6nce temizle. Yol modunda s\xFCresinin dolmas\u0131na izin vermek oyunu hemen bitirir. Sonsuz ve S\xFCreli modlarda ise sadece normal bir h\xFCcreye d\xF6n\xFC\u015F\xFCr ve bonusunu kaybedersin."
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

@@ -640,6 +640,17 @@ namespace MustyBlockBlast.Presentation.Views
                 _reasonText.text = _localizationSystem.Format(
                     LocalizationKeys.RUN_RESULT_REASON_TIME_UP, FormatDuration());
             }
+            else if (_lastReason == GameOverReason.ObjectiveMissed)
+            {
+                // Path-only (issue #307 AC4/AC6b): a timer cell expired, distinct copy from "no moves
+                // left" so the player can tell the two failures apart — this one names the level, exactly
+                // as the no-moves Path branch below does, since "try again" reads as "this level again".
+                _titleText.text = _localizationSystem.Translate(LocalizationKeys.GAME_OVER_TITLE_OBJECTIVE_MISSED);
+                _stringBuilder.Clear();
+                _stringBuilder.Append(_playedLevelNumber);
+                _reasonText.text = _localizationSystem.Format(
+                    LocalizationKeys.RUN_RESULT_REASON_OBJECTIVE_MISSED, _stringBuilder.ToString());
+            }
             else
             {
                 _titleText.text = _localizationSystem.Translate(LocalizationKeys.GAME_OVER_TITLE_NO_MOVES);

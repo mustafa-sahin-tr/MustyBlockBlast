@@ -124,5 +124,29 @@ namespace MustyBlockBlast.Core
         /// clears. Counts cells, not events: one placement can advance it by several (issue #147).
         /// </summary>
         ColourCleared = 18,
+
+        /// <summary>
+        /// Count <see cref="SpecialCellKind.Timer"/> cells cleared BEFORE their placement countdown
+        /// reached 0 — see <see cref="SpecialCellKind.Timer"/> and <see cref="TimerCellClearEffect"/>. A
+        /// cell whose countdown expired first and was cleared afterward as an ordinary cell does NOT
+        /// count: by the time it clears it no longer carries this kind at all, so it can never produce
+        /// the <see cref="SpecialCellTrigger"/> this objective is fed from.
+        /// <para>
+        /// Counts THINGS DESTROYED, like <see cref="ReinforcedCellsCleared"/> and
+        /// <see cref="ColourCleared"/>, not events: one placement whose clear (primary phase or a
+        /// cascaded one) took out several timer cells at once credits every one of them.
+        /// </para>
+        /// <para>
+        /// Advanced by BOTH <see cref="ObjectiveProgress.ApplyPlacement"/> (a placement's whole
+        /// resolution — arriving as <c>PiecePlacedMessage.TimerCellsClearedInTimeCount</c>, which is
+        /// already summed across every destruction path: the primary clear, a cascaded phase, AND a
+        /// special cell's own blast/wipe/strike mid-cascade — issue #307 AC11 explicitly closes the gap
+        /// <see cref="ReinforcedCellsCleared"/>'s doc comment names, rather than repeating it) AND a
+        /// dedicated <see cref="ObjectiveProgress.ApplyPowerUpTimerCellsClearedInTime"/> (a spent
+        /// power-up can clear one too, arriving as
+        /// <c>PowerUpAppliedMessage.TimerCellsClearedInTimeCount</c>).
+        /// </para>
+        /// </summary>
+        TimerCellsMeltedInTime = 19,
     }
 }

@@ -66,6 +66,23 @@ namespace MustyBlockBlast.Gameplay.Models
         /// </summary>
         public event Action<GridPosition, int> HitCountChanged;
 
+        /// <summary>
+        /// Raised for a <see cref="SpecialCellKind.Timer"/> cell that is still standing and whose
+        /// remaining countdown may have changed. Args: position, placements remaining. Mirrors
+        /// <see cref="HitCountChanged"/> exactly, for the same reason: a ticked-down timer cell is the
+        /// same block, just closer to converting.
+        /// </summary>
+        public event Action<GridPosition, int> TimerCountdownChanged;
+
+        /// <summary>
+        /// Raised for a <see cref="SpecialCellKind.Timer"/> cell whose countdown just reached 0 and
+        /// converted to an ordinary cell (issue #307 AC4/AC6a) — the cell stays occupied, so
+        /// <see cref="CellChanged"/> does not fire for it, and <see cref="SpecialKindChanged"/> is
+        /// deliberately an "added" signal only and would never announce a kind being lost either. A View
+        /// showing the countdown needs its own, explicit "stop showing it" signal, which this is.
+        /// </summary>
+        public event Action<GridPosition> TimerCellExpired;
+
         /// <summary>The board's outline. Read-only and immutable — a View reads width, height and hole
         /// cells off it to lay itself out and to render the holes.</summary>
         public BoardShape Shape => _board.Shape;
@@ -92,6 +109,12 @@ namespace MustyBlockBlast.Gameplay.Models
         /// repaint re-derives every cell's damage look from the model rather than trusting bookkeeping
         /// it accumulated from events. 0 for an ordinary or empty cell.</summary>
         public int GetHitCount(GridPosition position) => _board.GetHitCount(position);
+
+        /// <summary>Read-only access for Views, for the reason <see cref="GetHitCount"/> is: a full
+        /// repaint re-derives a timer cell's countdown from the model rather than trusting bookkeeping
+        /// it accumulated from events. 0 for a cell that is not a <see cref="SpecialCellKind.Timer"/>
+        /// cell.</summary>
+        public int GetTimerCountdown(GridPosition position) => _board.GetTimerCountdown(position);
 
         /// <summary>Core board handed to the stateless Core rule helpers. Systems only.</summary>
         internal Board Board => _board;
@@ -122,6 +145,18 @@ namespace MustyBlockBlast.Gameplay.Models
             _board.OccupyReinforced(position, colourId, hitCount);
             CellChanged?.Invoke(position, colourId);
             HitCountChanged?.Invoke(position, hitCount);
+        }
+
+        /// <summary>Occupies a cell as a <see cref="SpecialCellKind.Timer"/> cell and announces all three
+        /// halves of it — the block, its kind, and its starting countdown — in the same order
+        /// <see cref="OccupyReinforced"/> establishes for the reinforced-cell reads. Level-start seeding
+        /// only; see <see cref="Core.Board.OccupyTimer"/>.</summary>
+        internal void OccupyTimer(GridPosition position, int colourId, int startingCountdown)
+        {
+            _board.OccupyTimer(position, colourId, startingCountdown);
+            CellChanged?.Invoke(position, colourId);
+            SpecialKindChanged?.Invoke(position, SpecialCellKind.Timer);
+            TimerCountdownChanged?.Invoke(position, startingCountdown);
         }
 
         /// <summary>Tags a cell with a special behaviour and announces it. Separate from
@@ -208,6 +243,52 @@ namespace MustyBlockBlast.Gameplay.Models
                         HitCountChanged.Invoke(position, hitCount);
                     }
                 }
+            }
+        }
+
+        /// <summary>
+        /// Re-announces the remaining countdown of every <see cref="SpecialCellKind.Timer"/> cell still
+        /// standing, so a View repaints the ones the per-placement tick just decremented. Mirrors
+        /// <see cref="NotifyHitCountsRefreshed"/> exactly, including the "a scan, not a change list"
+        /// reasoning: <see cref="Core.TimerCellTick"/> is pure and reports only the cells it converted
+        /// (see <see cref="NotifyTimerCellsExpired"/>), not the ones that merely ticked down. Same cost
+        /// class as that method: once per placement over the board's cells, never per frame.
+        /// </summary>
+        internal void NotifyTimerCountdownsRefreshed()
+        {
+            if (TimerCountdownChanged == null)
+            {
+                return;
+            }
+
+            for (int y = 0; y < _board.Height; y++)
+            {
+                for (int x = 0; x < _board.Width; x++)
+                {
+                    var position = new GridPosition(x, y);
+                    if (_board.GetSpecialKind(position) != SpecialCellKind.Timer)
+                    {
+                        continue;
+                    }
+
+                    TimerCountdownChanged.Invoke(position, _board.GetTimerCountdown(position));
+                }
+            }
+        }
+
+        /// <summary>Announces every cell <see cref="Core.TimerCellTick"/> just converted from
+        /// <see cref="SpecialCellKind.Timer"/> to an ordinary cell this placement (issue #307 AC4/AC6a).
+        /// The Core tick has already mutated the board when this is called.</summary>
+        internal void NotifyTimerCellsExpired(IReadOnlyList<GridPosition> expiredCells)
+        {
+            if (expiredCells == null || TimerCellExpired == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < expiredCells.Count; i++)
+            {
+                TimerCellExpired.Invoke(expiredCells[i]);
             }
         }
 

@@ -145,7 +145,8 @@ namespace MustyBlockBlast.Gameplay.Systems
                 message.HasIsolatedHolesAfterPlacement,
                 elapsedRunSeconds,
                 message.ReinforcedCellsFullyClearedCount,
-                message.DestroyedCellCountByColour);
+                message.DestroyedCellCountByColour,
+                message.TimerCellsClearedInTimeCount);
 
             ApplyToAllObjectives(objective => objective.ApplyPlacement(context));
         }
@@ -168,6 +169,12 @@ namespace MustyBlockBlast.Gameplay.Systems
             {
                 ApplyToAllObjectives(objective =>
                     objective.ApplyPowerUpReinforcedCellsCleared(message.ReinforcedCellsFullyClearedCount));
+            }
+
+            if (message.TimerCellsClearedInTimeCount > 0)
+            {
+                ApplyToAllObjectives(objective =>
+                    objective.ApplyPowerUpTimerCellsClearedInTime(message.TimerCellsClearedInTimeCount));
             }
 
             // Before the kind-specific branches below, which return early: a colour-count objective

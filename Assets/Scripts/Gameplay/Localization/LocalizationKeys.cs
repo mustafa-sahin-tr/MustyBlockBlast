@@ -79,6 +79,8 @@ namespace MustyBlockBlast.Gameplay.Localization
         public const string INFO_POPUP_SPECIAL_CELL_SCORE_GEM_BODY = "info_popup.special_cell.score_gem.body";
         public const string INFO_POPUP_SPECIAL_CELL_COIN_HEADER = "info_popup.special_cell.coin.header";
         public const string INFO_POPUP_SPECIAL_CELL_COIN_BODY = "info_popup.special_cell.coin.body";
+        public const string INFO_POPUP_SPECIAL_CELL_TIMER_HEADER = "info_popup.special_cell.timer.header";
+        public const string INFO_POPUP_SPECIAL_CELL_TIMER_BODY = "info_popup.special_cell.timer.body";
 
         public const string INFO_POPUP_SPECIAL_PIECE_GOLDEN_HEADER = "info_popup.special_piece.golden.header";
         public const string INFO_POPUP_SPECIAL_PIECE_GOLDEN_BODY = "info_popup.special_piece.golden.body";
@@ -133,6 +135,11 @@ namespace MustyBlockBlast.Gameplay.Localization
         /// completed level's number.</summary>
         public const string GAME_OVER_TITLE_LEVEL_COMPLETE = "gameover.title.level_complete";
 
+        /// <summary>Title shown when a Path-mode run ended because a timer cell's countdown reached 0
+        /// (issue #307 AC4/AC6b) — distinct from <see cref="GAME_OVER_TITLE_NO_MOVES"/> so the player can
+        /// tell the two failures apart.</summary>
+        public const string GAME_OVER_TITLE_OBJECTIVE_MISSED = "gameover.title.objective_missed";
+
         /// <summary>Reason line under the title when no tray piece fits (Endless and Timed).</summary>
         public const string RUN_RESULT_REASON_NO_MOVES = "result.reason.no_moves";
 
@@ -145,6 +152,10 @@ namespace MustyBlockBlast.Gameplay.Localization
         /// <summary>Reason line when a Path level ran out of moves before its objective. <c>{0}</c> is
         /// the level's number.</summary>
         public const string RUN_RESULT_REASON_LEVEL_FAILED = "result.reason.level_failed";
+
+        /// <summary>Reason line when a Path level ended because a timer cell expired. <c>{0}</c> is the
+        /// level's number.</summary>
+        public const string RUN_RESULT_REASON_OBJECTIVE_MISSED = "result.reason.objective_missed";
 
         /// <summary>Caption over the lifetime total of every point ever scored, this run included.</summary>
         public const string RUN_RESULT_TOTAL_LABEL = "result.total_label";

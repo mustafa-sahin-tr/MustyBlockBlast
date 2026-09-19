@@ -48,6 +48,29 @@ namespace MustyBlockBlast.Gameplay.Systems
         private readonly LevelReinforcedCellSeeder _reinforcedCellSeeder;
 
         /// <summary>
+        /// Puts the level's authored timer cells on the board at the opening of a run. Called inline
+        /// from <see cref="StartNewRun"/> immediately after <see cref="_reinforcedCellSeeder"/>, for
+        /// exactly the same reason — see <see cref="LevelTimerCellSeeder"/>.
+        /// <para>
+        /// Nullable, and null in most unit tests, for the same reason <see cref="_reinforcedCellSeeder"/>
+        /// is.
+        /// </para>
+        /// </summary>
+        private readonly LevelTimerCellSeeder _timerCellSeeder;
+
+        /// <summary>
+        /// Which rule set the current run is played under. Read only by the per-placement timer tick
+        /// (issue #307 AC4), to decide whether an expired <see cref="SpecialCellKind.Timer"/> cell ends
+        /// the run outright (<see cref="GameMode.Path"/>) or merely loses its own objective credit
+        /// (Endless/Timed).
+        /// <para>
+        /// Nullable, and null in most unit tests, for the same reason <see cref="_powerUpModel"/> is —
+        /// treated as "not Path mode", which is every test that never opts a board into Path.
+        /// </para>
+        /// </summary>
+        private readonly GameModeModel _gameModeModel;
+
+        /// <summary>
         /// Read, never written, by <see cref="CheckGameOver"/>: a parked piece only counts as a move
         /// the player still has while <see cref="PowerUpModel.HoldCount"/> can pay for the swap that
         /// brings it back. Spending is <see cref="PowerUpSystem"/>'s alone — the Model rather than
@@ -107,6 +130,13 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// this is the one seam through which that count can be learned.</summary>
         private readonly ScoreGemEffect _scoreGemEffect = new ScoreGemEffect();
 
+        /// <summary>The Timer counterpart of <see cref="_scoreGemEffect"/>: changes nothing on the
+        /// board, only counts the <see cref="SpecialCellKind.Timer"/> cells this placement's resolution
+        /// destroyed BEFORE their countdown reached 0 — the objective data
+        /// <see cref="PiecePlacedMessage.TimerCellsClearedInTimeCount"/> is assembled from (issue #307
+        /// AC5).</summary>
+        private readonly TimerCellClearEffect _timerCellClearEffect = new TimerCellClearEffect();
+
         /// <summary>The other effect that changes nothing on the board: it only totals what the coin
         /// cells this placement's resolution destroyed are worth. Built in the constructor rather than
         /// here because the per-cell payout is an economy number read from
@@ -142,6 +172,11 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// <summary>The triggers a hammer's single destroyed cell produced — at most one. Reused for the
         /// same reason <see cref="_hammerClearedBuffer"/> is.</summary>
         private readonly List<SpecialCellTrigger> _hammerTriggerBuffer = new List<SpecialCellTrigger>(1);
+
+        /// <summary>Every <see cref="SpecialCellKind.Timer"/> cell <see cref="TimerCellTick"/> converted
+        /// to an ordinary cell on the most recent placement. Owned and reused so the once-per-placement
+        /// tick allocates nothing (issue #307).</summary>
+        private readonly List<GridPosition> _expiredTimerCellsBuffer = new List<GridPosition>();
 
         /// <summary>
         /// Dock injections owed to the next refill: a golden 1x1 earned by a five-long combo streak
@@ -198,14 +233,17 @@ namespace MustyBlockBlast.Gameplay.Systems
             LevelReinforcedCellSeeder reinforcedCellSeeder,
             PowerUpModel powerUpModel = null,
             IPublisher<SpecialCellSpawnedMessage> specialCellSpawnedPublisher = null,
-            IPublisher<SpecialPieceSpawnedMessage> specialPieceSpawnedPublisher = null)
+            IPublisher<SpecialPieceSpawnedMessage> specialPieceSpawnedPublisher = null,
+            LevelTimerCellSeeder timerCellSeeder = null,
+            GameModeModel gameModeModel = null)
             : this(
                 boardModel, trayModel, scoreGemProgressModel, vortexProgressModel, pieceDraw,
                 runStartedPublisher, piecePlacedPublisher, linesClearedPublisher, gameOverPublisher,
                 trayRefilledPublisher, explosiveCoreDetonatedPublisher, laserFiredPublisher,
                 piercingRocketFiredPublisher, vortexPulledPublisher, chainLightningTriggeredPublisher,
                 coinCellsClearedPublisher, currencyConfig, Environment.TickCount, reinforcedCellSeeder,
-                powerUpModel, specialCellSpawnedPublisher, specialPieceSpawnedPublisher)
+                powerUpModel, specialCellSpawnedPublisher, specialPieceSpawnedPublisher,
+                timerCellSeeder, gameModeModel)
         {
         }
 
@@ -231,9 +269,13 @@ namespace MustyBlockBlast.Gameplay.Systems
             LevelReinforcedCellSeeder reinforcedCellSeeder = null,
             PowerUpModel powerUpModel = null,
             IPublisher<SpecialCellSpawnedMessage> specialCellSpawnedPublisher = null,
-            IPublisher<SpecialPieceSpawnedMessage> specialPieceSpawnedPublisher = null)
+            IPublisher<SpecialPieceSpawnedMessage> specialPieceSpawnedPublisher = null,
+            LevelTimerCellSeeder timerCellSeeder = null,
+            GameModeModel gameModeModel = null)
         {
             _reinforcedCellSeeder = reinforcedCellSeeder;
+            _timerCellSeeder = timerCellSeeder;
+            _gameModeModel = gameModeModel;
             _powerUpModel = powerUpModel;
             _specialCellSpawnedPublisher = specialCellSpawnedPublisher;
             _specialPieceSpawnedPublisher = specialPieceSpawnedPublisher;
@@ -255,7 +297,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             _coinEffect = new CoinEffect(currencyConfig.CoinCellPayout);
             _specialCellEffects = new CompositeSpecialCellEffect(
                 _explosiveCoreEffect, _laserEffect, _scoreGemEffect, _vortexEffect, _chainLightningEffect,
-                _coinEffect);
+                _coinEffect, _timerCellClearEffect);
             _boardModel = boardModel;
             _trayModel = trayModel;
             _scoreGemProgressModel = scoreGemProgressModel;
@@ -285,6 +327,16 @@ namespace MustyBlockBlast.Gameplay.Systems
             if (_reinforcedCellSeeder != null)
             {
                 _reinforcedCellSeeder.Seed(_boardModel);
+            }
+
+            // Straight after, same call stack, same reasoning: a timer cell also brings its own
+            // pre-filled block and must already be standing before the player's first placement (issue
+            // #307 AC7/AC8). Order relative to the reinforced-cell seeder above is arbitrary — the two
+            // mechanics are mutually exclusive per cell (LevelObjectiveConfig.IsValid refuses a cell
+            // authored as both) so neither can ever contend for the same position.
+            if (_timerCellSeeder != null)
+            {
+                _timerCellSeeder.Seed(_boardModel);
             }
 
             // Dropped before the refill below, which is the thing that would otherwise pay them: a
@@ -433,6 +485,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             _vortexEffect.BeginResolution();
             _chainLightningEffect.BeginResolution();
             _coinEffect.BeginResolution();
+            _timerCellClearEffect.BeginResolution();
 
             // Before the cascade, deliberately. The rocket empties its row and column whether or not
             // either was full, so running it first is what keeps a cell from being removed by the wipe
@@ -522,13 +575,25 @@ namespace MustyBlockBlast.Gameplay.Systems
             bool anyCornerCleared = AnyCornerTouched(
                 _boardModel.Board, clearResult.ClearedRows, clearResult.ClearedColumns);
 
+            // Summed from every destruction path this resolution could have taken a timer cell out
+            // through — the phase-based clears (primary and cascaded, via _timerCellClearEffect, which
+            // the composite applies to every SpecialCellTrigger the cascade collects) AND a special
+            // cell's own blast/wipe/strike mid-cascade (the three effects' own counters). Deliberately
+            // NOT read off cascade.TotalReinforcedCellsFullyClearedCount's approach of trusting
+            // CascadeClearResult alone — that property inherits the known reinforced-cell gap this sum
+            // exists to not repeat (issue #307 AC11).
+            int timerCellsClearedInTime = _timerCellClearEffect.DestroyedCount
+                + _explosiveCoreEffect.TimerCellsDestroyedCount
+                + _laserEffect.TimerCellsDestroyedCount
+                + _chainLightningEffect.TimerCellsDestroyedCount;
+
             _piecePlacedPublisher.Publish(new PiecePlacedMessage(
                 piece.Id, anchor, PieceFamilyClassifier.Classify(piece.Id), piece.CellCount, colourId,
                 clearResult.LineCount, clearResult.ClearedRows.Count, clearResult.ClearedColumns.Count,
                 clearResult.MonochromeLineCount, _boardModel.Board.IsEmpty(), occupiedCellCountBeforeClear,
                 anyCornerCleared, _boardModel.Board.IsCenterCoreEmpty(), _boardModel.Board.HasIsolatedEmptyCells(),
                 _scoreGemEffect.DestroyedCount, cascade.TotalReinforcedCellsFullyClearedCount,
-                cascade.TotalDestroyedCellCountByColour));
+                cascade.TotalDestroyedCellCountByColour, timerCellsClearedInTime));
 
             if (clearResult.AnyCleared)
             {
@@ -615,6 +680,34 @@ namespace MustyBlockBlast.Gameplay.Systems
             {
                 _piercingRocketInjectionPending = true;
             }
+
+            // The global per-placement timer tick (issue #307 AC2/AC9): every SpecialCellKind.Timer cell
+            // still on the board loses exactly one placement of countdown, whether or not this placement
+            // touched it. Deliberately unconditional on anything above — it runs for a placement that
+            // cleared nothing exactly as it does for one that cascaded through half the board — and
+            // deliberately AFTER every clear/spawn/reward above has already settled, so a cell this very
+            // placement cleared (and is therefore already gone) is correctly skipped by the scan rather
+            // than ticked down and immediately "expired" a second time.
+            TimerCellTick.Tick(_boardModel.Board, _expiredTimerCellsBuffer);
+            if (_expiredTimerCellsBuffer.Count > 0)
+            {
+                _boardModel.NotifyTimerCellsExpired(_expiredTimerCellsBuffer);
+
+                // Path mode: any single expiry ends the run immediately as a failure, unconditionally —
+                // not gated on whether the level's objective could still mathematically be met some
+                // other way (issue #307 AC4). Endless/Timed: the run simply continues; the expired
+                // cell already lost its own objective credit by no longer being able to produce a
+                // SpecialCellTrigger of kind Timer when it eventually clears.
+                if (_gameModeModel != null && _gameModeModel.CurrentMode.Value == GameMode.Path)
+                {
+                    ForceGameOver(GameOverReason.ObjectiveMissed);
+                }
+            }
+
+            // Repainted the same way NotifyHitCountsRefreshed repaints a reinforced cell's damage: a
+            // scan over every still-standing timer cell, cheap enough once per placement. Safe to call
+            // even when the run just ended above — CheckGameOver, not this, is what reads IsGameOver.
+            _boardModel.NotifyTimerCountdownsRefreshed();
 
             if (_trayModel.IsEmpty)
             {

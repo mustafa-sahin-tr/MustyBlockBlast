@@ -541,6 +541,11 @@ namespace MustyBlockBlast.Presentation
             // subscribes to nothing: BoardSystem calls it inline while opening a run, because a
             // reinforced cell has to be standing before the tray is dealt (issue #153 AC1).
             builder.Register<LevelReinforcedCellSeeder>(Lifetime.Singleton).AsSelf();
+
+            // Same shape and same reason as the reinforced-cell seeder immediately above: BoardSystem
+            // calls it inline too, right after that one, so a timer cell is also standing before the
+            // tray is dealt (issue #307 AC7/AC8).
+            builder.Register<LevelTimerCellSeeder>(Lifetime.Singleton).AsSelf();
             builder.Register<ObjectiveSystem>(Lifetime.Singleton);
             builder.Register<LevelProgressionSystem>(Lifetime.Singleton);
             builder.Register<BadgeStatsSystem>(Lifetime.Singleton);

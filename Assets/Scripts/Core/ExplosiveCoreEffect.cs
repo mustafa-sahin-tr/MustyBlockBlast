@@ -46,12 +46,22 @@ namespace MustyBlockBlast.Core
         /// consistent either way.</summary>
         public bool StoppedAtBlastCap { get; private set; }
 
+        /// <summary>
+        /// Of <see cref="BlastedCells"/>, how many were <see cref="SpecialCellKind.Timer"/> cells —
+        /// destroyed mid-blast, never through a normal clear phase, which is exactly the shape of the
+        /// reinforced-cell reporting gap issue #307 AC11 requires this mechanic NOT to repeat: unlike a
+        /// reinforced cell finished off by a blast (which is silently uncounted), a timer cell caught in
+        /// one is counted here and summed by the caller into the placement's "cleared in time" total.
+        /// </summary>
+        public int TimerCellsDestroyedCount { get; private set; }
+
         /// <summary>Starts a new resolution: forgets the previous one's blasted cells. Must be called
         /// before the resolution that will apply this effect, or the two resolutions' cells would be
         /// reported as one.</summary>
         public void BeginResolution()
         {
             _blastedCells.Clear();
+            TimerCellsDestroyedCount = 0;
             StoppedAtBlastCap = false;
         }
 
@@ -136,6 +146,11 @@ namespace MustyBlockBlast.Core
                 }
 
                 _blastedCells.Add(cell);
+
+                if (kind == SpecialCellKind.Timer)
+                {
+                    TimerCellsDestroyedCount++;
+                }
 
                 if (kind == SpecialCellKind.ExplosiveCore && !IsDetonated(board, cell))
                 {

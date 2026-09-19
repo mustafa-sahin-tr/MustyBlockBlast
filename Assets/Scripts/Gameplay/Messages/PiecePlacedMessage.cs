@@ -99,6 +99,35 @@ namespace MustyBlockBlast.Gameplay.Messages
             int destroyedScoreGemCount,
             int reinforcedCellsFullyClearedCount,
             IReadOnlyList<int> destroyedCellCountByColour)
+            : this(
+                pieceId, anchor, pieceFamily, cellCount, colourId, linesCleared, rowsCleared,
+                columnsCleared, monochromeLineCount, boardEmptyAfterPlacement,
+                occupiedCellCountBeforeClear, anyCornerCleared, centerCoreEmptyAfterPlacement,
+                hasIsolatedHolesAfterPlacement, destroyedScoreGemCount,
+                reinforcedCellsFullyClearedCount, destroyedCellCountByColour,
+                timerCellsClearedInTimeCount: 0)
+        {
+        }
+
+        public PiecePlacedMessage(
+            string pieceId,
+            GridPosition anchor,
+            PieceFamily pieceFamily,
+            int cellCount,
+            int colourId,
+            int linesCleared,
+            int rowsCleared,
+            int columnsCleared,
+            int monochromeLineCount,
+            bool boardEmptyAfterPlacement,
+            int occupiedCellCountBeforeClear,
+            bool anyCornerCleared,
+            bool centerCoreEmptyAfterPlacement,
+            bool hasIsolatedHolesAfterPlacement,
+            int destroyedScoreGemCount,
+            int reinforcedCellsFullyClearedCount,
+            IReadOnlyList<int> destroyedCellCountByColour,
+            int timerCellsClearedInTimeCount)
         {
             PieceId = pieceId;
             Anchor = anchor;
@@ -117,6 +146,7 @@ namespace MustyBlockBlast.Gameplay.Messages
             DestroyedScoreGemCount = destroyedScoreGemCount;
             ReinforcedCellsFullyClearedCount = reinforcedCellsFullyClearedCount;
             DestroyedCellCountByColour = destroyedCellCountByColour;
+            TimerCellsClearedInTimeCount = timerCellsClearedInTimeCount;
         }
 
         public string PieceId { get; }
@@ -194,5 +224,19 @@ namespace MustyBlockBlast.Gameplay.Messages
         /// <summary>Cells destroyed by this placement's clears, every cascade phase included, counted
         /// per colour id — see <see cref="ColourTally"/>. Null when the publisher tallied nothing.</summary>
         public IReadOnlyList<int> DestroyedCellCountByColour { get; }
+
+        /// <summary>
+        /// How many <see cref="SpecialCellKind.Timer"/> cells this placement's whole resolution
+        /// destroyed BEFORE their countdown reached 0 — the primary clear, every cascaded phase, AND a
+        /// special cell's own blast/wipe/strike mid-cascade, summed. Unlike
+        /// <see cref="ReinforcedCellsFullyClearedCount"/>, which is read straight off
+        /// <see cref="CascadeClearResult"/> and inherits its blast/wipe/strike gap, this figure is
+        /// deliberately assembled from every destruction path so it does not (issue #307 AC11).
+        /// <para>
+        /// Data plumbing for <see cref="ObjectiveType.TimerCellsMeltedInTime"/>, the only thing that
+        /// reads it.
+        /// </para>
+        /// </summary>
+        public int TimerCellsClearedInTimeCount { get; }
     }
 }
