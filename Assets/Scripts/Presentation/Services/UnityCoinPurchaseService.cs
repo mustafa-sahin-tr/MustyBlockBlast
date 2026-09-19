@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using MessagePipe;
+using MustyBlockBlast.Gameplay.Messages;
 using MustyBlockBlast.Gameplay.Settings;
 using MustyBlockBlast.Gameplay.Systems;
 using UnityEngine;
@@ -60,6 +62,14 @@ namespace MustyBlockBlast.Presentation.Services
         private readonly RemoveAdsProductConfig _removeAdsConfig;
 
         /// <summary>
+        /// Announces a fetched catalog's SKU-to-price table (issue #256), so the Coins tab can show a
+        /// real price without this class — or the View — knowing anything about who is listening. The
+        /// one and only place this seam speaks in the other direction, from the store back into the
+        /// game: everything else here answers a caller directly.
+        /// </summary>
+        private readonly IPublisher<CoinProductsFetchedMessage> _coinProductsFetchedPublisher;
+
+        /// <summary>
         /// Pending orders awaiting <see cref="CompletePurchase"/>, keyed by the transaction id the seam
         /// hands back and forth. Held because the SDK confirms a purchase by handing back the very
         /// <see cref="PendingOrder"/> object it delivered, which is an SDK type and therefore cannot
@@ -80,10 +90,13 @@ namespace MustyBlockBlast.Presentation.Services
         private UniTaskCompletionSource<bool> _productsFetchedSource;
 
         public UnityCoinPurchaseService(
-            CoinBundleConfig bundleConfig, RemoveAdsProductConfig removeAdsConfig)
+            CoinBundleConfig bundleConfig,
+            RemoveAdsProductConfig removeAdsConfig,
+            IPublisher<CoinProductsFetchedMessage> coinProductsFetchedPublisher)
         {
             _bundleConfig = bundleConfig;
             _removeAdsConfig = removeAdsConfig;
+            _coinProductsFetchedPublisher = coinProductsFetchedPublisher;
         }
 
         public async UniTask<CoinPurchaseResult> PurchaseAsync(
@@ -187,7 +200,9 @@ namespace MustyBlockBlast.Presentation.Services
         /// <summary>
         /// Connects to the store and fetches the bundle line-up, once. Every caller after the first
         /// awaits the same cached result, so the seam's promise that a purchase connects "on demand and
-        /// idempotently" holds however many times the storefront is opened.
+        /// idempotently" holds however many times the storefront is opened — and now that this is also
+        /// the interface member the Coins tab's warm-up reaches (issue #256), that promise is what keeps
+        /// a warm-up before the first purchase and a warm-up repeated on every tab open both free.
         /// <para>
         /// Deliberately not retried on failure beyond the SDK's own connection retry policy: a store
         /// that is unreachable now is the player's "try again later", and pinning that answer for the
@@ -195,7 +210,7 @@ namespace MustyBlockBlast.Presentation.Services
         /// clears the cache rather than caching the failure.
         /// </para>
         /// </summary>
-        private async UniTask<bool> EnsureReadyAsync(CancellationToken cancellationToken)
+        public async UniTask<bool> EnsureReadyAsync(CancellationToken cancellationToken)
         {
             if (_readySource != null)
             {
@@ -390,11 +405,63 @@ namespace MustyBlockBlast.Presentation.Services
 
         private void OnProductsFetched(List<Product> products)
         {
+            PublishFetchedPrices(products);
+
             UniTaskCompletionSource<bool> source = _productsFetchedSource;
             _productsFetchedSource = null;
             if (source != null)
             {
                 source.TrySetResult(true);
+            }
+        }
+
+        /// <summary>
+        /// Reads <see cref="ProductMetadata.localizedPriceString"/> off every fetched product and
+        /// announces the SKU-to-price table on <see cref="CoinProductsFetchedMessage"/> (issue #256) —
+        /// the one thing <see cref="OnProductsFetched"/> did not do before this issue, which is what left
+        /// the Coins tab with nothing to show but "BUY".
+        /// <para>
+        /// A product with no metadata or an empty price string is skipped rather than included with a
+        /// blank value: <see cref="Models.CoinBundlePriceModel"/>'s reader already treats "missing" as
+        /// "show BUY", so a blank string would only be a second way to say the same thing, and a worse
+        /// one — a subscriber cannot tell an intentionally-missing SKU from a real empty string without
+        /// checking both.
+        /// </para>
+        /// <para>
+        /// Nothing is published when every product was skipped, so a fetch that returned an empty or
+        /// entirely blank catalog leaves <see cref="Models.CoinBundlePriceModel"/> exactly as it found it
+        /// rather than replacing it with an equally empty table for no reason.
+        /// </para>
+        /// </summary>
+        private void PublishFetchedPrices(List<Product> products)
+        {
+            if (products == null || products.Count == 0)
+            {
+                return;
+            }
+
+            var prices = new Dictionary<string, string>(products.Count);
+            for (int productIndex = 0; productIndex < products.Count; productIndex++)
+            {
+                Product product = products[productIndex];
+                if (product == null || product.definition == null || product.metadata == null)
+                {
+                    continue;
+                }
+
+                string sku = product.definition.id;
+                string localizedPrice = product.metadata.localizedPriceString;
+                if (string.IsNullOrEmpty(sku) || string.IsNullOrEmpty(localizedPrice))
+                {
+                    continue;
+                }
+
+                prices[sku] = localizedPrice;
+            }
+
+            if (prices.Count > 0)
+            {
+                _coinProductsFetchedPublisher.Publish(new CoinProductsFetchedMessage(prices));
             }
         }
 
