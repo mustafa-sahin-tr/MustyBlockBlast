@@ -87,6 +87,23 @@ namespace MustyBlockBlast.Presentation.Views
         [Tooltip("Smallest scale a fly-to-corner cell shrinks to just before it finishes fading.")]
         [SerializeField] private float _flyToCornerMinScale = 0.15f;
 
+        [Header("Cross-Clear Combo (issue #330)")]
+        [Tooltip("Seconds the additional combo flash a cross-clear (exactly one row and one column at once) plays at their intersection, on top of whatever LineClearBurstView already plays for the same event.")]
+        [SerializeField] private float _crossClearComboDuration = 0.3f;
+
+        [Tooltip("Thickness of the cross-clear combo's two crossing bars, as a fraction of the cell size.")]
+        [SerializeField] private float _crossClearBarThicknessFraction = 0.34f;
+
+        [Header("Special Cell Spawn-In (issue #330)")]
+        [Tooltip("Seconds a freshly spawned special cell's icon takes to pop in, scaling up from _specialSpawnStartScale to its resting size.")]
+        [SerializeField] private float _specialSpawnPopDuration = 0.28f;
+
+        [Tooltip("Icon scale a spawn-in pop starts from before growing past 1 (see _specialSpawnOvershootScale) and settling back to 1.")]
+        [SerializeField] private float _specialSpawnStartScale = 0.05f;
+
+        [Tooltip("Icon scale a spawn-in pop overshoots to on its way from _specialSpawnStartScale before settling back to 1.")]
+        [SerializeField] private float _specialSpawnOvershootScale = 1.18f;
+
         [Header("Vortex Pull")]
         [Tooltip("Seconds a block dragged by a vortex takes to slide the one cell it was pulled.")]
         [SerializeField] private float _pullDuration = 0.18f;
@@ -112,6 +129,15 @@ namespace MustyBlockBlast.Presentation.Views
         /// drawn in — brighter than <see cref="EmberTint"/> so the sparks read as hotter than the block
         /// they left.</summary>
         private static readonly Color EmberParticleTint = new Color(1f, 0.62f, 0.18f, 1f);
+
+        /// <summary>
+        /// Colour the issue #330 cross-clear combo flash is drawn in — an electric cyan-white, chosen to
+        /// read as a distinct "combo spark" apart from every other tint this file already uses (the
+        /// white intersection flash, <see cref="EmberTint"/>'s orange, every special-icon hue below), so
+        /// a row+column cross-clear is never mistaken on screen for a same-tier two-line clear that
+        /// happened to be two rows or two columns.
+        /// </summary>
+        private static readonly Color CrossClearComboTint = new Color(0.42f, 0.92f, 1f, 1f);
 
         /// <summary>Colour the special-cell icon is drawn in. Fixed rather than themed: it is a
         /// readability mark, not decoration, and a warm near-white reads on every theme's block fills
@@ -302,6 +328,7 @@ namespace MustyBlockBlast.Presentation.Views
         private ISubscriber<LaserFiredMessage> _laserFiredSubscriber;
         private ISubscriber<VortexPulledMessage> _vortexPulledSubscriber;
         private ISubscriber<ChainLightningTriggeredMessage> _chainLightningTriggeredSubscriber;
+        private ISubscriber<SpecialCellSpawnedMessage> _specialCellSpawnedSubscriber;
 
         /// <summary>The grid's layout origin and pitch, kept from <see cref="BuildCells"/> so the pull
         /// animation can work out where a cell one step away sits without re-deriving the layout.</summary>
@@ -327,12 +354,14 @@ namespace MustyBlockBlast.Presentation.Views
             ISubscriber<ExplosiveCoreDetonatedMessage> explosiveCoreDetonatedSubscriber,
             ISubscriber<LaserFiredMessage> laserFiredSubscriber,
             ISubscriber<VortexPulledMessage> vortexPulledSubscriber,
-            ISubscriber<ChainLightningTriggeredMessage> chainLightningTriggeredSubscriber)
+            ISubscriber<ChainLightningTriggeredMessage> chainLightningTriggeredSubscriber,
+            ISubscriber<SpecialCellSpawnedMessage> specialCellSpawnedSubscriber)
         {
             _explosiveCoreDetonatedSubscriber = explosiveCoreDetonatedSubscriber;
             _laserFiredSubscriber = laserFiredSubscriber;
             _vortexPulledSubscriber = vortexPulledSubscriber;
             _chainLightningTriggeredSubscriber = chainLightningTriggeredSubscriber;
+            _specialCellSpawnedSubscriber = specialCellSpawnedSubscriber;
             _boardModel = boardModel;
             _settingsModel = settingsModel;
             _linesClearedSubscriber = linesClearedSubscriber;
@@ -477,6 +506,12 @@ namespace MustyBlockBlast.Presentation.Views
             // Back to the sweep: a chain lightning strike destroys, and its cells are scattered rather
             // than lined up, so nothing else would ever claim them.
             _chainLightningTriggeredSubscriber.Subscribe(OnChainLightningTriggered).AddTo(_disposables);
+
+            // Issue #330 AC2: the one signal that means "this cell's kind just arrived by genuine
+            // creation" (see SpecialCellSpawnedMessage's own doc comment) — not a level-authored Timer
+            // cell's seeding, not a vortex carrying an existing kind to a new position, both of which
+            // also raise BoardModel.SpecialKindChanged but neither of which publish this message.
+            _specialCellSpawnedSubscriber.Subscribe(OnSpecialCellSpawned).AddTo(_disposables);
 
             RedrawAll();
         }
@@ -1112,6 +1147,17 @@ namespace MustyBlockBlast.Presentation.Views
             // one per cell.
             SingleLineClearEffect? lineClearEffect = staggerSingleLine ? PickRandomSingleLineClearEffect() : null;
 
+            // Issue #330 AC1: exactly one row and one column clearing together is a "cross-clear" — an
+            // additional combo flash plays at their intersection, ON TOP OF (never instead of) whatever
+            // LineClearBurstView's own tier already plays for this same message: that view is its own
+            // subscriber to LinesClearedMessage and is untouched by this. AC3's negative case (a
+            // cross-clear that spawns no special cell) needs nothing extra here — this reads only
+            // Rows/Columns, never a spawn message, so it always fires on the shape of the clear alone.
+            if (rows.Count == 1 && columns.Count == 1)
+            {
+                PlayCrossClearComboAsync(new GridPosition(columns[0], rows[0])).Forget();
+            }
+
             for (int y = 0; y < _height; y++)
             {
                 for (int x = 0; x < _width; x++)
@@ -1260,6 +1306,97 @@ namespace MustyBlockBlast.Presentation.Views
             int index = CellIndex(cell);
             _cellSpecialKinds[index] = kind;
             ApplyCellIcon(index, kind);
+        }
+
+        /// <summary>
+        /// Issue #330 AC2: a special cell that was just genuinely created pops its icon in from a small
+        /// scale instead of sitting at the instant size <see cref="OnSpecialKindChanged"/> just drew it
+        /// at. Scoped strictly to <see cref="SpecialCellSpawnedMessage"/> rather than to every
+        /// <see cref="OnSpecialKindChanged"/> call — that message is published "never on a kind being
+        /// cleared or consumed, only on genuine creation" (see its own doc comment), which is exactly the
+        /// "born" moment AC2 asks for, and it is the only thing that fires for every spawn path this
+        /// message covers (an explosive core / vortex / chain lightning / score gem, wherever they land)
+        /// without also firing for a level-authored Timer cell's start-of-run seeding or a vortex carrying
+        /// an already-existing kind to a new position — both of which raise
+        /// <see cref="BoardModel.SpecialKindChanged"/> too, but are not a birth AC2 is about.
+        /// <para>
+        /// Runs synchronously, in the same call stack as the <see cref="OnSpecialKindChanged"/> call that
+        /// always precedes it here (MessagePipe's default publisher is synchronous, and
+        /// <c>BoardSystem</c> always calls <c>BoardModel.SetSpecialKind</c> before publishing this
+        /// message) — so the icon's scale is pulled back down before Unity ever renders the
+        /// instantly-drawn frame <see cref="OnSpecialKindChanged"/> left it at, and the player only ever
+        /// sees the pop-in, never a flash of the resting icon first.
+        /// </para>
+        /// </summary>
+        private void OnSpecialCellSpawned(SpecialCellSpawnedMessage message)
+        {
+            if (_cells == null || !IsPlayableCell(message.Position))
+            {
+                return;
+            }
+
+            int index = CellIndex(message.Position);
+            RectTransform iconTransform = _cells[index].SpecialIconTransform;
+            if (iconTransform == null)
+            {
+                return;
+            }
+
+            PlaySpecialSpawnPopAsync(iconTransform, index, _cellGenerations[index]).Forget();
+        }
+
+        /// <summary>
+        /// Scales <paramref name="iconTransform"/> from <see cref="_specialSpawnStartScale"/> up past
+        /// <see cref="_specialSpawnOvershootScale"/> and back to 1 — a grow-then-settle split of the one
+        /// duration, the same shape <see cref="LineClearBurstView.AnimateText"/> already uses for its own
+        /// pop, rather than inventing a second serialized duration for a two-phase flourish. Watches
+        /// <see cref="_cellGenerations"/> without owning it (never bumps it): any destructive write to
+        /// this cell — a new placement, a clear — bumps that counter on its own and this simply bails,
+        /// leaving whatever repaint path caused the bump to settle the icon's final look and scale.
+        /// </summary>
+        private async UniTaskVoid PlaySpecialSpawnPopAsync(RectTransform iconTransform, int index, int generation)
+        {
+            const float GrowFraction = 0.7f;
+
+            float startScale = Mathf.Clamp(_specialSpawnStartScale, 0.001f, 1f);
+            float overshootScale = Mathf.Max(1f, _specialSpawnOvershootScale);
+            float duration = Mathf.Max(0.01f, _specialSpawnPopDuration);
+
+            iconTransform.localScale = Vector3.one * startScale;
+
+            try
+            {
+                float elapsed = 0f;
+                while (elapsed < duration)
+                {
+                    if (_cellGenerations[index] != generation)
+                    {
+                        return;
+                    }
+
+                    float t = elapsed / duration;
+                    float scale = t < GrowFraction
+                        ? Mathf.Lerp(startScale, overshootScale, EaseOutCubic(t / GrowFraction))
+                        : Mathf.Lerp(overshootScale, 1f, (t - GrowFraction) / (1f - GrowFraction));
+
+                    iconTransform.localScale = Vector3.one * scale;
+
+                    await UniTask.Yield(PlayerLoopTiming.Update, _destroyToken);
+                    elapsed += Time.unscaledDeltaTime;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // The board view was destroyed mid-pop — the icon is going with it.
+                return;
+            }
+
+            if (_isDestroyed || _cellGenerations[index] != generation)
+            {
+                return;
+            }
+
+            iconTransform.localScale = Vector3.one;
         }
 
         /// <summary>An explosive core blasted a region. Claimed exactly as a power-up's cleared region
@@ -1820,6 +1957,105 @@ namespace MustyBlockBlast.Presentation.Views
                 Destroy(emberA.gameObject);
                 Destroy(emberB.gameObject);
             }
+        }
+
+        /// <summary>
+        /// Issue #330 AC1: the additional visual a cross-clear (exactly one row and one column clearing
+        /// together) gets on top of whatever <see cref="LineClearBurstView"/>'s own tier already plays
+        /// for the same event — two bars crossing at the intersection, growing outward from it along the
+        /// row and the column, holding briefly at full length, then fading. A plus shape rather than the
+        /// burst's own circular glow on purpose: it reads as "a row AND a column", never as a bigger
+        /// version of the same-tier two-line clear a plain two-rows (or two-columns) clear would
+        /// otherwise look identical to.
+        /// <para>
+        /// Fire-and-forget and never generation-checked, exactly like <see cref="SpawnShatterShardsAsync"/>:
+        /// it touches no cell state, only its own transient bars, so it always plays its one short run to
+        /// completion (or dies with the view) rather than being cancellable by a later placement.
+        /// </para>
+        /// </summary>
+        private async UniTaskVoid PlayCrossClearComboAsync(GridPosition intersection)
+        {
+            if (_cellLayerRoot == null)
+            {
+                return;
+            }
+
+            const float GrowFraction = 0.4f;
+            const float HoldFraction = 0.15f;
+
+            Vector2 centre = CellAnchoredPosition(intersection);
+            float thickness = _cellSize * Mathf.Max(0.01f, _crossClearBarThicknessFraction);
+            float fullWidth = (_width * _cellSize) + ((_width - 1) * _cellSpacing);
+            float fullHeight = (_height * _cellSize) + ((_height - 1) * _cellSpacing);
+            float duration = Mathf.Max(0.01f, _crossClearComboDuration);
+
+            RectTransform horizontalBar = CreateComboBar(centre, thickness, thickness);
+            RectTransform verticalBar = CreateComboBar(centre, thickness, thickness);
+            Image horizontalImage = horizontalBar.GetComponent<Image>();
+            Image verticalImage = verticalBar.GetComponent<Image>();
+
+            try
+            {
+                float elapsed = 0f;
+                while (elapsed < duration)
+                {
+                    float t = elapsed / duration;
+                    float grow = t < GrowFraction ? EaseOutCubic(t / GrowFraction) : 1f;
+                    float fadeStart = GrowFraction + HoldFraction;
+                    float alpha = t < fadeStart ? 1f : 1f - Mathf.Clamp01((t - fadeStart) / (1f - fadeStart));
+
+                    horizontalBar.sizeDelta = new Vector2(fullWidth * grow, thickness);
+                    verticalBar.sizeDelta = new Vector2(thickness, fullHeight * grow);
+
+                    SetImageAlpha(horizontalImage, alpha);
+                    SetImageAlpha(verticalImage, alpha);
+
+                    await UniTask.Yield(PlayerLoopTiming.Update, _destroyToken);
+                    elapsed += Time.unscaledDeltaTime;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // The board view was destroyed mid-flash — the bars are going with it.
+            }
+            finally
+            {
+                // Guarded rather than unconditional (unlike the shatter/ember cleanup this mirrors):
+                // a scene teardown mid-flash can destroy _cellLayerRoot's whole hierarchy — these bars
+                // included — before this finally runs, and Destroy()-ing an already-destroyed object
+                // throws MissingReferenceException instead of silently no-opping.
+                if (horizontalBar != null)
+                {
+                    Destroy(horizontalBar.gameObject);
+                }
+
+                if (verticalBar != null)
+                {
+                    Destroy(verticalBar.gameObject);
+                }
+            }
+        }
+
+        /// <summary>One combo-flash bar for <see cref="PlayCrossClearComboAsync"/>: a
+        /// <see cref="UiSpriteFactory.RoundedSquare"/> sliced so its corner radius holds at any size,
+        /// tinted <see cref="CrossClearComboTint"/>, centred on the intersection. The caller resizes it
+        /// every frame via <c>sizeDelta</c> directly rather than scaling it, so its fixed thickness never
+        /// stretches along with the axis that is growing.</summary>
+        private RectTransform CreateComboBar(Vector2 centre, float width, float height)
+        {
+            var barObject = new GameObject("CrossClearComboBar", typeof(RectTransform), typeof(Image));
+            var rect = (RectTransform)barObject.transform;
+            rect.SetParent(_cellLayerRoot, false);
+            rect.sizeDelta = new Vector2(width, height);
+            rect.anchoredPosition = centre;
+
+            Image image = barObject.GetComponent<Image>();
+            image.sprite = UiSpriteFactory.RoundedSquare;
+            image.type = Image.Type.Sliced;
+            image.raycastTarget = false;
+            image.color = CrossClearComboTint;
+
+            return rect;
         }
 
         /// <summary>One small square Image, shared shape for every shatter shard and burn ember —

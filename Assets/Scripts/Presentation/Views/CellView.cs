@@ -169,6 +169,13 @@ namespace MustyBlockBlast.Presentation.Views
         /// <see cref="MustyBlockBlast.Core.SpecialPieceKind"/> with its own glyph rather than with a
         /// tint, because a piece that is tapped rather than dragged has to be told apart by shape.
         /// Allocates nothing, so it is safe on any repaint path.
+        /// <para>
+        /// Always snaps the icon's own scale back to identity (issue #330 AC2): every ordinary repaint
+        /// path (a theme switch, a redraw, a cancelled fade) must show the icon at its resting size, and
+        /// the one path that wants anything else — <c>BoardView.OnSpecialCellSpawned</c>'s pop-in — pulls
+        /// the scale back down itself, synchronously, immediately after this call returns and before the
+        /// frame this drew ever renders.
+        /// </para>
         /// </summary>
         internal void SetSpecialIcon(Color colour, Sprite sprite)
         {
@@ -182,11 +189,19 @@ namespace MustyBlockBlast.Presentation.Views
                 _specialIconImage.sprite = sprite;
             }
 
+            _specialIconImage.transform.localScale = Vector3.one;
             ShowLayer(_specialIconImage, colour);
         }
 
         /// <summary>Hides the special-cell icon. Safe to call on a cell that never had one.</summary>
         internal void ClearSpecialIcon() => HideLayer(_specialIconImage);
+
+        /// <summary>The special-cell icon's own transform, exposed only for
+        /// <c>BoardView.OnSpecialCellSpawned</c>'s spawn-in pop animation (issue #330 AC2) to animate its
+        /// <c>localScale</c> without touching the cell's own rect (which the fade/stagger effects in
+        /// <c>BoardView.PlayClearAsync</c> already own). Null before <see cref="Build"/> runs.</summary>
+        internal RectTransform SpecialIconTransform
+            => _specialIconImage != null ? (RectTransform)_specialIconImage.transform : null;
 
         /// <summary>Shows <paramref name="countdown"/> as the cell's placements-remaining number (issue
         /// #307 AC6a). Independent of every other layer, exactly as <see cref="SetSpecialIcon(Color)"/>
