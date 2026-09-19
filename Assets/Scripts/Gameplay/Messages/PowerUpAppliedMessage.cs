@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using MustyBlockBlast.Core;
 
 namespace MustyBlockBlast.Gameplay.Messages
 {
@@ -71,6 +72,27 @@ namespace MustyBlockBlast.Gameplay.Messages
             PowerUpKind kind, int clearedCellCount, int clearedLineCount, int emptiedLineCount,
             bool wasClutchSave, int destroyedScoreGemCount, int reinforcedCellsFullyClearedCount,
             IReadOnlyList<int> destroyedCellCountByColour, int timerCellsClearedInTimeCount)
+            : this(
+                kind, clearedCellCount, clearedLineCount, emptiedLineCount, wasClutchSave,
+                destroyedScoreGemCount, reinforcedCellsFullyClearedCount, destroyedCellCountByColour,
+                timerCellsClearedInTimeCount, targetCell: null, clearedCellPositions: null)
+        {
+        }
+
+        /// <summary>
+        /// Issue #332: <paramref name="targetCell"/> and <paramref name="clearedCellPositions"/> are
+        /// populated only for <see cref="MustyBlockBlast.Gameplay.PowerUpKind.ColorCleanser"/> — the
+        /// only kind the Presentation layer's beam visual reads them for today — and left null by
+        /// every other publish site (mirroring how <see cref="WasClutchSave"/> is meaningful only for
+        /// <see cref="MustyBlockBlast.Gameplay.PowerUpKind.Reroll"/>). Both are additive-only exposure
+        /// of data <c>PowerUpClearResolver.ResolveColorCleanser</c> already computed for its own return
+        /// value; nothing about what gets cleared changes.
+        /// </summary>
+        public PowerUpAppliedMessage(
+            PowerUpKind kind, int clearedCellCount, int clearedLineCount, int emptiedLineCount,
+            bool wasClutchSave, int destroyedScoreGemCount, int reinforcedCellsFullyClearedCount,
+            IReadOnlyList<int> destroyedCellCountByColour, int timerCellsClearedInTimeCount,
+            GridPosition? targetCell, IReadOnlyList<GridPosition> clearedCellPositions)
         {
             Kind = kind;
             ClearedCellCount = clearedCellCount;
@@ -81,6 +103,8 @@ namespace MustyBlockBlast.Gameplay.Messages
             ReinforcedCellsFullyClearedCount = reinforcedCellsFullyClearedCount;
             DestroyedCellCountByColour = destroyedCellCountByColour;
             TimerCellsClearedInTimeCount = timerCellsClearedInTimeCount;
+            TargetCell = targetCell;
+            ClearedCellPositions = clearedCellPositions;
         }
 
         public PowerUpKind Kind { get; }
@@ -156,5 +180,22 @@ namespace MustyBlockBlast.Gameplay.Messages
         /// </para>
         /// </summary>
         public int TimerCellsClearedInTimeCount { get; }
+
+        /// <summary>
+        /// Issue #332: the cell the player aimed at, for the one kind that clears a whole-board region
+        /// keyed off a single tapped cell rather than a fixed shape. Null for every kind except
+        /// <see cref="MustyBlockBlast.Gameplay.PowerUpKind.ColorCleanser"/> — a Bomb/Row/Column target
+        /// is a centre or a line index, not a single cell in the same sense, and nothing reads this for
+        /// them today.
+        /// </summary>
+        public GridPosition? TargetCell { get; }
+
+        /// <summary>
+        /// Issue #332: exactly <see cref="MustyBlockBlast.Core.PowerUpClearResult.ClearedCells"/> for a
+        /// <see cref="MustyBlockBlast.Gameplay.PowerUpKind.ColorCleanser"/> application — the positions
+        /// <c>BoardView</c> draws a beam from <see cref="TargetCell"/> to. Null for every other kind;
+        /// nothing reads it for them today.
+        /// </summary>
+        public IReadOnlyList<GridPosition> ClearedCellPositions { get; }
     }
 }

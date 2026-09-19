@@ -94,6 +94,13 @@ namespace MustyBlockBlast.Presentation.Views
         [Tooltip("Thickness of the cross-clear combo's two crossing bars, as a fraction of the cell size.")]
         [SerializeField] private float _crossClearBarThicknessFraction = 0.34f;
 
+        [Header("Color Cleanser Beam (issue #332)")]
+        [Tooltip("Seconds one Color Cleanser beam takes to grow from the trigger cell to its target, hold, then fade.")]
+        [SerializeField] private float _colorCleanserBeamDuration = 0.32f;
+
+        [Tooltip("Thickness of a Color Cleanser beam, as a fraction of the cell size.")]
+        [SerializeField] private float _colorCleanserBeamThicknessFraction = 0.22f;
+
         [Header("Special Cell Spawn-In (issue #330)")]
         [Tooltip("Seconds a freshly spawned special cell's icon takes to pop in, scaling up from _specialSpawnStartScale to its resting size.")]
         [SerializeField] private float _specialSpawnPopDuration = 0.28f;
@@ -138,6 +145,14 @@ namespace MustyBlockBlast.Presentation.Views
         /// happened to be two rows or two columns.
         /// </summary>
         private static readonly Color CrossClearComboTint = new Color(0.42f, 0.92f, 1f, 1f);
+
+        /// <summary>
+        /// Colour issue #332's Color Cleanser beam is drawn in — a saturated magenta-white, chosen to
+        /// read as its own distinct "power-up beam" apart from <see cref="CrossClearComboTint"/>'s cyan
+        /// (a same-turn placement combo) and every special-icon hue: a Color Cleanser's beams are a
+        /// player-triggered power-up effect, never a placement's own line-clear combo.
+        /// </summary>
+        private static readonly Color ColorCleanserBeamTint = new Color(1f, 0.48f, 0.94f, 1f);
 
         /// <summary>Colour the special-cell icon is drawn in. Fixed rather than themed: it is a
         /// readability mark, not decoration, and a warm near-white reads on every theme's block fills
@@ -1223,6 +1238,14 @@ namespace MustyBlockBlast.Presentation.Views
         /// </summary>
         private void OnPowerUpApplied(PowerUpAppliedMessage message)
         {
+            if (message.Kind == PowerUpKind.ColorCleanser)
+            {
+                // Fired before the sweep below starts fading the targeted cells, so every beam is
+                // already growing while the cells it points at are still fully opaque (AC1: "before/
+                // while cells are cleared") rather than appearing after they have already vanished.
+                PlayColorCleanserBeamsAsync(message.TargetCell, message.ClearedCellPositions).Forget();
+            }
+
             bool isSingleLineClear =
                 message.Kind == PowerUpKind.RowClear || message.Kind == PowerUpKind.ColumnClear;
             SingleLineClearEffect? effect = isSingleLineClear ? PickRandomSingleLineClearEffect() : null;
@@ -2034,6 +2057,140 @@ namespace MustyBlockBlast.Presentation.Views
                     Destroy(verticalBar.gameObject);
                 }
             }
+        }
+
+        /// <summary>
+        /// Issue #332 AC1: draws one beam from <paramref name="targetCell"/> (the cell the player
+        /// tapped) to every OTHER cell in <paramref name="clearedCellPositions"/> that Color Cleanser
+        /// cleared — the trigger cell itself is skipped, so tapping a cell whose colour appears nowhere
+        /// else on the board (AC3) leaves <c>beamCount</c> at 0 and returns before a single beam is
+        /// created. Fire-and-forget and never generation-checked, exactly like
+        /// <see cref="PlayCrossClearComboAsync"/>: the beams are decorative, touch no cell state, and
+        /// always play their one short run to completion (or die with the view).
+        /// <para>
+        /// Every beam is driven by the same elapsed-time loop so they all grow/hold/fade in lockstep,
+        /// each stretching from the shared origin at its own length and <see cref="Mathf.Atan2"/> angle
+        /// — the only per-beam geometry, since Color Cleanser's matches can be in any direction, not the
+        /// row/column axes <see cref="PlayCrossClearComboAsync"/>'s bars stretch along.
+        /// </para>
+        /// </summary>
+        private async UniTaskVoid PlayColorCleanserBeamsAsync(
+            GridPosition? targetCell, IReadOnlyList<GridPosition> clearedCellPositions)
+        {
+            if (_cellLayerRoot == null || !targetCell.HasValue || clearedCellPositions == null)
+            {
+                return;
+            }
+
+            GridPosition target = targetCell.Value;
+            Vector2 origin = CellAnchoredPosition(target);
+
+            int beamCount = 0;
+            for (int i = 0; i < clearedCellPositions.Count; i++)
+            {
+                if (!clearedCellPositions[i].Equals(target))
+                {
+                    beamCount++;
+                }
+            }
+
+            // AC3: nothing beyond the trigger cell itself was cleared, so there is nothing to point a
+            // beam at — zero beams, not a zero-length one.
+            if (beamCount == 0)
+            {
+                return;
+            }
+
+            const float GrowFraction = 0.45f;
+            const float HoldFraction = 0.1f;
+
+            float thickness = _cellSize * Mathf.Max(0.01f, _colorCleanserBeamThicknessFraction);
+            float duration = Mathf.Max(0.01f, _colorCleanserBeamDuration);
+
+            var beams = new RectTransform[beamCount];
+            var images = new Image[beamCount];
+            var lengths = new float[beamCount];
+
+            int beamIndex = 0;
+            for (int i = 0; i < clearedCellPositions.Count; i++)
+            {
+                GridPosition cell = clearedCellPositions[i];
+                if (cell.Equals(target))
+                {
+                    continue;
+                }
+
+                Vector2 endPoint = CellAnchoredPosition(cell);
+                Vector2 delta = endPoint - origin;
+                float angleDegrees = Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg;
+
+                RectTransform beam = CreateBeam(origin, thickness, angleDegrees);
+                beams[beamIndex] = beam;
+                images[beamIndex] = beam.GetComponent<Image>();
+                lengths[beamIndex] = delta.magnitude;
+                beamIndex++;
+            }
+
+            try
+            {
+                float elapsed = 0f;
+                while (elapsed < duration)
+                {
+                    float t = elapsed / duration;
+                    float grow = t < GrowFraction ? EaseOutCubic(t / GrowFraction) : 1f;
+                    float fadeStart = GrowFraction + HoldFraction;
+                    float alpha = t < fadeStart ? 1f : 1f - Mathf.Clamp01((t - fadeStart) / (1f - fadeStart));
+
+                    for (int i = 0; i < beams.Length; i++)
+                    {
+                        beams[i].sizeDelta = new Vector2(lengths[i] * grow, thickness);
+                        SetImageAlpha(images[i], alpha);
+                    }
+
+                    await UniTask.Yield(PlayerLoopTiming.Update, _destroyToken);
+                    elapsed += Time.unscaledDeltaTime;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // The board view was destroyed mid-beam — the bars are going with it.
+            }
+            finally
+            {
+                for (int i = 0; i < beams.Length; i++)
+                {
+                    if (beams[i] != null)
+                    {
+                        Destroy(beams[i].gameObject);
+                    }
+                }
+            }
+        }
+
+        /// <summary>One Color Cleanser beam for <see cref="PlayColorCleanserBeamsAsync"/>: a
+        /// <see cref="UiSpriteFactory.RoundedSquare"/> sliced so its corner radius holds at any size,
+        /// tinted <see cref="ColorCleanserBeamTint"/>, pivoted at its own start (<paramref name="origin"/>)
+        /// rather than centred — unlike <see cref="CreateComboBar"/>'s bars, which grow symmetrically
+        /// from an intersection along a fixed row/column axis, a beam grows outward from the trigger
+        /// cell along an arbitrary <paramref name="angleDegrees"/>, so only its start end may stay
+        /// anchored while <c>sizeDelta.x</c> stretches toward the target.</summary>
+        private RectTransform CreateBeam(Vector2 origin, float thickness, float angleDegrees)
+        {
+            var beamObject = new GameObject("ColorCleanserBeam", typeof(RectTransform), typeof(Image));
+            var rect = (RectTransform)beamObject.transform;
+            rect.SetParent(_cellLayerRoot, false);
+            rect.pivot = new Vector2(0f, 0.5f);
+            rect.anchoredPosition = origin;
+            rect.sizeDelta = new Vector2(0f, thickness);
+            rect.localEulerAngles = new Vector3(0f, 0f, angleDegrees);
+
+            Image image = beamObject.GetComponent<Image>();
+            image.sprite = UiSpriteFactory.RoundedSquare;
+            image.type = Image.Type.Sliced;
+            image.raycastTarget = false;
+            image.color = ColorCleanserBeamTint;
+
+            return rect;
         }
 
         /// <summary>One combo-flash bar for <see cref="PlayCrossClearComboAsync"/>: a

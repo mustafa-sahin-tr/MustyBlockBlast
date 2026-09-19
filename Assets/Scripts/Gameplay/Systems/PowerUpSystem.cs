@@ -394,7 +394,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             }
 
             TrySpend(PowerUpKind.ColorCleanser);
-            Apply(PowerUpKind.ColorCleanser, result);
+            Apply(PowerUpKind.ColorCleanser, result, target);
             Disarm();
             return true;
         }
@@ -886,7 +886,15 @@ namespace MustyBlockBlast.Gameplay.Systems
             return true;
         }
 
-        private void Apply(PowerUpKind kind, PowerUpClearResult result)
+        /// <summary>
+        /// <paramref name="targetCell"/> is the cell the player aimed at, and is only ever passed for
+        /// <see cref="PowerUpKind.ColorCleanser"/> (issue #332) — Bomb/Row/Column pass none, since none
+        /// of them target a single cell in the sense <c>PowerUpAppliedMessage.TargetCell</c> means. When
+        /// present, <see cref="PowerUpClearResult.ClearedCells"/> is also handed to the message as
+        /// <c>ClearedCellPositions</c> so the Presentation layer's beam visual has both ends of every
+        /// beam to draw without changing anything about what this clear actually destroys.
+        /// </summary>
+        private void Apply(PowerUpKind kind, PowerUpClearResult result, GridPosition? targetCell = null)
         {
             if (result.AnyCleared)
             {
@@ -905,7 +913,9 @@ namespace MustyBlockBlast.Gameplay.Systems
                 destroyedScoreGemCount: ScoreGemEffect.CountDestroyed(result.TriggeredSpecials),
                 reinforcedCellsFullyClearedCount: result.ReinforcedCellsFullyClearedCount,
                 destroyedCellCountByColour: result.DestroyedCellCountByColour,
-                timerCellsClearedInTimeCount: TimerCellClearEffect.CountDestroyed(result.TriggeredSpecials)));
+                timerCellsClearedInTimeCount: TimerCellClearEffect.CountDestroyed(result.TriggeredSpecials),
+                targetCell: targetCell,
+                clearedCellPositions: targetCell.HasValue ? result.ClearedCells : null));
 
             ApplyTriggeredSpecials(result.TriggeredSpecials);
         }
