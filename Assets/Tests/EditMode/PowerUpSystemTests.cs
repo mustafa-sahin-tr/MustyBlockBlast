@@ -1159,6 +1159,78 @@ namespace MustyBlockBlast.Tests.EditMode
         }
 
         [Test]
+        public void TryApplyColorCleanser_OnAnOccupiedCell_MessageCarriesTargetAndClearedPositions()
+        {
+            // Issue #332: BoardView's beam visual reads these two fields to know where to draw from
+            // (TargetCell) and to (ClearedCellPositions, minus the trigger itself). Additive-only —
+            // the resolver's own clearing decision is untouched, this only asserts what already flows
+            // out of PowerUpClearResult is now also on the published message.
+            PersistCount(PowerUpKind.ColorCleanser, 1);
+            var boardModel = new BoardModel();
+            var trigger = new GridPosition(0, 0);
+            var otherMatch = new GridPosition(7, 7);
+            boardModel.Occupy(trigger, 1);
+            boardModel.Occupy(otherMatch, 1);
+            boardModel.Occupy(new GridPosition(4, 4), 2);
+            PowerUpModel model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, boardModel);
+
+            bool applied = system.TryApplyColorCleanser(trigger);
+
+            Assert.IsTrue(applied);
+            PowerUpAppliedMessage message = _appliedBroker.Published[0];
+            Assert.AreEqual(trigger, message.TargetCell);
+            Assert.IsNotNull(message.ClearedCellPositions);
+            Assert.AreEqual(2, message.ClearedCellPositions.Count);
+            CollectionAssert.Contains(message.ClearedCellPositions, trigger);
+            CollectionAssert.Contains(message.ClearedCellPositions, otherMatch);
+        }
+
+        [Test]
+        public void TryApplyColorCleanser_WithOnlyTheTriggerOfThatColour_ClearedPositionsHasNoOtherCell()
+        {
+            // AC3's data-driven negative case: the only cell of the target's colour is the trigger
+            // itself, so ClearedCellPositions carries exactly one entry (the trigger) and no beam has
+            // anything else to point at — BoardView's beam loop naturally draws zero beams from this,
+            // with no special-casing needed on either side.
+            PersistCount(PowerUpKind.ColorCleanser, 1);
+            var boardModel = new BoardModel();
+            var trigger = new GridPosition(3, 3);
+            boardModel.Occupy(trigger, 1);
+            boardModel.Occupy(new GridPosition(4, 4), 2);
+            PowerUpModel model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, boardModel);
+
+            bool applied = system.TryApplyColorCleanser(trigger);
+
+            Assert.IsTrue(applied);
+            PowerUpAppliedMessage message = _appliedBroker.Published[0];
+            Assert.AreEqual(trigger, message.TargetCell);
+            Assert.IsNotNull(message.ClearedCellPositions);
+            Assert.AreEqual(1, message.ClearedCellPositions.Count);
+            Assert.AreEqual(trigger, message.ClearedCellPositions[0]);
+        }
+
+        [Test]
+        public void TryApplyBomb_DoesNotPopulateColorCleanserOnlyFields()
+        {
+            // Every other kind must leave TargetCell/ClearedCellPositions null — they are additive
+            // exposure for Color Cleanser's beam only, not a general-purpose field every kind fills in.
+            var boardModel = new BoardModel();
+            boardModel.Occupy(new GridPosition(4, 4), 1);
+            PowerUpModel model = new PowerUpModel();
+            PersistCount(PowerUpKind.Bomb, 1);
+            PowerUpSystem system = CreateSystem(model, boardModel);
+
+            system.TryApplyBomb(new GridPosition(4, 4));
+
+            PowerUpAppliedMessage message = _appliedBroker.Published[0];
+            Assert.AreEqual(PowerUpKind.Bomb, message.Kind);
+            Assert.IsNull(message.TargetCell);
+            Assert.IsNull(message.ClearedCellPositions);
+        }
+
+        [Test]
         public void TryApplyColorCleanser_AfterSpending_TheDecrementedCountIsLoadedByANewSystem()
         {
             PersistCount(PowerUpKind.ColorCleanser, 2);
