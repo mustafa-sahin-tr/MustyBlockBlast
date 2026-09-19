@@ -224,36 +224,11 @@ namespace MustyBlockBlast.Presentation.Views
         /// lands on what the player would pay.</summary>
         private const float WAS_PRICE_ALPHA = 0.7f;
 
-        // Plain strings, not String Table keys: LocalizationKeys has no currency section yet, and
-        // adding keys with no translations behind them would render the keys themselves. Tracked for a
-        // follow-up.
-        private const string HEADER_TEXT = "POWER-UP SHOP";
-        private const string TAB_POWER_UPS_TEXT = "POWER-UPS";
-        private const string TAB_COINS_TEXT = "COINS";
-        private const string TAB_DEALS_TEXT = "DEALS";
-        private const string EARN_BUTTON_TEXT = "+ GET COINS";
-        private const string DEALS_PLACEHOLDER_TEXT = "Deals are coming soon.";
-        private const string FREE_SECTION_TEXT = "EARN FOR FREE";
-        private const string BUNDLES_SECTION_TEXT = "COIN PACKS";
-        private const string CONVERT_TITLE_TEXT = "Convert score to coins";
-        private const string TOTAL_SCORE_LABEL_TEXT = "TOTAL SCORE";
-        private const string CONVERTIBLE_LABEL_TEXT = "CONVERTIBLE";
-        private const string CONVERT_BUTTON_TEXT = "CONVERT";
-        private const string AD_TITLE_TEXT = "Watch an ad";
-        private const string AD_CAPTION_SUFFIX_TEXT = " coins per ad";
-        private const string BUNDLE_BUTTON_TEXT = "BUY";
-        private const string NO_BUNDLES_TEXT = "No coin packs are configured.";
-        private const string CONVERTED_MESSAGE = "Converted!";
-        private const string NOTHING_TO_CONVERT_MESSAGE = "Nothing to convert yet.";
-        private const string AD_GRANTED_MESSAGE = "Coins added!";
-        private const string AD_REFUSED_MESSAGE = "No ad available right now.";
-        private const string BUNDLE_BOUGHT_MESSAGE = "Coins added!";
-        private const string BUNDLE_REFUSED_MESSAGE = "Purchase not completed.";
-        private const string LOCKED_LEVEL_PREFIX = "Lv ";
+        // Every other display string on this card is a plain non-linguistic symbol — "+"/"-" on the
+        // stepper, the held-count "x2" badge — or comes from the String Table via LocalizationKeys'
+        // SHOP_* section (issue #255). HELD_COUNT_PREFIX stays a literal for the same reason "+"/"-"
+        // do: it is notation, not a word, so no language spells it differently.
         private const string HELD_COUNT_PREFIX = "x";
-        private const string PURCHASED_MESSAGE = "Bought!";
-        private const string INSUFFICIENT_COINS_MESSAGE = "Not enough coins.";
-        private const string LOCKED_MESSAGE = "Level up to unlock this.";
 
         [Header("Layout")]
         [SerializeField] private Vector2 _cardSize = new Vector2(880f, 1200f);
@@ -586,15 +561,15 @@ namespace MustyBlockBlast.Presentation.Views
             switch (result)
             {
                 case PowerUpPurchaseResult.Success:
-                    _message = PURCHASED_MESSAGE;
+                    _message = _localizationSystem.Translate(LocalizationKeys.SHOP_TOAST_PURCHASED);
                     break;
                 case PowerUpPurchaseResult.Locked:
-                    _message = LOCKED_MESSAGE;
+                    _message = _localizationSystem.Translate(LocalizationKeys.SHOP_TOAST_LOCKED);
                     break;
                 default:
                     // InsufficientCoins, and InvalidQuantity — which this card cannot produce, since
                     // PURCHASE_QUANTITY is a positive constant.
-                    _message = INSUFFICIENT_COINS_MESSAGE;
+                    _message = _localizationSystem.Translate(LocalizationKeys.SHOP_TOAST_INSUFFICIENT_COINS);
                     break;
             }
 
@@ -681,6 +656,50 @@ namespace MustyBlockBlast.Presentation.Views
 
             RefreshCoinsTab();
             RefreshToast();
+
+            // The card's static chrome — title, tabs, section labels, panel copy — also comes from the
+            // String Table now (issue #255). Repainted alongside everything else rather than through a
+            // second subscription: cheap enough, and Refresh already runs on the locale-change path via
+            // OnLocaleChanged.
+            RepaintLocalizedChrome();
+        }
+
+        /// <summary>
+        /// Sets every static caption that is neither per-item nor per-count: the header, the three
+        /// sub-tabs, the earn button, the deals placeholder, the Coins tab's section labels and panel
+        /// copy, and the bundle rows' buy buttons. Called once from <see cref="Refresh"/>'s first pass
+        /// (the locale subscription fires immediately on Start) and again on every later locale change,
+        /// so it never needs a subscription of its own.
+        /// </summary>
+        private void RepaintLocalizedChrome()
+        {
+            _headerText.text = _localizationSystem.Translate(LocalizationKeys.SHOP_TITLE);
+            _tabPowerUpsText.text = _localizationSystem.Translate(LocalizationKeys.SHOP_TAB_POWER_UPS);
+            _tabCoinsText.text = _localizationSystem.Translate(LocalizationKeys.SHOP_TAB_COINS);
+            _tabDealsText.text = _localizationSystem.Translate(LocalizationKeys.SHOP_TAB_DEALS);
+            _earnButtonText.text = _localizationSystem.Translate(LocalizationKeys.SHOP_EARN_BUTTON);
+            _dealsText.text = _localizationSystem.Translate(LocalizationKeys.SHOP_DEALS_PLACEHOLDER);
+
+            _freeSectionText.text = _localizationSystem.Translate(LocalizationKeys.SHOP_SECTION_FREE);
+            _bundlesSectionText.text = _localizationSystem.Translate(LocalizationKeys.SHOP_SECTION_BUNDLES);
+            _convertTitleText.text = _localizationSystem.Translate(LocalizationKeys.SHOP_CONVERT_TITLE);
+            _totalStatLabel.text = _localizationSystem.Translate(LocalizationKeys.SHOP_TOTAL_SCORE_LABEL);
+            _convertibleStatLabel.text = _localizationSystem.Translate(LocalizationKeys.SHOP_CONVERTIBLE_LABEL);
+            _convertButtonText.text = _localizationSystem.Translate(LocalizationKeys.SHOP_CONVERT_BUTTON);
+            _adTitleText.text = _localizationSystem.Translate(LocalizationKeys.SHOP_AD_TITLE);
+            _adCaptionText.text = _localizationSystem.Format(
+                LocalizationKeys.SHOP_AD_CAPTION_FORMAT, _currencySystem.AdRewardCoins.ToString());
+
+            string buyLabel = _localizationSystem.Translate(LocalizationKeys.SHOP_BUNDLE_BUTTON);
+            for (int bundleIndex = 0; bundleIndex < _bundles.Length; bundleIndex++)
+            {
+                _bundles[bundleIndex].ButtonText.text = buyLabel;
+            }
+
+            if (_noBundlesText != null)
+            {
+                _noBundlesText.text = _localizationSystem.Translate(LocalizationKeys.SHOP_NO_BUNDLES);
+            }
         }
 
         // ------------------------------------------------------------------------- the Coins tab
@@ -698,12 +717,10 @@ namespace MustyBlockBlast.Presentation.Views
             _convertibleStatValue.text = available.ToString();
             _amountText.text = _pendingAmount.ToString();
 
-            _stringBuilder.Clear();
-            _stringBuilder.Append(RATE_SAMPLE_SCORE);
-            _stringBuilder.Append(" pts = ");
-            _stringBuilder.Append(_currencySystem.QuoteCoinsFor(RATE_SAMPLE_SCORE));
-            _stringBuilder.Append(" coins");
-            _rateText.text = _stringBuilder.ToString();
+            _rateText.text = _localizationSystem.Format(
+                LocalizationKeys.SHOP_RATE_FORMAT,
+                RATE_SAMPLE_SCORE.ToString(),
+                _currencySystem.QuoteCoinsFor(RATE_SAMPLE_SCORE).ToString());
 
             // Convert is live only when the tap would do something, as a buy button is; the stepper
             // stays tappable either way because stepping a zero pool is harmless and clamps to zero.
@@ -733,13 +750,13 @@ namespace MustyBlockBlast.Presentation.Views
         {
             if (_pendingAmount <= 0)
             {
-                _message = NOTHING_TO_CONVERT_MESSAGE;
+                _message = _localizationSystem.Translate(LocalizationKeys.SHOP_TOAST_NOTHING_TO_CONVERT);
                 RefreshToast();
                 return;
             }
 
             _currencySystem.ConvertScoreToCoins(_pendingAmount);
-            _message = CONVERTED_MESSAGE;
+            _message = _localizationSystem.Translate(LocalizationKeys.SHOP_TOAST_CONVERTED);
 
             // The balance and the converted figure repaint through their subscriptions; the pending
             // amount is re-clamped by the same repaint, so the panel reads "0 left" without a second
@@ -764,7 +781,9 @@ namespace MustyBlockBlast.Presentation.Views
             {
                 bool granted = await _currencySystem.GrantCoinsFromAdAsync(
                     _currencySystem.AdRewardCoins, this.GetCancellationTokenOnDestroy());
-                _message = granted ? AD_GRANTED_MESSAGE : AD_REFUSED_MESSAGE;
+                _message = _localizationSystem.Translate(granted
+                    ? LocalizationKeys.SHOP_TOAST_COINS_ADDED
+                    : LocalizationKeys.SHOP_TOAST_AD_REFUSED);
                 RefreshToast();
             }
             finally
@@ -790,7 +809,9 @@ namespace MustyBlockBlast.Presentation.Views
             {
                 bool bought = await _currencySystem.PurchaseCoinBundleAsync(
                     sku, this.GetCancellationTokenOnDestroy());
-                _message = bought ? BUNDLE_BOUGHT_MESSAGE : BUNDLE_REFUSED_MESSAGE;
+                _message = _localizationSystem.Translate(bought
+                    ? LocalizationKeys.SHOP_TOAST_COINS_ADDED
+                    : LocalizationKeys.SHOP_TOAST_BUNDLE_REFUSED);
                 RefreshToast();
             }
             finally
@@ -846,7 +867,8 @@ namespace MustyBlockBlast.Presentation.Views
                 item.ButtonPlate.color = _palette.LockedButton;
                 item.Price.color = _palette.LockedText;
                 _stringBuilder.Clear();
-                _stringBuilder.Append(LOCKED_LEVEL_PREFIX);
+                _stringBuilder.Append(_localizationSystem.Translate(LocalizationKeys.HUD_LEVEL_SHORT));
+                _stringBuilder.Append(' ');
                 _stringBuilder.Append(PowerUpUnlockLevels.LevelFor(kind));
                 item.Price.text = _stringBuilder.ToString();
                 item.Price.alignment = TextAnchor.MiddleLeft;
@@ -1052,10 +1074,9 @@ namespace MustyBlockBlast.Presentation.Views
             _stringBuilder.Append(_currencySystem.AdRewardCoins);
             _adButtonText.text = _stringBuilder.ToString();
 
-            _stringBuilder.Clear();
-            _stringBuilder.Append(_currencySystem.AdRewardCoins);
-            _stringBuilder.Append(AD_CAPTION_SUFFIX_TEXT);
-            _adCaptionText.text = _stringBuilder.ToString();
+            // The reward caption itself is repainted by RepaintLocalizedChrome, since it is a String
+            // Table format string and this method (unlike that one) is never called again on a locale
+            // change.
 
             for (int bundleIndex = 0; bundleIndex < _bundles.Length; bundleIndex++)
             {
@@ -1122,7 +1143,7 @@ namespace MustyBlockBlast.Presentation.Views
                 _cardRect, "Header", _headerFontSize, FontStyle.Bold, Color.clear, _displayFont);
             ((RectTransform)_headerText.transform).anchoredPosition =
                 new Vector2(0f, (_cardSize.y * 0.5f) - (HEADER_INSET * 0.5f));
-            _headerText.text = HEADER_TEXT;
+            // Text is set by RepaintLocalizedChrome, run from Start once injection has happened.
 
             BuildBalanceStrip(_cardRect);
             BuildTabs(_cardRect);
@@ -1172,7 +1193,6 @@ namespace MustyBlockBlast.Presentation.Views
                 (width * 0.5f) - BALANCE_PADDING - (EARN_BUTTON_WIDTH * 0.5f), 0f);
             _earnButtonText = UiTextFactory.Create(
                 earnRect, "Label", _earnFontSize, FontStyle.Bold, Color.clear, _displayFont);
-            _earnButtonText.text = EARN_BUTTON_TEXT;
         }
 
         private void BuildTabs(RectTransform parent)
@@ -1188,21 +1208,18 @@ namespace MustyBlockBlast.Presentation.Views
             powerUpsRect.anchoredPosition = new Vector2(-pitch, y);
             _tabPowerUpsText = UiTextFactory.Create(
                 powerUpsRect, "Label", _tabFontSize, FontStyle.Bold, Color.clear, _displayFont);
-            _tabPowerUpsText.text = TAB_POWER_UPS_TEXT;
 
             RectTransform coinsRect = BuildChunkyButton(
                 parent, "TabCoins", size, out _tabCoinsPlate, () => SelectTab(ShopTab.Coins));
             coinsRect.anchoredPosition = new Vector2(0f, y);
             _tabCoinsText = UiTextFactory.Create(
                 coinsRect, "Label", _tabFontSize, FontStyle.Bold, Color.clear, _displayFont);
-            _tabCoinsText.text = TAB_COINS_TEXT;
 
             RectTransform dealsRect = BuildChunkyButton(
                 parent, "TabDeals", size, out _tabDealsPlate, () => SelectTab(ShopTab.Deals));
             dealsRect.anchoredPosition = new Vector2(pitch, y);
             _tabDealsText = UiTextFactory.Create(
                 dealsRect, "Label", _tabFontSize, FontStyle.Bold, Color.clear, _displayFont);
-            _tabDealsText.text = TAB_DEALS_TEXT;
         }
 
         /// <summary>
@@ -1489,13 +1506,13 @@ namespace MustyBlockBlast.Presentation.Views
             RectTransform content = _coinsScrollRect.content;
 
             float cursor = -GRID_TOP_PADDING;
-            _freeSectionText = BuildSectionLabel(content, "FreeSection", FREE_SECTION_TEXT, width, ref cursor);
+            _freeSectionText = BuildSectionLabel(content, "FreeSection", width, ref cursor);
             cursor -= SECTION_GAP;
             BuildConvertPanel(content, width, ref cursor);
             cursor -= ROW_GAP;
             BuildAdRow(content, width, ref cursor);
             cursor -= SECTION_GAP * 2f;
-            _bundlesSectionText = BuildSectionLabel(content, "BundlesSection", BUNDLES_SECTION_TEXT, width, ref cursor);
+            _bundlesSectionText = BuildSectionLabel(content, "BundlesSection", width, ref cursor);
             cursor -= SECTION_GAP;
 
             _bundles = new BundleWidgets[bundleCount];
@@ -1511,18 +1528,17 @@ namespace MustyBlockBlast.Presentation.Views
                     content, "NoBundles", _rowCaptionFontSize, FontStyle.Bold, Color.clear);
                 var noBundlesRect = (RectTransform)_noBundlesText.transform;
                 TopAnchor(noBundlesRect, new Vector2(width, ROW_HEIGHT), cursor);
-                _noBundlesText.text = NO_BUNDLES_TEXT;
             }
 
             _coinsViewportObject.SetActive(false);
         }
 
-        /// <summary>A small spaced-out caption naming the rows under it, flush left.</summary>
-        private Text BuildSectionLabel(RectTransform parent, string objectName, string text, float width, ref float cursor)
+        /// <summary>A small spaced-out caption naming the rows under it, flush left. Text is filled in
+        /// by <see cref="RepaintLocalizedChrome"/>, not here — this only lays the label out.</summary>
+        private Text BuildSectionLabel(RectTransform parent, string objectName, float width, ref float cursor)
         {
             Text label = UiTextFactory.Create(parent, objectName, _sectionLabelFontSize, FontStyle.Bold, Color.clear);
             label.alignment = TextAnchor.MiddleLeft;
-            label.text = text;
             var rect = (RectTransform)label.transform;
             TopAnchor(rect, new Vector2(width - (ROW_PADDING * 2f), SECTION_LABEL_HEIGHT), cursor);
             rect.anchoredPosition = new Vector2(ROW_PADDING, rect.anchoredPosition.y);
@@ -1553,7 +1569,6 @@ namespace MustyBlockBlast.Presentation.Views
             var titleRect = (RectTransform)_convertTitleText.transform;
             titleRect.sizeDelta = new Vector2(inner * 0.62f, PANEL_TITLE_HEIGHT);
             titleRect.anchoredPosition = new Vector2((-inner * 0.5f) + (inner * 0.31f), y - (PANEL_TITLE_HEIGHT * 0.5f));
-            _convertTitleText.text = CONVERT_TITLE_TEXT;
 
             _rateText = UiTextFactory.Create(panelRect, "Rate", _rowCaptionFontSize, FontStyle.Bold, Color.clear);
             _rateText.alignment = TextAnchor.MiddleRight;
@@ -1565,9 +1580,9 @@ namespace MustyBlockBlast.Presentation.Views
             float statWidth = (inner - STAT_PLATE_GAP) * 0.5f;
             float statY = y - (STAT_PLATE_HEIGHT * 0.5f);
             BuildStatPlate(panelRect, "TotalStat", new Vector2((-inner * 0.5f) + (statWidth * 0.5f), statY), statWidth,
-                TOTAL_SCORE_LABEL_TEXT, false, out _totalStatPlate, out _, out _totalStatLabel, out _totalStatValue);
+                false, out _totalStatPlate, out _, out _totalStatLabel, out _totalStatValue);
             BuildStatPlate(panelRect, "ConvertibleStat", new Vector2((inner * 0.5f) - (statWidth * 0.5f), statY), statWidth,
-                CONVERTIBLE_LABEL_TEXT, true, out _convertibleStatPlate, out _convertibleStatBorder,
+                true, out _convertibleStatPlate, out _convertibleStatBorder,
                 out _convertibleStatLabel, out _convertibleStatValue);
             y -= STAT_PLATE_HEIGHT + ITEM_INNER_GAP;
 
@@ -1602,13 +1617,13 @@ namespace MustyBlockBlast.Presentation.Views
             convertRect.anchoredPosition = new Vector2(0f, y - (ACTION_BUTTON_HEIGHT * 0.5f));
             _convertButtonText = UiTextFactory.Create(
                 convertRect, "Label", _earnFontSize, FontStyle.Bold, Color.clear, _displayFont);
-            _convertButtonText.text = CONVERT_BUTTON_TEXT;
         }
 
         /// <summary>One stat on the convert panel: a caption over a figure on a translucent plate, with
-        /// an optional highlight border drawn as a slightly larger plate underneath.</summary>
+        /// an optional highlight border drawn as a slightly larger plate underneath. The caption text is
+        /// filled in by <see cref="RepaintLocalizedChrome"/>, not here.</summary>
         private void BuildStatPlate(
-            RectTransform parent, string objectName, Vector2 anchoredPosition, float width, string labelText, bool bordered,
+            RectTransform parent, string objectName, Vector2 anchoredPosition, float width, bool bordered,
             out Image plate, out Image border, out Text label, out Text value)
         {
             border = null;
@@ -1634,7 +1649,6 @@ namespace MustyBlockBlast.Presentation.Views
             var labelRect = (RectTransform)label.transform;
             labelRect.sizeDelta = new Vector2(width - (ROW_PADDING * 2f), STAT_PLATE_HEIGHT * 0.4f);
             labelRect.anchoredPosition = new Vector2(0f, STAT_PLATE_HEIGHT * 0.22f);
-            label.text = labelText;
 
             value = UiTextFactory.Create(plateRect, "Value", _statValueFontSize, FontStyle.Bold, Color.clear, _displayFont);
             value.alignment = TextAnchor.MiddleLeft;
@@ -1672,7 +1686,6 @@ namespace MustyBlockBlast.Presentation.Views
             var titleRect = (RectTransform)_adTitleText.transform;
             titleRect.sizeDelta = new Vector2(textWidth, ROW_HEIGHT * 0.5f);
             titleRect.anchoredPosition = new Vector2(textCentreX, ROW_HEIGHT * 0.16f);
-            _adTitleText.text = AD_TITLE_TEXT;
 
             _adCaptionText = UiTextFactory.Create(rowRect, "Caption", _rowCaptionFontSize, FontStyle.Bold, Color.clear);
             _adCaptionText.alignment = TextAnchor.MiddleLeft;
@@ -1742,7 +1755,6 @@ namespace MustyBlockBlast.Presentation.Views
                 () => PurchaseBundle(sku).Forget());
             buttonRect.anchoredPosition = new Vector2((width * 0.5f) - ROW_PADDING - (ROW_BUTTON_WIDTH * 0.5f), 0f);
             bundle.ButtonText = UiTextFactory.Create(buttonRect, "Label", _earnFontSize, FontStyle.Bold, Color.clear, _displayFont);
-            bundle.ButtonText.text = BUNDLE_BUTTON_TEXT;
 
             return bundle;
         }
@@ -1813,7 +1825,6 @@ namespace MustyBlockBlast.Presentation.Views
 
             _dealsText = UiTextFactory.Create(
                 placeholderRect, "Label", _placeholderFontSize, FontStyle.Bold, Color.clear, _displayFont);
-            _dealsText.text = DEALS_PLACEHOLDER_TEXT;
 
             _dealsPlaceholder.SetActive(false);
         }

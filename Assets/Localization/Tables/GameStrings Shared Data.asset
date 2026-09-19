@@ -771,6 +771,106 @@ MonoBehaviour:
     m_Key: info_popup.special_cell.timer.body
     m_Metadata:
       m_Items: []
+  - m_Id: 2136016131400258
+    m_Key: shop.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131400322
+    m_Key: shop.tab.power_ups
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131400386
+    m_Key: shop.tab.coins
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131400450
+    m_Key: shop.tab.deals
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131400514
+    m_Key: shop.earn_button
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131400578
+    m_Key: shop.deals_placeholder
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131400642
+    m_Key: shop.section.free
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131400706
+    m_Key: shop.section.bundles
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131400770
+    m_Key: shop.convert.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131400834
+    m_Key: shop.convert.total_score_label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131400898
+    m_Key: shop.convert.convertible_label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131400962
+    m_Key: shop.convert.button
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131401026
+    m_Key: shop.convert.rate_format
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131401090
+    m_Key: shop.ad.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131401154
+    m_Key: shop.ad.caption_format
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131401218
+    m_Key: shop.bundle.button
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131401282
+    m_Key: shop.bundle.none
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131401346
+    m_Key: shop.toast.converted
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131401410
+    m_Key: shop.toast.nothing_to_convert
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131401474
+    m_Key: shop.toast.coins_added
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131401538
+    m_Key: shop.toast.ad_refused
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131401602
+    m_Key: shop.toast.bundle_refused
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131401666
+    m_Key: shop.toast.purchased
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131401730
+    m_Key: shop.toast.insufficient_coins
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131401794
+    m_Key: shop.toast.locked
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

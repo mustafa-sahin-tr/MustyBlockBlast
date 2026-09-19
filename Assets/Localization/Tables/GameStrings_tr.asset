@@ -774,6 +774,106 @@ MonoBehaviour:
     m_Localized: "Saniyede de\u011Fil, her par\xE7a yerle\u015Ftirdi\u011Finde bir azal\u0131r. S\u0131f\u0131ra ula\u015Fmadan \xF6nce temizle. Yol modunda s\xFCresinin dolmas\u0131na izin vermek oyunu hemen bitirir. Sonsuz ve S\xFCreli modlarda ise sadece normal bir h\xFCcreye d\xF6n\xFC\u015F\xFCr ve bonusunu kaybedersin."
     m_Metadata:
       m_Items: []
+  - m_Id: 2136016131400258
+    m_Localized: "POWER-UP MA\u011eAZASI"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131400322
+    m_Localized: POWER-UPLAR
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131400386
+    m_Localized: PARALAR
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131400450
+    m_Localized: FIRSATLAR
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131400514
+    m_Localized: + PARA KAZAN
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131400578
+    m_Localized: "F\u0131rsatlar yak\u0131nda geliyor."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131400642
+    m_Localized: "\u00dcCRETS\u0130Z KAZAN"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131400706
+    m_Localized: "PARA PAKETLER\u0130"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131400770
+    m_Localized: "Puan\u0131 paraya \u00e7evir"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131400834
+    m_Localized: TOPLAM PUAN
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131400898
+    m_Localized: "\u00c7EVR\u0130LEB\u0130L\u0130R"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131400962
+    m_Localized: "\u00c7EV\u0130R"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131401026
+    m_Localized: "{0} puan = {1} para"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131401090
+    m_Localized: Reklam izle
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131401154
+    m_Localized: "Reklam ba\u015f\u0131na {0} para"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131401218
+    m_Localized: SATIN AL
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131401282
+    m_Localized: "Yap\u0131land\u0131r\u0131lm\u0131\u015f para paketi yok."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131401346
+    m_Localized: "\u00c7evrildi!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131401410
+    m_Localized: "Hen\u00fcz \u00e7evrilecek bir \u015fey yok."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131401474
+    m_Localized: Para eklendi!
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131401538
+    m_Localized: "\u015eu anda reklam yok."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131401602
+    m_Localized: "Sat\u0131n alma tamamlanmad\u0131."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131401666
+    m_Localized: "Sat\u0131n al\u0131nd\u0131!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131401730
+    m_Localized: Yeterli paran yok.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131401794
+    m_Localized: "Bunu a\u00e7mak i\u00e7in seviye atla."
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []
