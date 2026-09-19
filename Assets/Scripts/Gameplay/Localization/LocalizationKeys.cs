@@ -271,6 +271,32 @@ namespace MustyBlockBlast.Gameplay.Localization
 
         public const string OBJECTIVE_REROLL_SAVE = "objective.reroll_save";
 
+        // --- Objective titles ---
+        // One short, bold name per ObjectiveType, shown as the header of the objective info card
+        // (ObjectiveInfoPopupView) — distinct from the OBJECTIVE_* description templates above, which
+        // spell out what the objective asks for in a full sentence. Mirrors how POWERUP_NAME_* sits
+        // alongside POWERUP_DESC_*.
+
+        public const string OBJECTIVE_NAME_SIMULTANEOUS_LINE_CLEAR = "objective.name.simultaneous_line_clear";
+        public const string OBJECTIVE_NAME_PIECE_FAMILY_COUNT = "objective.name.piece_family_count";
+        public const string OBJECTIVE_NAME_SCORE_IN_RUN = "objective.name.score_in_run";
+        public const string OBJECTIVE_NAME_BOARD_WIPE_COUNT = "objective.name.board_wipe_count";
+        public const string OBJECTIVE_NAME_STREAK_THRESHOLD = "objective.name.streak_threshold";
+        public const string OBJECTIVE_NAME_BOMB_INDUCED_LINE_CLEAR = "objective.name.bomb_induced_line_clear";
+        public const string OBJECTIVE_NAME_ROW_AND_COLUMN_CROSS_CLEAR = "objective.name.row_and_column_cross_clear";
+        public const string OBJECTIVE_NAME_CLUTCH_RECOVERY_CLEAR = "objective.name.clutch_recovery_clear";
+        public const string OBJECTIVE_NAME_AT_LEAST_LINE_CLEAR = "objective.name.at_least_line_clear";
+        public const string OBJECTIVE_NAME_PIECE_ID_COUNT = "objective.name.piece_id_count";
+        public const string OBJECTIVE_NAME_PIECE_ID_LINE_CLEAR = "objective.name.piece_id_line_clear";
+        public const string OBJECTIVE_NAME_FOUR_CORNERS_CLEARED = "objective.name.four_corners_cleared";
+        public const string OBJECTIVE_NAME_CENTER_CORE_EVACUATED = "objective.name.center_core_evacuated";
+        public const string OBJECTIVE_NAME_NO_ISOLATED_HOLES_STREAK = "objective.name.no_isolated_holes_streak";
+        public const string OBJECTIVE_NAME_ROLLING_LINE_CLEAR_WINDOW = "objective.name.rolling_line_clear_window";
+        public const string OBJECTIVE_NAME_EARLY_SCORE_RUSH = "objective.name.early_score_rush";
+        public const string OBJECTIVE_NAME_REROLL_SAVE = "objective.name.reroll_save";
+        public const string OBJECTIVE_NAME_REINFORCED_CELLS_CLEARED = "objective.name.reinforced_cells_cleared";
+        public const string OBJECTIVE_NAME_COLOUR_CLEARED = "objective.name.colour_cleared";
+
         /// <summary>ColourCleared's description. <c>{0}</c> is an inline colour swatch (a rich-text
         /// coloured glyph drawn from the active theme), never a colour name — see
         /// <c>ObjectiveDescriptionFormatter</c>.</summary>

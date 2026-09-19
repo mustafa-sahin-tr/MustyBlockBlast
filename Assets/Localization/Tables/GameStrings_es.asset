@@ -678,6 +678,82 @@ MonoBehaviour:
     m_Localized: "Se entrega como \xFAltimo recurso cuando el tablero est\xE1 casi lleno. Toca una celda del tablero para destruirla."
     m_Metadata:
       m_Items: []
+  - m_Id: 2010649772154880
+    m_Localized: "Despeje M\xFAltiple"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515008
+    m_Localized: Conteo de Familia de Piezas
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515009
+    m_Localized: Puntos en la Partida
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515010
+    m_Localized: Tableros Despejados
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515011
+    m_Localized: Racha de Combo
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515012
+    m_Localized: Despeje con Bomba
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515013
+    m_Localized: Despeje Cruzado
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515014
+    m_Localized: Rescate Decisivo
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515015
+    m_Localized: "Total de L\xEDneas Despejadas"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515016
+    m_Localized: "Conteo de Pieza Espec\xEDfica"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515017
+    m_Localized: "Despeje con Pieza Espec\xEDfica"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515018
+    m_Localized: Cuatro Esquinas
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515019
+    m_Localized: "N\xFAcleo Central"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515020
+    m_Localized: Racha Sin Huecos
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515021
+    m_Localized: Despeje por Tiempo
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515022
+    m_Localized: "Arranque R\xE1pido de Puntos"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515023
+    m_Localized: "Rescate con Redistribuci\xF3n"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515024
+    m_Localized: Celdas Reforzadas
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515025
+    m_Localized: Despeje de Color
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

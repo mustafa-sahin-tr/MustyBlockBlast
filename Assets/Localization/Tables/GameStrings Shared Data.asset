@@ -675,6 +675,82 @@ MonoBehaviour:
     m_Key: info_popup.special_piece.demolition_hammer.body
     m_Metadata:
       m_Items: []
+  - m_Id: 2010649772154880
+    m_Key: objective.name.simultaneous_line_clear
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515008
+    m_Key: objective.name.piece_family_count
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515009
+    m_Key: objective.name.score_in_run
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515010
+    m_Key: objective.name.board_wipe_count
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515011
+    m_Key: objective.name.streak_threshold
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515012
+    m_Key: objective.name.bomb_induced_line_clear
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515013
+    m_Key: objective.name.row_and_column_cross_clear
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515014
+    m_Key: objective.name.clutch_recovery_clear
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515015
+    m_Key: objective.name.at_least_line_clear
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515016
+    m_Key: objective.name.piece_id_count
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515017
+    m_Key: objective.name.piece_id_line_clear
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515018
+    m_Key: objective.name.four_corners_cleared
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515019
+    m_Key: objective.name.center_core_evacuated
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515020
+    m_Key: objective.name.no_isolated_holes_streak
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515021
+    m_Key: objective.name.rolling_line_clear_window
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515022
+    m_Key: objective.name.early_score_rush
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515023
+    m_Key: objective.name.reroll_save
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515024
+    m_Key: objective.name.reinforced_cells_cleared
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515025
+    m_Key: objective.name.colour_cleared
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

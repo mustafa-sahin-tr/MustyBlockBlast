@@ -37,18 +37,11 @@ namespace MustyBlockBlast.Presentation.Views
     [DisallowMultipleComponent]
     public sealed class InfoPopupView : MonoBehaviour
     {
-        // Layout, in canvas reference pixels, matching the objective, settings, level path and badge
-        // cards so every overlay reads as one family.
-        private const float HEADER_INSET = 92f;
-        private const float SIDE_INSET = 60f;
-        private const float ICON_BUTTON_SIZE = 92f;
-        private const float HERO_GLYPH_SIZE = 168f;
-
         private readonly CompositeDisposable _disposables = new CompositeDisposable();
 
         [Header("Layout")]
-        [SerializeField] private Vector2 _cardSize = new Vector2(880f, 560f);
-        [SerializeField] private int _headerFontSize = 56;
+        [SerializeField] private Vector2 _cardSize = new Vector2(880f, 640f);
+        [SerializeField] private int _headerFontSize = 60;
         [SerializeField] private int _bodyFontSize = 40;
 
         [Header("Palette")]
@@ -71,16 +64,8 @@ namespace MustyBlockBlast.Presentation.Views
 
         private Canvas _canvas;
         private GameObject _panel;
-        private RectTransform _cardRect;
-        private Image _cardImage;
-        private Image _cardShadowImage;
-        private RectTransform _closeButtonRect;
-        private Image _closeBarImageA;
-        private Image _closeBarImageB;
-        private Image _heroPlateImage;
+        private InfoCardChrome.Handles _chrome;
         private Image _heroIconImage;
-        private Text _headerText;
-        private Text _bodyText;
 
         private ThemeDefinition _currentTheme;
         private InfoPopupContent? _currentContent;
@@ -170,13 +155,13 @@ namespace MustyBlockBlast.Presentation.Views
                 ? _canvas.worldCamera
                 : null;
 
-            if (RectTransformUtility.RectangleContainsScreenPoint(_closeButtonRect, screenPosition, eventCamera))
+            if (RectTransformUtility.RectangleContainsScreenPoint(_chrome.CloseButtonRect, screenPosition, eventCamera))
             {
                 _infoPopupSystem.Close();
                 return;
             }
 
-            if (RectTransformUtility.RectangleContainsScreenPoint(_cardRect, screenPosition, eventCamera))
+            if (RectTransformUtility.RectangleContainsScreenPoint(_chrome.CardRect, screenPosition, eventCamera))
             {
                 return;
             }
@@ -239,22 +224,28 @@ namespace MustyBlockBlast.Presentation.Views
 
             InfoPopupContent content = _currentContent.Value;
 
-            _cardImage.color = _currentTheme.CardBackground;
-            _cardShadowImage.color = _currentTheme.CardShadow;
-            _closeBarImageA.color = _currentTheme.Ink;
-            _closeBarImageB.color = _currentTheme.Ink;
+            _chrome.CardImage.color = _currentTheme.CardBackground;
+            _chrome.CardShadowImage.color = _currentTheme.CardShadow;
+            _chrome.ClosePlateImage.color = _currentTheme.CardBackground;
+            _chrome.ClosePlateShadowImage.color = _currentTheme.CardShadow;
 
-            _heroPlateImage.color = _currentTheme.Accent;
+            for (int barIndex = 0; barIndex < _chrome.CloseBarImages.Count; barIndex++)
+            {
+                _chrome.CloseBarImages[barIndex].color = _currentTheme.Ink;
+            }
+
+            _chrome.HeroPlateImage.color = _currentTheme.Accent;
+            _chrome.HeroRingImage.color = Color.Lerp(_currentTheme.Accent, _currentTheme.CardBackground, 0.55f);
 
             ResolveIcon(content, out Sprite icon, out Color iconTint);
             _heroIconImage.sprite = icon;
             _heroIconImage.color = icon != null ? iconTint : Color.clear;
 
-            _headerText.color = _currentTheme.Ink;
-            _headerText.text = _localizationSystem.Translate(content.HeaderLocalizationKey);
+            _chrome.TitleText.color = _currentTheme.Ink;
+            _chrome.TitleText.text = _localizationSystem.Translate(content.HeaderLocalizationKey);
 
-            _bodyText.color = _currentTheme.SoftInk;
-            _bodyText.text = _localizationSystem.Translate(content.BodyLocalizationKey);
+            _chrome.DescriptionText.color = _currentTheme.SoftInk;
+            _chrome.DescriptionText.text = _localizationSystem.Translate(content.BodyLocalizationKey);
         }
 
         /// <summary>
@@ -345,119 +336,31 @@ namespace MustyBlockBlast.Presentation.Views
             scrim.color = _scrimColour;
             scrim.raycastTarget = false;
 
-            _cardRect = CellFactory.CreateCard(panelRect, "InfoCard", _cardSize, out _cardImage, out _cardShadowImage);
+            _chrome = InfoCardChrome.Build(panelRect, "InfoCard", _cardSize, _headerFontSize, _bodyFontSize);
 
-            float cardHalfHeight = _cardSize.y * 0.5f;
-            float cardHalfWidth = _cardSize.x * 0.5f;
-            float headerY = cardHalfHeight - HEADER_INSET;
-
-            _headerText = CreateLabel(
-                _cardRect, "Header", _headerFontSize, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(-cardHalfWidth + SIDE_INSET, headerY));
-
-            BuildCloseButton(
-                _cardRect, new Vector2(cardHalfWidth - SIDE_INSET - (ICON_BUTTON_SIZE * 0.5f), headerY));
-
-            BuildHero(new Vector2(0f, headerY - HERO_GLYPH_SIZE));
-
-            _bodyText = CreateLabel(
-                _cardRect, "Body", _bodyFontSize, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(0f, -cardHalfHeight + 120f));
+            BuildHero();
 
             _panel = panelObject;
         }
 
-        private void BuildHero(Vector2 anchoredPosition)
+        /// <summary>The icon content only — the ring, plate and its footprint come from
+        /// <see cref="InfoCardChrome"/>. Parented into <see cref="InfoCardChrome.Handles.HeroContentRect"/>,
+        /// which the chrome has already centred and sized on the hero plate.</summary>
+        private void BuildHero()
         {
-            var heroObject = new GameObject("HeroIcon", typeof(RectTransform));
-            var heroRect = (RectTransform)heroObject.transform;
-            heroRect.SetParent(_cardRect, false);
-            Centre(heroRect, new Vector2(HERO_GLYPH_SIZE, HERO_GLYPH_SIZE));
-            heroRect.anchoredPosition = anchoredPosition;
-
-            var plateObject = new GameObject("Plate", typeof(RectTransform), typeof(Image));
-            var plateRect = (RectTransform)plateObject.transform;
-            plateRect.SetParent(heroRect, false);
-            Centre(plateRect, new Vector2(HERO_GLYPH_SIZE, HERO_GLYPH_SIZE));
-            _heroPlateImage = plateObject.GetComponent<Image>();
-            ConfigureRounded(_heroPlateImage);
-
             var iconObject = new GameObject("Icon", typeof(RectTransform), typeof(Image));
             var iconRect = (RectTransform)iconObject.transform;
-            iconRect.SetParent(heroRect, false);
-            Centre(iconRect, new Vector2(HERO_GLYPH_SIZE * 0.58f, HERO_GLYPH_SIZE * 0.58f));
+            iconRect.SetParent(_chrome.HeroContentRect, false);
+            iconRect.anchorMin = new Vector2(0.5f, 0.5f);
+            iconRect.anchorMax = new Vector2(0.5f, 0.5f);
+            iconRect.pivot = new Vector2(0.5f, 0.5f);
+            iconRect.sizeDelta = new Vector2(InfoCardChrome.HERO_CONTENT_SIZE, InfoCardChrome.HERO_CONTENT_SIZE);
+            iconRect.anchoredPosition = Vector2.zero;
             _heroIconImage = iconObject.GetComponent<Image>();
             _heroIconImage.type = Image.Type.Simple;
             _heroIconImage.preserveAspect = true;
             _heroIconImage.color = Color.clear;
             _heroIconImage.raycastTarget = false;
-        }
-
-        private void BuildCloseButton(RectTransform root, Vector2 anchoredPosition)
-        {
-            const float CROSS_LENGTH = 46f;
-            const float CROSS_THICKNESS = 8f;
-
-            var closeObject = new GameObject("CloseButton", typeof(RectTransform));
-            _closeButtonRect = (RectTransform)closeObject.transform;
-            _closeButtonRect.SetParent(root, false);
-            Centre(_closeButtonRect, new Vector2(ICON_BUTTON_SIZE, ICON_BUTTON_SIZE));
-            _closeButtonRect.anchoredPosition = anchoredPosition;
-
-            var barObjectA = new GameObject("CloseBar_0", typeof(RectTransform), typeof(Image));
-            var barRectA = (RectTransform)barObjectA.transform;
-            barRectA.SetParent(_closeButtonRect, false);
-            Centre(barRectA, new Vector2(CROSS_LENGTH, CROSS_THICKNESS));
-            barRectA.localRotation = Quaternion.Euler(0f, 0f, 45f);
-            _closeBarImageA = barObjectA.GetComponent<Image>();
-            ConfigureRounded(_closeBarImageA);
-
-            var barObjectB = new GameObject("CloseBar_1", typeof(RectTransform), typeof(Image));
-            var barRectB = (RectTransform)barObjectB.transform;
-            barRectB.SetParent(_closeButtonRect, false);
-            Centre(barRectB, new Vector2(CROSS_LENGTH, CROSS_THICKNESS));
-            barRectB.localRotation = Quaternion.Euler(0f, 0f, -45f);
-            _closeBarImageB = barObjectB.GetComponent<Image>();
-            ConfigureRounded(_closeBarImageB);
-        }
-
-        private static Text CreateLabel(
-            RectTransform parent,
-            string objectName,
-            int fontSize,
-            FontStyle fontStyle,
-            TextAnchor alignment,
-            Vector2 anchoredPosition)
-        {
-            Text text = UiTextFactory.Create(parent, objectName, fontSize, fontStyle, Color.clear);
-            text.alignment = alignment;
-
-            var rect = (RectTransform)text.transform;
-            float pivotX = alignment == TextAnchor.MiddleRight ? 1f : (alignment == TextAnchor.MiddleLeft ? 0f : 0.5f);
-            rect.pivot = new Vector2(pivotX, 0.5f);
-            rect.sizeDelta = new Vector2(0f, fontSize * 1.6f);
-            rect.anchoredPosition = anchoredPosition;
-            return text;
-        }
-
-        private static void Centre(RectTransform rect, Vector2 size)
-        {
-            rect.anchorMin = new Vector2(0.5f, 0.5f);
-            rect.anchorMax = new Vector2(0.5f, 0.5f);
-            rect.pivot = new Vector2(0.5f, 0.5f);
-            rect.sizeDelta = size;
-            rect.anchoredPosition = Vector2.zero;
-        }
-
-        // Raycasts stay off everywhere: taps arrive through BoardInputView's pointer action, not
-        // through an EventSystem, and this scene has none.
-        private static void ConfigureRounded(Image image)
-        {
-            image.sprite = UiSpriteFactory.RoundedSquare;
-            image.type = Image.Type.Sliced;
-            image.pixelsPerUnitMultiplier = 3f;
-            image.color = Color.clear;
-            image.raycastTarget = false;
         }
     }
 }

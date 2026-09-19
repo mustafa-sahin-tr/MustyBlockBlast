@@ -678,6 +678,82 @@ MonoBehaviour:
     m_Localized: Given as a last resort when the board is nearly full. Tap a cell on the board to destroy it.
     m_Metadata:
       m_Items: []
+  - m_Id: 2010649772154880
+    m_Localized: Multi-Line Clear
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515008
+    m_Localized: Piece Family Count
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515009
+    m_Localized: Score This Run
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515010
+    m_Localized: Board Wipes
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515011
+    m_Localized: Combo Streak
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515012
+    m_Localized: Bomb Line Clear
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515013
+    m_Localized: Cross Clear
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515014
+    m_Localized: Clutch Recovery
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515015
+    m_Localized: Total Lines Cleared
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515016
+    m_Localized: Specific Piece Count
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515017
+    m_Localized: Specific Piece Clear
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515018
+    m_Localized: Four Corners
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515019
+    m_Localized: Center Core
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515020
+    m_Localized: No Holes Streak
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515021
+    m_Localized: Timed Line Clear
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515022
+    m_Localized: Early Score Rush
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515023
+    m_Localized: Reroll Save
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515024
+    m_Localized: Reinforced Cells
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515025
+    m_Localized: Colour Clear
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

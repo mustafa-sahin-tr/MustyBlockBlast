@@ -27,13 +27,29 @@ namespace MustyBlockBlast.Presentation.Views
             return cellView;
         }
 
+        /// <summary>Default <c>pixelsPerUnitMultiplier</c> a card's corner is sliced at — see
+        /// <see cref="CreateCard"/>. Lower reads rounder; this is the corner every card used before the
+        /// info-card family (issue mockup pass, 2026-09) asked for a noticeably rounder one of its own.</summary>
+        private const float DEFAULT_CARD_CORNER_MULTIPLIER = 1.4f;
+
         /// <summary>
         /// Rounded card with a soft offset shadow behind it. Returns the card rect; content should be
         /// parented to it. Both Images start fully transparent and are handed back so the caller can
         /// paint them from the current theme — cards are built in Awake, before the theme is known.
         /// </summary>
+        /// <param name="cornerRadiusMultiplier">
+        /// The <see cref="Image.pixelsPerUnitMultiplier"/> the card's rounded corner is sliced at — a
+        /// lower value reads as a rounder corner. Defaults to every other card's corner
+        /// (<see cref="DEFAULT_CARD_CORNER_MULTIPLIER"/>); pass a smaller value for a card that should
+        /// read rounder than the rest of the family, such as <see cref="InfoCardChrome"/>'s.
+        /// </param>
         internal static RectTransform CreateCard(
-            RectTransform parent, string cardName, Vector2 size, out Image background, out Image shadow)
+            RectTransform parent,
+            string cardName,
+            Vector2 size,
+            out Image background,
+            out Image shadow,
+            float cornerRadiusMultiplier = DEFAULT_CARD_CORNER_MULTIPLIER)
         {
             var shadowObject = new GameObject(cardName + "Shadow", typeof(RectTransform), typeof(Image));
             var shadowRect = (RectTransform)shadowObject.transform;
@@ -43,7 +59,7 @@ namespace MustyBlockBlast.Presentation.Views
             shadowRect.sizeDelta = size + new Vector2(10f, 10f);
             shadowRect.anchoredPosition = new Vector2(0f, -8f);
             shadow = shadowObject.GetComponent<Image>();
-            ConfigureCardImage(shadow);
+            ConfigureCardImage(shadow, cornerRadiusMultiplier);
 
             var cardObject = new GameObject(cardName, typeof(RectTransform), typeof(Image));
             var cardRect = (RectTransform)cardObject.transform;
@@ -52,16 +68,16 @@ namespace MustyBlockBlast.Presentation.Views
             cardRect.anchorMax = new Vector2(0.5f, 0.5f);
             cardRect.sizeDelta = size;
             background = cardObject.GetComponent<Image>();
-            ConfigureCardImage(background);
+            ConfigureCardImage(background, cornerRadiusMultiplier);
 
             return cardRect;
         }
 
-        private static void ConfigureCardImage(Image image)
+        private static void ConfigureCardImage(Image image, float cornerRadiusMultiplier)
         {
             image.sprite = UiSpriteFactory.RoundedSquare;
             image.type = Image.Type.Sliced;
-            image.pixelsPerUnitMultiplier = 1.4f;
+            image.pixelsPerUnitMultiplier = cornerRadiusMultiplier;
             image.color = Color.clear;
             image.raycastTarget = false;
         }

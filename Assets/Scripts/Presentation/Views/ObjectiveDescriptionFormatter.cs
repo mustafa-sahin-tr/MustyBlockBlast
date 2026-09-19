@@ -114,6 +114,59 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         /// <summary>
+        /// Localization key for <paramref name="type"/>'s short, bold title — the objective info
+        /// card's header (see <see cref="ObjectiveInfoPopupView"/>). Distinct from <see cref="Describe"/>,
+        /// which spells out the full sentence; this is just the name, the same relationship
+        /// <c>POWERUP_NAME_*</c> has to <c>POWERUP_DESC_*</c>.
+        /// </summary>
+        internal static string TitleKey(ObjectiveType type)
+        {
+            switch (type)
+            {
+                case ObjectiveType.SimultaneousLineClear:
+                    return LocalizationKeys.OBJECTIVE_NAME_SIMULTANEOUS_LINE_CLEAR;
+                case ObjectiveType.PieceFamilyCount:
+                    return LocalizationKeys.OBJECTIVE_NAME_PIECE_FAMILY_COUNT;
+                case ObjectiveType.ScoreInRun:
+                    return LocalizationKeys.OBJECTIVE_NAME_SCORE_IN_RUN;
+                case ObjectiveType.BoardWipeCount:
+                    return LocalizationKeys.OBJECTIVE_NAME_BOARD_WIPE_COUNT;
+                case ObjectiveType.StreakThreshold:
+                    return LocalizationKeys.OBJECTIVE_NAME_STREAK_THRESHOLD;
+                case ObjectiveType.BombInducedLineClear:
+                    return LocalizationKeys.OBJECTIVE_NAME_BOMB_INDUCED_LINE_CLEAR;
+                case ObjectiveType.RowAndColumnCrossClear:
+                    return LocalizationKeys.OBJECTIVE_NAME_ROW_AND_COLUMN_CROSS_CLEAR;
+                case ObjectiveType.ClutchRecoveryClear:
+                    return LocalizationKeys.OBJECTIVE_NAME_CLUTCH_RECOVERY_CLEAR;
+                case ObjectiveType.AtLeastLineClear:
+                    return LocalizationKeys.OBJECTIVE_NAME_AT_LEAST_LINE_CLEAR;
+                case ObjectiveType.PieceIdCount:
+                    return LocalizationKeys.OBJECTIVE_NAME_PIECE_ID_COUNT;
+                case ObjectiveType.PieceIdLineClear:
+                    return LocalizationKeys.OBJECTIVE_NAME_PIECE_ID_LINE_CLEAR;
+                case ObjectiveType.FourCornersCleared:
+                    return LocalizationKeys.OBJECTIVE_NAME_FOUR_CORNERS_CLEARED;
+                case ObjectiveType.CenterCoreEvacuated:
+                    return LocalizationKeys.OBJECTIVE_NAME_CENTER_CORE_EVACUATED;
+                case ObjectiveType.NoIsolatedHolesStreak:
+                    return LocalizationKeys.OBJECTIVE_NAME_NO_ISOLATED_HOLES_STREAK;
+                case ObjectiveType.RollingLineClearWindow:
+                    return LocalizationKeys.OBJECTIVE_NAME_ROLLING_LINE_CLEAR_WINDOW;
+                case ObjectiveType.EarlyScoreRush:
+                    return LocalizationKeys.OBJECTIVE_NAME_EARLY_SCORE_RUSH;
+                case ObjectiveType.RerollSave:
+                    return LocalizationKeys.OBJECTIVE_NAME_REROLL_SAVE;
+                case ObjectiveType.ReinforcedCellsCleared:
+                    return LocalizationKeys.OBJECTIVE_NAME_REINFORCED_CELLS_CLEARED;
+                case ObjectiveType.ColourCleared:
+                    return LocalizationKeys.OBJECTIVE_NAME_COLOUR_CLEARED;
+                default:
+                    return LocalizationKeys.OBJECTIVE_NAME_SIMULTANEOUS_LINE_CLEAR;
+            }
+        }
+
+        /// <summary>
         /// Translated display name for a catalog piece id, when <see cref="PieceIdNameKey"/> has one
         /// authored; the raw id otherwise. Not every catalog piece needs a name — only the ones an
         /// authored objective actually references — so a piece nobody has named yet degrades to a

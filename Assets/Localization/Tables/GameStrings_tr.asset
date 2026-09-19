@@ -678,6 +678,82 @@ MonoBehaviour:
     m_Localized: "Tahta doluyken son \xE7are olarak verilir. Bir h\xFCcreyi yok etmek i\xE7in tahtaya dokun."
     m_Metadata:
       m_Items: []
+  - m_Id: 2010649772154880
+    m_Localized: "\xC7oklu Sat\u0131r Temizleme"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515008
+    m_Localized: "Par\xE7a Ailesi Say\u0131s\u0131"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515009
+    m_Localized: "Ko\u015Fuda Puan"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515010
+    m_Localized: "Tahta Temizleme Say\u0131s\u0131"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515011
+    m_Localized: "Kombo E\u015Fi\u011Fi"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515012
+    m_Localized: "Bomba ile Sat\u0131r Temizleme"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515013
+    m_Localized: "\xC7apraz Temizlik"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515014
+    m_Localized: "Son Anda Kurtar\u0131\u015F"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515015
+    m_Localized: "Toplam Sat\u0131r Temizleme"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515016
+    m_Localized: "Belirli Par\xE7a Say\u0131s\u0131"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515017
+    m_Localized: "Belirli Par\xE7a ile Temizlik"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515018
+    m_Localized: "D\xF6rt K\xF6\u015Fe"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515019
+    m_Localized: "Merkez \xC7ekirdek"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515020
+    m_Localized: "Delik B\u0131rakmama Serisi"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515021
+    m_Localized: Zaman Penceresinde Temizlik
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515022
+    m_Localized: "Erken Puan Ata\u011F\u0131"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515023
+    m_Localized: "Yeniden \xC7ekle Kurtar\u0131\u015F"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515024
+    m_Localized: "G\xFC\xE7lendirilmi\u015F H\xFCcreler"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2010649801515025
+    m_Localized: "Renk Temizli\u011Fi"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

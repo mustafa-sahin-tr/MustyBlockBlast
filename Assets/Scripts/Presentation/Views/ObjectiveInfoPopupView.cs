@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Text;
 using MustyBlockBlast.Core;
 using MustyBlockBlast.Gameplay.Localization;
 using MustyBlockBlast.Gameplay.Models;
@@ -13,15 +12,22 @@ using VContainer;
 namespace MustyBlockBlast.Presentation.Views
 {
     /// <summary>
-    /// The card behind one objective icon: what that objective actually asks for, in words, with its
-    /// progress and whether it is done. The icon row is deliberately wordless — this is where the
-    /// wording went.
+    /// The card behind one objective icon: what that objective actually asks for, in words, with
+    /// whether it is done. Progress itself is not repeated here — the HUD's GOAL pill already shows
+    /// it — so the icon row is deliberately wordless and this card carries the objective's name and
+    /// its full description.
     /// <para>
     /// Modal like the other overlays, and built the same way as <see cref="BadgesPanelView"/>: one card
     /// on a scrim, toggled with SetActive, holding the timed countdown through
     /// <see cref="TimerRunSystem.SetMenuPaused"/> while it is up. The gate chain in
     /// <see cref="BoardInputView"/> is what guarantees it can never be open at the same time as another
     /// panel, which is what keeps that single shared pause flag from having two owners.
+    /// </para>
+    /// <para>
+    /// The shared card chrome (rounded card, hero ring/plate, close button, title/description layout)
+    /// comes from <see cref="InfoCardChrome"/>, the same builder <see cref="InfoPopupView"/> uses — this
+    /// View owns only the hero icon content itself (an authored sprite or the procedural glyph
+    /// fallback) and the objective-specific text.
     /// </para>
     /// <para>
     /// Repainted on <see cref="Open"/> rather than subscribed to progress: while it is up the run is
@@ -31,24 +37,7 @@ namespace MustyBlockBlast.Presentation.Views
     [DisallowMultipleComponent]
     public sealed class ObjectiveInfoPopupView : MonoBehaviour
     {
-        // Layout, in canvas reference pixels, matching the settings, level path and badge cards so
-        // every overlay reads as one family.
-        private const float HEADER_INSET = 92f;
-        private const float SIDE_INSET = 60f;
-        private const float ICON_BUTTON_SIZE = 92f;
-
-        /// <summary>Side of the large glyph the card repeats from the icon that opened it, so the player
-        /// can see which of several icons they tapped.</summary>
-        private const float HERO_GLYPH_SIZE = 168f;
-
-        private const string COUNTER_SEPARATOR = " / ";
-
         private readonly CompositeDisposable _disposables = new CompositeDisposable();
-        private readonly StringBuilder _stringBuilder = new StringBuilder(16);
-
-        /// <summary>Repaint bucket: every Image that follows the theme's ink (the close cross), so a
-        /// theme switch is one tight loop instead of a hierarchy walk.</summary>
-        private readonly List<Image> _inkImages = new List<Image>(4);
 
         /// <summary>The hero glyph's strokes and its punched-out parts. Rebuilt whenever the card is
         /// opened for an objective of a different type — see <see cref="RebuildHeroGlyph"/>.</summary>
@@ -56,8 +45,8 @@ namespace MustyBlockBlast.Presentation.Views
         private readonly List<Image> _heroCoreImages = new List<Image>(2);
 
         [Header("Layout")]
-        [SerializeField] private Vector2 _cardSize = new Vector2(880f, 620f);
-        [SerializeField] private int _headerFontSize = 56;
+        [SerializeField] private Vector2 _cardSize = new Vector2(880f, 640f);
+        [SerializeField] private int _titleFontSize = 60;
         [SerializeField] private int _descriptionFontSize = 40;
 
         [Header("Palette")]
@@ -71,17 +60,11 @@ namespace MustyBlockBlast.Presentation.Views
 
         private Canvas _canvas;
         private GameObject _panel;
-        private RectTransform _cardRect;
-        private Image _cardImage;
-        private Image _cardShadowImage;
-        private RectTransform _closeButtonRect;
+        private InfoCardChrome.Handles _chrome;
         private RectTransform _heroGlyphRoot;
         private Image _heroIconImage;
         private ObjectiveIconCatalog _iconCatalog;
-        private Image _heroPlateImage;
         private Image _heroCheckMark;
-        private Text _headerText;
-        private Text _descriptionText;
 
         private ThemeDefinition _currentTheme;
 
@@ -173,13 +156,13 @@ namespace MustyBlockBlast.Presentation.Views
                 ? _canvas.worldCamera
                 : null;
 
-            if (RectTransformUtility.RectangleContainsScreenPoint(_closeButtonRect, screenPosition, eventCamera))
+            if (RectTransformUtility.RectangleContainsScreenPoint(_chrome.CloseButtonRect, screenPosition, eventCamera))
             {
                 Close();
                 return;
             }
 
-            if (RectTransformUtility.RectangleContainsScreenPoint(_cardRect, screenPosition, eventCamera))
+            if (RectTransformUtility.RectangleContainsScreenPoint(_chrome.CardRect, screenPosition, eventCamera))
             {
                 return;
             }
@@ -228,12 +211,14 @@ namespace MustyBlockBlast.Presentation.Views
                 return;
             }
 
-            _cardImage.color = _currentTheme.CardBackground;
-            _cardShadowImage.color = _currentTheme.CardShadow;
+            _chrome.CardImage.color = _currentTheme.CardBackground;
+            _chrome.CardShadowImage.color = _currentTheme.CardShadow;
+            _chrome.ClosePlateImage.color = _currentTheme.CardBackground;
+            _chrome.ClosePlateShadowImage.color = _currentTheme.CardShadow;
 
-            for (int inkIndex = 0; inkIndex < _inkImages.Count; inkIndex++)
+            for (int barIndex = 0; barIndex < _chrome.CloseBarImages.Count; barIndex++)
             {
-                _inkImages[inkIndex].color = _currentTheme.Ink;
+                _chrome.CloseBarImages[barIndex].color = _currentTheme.Ink;
             }
 
             RebuildHeroGlyph(objective.Definition.Type);
@@ -244,7 +229,8 @@ namespace MustyBlockBlast.Presentation.Views
                 : Color.Lerp(_currentTheme.CardBackground, _currentTheme.Ink, 0.1f);
             Color glyphInkColour = isComplete ? _currentTheme.CardBackground : _currentTheme.Ink;
 
-            _heroPlateImage.color = plateColour;
+            _chrome.HeroPlateImage.color = plateColour;
+            _chrome.HeroRingImage.color = Color.Lerp(plateColour, _currentTheme.CardBackground, 0.55f);
 
             for (int inkIndex = 0; inkIndex < _heroInkImages.Count; inkIndex++)
             {
@@ -258,11 +244,12 @@ namespace MustyBlockBlast.Presentation.Views
 
             _heroCheckMark.color = isComplete ? _currentTheme.CardBackground : Color.clear;
 
-            _headerText.color = isComplete ? _currentTheme.Accent : _currentTheme.Ink;
-            _headerText.text = FormatCounter(objective.CurrentValue, objective.Definition.TargetValue);
+            _chrome.TitleText.color = isComplete ? _currentTheme.Accent : _currentTheme.Ink;
+            _chrome.TitleText.text = _localizationSystem.Translate(
+                ObjectiveDescriptionFormatter.TitleKey(objective.Definition.Type));
 
-            _descriptionText.color = isComplete ? _currentTheme.Accent : _currentTheme.SoftInk;
-            _descriptionText.text = ObjectiveDescriptionFormatter.Describe(
+            _chrome.DescriptionText.color = isComplete ? _currentTheme.Accent : _currentTheme.SoftInk;
+            _chrome.DescriptionText.text = ObjectiveDescriptionFormatter.Describe(
                 objective.Definition, _localizationSystem, _currentTheme);
         }
 
@@ -300,20 +287,11 @@ namespace MustyBlockBlast.Presentation.Views
             else
             {
                 ObjectiveIconFactory.Build(
-                    _heroGlyphRoot, type, HERO_GLYPH_SIZE * 0.62f, _heroInkImages, _heroCoreImages);
+                    _heroGlyphRoot, type, InfoCardChrome.HERO_CONTENT_SIZE * 0.62f, _heroInkImages, _heroCoreImages);
             }
 
             _heroGlyphType = type;
             _hasHeroGlyph = true;
-        }
-
-        private string FormatCounter(int value, int total)
-        {
-            _stringBuilder.Clear();
-            _stringBuilder.Append(value);
-            _stringBuilder.Append(COUNTER_SEPARATOR);
-            _stringBuilder.Append(total);
-            return _stringBuilder.ToString();
         }
 
         private void BuildPanel()
@@ -336,69 +314,47 @@ namespace MustyBlockBlast.Presentation.Views
             scrim.color = _scrimColour;
             scrim.raycastTarget = false;
 
-            _cardRect = CellFactory.CreateCard(
-                panelRect, "ObjectiveInfoCard", _cardSize, out _cardImage, out _cardShadowImage);
+            _chrome = InfoCardChrome.Build(
+                panelRect, "ObjectiveInfoCard", _cardSize, _titleFontSize, _descriptionFontSize);
 
-            float cardHalfHeight = _cardSize.y * 0.5f;
-            float cardHalfWidth = _cardSize.x * 0.5f;
-            float headerY = cardHalfHeight - HEADER_INSET;
-
-            _headerText = CreateLabel(
-                _cardRect, "Header", _headerFontSize, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(-cardHalfWidth + SIDE_INSET, headerY));
-
-            BuildCloseButton(
-                _cardRect, new Vector2(cardHalfWidth - SIDE_INSET - (ICON_BUTTON_SIZE * 0.5f), headerY));
-
-            BuildHero(new Vector2(0f, headerY - HERO_GLYPH_SIZE));
-
-            _descriptionText = CreateLabel(
-                _cardRect, "Description", _descriptionFontSize, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(0f, -cardHalfHeight + 120f));
+            BuildHero();
 
             _panel = panelObject;
         }
 
         /// <summary>The tapped icon, repeated large: the same plate, glyph and tick the row draws, so
-        /// the card is visibly about the icon the player touched.</summary>
-        private void BuildHero(Vector2 anchoredPosition)
+        /// the card is visibly about the icon the player touched. Parented into
+        /// <see cref="InfoCardChrome.Handles.HeroContentRect"/>, which the chrome has already centred and
+        /// sized on the hero plate.</summary>
+        private void BuildHero()
         {
-            var heroObject = new GameObject("HeroIcon", typeof(RectTransform));
-            var heroRect = (RectTransform)heroObject.transform;
-            heroRect.SetParent(_cardRect, false);
-            Centre(heroRect, new Vector2(HERO_GLYPH_SIZE, HERO_GLYPH_SIZE));
-            heroRect.anchoredPosition = anchoredPosition;
-
-            var plateObject = new GameObject("Plate", typeof(RectTransform), typeof(Image));
-            var plateRect = (RectTransform)plateObject.transform;
-            plateRect.SetParent(heroRect, false);
-            Centre(plateRect, new Vector2(HERO_GLYPH_SIZE, HERO_GLYPH_SIZE));
-            _heroPlateImage = plateObject.GetComponent<Image>();
-            ConfigureRounded(_heroPlateImage);
+            RectTransform heroContentRect = _chrome.HeroContentRect;
 
             var glyphObject = new GameObject("Glyph", typeof(RectTransform));
             _heroGlyphRoot = (RectTransform)glyphObject.transform;
-            _heroGlyphRoot.SetParent(heroRect, false);
-            Centre(_heroGlyphRoot, new Vector2(HERO_GLYPH_SIZE, HERO_GLYPH_SIZE));
+            _heroGlyphRoot.SetParent(heroContentRect, false);
+            Centre(_heroGlyphRoot, new Vector2(InfoCardChrome.HERO_CONTENT_SIZE, InfoCardChrome.HERO_CONTENT_SIZE));
 
             // The authored icon, same footprint as the procedural glyph, so either can stand in for
             // the other. Full-colour illustrated art rendered as-is (white tint, not added to
             // _heroInkImages) — see RebuildHeroGlyph.
             var iconObject = new GameObject("Icon", typeof(RectTransform), typeof(Image));
             var iconRect = (RectTransform)iconObject.transform;
-            iconRect.SetParent(heroRect, false);
-            Centre(iconRect, new Vector2(HERO_GLYPH_SIZE * 0.58f, HERO_GLYPH_SIZE * 0.58f));
+            iconRect.SetParent(heroContentRect, false);
+            Centre(iconRect, new Vector2(InfoCardChrome.HERO_CONTENT_SIZE, InfoCardChrome.HERO_CONTENT_SIZE));
             _heroIconImage = iconObject.GetComponent<Image>();
             _heroIconImage.type = Image.Type.Simple;
             _heroIconImage.preserveAspect = true;
             _heroIconImage.color = Color.clear;
             _heroIconImage.raycastTarget = false;
 
+            float checkSize = InfoCardChrome.HERO_CONTENT_SIZE * 0.65f;
             var checkObject = new GameObject("CheckMark", typeof(RectTransform), typeof(Image));
             var checkRect = (RectTransform)checkObject.transform;
-            checkRect.SetParent(heroRect, false);
-            Centre(checkRect, new Vector2(HERO_GLYPH_SIZE * 0.38f, HERO_GLYPH_SIZE * 0.38f));
-            checkRect.anchoredPosition = new Vector2(HERO_GLYPH_SIZE * 0.28f, -HERO_GLYPH_SIZE * 0.28f);
+            checkRect.SetParent(heroContentRect, false);
+            Centre(checkRect, new Vector2(checkSize, checkSize));
+            checkRect.anchoredPosition = new Vector2(
+                InfoCardChrome.HERO_PLATE_SIZE * 0.28f, -InfoCardChrome.HERO_PLATE_SIZE * 0.28f);
 
             _heroCheckMark = checkObject.GetComponent<Image>();
 
@@ -409,56 +365,6 @@ namespace MustyBlockBlast.Presentation.Views
             _heroCheckMark.raycastTarget = false;
         }
 
-        /// <summary>Two bars crossed at right angles — the close glyph, as on the other cards.</summary>
-        private void BuildCloseButton(RectTransform root, Vector2 anchoredPosition)
-        {
-            const float CROSS_LENGTH = 46f;
-            const float CROSS_THICKNESS = 8f;
-
-            var closeObject = new GameObject("CloseButton", typeof(RectTransform));
-            _closeButtonRect = (RectTransform)closeObject.transform;
-            _closeButtonRect.SetParent(root, false);
-            Centre(_closeButtonRect, new Vector2(ICON_BUTTON_SIZE, ICON_BUTTON_SIZE));
-            _closeButtonRect.anchoredPosition = anchoredPosition;
-
-            for (int barIndex = 0; barIndex < 2; barIndex++)
-            {
-                var barObject = new GameObject($"CloseBar_{barIndex}", typeof(RectTransform), typeof(Image));
-                var barRect = (RectTransform)barObject.transform;
-                barRect.SetParent(_closeButtonRect, false);
-                Centre(barRect, new Vector2(CROSS_LENGTH, CROSS_THICKNESS));
-                barRect.localRotation = Quaternion.Euler(0f, 0f, barIndex == 0 ? 45f : -45f);
-
-                var barImage = barObject.GetComponent<Image>();
-                ConfigureRounded(barImage);
-                _inkImages.Add(barImage);
-            }
-        }
-
-        /// <summary>Builds a wordless label; <see cref="Refresh"/> fills every one of them in from the
-        /// model, because every label on this card carries a value.</summary>
-        private static Text CreateLabel(
-            RectTransform parent,
-            string objectName,
-            int fontSize,
-            FontStyle fontStyle,
-            TextAnchor alignment,
-            Vector2 anchoredPosition)
-        {
-            Text text = UiTextFactory.Create(parent, objectName, fontSize, fontStyle, Color.clear);
-            text.alignment = alignment;
-
-            var rect = (RectTransform)text.transform;
-
-            // Pivot on the aligned edge so the anchored position is that edge, whatever the string ends
-            // up measuring — labels overflow their rect by design (see UiTextFactory).
-            float pivotX = alignment == TextAnchor.MiddleRight ? 1f : (alignment == TextAnchor.MiddleLeft ? 0f : 0.5f);
-            rect.pivot = new Vector2(pivotX, 0.5f);
-            rect.sizeDelta = new Vector2(0f, fontSize * 1.6f);
-            rect.anchoredPosition = anchoredPosition;
-            return text;
-        }
-
         private static void Centre(RectTransform rect, Vector2 size)
         {
             rect.anchorMin = new Vector2(0.5f, 0.5f);
@@ -466,17 +372,6 @@ namespace MustyBlockBlast.Presentation.Views
             rect.pivot = new Vector2(0.5f, 0.5f);
             rect.sizeDelta = size;
             rect.anchoredPosition = Vector2.zero;
-        }
-
-        // Raycasts stay off everywhere: taps arrive through BoardInputView's pointer action, not
-        // through an EventSystem, and this scene has none.
-        private static void ConfigureRounded(Image image)
-        {
-            image.sprite = UiSpriteFactory.RoundedSquare;
-            image.type = Image.Type.Sliced;
-            image.pixelsPerUnitMultiplier = 3f;
-            image.color = Color.clear;
-            image.raycastTarget = false;
         }
     }
 }
