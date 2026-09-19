@@ -1913,7 +1913,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.ObjectiveInfoPopupView
   _cardSize: {x: 880, y: 620}
-  _headerFontSize: 56
+  _titleFontSize: 60
   _descriptionFontSize: 40
   _scrimColour: {r: 0.17, g: 0.15, b: 0.2, a: 0.55}
 --- !u!1 &1443061544
@@ -2344,6 +2344,18 @@ MonoBehaviour:
   _nodeFontSize: 48
   _descriptionFontSize: 34
   _scrimColour: {r: 0.17, g: 0.15, b: 0.2, a: 0.55}
+  _meadowHillsSprite: {fileID: 21300000, guid: f660c6dbf0f9b412a884e19f3444d167, type: 3}
+  _meadowTreeSprite: {fileID: 21300000, guid: 3183b54d16a3f4551b586a1d2feb9e0c, type: 3}
+  _meadowRiverBridgeSprite: {fileID: 21300000, guid: af2fdfced58c94265b2d3f271f5801a4, type: 3}
+  _winterMountainsSprite: {fileID: 21300000, guid: af1fb49444c694c2f8f330bdd7fd4e92, type: 3}
+  _winterPineTreeSprite: {fileID: 21300000, guid: 0f4cd5a22901f4cbf84017553fd45ac7, type: 3}
+  _winterCloudSprite: {fileID: 21300000, guid: 7a98760a119d7494190624f4e18a107d, type: 3}
+  _citySkylineSprite: {fileID: 21300000, guid: a19f3dace8f2645ceae614d7512b2195, type: 3}
+  _cityStadiumSprite: {fileID: 21300000, guid: ac2cf59e48ecb4d6aabf27f22e6cd182, type: 3}
+  _cityStreetlampSprite: {fileID: 21300000, guid: 6d34f51d508cd48099ea82f9c100e755, type: 3}
+  _neighborhoodBakerySprite: {fileID: 21300000, guid: 6dd2c3f8ab026454bad064900ed4a040, type: 3}
+  _neighborhoodSchoolSprite: {fileID: 21300000, guid: e68ecd6fc4f2d46b1bafcc9cccff85ae, type: 3}
+  _neighborhoodTreeSprite: {fileID: 21300000, guid: ce194aaf054f148b0862d0bd9c0c8f38, type: 3}
 --- !u!114 &1586123092
 MonoBehaviour:
   m_ObjectHideFlags: 0
