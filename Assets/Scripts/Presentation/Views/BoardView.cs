@@ -4,6 +4,7 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using MessagePipe;
 using MustyBlockBlast.Core;
+using MustyBlockBlast.Gameplay;
 using MustyBlockBlast.Gameplay.Messages;
 using MustyBlockBlast.Gameplay.Models;
 using MustyBlockBlast.Gameplay.Reactive;
@@ -70,6 +71,22 @@ namespace MustyBlockBlast.Presentation.Views
         [Tooltip("Total seconds spread across a single cleared line's cells when it is the only line cleared (issue #328) — cell 0 starts immediately, the line's last cell starts this many seconds later. Two or more simultaneous line clears never stagger.")]
         [SerializeField] private float _singleLineStaggerDuration = 0.15f;
 
+        [Header("Single Line Clear Effect Variety")]
+        [Tooltip("Side of one shatter shard / ember particle, as a fraction of the cell size (issue #331).")]
+        [SerializeField] private float _shatterShardSizeFraction = 0.22f;
+
+        [Tooltip("How far a shatter shard flies from the cell's centre over the fade, as a fraction of the cell size.")]
+        [SerializeField] private float _shatterFlyDistanceFraction = 0.9f;
+
+        [Tooltip("Side of one burn ember particle, as a fraction of the cell size.")]
+        [SerializeField] private float _emberSizeFraction = 0.16f;
+
+        [Tooltip("How far a burn ember drifts upward over the fade, as a fraction of the cell size.")]
+        [SerializeField] private float _emberDriftFraction = 0.6f;
+
+        [Tooltip("Smallest scale a fly-to-corner cell shrinks to just before it finishes fading.")]
+        [SerializeField] private float _flyToCornerMinScale = 0.15f;
+
         [Header("Vortex Pull")]
         [Tooltip("Seconds a block dragged by a vortex takes to slide the one cell it was pulled.")]
         [SerializeField] private float _pullDuration = 0.18f;
@@ -85,6 +102,16 @@ namespace MustyBlockBlast.Presentation.Views
         [SerializeField] private Sprite _timerIconSprite;
 
         private static readonly Color FlashTint = Color.white;
+
+        /// <summary>The colour a <see cref="SingleLineClearEffect.Burn"/> cell's fill blends towards as
+        /// it fades — a hot ember orange, so the block reads as smouldering rather than simply fading
+        /// like the plain clear.</summary>
+        private static readonly Color EmberTint = new Color(1f, 0.35f, 0.08f, 1f);
+
+        /// <summary>The colour <see cref="SingleLineClearEffect.Burn"/>'s drifting ember particles are
+        /// drawn in — brighter than <see cref="EmberTint"/> so the sparks read as hotter than the block
+        /// they left.</summary>
+        private static readonly Color EmberParticleTint = new Color(1f, 0.62f, 0.18f, 1f);
 
         /// <summary>Colour the special-cell icon is drawn in. Fixed rather than themed: it is a
         /// readability mark, not decoration, and a warm near-white reads on every theme's block fills
@@ -228,6 +255,12 @@ namespace MustyBlockBlast.Presentation.Views
 
         private RectTransform _rectTransform;
         private RectTransform _cardRoot;
+
+        /// <summary>The cell grid's own nested Canvas root (see <see cref="BuildCellLayer"/>), kept so
+        /// the single-line clear effects (issue #331) can parent their transient shard/ember visuals
+        /// alongside the cells rather than allocating a layer of their own.</summary>
+        private RectTransform _cellLayerRoot;
+
         private Canvas _canvas;
         private CellView[] _cells;
         private Image _cardImage;
@@ -401,7 +434,8 @@ namespace MustyBlockBlast.Presentation.Views
                 _cardRoot, "Well", new Vector2(wellExtent, wellExtent), Vector2.zero, WELL_CORNER_RADIUS,
                 out _wellLipImage, out _wellFaceImage);
 
-            BuildCells(BuildCellLayer(_cardRoot));
+            _cellLayerRoot = BuildCellLayer(_cardRoot);
+            BuildCells(_cellLayerRoot);
         }
 
         private void Start()
@@ -1071,6 +1105,13 @@ namespace MustyBlockBlast.Presentation.Views
             float rowStaggerStep = _width > 1 ? Mathf.Max(0f, _singleLineStaggerDuration) / (_width - 1) : 0f;
             float columnStaggerStep = _height > 1 ? Mathf.Max(0f, _singleLineStaggerDuration) / (_height - 1) : 0f;
 
+            // Issue #331: a single-line clear also gets one of at least two visual treatments, chosen
+            // uniformly at random ONCE for the whole clear event (never per cell) so every cell in the
+            // line shows the same look. Two or more simultaneous line clears keep the plain fade, same
+            // gate the stagger above uses — this is deliberately the one random call in the method, not
+            // one per cell.
+            SingleLineClearEffect? lineClearEffect = staggerSingleLine ? PickRandomSingleLineClearEffect() : null;
+
             for (int y = 0; y < _height; y++)
             {
                 for (int x = 0; x < _width; x++)
@@ -1099,7 +1140,8 @@ namespace MustyBlockBlast.Presentation.Views
                     }
 
                     PlayClearAsync(
-                            new GridPosition(x, y), index, _cellGenerations[index], inRow && inColumn, startDelay)
+                            new GridPosition(x, y), index, _cellGenerations[index], inRow && inColumn, startDelay,
+                            lineClearEffect)
                         .Forget();
                 }
             }
@@ -1124,17 +1166,46 @@ namespace MustyBlockBlast.Presentation.Views
         /// the rare case of overlap, not a correctness bug. No intersection flash — that is a
         /// two-full-lines concept, and a power-up clears a region.
         /// </para>
+        /// <para>
+        /// Issue #331 AC2: <see cref="PowerUpKind.RowClear"/> and <see cref="PowerUpKind.ColumnClear"/>
+        /// are the power-up kinds whose clear is a single row/column — the same shape of event a
+        /// placement's own single-line clear is — so they get the same per-application random effect
+        /// choice and the same left-to-right/bottom-to-top stagger <see cref="OnLinesCleared"/> gives a
+        /// placement-triggered single-line clear. Every other kind (Bomb, Joker, Color Cleanser) clears
+        /// a region rather than a line and keeps the plain simultaneous sweep it always had.
+        /// </para>
         /// </summary>
-        private void OnPowerUpApplied(PowerUpAppliedMessage message) => SweepPendingCells(message.ClearedCellCount);
+        private void OnPowerUpApplied(PowerUpAppliedMessage message)
+        {
+            bool isSingleLineClear =
+                message.Kind == PowerUpKind.RowClear || message.Kind == PowerUpKind.ColumnClear;
+            SingleLineClearEffect? effect = isSingleLineClear ? PickRandomSingleLineClearEffect() : null;
+
+            SweepPendingCells(message.ClearedCellCount, isSingleLineClear ? message.Kind : (PowerUpKind?)null, effect);
+        }
 
         /// <summary>Starts a region-clear fade on every cell still waiting for one. Shared by the
-        /// power-up and explosive-core paths, which differ only in what emptied the cells.</summary>
-        private void SweepPendingCells(int clearedCellCount)
+        /// power-up and explosive-core paths, which differ only in what emptied the cells.
+        /// <para>
+        /// <paramref name="singleLineKind"/> and <paramref name="effect"/> exist for issue #331 AC2's
+        /// Row Clear/Column Clear path only — every other caller leaves both null and gets exactly the
+        /// unstaggered, un-effected sweep this always did. When set, every swept cell is staggered by
+        /// its own x (<see cref="PowerUpKind.RowClear"/>) or y (<see cref="PowerUpKind.ColumnClear"/>),
+        /// mirroring <see cref="OnLinesCleared"/>'s stagger arithmetic exactly — a Row/Column Clear
+        /// power-up only ever has the cells of its own single target line pending at once, so sweeping
+        /// "every pending cell" this way is equivalent to staggering that one line.
+        /// </para>
+        /// </summary>
+        private void SweepPendingCells(
+            int clearedCellCount, PowerUpKind? singleLineKind = null, SingleLineClearEffect? effect = null)
         {
             if (clearedCellCount <= 0 || _cells == null)
             {
                 return;
             }
+
+            float rowStaggerStep = _width > 1 ? Mathf.Max(0f, _singleLineStaggerDuration) / (_width - 1) : 0f;
+            float columnStaggerStep = _height > 1 ? Mathf.Max(0f, _singleLineStaggerDuration) / (_height - 1) : 0f;
 
             for (int index = 0; index < _cells.Length; index++)
             {
@@ -1150,7 +1221,18 @@ namespace MustyBlockBlast.Presentation.Views
                 _cellGenerations[index]++;
 
                 var cell = new GridPosition(index % _width, index / _width);
-                PlayClearAsync(cell, index, _cellGenerations[index], false).Forget();
+
+                float startDelay = 0f;
+                if (singleLineKind == PowerUpKind.RowClear)
+                {
+                    startDelay = cell.X * rowStaggerStep;
+                }
+                else if (singleLineKind == PowerUpKind.ColumnClear)
+                {
+                    startDelay = cell.Y * columnStaggerStep;
+                }
+
+                PlayClearAsync(cell, index, _cellGenerations[index], false, startDelay, effect).Forget();
             }
         }
 
@@ -1382,11 +1464,24 @@ namespace MustyBlockBlast.Presentation.Views
             _cells[index].SetAlpha(1f);
         }
 
+        /// <summary>
+        /// Picks one of the pool of single-line clear looks uniformly at random. The one place
+        /// <see cref="UnityEngine.Random"/> is touched for issue #331 — called exactly once per
+        /// single-line clear event, by <see cref="OnLinesCleared"/> or <see cref="OnPowerUpApplied"/>,
+        /// never per cell. Presentation-only randomness: nothing here is read by or fed back into
+        /// Core/Gameplay, so it cannot affect score, timing gates or objective tracking (AC3), and
+        /// Core/Gameplay's own tests never execute this method (AC4).
+        /// </summary>
+        private static SingleLineClearEffect PickRandomSingleLineClearEffect()
+            => (SingleLineClearEffect)UnityEngine.Random.Range(0, 3);
+
         private async UniTaskVoid PlayClearAsync(
-            GridPosition cell, int index, int generation, bool isIntersection, float startDelay = 0f)
+            GridPosition cell, int index, int generation, bool isIntersection, float startDelay = 0f,
+            SingleLineClearEffect? effect = null)
         {
             CellView view = _cells[index];
             int colourId = _pendingColourIds[index];
+            bool completed;
 
             try
             {
@@ -1430,25 +1525,34 @@ namespace MustyBlockBlast.Presentation.Views
                     ApplyClearTint(view, colourId, 0f);
                 }
 
-                float fadeDuration = Mathf.Max(0.01f, _fadeDuration);
-                float fadeElapsed = 0f;
-
-                while (fadeElapsed < fadeDuration)
+                // Issue #331: WHAT a cell does once its stagger delay (and, on the rare intersection
+                // cell, its flash) is done varies by the effect chosen once for this whole clear event.
+                // No effect (multi-line clears, and every power-up kind that is not a single line) keeps
+                // exactly the plain fade this method always played.
+                switch (effect)
                 {
-                    if (_cellGenerations[index] != generation)
-                    {
-                        return;
-                    }
-
-                    view.SetAlpha(1f - EaseOutCubic(fadeElapsed / fadeDuration));
-
-                    await UniTask.Yield(PlayerLoopTiming.Update, _destroyToken);
-                    fadeElapsed += Time.unscaledDeltaTime;
+                    case SingleLineClearEffect.Shatter:
+                        completed = await PlayShatterFadeAsync(view, cell, index, generation, colourId);
+                        break;
+                    case SingleLineClearEffect.Burn:
+                        completed = await PlayBurnFadeAsync(view, cell, index, generation, colourId);
+                        break;
+                    case SingleLineClearEffect.FlyToCorner:
+                        completed = await PlayFlyToCornerFadeAsync(view, cell, index, generation);
+                        break;
+                    default:
+                        completed = await PlayPlainFadeAsync(view, index, generation);
+                        break;
                 }
             }
             catch (OperationCanceledException)
             {
                 // The board view was destroyed mid-fade — nothing left to restore.
+                return;
+            }
+
+            if (!completed)
+            {
                 return;
             }
 
@@ -1463,6 +1567,287 @@ namespace MustyBlockBlast.Presentation.Views
             ApplyCellColour(cell, Board.EMPTY);
             ApplyCellIcon(index, _cellSpecialKinds[index]);
             view.SetAlpha(1f);
+        }
+
+        /// <summary>The plain opacity fade every clear played before issue #331, and what every clear
+        /// with no chosen effect (multi-line clears, region-clearing power-ups) still plays. Returns
+        /// false the instant a newer write claims the cell mid-fade, so the caller knows not to settle
+        /// it.</summary>
+        private async UniTask<bool> PlayPlainFadeAsync(CellView view, int index, int generation)
+        {
+            float fadeDuration = Mathf.Max(0.01f, _fadeDuration);
+            float fadeElapsed = 0f;
+
+            while (fadeElapsed < fadeDuration)
+            {
+                if (_cellGenerations[index] != generation)
+                {
+                    return false;
+                }
+
+                view.SetAlpha(1f - EaseOutCubic(fadeElapsed / fadeDuration));
+
+                await UniTask.Yield(PlayerLoopTiming.Update, _destroyToken);
+                fadeElapsed += Time.unscaledDeltaTime;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// <see cref="SingleLineClearEffect.Shatter"/>: the cell plays its ordinary opacity fade while
+        /// a handful of shards — <see cref="UiSpriteFactory.RoundedSquare"/> tinted the cell's own fill
+        /// — fly outward from its centre and fade on their own, independent, fire-and-forget timeline
+        /// (<see cref="SpawnShatterShardsAsync"/>). The cell's own fade is the timeline the caller
+        /// tracks for cancellability; the shards are decorative and never write back to cell state.
+        /// </summary>
+        private async UniTask<bool> PlayShatterFadeAsync(
+            CellView view, GridPosition cell, int index, int generation, int colourId)
+        {
+            SpawnShatterShardsAsync(cell, colourId).Forget();
+            return await PlayPlainFadeAsync(view, index, generation);
+        }
+
+        /// <summary>
+        /// <see cref="SingleLineClearEffect.Burn"/>: the cell's fill blends towards
+        /// <see cref="EmberTint"/> as it fades — reusing <see cref="ApplyClearTint"/>'s blend, the same
+        /// idiom the intersection flash already uses — while a couple of ember particles drift upward
+        /// off it on their own fire-and-forget timeline (<see cref="SpawnEmberParticlesAsync"/>).
+        /// </summary>
+        private async UniTask<bool> PlayBurnFadeAsync(
+            CellView view, GridPosition cell, int index, int generation, int colourId)
+        {
+            SpawnEmberParticlesAsync(cell).Forget();
+
+            float fadeDuration = Mathf.Max(0.01f, _fadeDuration);
+            float fadeElapsed = 0f;
+
+            while (fadeElapsed < fadeDuration)
+            {
+                if (_cellGenerations[index] != generation)
+                {
+                    return false;
+                }
+
+                float t = fadeElapsed / fadeDuration;
+                ApplyClearTint(view, colourId, t, EmberTint);
+                view.SetAlpha(1f - EaseOutCubic(t));
+
+                await UniTask.Yield(PlayerLoopTiming.Update, _destroyToken);
+                fadeElapsed += Time.unscaledDeltaTime;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// <see cref="SingleLineClearEffect.FlyToCorner"/>: the cell's own rect shrinks and slides
+        /// towards whichever board corner it is already closest to (its quadrant relative to the
+        /// grid's centre), fading as it goes, instead of fading in place. The rect is always restored
+        /// to its layout position and scale before this returns — on early cancellation as much as on
+        /// a full run — because the cell is reused by whatever the model puts there next and nothing
+        /// else resets a cell's transform (unlike <see cref="PlayPullAsync"/>'s slide, which always
+        /// lands back on a layout position it owns for its whole duration).
+        /// </summary>
+        private async UniTask<bool> PlayFlyToCornerFadeAsync(
+            CellView view, GridPosition cell, int index, int generation)
+        {
+            var rect = (RectTransform)view.transform;
+            Vector2 start = CellAnchoredPosition(cell);
+            float halfExtent = _gridExtent * 0.5f;
+            var target = new Vector2(
+                start.x >= 0f ? halfExtent : -halfExtent, start.y >= 0f ? halfExtent : -halfExtent);
+            float minScale = Mathf.Clamp01(_flyToCornerMinScale);
+
+            float fadeDuration = Mathf.Max(0.01f, _fadeDuration);
+            float fadeElapsed = 0f;
+            bool completed = true;
+
+            try
+            {
+                while (fadeElapsed < fadeDuration)
+                {
+                    if (_cellGenerations[index] != generation)
+                    {
+                        completed = false;
+                        break;
+                    }
+
+                    float t = EaseOutCubic(fadeElapsed / fadeDuration);
+                    rect.anchoredPosition = Vector2.LerpUnclamped(start, target, t);
+                    rect.localScale = Vector3.one * Mathf.Lerp(1f, minScale, t);
+                    view.SetAlpha(1f - t);
+
+                    await UniTask.Yield(PlayerLoopTiming.Update, _destroyToken);
+                    fadeElapsed += Time.unscaledDeltaTime;
+                }
+            }
+            finally
+            {
+                if (!_isDestroyed)
+                {
+                    rect.anchoredPosition = start;
+                    rect.localScale = Vector3.one;
+                }
+            }
+
+            return completed;
+        }
+
+        /// <summary>
+        /// Fire-and-forget shard burst for <see cref="PlayShatterFadeAsync"/>: four small
+        /// <see cref="UiSpriteFactory.RoundedSquare"/> copies, tinted the cell's own fill, flying to the
+        /// four diagonals from the cell's centre and fading over one fade duration. Parented to
+        /// <see cref="_cellLayerRoot"/> rather than to the cell itself so the shards' own transform is
+        /// independent of whatever the cell's rect does (a fly-to-corner effect on a neighbouring cell,
+        /// a later placement snapping this cell back) — never generation-checked because they touch no
+        /// cell state and outlive the cell's own fade being cancelled or not on purpose.
+        /// </summary>
+        private async UniTaskVoid SpawnShatterShardsAsync(GridPosition cell, int colourId)
+        {
+            if (_cellLayerRoot == null || _currentTheme == null)
+            {
+                return;
+            }
+
+            Vector2 basePosition = CellAnchoredPosition(cell);
+            float size = _cellSize * Mathf.Max(0.01f, _shatterShardSizeFraction);
+            float flyDistance = _cellSize * Mathf.Max(0f, _shatterFlyDistanceFraction);
+            float duration = Mathf.Max(0.01f, _fadeDuration);
+            Color tint = colourId == Board.EMPTY ? _currentTheme.EmptyCellFill : _currentTheme.GetFill(colourId);
+
+            RectTransform shardNE = CreateEffectParticle(basePosition, size, tint);
+            RectTransform shardNW = CreateEffectParticle(basePosition, size, tint);
+            RectTransform shardSE = CreateEffectParticle(basePosition, size, tint);
+            RectTransform shardSW = CreateEffectParticle(basePosition, size, tint);
+
+            Image imageNE = shardNE.GetComponent<Image>();
+            Image imageNW = shardNW.GetComponent<Image>();
+            Image imageSE = shardSE.GetComponent<Image>();
+            Image imageSW = shardSW.GetComponent<Image>();
+
+            Vector2 dirNE = new Vector2(1f, 1f).normalized;
+            Vector2 dirNW = new Vector2(-1f, 1f).normalized;
+            Vector2 dirSE = new Vector2(1f, -1f).normalized;
+            Vector2 dirSW = new Vector2(-1f, -1f).normalized;
+
+            try
+            {
+                float elapsed = 0f;
+                while (elapsed < duration)
+                {
+                    float t = elapsed / duration;
+                    float travel = flyDistance * EaseOutCubic(t);
+                    float alpha = 1f - t;
+
+                    shardNE.anchoredPosition = basePosition + (dirNE * travel);
+                    shardNW.anchoredPosition = basePosition + (dirNW * travel);
+                    shardSE.anchoredPosition = basePosition + (dirSE * travel);
+                    shardSW.anchoredPosition = basePosition + (dirSW * travel);
+
+                    SetImageAlpha(imageNE, alpha);
+                    SetImageAlpha(imageNW, alpha);
+                    SetImageAlpha(imageSE, alpha);
+                    SetImageAlpha(imageSW, alpha);
+
+                    await UniTask.Yield(PlayerLoopTiming.Update, _destroyToken);
+                    elapsed += Time.unscaledDeltaTime;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // The board view was destroyed mid-burst — the shards are going with it.
+            }
+            finally
+            {
+                Destroy(shardNE.gameObject);
+                Destroy(shardNW.gameObject);
+                Destroy(shardSE.gameObject);
+                Destroy(shardSW.gameObject);
+            }
+        }
+
+        /// <summary>
+        /// Fire-and-forget ember drift for <see cref="PlayBurnFadeAsync"/>: two small
+        /// <see cref="UiSpriteFactory.RoundedSquare"/> copies, tinted <see cref="EmberParticleTint"/>,
+        /// drifting straight up off the cell and fading over one fade duration. See
+        /// <see cref="SpawnShatterShardsAsync"/> for why this is parented independently and never
+        /// generation-checked.
+        /// </summary>
+        private async UniTaskVoid SpawnEmberParticlesAsync(GridPosition cell)
+        {
+            if (_cellLayerRoot == null)
+            {
+                return;
+            }
+
+            Vector2 basePosition = CellAnchoredPosition(cell);
+            float size = _cellSize * Mathf.Max(0.01f, _emberSizeFraction);
+            float driftDistance = _cellSize * Mathf.Max(0f, _emberDriftFraction);
+            float duration = Mathf.Max(0.01f, _fadeDuration);
+
+            Vector2 startA = basePosition + new Vector2(-size * 0.7f, 0f);
+            Vector2 startB = basePosition + new Vector2(size * 0.7f, 0f);
+            RectTransform emberA = CreateEffectParticle(startA, size, EmberParticleTint);
+            RectTransform emberB = CreateEffectParticle(startB, size, EmberParticleTint);
+            Image imageA = emberA.GetComponent<Image>();
+            Image imageB = emberB.GetComponent<Image>();
+
+            try
+            {
+                float elapsed = 0f;
+                while (elapsed < duration)
+                {
+                    float t = elapsed / duration;
+                    float rise = driftDistance * t;
+                    float alpha = 1f - t;
+
+                    emberA.anchoredPosition = startA + new Vector2(0f, rise);
+                    emberB.anchoredPosition = startB + new Vector2(0f, rise);
+                    SetImageAlpha(imageA, alpha);
+                    SetImageAlpha(imageB, alpha);
+
+                    await UniTask.Yield(PlayerLoopTiming.Update, _destroyToken);
+                    elapsed += Time.unscaledDeltaTime;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // The board view was destroyed mid-drift — the embers are going with it.
+            }
+            finally
+            {
+                Destroy(emberA.gameObject);
+                Destroy(emberB.gameObject);
+            }
+        }
+
+        /// <summary>One small square Image, shared shape for every shatter shard and burn ember —
+        /// <see cref="UiSpriteFactory.RoundedSquare"/> so it costs no new texture, sliced so its corner
+        /// radius holds at any size. Parented to <see cref="_cellLayerRoot"/> and left for its spawner
+        /// to destroy once its own timeline ends.</summary>
+        private RectTransform CreateEffectParticle(Vector2 position, float size, Color tint)
+        {
+            var particleObject = new GameObject("LineClearParticle", typeof(RectTransform), typeof(Image));
+            var rect = (RectTransform)particleObject.transform;
+            rect.SetParent(_cellLayerRoot, false);
+            rect.sizeDelta = new Vector2(size, size);
+            rect.anchoredPosition = position;
+
+            Image image = particleObject.GetComponent<Image>();
+            image.sprite = UiSpriteFactory.RoundedSquare;
+            image.type = Image.Type.Sliced;
+            image.raycastTarget = false;
+            image.color = tint;
+
+            return rect;
+        }
+
+        private static void SetImageAlpha(Image image, float alpha)
+        {
+            Color colour = image.color;
+            colour.a = alpha;
+            image.color = colour;
         }
 
         /// <summary>Adopts a new theme: repaints the card and every cell already on the board, so a
@@ -1635,7 +2020,15 @@ namespace MustyBlockBlast.Presentation.Views
 
         /// <summary>Draws a clearing cell blended towards the flash tint, keeping it on the same
         /// layer set it was already showing so the fade never switches looks mid-flight.</summary>
-        private void ApplyClearTint(CellView view, int colourId, float blend)
+        private void ApplyClearTint(CellView view, int colourId, float blend) => ApplyClearTint(view, colourId, blend, FlashTint);
+
+        /// <summary>
+        /// As the two-argument overload, but blending towards <paramref name="targetTint"/> instead of
+        /// the fixed <see cref="FlashTint"/> white — issue #331's <see cref="SingleLineClearEffect.Burn"/>
+        /// reuses this exact blend idiom to tint a cell towards <see cref="EmberTint"/> as it fades,
+        /// rather than towards white for an instant then back.
+        /// </summary>
+        private void ApplyClearTint(CellView view, int colourId, float blend, Color targetTint)
         {
             if (_currentTheme == null)
             {
@@ -1645,15 +2038,15 @@ namespace MustyBlockBlast.Presentation.Views
             if (colourId == Board.EMPTY)
             {
                 view.SetColours(
-                    Color.Lerp(_currentTheme.EmptyCellFill, FlashTint, blend),
-                    Color.Lerp(_currentTheme.EmptyCellOutline, FlashTint, blend));
+                    Color.Lerp(_currentTheme.EmptyCellFill, targetTint, blend),
+                    Color.Lerp(_currentTheme.EmptyCellOutline, targetTint, blend));
                 return;
             }
 
             view.SetEmbossedColours(
-                Color.Lerp(_currentTheme.GetFill(colourId), FlashTint, blend),
-                Color.Lerp(_currentTheme.GetHighlight(colourId), FlashTint, blend),
-                Color.Lerp(_currentTheme.GetShade(colourId), FlashTint, blend));
+                Color.Lerp(_currentTheme.GetFill(colourId), targetTint, blend),
+                Color.Lerp(_currentTheme.GetHighlight(colourId), targetTint, blend),
+                Color.Lerp(_currentTheme.GetShade(colourId), targetTint, blend));
         }
     }
 }
