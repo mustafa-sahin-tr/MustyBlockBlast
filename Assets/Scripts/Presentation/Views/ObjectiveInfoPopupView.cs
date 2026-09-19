@@ -291,8 +291,11 @@ namespace MustyBlockBlast.Presentation.Views
             Sprite authoredIcon = _iconCatalog != null ? _iconCatalog.Find(type) : null;
             if (authoredIcon != null)
             {
+                // Full-colour illustrated art (issue #322): rendered as-is, exactly like
+                // InfoPopupView.Refresh() does for its own full-colour PowerUp/Hold icons. NOT added
+                // to _heroInkImages, so Refresh() never flattens it with the theme's ink colour.
                 _heroIconImage.sprite = authoredIcon;
-                _heroInkImages.Add(_heroIconImage);
+                _heroIconImage.color = Color.white;
             }
             else
             {
@@ -378,8 +381,9 @@ namespace MustyBlockBlast.Presentation.Views
             _heroGlyphRoot.SetParent(heroRect, false);
             Centre(_heroGlyphRoot, new Vector2(HERO_GLYPH_SIZE, HERO_GLYPH_SIZE));
 
-            // The authored silhouette, same footprint as the procedural glyph, so either can stand in
-            // for the other. Tinted with the ink colour through _heroInkImages while in use.
+            // The authored icon, same footprint as the procedural glyph, so either can stand in for
+            // the other. Full-colour illustrated art rendered as-is (white tint, not added to
+            // _heroInkImages) — see RebuildHeroGlyph.
             var iconObject = new GameObject("Icon", typeof(RectTransform), typeof(Image));
             var iconRect = (RectTransform)iconObject.transform;
             iconRect.SetParent(heroRect, false);

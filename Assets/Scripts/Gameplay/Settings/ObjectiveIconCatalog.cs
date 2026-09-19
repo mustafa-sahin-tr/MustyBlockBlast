@@ -6,9 +6,9 @@ using UnityEngine;
 namespace MustyBlockBlast.Gameplay.Settings
 {
     /// <summary>
-    /// The authored glyph for each <see cref="ObjectiveType"/>: white-on-transparent silhouettes that
-    /// the objective HUD row and the objective info card tint from the theme at runtime, the same way
-    /// <see cref="BadgeConfig.Icon"/> feeds the badge wall.
+    /// The authored glyph for each <see cref="ObjectiveType"/>: full-colour illustrated art (issue
+    /// #322), rendered as-is by the objective info card — no runtime tint, unlike
+    /// <see cref="BadgeConfig.Icon"/>'s theme-tinted badge wall.
     /// <para>
     /// A type with no entry (or an entry with no sprite) is not an error: the views fall back to the
     /// procedural glyph they drew before any art existed, so authoring can lag behind new objective
@@ -24,7 +24,7 @@ namespace MustyBlockBlast.Gameplay.Settings
             [Tooltip("The objective type this glyph stands for.")]
             [SerializeField] private ObjectiveType _type = ObjectiveType.SimultaneousLineClear;
 
-            [Tooltip("White-on-transparent silhouette, tinted at runtime from the theme.")]
+            [Tooltip("Full-colour illustrated icon, rendered as-is (no runtime tint).")]
             [SerializeField] private Sprite _icon;
 
             internal ObjectiveType Type => _type;
