@@ -49,9 +49,9 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>#E0A72E — İlkbahar accent, the "TIME RUSH" pill.</summary>
         private static readonly Color Accent = new Color32(224, 167, 46, 255);
 
-        /// <summary>İlkbahar kind 1 (coral) and kind 2 (teal): the icon's L mark.</summary>
-        private static readonly Color CoralTile = new Color32(232, 120, 90, 255);
-        private static readonly Color TealTile = new Color32(111, 184, 176, 255);
+        /// <summary>The icon's L mark, in the classic red-yellow-blue palette (issue #327).</summary>
+        private static readonly Color RedTile = new Color32(229, 57, 53, 255);
+        private static readonly Color BlueTile = new Color32(30, 136, 229, 255);
 
         [Header("Fonts")]
         [Tooltip("Display face for the wordmark and the TIME RUSH pill (Bowlby One SC). Falls back to the builtin font.")]
@@ -72,7 +72,7 @@ namespace MustyBlockBlast.Presentation.Views
             BuildSubtitlePill(cardRect);
         }
 
-        /// <summary>The sunken well with the icon's mark: three coral tiles in an L plus one teal tile.</summary>
+        /// <summary>The sunken well with the icon's mark: three red tiles in an L plus one blue tile.</summary>
         private static void BuildMark(RectTransform cardRect)
         {
             RectTransform wellRect = HudChrome.BuildWell(
@@ -83,10 +83,10 @@ namespace MustyBlockBlast.Presentation.Views
 
             // Three rows centred on the well: the L's column sits half a step left, its foot half a step right.
             float half = TILE_STEP * 0.5f;
-            HudChrome.BuildBlock(wellRect, "Tile_TopLeft", TILE_SIZE, new Vector2(-half, TILE_STEP), TILE_RADIUS, TILE_BEVEL, CoralTile);
-            HudChrome.BuildBlock(wellRect, "Tile_MidLeft", TILE_SIZE, new Vector2(-half, 0f), TILE_RADIUS, TILE_BEVEL, CoralTile);
-            HudChrome.BuildBlock(wellRect, "Tile_BottomLeft", TILE_SIZE, new Vector2(-half, -TILE_STEP), TILE_RADIUS, TILE_BEVEL, CoralTile);
-            HudChrome.BuildBlock(wellRect, "Tile_BottomRight", TILE_SIZE, new Vector2(half, -TILE_STEP), TILE_RADIUS, TILE_BEVEL, TealTile);
+            HudChrome.BuildBlock(wellRect, "Tile_TopLeft", TILE_SIZE, new Vector2(-half, TILE_STEP), TILE_RADIUS, TILE_BEVEL, RedTile);
+            HudChrome.BuildBlock(wellRect, "Tile_MidLeft", TILE_SIZE, new Vector2(-half, 0f), TILE_RADIUS, TILE_BEVEL, RedTile);
+            HudChrome.BuildBlock(wellRect, "Tile_BottomLeft", TILE_SIZE, new Vector2(-half, -TILE_STEP), TILE_RADIUS, TILE_BEVEL, RedTile);
+            HudChrome.BuildBlock(wellRect, "Tile_BottomRight", TILE_SIZE, new Vector2(half, -TILE_STEP), TILE_RADIUS, TILE_BEVEL, BlueTile);
         }
 
         private void BuildWordmark(RectTransform cardRect)
