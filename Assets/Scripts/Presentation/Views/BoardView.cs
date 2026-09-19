@@ -67,6 +67,9 @@ namespace MustyBlockBlast.Presentation.Views
         [Tooltip("Seconds of white flash on a cell that sits on both a cleared row and a cleared column.")]
         [SerializeField] private float _intersectionFlashDuration = 0.08f;
 
+        [Tooltip("Total seconds spread across a single cleared line's cells when it is the only line cleared (issue #328) — cell 0 starts immediately, the line's last cell starts this many seconds later. Two or more simultaneous line clears never stagger.")]
+        [SerializeField] private float _singleLineStaggerDuration = 0.15f;
+
         [Header("Vortex Pull")]
         [Tooltip("Seconds a block dragged by a vortex takes to slide the one cell it was pulled.")]
         [SerializeField] private float _pullDuration = 0.18f;
@@ -1056,6 +1059,18 @@ namespace MustyBlockBlast.Presentation.Views
                 }
             }
 
+            // Issue #328: stagger a single cleared line's cells left-to-right (row) or bottom-to-top
+            // (column, Y increases upward — see the cell layout in InitializeBoard) instead of fading
+            // all 8 at once. Only exactly one line clearing qualifies — two or more must keep the
+            // existing simultaneous fade (AC3), which is also why this can never coincide with the
+            // intersection flash below: a lone row leaves every column mask false, so inRow && inColumn
+            // is always false here.
+            bool staggerSingleLine = message.LineCount == 1;
+            int staggerRowY = staggerSingleLine && rows.Count == 1 ? rows[0] : -1;
+            int staggerColumnX = staggerSingleLine && columns.Count == 1 ? columns[0] : -1;
+            float rowStaggerStep = _width > 1 ? Mathf.Max(0f, _singleLineStaggerDuration) / (_width - 1) : 0f;
+            float columnStaggerStep = _height > 1 ? Mathf.Max(0f, _singleLineStaggerDuration) / (_height - 1) : 0f;
+
             for (int y = 0; y < _height; y++)
             {
                 for (int x = 0; x < _width; x++)
@@ -1073,7 +1088,18 @@ namespace MustyBlockBlast.Presentation.Views
                         continue;
                     }
 
-                    PlayClearAsync(new GridPosition(x, y), index, _cellGenerations[index], inRow && inColumn)
+                    float startDelay = 0f;
+                    if (staggerRowY == y)
+                    {
+                        startDelay = x * rowStaggerStep;
+                    }
+                    else if (staggerColumnX == x)
+                    {
+                        startDelay = y * columnStaggerStep;
+                    }
+
+                    PlayClearAsync(
+                            new GridPosition(x, y), index, _cellGenerations[index], inRow && inColumn, startDelay)
                         .Forget();
                 }
             }
@@ -1356,13 +1382,26 @@ namespace MustyBlockBlast.Presentation.Views
             _cells[index].SetAlpha(1f);
         }
 
-        private async UniTaskVoid PlayClearAsync(GridPosition cell, int index, int generation, bool isIntersection)
+        private async UniTaskVoid PlayClearAsync(
+            GridPosition cell, int index, int generation, bool isIntersection, float startDelay = 0f)
         {
             CellView view = _cells[index];
             int colourId = _pendingColourIds[index];
 
             try
             {
+                float delayElapsed = 0f;
+                while (delayElapsed < startDelay)
+                {
+                    if (_cellGenerations[index] != generation)
+                    {
+                        return;
+                    }
+
+                    await UniTask.Yield(PlayerLoopTiming.Update, _destroyToken);
+                    delayElapsed += Time.unscaledDeltaTime;
+                }
+
                 if (isIntersection)
                 {
                     float flashDuration = Mathf.Max(0.01f, _intersectionFlashDuration);
