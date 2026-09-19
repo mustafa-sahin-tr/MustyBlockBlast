@@ -316,10 +316,9 @@ namespace MustyBlockBlast.Presentation.Views
         private Canvas _canvas;
 
         /// <summary>
-        /// Guards the Remove Ads button against a second tap while a store prompt is already up. The
-        /// same guard <see cref="CoinConversionView"/> keeps over its bundle strip, and for the same
-        /// reason: a store prompt is modal and slow, and a second overlapping order is one the store
-        /// would only refuse.
+        /// Guards the Remove Ads button against a second tap while a store prompt is already up: a
+        /// store prompt is modal and slow, and a second overlapping order is one the store would only
+        /// refuse.
         /// </summary>
         private bool _isPurchasingRemoveAds;
 

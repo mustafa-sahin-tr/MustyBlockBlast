@@ -501,9 +501,8 @@ namespace MustyBlockBlast.Presentation
             builder.Register<PowerUpSystem>(Lifetime.Singleton).AsSelf();
 
             // Owns the currency slice of ProfileModel and is the only writer of it, so it is bound next
-            // to the coin reward source it grants through. AsSelf because CoinConversionView and
-            // PowerUpShopView both ask for the concrete system — there is no second implementation to
-            // hide behind an interface.
+            // to the coin reward source it grants through. AsSelf because PowerUpShopView asks for the
+            // concrete system — there is no second implementation to hide behind an interface.
             //
             // After PowerUpSystem for the same readability reason: it takes that system as a
             // constructor dependency (a coin purchase is a debit here and a grant there), so the
@@ -615,7 +614,6 @@ namespace MustyBlockBlast.Presentation
             // next level actions together. Opens on GameOverMessage; BoardInputView routes every tap
             // into it while it is up and carries out the action it resolves.
             builder.RegisterComponentInHierarchy<RunResultView>();
-            builder.RegisterComponentInHierarchy<CoinConversionView>();
             builder.RegisterComponentInHierarchy<BoardInputView>();
             builder.RegisterComponentInHierarchy<SfxPlayerView>();
             builder.RegisterComponentInHierarchy<MusicPlayerView>();

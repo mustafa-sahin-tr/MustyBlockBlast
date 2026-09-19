@@ -30,7 +30,7 @@ namespace MustyBlockBlast.Presentation.Views
     /// prompt in front of it would make changing mode cost money to get out of.
     /// </para>
     /// <para>
-    /// The quantity picker is <see cref="CoinConversionView"/>'s stepper, and for the same reason: the
+    /// The quantity picker is a stepper like the shop's Coins tab uses, and for the same reason: the
     /// pending figure is a picker position and nothing else, so no System and no Model has any use for
     /// it until it is committed. It is clamped live to both bounds that matter — the configured ceiling
     /// and what the balance can actually cover — so the card can never offer a quantity the purchase
@@ -82,9 +82,9 @@ namespace MustyBlockBlast.Presentation.Views
 
         private static readonly Vector2 WideButtonSize = new Vector2(620f, 100f);
 
-        // Plain strings, not String Table keys, for the reason CoinConversionView and PowerUpShopView
-        // state: LocalizationKeys has no currency section yet, and adding keys with no translations
-        // behind them would render the keys themselves. Tracked for a follow-up.
+        // Plain strings, not String Table keys, for the reason PowerUpShopView states: LocalizationKeys
+        // has no currency section yet, and adding keys with no translations behind them would render
+        // the keys themselves. Tracked for a follow-up.
         private const string HEADER_TEXT = "COIN SOWER";
         private const string LEVEL_PREFIX_TEXT = "Level ";
         private const string COIN_BALANCE_PREFIX_TEXT = "Coins: ";
@@ -161,8 +161,7 @@ namespace MustyBlockBlast.Presentation.Views
         private int _pendingLevelNumber;
 
         /// <summary>
-        /// Coin cells the Start button would buy. A picker position and nothing else, exactly as
-        /// <see cref="CoinConversionView"/>'s pending amount is, and clamped to
+        /// Coin cells the Start button would buy. A picker position and nothing else, clamped to
         /// <see cref="MaxAffordableQuantity"/> on every repaint so a balance shrinking under it can never
         /// leave it offering more than the player can pay for.
         /// </summary>

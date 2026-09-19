@@ -224,9 +224,9 @@ namespace MustyBlockBlast.Presentation.Views
         /// lands on what the player would pay.</summary>
         private const float WAS_PRICE_ALPHA = 0.7f;
 
-        // Plain strings, not String Table keys, for the reason CoinConversionView states: LocalizationKeys
-        // has no currency section yet, and adding keys with no translations behind them would render
-        // the keys themselves. Tracked for a follow-up.
+        // Plain strings, not String Table keys: LocalizationKeys has no currency section yet, and
+        // adding keys with no translations behind them would render the keys themselves. Tracked for a
+        // follow-up.
         private const string HEADER_TEXT = "POWER-UP SHOP";
         private const string TAB_POWER_UPS_TEXT = "POWER-UPS";
         private const string TAB_COINS_TEXT = "COINS";

@@ -98,7 +98,6 @@ namespace MustyBlockBlast.Presentation.Views
         private LevelPathPanelView _levelPathPanelView;
         private CoinSowerPickerView _coinSowerPickerView;
         private RunResultView _runResultView;
-        private CoinConversionView _coinConversionView;
         private CoinTotalHudView _coinTotalHudView;
         private PowerUpInventoryView _powerUpInventoryView;
         private ObjectiveIconContainerView _objectiveIconContainerView;
@@ -184,7 +183,6 @@ namespace MustyBlockBlast.Presentation.Views
             LevelPathPanelView levelPathPanelView,
             CoinSowerPickerView coinSowerPickerView,
             RunResultView runResultView,
-            CoinConversionView coinConversionView,
             CoinTotalHudView coinTotalHudView,
             PowerUpInventoryView powerUpInventoryView,
             ObjectiveIconContainerView objectiveIconContainerView,
@@ -209,7 +207,6 @@ namespace MustyBlockBlast.Presentation.Views
             _levelPathPanelView = levelPathPanelView;
             _coinSowerPickerView = coinSowerPickerView;
             _runResultView = runResultView;
-            _coinConversionView = coinConversionView;
             _coinTotalHudView = coinTotalHudView;
             _powerUpInventoryView = powerUpInventoryView;
             _objectiveIconContainerView = objectiveIconContainerView;
@@ -370,21 +367,10 @@ namespace MustyBlockBlast.Presentation.Views
         {
             Vector2 screenPosition = _pointerPositionAction.ReadValue<Vector2>();
 
-            // The conversion card sits above every other gate, the hub's included: it is opened from
-            // the shop tab, so the hub is still open underneath it, and the hub's own router would
-            // otherwise swallow every tap meant for the card. Its scrim tap closes it and hands the next
-            // tap back to the hub below.
-            if (_coinConversionView.IsOpen)
-            {
-                _coinConversionView.HandleTap(screenPosition);
-                return;
-            }
-
-            // Same reasoning as the conversion card just above, and for the same reason: this can now
-            // open from a tap on a power-up's icon inside the Power-up Shop tab, so the hub is still
-            // open underneath it. Checked before the hub's own gate so a tap on this card's close cross
-            // reaches it instead of being swallowed by the hub's router first (that was a real bug —
-            // the close cross did nothing while the shop was open behind it, because the hub gate below
+            // This can open from a tap on a power-up's icon inside the Power-up Shop tab, so the hub is
+            // still open underneath it. Checked before the hub's own gate so a tap on this card's close
+            // cross reaches it instead of being swallowed by the hub's router first (that was a real bug
+            // — the close cross did nothing while the shop was open behind it, because the hub gate below
             // used to run first and never returned control here).
             if (_infoPopupView.IsOpen)
             {
