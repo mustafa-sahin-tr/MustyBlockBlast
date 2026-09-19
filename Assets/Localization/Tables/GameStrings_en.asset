@@ -519,7 +519,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300676
-    m_Localized: Instantly clears the whole column it's used on. Tap a column to use it.
+    m_Localized: Instantly clears every block in the column you choose, whether or not that column was already full. Arm it by tapping its icon, then tap the column you want cleared.
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300675
@@ -527,7 +527,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300674
-    m_Localized: Instantly clears the whole row it's used on. Tap a row to use it.
+    m_Localized: Instantly clears every block in the row you choose, whether or not that row was already full. Arm it by tapping its icon, then tap the row you want cleared.
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300673
@@ -539,11 +539,11 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1869058130567172
-    m_Localized: Drag a piece here to save it for later. Drag it back out any time.
+    m_Localized: "If you don't want to place a dock piece right now, drag it here to hold it for later. When you need it, drag it back out onto the board \u2014 the pocket holds only one piece at a time."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300672
-    m_Localized: Instantly clears the 3x3 area around it. Tap anywhere on the board to use it.
+    m_Localized: Destroys every block in the 3x3 area centred on the cell you choose. Tap its icon to arm it, then tap anywhere on the board to detonate it there.
     m_Metadata:
       m_Items: []
   - m_Id: 1892479841329152
@@ -555,7 +555,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300678
-    m_Localized: Places a single block that matches any colour, instantly clearing any row or column it completes.
+    m_Localized: "Gives you a special single block that counts as any colour. Drag and place it like a normal piece \u2014 any row or column it completes clears instantly."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300679
@@ -563,7 +563,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300680
-    m_Localized: Instantly clears every block of one colour you choose from the board.
+    m_Localized: "Lets you pick one of the colours currently on the board \u2014 every block of that colour disappears at once, wherever it sits."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300681
@@ -571,7 +571,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300682
-    m_Localized: Lets you rotate a dock piece 90 degrees before placing it.
+    m_Localized: Choose one of your dock pieces and rotate it 90 degrees before placing it, so it fits the board better.
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300683
@@ -579,7 +579,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300684
-    m_Localized: Replaces all three dock pieces with new ones.
+    m_Localized: If none of your current dock pieces are useful, this swaps all three for a fresh, random set in one go.
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300685
@@ -587,7 +587,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300686
-    m_Localized: Doubles the score you earn for a limited time.
+    m_Localized: "Once activated, every point you score is doubled for a limited window \u2014 time it for your biggest scoring moves."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300687
@@ -595,7 +595,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300688
-    m_Localized: Shows the best spot on the board for one of your dock pieces as a ghost outline.
+    m_Localized: "Pick one of your dock pieces and it highlights the best spot for it on the board as a ghostly outline \u2014 just drag the piece there."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300689
@@ -603,7 +603,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300690
-    m_Localized: "Scatters random coin cells across the board \u2014 clear them to earn coins."
+    m_Localized: Scatters coin icons across random cells on the board. Clear those cells by completing their row or column to collect the coins.
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300691
@@ -611,7 +611,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300692
-    m_Localized: When destroyed, it blasts the cells around it too.
+    m_Localized: When a line clear destroys this cell, it also blasts the cells right around it, kicking off a chain of extra clearing.
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300693
@@ -619,7 +619,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300694
-    m_Localized: When destroyed, it clears its entire row and column.
+    m_Localized: The instant this cell is destroyed, it wipes its entire row and column from edge to edge, full or not.
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300695
@@ -627,7 +627,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300696
-    m_Localized: Pulls the blocks around it toward its centre. Place a piece on it to clear it.
+    m_Localized: Slowly pulls the filled cells around it toward its own centre. Place a piece directly on it to destroy it.
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300697
@@ -635,7 +635,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300698
-    m_Localized: When destroyed, it jumps to nearby special cells and triggers them too.
+    m_Localized: "When destroyed, it jumps to any special cells nearby and triggers them early too \u2014 it can set off a whole chain of special cells."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300699
@@ -643,7 +643,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300700
-    m_Localized: Awards bonus points when destroyed.
+    m_Localized: When a line clear destroys this cell, you earn bonus points on top of the normal score for that clear.
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300701
@@ -651,7 +651,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300702
-    m_Localized: Awards a coin when destroyed.
+    m_Localized: Destroy this cell by clearing its row or column and you automatically earn a coin.
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300703
@@ -659,7 +659,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300704
-    m_Localized: "Earned with a five-streak combo. Plays like an ordinary piece \u2014 a visual reward."
+    m_Localized: "Added to your dock when you land a five-move combo streak of line clears. It plays exactly like an ordinary single block \u2014 it's purely a visual reward for the streak."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300705
@@ -667,7 +667,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300706
-    m_Localized: Earned by clearing three or more lines in one move. When placed, it clears its whole row and column.
+    m_Localized: Added to your dock when a single placement clears three or more lines at once. When you place this piece, it wipes the entire row and column of the cell it lands on.
     m_Metadata:
       m_Items: []
   - m_Id: 1892479866494976
@@ -675,7 +675,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479866494977
-    m_Localized: Given as a last resort when the board is nearly full. Tap a cell on the board to destroy it.
+    m_Localized: "Given to you as a last resort when the board is nearly full and nothing fits. It isn't dragged \u2014 tap its icon to arm it, then tap the single cell you want to destroy."
     m_Metadata:
       m_Items: []
   - m_Id: 2010649772154880

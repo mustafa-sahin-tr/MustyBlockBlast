@@ -519,7 +519,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300676
-    m_Localized: Despeja al instante toda la columna donde se usa. Toca una columna para usarla.
+    m_Localized: "Despeja al instante todos los bloques de la columna que elijas, est\xE9 completa o no. Act\xEDvala tocando su icono y luego toca la columna que quieres despejar."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300675
@@ -527,7 +527,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300674
-    m_Localized: Despeja al instante toda la fila donde se usa. Toca una fila para usarla.
+    m_Localized: "Despeja al instante todos los bloques de la fila que elijas, est\xE9 completa o no. Act\xEDvala tocando su icono y luego toca la fila que quieres despejar."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300673
@@ -539,11 +539,11 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1869058130567172
-    m_Localized: "Arrastra una pieza aqu\xED para guardarla. Puedes sacarla cuando quieras."
+    m_Localized: "Si no quieres colocar una pieza de la bandeja ahora mismo, arr\xE1strala aqu\xED para guardarla. Cu\xE1ndo la necesites, s\xE1cala y col\xF3cala en el tablero \u2014 el bolsillo solo guarda una pieza a la vez."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300672
-    m_Localized: "Despeja al instante el \xE1rea de 3x3 a su alrededor. Toca cualquier punto del tablero para usarla."
+    m_Localized: "Destruye todos los bloques del \xE1rea de 3x3 centrada en la celda que elijas. Toca su icono para armarla y luego toca el tablero donde quieras detonarla."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479841329152
@@ -555,7 +555,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300678
-    m_Localized: Coloca un bloque que encaja con cualquier color, despejando al instante la fila o columna que complete.
+    m_Localized: "Te da un bloque especial de una sola celda que cuenta como cualquier color. Arr\xE1stralo y col\xF3calo como una pieza normal: cualquier fila o columna que complete se despeja al instante."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300679
@@ -563,7 +563,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300680
-    m_Localized: Despeja al instante todos los bloques de un color que elijas en el tablero.
+    m_Localized: "Te permite elegir uno de los colores que hay en el tablero; todos los bloques de ese color desaparecen al instante, est\xE9n donde est\xE9n."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300681
@@ -571,7 +571,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300682
-    m_Localized: Te permite girar 90 grados una pieza de la bandeja antes de colocarla.
+    m_Localized: "Elige una de tus piezas de la bandeja y g\xEDrala 90 grados antes de colocarla, para que encaje mejor en el tablero."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300683
@@ -579,7 +579,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300684
-    m_Localized: Reemplaza las tres piezas de la bandeja por otras nuevas.
+    m_Localized: Si ninguna de tus piezas actuales te sirve, esto reemplaza las tres a la vez por un nuevo conjunto aleatorio.
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300685
@@ -587,7 +587,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300686
-    m_Localized: Duplica los puntos que ganas durante un tiempo limitado.
+    m_Localized: "Al activarla, todos los puntos que ganes se duplican durante un tiempo limitado \u2014 act\xEDvala en tus mejores jugadas."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300687
@@ -595,7 +595,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300688
-    m_Localized: Muestra el mejor lugar del tablero para una de tus piezas con una silueta fantasma.
+    m_Localized: "Elige una de tus piezas y te muestra el mejor lugar para ella en el tablero con una silueta fantasma; solo arr\xE1strala hasta all\xED."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300689
@@ -603,7 +603,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300690
-    m_Localized: "Esparce celdas de monedas aleatorias por el tablero; desp\xE9jalas para ganar monedas."
+    m_Localized: Coloca iconos de moneda en celdas aleatorias del tablero. Despeja esas celdas completando su fila o columna para recoger las monedas.
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300691
@@ -611,7 +611,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300692
-    m_Localized: "Al destruirse, tambi\xE9n hace estallar las celdas a su alrededor."
+    m_Localized: "Cuando una l\xEDnea despejada destruye esta celda, tambi\xE9n hace estallar las celdas de alrededor, iniciando una reacci\xF3n en cadena."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300693
@@ -619,7 +619,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300694
-    m_Localized: Al destruirse, despeja toda su fila y columna.
+    m_Localized: "En el instante en que esta celda se destruye, despeja toda su fila y columna de extremo a extremo, est\xE9n llenas o no."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300695
@@ -627,7 +627,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300696
-    m_Localized: "Atrae hacia su centro los bloques que lo rodean. Coloca una pieza sobre \xE9l para despejarlo."
+    m_Localized: Atrae lentamente hacia su centro las celdas ocupadas a su alrededor. Coloca una pieza directamente sobre ella para destruirla.
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300697
@@ -635,7 +635,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300698
-    m_Localized: "Al destruirse, salta a celdas especiales cercanas y tambi\xE9n las activa."
+    m_Localized: "Al destruirse, salta a las celdas especiales cercanas y tambi\xE9n las activa antes de tiempo, pudiendo iniciar una cadena completa."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300699
@@ -643,7 +643,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300700
-    m_Localized: Otorga puntos extra al destruirse.
+    m_Localized: "Cuando una l\xEDnea despejada destruye esta celda, ganas puntos extra adem\xE1s de la puntuaci\xF3n normal de esa jugada."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300701
@@ -651,7 +651,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300702
-    m_Localized: Otorga una moneda al destruirse.
+    m_Localized: "Destruye esta celda despejando su fila o columna y ganar\xE1s autom\xE1ticamente una moneda."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300703
@@ -659,7 +659,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300704
-    m_Localized: 'Se gana con una combo de cinco seguidas. Se coloca como una pieza normal: es una recompensa visual.'
+    m_Localized: "Se a\xF1ade a tu bandeja cuando logras una racha de combo de cinco despejes seguidos. Se coloca igual que un bloque normal: es solo una recompensa visual por la racha."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300705
@@ -667,7 +667,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300706
-    m_Localized: "Se gana al despejar tres o m\xE1s l\xEDneas en un solo movimiento. Al colocarla, despeja toda su fila y columna."
+    m_Localized: "Se a\xF1ade a tu bandeja cuando una sola colocaci\xF3n despeja tres o m\xE1s l\xEDneas a la vez. Al colocar esta pieza, despeja toda la fila y columna de la celda donde cae."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479866494976
@@ -675,7 +675,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479866494977
-    m_Localized: "Se entrega como \xFAltimo recurso cuando el tablero est\xE1 casi lleno. Toca una celda del tablero para destruirla."
+    m_Localized: "Se te entrega como \xFAltimo recurso cuando el tablero est\xE1 casi lleno y ninguna pieza encaja. No se arrastra: toca su icono para armarlo y luego toca la \xFAnica celda que quieres destruir."
     m_Metadata:
       m_Items: []
   - m_Id: 2010649772154880
