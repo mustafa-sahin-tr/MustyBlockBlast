@@ -18,10 +18,13 @@ namespace MustyBlockBlast.Presentation.Views
     /// an ordinary, optional modal, never a forced action.
     /// <para>
     /// Built the same way <see cref="ObjectiveInfoPopupView"/> is: one card on a scrim, toggled from
-    /// <see cref="InfoPopupModel.OpenContent"/> rather than an imperative Open/Close pair, holding the
-    /// timed countdown through <see cref="TimerRunSystem.SetMenuPaused"/> while it is up. The gate chain
-    /// in <see cref="BoardInputView"/> is what guarantees it can never be open at the same time as
-    /// another panel, which is what keeps that single shared pause flag from having two owners.
+    /// <see cref="InfoPopupModel.OpenContent"/> rather than an imperative Open/Close pair. Unlike every
+    /// other modal in <see cref="BoardInputView"/>'s gate chain, this one CAN be open at the same time as
+    /// the hub/Power-up Shop — reached by tapping a shop row's icon — so it only takes ownership of
+    /// <see cref="TimerRunSystem.SetMenuPaused"/>'s single shared flag when nothing else already holds
+    /// it (see <see cref="_ownsMenuPause"/>), and its own gate in <see cref="BoardInputView"/> is checked
+    /// before the hub's so a tap on this card (its close cross included) is never swallowed by the panel
+    /// still open underneath it.
     /// </para>
     /// <para>
     /// The hero icon is never authored here for a special cell, a power-up or the Hold pocket: it
@@ -58,9 +61,21 @@ namespace MustyBlockBlast.Presentation.Views
         private LocalizationSystem _localizationSystem;
         private SettingsModel _settingsModel;
         private TimerRunSystem _timerRunSystem;
+        private RunPauseModel _runPauseModel;
         private BoardView _boardView;
         private PowerUpInventoryView _powerUpInventoryView;
         private HoldSlotView _holdSlotView;
+
+        /// <summary>
+        /// Whether THIS popup is the one holding <see cref="TimerRunSystem"/>'s menu-pause flag. This
+        /// card can now open two ways: standing alone (a board tap), where nothing else is paused and it
+        /// must own the flag itself — or on top of the Power-up Shop (a tap on a shop row's icon), where
+        /// the hub already owns the pause for its own lifetime. Read <see cref="RunPauseModel.IsPaused"/>
+        /// at the moment this card opens to tell the two apart, so closing never clears a pause another
+        /// still-open modal depends on (that was a real bug: the shop's own pause got cancelled the
+        /// instant this card closed on top of it, even though the shop stayed open).
+        /// </summary>
+        private bool _ownsMenuPause;
 
         private Canvas _canvas;
         private GameObject _panel;
@@ -96,6 +111,7 @@ namespace MustyBlockBlast.Presentation.Views
             LocalizationSystem localizationSystem,
             SettingsModel settingsModel,
             TimerRunSystem timerRunSystem,
+            RunPauseModel runPauseModel,
             BoardView boardView,
             PowerUpInventoryView powerUpInventoryView,
             HoldSlotView holdSlotView)
@@ -106,6 +122,7 @@ namespace MustyBlockBlast.Presentation.Views
             _localizationSystem = localizationSystem;
             _settingsModel = settingsModel;
             _timerRunSystem = timerRunSystem;
+            _runPauseModel = runPauseModel;
             _boardView = boardView;
             _powerUpInventoryView = powerUpInventoryView;
             _holdSlotView = holdSlotView;
@@ -120,6 +137,7 @@ namespace MustyBlockBlast.Presentation.Views
         {
             if (_infoPopupModel == null || _infoPopupSystem == null || _localizationModel == null
                 || _localizationSystem == null || _settingsModel == null || _timerRunSystem == null
+                || _runPauseModel == null
                 || _boardView == null || _powerUpInventoryView == null || _holdSlotView == null)
             {
                 Debug.LogError(
@@ -183,7 +201,12 @@ namespace MustyBlockBlast.Presentation.Views
                 if (_panel.activeSelf)
                 {
                     _panel.SetActive(false);
-                    _timerRunSystem.SetMenuPaused(false);
+
+                    if (_ownsMenuPause)
+                    {
+                        _timerRunSystem.SetMenuPaused(false);
+                        _ownsMenuPause = false;
+                    }
                 }
 
                 return;
@@ -196,7 +219,14 @@ namespace MustyBlockBlast.Presentation.Views
 
             if (!wasOpen)
             {
-                _timerRunSystem.SetMenuPaused(true);
+                // Already paused (e.g. the Power-up Shop is open underneath, reached by tapping one of
+                // its rows) means some other modal owns the flag for its own lifetime — leave it alone,
+                // and don't clear it out from under that modal when this card closes.
+                _ownsMenuPause = !_runPauseModel.IsPaused.Value;
+                if (_ownsMenuPause)
+                {
+                    _timerRunSystem.SetMenuPaused(true);
+                }
             }
         }
 
@@ -246,6 +276,10 @@ namespace MustyBlockBlast.Presentation.Views
 
             _chrome.DescriptionText.color = _currentTheme.SoftInk;
             _chrome.DescriptionText.text = _localizationSystem.Translate(content.BodyLocalizationKey);
+
+            // Title and description text just changed length — reflow so a long, multi-line
+            // description grows the card downward instead of overlapping the title above it.
+            InfoCardChrome.Reflow(_chrome, _cardSize);
         }
 
         /// <summary>

@@ -377,6 +377,18 @@ namespace MustyBlockBlast.Presentation.Views
                 return;
             }
 
+            // Same reasoning as the conversion card just above, and for the same reason: this can now
+            // open from a tap on a power-up's icon inside the Power-up Shop tab, so the hub is still
+            // open underneath it. Checked before the hub's own gate so a tap on this card's close cross
+            // reaches it instead of being swallowed by the hub's router first (that was a real bug —
+            // the close cross did nothing while the shop was open behind it, because the hub gate below
+            // used to run first and never returned control here).
+            if (_infoPopupView.IsOpen)
+            {
+                _infoPopupView.HandleTap(screenPosition);
+                return;
+            }
+
             // While any overlay is open it is modal and swallows every tap. These four gates are also
             // what keeps the overlays mutually exclusive, and the argument scales with their number
             // rather than pairing them off: *every* "is a panel open, route the tap into it" gate sits
@@ -403,16 +415,6 @@ namespace MustyBlockBlast.Presentation.Views
             if (_objectiveInfoPopupView.IsOpen)
             {
                 _objectiveInfoPopupView.HandleTap(screenPosition);
-                return;
-            }
-
-            // Same tier as the objective card: an ordinary optional modal, opened automatically the
-            // first time one of its subjects appears and reopenable on demand afterward (see
-            // InfoPopupSystem). Placed beside the objective gate rather than above the hub/conversion
-            // gates above, since neither of those can be open at the same time as this one opens.
-            if (_infoPopupView.IsOpen)
-            {
-                _infoPopupView.HandleTap(screenPosition);
                 return;
             }
 
