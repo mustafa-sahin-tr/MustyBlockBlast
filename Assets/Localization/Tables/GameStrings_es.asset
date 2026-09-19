@@ -774,6 +774,106 @@ MonoBehaviour:
     m_Localized: "Cuenta hacia atr\xE1s una unidad cada vez que colocas una pieza, no por segundo. Desp\xE9jalo antes de que llegue a cero. En el modo Ruta, dejar que expire termina la partida de inmediato. En Sin l\xEDmite y Contrarreloj se convierte en una celda normal y pierdes su bonificaci\xF3n."
     m_Metadata:
       m_Items: []
+  - m_Id: 2136016131400258
+    m_Localized: TIENDA DE POTENCIADORES
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131400322
+    m_Localized: POTENCIADORES
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131400386
+    m_Localized: MONEDAS
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131400450
+    m_Localized: OFERTAS
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131400514
+    m_Localized: + CONSEGUIR MONEDAS
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131400578
+    m_Localized: "Las ofertas llegar\u00e1n pronto."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131400642
+    m_Localized: GANA GRATIS
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131400706
+    m_Localized: PAQUETES DE MONEDAS
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131400770
+    m_Localized: Convierte puntos en monedas
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131400834
+    m_Localized: PUNTOS TOTALES
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131400898
+    m_Localized: CONVERTIBLE
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131400962
+    m_Localized: CONVERTIR
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131401026
+    m_Localized: "{0} pts = {1} monedas"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131401090
+    m_Localized: Ver un anuncio
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131401154
+    m_Localized: "{0} monedas por anuncio"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131401218
+    m_Localized: COMPRAR
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131401282
+    m_Localized: No hay paquetes de monedas configurados.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131401346
+    m_Localized: "\u00a1Convertido!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131401410
+    m_Localized: "Todav\u00eda no hay nada que convertir."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131401474
+    m_Localized: "\u00a1Monedas a\u00f1adidas!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131401538
+    m_Localized: No hay anuncios disponibles ahora.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131401602
+    m_Localized: Compra no completada.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131401666
+    m_Localized: "\u00a1Comprado!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131401730
+    m_Localized: No tienes suficientes monedas.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016131401794
+    m_Localized: Sube de nivel para desbloquear esto.
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

@@ -390,6 +390,50 @@ namespace MustyBlockBlast.Gameplay.Localization
         /// piece there does.</summary>
         public const string HOLD_SLOT_EMPTY_HINT = "hold_slot.empty_hint";
 
+        // --- Power-up shop chrome (issue #255) ---
+        //
+        // The stall's title, sub-tabs, section labels, panel copy and toast messages, distinct from
+        // the POWERUP_NAME_*/POWERUP_DESC_* item catalog above. Was plain English const string on
+        // PowerUpShopView until now — see that class's PaintChrome/BuildCoinsTab/toast call sites.
+
+        public const string SHOP_TITLE = "shop.title";
+        public const string SHOP_TAB_POWER_UPS = "shop.tab.power_ups";
+        public const string SHOP_TAB_COINS = "shop.tab.coins";
+        public const string SHOP_TAB_DEALS = "shop.tab.deals";
+        public const string SHOP_EARN_BUTTON = "shop.earn_button";
+        public const string SHOP_DEALS_PLACEHOLDER = "shop.deals_placeholder";
+        public const string SHOP_SECTION_FREE = "shop.section.free";
+        public const string SHOP_SECTION_BUNDLES = "shop.section.bundles";
+        public const string SHOP_CONVERT_TITLE = "shop.convert.title";
+        public const string SHOP_TOTAL_SCORE_LABEL = "shop.convert.total_score_label";
+        public const string SHOP_CONVERTIBLE_LABEL = "shop.convert.convertible_label";
+        public const string SHOP_CONVERT_BUTTON = "shop.convert.button";
+
+        /// <summary>The convert panel's rate caption. <c>{0}</c> is the sample score
+        /// (<c>RATE_SAMPLE_SCORE</c>), <c>{1}</c> the coins it quotes to, e.g. "100 pts = 10 coins".</summary>
+        public const string SHOP_RATE_FORMAT = "shop.convert.rate_format";
+
+        public const string SHOP_AD_TITLE = "shop.ad.title";
+
+        /// <summary>The watch-an-ad row's reward caption. <c>{0}</c> is the ad's coin reward, e.g.
+        /// "25 coins per ad".</summary>
+        public const string SHOP_AD_CAPTION_FORMAT = "shop.ad.caption_format";
+
+        public const string SHOP_BUNDLE_BUTTON = "shop.bundle.button";
+        public const string SHOP_NO_BUNDLES = "shop.bundle.none";
+        public const string SHOP_TOAST_CONVERTED = "shop.toast.converted";
+        public const string SHOP_TOAST_NOTHING_TO_CONVERT = "shop.toast.nothing_to_convert";
+
+        /// <summary>Shown for both an ad grant and a bundle purchase — the two faucets read the same
+        /// "Coins added!" toast, so one key serves both call sites.</summary>
+        public const string SHOP_TOAST_COINS_ADDED = "shop.toast.coins_added";
+
+        public const string SHOP_TOAST_AD_REFUSED = "shop.toast.ad_refused";
+        public const string SHOP_TOAST_BUNDLE_REFUSED = "shop.toast.bundle_refused";
+        public const string SHOP_TOAST_PURCHASED = "shop.toast.purchased";
+        public const string SHOP_TOAST_INSUFFICIENT_COINS = "shop.toast.insufficient_coins";
+        public const string SHOP_TOAST_LOCKED = "shop.toast.locked";
+
         // --- Themes ---
 
         public const string THEME_YAZ = "theme.yaz";
