@@ -43,6 +43,22 @@ namespace MustyBlockBlast.Gameplay.Systems
         UniTask<CoinPurchaseResult> PurchaseAsync(string sku, CancellationToken cancellationToken);
 
         /// <summary>
+        /// Connects to the store and fetches its catalog, idempotently — the very same connect-and-fetch
+        /// <see cref="PurchaseAsync"/> already triggers on demand, exposed here so a caller that only
+        /// wants to warm the connection (the Coins tab opening, issue #256) is not forced to attempt a
+        /// purchase just to see a price. Returns whether the store is now ready; nothing here is a
+        /// licence to sell — <see cref="PurchaseAsync"/> is still the only way to buy anything.
+        /// <para>
+        /// Implementations are expected to cache a successful connection so a second caller — whether
+        /// this method again or <see cref="PurchaseAsync"/> — reuses it rather than reconnecting, exactly
+        /// as the type's own class docs already promise for <see cref="PurchaseAsync"/>'s on-demand
+        /// connect. This member only gives that promise a name callers who are not buying anything can
+        /// reach.
+        /// </para>
+        /// </summary>
+        UniTask<bool> EnsureReadyAsync(CancellationToken cancellationToken);
+
+        /// <summary>
         /// Tells the store the goods have been handed over, so it stops replaying the transaction and
         /// (on a consumable) lets the player buy the same bundle again.
         /// <para>

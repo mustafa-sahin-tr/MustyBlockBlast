@@ -188,6 +188,7 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterMessageBroker<CoinsGrantedFromAdMessage>(options);
             builder.RegisterMessageBroker<CoinCellsClearedMessage>(options);
             builder.RegisterMessageBroker<CoinsGrantedFromPurchaseMessage>(options);
+            builder.RegisterMessageBroker<CoinProductsFetchedMessage>(options);
 
             // Info popup infrastructure: InfoPopupSystem subscribes to SpecialCellSpawnedMessage,
             // SpecialPieceSpawnedMessage and HoldFirstUseMessage (PowerUpGrantedMessage, registered
@@ -247,6 +248,9 @@ namespace MustyBlockBlast.Presentation
 
             // Device-local, deliberately not carried by ProfileModel — see DailyAdGrantModel (issue #257).
             builder.Register<DailyAdGrantModel>(Lifetime.Singleton);
+
+            // Session-local store answer, not persisted — see CoinBundlePriceModel (issue #256).
+            builder.Register<CoinBundlePriceModel>(Lifetime.Singleton);
             builder.Register<LeaderboardModel>(Lifetime.Singleton);
             builder.Register<InfoPopupModel>(Lifetime.Singleton);
         }

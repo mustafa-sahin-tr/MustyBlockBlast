@@ -94,6 +94,7 @@ namespace MustyBlockBlast.Gameplay.Systems
 
         private readonly ProfileModel _profileModel;
         private readonly DailyAdGrantModel _dailyAdGrantModel;
+        private readonly CoinBundlePriceModel _coinBundlePriceModel;
         private readonly ScoreModel _scoreModel;
         private readonly LevelProgressionModel _levelProgressionModel;
         private readonly CurrencyConfig _config;
@@ -108,6 +109,15 @@ namespace MustyBlockBlast.Gameplay.Systems
         private readonly IPublisher<CoinsGrantedFromPurchaseMessage> _purchaseGrantPublisher;
         private readonly IDisposable _gameOverSubscription;
         private readonly IDisposable _coinCellsSubscription;
+        private readonly IDisposable _coinProductsFetchedSubscription;
+
+        /// <summary>
+        /// Set once the coin catalog's connect-and-fetch has been asked for (issue #256), and never
+        /// cleared. What makes <see cref="WarmUpCoinCatalog"/> idempotent for the Coins tab's own promise
+        /// — "reopening does not produce a new fetch call" — independently of whatever caching
+        /// <see cref="ICoinPurchaseService"/>'s own implementation happens to do underneath it.
+        /// </summary>
+        private bool _coinCatalogWarmUpStarted;
 
         /// <summary>
         /// Every transaction id whose coins have already been banked. Held in memory for an O(1) check
@@ -148,45 +158,7 @@ namespace MustyBlockBlast.Gameplay.Systems
         public CurrencySystem(
             ProfileModel profileModel,
             DailyAdGrantModel dailyAdGrantModel,
-            ScoreModel scoreModel,
-            LevelProgressionModel levelProgressionModel,
-            CurrencyConfig config,
-            PowerUpPriceConfig priceConfig,
-            PromotionConfig promotionConfig,
-            PowerUpSystem powerUpSystem,
-            ICoinRewardSource coinRewardSource,
-            ICoinPurchaseService coinPurchaseService,
-            IPurchaseReceiptValidator receiptValidator,
-            IPublisher<ScoreConvertedToCoinsMessage> convertedPublisher,
-            IPublisher<CoinsGrantedFromAdMessage> adGrantPublisher,
-            IPublisher<CoinsGrantedFromPurchaseMessage> purchaseGrantPublisher,
-            ISubscriber<GameOverMessage> gameOverSubscriber,
-            ISubscriber<CoinCellsClearedMessage> coinCellsClearedSubscriber)
-            : this(
-                profileModel,
-                dailyAdGrantModel,
-                scoreModel,
-                levelProgressionModel,
-                config,
-                priceConfig,
-                promotionConfig,
-                powerUpSystem,
-                coinRewardSource,
-                coinPurchaseService,
-                receiptValidator,
-                convertedPublisher,
-                adGrantPublisher,
-                purchaseGrantPublisher,
-                gameOverSubscriber,
-                coinCellsClearedSubscriber,
-                UtcNow,
-                LocalNow)
-        {
-        }
-
-        internal CurrencySystem(
-            ProfileModel profileModel,
-            DailyAdGrantModel dailyAdGrantModel,
+            CoinBundlePriceModel coinBundlePriceModel,
             ScoreModel scoreModel,
             LevelProgressionModel levelProgressionModel,
             CurrencyConfig config,
@@ -201,6 +173,50 @@ namespace MustyBlockBlast.Gameplay.Systems
             IPublisher<CoinsGrantedFromPurchaseMessage> purchaseGrantPublisher,
             ISubscriber<GameOverMessage> gameOverSubscriber,
             ISubscriber<CoinCellsClearedMessage> coinCellsClearedSubscriber,
+            ISubscriber<CoinProductsFetchedMessage> coinProductsFetchedSubscriber)
+            : this(
+                profileModel,
+                dailyAdGrantModel,
+                coinBundlePriceModel,
+                scoreModel,
+                levelProgressionModel,
+                config,
+                priceConfig,
+                promotionConfig,
+                powerUpSystem,
+                coinRewardSource,
+                coinPurchaseService,
+                receiptValidator,
+                convertedPublisher,
+                adGrantPublisher,
+                purchaseGrantPublisher,
+                gameOverSubscriber,
+                coinCellsClearedSubscriber,
+                coinProductsFetchedSubscriber,
+                UtcNow,
+                LocalNow)
+        {
+        }
+
+        internal CurrencySystem(
+            ProfileModel profileModel,
+            DailyAdGrantModel dailyAdGrantModel,
+            CoinBundlePriceModel coinBundlePriceModel,
+            ScoreModel scoreModel,
+            LevelProgressionModel levelProgressionModel,
+            CurrencyConfig config,
+            PowerUpPriceConfig priceConfig,
+            PromotionConfig promotionConfig,
+            PowerUpSystem powerUpSystem,
+            ICoinRewardSource coinRewardSource,
+            ICoinPurchaseService coinPurchaseService,
+            IPurchaseReceiptValidator receiptValidator,
+            IPublisher<ScoreConvertedToCoinsMessage> convertedPublisher,
+            IPublisher<CoinsGrantedFromAdMessage> adGrantPublisher,
+            IPublisher<CoinsGrantedFromPurchaseMessage> purchaseGrantPublisher,
+            ISubscriber<GameOverMessage> gameOverSubscriber,
+            ISubscriber<CoinCellsClearedMessage> coinCellsClearedSubscriber,
+            ISubscriber<CoinProductsFetchedMessage> coinProductsFetchedSubscriber,
             Func<DateTime> utcNowProvider,
             Func<DateTime> localNowProvider = null)
         {
@@ -209,6 +225,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             _localNowProvider = localNowProvider ?? LocalNow;
             _profileModel = profileModel;
             _dailyAdGrantModel = dailyAdGrantModel;
+            _coinBundlePriceModel = coinBundlePriceModel;
             _scoreModel = scoreModel;
             _levelProgressionModel = levelProgressionModel;
             _config = config;
@@ -232,6 +249,11 @@ namespace MustyBlockBlast.Gameplay.Systems
             // player had to clear the cell — and it is credited here rather than by whichever System
             // resolved the destruction, because this class is the one and only writer of the balance.
             _coinCellsSubscription = coinCellsClearedSubscriber.Subscribe(OnCoinCellsCleared);
+
+            // The store's answer to a catalog fetch (issue #256), published by whichever
+            // ICoinPurchaseService implementation is bound — the Coins tab's rows have nothing to show
+            // until this fires at least once.
+            _coinProductsFetchedSubscription = coinProductsFetchedSubscriber.Subscribe(OnCoinProductsFetched);
         }
 
         /// <summary>
@@ -277,6 +299,53 @@ namespace MustyBlockBlast.Gameplay.Systems
                 EnsureDailyAdCounterCurrent();
                 return _dailyAdGrantModel.RemainingToday;
             }
+        }
+
+        /// <summary>
+        /// SKU to the store's localized price string (issue #256). The Coins tab's read-only window onto
+        /// <see cref="CoinBundlePriceModel.SkuToLocalizedPrice"/> — this class is the property's only
+        /// writer, through <see cref="OnCoinProductsFetched"/>. Empty until the first successful catalog
+        /// fetch; a bundle row whose SKU is missing from it shows the plain "BUY" its button always used
+        /// to, which is exactly the fallback this property's emptiness is meant to produce.
+        /// </summary>
+        public ReactiveProperty<IReadOnlyDictionary<string, string>> CoinBundlePrices
+            => _coinBundlePriceModel.SkuToLocalizedPrice;
+
+        /// <summary>
+        /// Connects to the store and fetches its catalog, once per this System's lifetime (issue #256,
+        /// AC1). The Coins tab's own entry point for "show me a price without buying anything": it calls
+        /// this on every open, and every call after the first is a no-op, which is what makes reopening
+        /// the tab free.
+        /// <para>
+        /// Idempotent by a plain flag here rather than by trusting <see cref="ICoinPurchaseService"/>'s
+        /// own connect-once cache alone — that cache exists too (see
+        /// <see cref="ICoinPurchaseService.EnsureReadyAsync"/>'s docs) but is the implementation's detail
+        /// to keep or drop, not a contract this System's own "no duplicate fetch" promise should lean on.
+        /// A guard at this end means the promise holds even against an implementation that reconnects
+        /// every time it is asked.
+        /// </para>
+        /// <para>
+        /// Deliberately does not retry a failed attempt on a later tab open: the flag is set before the
+        /// connect is even awaited and never cleared, on the same "idempotent means idempotent" reading
+        /// AC1 asks for. A purchase attempt is unaffected either way — <see cref="PurchaseCoinBundleAsync"/>
+        /// goes through <see cref="ICoinPurchaseService.PurchaseAsync"/>, which has always reconnected on
+        /// demand on its own and continues to.
+        /// </para>
+        /// <para>
+        /// Fire-and-forget from the caller's point of view — there is nothing to await that a repaint
+        /// needs, since the price itself arrives later on <see cref="CoinProductsFetchedMessage"/> and
+        /// repaints the Coins tab through <see cref="CoinBundlePrices"/>'s subscription instead.
+        /// </para>
+        /// </summary>
+        public void WarmUpCoinCatalog(CancellationToken cancellationToken)
+        {
+            if (_coinCatalogWarmUpStarted)
+            {
+                return;
+            }
+
+            _coinCatalogWarmUpStarted = true;
+            WarmUpCoinCatalogAsync(cancellationToken).Forget();
         }
 
         /// <summary>
@@ -633,6 +702,36 @@ namespace MustyBlockBlast.Gameplay.Systems
         {
             _gameOverSubscription.Dispose();
             _coinCellsSubscription.Dispose();
+            _coinProductsFetchedSubscription.Dispose();
+        }
+
+        /// <summary>The async body behind <see cref="WarmUpCoinCatalog"/>'s fire-and-forget call. Its own
+        /// method rather than an inline lambda for the same reason every other <c>UniTaskVoid</c> here is
+        /// — an <c>async</c> lambda assigned to <c>.Forget()</c> reads no differently, but a named method
+        /// is what lets this file's other fire-and-forget callers (<see cref="PowerUpShopView"/>'s own)
+        /// be compared against a consistent shape.</summary>
+        private async UniTaskVoid WarmUpCoinCatalogAsync(CancellationToken cancellationToken)
+        {
+            await _coinPurchaseService.EnsureReadyAsync(cancellationToken);
+        }
+
+        /// <summary>
+        /// Replaces <see cref="CoinBundlePriceModel.SkuToLocalizedPrice"/> wholesale with what the store
+        /// just answered (issue #256). The one and only writer of that table, exactly as
+        /// <see cref="CreditCoins"/> is the one and only writer of the balance — and, like every other
+        /// mutator here, unconditional: a message that arrived at all is a fetch that returned at least
+        /// one priced SKU (see <c>UnityCoinPurchaseService.PublishFetchedPrices</c>), so there is nothing
+        /// to validate before writing it.
+        /// <para>
+        /// Not persisted. A price is what the store said this session, not player state — a relaunch
+        /// re-fetches it the same way <see cref="WarmUpCoinCatalog"/> asked for it the first time, and a
+        /// stale price surviving a restart would be worse than the plain "BUY" the tab shows until the
+        /// fresh fetch lands.
+        /// </para>
+        /// </summary>
+        private void OnCoinProductsFetched(CoinProductsFetchedMessage message)
+        {
+            _coinBundlePriceModel.SkuToLocalizedPrice.Value = message.SkuToLocalizedPrice;
         }
 
         /// <summary>

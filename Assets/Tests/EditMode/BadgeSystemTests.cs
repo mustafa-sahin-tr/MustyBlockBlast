@@ -359,6 +359,7 @@ namespace MustyBlockBlast.Tests.EditMode
             return new CurrencySystem(
                 profileModel,
                 new DailyAdGrantModel(),
+                new CoinBundlePriceModel(),
                 new ScoreModel(),
                 levelProgressionModel,
                 ScriptableObject.CreateInstance<CurrencyConfig>(),
@@ -372,7 +373,8 @@ namespace MustyBlockBlast.Tests.EditMode
                 new TestMessageBroker<CoinsGrantedFromAdMessage>(),
                 new TestMessageBroker<CoinsGrantedFromPurchaseMessage>(),
                 new TestMessageBroker<GameOverMessage>(),
-                new TestMessageBroker<CoinCellsClearedMessage>());
+                new TestMessageBroker<CoinCellsClearedMessage>(),
+                new TestMessageBroker<CoinProductsFetchedMessage>());
         }
 
         private PowerUpSystem CreatePowerUpSystem(LevelProgressionModel levelProgressionModel)

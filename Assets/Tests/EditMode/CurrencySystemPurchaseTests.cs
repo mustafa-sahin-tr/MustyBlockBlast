@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using MustyBlockBlast.Core;
@@ -52,6 +53,7 @@ namespace MustyBlockBlast.Tests.EditMode
         private TestMessageBroker<CoinsGrantedFromPurchaseMessage> _purchaseGrantBroker;
         private TestMessageBroker<GameOverMessage> _gameOverBroker;
         private TestMessageBroker<CoinCellsClearedMessage> _coinCellsBroker;
+        private TestMessageBroker<CoinProductsFetchedMessage> _coinProductsFetchedBroker;
         private CurrencyConfig _config;
         private PowerUpPriceConfig _priceConfig;
         private CoinBundleConfig _bundleConfig;
@@ -78,6 +80,7 @@ namespace MustyBlockBlast.Tests.EditMode
             _purchaseGrantBroker = new TestMessageBroker<CoinsGrantedFromPurchaseMessage>();
             _gameOverBroker = new TestMessageBroker<GameOverMessage>();
             _coinCellsBroker = new TestMessageBroker<CoinCellsClearedMessage>();
+            _coinProductsFetchedBroker = new TestMessageBroker<CoinProductsFetchedMessage>();
             _config = ScriptableObject.CreateInstance<CurrencyConfig>();
             _priceConfig = ScriptableObject.CreateInstance<PowerUpPriceConfig>();
             _bundleConfig = ScriptableObject.CreateInstance<CoinBundleConfig>();
@@ -564,6 +567,115 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.AreEqual(string.Empty, PlayerPrefs.GetString(CONSUMED_TRANSACTION_IDS_KEY, string.Empty));
         }
 
+        // --- issue #256: the Coins tab's store-price warm-up and catalog ---
+
+        /// <summary>
+        /// AC1: the Coins tab's warm-up connects to the store exactly once, however many times it is
+        /// asked. A second — and third — call must not reach the store again, which is the whole point
+        /// of a tab that can be reopened freely without ever spamming a fetch.
+        /// </summary>
+        [Test]
+        public void WarmUpCoinCatalog_CalledSeveralTimes_OnlyReachesTheStoreOnce()
+        {
+            var store = new StubCoinPurchaseService(CoinPurchaseOutcome.Failed);
+            CurrencySystem system = CreateSystem(
+                new ProfileModel(), store, new StubPurchaseReceiptValidator(coinAmount: 500));
+
+            system.WarmUpCoinCatalog(CancellationToken.None);
+            system.WarmUpCoinCatalog(CancellationToken.None);
+            system.WarmUpCoinCatalog(CancellationToken.None);
+
+            Assert.AreEqual(1, store.EnsureReadyCount);
+        }
+
+        /// <summary>Before any warm-up, the store has not been asked to connect at all — a system that
+        /// nobody has opened the Coins tab on yet must not have reached out on its own.</summary>
+        [Test]
+        public void WarmUpCoinCatalog_NeverCalled_NeverReachesTheStore()
+        {
+            var store = new StubCoinPurchaseService(CoinPurchaseOutcome.Failed);
+            CreateSystem(new ProfileModel(), store, new StubPurchaseReceiptValidator(coinAmount: 500));
+
+            Assert.AreEqual(0, store.EnsureReadyCount);
+        }
+
+        /// <summary>
+        /// AC2, AC6: once the catalog arrives on <see cref="CoinProductsFetchedMessage"/>, the System
+        /// writes the whole SKU-to-price table into the Model the Coins tab reads through
+        /// <see cref="CurrencySystem.CoinBundlePrices"/> — with no polling involved, just the message
+        /// handler and the ReactiveProperty write it makes.
+        /// </summary>
+        [Test]
+        public void CoinProductsFetched_PublishesThePriceTable_UpdatesCoinBundlePrices()
+        {
+            CurrencySystem system = CreateSystem(
+                new ProfileModel(),
+                new StubCoinPurchaseService(CoinPurchaseOutcome.Failed),
+                new StubPurchaseReceiptValidator(coinAmount: 500));
+
+            var prices = new Dictionary<string, string> { [KNOWN_SKU] = "$4.99" };
+            _coinProductsFetchedBroker.Publish(new CoinProductsFetchedMessage(prices));
+
+            Assert.IsTrue(system.CoinBundlePrices.Value.TryGetValue(KNOWN_SKU, out string price));
+            Assert.AreEqual("$4.99", price);
+        }
+
+        /// <summary>
+        /// AC4, AC9: before any catalog has arrived — the state a fresh system, the Editor's fake store,
+        /// or <see cref="StubCoinPurchaseService"/> all leave it in — the price table is empty rather than
+        /// null or missing a row outright. The shop reads a miss here as "show BUY"; this only pins that
+        /// there is something to read at all.
+        /// </summary>
+        [Test]
+        public void CoinBundlePrices_BeforeAnyFetch_IsEmptyButNotNull()
+        {
+            CurrencySystem system = CreateSystem(
+                new ProfileModel(),
+                new StubCoinPurchaseService(CoinPurchaseOutcome.Failed),
+                new StubPurchaseReceiptValidator(coinAmount: 500));
+
+            Assert.IsNotNull(system.CoinBundlePrices.Value);
+            Assert.AreEqual(0, system.CoinBundlePrices.Value.Count);
+            Assert.IsFalse(system.CoinBundlePrices.Value.TryGetValue(KNOWN_SKU, out string unused));
+        }
+
+        /// <summary>
+        /// AC5: an unknown SKU is simply absent from the table — a lookup miss, not a thrown exception
+        /// and not a stale value borrowed from a different SKU's row.
+        /// </summary>
+        [Test]
+        public void CoinProductsFetched_ForAnUnknownSku_LeavesItAbsentFromThePrices()
+        {
+            CurrencySystem system = CreateSystem(
+                new ProfileModel(),
+                new StubCoinPurchaseService(CoinPurchaseOutcome.Failed),
+                new StubPurchaseReceiptValidator(coinAmount: 500));
+
+            var prices = new Dictionary<string, string> { [KNOWN_SKU] = "$4.99" };
+            _coinProductsFetchedBroker.Publish(new CoinProductsFetchedMessage(prices));
+
+            Assert.IsFalse(system.CoinBundlePrices.Value.TryGetValue("coins_nonexistent", out string unused));
+        }
+
+        /// <summary>
+        /// AC9: <see cref="StubCoinPurchaseService"/> satisfies the warm-up contract — it answers ready —
+        /// but publishes no price on its own, exactly as the fixture's stub store never has. A system
+        /// wired to it must be left showing an empty table, which is what lets the shop fall back to
+        /// "BUY" without this stub having to fake a catalog it does not have.
+        /// </summary>
+        [Test]
+        public void WarmUpCoinCatalog_ThroughTheStub_ReportsReadyButPublishesNoPrice()
+        {
+            var store = new StubCoinPurchaseService(CoinPurchaseOutcome.Failed);
+            CurrencySystem system = CreateSystem(
+                new ProfileModel(), store, new StubPurchaseReceiptValidator(coinAmount: 500));
+
+            system.WarmUpCoinCatalog(CancellationToken.None);
+
+            Assert.AreEqual(1, store.EnsureReadyCount);
+            Assert.AreEqual(0, system.CoinBundlePrices.Value.Count);
+        }
+
         /// <summary>Banks <paramref name="coinAmount"/> through a real purchase of
         /// <paramref name="transactionId"/>, asserted rather than assumed so a later failure cannot be a
         /// setup that quietly credited nothing.</summary>
@@ -619,6 +731,7 @@ namespace MustyBlockBlast.Tests.EditMode
             return new CurrencySystem(
                 profileModel,
                 new DailyAdGrantModel(),
+                new CoinBundlePriceModel(),
                 scoreModel ?? new ScoreModel(),
                 _levelProgressionModel,
                 _config,
@@ -634,7 +747,8 @@ namespace MustyBlockBlast.Tests.EditMode
                 _adGrantBroker,
                 _purchaseGrantBroker,
                 _gameOverBroker,
-                _coinCellsBroker);
+                _coinCellsBroker,
+                _coinProductsFetchedBroker);
         }
 
         /// <summary>

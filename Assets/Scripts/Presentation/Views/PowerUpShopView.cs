@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Text;
 using System.Threading;
 using Cysharp.Threading.Tasks;
@@ -295,6 +296,7 @@ namespace MustyBlockBlast.Presentation.Views
 
         private ProfileModel _profileModel;
         private PowerUpModel _powerUpModel;
+        private CoinBundlePriceModel _bundlePriceModel;
         private LevelProgressionModel _levelProgressionModel;
         private CurrencySystem _currencySystem;
         private TimerRunSystem _timerRunSystem;
@@ -392,6 +394,7 @@ namespace MustyBlockBlast.Presentation.Views
         public void Construct(
             ProfileModel profileModel,
             PowerUpModel powerUpModel,
+            CoinBundlePriceModel bundlePriceModel,
             LevelProgressionModel levelProgressionModel,
             CurrencySystem currencySystem,
             TimerRunSystem timerRunSystem,
@@ -404,6 +407,7 @@ namespace MustyBlockBlast.Presentation.Views
         {
             _profileModel = profileModel;
             _powerUpModel = powerUpModel;
+            _bundlePriceModel = bundlePriceModel;
             _levelProgressionModel = levelProgressionModel;
             _currencySystem = currencySystem;
             _timerRunSystem = timerRunSystem;
@@ -424,10 +428,10 @@ namespace MustyBlockBlast.Presentation.Views
 
         private void Start()
         {
-            if (_profileModel == null || _powerUpModel == null || _levelProgressionModel == null
-                || _currencySystem == null || _timerRunSystem == null || _localizationModel == null
-                || _localizationSystem == null || _priceConfig == null || _bundleConfig == null
-                || _palette == null)
+            if (_profileModel == null || _powerUpModel == null || _bundlePriceModel == null
+                || _levelProgressionModel == null || _currencySystem == null || _timerRunSystem == null
+                || _localizationModel == null || _localizationSystem == null || _priceConfig == null
+                || _bundleConfig == null || _palette == null)
             {
                 Debug.LogError(
                     $"{nameof(PowerUpShopView)} was not injected. Is it registered in the LifetimeScope?",
@@ -458,6 +462,11 @@ namespace MustyBlockBlast.Presentation.Views
             // The daily coin-ad cap (issue #257, AC3): a grant, or the day itself rolling over, moves
             // this while the card is showing, exactly as the balance does.
             _currencySystem.RemainingAdGrantsToday.Subscribe(OnCountChanged).AddTo(_disposables);
+
+            // The bundle rows' store prices (issue #256): arrives asynchronously, any time after the
+            // Coins tab's own warm-up asks for it, and this is the one thing that repaints a row's
+            // button from "BUY" to the real price with no polling — see RefreshBundleRows.
+            _bundlePriceModel.SkuToLocalizedPrice.Subscribe(OnCoinBundlePricesChanged).AddTo(_disposables);
 
             WatchCount(_powerUpModel.BombCount, PowerUpKind.Bomb);
             WatchCount(_powerUpModel.RowClearCount, PowerUpKind.RowClear);
@@ -593,6 +602,16 @@ namespace MustyBlockBlast.Presentation.Views
             _coinsViewportObject.SetActive(tab == ShopTab.Coins);
             _dealsPlaceholder.SetActive(tab == ShopTab.Deals);
 
+            if (tab == ShopTab.Coins)
+            {
+                // The Coins tab's warm-up (issue #256, AC1): asks the System to connect to the store and
+                // fetch its catalog, so the bundle rows have a chance to show a real price without the
+                // player ever having tapped a buy button. CurrencySystem.WarmUpCoinCatalog is idempotent
+                // — landing here on every reopen of this tab is exactly the point, and it never produces
+                // a second fetch.
+                _currencySystem.WarmUpCoinCatalog(this.GetCancellationTokenOnDestroy());
+            }
+
             // A purchase message belongs to the grid it was answered on; it would be a non sequitur
             // over the deals plate.
             _message = string.Empty;
@@ -630,6 +649,13 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         private void OnCountChanged(int value) => Refresh();
+
+        /// <summary>The bundle rows' store-price repaint (issue #256, AC6): fires whenever
+        /// <see cref="CoinBundlePriceModel.SkuToLocalizedPrice"/> changes, including the immediate call
+        /// every subscription gets with whatever it already held — which is how a Coins tab opened after
+        /// the catalog already arrived once (a second tab reopen) still shows the price on first
+        /// paint.</summary>
+        private void OnCoinBundlePricesChanged(IReadOnlyDictionary<string, string> prices) => RefreshCoinsTab();
 
         private void OnLocaleChanged(LocaleDefinition locale) => Refresh();
 
@@ -669,11 +695,11 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         /// <summary>
-        /// Sets every static caption that is neither per-item nor per-count: the header, the three
-        /// sub-tabs, the earn button, the deals placeholder, the Coins tab's section labels and panel
-        /// copy, and the bundle rows' buy buttons. Called once from <see cref="Refresh"/>'s first pass
-        /// (the locale subscription fires immediately on Start) and again on every later locale change,
-        /// so it never needs a subscription of its own.
+        /// Sets every static caption that is neither per-item, per-count nor per-price: the header, the
+        /// three sub-tabs, the earn button, the deals placeholder, and the Coins tab's section labels and
+        /// panel copy. Called once from <see cref="Refresh"/>'s first pass (the locale subscription fires
+        /// immediately on Start) and again on every later locale change, so it never needs a subscription
+        /// of its own.
         /// </summary>
         private void RepaintLocalizedChrome()
         {
@@ -692,16 +718,11 @@ namespace MustyBlockBlast.Presentation.Views
             _convertButtonText.text = _localizationSystem.Translate(LocalizationKeys.SHOP_CONVERT_BUTTON);
             _adTitleText.text = _localizationSystem.Translate(LocalizationKeys.SHOP_AD_TITLE);
 
-            // The ad row's caption depends on the daily cap's remaining count (issue #257), which moves
-            // far more often than the locale does, so it is repainted by RefreshCoinsTab instead — which
-            // this method's caller already runs right alongside it on every Refresh, locale change
-            // included.
-
-            string buyLabel = _localizationSystem.Translate(LocalizationKeys.SHOP_BUNDLE_BUTTON);
-            for (int bundleIndex = 0; bundleIndex < _bundles.Length; bundleIndex++)
-            {
-                _bundles[bundleIndex].ButtonText.text = buyLabel;
-            }
+            // The ad row's caption depends on the daily cap's remaining count (issue #257), and the
+            // bundle rows' buttons depend on the store's fetched prices (issue #256) — both move far more
+            // often than the locale does, so both are repainted by RefreshCoinsTab (via RefreshAdRow and
+            // RefreshBundleRows) instead, which this method's caller already runs right alongside it on
+            // every Refresh, locale change included.
 
             if (_noBundlesText != null)
             {
@@ -712,9 +733,11 @@ namespace MustyBlockBlast.Presentation.Views
         // ------------------------------------------------------------------------- the Coins tab
 
         /// <summary>
-        /// Repaints the convert panel's figures, and the ad row's caption and button colour (see
-        /// <see cref="RefreshAdRow"/>). The bundle rows are still static — a bundle's size is config — so
-        /// only the score figures, the pending amount and the ad row move.
+        /// Repaints the convert panel's figures, the ad row's caption and button colour (see
+        /// <see cref="RefreshAdRow"/>), and the bundle rows' buttons (see
+        /// <see cref="RefreshBundleRows"/>). The rows themselves are still built once — a bundle's size
+        /// and SKU are config — only what a row's button says moves, and now for two reasons instead of
+        /// one: a locale change, and a store price arriving (issue #256, AC6).
         /// </summary>
         private void RefreshCoinsTab()
         {
@@ -735,6 +758,38 @@ namespace MustyBlockBlast.Presentation.Views
             _convertButtonPlate.color = _pendingAmount > 0 ? _palette.EarnButton : _palette.UnaffordableButton;
 
             RefreshAdRow();
+            RefreshBundleRows();
+        }
+
+        /// <summary>
+        /// Each bundle row's button: the store's localized price when
+        /// <see cref="CoinBundlePriceModel.SkuToLocalizedPrice"/> has one for that row's SKU, the plain
+        /// "BUY" label otherwise (issue #256, AC2 and AC4). Never touches
+        /// <see cref="ICoinPurchaseService"/> or any store SDK type — everything it reads comes off the
+        /// Model <see cref="CurrencySystem.CoinBundlePrices"/> exposes, which is exactly what keeps this
+        /// card within the same seam every other read here already respects (AC7).
+        /// <para>
+        /// A missing entry — an unknown SKU, a catalog that has not arrived yet, a fetch failure, or a
+        /// dropped connection with nothing ever fetched — is indistinguishable here from "no price", and
+        /// deliberately so: this card has no way to tell those apart, and the fallback is the same "BUY"
+        /// for all of them (AC5), never a stale value left over from a previous repaint, because the
+        /// label is always fully reassigned rather than left alone when the lookup misses.
+        /// </para>
+        /// </summary>
+        private void RefreshBundleRows()
+        {
+            IReadOnlyDictionary<string, string> prices = _bundlePriceModel.SkuToLocalizedPrice.Value;
+            string buyLabel = _localizationSystem.Translate(LocalizationKeys.SHOP_BUNDLE_BUTTON);
+
+            for (int bundleIndex = 0; bundleIndex < _bundles.Length; bundleIndex++)
+            {
+                BundleWidgets bundle = _bundles[bundleIndex];
+                bundle.ButtonText.text = prices != null
+                    && prices.TryGetValue(bundle.Sku, out string localizedPrice)
+                    && !string.IsNullOrEmpty(localizedPrice)
+                        ? localizedPrice
+                        : buyLabel;
+            }
         }
 
         /// <summary>
@@ -1757,8 +1812,10 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         /// <summary>One coin bundle: its pile, the coin figure large in orange with the bundle's name
-        /// under it, and a green BUY button. The store's price is not drawn — there is no price query
-        /// on <see cref="ICoinPurchaseService"/> yet — so the button says what it does instead.</summary>
+        /// under it, and a green button. Built once here with the plain "BUY" label; the store's real
+        /// localized price, once <see cref="CoinBundlePriceModel"/> has one, is painted in by
+        /// <see cref="RefreshBundleRows"/> on every repaint (issue #256), not here — this only lays the
+        /// row out.</summary>
         private BundleWidgets BuildBundleRow(RectTransform parent, int bundleIndex, float width, ref float cursor)
         {
             var bundle = new BundleWidgets();

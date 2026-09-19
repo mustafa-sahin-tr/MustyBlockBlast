@@ -1648,6 +1648,7 @@ namespace MustyBlockBlast.Tests.EditMode
             return new CurrencySystem(
                 profileModel,
                 dailyAdGrantModel ?? new DailyAdGrantModel(),
+                new CoinBundlePriceModel(),
                 scoreModel,
                 _levelProgressionModel,
                 _config,
@@ -1665,6 +1666,7 @@ namespace MustyBlockBlast.Tests.EditMode
                 new TestMessageBroker<CoinsGrantedFromPurchaseMessage>(),
                 _gameOverBroker,
                 _coinCellsBroker,
+                new TestMessageBroker<CoinProductsFetchedMessage>(),
                 // The seeded-clock overload, so every quote in this fixture is priced at an instant the
                 // test controls rather than at whenever the suite happens to run. Read through the
                 // lambda on each quote, not captured by value, so a test can move "now" after building

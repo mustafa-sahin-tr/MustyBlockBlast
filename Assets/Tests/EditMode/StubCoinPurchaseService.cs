@@ -43,6 +43,15 @@ namespace MustyBlockBlast.Tests.EditMode
         internal string LastSku { get; private set; }
 
         /// <summary>
+        /// How often <see cref="EnsureReadyAsync"/> was called (issue #256), so a warm-up idempotency
+        /// test can assert a second tab open never asks the store to connect and fetch a second time.
+        /// This stub never caches, unlike the real <c>UnityCoinPurchaseService</c> — that guarantee is
+        /// <see cref="Systems.CurrencySystem.WarmUpCoinCatalog"/>'s to keep, and a stub that quietly
+        /// enforced it too would hide a regression there behind a passing test.
+        /// </summary>
+        internal int EnsureReadyCount { get; private set; }
+
+        /// <summary>
         /// Every transaction the credit path acknowledged, in order. Recorded because the ordering
         /// matters: the store must only be told the goods were delivered *after* the coins are banked,
         /// and an already-consumed replay must still be acknowledged so the store stops replaying it.
@@ -59,6 +68,18 @@ namespace MustyBlockBlast.Tests.EditMode
         public void CompletePurchase(PurchaseReceipt receipt)
         {
             ConfirmedTransactionIds.Add(receipt.TransactionId);
+        }
+
+        /// <summary>
+        /// Reports ready without ever publishing a price (issue #256, AC9): this stub satisfies the
+        /// warm-up contract but has no catalog to answer with, exactly as the Editor's fake store may
+        /// not either — the Coins tab is expected to keep showing "BUY" in both cases, never an
+        /// exception and never a blank.
+        /// </summary>
+        public UniTask<bool> EnsureReadyAsync(CancellationToken cancellationToken)
+        {
+            EnsureReadyCount++;
+            return UniTask.FromResult(true);
         }
     }
 }
