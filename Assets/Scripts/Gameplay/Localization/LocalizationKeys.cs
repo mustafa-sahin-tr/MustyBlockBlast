@@ -271,6 +271,10 @@ namespace MustyBlockBlast.Gameplay.Localization
 
         public const string OBJECTIVE_REROLL_SAVE = "objective.reroll_save";
 
+        /// <summary>Was missing entirely until 2026-09-19 — <c>ObjectiveDescriptionFormatter.Describe</c>
+        /// fell through to an empty string for this type with no template to format.</summary>
+        public const string OBJECTIVE_REINFORCED_CELLS_CLEARED = "objective.reinforced_cells_cleared";
+
         // --- Objective titles ---
         // One short, bold name per ObjectiveType, shown as the header of the objective info card
         // (ObjectiveInfoPopupView) — distinct from the OBJECTIVE_* description templates above, which

@@ -127,19 +127,19 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 149663784099840
-    m_Localized: "Despeja {0} l\xEDneas a la vez"
+    m_Localized: Coloca una sola pieza que complete {0} filas o columnas al mismo tiempo.
     m_Metadata:
       m_Items: []
   - m_Id: 149663859597312
-    m_Localized: Coloca piezas {0}
+    m_Localized: Cada pieza con forma de {0} que coloques cuenta para este objetivo.
     m_Metadata:
       m_Items: []
   - m_Id: 149663863791616
-    m_Localized: Consigue puntos en una partida
+    m_Localized: "Acumula puntos durante una sola partida: cada colocaci\xF3n, despeje y combo que consigas en esta partida cuenta para este objetivo."
     m_Metadata:
       m_Items: []
   - m_Id: 149663863791617
-    m_Localized: "Vac\xEDa todo el tablero"
+    m_Localized: "Llena y despeja todas las celdas del tablero a la vez, dej\xE1ndolo completamente vac\xEDo."
     m_Metadata:
       m_Items: []
   - m_Id: 149663863791618
@@ -171,31 +171,31 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 209334783959040
-    m_Localized: Alcanza una racha combo
+    m_Localized: "Despeja l\xEDneas en colocaciones consecutivas sin fallar ninguna para acumular una racha de combo."
     m_Metadata:
       m_Items: []
   - m_Id: 217997032546304
-    m_Localized: "Vac\xEDa una l\xEDnea con una Bomba"
+    m_Localized: "Usa el power-up Bomba de forma que su explosi\xF3n complete y despeje una fila o columna."
     m_Metadata:
       m_Items: []
   - m_Id: 225277056638976
-    m_Localized: Despeja una fila y una columna a la vez
+    m_Localized: Coloca una sola pieza que complete una fila y una columna en el mismo movimiento.
     m_Metadata:
       m_Items: []
   - m_Id: 227150882922496
-    m_Localized: "Despeja una l\xEDnea bajo presi\xF3n"
+    m_Localized: "Despeja una fila o columna cuando el tablero est\xE9 casi lleno, justo antes de quedarte sin espacio."
     m_Metadata:
       m_Items: []
   - m_Id: 228634777346048
-    m_Localized: "Despeja {0}+ l\xEDneas a la vez"
+    m_Localized: "Completa {0} o m\xE1s filas y columnas con una sola colocaci\xF3n de pieza."
     m_Metadata:
       m_Items: []
   - m_Id: 230162711961600
-    m_Localized: Coloca una pieza {0}
+    m_Localized: Coloca al menos una pieza {0} en el tablero.
     m_Metadata:
       m_Items: []
   - m_Id: 230162825207808
-    m_Localized: "Despeja una l\xEDnea con una pieza {0}"
+    m_Localized: Usa una pieza {0} para completar y despejar una fila o columna.
     m_Metadata:
       m_Items: []
   - m_Id: 234786474942464
@@ -207,27 +207,27 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 236115477913600
-    m_Localized: "Despeja una l\xEDnea por una esquina"
+    m_Localized: Completa una fila o columna que pase por una de las cuatro esquinas del tablero.
     m_Metadata:
       m_Items: []
   - m_Id: 236115591159808
-    m_Localized: "Vac\xEDa el centro del tablero"
+    m_Localized: "Despeja todos los bloques que est\xE9n en las celdas centrales del tablero."
     m_Metadata:
       m_Items: []
   - m_Id: 236115591159809
-    m_Localized: "Mant\xE9n el tablero sin huecos atrapados"
+    m_Localized: "Sigue colocando piezas sin dejar nunca una celda vac\xEDa completamente aislada e inalcanzable."
     m_Metadata:
       m_Items: []
   - m_Id: 240837526020096
-    m_Localized: "Despeja l\xEDneas en un intervalo de {0} segundos"
+    m_Localized: Despeja varias filas o columnas seguidas, cada una dentro de los {0} segundos posteriores a la anterior.
     m_Metadata:
       m_Items: []
   - m_Id: 240837534408704
-    m_Localized: "Alcanza la puntuaci\xF3n objetivo en los primeros {0} segundos"
+    m_Localized: "Alcanza la puntuaci\xF3n objetivo antes de que pasen los primeros {0} segundos de la partida."
     m_Metadata:
       m_Items: []
   - m_Id: 280945016954880
-    m_Localized: Usa Reroll cuando tu bandeja no tenga jugadas pero tu bolsillo te cubra
+    m_Localized: "Cuando ninguna pieza de tu bandeja tenga un movimiento v\xE1lido, usa Redistribuir para salvar la partida en vez de perderla."
     m_Metadata:
       m_Items: []
   - m_Id: 288624816939008
@@ -395,7 +395,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1371178030587925
-    m_Localized: Elimina bloques {0}
+    m_Localized: "Despeja todos los bloques de este color \u2014 {0} \u2014 est\xE9n donde est\xE9n en el tablero."
     m_Metadata:
       m_Items: []
   - m_Id: 1371178030587926
@@ -752,6 +752,10 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 2010649801515025
     m_Localized: Despeje de Color
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2017094311862272
+    m_Localized: "Rompe el blindaje protector de una celda reforzada despej\xE1ndola las veces suficientes para eliminarla."
     m_Metadata:
       m_Items: []
   references:

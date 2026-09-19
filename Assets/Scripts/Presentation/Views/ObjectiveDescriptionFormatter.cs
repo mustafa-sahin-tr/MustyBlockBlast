@@ -108,6 +108,9 @@ namespace MustyBlockBlast.Presentation.Views
                 case ObjectiveType.RerollSave:
                     return localization.Translate(LocalizationKeys.OBJECTIVE_REROLL_SAVE);
 
+                case ObjectiveType.ReinforcedCellsCleared:
+                    return localization.Translate(LocalizationKeys.OBJECTIVE_REINFORCED_CELLS_CLEARED);
+
                 default:
                     return string.Empty;
             }

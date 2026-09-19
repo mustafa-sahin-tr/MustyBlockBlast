@@ -127,19 +127,19 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 149663784099840
-    m_Localized: Clear {0} lines at once
+    m_Localized: Place a single piece that completes {0} rows or columns at the same time.
     m_Metadata:
       m_Items: []
   - m_Id: 149663859597312
-    m_Localized: Place {0} pieces
+    m_Localized: Every {0}-shaped piece you place counts toward this goal.
     m_Metadata:
       m_Items: []
   - m_Id: 149663863791616
-    m_Localized: Score points in one run
+    m_Localized: "Rack up points during a single run \u2014 every placement, clear and combo you score this run counts toward this goal."
     m_Metadata:
       m_Items: []
   - m_Id: 149663863791617
-    m_Localized: Clear the whole board
+    m_Localized: Fill and clear every single cell on the board at once, leaving it completely empty.
     m_Metadata:
       m_Items: []
   - m_Id: 149663863791618
@@ -171,31 +171,31 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 209334783959040
-    m_Localized: Reach a combo streak
+    m_Localized: Clear lines on consecutive placements without a gap to build up a combo streak.
     m_Metadata:
       m_Items: []
   - m_Id: 217997032546304
-    m_Localized: Empty a line with a Bomb
+    m_Localized: Use the Bomb power-up so that its blast completes and clears a row or column.
     m_Metadata:
       m_Items: []
   - m_Id: 225277056638976
-    m_Localized: Clear a row and a column at once
+    m_Localized: Place a single piece that completes a row and a column in the very same move.
     m_Metadata:
       m_Items: []
   - m_Id: 227150882922496
-    m_Localized: Clear a line under pressure
+    m_Localized: Clear a row or column while the board is nearly full, right before you'd run out of room.
     m_Metadata:
       m_Items: []
   - m_Id: 228634777346048
-    m_Localized: Clear {0}+ lines at once
+    m_Localized: Complete {0} or more rows and columns in a single piece placement.
     m_Metadata:
       m_Items: []
   - m_Id: 230162711961600
-    m_Localized: Place a {0} piece
+    m_Localized: Place at least one {0} piece on the board.
     m_Metadata:
       m_Items: []
   - m_Id: 230162825207808
-    m_Localized: Clear a line with a {0} piece
+    m_Localized: Use a {0} piece to complete and clear a row or column.
     m_Metadata:
       m_Items: []
   - m_Id: 234786474942464
@@ -207,27 +207,27 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 236115477913600
-    m_Localized: Clear a line through a corner
+    m_Localized: Complete a row or column that runs through one of the board's four corners.
     m_Metadata:
       m_Items: []
   - m_Id: 236115591159808
-    m_Localized: Empty the board's center
+    m_Localized: Clear every block sitting in the board's central cells.
     m_Metadata:
       m_Items: []
   - m_Id: 236115591159809
-    m_Localized: Keep the board free of trapped gaps
+    m_Localized: Keep placing pieces without ever leaving a single empty cell sealed off and unreachable.
     m_Metadata:
       m_Items: []
   - m_Id: 240837526020096
-    m_Localized: Clear lines within {0} seconds of each other
+    m_Localized: Clear several rows or columns back-to-back, each one within {0} seconds of the last.
     m_Metadata:
       m_Items: []
   - m_Id: 240837534408704
-    m_Localized: Reach the target score within the first {0} seconds
+    m_Localized: Hit the target score before the first {0} seconds of the run have passed.
     m_Metadata:
       m_Items: []
   - m_Id: 280945016954880
-    m_Localized: Use Reroll while your dock is empty of moves but your pocket has you covered
+    m_Localized: When none of your dock pieces have a legal move left, use Reroll to save the run instead of losing it.
     m_Metadata:
       m_Items: []
   - m_Id: 288624816939008
@@ -395,7 +395,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1371178030587925
-    m_Localized: Clear {0} blocks
+    m_Localized: "Clear every block of this colour \u2014 {0} \u2014 from the board, wherever they are."
     m_Metadata:
       m_Items: []
   - m_Id: 1371178030587926
@@ -752,6 +752,10 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 2010649801515025
     m_Localized: Colour Clear
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2017094311862272
+    m_Localized: Break through a reinforced cell's protective armour by clearing it enough times to remove it.
     m_Metadata:
       m_Items: []
   references:

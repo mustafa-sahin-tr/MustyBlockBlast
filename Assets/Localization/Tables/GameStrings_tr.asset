@@ -127,19 +127,19 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 149663784099840
-    m_Localized: "Ayn\u0131 anda {0} s\u0131ra temizle"
+    m_Localized: "Tek bir par\xE7a yerle\u015Ftirmesiyle ayn\u0131 anda {0} sat\u0131r veya s\xFCtunu tamamla."
     m_Metadata:
       m_Items: []
   - m_Id: 149663859597312
-    m_Localized: "{0} par\xE7a yerle\u015Ftir"
+    m_Localized: "Yerle\u015Ftirdi\u011Fin her {0} \u015Feklindeki par\xE7a bu hedefe katk\u0131 sa\u011Flar."
     m_Metadata:
       m_Items: []
   - m_Id: 149663863791616
-    m_Localized: Tek turda puan topla
+    m_Localized: "Tek bir ko\u015Fu boyunca puan topla \u2014 bu ko\u015Fuda yapt\u0131\u011F\u0131n her yerle\u015Ftirme, temizlik ve kombo bu hedefe say\u0131l\u0131r."
     m_Metadata:
       m_Items: []
   - m_Id: 149663863791617
-    m_Localized: "T\xFCm tahtay\u0131 temizle"
+    m_Localized: "Tahtadaki t\xFCm h\xFCcreleri doldurup ayn\u0131 anda temizleyerek tahtay\u0131 tamamen bo\u015Falt."
     m_Metadata:
       m_Items: []
   - m_Id: 149663863791618
@@ -171,31 +171,31 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 209334783959040
-    m_Localized: "Bir kombo serisine ula\u015F"
+    m_Localized: "Art arda yapt\u0131\u011F\u0131n yerle\u015Ftirmelerde arada bo\u015Fluk b\u0131rakmadan sat\u0131r/s\xFCtun temizleyerek bir kombo serisi olu\u015Ftur."
     m_Metadata:
       m_Items: []
   - m_Id: 217997032546304
-    m_Localized: "Bombayla bir s\u0131ray\u0131 bo\u015Falt"
+    m_Localized: "Bomba power-up'\u0131n\u0131, patlamas\u0131 bir sat\u0131r\u0131 veya s\xFCtunu tamamlay\u0131p temizleyecek \u015Fekilde kullan."
     m_Metadata:
       m_Items: []
   - m_Id: 225277056638976
-    m_Localized: "Ayn\u0131 anda bir s\u0131ra ve bir s\xFCtun temizle"
+    m_Localized: "Tek bir par\xE7a yerle\u015Ftirmesiyle ayn\u0131 anda hem bir sat\u0131r\u0131 hem bir s\xFCtunu tamamla."
     m_Metadata:
       m_Items: []
   - m_Id: 227150882922496
-    m_Localized: "Bask\u0131 alt\u0131nda bir s\u0131ra temizle"
+    m_Localized: "Tahta neredeyse dolmu\u015Fken, yer kalmadan hemen \xF6nce bir sat\u0131r ya da s\xFCtun temizle."
     m_Metadata:
       m_Items: []
   - m_Id: 228634777346048
-    m_Localized: "Ayn\u0131 anda {0}+ s\u0131ra temizle"
+    m_Localized: "Tek bir par\xE7a yerle\u015Ftirmesiyle {0} veya daha fazla sat\u0131r/s\xFCtunu birden tamamla."
     m_Metadata:
       m_Items: []
   - m_Id: 230162711961600
-    m_Localized: "Bir {0} par\xE7a yerle\u015Ftir"
+    m_Localized: "Tahtaya en az bir tane {0} par\xE7as\u0131 yerle\u015Ftir."
     m_Metadata:
       m_Items: []
   - m_Id: 230162825207808
-    m_Localized: "Bir {0} par\xE7a ile s\u0131ra temizle"
+    m_Localized: "Bir sat\u0131r\u0131 veya s\xFCtunu tamamlay\u0131p temizlemek i\xE7in bir {0} par\xE7as\u0131 kullan."
     m_Metadata:
       m_Items: []
   - m_Id: 234786474942464
@@ -207,27 +207,27 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 236115477913600
-    m_Localized: "Bir k\xF6\u015Feden ge\xE7en s\u0131ra temizle"
+    m_Localized: "Tahtan\u0131n d\xF6rt k\xF6\u015Fesinden birinden ge\xE7en bir sat\u0131r veya s\xFCtunu tamamla."
     m_Metadata:
       m_Items: []
   - m_Id: 236115591159808
-    m_Localized: "Tahtan\u0131n merkezini bo\u015Falt"
+    m_Localized: "Tahtan\u0131n merkezindeki h\xFCcrelerde bulunan t\xFCm bloklar\u0131 temizle."
     m_Metadata:
       m_Items: []
   - m_Id: 236115591159809
-    m_Localized: "Tahtay\u0131 s\u0131k\u0131\u015Fm\u0131\u015F bo\u015Fluklardan uzak tut"
+    m_Localized: "Hi\xE7bir bo\u015F h\xFCcreyi tamamen kapal\u0131 ve ula\u015F\u0131lamaz b\u0131rakmadan par\xE7a yerle\u015Ftirmeye devam et."
     m_Metadata:
       m_Items: []
   - m_Id: 240837526020096
-    m_Localized: "{0} saniye i\xE7inde s\u0131ra temizle"
+    m_Localized: "Art arda birden fazla sat\u0131r/s\xFCtunu, her birini bir \xF6ncekinden en fazla {0} saniye sonra olacak \u015Fekilde temizle."
     m_Metadata:
       m_Items: []
   - m_Id: 240837534408704
-    m_Localized: "\u0130lk {0} saniye i\xE7inde hedef skora ula\u015F"
+    m_Localized: "Ko\u015Funun ilk {0} saniyesi dolmadan hedef puana ula\u015F."
     m_Metadata:
       m_Items: []
   - m_Id: 280945016954880
-    m_Localized: "Elindeki hamle bitmi\u015Fken ama cebindeki par\xE7a seni kurtar\u0131rken Yeniden \xC7ekil kullan"
+    m_Localized: "Tepsindeki hi\xE7bir par\xE7a yerle\u015Fmiyorken, oyunu kaybetmek yerine Yeniden \xC7ek kullanarak kurtar."
     m_Metadata:
       m_Items: []
   - m_Id: 288624816939008
@@ -395,7 +395,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1371178030587925
-    m_Localized: "{0} bloklar\u0131 temizle"
+    m_Localized: "Bu renkteki \u2014 {0} \u2014 t\xFCm bloklar\u0131, tahtan\u0131n neresinde olurlarsa olsunlar temizle."
     m_Metadata:
       m_Items: []
   - m_Id: 1371178030587926
@@ -752,6 +752,10 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 2010649801515025
     m_Localized: "Renk Temizli\u011Fi"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2017094311862272
+    m_Localized: "G\xFC\xE7lendirilmi\u015F bir h\xFCcrenin koruyucu z\u0131rh\u0131n\u0131, yeterince temizleyerek k\u0131r ve tahtadan kald\u0131r."
     m_Metadata:
       m_Items: []
   references:

@@ -751,6 +751,10 @@ MonoBehaviour:
     m_Key: objective.name.colour_cleared
     m_Metadata:
       m_Items: []
+  - m_Id: 2017094311862272
+    m_Key: objective.reinforced_cells_cleared
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:
