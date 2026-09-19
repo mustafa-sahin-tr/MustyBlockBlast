@@ -12,12 +12,12 @@ namespace MustyBlockBlast.Presentation.Views
     [RequireComponent(typeof(Image))]
     public sealed class SplashBackgroundView : MonoBehaviour
     {
-        /// <summary>#A5D6A7 — the İlkbahar theme\'s backgroundTop (Ilkbahar.asset), baked here because the
-        /// splash boots before any theme state exists (issue #267).</summary>
-        private static readonly Color TopColour = new Color32(165, 214, 167, 255);
+        /// <summary>#1565C0 — vivid deep blue, baked here because the splash boots before any theme
+        /// state exists (issue #267, brightened to a classic red-yellow-blue palette per issue #327).</summary>
+        private static readonly Color TopColour = new Color32(21, 101, 192, 255);
 
-        /// <summary>#FFECB3 — the İlkbahar theme\'s backgroundBottom.</summary>
-        private static readonly Color BottomColour = new Color32(255, 236, 179, 255);
+        /// <summary>#29B6F6 — vivid sky blue (issue #327).</summary>
+        private static readonly Color BottomColour = new Color32(41, 182, 246, 255);
 
         private void Awake()
         {

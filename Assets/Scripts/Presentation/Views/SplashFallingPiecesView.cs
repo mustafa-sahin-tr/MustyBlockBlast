@@ -33,15 +33,13 @@ namespace MustyBlockBlast.Presentation.Views
         private const float CELL_RADIUS = 9f;
         private const float CELL_BEVEL = 6f;
 
-        /// <summary>Piece palette: the İlkbahar theme's five block fills (Ilkbahar.asset kindFills), baked
-        /// because the splash boots before any theme state exists (issue #267).</summary>
+        /// <summary>Piece palette, baked because the splash boots before any theme state exists
+        /// (issue #267): classic vivid red-yellow-blue arcade colours per issue #327.</summary>
         private static readonly Color[] PieceColours =
         {
-            new Color32(232, 120, 90, 255),
-            new Color32(111, 184, 176, 255),
-            new Color32(224, 195, 107, 255),
-            new Color32(142, 124, 195, 255),
-            new Color32(123, 196, 127, 255),
+            new Color32(229, 57, 53, 255),
+            new Color32(253, 216, 53, 255),
+            new Color32(30, 136, 229, 255),
         };
 
         /// <summary>
