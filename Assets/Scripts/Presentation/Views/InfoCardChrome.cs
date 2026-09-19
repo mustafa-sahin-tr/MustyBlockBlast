@@ -52,6 +52,10 @@ namespace MustyBlockBlast.Presentation.Views
         private const float HERO_TO_TITLE_GAP = 20f;
         private const float TITLE_TO_DESCRIPTION_GAP = 12f;
 
+        /// <summary>Mirrors <see cref="TOP_PADDING"/> below the description, so the card reads as
+        /// symmetrically padded top and bottom whatever height <see cref="Reflow"/> settles on.</summary>
+        private const float BOTTOM_PADDING = 60f;
+
         /// <summary>Horizontal margin the description label wraps within, so a long sentence breaks
         /// onto a second line instead of overflowing past the card's rounded edge.</summary>
         private const float DESCRIPTION_SIDE_PADDING = 70f;
@@ -78,6 +82,10 @@ namespace MustyBlockBlast.Presentation.Views
             internal Image HeroRingImage;
             internal Image HeroPlateImage;
 
+            /// <summary>The whole hero footprint (ring + plate + content) — repositioned by
+            /// <see cref="Reflow"/> whenever the card's measured height changes.</summary>
+            internal RectTransform HeroRootRect;
+
             internal Text TitleText;
             internal Text DescriptionText;
         }
@@ -97,57 +105,93 @@ namespace MustyBlockBlast.Presentation.Views
                 panelRoot, cardName, cardSize, out handles.CardImage, out handles.CardShadowImage,
                 CARD_CORNER_MULTIPLIER);
 
-            float cardHalfWidth = cardSize.x * 0.5f;
-            float cardHalfHeight = cardSize.y * 0.5f;
+            CreateCloseButton(handles);
+            CreateHero(handles);
 
-            BuildCloseButton(handles, new Vector2(cardHalfWidth, cardHalfHeight));
-
-            float cursorY = cardHalfHeight - TOP_PADDING;
-            float heroCenterY = cursorY - (HERO_SIZE * 0.5f);
-            BuildHero(handles, new Vector2(0f, heroCenterY));
-            cursorY = heroCenterY - (HERO_SIZE * 0.5f) - HERO_TO_TITLE_GAP;
-
-            float titleHalfHeight = titleFontSize * 0.6f;
-            float titleCenterY = cursorY - titleHalfHeight;
             handles.TitleText = CreateLabel(
-                handles.CardRect, "Title", titleFontSize, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(0f, titleCenterY));
-            cursorY = titleCenterY - titleHalfHeight - TITLE_TO_DESCRIPTION_GAP;
-
-            float descriptionHalfHeight = descriptionFontSize * 0.9f;
-            float descriptionCenterY = cursorY - descriptionHalfHeight;
+                handles.CardRect, "Title", titleFontSize, FontStyle.Bold, TextAnchor.MiddleCenter);
             handles.DescriptionText = CreateLabel(
-                handles.CardRect, "Description", descriptionFontSize, FontStyle.Normal, TextAnchor.MiddleCenter,
-                new Vector2(0f, descriptionCenterY));
+                handles.CardRect, "Description", descriptionFontSize, FontStyle.Normal, TextAnchor.MiddleCenter);
 
             // Wrapped rather than left to overflow (UiTextFactory's default): a full-sentence
             // description at this font size routinely runs wider than the card, and an
             // un-clipped overflow would draw straight past the card's rounded edge and, on a
-            // narrow phone, off the visible screen entirely.
+            // narrow phone, off the visible screen entirely. The wrap width only depends on the
+            // card's (fixed) width, so it is set once here rather than in Reflow.
             handles.DescriptionText.horizontalOverflow = HorizontalWrapMode.Wrap;
             var descriptionRect = (RectTransform)handles.DescriptionText.transform;
             descriptionRect.sizeDelta = new Vector2(
                 cardSize.x - (DESCRIPTION_SIDE_PADDING * 2f), descriptionFontSize * 2f);
 
+            // Lays everything out for the placeholder (empty) label text Build() hands back — the
+            // caller's first Refresh() immediately re-runs Reflow with the real title/description so
+            // the card is never shown at this placeholder height.
+            Reflow(handles, cardSize);
+
             return handles;
         }
 
         /// <summary>
-        /// A separate circular plate — with the same offset shadow <see cref="CellFactory.CreateCard"/>
-        /// gives the main card — floating so its centre sits <see cref="CLOSE_PLATE_CORNER_OVERHANG_FRACTION"/>
-        /// of its own radius inside the card's top-right corner, with the × bars centred on top of it.
+        /// Recomputes the card's height from the title and description's <i>actual</i> measured
+        /// heights (<see cref="Text.preferredHeight"/>, valid only once each label's final text and
+        /// wrap width are set) and repositions every piece of chrome that sits below the card's top
+        /// edge accordingly. Never shrinks below <paramref name="baseCardSize"/> — that is the size
+        /// tuned for a short, one-line description, and stays the floor so a short card never looks
+        /// unnecessarily sparse.
+        /// <para>
+        /// Called once by <see cref="Build"/> with placeholder (empty) text, and again by each caller's
+        /// <c>Refresh()</c> after the real localized title/description strings are assigned — this is
+        /// the only place a wrapped description can grow the card downward instead of overlapping the
+        /// title above it.
+        /// </para>
         /// </summary>
-        private static void BuildCloseButton(Handles handles, Vector2 cardCorner)
+        internal static void Reflow(Handles handles, Vector2 baseCardSize)
         {
-            float plateRadius = CLOSE_PLATE_SIZE * 0.5f;
-            float overhang = plateRadius * CLOSE_PLATE_CORNER_OVERHANG_FRACTION;
-            var centre = new Vector2(cardCorner.x - overhang, cardCorner.y - overhang);
+            float titleHeight = Mathf.Max(handles.TitleText.preferredHeight, handles.TitleText.fontSize * 1.2f);
+            float descriptionHeight = Mathf.Max(
+                handles.DescriptionText.preferredHeight, handles.DescriptionText.fontSize * 1.2f);
 
+            float contentHeight = TOP_PADDING + HERO_SIZE + HERO_TO_TITLE_GAP + titleHeight
+                + TITLE_TO_DESCRIPTION_GAP + descriptionHeight + BOTTOM_PADDING;
+            float cardHeight = Mathf.Max(baseCardSize.y, contentHeight);
+            var cardSize = new Vector2(baseCardSize.x, cardHeight);
+
+            handles.CardRect.sizeDelta = cardSize;
+            ((RectTransform)handles.CardShadowImage.transform).sizeDelta = cardSize + new Vector2(10f, 10f);
+
+            float cardHalfWidth = cardSize.x * 0.5f;
+            float cardHalfHeight = cardHeight * 0.5f;
+
+            PositionCloseButton(handles, new Vector2(cardHalfWidth, cardHalfHeight));
+
+            float cursorY = cardHalfHeight - TOP_PADDING;
+            float heroCenterY = cursorY - (HERO_SIZE * 0.5f);
+            handles.HeroRootRect.anchoredPosition = new Vector2(0f, heroCenterY);
+            cursorY = heroCenterY - (HERO_SIZE * 0.5f) - HERO_TO_TITLE_GAP;
+
+            float titleHalfHeight = titleHeight * 0.5f;
+            float titleCenterY = cursorY - titleHalfHeight;
+            ((RectTransform)handles.TitleText.transform).anchoredPosition = new Vector2(0f, titleCenterY);
+            cursorY = titleCenterY - titleHalfHeight - TITLE_TO_DESCRIPTION_GAP;
+
+            float descriptionHalfHeight = descriptionHeight * 0.5f;
+            float descriptionCenterY = cursorY - descriptionHalfHeight;
+            var descriptionRect = (RectTransform)handles.DescriptionText.transform;
+            descriptionRect.anchoredPosition = new Vector2(0f, descriptionCenterY);
+            descriptionRect.sizeDelta = new Vector2(descriptionRect.sizeDelta.x, descriptionHeight);
+        }
+
+        /// <summary>
+        /// Creates the close button's Images and hit-test rect, parented under the card but not yet
+        /// positioned — <see cref="PositionCloseButton"/> (called from <see cref="Reflow"/>) places them
+        /// once the card's final height for this repaint is known.
+        /// </summary>
+        private static void CreateCloseButton(Handles handles)
+        {
             var shadowObject = new GameObject("CloseButtonShadow", typeof(RectTransform), typeof(Image));
             var shadowRect = (RectTransform)shadowObject.transform;
             shadowRect.SetParent(handles.CardRect, false);
             Centre(shadowRect, new Vector2(CLOSE_PLATE_SIZE, CLOSE_PLATE_SIZE) + new Vector2(10f, 10f));
-            shadowRect.anchoredPosition = centre + new Vector2(0f, -8f);
             handles.ClosePlateShadowImage = shadowObject.GetComponent<Image>();
             ConfigureCircle(handles.ClosePlateShadowImage);
 
@@ -155,7 +199,6 @@ namespace MustyBlockBlast.Presentation.Views
             var plateRect = (RectTransform)plateObject.transform;
             plateRect.SetParent(handles.CardRect, false);
             Centre(plateRect, new Vector2(CLOSE_PLATE_SIZE, CLOSE_PLATE_SIZE));
-            plateRect.anchoredPosition = centre;
             handles.ClosePlateImage = plateObject.GetComponent<Image>();
             ConfigureCircle(handles.ClosePlateImage);
 
@@ -163,7 +206,6 @@ namespace MustyBlockBlast.Presentation.Views
             handles.CloseButtonRect = (RectTransform)closeObject.transform;
             handles.CloseButtonRect.SetParent(handles.CardRect, false);
             Centre(handles.CloseButtonRect, new Vector2(CLOSE_PLATE_SIZE, CLOSE_PLATE_SIZE));
-            handles.CloseButtonRect.anchoredPosition = centre;
 
             for (int barIndex = 0; barIndex < 2; barIndex++)
             {
@@ -179,45 +221,64 @@ namespace MustyBlockBlast.Presentation.Views
             }
         }
 
-        /// <summary>The ring (outer, lighter), the plate (inner, inset) and a content root the caller
-        /// parents its own icon/glyph into — see <see cref="HERO_CONTENT_SIZE"/>.</summary>
-        private static void BuildHero(Handles handles, Vector2 anchoredPosition)
+        /// <summary>
+        /// Moves the already-created close button pieces so the plate's centre sits
+        /// <see cref="CLOSE_PLATE_CORNER_OVERHANG_FRACTION"/> of its own radius inside the card's
+        /// top-right corner, with the × bars centred on top of it — the card's own shadow treatment,
+        /// floating partly outside the card. Callable repeatedly as <paramref name="cardCorner"/>
+        /// changes with the card's measured height.
+        /// </summary>
+        private static void PositionCloseButton(Handles handles, Vector2 cardCorner)
+        {
+            float plateRadius = CLOSE_PLATE_SIZE * 0.5f;
+            float overhang = plateRadius * CLOSE_PLATE_CORNER_OVERHANG_FRACTION;
+            var centre = new Vector2(cardCorner.x - overhang, cardCorner.y - overhang);
+
+            ((RectTransform)handles.ClosePlateShadowImage.transform).anchoredPosition = centre + new Vector2(0f, -8f);
+            ((RectTransform)handles.ClosePlateImage.transform).anchoredPosition = centre;
+            handles.CloseButtonRect.anchoredPosition = centre;
+        }
+
+        /// <summary>Creates the ring (outer, lighter), the plate (inner, inset) and a content root the
+        /// caller parents its own icon/glyph into — see <see cref="HERO_CONTENT_SIZE"/>. Not yet
+        /// positioned; <see cref="Reflow"/> places <see cref="Handles.HeroRootRect"/> once the card's
+        /// final height for this repaint is known.</summary>
+        private static void CreateHero(Handles handles)
         {
             var heroRootObject = new GameObject("HeroIcon", typeof(RectTransform));
-            var heroRootRect = (RectTransform)heroRootObject.transform;
-            heroRootRect.SetParent(handles.CardRect, false);
-            Centre(heroRootRect, new Vector2(HERO_SIZE, HERO_SIZE));
-            heroRootRect.anchoredPosition = anchoredPosition;
+            handles.HeroRootRect = (RectTransform)heroRootObject.transform;
+            handles.HeroRootRect.SetParent(handles.CardRect, false);
+            Centre(handles.HeroRootRect, new Vector2(HERO_SIZE, HERO_SIZE));
 
             var ringObject = new GameObject("Ring", typeof(RectTransform), typeof(Image));
             var ringRect = (RectTransform)ringObject.transform;
-            ringRect.SetParent(heroRootRect, false);
+            ringRect.SetParent(handles.HeroRootRect, false);
             Centre(ringRect, new Vector2(HERO_SIZE, HERO_SIZE));
             handles.HeroRingImage = ringObject.GetComponent<Image>();
             ConfigureCircle(handles.HeroRingImage);
 
             var plateObject = new GameObject("Plate", typeof(RectTransform), typeof(Image));
             var plateRect = (RectTransform)plateObject.transform;
-            plateRect.SetParent(heroRootRect, false);
+            plateRect.SetParent(handles.HeroRootRect, false);
             Centre(plateRect, new Vector2(HERO_PLATE_SIZE, HERO_PLATE_SIZE));
             handles.HeroPlateImage = plateObject.GetComponent<Image>();
             ConfigureCircle(handles.HeroPlateImage);
 
             var contentObject = new GameObject("Content", typeof(RectTransform));
             handles.HeroContentRect = (RectTransform)contentObject.transform;
-            handles.HeroContentRect.SetParent(heroRootRect, false);
+            handles.HeroContentRect.SetParent(handles.HeroRootRect, false);
             Centre(handles.HeroContentRect, new Vector2(HERO_PLATE_SIZE, HERO_PLATE_SIZE));
         }
 
-        /// <summary>Builds a wordless label; the caller's <c>Refresh</c> fills it in from the model,
-        /// because every label on this card carries a value.</summary>
+        /// <summary>Builds a wordless label at the origin; the caller's <c>Refresh</c> fills it in from
+        /// the model and <see cref="Reflow"/> places it, because every label on this card carries a
+        /// value and every label's vertical position depends on measured content height.</summary>
         private static Text CreateLabel(
             RectTransform parent,
             string objectName,
             int fontSize,
             FontStyle fontStyle,
-            TextAnchor alignment,
-            Vector2 anchoredPosition)
+            TextAnchor alignment)
         {
             Text text = UiTextFactory.Create(parent, objectName, fontSize, fontStyle, Color.clear);
             text.alignment = alignment;
@@ -229,7 +290,6 @@ namespace MustyBlockBlast.Presentation.Views
             float pivotX = alignment == TextAnchor.MiddleRight ? 1f : (alignment == TextAnchor.MiddleLeft ? 0f : 0.5f);
             rect.pivot = new Vector2(pivotX, 0.5f);
             rect.sizeDelta = new Vector2(0f, fontSize * 1.6f);
-            rect.anchoredPosition = anchoredPosition;
             return text;
         }
 

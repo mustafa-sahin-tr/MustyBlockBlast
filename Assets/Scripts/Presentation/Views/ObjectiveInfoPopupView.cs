@@ -251,6 +251,10 @@ namespace MustyBlockBlast.Presentation.Views
             _chrome.DescriptionText.color = isComplete ? _currentTheme.Accent : _currentTheme.SoftInk;
             _chrome.DescriptionText.text = ObjectiveDescriptionFormatter.Describe(
                 objective.Definition, _localizationSystem, _currentTheme);
+
+            // Title and description text just changed length — reflow so a long, multi-line
+            // description grows the card downward instead of overlapping the title above it.
+            InfoCardChrome.Reflow(_chrome, _cardSize);
         }
 
         /// <summary>Rebuilds the hero glyph when the card is opened for an objective of a different
