@@ -66,6 +66,16 @@ namespace MustyBlockBlast.Tests.EditMode
         /// <summary>A frontier past the last gate in the table, so no kind is withheld.</summary>
         private const int ALL_KINDS_UNLOCKED_LEVEL = 99;
 
+        /// <summary>
+        /// The Path-level ban list source (issue #317). Empty by default — Endless, and populated only
+        /// by the tests that exercise a banned kind — so every existing test's inventory contract is
+        /// unaffected.
+        /// </summary>
+        private LevelCatalog _levelCatalog;
+
+        private GameModeModel _gameModeModel;
+        private PathRunModel _pathRunModel;
+
         /// <summary>PowerUpSystem loads the inventory in its constructor, so a count left behind by a
         /// previous test would silently decide whether the next one can spend anything.</summary>
         [SetUp]
@@ -74,6 +84,9 @@ namespace MustyBlockBlast.Tests.EditMode
             DeleteInventoryKeys();
             _levelProgressionModel = new LevelProgressionModel();
             _levelProgressionModel.CurrentLevelNumber.Value = ALL_KINDS_UNLOCKED_LEVEL;
+            _levelCatalog = ScriptableObject.CreateInstance<LevelCatalog>();
+            _gameModeModel = new GameModeModel();
+            _pathRunModel = new PathRunModel();
             _appliedBroker = new TestMessageBroker<PowerUpAppliedMessage>();
             _grantedBroker = new TestMessageBroker<PowerUpGrantedMessage>();
             _detonatedBroker = new TestMessageBroker<ExplosiveCoreDetonatedMessage>();
@@ -97,6 +110,11 @@ namespace MustyBlockBlast.Tests.EditMode
             if (_currencyConfig != null)
             {
                 Object.DestroyImmediate(_currencyConfig);
+            }
+
+            if (_levelCatalog != null)
+            {
+                Object.DestroyImmediate(_levelCatalog);
             }
         }
 
@@ -284,6 +302,116 @@ namespace MustyBlockBlast.Tests.EditMode
             trayModel.SetSlot(1, HoldPair, 2);
             trayModel.SetSlot(2, HoldTriple, 3);
             return trayModel;
+        }
+
+        // --- Path-level power-up ban list (issue #317) ---
+
+        private const int BANNED_LEVEL_NUMBER = 5;
+
+        /// <summary>Puts <paramref name="banned"/> on <see cref="BANNED_LEVEL_NUMBER"/>'s ban list in
+        /// <see cref="_levelCatalog"/>. Built through <see cref="JsonUtility"/> rather than reflection,
+        /// for the same reason <c>LevelProgressionSystemPathModeTests.ACatalogOf</c> is: the serialized
+        /// field name is the asset's own contract.</summary>
+        private void BanPowerUpOnLevel(PowerUpKind banned)
+        {
+            string levelJson = $"{{\"_levelNumber\":{BANNED_LEVEL_NUMBER},\"_bannedPowerUps\":[{(int)banned}]}}";
+            JsonUtility.FromJsonOverwrite($"{{\"_levels\":[{levelJson}]}}", _levelCatalog);
+        }
+
+        /// <summary>Arms the active Path run at <see cref="BANNED_LEVEL_NUMBER"/>. Call after
+        /// <see cref="BanPowerUpOnLevel"/> so the level the run is bound to is the one that bans it.</summary>
+        private void EnterPathRunAtBannedLevel()
+        {
+            _gameModeModel.CurrentMode.Value = GameMode.Path;
+            _pathRunModel.ActiveLevelNumber.Value = BANNED_LEVEL_NUMBER;
+        }
+
+        /// <summary>AC3: a kind on the active Path level's ban list refuses to arm, exactly as a still-
+        /// locked kind does — nothing arms, nothing is spent.</summary>
+        [Test]
+        public void Arm_BannedInActivePathLevel_DoesNotArm()
+        {
+            PersistCount(PowerUpKind.Bomb, 3);
+            BanPowerUpOnLevel(PowerUpKind.Bomb);
+            EnterPathRunAtBannedLevel();
+            var model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, new BoardModel());
+
+            system.Arm(PowerUpKind.Bomb);
+
+            Assert.IsNull(model.Armed.Value);
+            Assert.AreEqual(3, model.BombCount.Value);
+        }
+
+        /// <summary>AC4: the ban is enforced independently of Arm — calling the apply method directly
+        /// with a banned kind still refuses and spends nothing.</summary>
+        [Test]
+        public void TryApplyBomb_BannedInActivePathLevel_ChangesNothing()
+        {
+            PersistCount(PowerUpKind.Bomb, 3);
+            BanPowerUpOnLevel(PowerUpKind.Bomb);
+            EnterPathRunAtBannedLevel();
+            var model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, new BoardModel());
+
+            bool applied = system.TryApplyBomb(new GridPosition(4, 4));
+
+            Assert.IsFalse(applied);
+            Assert.AreEqual(3, model.BombCount.Value);
+        }
+
+        /// <summary>AC4 for the bulk spend path: Coin Sower has no Arm at all, so its ban has to be
+        /// enforced at the one spend method it has.</summary>
+        [Test]
+        public void TrySpendCoinSowerBulk_BannedInActivePathLevel_ChangesNothing()
+        {
+            PersistCount(PowerUpKind.CoinSower, 5);
+            BanPowerUpOnLevel(PowerUpKind.CoinSower);
+            EnterPathRunAtBannedLevel();
+            var model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, new BoardModel());
+
+            bool spent = system.TrySpendCoinSowerBulk(3);
+
+            Assert.IsFalse(spent);
+            Assert.AreEqual(5, model.CoinSowerCount.Value);
+        }
+
+        /// <summary>AC2's negative half: the same banned kind, on the same level, is fully spendable
+        /// outside Path mode — Endless ignores the level's ban list entirely.</summary>
+        [Test]
+        public void TryApplyBomb_BannedOnLevelButInEndlessMode_StillApplies()
+        {
+            PersistCount(PowerUpKind.Bomb, 3);
+            BanPowerUpOnLevel(PowerUpKind.Bomb);
+            _pathRunModel.ActiveLevelNumber.Value = BANNED_LEVEL_NUMBER;
+
+            // Deliberately left at GameModeModel's default (Endless) — the ban applies only in Path.
+            var model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, new BoardModel());
+
+            bool applied = system.TryApplyBomb(new GridPosition(4, 4));
+
+            Assert.IsTrue(applied);
+            Assert.AreEqual(2, model.BombCount.Value);
+        }
+
+        /// <summary>AC7: a level authoring no ban list (every level before this field existed) changes
+        /// nothing in Path mode — every kind stays exactly as spendable as it is today.</summary>
+        [Test]
+        public void TryApplyBomb_InPathModeWithNoAuthoredBanList_StillApplies()
+        {
+            PersistCount(PowerUpKind.Bomb, 3);
+            EnterPathRunAtBannedLevel();
+
+            // _levelCatalog stays empty — no level, let alone a ban list, is authored for it.
+            var model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, new BoardModel());
+
+            bool applied = system.TryApplyBomb(new GridPosition(4, 4));
+
+            Assert.IsTrue(applied);
+            Assert.AreEqual(2, model.BombCount.Value);
         }
 
         // --- The Coin Sower's bulk spend (issue #167) ---
@@ -2188,6 +2316,9 @@ namespace MustyBlockBlast.Tests.EditMode
             return new PowerUpSystem(
                 model,
                 _levelProgressionModel,
+                _levelCatalog,
+                _gameModeModel,
+                _pathRunModel,
                 boardModel,
                 trayModel,
                 boardSystem,

@@ -920,7 +920,7 @@ namespace MustyBlockBlast.Tests.EditMode
                 _pathRunModel,
                 _objectiveModel,
                 catalog,
-                CreatePowerUpSystem(),
+                CreatePowerUpSystem(catalog),
                 _gameModeSystem,
                 _boardSystem,
                 _scoreSystem,
@@ -938,7 +938,7 @@ namespace MustyBlockBlast.Tests.EditMode
         /// A real <see cref="PowerUpSystem"/>, because the level-up reward path runs through it. None
         /// of these tests authors a rewarding level, so it is only ever constructed, never spent from.
         /// </summary>
-        private PowerUpSystem CreatePowerUpSystem()
+        private PowerUpSystem CreatePowerUpSystem(LevelCatalog catalog)
         {
             var powerUpAppliedBroker = new TestMessageBroker<PowerUpAppliedMessage>();
             var doubleMultiplierModel = new DoubleMultiplierModel();
@@ -971,6 +971,9 @@ namespace MustyBlockBlast.Tests.EditMode
             return new PowerUpSystem(
                 new PowerUpModel(),
                 _progressionModel,
+                catalog,
+                new GameModeModel(),
+                _pathRunModel,
                 _boardModel,
                 _trayModel,
                 _boardSystem,

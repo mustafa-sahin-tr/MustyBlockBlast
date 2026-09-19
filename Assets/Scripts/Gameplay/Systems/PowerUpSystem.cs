@@ -66,6 +66,9 @@ namespace MustyBlockBlast.Gameplay.Systems
 
         private readonly PowerUpModel _powerUpModel;
         private readonly LevelProgressionModel _levelProgressionModel;
+        private readonly LevelCatalog _levelCatalog;
+        private readonly GameModeModel _gameModeModel;
+        private readonly PathRunModel _pathRunModel;
         private readonly BoardModel _boardModel;
         private readonly TrayModel _trayModel;
         private readonly BoardSystem _boardSystem;
@@ -141,6 +144,9 @@ namespace MustyBlockBlast.Gameplay.Systems
         public PowerUpSystem(
             PowerUpModel powerUpModel,
             LevelProgressionModel levelProgressionModel,
+            LevelCatalog levelCatalog,
+            GameModeModel gameModeModel,
+            PathRunModel pathRunModel,
             BoardModel boardModel,
             TrayModel trayModel,
             BoardSystem boardSystem,
@@ -170,6 +176,9 @@ namespace MustyBlockBlast.Gameplay.Systems
             _coinEffect = new CoinEffect(currencyConfig.CoinCellPayout);
             _powerUpModel = powerUpModel;
             _levelProgressionModel = levelProgressionModel;
+            _levelCatalog = levelCatalog;
+            _gameModeModel = gameModeModel;
+            _pathRunModel = pathRunModel;
             _boardModel = boardModel;
             _trayModel = trayModel;
             _boardSystem = boardSystem;
@@ -236,7 +245,8 @@ namespace MustyBlockBlast.Gameplay.Systems
         {
             if (kind == PowerUpKind.Reroll || kind == PowerUpKind.DoubleMultiplier
                 || kind == PowerUpKind.GhostFit || kind == PowerUpKind.CoinSower || kind == PowerUpKind.Hold
-                || _boardSystem.IsGameOver || IsLocked(kind) || CountOf(kind).Value <= 0)
+                || _boardSystem.IsGameOver || IsLocked(kind) || IsBannedInActivePathLevel(kind)
+                || CountOf(kind).Value <= 0)
             {
                 return;
             }
@@ -260,7 +270,8 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// player holds none or the target is off the board — nothing is changed in either case.</summary>
         public bool TryApplyBomb(GridPosition center)
         {
-            if (!_boardModel.Board.IsInside(center) || IsLocked(PowerUpKind.Bomb) || !TrySpend(PowerUpKind.Bomb))
+            if (!_boardModel.Board.IsInside(center) || IsLocked(PowerUpKind.Bomb)
+                || IsBannedInActivePathLevel(PowerUpKind.Bomb) || !TrySpend(PowerUpKind.Bomb))
             {
                 return false;
             }
@@ -273,7 +284,8 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// <summary>Spends one row clear on <paramref name="row"/>, full or not.</summary>
         public bool TryApplyRowClear(int row)
         {
-            if (!IsValidRowIndex(row) || IsLocked(PowerUpKind.RowClear) || !TrySpend(PowerUpKind.RowClear))
+            if (!IsValidRowIndex(row) || IsLocked(PowerUpKind.RowClear)
+                || IsBannedInActivePathLevel(PowerUpKind.RowClear) || !TrySpend(PowerUpKind.RowClear))
             {
                 return false;
             }
@@ -287,7 +299,7 @@ namespace MustyBlockBlast.Gameplay.Systems
         public bool TryApplyColumnClear(int column)
         {
             if (!IsValidColumnIndex(column) || IsLocked(PowerUpKind.ColumnClear)
-                || !TrySpend(PowerUpKind.ColumnClear))
+                || IsBannedInActivePathLevel(PowerUpKind.ColumnClear) || !TrySpend(PowerUpKind.ColumnClear))
             {
                 return false;
             }
@@ -311,7 +323,8 @@ namespace MustyBlockBlast.Gameplay.Systems
         {
             // Peeked rather than spent: the fill below decides whether this tap is legal at all, and
             // an illegal one must leave the inventory exactly as it found it.
-            if (IsLocked(PowerUpKind.Joker) || CountOf(PowerUpKind.Joker).Value <= 0)
+            if (IsLocked(PowerUpKind.Joker) || IsBannedInActivePathLevel(PowerUpKind.Joker)
+                || CountOf(PowerUpKind.Joker).Value <= 0)
             {
                 return false;
             }
@@ -367,6 +380,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             // Peeked rather than spent, mirroring TryApplyJoker: legality here is "does the resolver
             // find a colour to clear", and that must be checked before a single count is touched.
             if (!_boardModel.Board.IsPlayable(target) || IsLocked(PowerUpKind.ColorCleanser)
+                || IsBannedInActivePathLevel(PowerUpKind.ColorCleanser)
                 || CountOf(PowerUpKind.ColorCleanser).Value <= 0)
             {
                 return false;
@@ -402,7 +416,8 @@ namespace MustyBlockBlast.Gameplay.Systems
         public bool TryApplyRotate(int slotIndex)
         {
             if (slotIndex < 0 || slotIndex >= TrayModel.SLOT_COUNT
-                || IsLocked(PowerUpKind.Rotate) || CountOf(PowerUpKind.Rotate).Value <= 0)
+                || IsLocked(PowerUpKind.Rotate) || IsBannedInActivePathLevel(PowerUpKind.Rotate)
+                || CountOf(PowerUpKind.Rotate).Value <= 0)
             {
                 return false;
             }
@@ -454,7 +469,7 @@ namespace MustyBlockBlast.Gameplay.Systems
         public bool TryApplyReroll()
         {
             if (_boardSystem.IsGameOver || IsLocked(PowerUpKind.Reroll)
-                || CountOf(PowerUpKind.Reroll).Value <= 0)
+                || IsBannedInActivePathLevel(PowerUpKind.Reroll) || CountOf(PowerUpKind.Reroll).Value <= 0)
             {
                 return false;
             }
@@ -502,6 +517,7 @@ namespace MustyBlockBlast.Gameplay.Systems
         public bool TryApplyDoubleMultiplier()
         {
             if (_boardSystem.IsGameOver || IsLocked(PowerUpKind.DoubleMultiplier)
+                || IsBannedInActivePathLevel(PowerUpKind.DoubleMultiplier)
                 || CountOf(PowerUpKind.DoubleMultiplier).Value <= 0)
             {
                 return false;
@@ -547,7 +563,7 @@ namespace MustyBlockBlast.Gameplay.Systems
         public bool TryApplyGhostFit()
         {
             if (_boardSystem.IsGameOver || IsLocked(PowerUpKind.GhostFit)
-                || CountOf(PowerUpKind.GhostFit).Value <= 0)
+                || IsBannedInActivePathLevel(PowerUpKind.GhostFit) || CountOf(PowerUpKind.GhostFit).Value <= 0)
             {
                 return false;
             }
@@ -603,7 +619,8 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// </summary>
         public bool TryApplyHold(int slotIndex)
         {
-            if (IsLocked(PowerUpKind.Hold) || CountOf(PowerUpKind.Hold).Value <= 0)
+            if (IsLocked(PowerUpKind.Hold) || IsBannedInActivePathLevel(PowerUpKind.Hold)
+                || CountOf(PowerUpKind.Hold).Value <= 0)
             {
                 return false;
             }
@@ -710,7 +727,8 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// </summary>
         public bool TrySpendCoinSowerBulk(int quantity)
         {
-            if (quantity <= 0 || _powerUpModel.CoinSowerCount.Value < quantity)
+            if (quantity <= 0 || IsBannedInActivePathLevel(PowerUpKind.CoinSower)
+                || _powerUpModel.CoinSowerCount.Value < quantity)
             {
                 return false;
             }
@@ -798,6 +816,47 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// </summary>
         private bool IsLocked(PowerUpKind kind)
             => !PowerUpUnlockLevels.IsUnlockedAt(kind, _levelProgressionModel.CurrentLevelNumber.Value);
+
+        /// <summary>
+        /// Whether <paramref name="kind"/> is on the active Path level's authored ban list (see
+        /// <see cref="LevelObjectiveConfig.BannedPowerUps"/>). Checked alongside <see cref="IsLocked"/>
+        /// in every arm and apply path, refusing the same way.
+        /// <para>
+        /// False outside <see cref="GameMode.Path"/>, with no active Path level, or for a level the
+        /// catalog does not author — Endless and Timed are never affected, whatever a level's config
+        /// contains, and a level with no ban list bans nothing.
+        /// </para>
+        /// </summary>
+        private bool IsBannedInActivePathLevel(PowerUpKind kind)
+        {
+            if (_gameModeModel.CurrentMode.Value != GameMode.Path)
+            {
+                return false;
+            }
+
+            int activeLevelNumber = _pathRunModel.ActiveLevelNumber.Value;
+            if (activeLevelNumber == PathRunModel.NO_ACTIVE_LEVEL || _levelCatalog == null)
+            {
+                return false;
+            }
+
+            LevelObjectiveConfig level = _levelCatalog.Find(activeLevelNumber);
+            if (level == null)
+            {
+                return false;
+            }
+
+            IReadOnlyList<PowerUpKind> bannedPowerUps = level.BannedPowerUps;
+            for (int i = 0; i < bannedPowerUps.Count; i++)
+            {
+                if (bannedPowerUps[i] == kind)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
 
         /// <summary>
         /// The one and only way a power-up enters the inventory: increment, persist, announce. Every
