@@ -323,6 +323,7 @@ namespace MustyBlockBlast.Presentation.Views
         private TimerRunSystem _timerRunSystem;
         private LocalizationModel _localizationModel;
         private LocalizationSystem _localizationSystem;
+        private InfoPopupSystem _infoPopupSystem;
         private CoinBundleConfig _bundleConfig;
         private ShopPaletteConfig _palette;
 
@@ -421,7 +422,8 @@ namespace MustyBlockBlast.Presentation.Views
             LocalizationSystem localizationSystem,
             PowerUpPriceConfig priceConfig,
             CoinBundleConfig bundleConfig,
-            ShopPaletteConfig palette)
+            ShopPaletteConfig palette,
+            InfoPopupSystem infoPopupSystem)
         {
             _profileModel = profileModel;
             _powerUpModel = powerUpModel;
@@ -433,6 +435,7 @@ namespace MustyBlockBlast.Presentation.Views
             _priceConfig = priceConfig;
             _bundleConfig = bundleConfig;
             _palette = palette;
+            _infoPopupSystem = infoPopupSystem;
         }
 
         private void Awake()
@@ -1346,6 +1349,22 @@ namespace MustyBlockBlast.Presentation.Views
             Centre(glyphRect, new Vector2(GLYPH_SIZE, GLYPH_SIZE));
             glyphRect.anchoredPosition = new Vector2(0f, GLYPH_RISE);
             item.Glyph = ConfigureGlyph(glyphObject.GetComponent<Image>(), IconFor(itemIndex));
+
+            // The glyph is also a tap target — reopens this kind's info popup, the same card the HUD
+            // strip's long-press opens. An invisible plate over the tile, like the Coins tab's "take it
+            // all" figure: it stays visually unchanged and only adds a hit area, sized a little past the
+            // glyph itself for a comfortable touch target without covering the price button below.
+            PowerUpKind capturedGlyphKind = ItemKinds[itemIndex];
+            var glyphTapObject = new GameObject(
+                "GlyphTapTarget", typeof(RectTransform), typeof(Image), typeof(LevelPathNodeButton));
+            var glyphTapRect = (RectTransform)glyphTapObject.transform;
+            glyphTapRect.SetParent(tileRect, false);
+            Centre(glyphTapRect, new Vector2(TILE_SIZE, TILE_SIZE));
+            var glyphTapPlate = glyphTapObject.GetComponent<Image>();
+            glyphTapPlate.color = Color.clear;
+            glyphTapPlate.raycastTarget = true;
+            glyphTapObject.GetComponent<LevelPathNodeButton>().SetClicked(
+                () => _infoPopupSystem.Open(InfoPopupSubjectKind.PowerUp, (int)capturedGlyphKind));
 
             BuildHeldBadge(item, tileRect);
 
