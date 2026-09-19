@@ -618,6 +618,7 @@ namespace MustyBlockBlast.Tests.EditMode
         {
             return new CurrencySystem(
                 profileModel,
+                new DailyAdGrantModel(),
                 scoreModel ?? new ScoreModel(),
                 _levelProgressionModel,
                 _config,

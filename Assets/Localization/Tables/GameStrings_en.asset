@@ -823,7 +823,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 2136016131401026
-    m_Localized: "{0} pts = {1} coins"
+    m_Localized: '{0} pts = {1} coins'
     m_Metadata:
       m_Items: []
   - m_Id: 2136016131401090
@@ -831,7 +831,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 2136016131401154
-    m_Localized: "{0} coins per ad"
+    m_Localized: '{0} left today'
     m_Metadata:
       m_Items: []
   - m_Id: 2136016131401218
@@ -872,6 +872,10 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 2136016131401794
     m_Localized: Level up to unlock this.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2191545129230336
+    m_Localized: Come back tomorrow
     m_Metadata:
       m_Items: []
   references:

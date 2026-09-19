@@ -23,6 +23,8 @@ namespace MustyBlockBlast.Tests.EditMode
         private const string COIN_BALANCE_KEY = "Profile.CoinBalance";
         private const string TOTAL_SCORE_EARNED_KEY = "Profile.TotalScoreEarned";
         private const string SCORE_CONVERTED_KEY = "Profile.ScoreConverted";
+        private const string DAILY_AD_GRANTS_REMAINING_KEY = "Profile.DailyAdGrantsRemaining";
+        private const string DAILY_AD_GRANT_DAY_MARKER_KEY = "Profile.DailyAdGrantDayMarker";
 
         /// <summary>A frontier past the last gate in <see cref="PowerUpUnlockLevels"/>, so no kind is
         /// withheld from the purchase tests that are not about the gate.</summary>
@@ -407,6 +409,192 @@ namespace MustyBlockBlast.Tests.EditMode
 
             Assert.IsTrue(result.Granted);
             Assert.AreEqual(40, result.Amount);
+        }
+
+        // --- Issue #257: the daily coin-ad cap ---
+
+        /// <summary>Pins the placeholder cap the rest of these tests quote against, exactly as
+        /// <see cref="ScoreToCoinRate_OnAFreshConfig_IsTheDocumentedPlaceholder"/> pins the rate.</summary>
+        [Test]
+        public void DailyAdRewardCap_OnAFreshConfig_IsTheDocumentedPlaceholder()
+        {
+            Assert.AreEqual(3, _config.DailyAdRewardCap);
+        }
+
+        /// <summary>A freshly built system has spent nothing today, so the full cap is available before
+        /// any grant has happened.</summary>
+        [Test]
+        public void RemainingAdGrantsToday_OnAFreshSystem_IsTheFullCap()
+        {
+            CurrencySystem system = CreateSystem(new ProfileModel(), new ScoreModel());
+
+            Assert.AreEqual(_config.DailyAdRewardCap, system.RemainingAdGrantsToday.Value);
+        }
+
+        /// <summary>AC5's counting half: each successful grant spends exactly one of today's
+        /// allowance.</summary>
+        [Test]
+        public void GrantCoinsFromAdAsync_OnASuccessfulGrant_DecrementsRemainingByOne()
+        {
+            CurrencySystem system = CreateSystem(new ProfileModel(), new ScoreModel());
+
+            bool granted = system.GrantCoinsFromAdAsync(10, CancellationToken.None).GetAwaiter().GetResult();
+
+            Assert.IsTrue(granted);
+            Assert.AreEqual(_config.DailyAdRewardCap - 1, system.RemainingAdGrantsToday.Value);
+        }
+
+        /// <summary>
+        /// AC6 and AC9 together: the (cap + 1)-th request of the day is refused outright — no coins
+        /// credited, no balance change, no message published, and (AC6 in full) the ad source itself is
+        /// never asked, not asked-and-ignored. <see cref="StubCoinRewardSource.RequestCount"/> is the
+        /// proof of the second half; a granted-then-discarded request would still have moved it.
+        /// </summary>
+        [Test]
+        public void GrantCoinsFromAdAsync_PastTheDailyCap_RefusesWithoutReachingTheSourceOrTheBalance()
+        {
+            var profileModel = new ProfileModel();
+            var source = new StubCoinRewardSource(granted: true);
+            CurrencySystem system = CreateSystem(profileModel, new ScoreModel(), source);
+
+            for (int grantIndex = 0; grantIndex < _config.DailyAdRewardCap; grantIndex++)
+            {
+                Assert.IsTrue(
+                    system.GrantCoinsFromAdAsync(10, CancellationToken.None).GetAwaiter().GetResult());
+            }
+
+            int balanceAfterCap = profileModel.CoinBalance.Value;
+            int requestsAfterCap = source.RequestCount;
+            int messagesAfterCap = _adGrantBroker.Published.Count;
+
+            bool grantedPastCap = system.GrantCoinsFromAdAsync(10, CancellationToken.None)
+                .GetAwaiter().GetResult();
+
+            Assert.IsFalse(grantedPastCap);
+            Assert.AreEqual(0, system.RemainingAdGrantsToday.Value);
+            Assert.AreEqual(
+                balanceAfterCap, profileModel.CoinBalance.Value, "The (N+1)th request must credit nothing.");
+            Assert.AreEqual(
+                requestsAfterCap, source.RequestCount,
+                "The (N+1)th request must never reach ICoinRewardSource at all.");
+            Assert.AreEqual(
+                messagesAfterCap, _adGrantBroker.Published.Count,
+                "The (N+1)th request must publish no CoinsGrantedFromAdMessage.");
+        }
+
+        /// <summary>
+        /// AC4 without a restart: the stored day marker is left behind by the clock moving on, and the
+        /// very next read — not a fresh system, not a relaunch — reports the full cap again. This is the
+        /// "reopen the tab after midnight" scenario the acceptance criterion names explicitly.
+        /// </summary>
+        [Test]
+        public void RemainingAdGrantsToday_WhenTheStoredDayHasPassed_ResetsToTheFullCapOnTheNextRead()
+        {
+            CurrencySystem system = CreateSystem(new ProfileModel(), new ScoreModel());
+            for (int grantIndex = 0; grantIndex < _config.DailyAdRewardCap; grantIndex++)
+            {
+                system.GrantCoinsFromAdAsync(10, CancellationToken.None).GetAwaiter().GetResult();
+            }
+
+            Assert.AreEqual(0, system.RemainingAdGrantsToday.Value, "Test setup: today's cap must be spent.");
+
+            // The day turns over while the system stays exactly as it is — no new CurrencySystem, no
+            // reload from PlayerPrefs. Only the clock this fixture controls moves.
+            _utcNow = _utcNow.AddDays(1);
+
+            Assert.AreEqual(
+                _config.DailyAdRewardCap, system.RemainingAdGrantsToday.Value,
+                "A day past the stored marker must read as a fresh cap without an app restart.");
+        }
+
+        /// <summary>The rollover a read triggers is not a one-off: a grant made on the new day is counted
+        /// against the fresh cap, not against whatever was left of the old one.</summary>
+        [Test]
+        public void GrantCoinsFromAdAsync_OnTheDayAfterTheCapWasSpent_GrantsAgainstTheFreshCap()
+        {
+            var profileModel = new ProfileModel();
+            CurrencySystem system = CreateSystem(profileModel, new ScoreModel());
+            for (int grantIndex = 0; grantIndex < _config.DailyAdRewardCap; grantIndex++)
+            {
+                system.GrantCoinsFromAdAsync(10, CancellationToken.None).GetAwaiter().GetResult();
+            }
+
+            _utcNow = _utcNow.AddDays(1);
+
+            bool granted = system.GrantCoinsFromAdAsync(10, CancellationToken.None).GetAwaiter().GetResult();
+
+            Assert.IsTrue(granted, "A grant on the new day must not still be refused by yesterday's cap.");
+            Assert.AreEqual(_config.DailyAdRewardCap - 1, system.RemainingAdGrantsToday.Value);
+        }
+
+        /// <summary>
+        /// AC11's persistence scenario: the counter and the day marker both survive a restart, read back
+        /// by a fresh <see cref="ProfileModel"/>-and-<see cref="CurrencySystem"/> pair from the very
+        /// PlayerPrefs keys the first system wrote — the daily-cap counterpart of
+        /// <see cref="ConvertScoreToCoins_ThenANewSystem_LoadsTheBalanceAndTheConvertedCounter"/>.
+        /// </summary>
+        [Test]
+        public void GrantCoinsFromAdAsync_ThenANewSystem_LoadsTheRemainingCountAndTheDayMarker()
+        {
+            CurrencySystem system = CreateSystem(new ProfileModel(), new ScoreModel());
+            system.GrantCoinsFromAdAsync(10, CancellationToken.None).GetAwaiter().GetResult();
+            system.GrantCoinsFromAdAsync(10, CancellationToken.None).GetAwaiter().GetResult();
+            int expectedRemaining = system.RemainingAdGrantsToday.Value;
+            Assert.AreEqual(_config.DailyAdRewardCap - 2, expectedRemaining, "Test setup: two grants spent.");
+
+            string expectedDayMarker = _utcNow.ToString("yyyyMMdd");
+            Assert.AreEqual(expectedRemaining, PlayerPrefs.GetInt(DAILY_AD_GRANTS_REMAINING_KEY, -1));
+            Assert.AreEqual(expectedDayMarker, PlayerPrefs.GetString(DAILY_AD_GRANT_DAY_MARKER_KEY, string.Empty));
+
+            // A fresh Model and a fresh System, reading the same keys — i.e. a relaunch on the same day.
+            CurrencySystem reloaded = CreateSystem(new ProfileModel(), new ScoreModel());
+
+            Assert.AreEqual(
+                expectedRemaining, reloaded.RemainingAdGrantsToday.Value,
+                "A relaunch on the same day must keep the spent allowance rather than granting a fresh cap.");
+        }
+
+        /// <summary>
+        /// AC5 in full: the counter and the day marker reach the disk in the very same
+        /// <see cref="PlayerPrefs.Save"/> call as the coin credit, not a second one — proven the same way
+        /// the conversion and purchase paths already are elsewhere in this fixture, by reading every key
+        /// back off PlayerPrefs directly rather than off the in-memory model.
+        /// </summary>
+        [Test]
+        public void GrantCoinsFromAdAsync_PersistsTheCounterAndTheBalanceTogether()
+        {
+            var profileModel = new ProfileModel();
+            CurrencySystem system = CreateSystem(profileModel, new ScoreModel());
+
+            system.GrantCoinsFromAdAsync(10, CancellationToken.None).GetAwaiter().GetResult();
+
+            Assert.AreEqual(10, PlayerPrefs.GetInt(COIN_BALANCE_KEY, 0));
+            Assert.AreEqual(_config.DailyAdRewardCap - 1, PlayerPrefs.GetInt(DAILY_AD_GRANTS_REMAINING_KEY, -1));
+            Assert.AreEqual(
+                _utcNow.ToString("yyyyMMdd"), PlayerPrefs.GetString(DAILY_AD_GRANT_DAY_MARKER_KEY, string.Empty));
+        }
+
+        /// <summary>
+        /// AC10, the negative case the issue calls out by name: exhausting the coin-ad cap must not touch
+        /// <see cref="PowerUpSystem"/>'s own earn-by-ad grants — a structurally separate faucet behind
+        /// <see cref="IRewardSource"/>, gated by nothing this class owns.
+        /// </summary>
+        [Test]
+        public void GrantCoinsFromAdAsync_AfterTheDailyCapIsExhausted_LeavesPowerUpEarnByAdUntouched()
+        {
+            CurrencySystem system = CreateSystem(new ProfileModel(), new ScoreModel());
+            for (int grantIndex = 0; grantIndex < _config.DailyAdRewardCap; grantIndex++)
+            {
+                system.GrantCoinsFromAdAsync(10, CancellationToken.None).GetAwaiter().GetResult();
+            }
+
+            Assert.AreEqual(0, system.RemainingAdGrantsToday.Value, "Test setup: the coin-ad cap must be spent.");
+
+            bool granted = _powerUpSystem.GrantRewardAsync(PowerUpKind.Bomb, CancellationToken.None)
+                .GetAwaiter().GetResult();
+
+            Assert.IsTrue(granted, "The power-up earn-by-ad path must be independent of the coin-ad cap.");
+            Assert.AreEqual(1, CountOf(PowerUpKind.Bomb));
         }
 
         // --- AC7: persistence ---
@@ -1452,10 +1640,14 @@ namespace MustyBlockBlast.Tests.EditMode
         }
 
         private CurrencySystem CreateSystem(
-            ProfileModel profileModel, ScoreModel scoreModel, ICoinRewardSource coinRewardSource = null)
+            ProfileModel profileModel,
+            ScoreModel scoreModel,
+            ICoinRewardSource coinRewardSource = null,
+            DailyAdGrantModel dailyAdGrantModel = null)
         {
             return new CurrencySystem(
                 profileModel,
+                dailyAdGrantModel ?? new DailyAdGrantModel(),
                 scoreModel,
                 _levelProgressionModel,
                 _config,
@@ -1477,6 +1669,10 @@ namespace MustyBlockBlast.Tests.EditMode
                 // test controls rather than at whenever the suite happens to run. Read through the
                 // lambda on each quote, not captured by value, so a test can move "now" after building
                 // the system — which is how the "reverts on its own" cases are written.
+                () => _utcNow,
+                // The same seeded instant doubles as the daily ad cap's "local now" (issue #257): this
+                // fixture has no reason to run the two clocks apart, and reusing the one field lets a
+                // day-rollover test move "today" the same way the promotion tests already move "now".
                 () => _utcNow);
         }
 
@@ -1659,6 +1855,8 @@ namespace MustyBlockBlast.Tests.EditMode
             PlayerPrefs.DeleteKey(COIN_BALANCE_KEY);
             PlayerPrefs.DeleteKey(TOTAL_SCORE_EARNED_KEY);
             PlayerPrefs.DeleteKey(SCORE_CONVERTED_KEY);
+            PlayerPrefs.DeleteKey(DAILY_AD_GRANTS_REMAINING_KEY);
+            PlayerPrefs.DeleteKey(DAILY_AD_GRANT_DAY_MARKER_KEY);
         }
 
         private static void DeleteInventoryKeys()

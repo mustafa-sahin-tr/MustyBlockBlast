@@ -455,6 +455,10 @@ namespace MustyBlockBlast.Presentation.Views
             _profileModel.TotalScoreEarned.Subscribe(OnCountChanged).AddTo(_disposables);
             _profileModel.ScoreConverted.Subscribe(OnCountChanged).AddTo(_disposables);
 
+            // The daily coin-ad cap (issue #257, AC3): a grant, or the day itself rolling over, moves
+            // this while the card is showing, exactly as the balance does.
+            _currencySystem.RemainingAdGrantsToday.Subscribe(OnCountChanged).AddTo(_disposables);
+
             WatchCount(_powerUpModel.BombCount, PowerUpKind.Bomb);
             WatchCount(_powerUpModel.RowClearCount, PowerUpKind.RowClear);
             WatchCount(_powerUpModel.ColumnClearCount, PowerUpKind.ColumnClear);
@@ -687,8 +691,11 @@ namespace MustyBlockBlast.Presentation.Views
             _convertibleStatLabel.text = _localizationSystem.Translate(LocalizationKeys.SHOP_CONVERTIBLE_LABEL);
             _convertButtonText.text = _localizationSystem.Translate(LocalizationKeys.SHOP_CONVERT_BUTTON);
             _adTitleText.text = _localizationSystem.Translate(LocalizationKeys.SHOP_AD_TITLE);
-            _adCaptionText.text = _localizationSystem.Format(
-                LocalizationKeys.SHOP_AD_CAPTION_FORMAT, _currencySystem.AdRewardCoins.ToString());
+
+            // The ad row's caption depends on the daily cap's remaining count (issue #257), which moves
+            // far more often than the locale does, so it is repainted by RefreshCoinsTab instead — which
+            // this method's caller already runs right alongside it on every Refresh, locale change
+            // included.
 
             string buyLabel = _localizationSystem.Translate(LocalizationKeys.SHOP_BUNDLE_BUTTON);
             for (int bundleIndex = 0; bundleIndex < _bundles.Length; bundleIndex++)
@@ -705,8 +712,9 @@ namespace MustyBlockBlast.Presentation.Views
         // ------------------------------------------------------------------------- the Coins tab
 
         /// <summary>
-        /// Repaints the convert panel's figures. The bundle rows and the ad row are static — a bundle's
-        /// size and the ad's reward are config — so only the score figures and the pending amount move.
+        /// Repaints the convert panel's figures, and the ad row's caption and button colour (see
+        /// <see cref="RefreshAdRow"/>). The bundle rows are still static — a bundle's size is config — so
+        /// only the score figures, the pending amount and the ad row move.
         /// </summary>
         private void RefreshCoinsTab()
         {
@@ -725,6 +733,26 @@ namespace MustyBlockBlast.Presentation.Views
             // Convert is live only when the tap would do something, as a buy button is; the stepper
             // stays tappable either way because stepping a zero pool is harmless and clamps to zero.
             _convertButtonPlate.color = _pendingAmount > 0 ? _palette.EarnButton : _palette.UnaffordableButton;
+
+            RefreshAdRow();
+        }
+
+        /// <summary>
+        /// The watch-an-ad row's live half (issue #257): the caption and the button's colour, both
+        /// driven by <see cref="CurrencySystem.RemainingAdGrantsToday"/> and nothing computed here. The
+        /// getter itself rolls the daily counter over when the stored day has passed, so this read is
+        /// also what lets a tab reopened after midnight show the fresh cap — this card does no date math
+        /// of its own, it only asks the System what is left.
+        /// </summary>
+        private void RefreshAdRow()
+        {
+            int remaining = _currencySystem.RemainingAdGrantsToday.Value;
+            bool hasGrantsRemaining = remaining > 0;
+
+            _adButtonPlate.color = hasGrantsRemaining ? _palette.AdButton : _palette.UnaffordableButton;
+            _adCaptionText.text = hasGrantsRemaining
+                ? _localizationSystem.Format(LocalizationKeys.SHOP_AD_CAPTION_FORMAT, remaining.ToString())
+                : _localizationSystem.Translate(LocalizationKeys.SHOP_AD_CAPTION_EXHAUSTED);
         }
 
         private void StepAmount(int delta)
@@ -762,6 +790,22 @@ namespace MustyBlockBlast.Presentation.Views
             // amount is re-clamped by the same repaint, so the panel reads "0 left" without a second
             // pass here.
             Refresh();
+        }
+
+        /// <summary>
+        /// The ad row button's tap handler. Refuses outright, before <see cref="RequestAdCoins"/> is ever
+        /// called, once <see cref="CurrencySystem.RemainingAdGrantsToday"/> reads zero for today (issue
+        /// #257, AC8) — the exhausted row is drawn dead rather than merely coloured that way, so a tap on
+        /// it cannot even start an ad request.
+        /// </summary>
+        private void OnAdButtonTapped()
+        {
+            if (_currencySystem.RemainingAdGrantsToday.Value <= 0)
+            {
+                return;
+            }
+
+            RequestAdCoins().Forget();
         }
 
         /// <summary>
@@ -1074,9 +1118,9 @@ namespace MustyBlockBlast.Presentation.Views
             _stringBuilder.Append(_currencySystem.AdRewardCoins);
             _adButtonText.text = _stringBuilder.ToString();
 
-            // The reward caption itself is repainted by RepaintLocalizedChrome, since it is a String
-            // Table format string and this method (unlike that one) is never called again on a locale
-            // change.
+            // The caption text and the button's colour are repainted by RefreshAdRow instead, since both
+            // depend on the daily cap's remaining count (issue #257) and this method, unlike Refresh, is
+            // never called again once the card has opened.
 
             for (int bundleIndex = 0; bundleIndex < _bundles.Length; bundleIndex++)
             {
@@ -1695,7 +1739,7 @@ namespace MustyBlockBlast.Presentation.Views
 
             RectTransform buttonRect = BuildChunkyButton(
                 rowRect, "AdButton", new Vector2(ROW_BUTTON_WIDTH, ROW_BUTTON_HEIGHT), out _adButtonPlate,
-                () => RequestAdCoins().Forget());
+                OnAdButtonTapped);
             buttonRect.anchoredPosition = new Vector2((width * 0.5f) - ROW_PADDING - (ROW_BUTTON_WIDTH * 0.5f), 0f);
 
             _adButtonText = UiTextFactory.Create(buttonRect, "Label", _itemPriceFontSize, FontStyle.Bold, Color.clear, _displayFont);

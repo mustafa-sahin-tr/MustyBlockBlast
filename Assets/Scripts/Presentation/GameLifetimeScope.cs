@@ -244,6 +244,9 @@ namespace MustyBlockBlast.Presentation
             builder.Register<BadgeModel>(Lifetime.Singleton);
             builder.Register<PendingScoreModel>(Lifetime.Singleton);
             builder.Register<ProfileModel>(Lifetime.Singleton);
+
+            // Device-local, deliberately not carried by ProfileModel — see DailyAdGrantModel (issue #257).
+            builder.Register<DailyAdGrantModel>(Lifetime.Singleton);
             builder.Register<LeaderboardModel>(Lifetime.Singleton);
             builder.Register<InfoPopupModel>(Lifetime.Singleton);
         }
