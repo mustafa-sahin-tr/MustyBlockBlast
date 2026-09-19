@@ -758,6 +758,22 @@ MonoBehaviour:
     m_Localized: "Rompe el blindaje protector de una celda reforzada despej\xE1ndola las veces suficientes para eliminarla."
     m_Metadata:
       m_Items: []
+  - m_Id: 2136016063291392
+    m_Localized: "Se acab\xF3 el tiempo"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016130400256
+    m_Localized: "Un bloque de temporizador expir\xF3 en el Nivel {0}"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016130400257
+    m_Localized: Bloque de temporizador
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016130400258
+    m_Localized: "Cuenta hacia atr\xE1s una unidad cada vez que colocas una pieza, no por segundo. Desp\xE9jalo antes de que llegue a cero. En el modo Ruta, dejar que expire termina la partida de inmediato. En Sin l\xEDmite y Contrarreloj se convierte en una celda normal y pierdes su bonificaci\xF3n."
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

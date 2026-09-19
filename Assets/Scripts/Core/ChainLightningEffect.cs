@@ -88,12 +88,19 @@ namespace MustyBlockBlast.Core
         /// way.</summary>
         public bool StoppedAtChainCap { get; private set; }
 
+        /// <summary>Of <see cref="VaporizedCells"/>, how many were <see cref="SpecialCellKind.Timer"/>
+        /// cells — destroyed mid-strike rather than through a normal clear phase. See
+        /// <see cref="ExplosiveCoreEffect.TimerCellsDestroyedCount"/> for why this is tracked (issue
+        /// #307 AC11).</summary>
+        public int TimerCellsDestroyedCount { get; private set; }
+
         /// <summary>Starts a new resolution: forgets the previous one's vaporized cells. Must be called
         /// before the resolution that will apply this effect, or the two resolutions' cells would be
         /// reported as one — and Presentation would sweep cells that vanished a move ago.</summary>
         public void BeginResolution()
         {
             _vaporizedCells.Clear();
+            TimerCellsDestroyedCount = 0;
             StoppedAtChainCap = false;
         }
 
@@ -192,6 +199,11 @@ namespace MustyBlockBlast.Core
                 }
 
                 _vaporizedCells.Add(cell);
+
+                if (kind == SpecialCellKind.Timer)
+                {
+                    TimerCellsDestroyedCount++;
+                }
 
                 if (kind == SpecialCellKind.ChainLightning && !IsStruck(board, cell))
                 {

@@ -87,5 +87,37 @@ namespace MustyBlockBlast.Core
         /// </para>
         /// </summary>
         Coin = 6,
+
+        /// <summary>
+        /// A "timer block": carries its own remaining countdown, measured in placements rather than
+        /// wall-clock seconds and decremented by exactly one on every successful placement anywhere on
+        /// the board (issue #307 AC2/AC9) — a global per-placement tick, not a per-hit or per-line one.
+        /// <para>
+        /// Destroyed the ordinary way — a completed row/column, a power-up clear, a special cell's own
+        /// blast/wipe/strike — before its countdown reaches zero, it is removed with no side effect
+        /// beyond whatever "cleared" already does for an ordinary cell: no explosion, no bonus, no
+        /// penalty. There is deliberately no <see cref="ISpecialCellEffect"/> implementation that
+        /// mutates anything for it, mirroring <see cref="ScoreGem"/> and <see cref="Coin"/>;
+        /// <see cref="TimerCellClearEffect"/> exists only to count the ones a resolution destroyed in
+        /// time, for the objective that credits exactly that (see <c>ObjectiveType.TimerCellsMeltedInTime</c>).
+        /// </para>
+        /// <para>
+        /// When the countdown reaches zero while the cell is still standing, it silently converts to an
+        /// ordinary cell — <see cref="None"/> — keeping its occupied, coloured block: no lock, no board
+        /// damage. In Endless/Timed mode the run simply continues, minus that one cell's objective
+        /// credit. In <see cref="MustyBlockBlast.Gameplay.GameMode.Path"/> a single expiry ends the run
+        /// immediately as a failure (<c>GameOverReason.ObjectiveMissed</c>), unconditionally — see
+        /// <see cref="MustyBlockBlast.Gameplay.Systems.BoardSystem.TryPlacePiece"/>, which runs the tick.
+        /// </para>
+        /// <para>
+        /// The countdown itself is stored in its own per-cell array on <see cref="Board"/> — deliberately
+        /// not <c>_hitCounts</c>, which means "hits remaining" for a Reinforced cell, a different number
+        /// entirely — copied by <see cref="Board.Clone"/>/<see cref="Board.CopyFrom"/> exactly as this
+        /// kind and the hit counts are, so Undo's full-snapshot restore rewinds it too. Level-authored
+        /// only (<c>TimerCellAuthoring</c>/<c>LevelTimerCellSeeder</c>); no power-up ever spawns one
+        /// organically.
+        /// </para>
+        /// </summary>
+        Timer = 7,
     }
 }

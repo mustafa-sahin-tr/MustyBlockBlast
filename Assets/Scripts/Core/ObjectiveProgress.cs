@@ -228,6 +228,18 @@ namespace MustyBlockBlast.Core
                     }
 
                     break;
+
+                case ObjectiveType.TimerCellsMeltedInTime:
+                    // Same "things destroyed, not events" shape as ReinforcedCellsCleared just above:
+                    // one placement's clear can take out several timer cells at once, and every one of
+                    // them is credited.
+                    if (context.TimerCellsClearedInTime > 0)
+                    {
+                        CurrentValue = Math.Min(
+                            CurrentValue + context.TimerCellsClearedInTime, Definition.TargetValue);
+                    }
+
+                    break;
             }
 
             if (CurrentValue == previousValue)
@@ -319,6 +331,32 @@ namespace MustyBlockBlast.Core
         public bool ApplyPowerUpReinforcedCellsCleared(int count)
         {
             if (IsComplete || Definition.Type != ObjectiveType.ReinforcedCellsCleared || count <= 0)
+            {
+                return false;
+            }
+
+            int previousValue = CurrentValue;
+            CurrentValue = Math.Min(CurrentValue + count, Definition.TargetValue);
+            if (CurrentValue == previousValue)
+            {
+                return false;
+            }
+
+            IsComplete = CurrentValue >= Definition.TargetValue;
+            return true;
+        }
+
+        /// <summary>
+        /// Folds the timer cells a spent power-up cleared in time into this objective's progress.
+        /// Deliberately a separate method from <see cref="ApplyPlacement"/>, mirroring
+        /// <see cref="ApplyPowerUpReinforcedCellsCleared"/> exactly: a power-up application is not a
+        /// placement, and the two event sources are disjoint by construction (a placement publishes
+        /// <c>PiecePlacedMessage</c>, a spent power-up <c>PowerUpAppliedMessage</c>, never both for one
+        /// destruction), so nothing is ever counted twice.
+        /// </summary>
+        public bool ApplyPowerUpTimerCellsClearedInTime(int count)
+        {
+            if (IsComplete || Definition.Type != ObjectiveType.TimerCellsMeltedInTime || count <= 0)
             {
                 return false;
             }

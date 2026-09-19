@@ -250,6 +250,11 @@ namespace MustyBlockBlast.Presentation.Views
         /// it.</summary>
         private int[] _cellHitCounts;
 
+        /// <summary>Placements left before each <see cref="SpecialCellKind.Timer"/> cell converts to an
+        /// ordinary one, parallel to the bookkeeping above. 0 for every cell that is not a timer cell —
+        /// drives the countdown number in <see cref="ApplyTimerCountdown"/> (issue #307 AC6a).</summary>
+        private int[] _cellTimerCountdowns;
+
         private BoardModel _boardModel;
         private SettingsModel _settingsModel;
         private ThemeDefinition _currentTheme;
@@ -413,6 +418,8 @@ namespace MustyBlockBlast.Presentation.Views
             _boardModel.CellChanged += OnCellChanged;
             _boardModel.SpecialKindChanged += OnSpecialKindChanged;
             _boardModel.HitCountChanged += OnHitCountChanged;
+            _boardModel.TimerCountdownChanged += OnTimerCountdownChanged;
+            _boardModel.TimerCellExpired += OnTimerCellExpired;
             _linesClearedSubscriber.Subscribe(OnLinesCleared).AddTo(_disposables);
             _runStartedSubscriber.Subscribe(OnRunStarted).AddTo(_disposables);
             _powerUpAppliedSubscriber.Subscribe(OnPowerUpApplied).AddTo(_disposables);
@@ -446,6 +453,8 @@ namespace MustyBlockBlast.Presentation.Views
                 _boardModel.CellChanged -= OnCellChanged;
                 _boardModel.SpecialKindChanged -= OnSpecialKindChanged;
                 _boardModel.HitCountChanged -= OnHitCountChanged;
+                _boardModel.TimerCountdownChanged -= OnTimerCountdownChanged;
+                _boardModel.TimerCellExpired -= OnTimerCellExpired;
             }
         }
 
@@ -828,6 +837,7 @@ namespace MustyBlockBlast.Presentation.Views
             _cellPending = new bool[cellCount];
             _cellSpecialKinds = new SpecialCellKind[cellCount];
             _cellHitCounts = new int[cellCount];
+            _cellTimerCountdowns = new int[cellCount];
 
             for (int i = 0; i < cellCount; i++)
             {
@@ -900,6 +910,11 @@ namespace MustyBlockBlast.Presentation.Views
                     _cellSpecialKinds[index] = _boardModel.GetSpecialKind(cell);
                     ApplyCellIcon(index, _cellSpecialKinds[index]);
 
+                    // Re-derived from the model for the same reason the special kind just above is: a
+                    // level's timer cells are on the board before the first repaint ever runs.
+                    _cellTimerCountdowns[index] = _boardModel.GetTimerCountdown(cell);
+                    ApplyTimerCountdown(index, _cellSpecialKinds[index], _cellTimerCountdowns[index]);
+
                     _cells[index].SetAlpha(1f);
                 }
             }
@@ -925,6 +940,11 @@ namespace MustyBlockBlast.Presentation.Views
                 // when it occupies the cell it is about to tag, and the tag's own notification follows.
                 _cellSpecialKinds[index] = _boardModel.GetSpecialKind(cell);
                 ApplyCellIcon(index, _cellSpecialKinds[index]);
+
+                // Read back for the same reason: this is also the notification OccupyTimer raises when
+                // a timer cell is seeded, and the countdown's own notification follows.
+                _cellTimerCountdowns[index] = _boardModel.GetTimerCountdown(cell);
+                ApplyTimerCountdown(index, _cellSpecialKinds[index], _cellTimerCountdowns[index]);
 
                 _cells[index].SetAlpha(1f);
                 return;
@@ -952,6 +972,11 @@ namespace MustyBlockBlast.Presentation.Views
             // the last hit by definition. This is why a damaged cell needs a signal of its own but a
             // destroyed one does not.
             _cellHitCounts[index] = 0;
+
+            // A cleared timer cell stops counting down immediately (issue #307 AC3/AC6a) — unlike the
+            // icon, the number does not fade with the block; it simply has nothing left to count for.
+            _cellTimerCountdowns[index] = 0;
+            _cells[index].ClearTimerCountdown();
         }
 
         /// <summary>A reinforced cell survived a clear and is closer to breaking. Only its fill changes
@@ -966,6 +991,43 @@ namespace MustyBlockBlast.Presentation.Views
 
             _cellHitCounts[index] = hitCount;
             ApplyCellColour(cell, _cellColourIds[index]);
+        }
+
+        /// <summary>A timer cell survived a placement and ticked down by one (issue #307 AC6a). Only the
+        /// countdown number changes — it is the same block in the same place.</summary>
+        private void OnTimerCountdownChanged(GridPosition cell, int countdown)
+        {
+            int index = CellIndex(cell);
+            if (_cellTimerCountdowns[index] == countdown)
+            {
+                return;
+            }
+
+            _cellTimerCountdowns[index] = countdown;
+            _cells[index].SetTimerCountdown(countdown);
+        }
+
+        /// <summary>A timer cell's countdown reached 0 and converted to an ordinary cell (issue #307
+        /// AC4/AC6a): the block stays exactly as it was, so only the countdown number stops.</summary>
+        private void OnTimerCellExpired(GridPosition cell)
+        {
+            int index = CellIndex(cell);
+            _cellTimerCountdowns[index] = 0;
+            _cells[index].ClearTimerCountdown();
+        }
+
+        /// <summary>Shows or hides <paramref name="index"/>'s countdown number to match
+        /// <paramref name="kind"/>/<paramref name="countdown"/> — the one place "should this cell show a
+        /// number right now" is decided, shared by every repaint path (issue #307 AC6a).</summary>
+        private void ApplyTimerCountdown(int index, SpecialCellKind kind, int countdown)
+        {
+            if (kind == SpecialCellKind.Timer && countdown > 0)
+            {
+                _cells[index].SetTimerCountdown(countdown);
+                return;
+            }
+
+            _cells[index].ClearTimerCountdown();
         }
 
         private void OnLinesCleared(LinesClearedMessage message)

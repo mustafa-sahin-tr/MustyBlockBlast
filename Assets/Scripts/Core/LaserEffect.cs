@@ -67,12 +67,19 @@ namespace MustyBlockBlast.Core
         /// way.</summary>
         public bool StoppedAtWipeCap { get; private set; }
 
+        /// <summary>Of <see cref="WipedCells"/>, how many were <see cref="SpecialCellKind.Timer"/> cells
+        /// — destroyed mid-wipe rather than through a normal clear phase. See
+        /// <see cref="ExplosiveCoreEffect.TimerCellsDestroyedCount"/> for why this is tracked (issue
+        /// #307 AC11).</summary>
+        public int TimerCellsDestroyedCount { get; private set; }
+
         /// <summary>Starts a new resolution: forgets the previous one's wiped cells. Must be called
         /// before the resolution that will apply this effect, or the two resolutions' cells would be
         /// reported as one.</summary>
         public void BeginResolution()
         {
             _wipedCells.Clear();
+            TimerCellsDestroyedCount = 0;
             StoppedAtWipeCap = false;
         }
 
@@ -186,6 +193,11 @@ namespace MustyBlockBlast.Core
                 }
 
                 _wipedCells.Add(cell);
+
+                if (kind == SpecialCellKind.Timer)
+                {
+                    TimerCellsDestroyedCount++;
+                }
 
                 if (kind == SpecialCellKind.Laser && !IsFired(board, cell))
                 {

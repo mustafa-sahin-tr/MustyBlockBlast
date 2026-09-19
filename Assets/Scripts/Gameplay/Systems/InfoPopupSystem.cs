@@ -274,6 +274,10 @@ namespace MustyBlockBlast.Gameplay.Systems
                     headerKey = LocalizationKeys.INFO_POPUP_SPECIAL_CELL_COIN_HEADER;
                     bodyKey = LocalizationKeys.INFO_POPUP_SPECIAL_CELL_COIN_BODY;
                     break;
+                case SpecialCellKind.Timer:
+                    headerKey = LocalizationKeys.INFO_POPUP_SPECIAL_CELL_TIMER_HEADER;
+                    bodyKey = LocalizationKeys.INFO_POPUP_SPECIAL_CELL_TIMER_BODY;
+                    break;
                 default:
                     headerKey = LocalizationKeys.INFO_POPUP_HOLD_HEADER;
                     bodyKey = LocalizationKeys.INFO_POPUP_HOLD_BODY;

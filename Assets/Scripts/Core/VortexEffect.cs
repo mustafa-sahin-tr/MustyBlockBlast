@@ -227,9 +227,19 @@ namespace MustyBlockBlast.Core
             int colourId = board[from];
             SpecialCellKind kind = board.GetSpecialKind(from);
 
+            // Read before Board.Clear, which zeroes both the kind and the countdown along with the
+            // colour: a pulled SpecialCellKind.Timer cell keeps counting down from wherever it stood,
+            // not from a countdown reset to zero by the very relocation that spared it (issue #307).
+            int timerCountdown = kind == SpecialCellKind.Timer ? board.GetTimerCountdown(from) : 0;
+
             board.Clear(from);
             board.Occupy(to, colourId);
             board.SetSpecialKind(to, kind);
+
+            if (kind == SpecialCellKind.Timer)
+            {
+                board.SetTimerCountdown(to, timerCountdown);
+            }
 
             _pulls.Add(new VortexPull(from, to));
         }

@@ -758,6 +758,22 @@ MonoBehaviour:
     m_Localized: Break through a reinforced cell's protective armour by clearing it enough times to remove it.
     m_Metadata:
       m_Items: []
+  - m_Id: 2136016063291392
+    m_Localized: Timer Ran Out
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016130400256
+    m_Localized: A timer block expired on Level {0}
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016130400257
+    m_Localized: Timer Block
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016130400258
+    m_Localized: Counts down by one every time you place a piece, not by the second. Clear it before it reaches zero. In Path mode letting it expire ends the run immediately. In Endless and Timed it just becomes a normal cell and you lose its bonus.
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

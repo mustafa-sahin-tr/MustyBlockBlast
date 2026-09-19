@@ -48,6 +48,11 @@ namespace MustyBlockBlast.Presentation.Views
         /// tell apart at a glance.</summary>
         private const float SPECIAL_ICON_BEVEL_INSET_MULTIPLIER = 0.5f;
 
+        /// <summary>Reference-pixel font size for the <see cref="MustyBlockBlast.Core.SpecialCellKind.Timer"/>
+        /// countdown number (issue #307 AC6a) — legible at a glance without competing with the cell's
+        /// own special-icon glyph.</summary>
+        private const int TIMER_COUNTDOWN_FONT_SIZE = 34;
+
         private Image _outerImage;
         private Image _flatFaceImage;
         private GameObject _blockRoot;
@@ -57,6 +62,7 @@ namespace MustyBlockBlast.Presentation.Views
         private Image _specialIconImage;
         private Image _highlightImage;
         private Image _ghostRingImage;
+        private Text _timerCountdownText;
 
         private void Awake() => CacheOuter();
 
@@ -126,6 +132,15 @@ namespace MustyBlockBlast.Presentation.Views
             _highlightImage = CreateStretchedImage(transform, "Highlight");
             HudChrome.ConfigureOutline(_highlightImage, cornerRadius, HIGHLIGHT_THICKNESS);
             _highlightImage.gameObject.SetActive(false);
+
+            // Built last of all, and parented to the cell rather than the special-icon image, so it
+            // draws over both looks and over the icon alike — a timer cell's own countdown must always
+            // read clearly, whatever else is drawn on that cell (issue #307 AC6a). Deliberately no
+            // background chip: "a number on the cell is sufficient" (AC6, out-of-scope: rings/pulsing).
+            var countdownRect = (RectTransform)transform;
+            _timerCountdownText = UiTextFactory.Create(
+                countdownRect, "TimerCountdown", TIMER_COUNTDOWN_FONT_SIZE, FontStyle.Bold, Color.white);
+            _timerCountdownText.gameObject.SetActive(false);
         }
 
         /// <summary>Shows the outline frame in <paramref name="colour"/>. Independent of both looks:
@@ -172,6 +187,36 @@ namespace MustyBlockBlast.Presentation.Views
 
         /// <summary>Hides the special-cell icon. Safe to call on a cell that never had one.</summary>
         internal void ClearSpecialIcon() => HideLayer(_specialIconImage);
+
+        /// <summary>Shows <paramref name="countdown"/> as the cell's placements-remaining number (issue
+        /// #307 AC6a). Independent of every other layer, exactly as <see cref="SetSpecialIcon(Color)"/>
+        /// is: allocates nothing beyond the string conversion, so it is safe on any repaint path.</summary>
+        internal void SetTimerCountdown(int countdown)
+        {
+            if (_timerCountdownText == null)
+            {
+                return;
+            }
+
+            _timerCountdownText.text = countdown.ToString();
+
+            if (!_timerCountdownText.gameObject.activeSelf)
+            {
+                _timerCountdownText.gameObject.SetActive(true);
+            }
+        }
+
+        /// <summary>Hides the countdown number — a cell converts to ordinary or is cleared and stops
+        /// counting down (issue #307 AC6a). Safe to call on a cell that never showed one.</summary>
+        internal void ClearTimerCountdown()
+        {
+            if (_timerCountdownText == null || !_timerCountdownText.gameObject.activeSelf)
+            {
+                return;
+            }
+
+            _timerCountdownText.gameObject.SetActive(false);
+        }
 
         /// <summary>Flat two-layer look: empty cells and the drag preview tint. <paramref name="shade"/>
         /// is the outline ring, <paramref name="face"/> the fill inside it.</summary>
@@ -238,6 +283,15 @@ namespace MustyBlockBlast.Presentation.Views
             // The icon likewise: a destroyed special cell fades out as one block, never as a fading
             // block with a solid mark left floating over it. Restored by the next SetSpecialIcon call.
             ApplyAlpha(_specialIconImage, alpha);
+
+            // And the countdown number, for the same reason: a timer cell that is fading out (cleared
+            // in time) must not leave its number floating over an emptying cell.
+            if (_timerCountdownText != null)
+            {
+                Color colour = _timerCountdownText.color;
+                colour.a = alpha;
+                _timerCountdownText.color = colour;
+            }
         }
 
         private static void ShowLayer(Image image, Color colour)

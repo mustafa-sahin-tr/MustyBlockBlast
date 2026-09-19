@@ -755,6 +755,22 @@ MonoBehaviour:
     m_Key: objective.reinforced_cells_cleared
     m_Metadata:
       m_Items: []
+  - m_Id: 2136016063291392
+    m_Key: gameover.title.objective_missed
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016130400256
+    m_Key: result.reason.objective_missed
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016130400257
+    m_Key: info_popup.special_cell.timer.header
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2136016130400258
+    m_Key: info_popup.special_cell.timer.body
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

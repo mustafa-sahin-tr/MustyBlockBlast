@@ -76,6 +76,30 @@ fits at all — a board that was already out of moves.
 - All lines completed by a single placement clear **simultaneously**
 - A cell at the intersection of a cleared row and a cleared column clears once
 
+## Timer blocks
+
+A **timer block** is a level-authored special cell that carries its own countdown, independent of
+Timed mode's run-wide clock.
+
+- **Tick trigger:** the countdown decrements by exactly one on every successful placement,
+  anywhere on the board — per-placement, not per-second, and not gated on the placement touching
+  the timer block at all. Placing a piece that clears nothing, or clears lines nowhere near the
+  timer block, still ticks it down by one.
+- **Starting value:** authored per cell in the range **2–4 placements** (the same range a
+  reinforced cell's hit count is authored in).
+- **Cleared in time:** a timer block removed by an ordinary completed row/column, a power-up
+  clear, or another special cell's blast/wipe/strike, before its countdown reaches 0, is simply
+  gone — no explosion, no bonus, no penalty — and counts toward the level's "cleared in time"
+  objective, if one is set.
+- **At zero:** if a timer block's countdown reaches 0 while it is still standing, it silently
+  converts to an ordinary cell — no lock, no board damage, keeping its occupied block.
+  - **Endless and Timed mode:** the run simply continues; that one cell's objective credit is
+    lost, nothing else changes.
+  - **Path mode:** the run ends immediately as a failure. Any single timer block expiring ends
+    the run, whatever else the level's objective still needed.
+- Timer blocks are seeded once, at the start of a run, from the level's authoring — nothing ever
+  spawns one mid-run.
+
 ## Scoring
 
 Tunable via a ScriptableObject; the values below are the starting point, not sacred.

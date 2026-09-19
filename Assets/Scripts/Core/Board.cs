@@ -76,6 +76,28 @@ namespace MustyBlockBlast.Core
         /// </summary>
         private readonly int[] _hitCounts;
 
+        /// <summary>
+        /// Placements still to elapse before a <see cref="SpecialCellKind.Timer"/> cell converts to an
+        /// ordinary one, indexed exactly like <see cref="_cells"/>. <c>0</c> — every cell of every board
+        /// authored before Timer cells existed, and every cell whose kind is not
+        /// <see cref="SpecialCellKind.Timer"/> — means "not a timer cell", exactly as a 0 hit count
+        /// means "not reinforced".
+        /// <para>
+        /// A fourth parallel array, deliberately not <see cref="_hitCounts"/>: that array means "hits
+        /// still to absorb", a per-<em>touch</em> quantity, whereas this one means "placements
+        /// remaining", a global per-<em>placement</em> quantity that decrements whether or not the cell
+        /// was touched at all (issue #307 AC2/AC9). Reusing the same storage for two different meanings
+        /// would collide the moment a level ever authored both mechanics on cells that happen to share
+        /// an index history.
+        /// </para>
+        /// <para>
+        /// Copied by <see cref="Clone"/>/<see cref="CopyFrom"/> exactly as <see cref="_specialKinds"/>
+        /// and <see cref="_hitCounts"/> are, so Undo's full-snapshot restore rewinds a Timer cell's
+        /// countdown to its pre-placement value along with everything else (issue #307 AC1/AC10).
+        /// </para>
+        /// </summary>
+        private readonly int[] _timerCountdowns;
+
         /// <summary>The standard <see cref="SIZE"/> x <see cref="SIZE"/> hole-free board. Delegates to
         /// <see cref="BoardShape.Standard"/> so every level authored before board shapes existed keeps
         /// the exact geometry it was authored against.</summary>
@@ -90,14 +112,18 @@ namespace MustyBlockBlast.Core
             _cells = new int[shape.CellCount];
             _specialKinds = new SpecialCellKind[shape.CellCount];
             _hitCounts = new int[shape.CellCount];
+            _timerCountdowns = new int[shape.CellCount];
         }
 
-        private Board(BoardShape shape, int[] cells, SpecialCellKind[] specialKinds, int[] hitCounts)
+        private Board(
+            BoardShape shape, int[] cells, SpecialCellKind[] specialKinds, int[] hitCounts,
+            int[] timerCountdowns)
         {
             _shape = shape;
             _cells = cells;
             _specialKinds = specialKinds;
             _hitCounts = hitCounts;
+            _timerCountdowns = timerCountdowns;
         }
 
         /// <summary>The outline this board was built with. Shared, immutable and safe to hand out — a
@@ -182,6 +208,7 @@ namespace MustyBlockBlast.Core
             _cells[index] = EMPTY;
             _specialKinds[index] = SpecialCellKind.None;
             _hitCounts[index] = 0;
+            _timerCountdowns[index] = 0;
         }
 
         /// <summary>
@@ -239,6 +266,35 @@ namespace MustyBlockBlast.Core
         /// cell and then tag it in two steps; the tag is reset only by <see cref="Clear"/>.</summary>
         public void SetSpecialKind(GridPosition position, SpecialCellKind kind)
             => _specialKinds[Index(position)] = kind;
+
+        /// <summary>Placements still to elapse before <paramref name="position"/> converts from
+        /// <see cref="SpecialCellKind.Timer"/> to an ordinary cell. 0 for any cell that is not a timer
+        /// cell, which is every cell of a board nothing timed.</summary>
+        public int GetTimerCountdown(GridPosition position) => _timerCountdowns[Index(position)];
+
+        /// <summary>
+        /// Overwrites <paramref name="position"/>'s remaining countdown. Used by
+        /// <see cref="TimerCellTick"/> to decrement it once per placement and to zero it on expiry, and
+        /// by <see cref="VortexEffect"/> to carry a timer cell's countdown along with it when a pull
+        /// relocates the block rather than destroying it.
+        /// </summary>
+        public void SetTimerCountdown(GridPosition position, int countdown)
+            => _timerCountdowns[Index(position)] = countdown;
+
+        /// <summary>
+        /// Occupies an empty cell as a <see cref="SpecialCellKind.Timer"/> cell with
+        /// <paramref name="startingCountdown"/> placements to live, for level-start authoring only —
+        /// the mechanic is level-authored exclusively (issue #307 AC7/AC8), so nothing else ever calls
+        /// this. Unlike <see cref="OccupyReinforced"/>, which layers only a hit count onto an ordinary
+        /// occupy because "reinforced" carries no <see cref="SpecialCellKind"/> of its own, a timer cell
+        /// IS a kind — so this sets the kind and the countdown together, in the one call a seeder needs.
+        /// </summary>
+        public void OccupyTimer(GridPosition position, int colourId, int startingCountdown)
+        {
+            Occupy(position, colourId);
+            SetSpecialKind(position, SpecialCellKind.Timer);
+            _timerCountdowns[Index(position)] = startingCountdown;
+        }
 
         /// <summary>Appends every <em>playable</em> cell of row <paramref name="y"/> to
         /// <paramref name="results"/> (which is not cleared first). Holes are skipped: nothing can ever
@@ -610,7 +666,10 @@ namespace MustyBlockBlast.Core
             int[] hitCountCopy = new int[_hitCounts.Length];
             Array.Copy(_hitCounts, hitCountCopy, _hitCounts.Length);
 
-            return new Board(_shape, copy, specialCopy, hitCountCopy);
+            int[] timerCountdownCopy = new int[_timerCountdowns.Length];
+            Array.Copy(_timerCountdowns, timerCountdownCopy, _timerCountdowns.Length);
+
+            return new Board(_shape, copy, specialCopy, hitCountCopy, timerCountdownCopy);
         }
 
         /// <summary>Overwrites this board's cells with <paramref name="source"/>'s. Used to reuse a scratch
@@ -641,6 +700,7 @@ namespace MustyBlockBlast.Core
             Array.Copy(source._cells, _cells, _cells.Length);
             Array.Copy(source._specialKinds, _specialKinds, _specialKinds.Length);
             Array.Copy(source._hitCounts, _hitCounts, _hitCounts.Length);
+            Array.Copy(source._timerCountdowns, _timerCountdowns, _timerCountdowns.Length);
         }
 
         /// <summary>Flat index of <paramref name="position"/> — also the index a caller's own per-cell

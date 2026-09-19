@@ -49,6 +49,31 @@ namespace MustyBlockBlast.Core
             float elapsedRunSeconds,
             int reinforcedCellsFullyCleared,
             IReadOnlyList<int> destroyedCellCountByColour)
+            : this(
+                linesCleared, rowsCleared, columnsCleared, pieceFamily, pieceId, currentRunScore,
+                boardEmptyAfterPlacement, currentStreak, occupiedCellCountBeforeClear, anyCornerCleared,
+                centerCoreEmptyAfterPlacement, hasIsolatedHolesAfterPlacement, elapsedRunSeconds,
+                reinforcedCellsFullyCleared, destroyedCellCountByColour, timerCellsClearedInTime: 0)
+        {
+        }
+
+        public ObjectivePlacementContext(
+            int linesCleared,
+            int rowsCleared,
+            int columnsCleared,
+            PieceFamily pieceFamily,
+            string pieceId,
+            int currentRunScore,
+            bool boardEmptyAfterPlacement,
+            int currentStreak,
+            int occupiedCellCountBeforeClear,
+            bool anyCornerCleared,
+            bool centerCoreEmptyAfterPlacement,
+            bool hasIsolatedHolesAfterPlacement,
+            float elapsedRunSeconds,
+            int reinforcedCellsFullyCleared,
+            IReadOnlyList<int> destroyedCellCountByColour,
+            int timerCellsClearedInTime)
         {
             LinesCleared = linesCleared;
             RowsCleared = rowsCleared;
@@ -65,6 +90,7 @@ namespace MustyBlockBlast.Core
             ElapsedRunSeconds = elapsedRunSeconds;
             ReinforcedCellsFullyCleared = reinforcedCellsFullyCleared;
             DestroyedCellCountByColour = destroyedCellCountByColour;
+            TimerCellsClearedInTime = timerCellsClearedInTime;
         }
 
         /// <summary>Rows plus columns cleared by this placement; zero when nothing cleared.</summary>
@@ -133,5 +159,11 @@ namespace MustyBlockBlast.Core
         /// tallied or the id is outside the tally.</summary>
         public int DestroyedCountOf(int colourId)
             => ColourTally.CountOf(DestroyedCellCountByColour, colourId);
+
+        /// <summary>How many <see cref="SpecialCellKind.Timer"/> cells this placement's whole resolution
+        /// destroyed BEFORE their countdown reached 0 — the primary clear, every cascaded phase, and a
+        /// special cell's own blast/wipe/strike mid-cascade alike. See
+        /// <see cref="ObjectiveType.TimerCellsMeltedInTime"/>.</summary>
+        public int TimerCellsClearedInTime { get; }
     }
 }
