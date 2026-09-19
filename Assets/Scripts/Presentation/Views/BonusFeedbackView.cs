@@ -40,8 +40,10 @@ namespace MustyBlockBlast.Presentation.Views
         private const float SETTLE_FRACTION = 0.12f;
         private const float FADE_FRACTION = 0.35f;
 
-        /// <summary>Drift, in canvas units, travelled over the popup's lifetime.</summary>
-        private const float RISE_DISTANCE = 46f;
+        /// <summary>Floor the flight's punch-adjusted scale shrinks to as the popup nears the score
+        /// counter (#329) — never all the way to zero, so the label is still legible for its last
+        /// visible frame rather than popping out of existence.</summary>
+        private const float FLIGHT_MIN_SCALE = 0.3f;
 
         /// <summary>Colour flashes the big tier cycles through per second.</summary>
         private const float BIG_FLASH_CYCLES = 3f;
@@ -69,13 +71,18 @@ namespace MustyBlockBlast.Presentation.Views
         private ISubscriber<BonusScoredMessage> _bonusScoredSubscriber;
         private ISubscriber<RunStartedMessage> _runStartedSubscriber;
         private SettingsModel _settingsModel;
+        private ScoreView _scoreView;
         private ThemeDefinition _currentTheme;
 
+        private Canvas _canvas;
         private GameObject _layerObject;
         private RectTransform _centreRect;
         private RectTransform _textRect;
         private Text _text;
         private Outline _textOutline;
+
+        private Vector2 _flightStart;
+        private Vector2 _flightTarget;
 
         private CancellationToken _destroyToken;
         private CancellationTokenSource _popupCts;
@@ -86,16 +93,19 @@ namespace MustyBlockBlast.Presentation.Views
         public void Construct(
             SettingsModel settingsModel,
             ISubscriber<BonusScoredMessage> bonusScoredSubscriber,
-            ISubscriber<RunStartedMessage> runStartedSubscriber)
+            ISubscriber<RunStartedMessage> runStartedSubscriber,
+            ScoreView scoreView)
         {
             _settingsModel = settingsModel;
             _bonusScoredSubscriber = bonusScoredSubscriber;
             _runStartedSubscriber = runStartedSubscriber;
+            _scoreView = scoreView;
         }
 
         private void Awake()
         {
             _destroyToken = this.GetCancellationTokenOnDestroy();
+            _canvas = GetComponentInParent<Canvas>();
 
             BuildHierarchy();
             _layerObject.SetActive(false);
@@ -103,7 +113,7 @@ namespace MustyBlockBlast.Presentation.Views
 
         private void Start()
         {
-            if (_bonusScoredSubscriber == null || _settingsModel == null)
+            if (_bonusScoredSubscriber == null || _settingsModel == null || _scoreView == null)
             {
                 Debug.LogError(
                     $"{nameof(BonusFeedbackView)} was not injected. Is it registered in the LifetimeScope?",
@@ -172,6 +182,13 @@ namespace MustyBlockBlast.Presentation.Views
             // A newer bonus always supersedes the one still on screen.
             CancelPopup();
 
+            // Holds the score card's own count-up right where it stands (#329, AC2): the raw
+            // ScoreModel.Score change that triggers it always lands, synchronously, before this bonus
+            // message does, so by the time control reaches here that count-up has been kicked off but
+            // has not yet visibly progressed — cancelling it now is a silent no-op on screen. Only a
+            // popup that actually finishes its flight releases it again, below.
+            _scoreView.PauseScoreCountUp();
+
             _popupCts = CancellationTokenSource.CreateLinkedTokenSource(_destroyToken);
             CancellationToken token = _popupCts.Token;
             int generation = ++_generation;
@@ -180,6 +197,8 @@ namespace MustyBlockBlast.Presentation.Views
             float duration = Mathf.Max(0.05f, (isBig ? BIG_DURATION : STANDARD_DURATION) * _durationScale);
 
             Setup(bonusAmount, isBig);
+
+            bool reachedTarget = false;
 
             try
             {
@@ -190,10 +209,14 @@ namespace MustyBlockBlast.Presentation.Views
                     await UniTask.Yield(PlayerLoopTiming.Update, token);
                     elapsed += Time.unscaledDeltaTime;
                 }
+
+                reachedTarget = true;
             }
             catch (OperationCanceledException)
             {
-                // Superseded by a newer bonus, a restart, or object destruction.
+                // Superseded by a newer bonus, a restart, or object destruction. Whichever popup
+                // supersedes this one paused the counter again on its own way in, and will be the one
+                // to release it — or, on a restart/destruction, ScoreView resets independently.
             }
             finally
             {
@@ -203,6 +226,13 @@ namespace MustyBlockBlast.Presentation.Views
                 {
                     Hide();
                 }
+            }
+
+            // The number only starts climbing once the popup that earned it has actually arrived
+            // (#329, AC2) — never on a superseded or cancelled flight.
+            if (reachedTarget && !_isDestroyed)
+            {
+                _scoreView.ResumeScoreCountUp();
             }
         }
 
@@ -220,8 +250,35 @@ namespace MustyBlockBlast.Presentation.Views
             _text.fontSize = isBig ? BIG_FONT_SIZE : STANDARD_FONT_SIZE;
             _textOutline.effectDistance = isBig ? new Vector2(2f, -2f) : new Vector2(1.5f, -1.5f);
 
-            _centreRect.anchoredPosition = _anchoredPosition;
+            _flightStart = _anchoredPosition;
+            _flightTarget = ResolveFlightTarget();
+            _centreRect.anchoredPosition = _flightStart;
             _textRect.localScale = Vector3.one;
+        }
+
+        /// <summary>
+        /// The score card's on-screen position (<see cref="ScoreView.ScoreCounterScreenPosition"/>),
+        /// converted into this popup's own canvas-local space (#329). Falls back to the popup's spawn
+        /// position — a zero-distance "flight" — if either canvas is unavailable or the conversion
+        /// fails, so a missing reference degrades to the old in-place behaviour rather than throwing.
+        /// </summary>
+        private Vector2 ResolveFlightTarget()
+        {
+            if (_canvas == null)
+            {
+                return _anchoredPosition;
+            }
+
+            Vector2 screenPoint = _scoreView.ScoreCounterScreenPosition;
+            Camera eventCamera = _canvas.renderMode != RenderMode.ScreenSpaceOverlay ? _canvas.worldCamera : null;
+
+            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                (RectTransform)_centreRect.parent, screenPoint, eventCamera, out Vector2 localPoint))
+            {
+                return _anchoredPosition;
+            }
+
+            return localPoint;
         }
 
         private void Animate(float normalisedTime, bool isBig)
@@ -232,24 +289,29 @@ namespace MustyBlockBlast.Presentation.Views
                 : 1f - Mathf.Clamp01((normalisedTime - fadeStart) / FADE_FRACTION);
 
             float peak = isBig ? BIG_PEAK_SCALE : STANDARD_PEAK_SCALE;
-            float scale;
+            float punch;
             if (normalisedTime < GROW_FRACTION)
             {
-                scale = Mathf.Lerp(0.55f, peak, EaseOutCubic(normalisedTime / GROW_FRACTION));
+                punch = Mathf.Lerp(0.55f, peak, EaseOutCubic(normalisedTime / GROW_FRACTION));
             }
             else if (normalisedTime < GROW_FRACTION + SETTLE_FRACTION)
             {
-                scale = Mathf.Lerp(peak, 1f, (normalisedTime - GROW_FRACTION) / SETTLE_FRACTION);
+                punch = Mathf.Lerp(peak, 1f, (normalisedTime - GROW_FRACTION) / SETTLE_FRACTION);
             }
             else
             {
-                scale = 1f + (0.05f * (normalisedTime - GROW_FRACTION - SETTLE_FRACTION));
+                punch = 1f;
             }
 
+            // The initial grow/settle punch plays out as before; layered on top, the popup shrinks
+            // across its whole flight as it nears the score card, reusing BoardView's
+            // PlayFlyToCornerFadeAsync idiom (#331) of shrinking a UI element as it approaches a target.
+            float flightShrink = Mathf.Lerp(1f, FLIGHT_MIN_SCALE, EaseOutCubic(normalisedTime));
+            float scale = punch * flightShrink;
             _textRect.localScale = new Vector3(scale, scale, 1f);
 
-            float rise = RISE_DISTANCE * EaseOutCubic(normalisedTime);
-            _centreRect.anchoredPosition = new Vector2(_anchoredPosition.x, _anchoredPosition.y + rise);
+            float travel = EaseOutCubic(normalisedTime);
+            _centreRect.anchoredPosition = Vector2.LerpUnclamped(_flightStart, _flightTarget, travel);
 
             Color fill = Color.white;
             if (isBig)

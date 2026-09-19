@@ -98,6 +98,7 @@ namespace MustyBlockBlast.Presentation.Views
         private ISubscriber<RunStartedMessage> _runStartedSubscriber;
         private ISubscriber<NewRecordMessage> _newRecordSubscriber;
 
+        private Canvas _canvas;
         private Image _cardShadow;
         private Image _cardPlate;
         private Text _scoreLabelText;
@@ -122,6 +123,23 @@ namespace MustyBlockBlast.Presentation.Views
         /// themselves in it; the card never resizes it.
         /// </summary>
         internal RectTransform CentreSlot => _centreSlot;
+
+        /// <summary>
+        /// The score number's on-screen position, in the same space <see cref="RectTransformUtility"/>
+        /// screen-point conversions expect. Lets a sibling view (<see cref="BonusFeedbackView"/>, #329)
+        /// compute a flight target toward this card without either view knowing the other's canvas
+        /// nesting or scale.
+        /// </summary>
+        internal Vector2 ScoreCounterScreenPosition
+        {
+            get
+            {
+                Camera eventCamera = _canvas != null && _canvas.renderMode != RenderMode.ScreenSpaceOverlay
+                    ? _canvas.worldCamera
+                    : null;
+                return RectTransformUtility.WorldToScreenPoint(eventCamera, _scoreText.transform.position);
+            }
+        }
 
         [Inject]
         public void Construct(
@@ -149,6 +167,7 @@ namespace MustyBlockBlast.Presentation.Views
         private void Awake()
         {
             _destroyToken = this.GetCancellationTokenOnDestroy();
+            _canvas = GetComponentInParent<Canvas>();
             BuildCard();
         }
 
@@ -319,6 +338,24 @@ namespace MustyBlockBlast.Presentation.Views
 
             SetDisplayedScore(targetScore);
         }
+
+        /// <summary>
+        /// Cancels any count-up in flight, mid-frame, before it has visibly progressed (its own first
+        /// tick is a no-op — see <see cref="AnimateScoreToAsync"/>). Called by
+        /// <see cref="BonusFeedbackView"/> (#329, AC2) the instant a bonus popup starts its flight, so
+        /// the displayed number holds at its pre-bonus value until <see cref="ResumeScoreCountUp"/>
+        /// releases it, rather than counting up in step with the raw <see cref="ScoreModel.Score"/>
+        /// change that always lands first in the same synchronous publish.
+        /// </summary>
+        internal void PauseScoreCountUp() => CancelCountUp();
+
+        /// <summary>
+        /// Restarts the count-up toward the model's current score. Called once a bonus popup's flight
+        /// has actually reached this card, so the number only starts climbing when the popup does
+        /// (#329, AC2). Reads <see cref="ScoreModel.Score"/> live rather than a value passed in at
+        /// pause time, since a later, superseding bonus may have moved the target since then.
+        /// </summary>
+        internal void ResumeScoreCountUp() => AnimateScoreToAsync(_scoreModel.Score.Value).Forget();
 
         private void CancelCountUp()
         {
