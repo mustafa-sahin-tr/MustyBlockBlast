@@ -1797,6 +1797,10 @@ namespace MustyBlockBlast.Presentation.Views
             // The fade owned the icon that was still on screen; dropping the fade settles the cell on
             // its post-clear state, which has no kind.
             ApplyCellIcon(index, _cellSpecialKinds[index]);
+
+            // Same reasoning (issue #324): the fade also owned whatever skin overlay was still on
+            // screen, and _cellSkinKinds[index] was already reset to None back in OnCellChanged.
+            ApplyCellSkin(index, _cellSkinKinds[index]);
             _cells[index].SetAlpha(1f);
         }
 
@@ -1917,6 +1921,10 @@ namespace MustyBlockBlast.Presentation.Views
                 _cellPending[index] = false;
                 ApplyCellColour(cell, Board.EMPTY);
                 ApplyCellIcon(index, _cellSpecialKinds[index]);
+
+                // Issue #324: the clear animation held the skin overlay on screen exactly as it held
+                // the special-cell icon above; settle it the same way now that the fade is done.
+                ApplyCellSkin(index, _cellSkinKinds[index]);
                 view.SetAlpha(1f);
             }
             finally
