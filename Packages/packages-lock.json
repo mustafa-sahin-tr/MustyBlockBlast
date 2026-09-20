@@ -57,11 +57,11 @@
       "hash": "9b17393ae50eb5b2ba168469f53155c9fc04e1e6"
     },
     "com.mtafasahin.reactive": {
-      "version": "https://github.com/mustafa-sahin-tr/mtafasahin-unity-packages.git?path=com.mtafasahin.reactive#v1.1.1",
+      "version": "https://github.com/mustafa-sahin-tr/mtafasahin-unity-packages.git?path=com.mtafasahin.reactive#v1.1.2",
       "depth": 0,
       "source": "git",
       "dependencies": {},
-      "hash": "9b17393ae50eb5b2ba168469f53155c9fc04e1e6"
+      "hash": "451043b58ed3d2614873007c366f665e5c686185"
     },
     "com.unity.2d.animation": {
       "version": "16.0.0",
