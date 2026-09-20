@@ -300,6 +300,27 @@ namespace MustyBlockBlast.Gameplay.Models
             CellChanged?.Invoke(position, colourId);
         }
 
+        /// <summary>
+        /// Re-announces whatever <see cref="SpecialCellKind"/> <paramref name="position"/> carries right
+        /// now. For a Core effect that tags a cell directly on <see cref="Core.Board"/> — an explosive
+        /// core's hand-off, exactly as a vortex's pull re-announces the kind it carried across at the
+        /// destination — rather than through <see cref="SetSpecialKind"/>, which would tag it a second
+        /// time.
+        /// <para>
+        /// A no-op when the cell reads back <see cref="SpecialCellKind.None"/>: <see cref="SpecialKindChanged"/>
+        /// is an "added" signal only, so there is nothing to announce for a kind that was never actually
+        /// applied.
+        /// </para>
+        /// </summary>
+        internal void NotifySpecialKindChanged(GridPosition position)
+        {
+            SpecialCellKind kind = _board.GetSpecialKind(position);
+            if (kind != SpecialCellKind.None)
+            {
+                SpecialKindChanged?.Invoke(position, kind);
+            }
+        }
+
         /// <summary>Raises change notifications for an arbitrary set of cells a power-up emptied. The
         /// Core resolver has already mutated the board when this is called. Separate from
         /// <see cref="NotifyCleared"/> because a power-up clears a region, not whole lines.</summary>
@@ -317,37 +338,41 @@ namespace MustyBlockBlast.Gameplay.Models
         }
 
         /// <summary>
-        /// Raises change notifications for the blocks a vortex dragged inwards. The Core effect has
-        /// already mutated the board when this is called, so both ends are read back off it rather than
-        /// assumed: a cell a later cascade phase went on to clear reports as empty, which is what it is.
-        /// <para>
-        /// Three notifications per move, in the order a View has to receive them: the source empties,
-        /// the destination fills, and — only when the block that moved carried one — the destination
-        /// regains its special kind. The kind needs its own signal because
-        /// <see cref="SpecialKindChanged"/> is an "added" signal and a View drops a cell's icon whenever
-        /// that cell empties; the move empties the source, so the icon has to be re-announced at the
-        /// destination rather than assumed to have travelled with it.
-        /// </para>
+        /// Raises change notifications for the cells a vortex's fill reclaimed (issue #349) — see
+        /// <see cref="Core.VortexEffect.FilledCells"/>. The Core effect has already occupied each cell
+        /// when this is called, so the colour is read back off the board rather than assumed, exactly as
+        /// <see cref="NotifyFilled"/> does for a single cell. No <see cref="SpecialKindChanged"/> follows:
+        /// every filled cell is <see cref="SpecialCellKind.None"/>.
         /// </summary>
-        internal void NotifyPulled(IReadOnlyList<VortexPull> pulls)
+        internal void NotifyIslandFilled(IReadOnlyList<GridPosition> filledCells)
         {
-            if (pulls == null)
+            if (filledCells == null)
             {
                 return;
             }
 
-            for (int i = 0; i < pulls.Count; i++)
+            for (int i = 0; i < filledCells.Count; i++)
             {
-                VortexPull pull = pulls[i];
+                GridPosition cell = filledCells[i];
+                CellChanged?.Invoke(cell, _board[cell]);
+            }
+        }
 
-                CellChanged?.Invoke(pull.From, Board.EMPTY);
-                CellChanged?.Invoke(pull.To, _board[pull.To]);
+        /// <summary>
+        /// Raises the special-kind notification for a vortex's tag hand-off (issue #349) — see
+        /// <see cref="Core.VortexEffect.HandOffTargets"/>. Only the kind changes; the cell's own colour
+        /// was already whatever it was standing on, so no <see cref="CellChanged"/> follows.
+        /// </summary>
+        internal void NotifyVortexHandedOff(IReadOnlyList<GridPosition> handOffTargets)
+        {
+            if (handOffTargets == null)
+            {
+                return;
+            }
 
-                SpecialCellKind kind = _board.GetSpecialKind(pull.To);
-                if (kind != SpecialCellKind.None)
-                {
-                    SpecialKindChanged?.Invoke(pull.To, kind);
-                }
+            for (int i = 0; i < handOffTargets.Count; i++)
+            {
+                SpecialKindChanged?.Invoke(handOffTargets[i], SpecialCellKind.Vortex);
             }
         }
 

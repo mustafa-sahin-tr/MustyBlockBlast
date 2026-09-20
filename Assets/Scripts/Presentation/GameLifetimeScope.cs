@@ -175,11 +175,12 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterMessageBroker<TrayRefilledMessage>(options);
             builder.RegisterMessageBroker<PowerUpAppliedMessage>(options);
             builder.RegisterMessageBroker<PowerUpGrantedMessage>(options);
+            builder.RegisterMessageBroker<PowerUpGrantAnimationCompletedMessage>(options);
             builder.RegisterMessageBroker<BadgeUnlockedMessage>(options);
             builder.RegisterMessageBroker<ExplosiveCoreDetonatedMessage>(options);
             builder.RegisterMessageBroker<LaserFiredMessage>(options);
             builder.RegisterMessageBroker<PiercingRocketFiredMessage>(options);
-            builder.RegisterMessageBroker<VortexPulledMessage>(options);
+            builder.RegisterMessageBroker<VortexIslandFilledMessage>(options);
             builder.RegisterMessageBroker<ChainLightningTriggeredMessage>(options);
             builder.RegisterMessageBroker<ObjectiveProgressChangedMessage>(options);
             builder.RegisterMessageBroker<ObjectiveCompletedMessage>(options);
@@ -613,6 +614,11 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterComponentInHierarchy<LineClearBurstView>();
             builder.RegisterComponentInHierarchy<BonusFeedbackView>();
             builder.RegisterComponentInHierarchy<PowerUpInventoryView>();
+
+            // #353: the grant flight and its per-kind sound. Registered after PowerUpInventoryView,
+            // which the flight view takes as a dependency to resolve its landing slot.
+            builder.RegisterComponentInHierarchy<PowerUpGrantAnimationView>();
+            builder.RegisterComponentInHierarchy<PowerUpGrantSfxView>();
             builder.RegisterComponentInHierarchy<ObjectiveIconContainerView>();
             builder.RegisterComponentInHierarchy<ObjectiveInfoPopupView>();
             builder.RegisterComponentInHierarchy<InfoPopupView>();

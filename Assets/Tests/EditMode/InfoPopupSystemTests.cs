@@ -25,6 +25,7 @@ namespace MustyBlockBlast.Tests.EditMode
         private PowerUpModel _powerUpModel;
         private TestMessageBroker<SpecialCellSpawnedMessage> _specialCellSpawnedBroker;
         private TestMessageBroker<PowerUpGrantedMessage> _powerUpGrantedBroker;
+        private TestMessageBroker<PowerUpGrantAnimationCompletedMessage> _grantAnimationCompletedBroker;
         private TestMessageBroker<HoldFirstUseMessage> _holdFirstUseBroker;
         private TestMessageBroker<SpecialPieceSpawnedMessage> _specialPieceSpawnedBroker;
         private InfoPopupSystem _system;
@@ -38,6 +39,7 @@ namespace MustyBlockBlast.Tests.EditMode
             _powerUpModel = new PowerUpModel();
             _specialCellSpawnedBroker = new TestMessageBroker<SpecialCellSpawnedMessage>();
             _powerUpGrantedBroker = new TestMessageBroker<PowerUpGrantedMessage>();
+            _grantAnimationCompletedBroker = new TestMessageBroker<PowerUpGrantAnimationCompletedMessage>();
             _holdFirstUseBroker = new TestMessageBroker<HoldFirstUseMessage>();
             _specialPieceSpawnedBroker = new TestMessageBroker<SpecialPieceSpawnedMessage>();
 
@@ -58,8 +60,22 @@ namespace MustyBlockBlast.Tests.EditMode
                 _powerUpModel,
                 _specialCellSpawnedBroker,
                 _powerUpGrantedBroker,
+                _grantAnimationCompletedBroker,
                 _holdFirstUseBroker,
                 _specialPieceSpawnedBroker);
+        }
+
+        /// <summary>
+        /// Publishes a <see cref="PowerUpGrantedMessage"/> and, since this System now defers a
+        /// PowerUp-triggered auto-open until its grant animation lands (issue #353), immediately
+        /// follows it with the matching completion signal — exactly what
+        /// <c>PowerUpGrantAnimationView</c> does in production, whether or not it actually animated —
+        /// so a test asserting the popup opened can still do so synchronously.
+        /// </summary>
+        private void PublishPowerUpGrantedAndCompleteAnimation(PowerUpKind kind, int newInventoryCount)
+        {
+            _powerUpGrantedBroker.Publish(new PowerUpGrantedMessage(kind, newInventoryCount));
+            _grantAnimationCompletedBroker.Publish(new PowerUpGrantAnimationCompletedMessage(kind));
         }
 
         // --- an unseen trigger auto-opens its popup ---
@@ -94,7 +110,7 @@ namespace MustyBlockBlast.Tests.EditMode
         [Test]
         public void PowerUpGrantedMessage_Unseen_AutoOpensThePowerUpPopup()
         {
-            _powerUpGrantedBroker.Publish(new PowerUpGrantedMessage(PowerUpKind.Bomb, 1));
+            PublishPowerUpGrantedAndCompleteAnimation(PowerUpKind.Bomb, 1);
 
             InfoPopupContent? content = _model.OpenContent.Value;
             Assert.IsNotNull(content);
@@ -141,8 +157,8 @@ namespace MustyBlockBlast.Tests.EditMode
             _model = new InfoPopupModel();
             var freshBroker = new TestMessageBroker<SpecialCellSpawnedMessage>();
             _system = new InfoPopupSystem(
-                _model, _powerUpModel, freshBroker, _powerUpGrantedBroker, _holdFirstUseBroker,
-                _specialPieceSpawnedBroker);
+                _model, _powerUpModel, freshBroker, _powerUpGrantedBroker, _grantAnimationCompletedBroker,
+                _holdFirstUseBroker, _specialPieceSpawnedBroker);
 
             freshBroker.Publish(new SpecialCellSpawnedMessage(SpecialCellKind.ExplosiveCore, new GridPosition(2, 2)));
 
@@ -237,7 +253,7 @@ namespace MustyBlockBlast.Tests.EditMode
             // A kind granted for the first time genuinely, after the migration has already run once,
             // must still auto-open — the migration marking Bomb seen must not fire again and swallow
             // an unrelated kind's first grant.
-            _powerUpGrantedBroker.Publish(new PowerUpGrantedMessage(PowerUpKind.RowClear, 1));
+            PublishPowerUpGrantedAndCompleteAnimation(PowerUpKind.RowClear, 1);
             Assert.IsNotNull(_model.OpenContent.Value);
 
             // And a second migration attempt (e.g. a later boot) must not re-mark RowClear seen out
@@ -245,7 +261,7 @@ namespace MustyBlockBlast.Tests.EditMode
             _system.Close();
             _system.Dispose();
             _system = CreateInfoPopupSystem();
-            _powerUpGrantedBroker.Publish(new PowerUpGrantedMessage(PowerUpKind.ColumnClear, 1));
+            PublishPowerUpGrantedAndCompleteAnimation(PowerUpKind.ColumnClear, 1);
             Assert.IsNotNull(_model.OpenContent.Value);
         }
 

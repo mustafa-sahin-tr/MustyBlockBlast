@@ -10,8 +10,8 @@ namespace MustyBlockBlast.Tests.EditMode
 {
     /// <summary>
     /// End-to-end cover for the placement side of the vortex: the run-wide line-clear count the spawn
-    /// rule is read against, a destroyed vortex drags the board's strays inwards, the pulls are
-    /// reported, and a snapshot taken beforehand restores everything.
+    /// rule is read against, a destroyed vortex fills the board's islands (or hands off when there is
+    /// none), the work is reported, and a snapshot taken beforehand restores everything.
     /// </summary>
     public class BoardSystemVortexTests
     {
@@ -22,7 +22,7 @@ namespace MustyBlockBlast.Tests.EditMode
 
         private BoardModel _boardModel;
         private TrayModel _trayModel;
-        private TestMessageBroker<VortexPulledMessage> _pulledBroker;
+        private TestMessageBroker<VortexIslandFilledMessage> _islandFilledBroker;
         private BoardSystem _system;
 
         [SetUp]
@@ -30,7 +30,7 @@ namespace MustyBlockBlast.Tests.EditMode
         {
             _boardModel = new BoardModel();
             _trayModel = new TrayModel();
-            _pulledBroker = new TestMessageBroker<VortexPulledMessage>();
+            _islandFilledBroker = new TestMessageBroker<VortexIslandFilledMessage>();
 
             // Deliberately unstarted, as BoardSystemLaserTests is: StartNewRun would draw over the board
             // and dock each test lays out by hand.
@@ -48,7 +48,7 @@ namespace MustyBlockBlast.Tests.EditMode
                 new TestMessageBroker<ExplosiveCoreDetonatedMessage>(),
                 new TestMessageBroker<LaserFiredMessage>(),
                 new TestMessageBroker<PiercingRocketFiredMessage>(),
-                _pulledBroker,
+                _islandFilledBroker,
                 new TestMessageBroker<ChainLightningTriggeredMessage>(),
                 new TestMessageBroker<CoinCellsClearedMessage>(),
                 ScriptableObject.CreateInstance<CurrencyConfig>(),
@@ -129,47 +129,59 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.AreEqual(SpecialCellKind.Vortex, _boardModel.GetSpecialKind(new GridPosition(0, 5)));
         }
 
-        /// <summary>AC2: destroying one drags every isolated block one cell towards where it stood, and
-        /// empties the cell each of them vacated.</summary>
+        // --- Island fill (issue #349) ---
+
+        /// <summary>AC1: destroying a vortex fills every fully-enclosed island present on the board.</summary>
         [Test]
-        public void TryPlacePiece_DestroyingAVortex_PullsTheIsolatedBlocksInwards()
+        public void TryPlacePiece_DestroyingAVortexWithAnIsland_FillsIt()
         {
             FillRowExcept(y: 5, Gap);
             _boardModel.SetSpecialKind(new GridPosition(0, 5), SpecialCellKind.Vortex);
 
-            var stray = new GridPosition(0, 0);
-            _boardModel.Occupy(stray, 2);
+            // A one-cell island, boxed in on every in-board side, far from row 5.
+            OccupyRing(2, 2, 4, 4);
+            var island = new GridPosition(3, 3);
 
             _system.TryPlacePiece(0, Gap);
 
-            Assert.AreEqual(Board.EMPTY, _boardModel.GetCell(stray), "The cell it left is empty.");
-            Assert.AreNotEqual(Board.EMPTY, _boardModel.GetCell(new GridPosition(0, 1)), "One step inwards.");
-
-            Assert.AreEqual(1, _pulledBroker.Published.Count);
-            Assert.AreEqual(1, _pulledBroker.Published[0].Pulls.Count);
-            Assert.AreEqual(stray, _pulledBroker.Published[0].Pulls[0].From);
-            Assert.AreEqual(new GridPosition(0, 1), _pulledBroker.Published[0].Pulls[0].To);
+            Assert.IsTrue(_boardModel.GetCell(island) != Board.EMPTY, "The island was reclaimed.");
+            Assert.AreEqual(1, _islandFilledBroker.Published.Count);
+            Assert.AreEqual(1, _islandFilledBroker.Published[0].FilledCells.Count);
+            Assert.AreEqual(island, _islandFilledBroker.Published[0].FilledCells[0]);
+            Assert.AreEqual(0, _islandFilledBroker.Published[0].HandOffTargets.Count);
         }
 
-        /// <summary>A block with an occupied neighbour is not isolated and is left exactly where it is,
-        /// so a vortex that finds nothing to move publishes nothing — subscribers treat the message
-        /// itself as "blocks moved".</summary>
+        /// <summary>A destroyed vortex with no island on the board hands its tag off instead, and
+        /// publishes the hand-off rather than a fill.</summary>
         [Test]
-        public void TryPlacePiece_DestroyingAVortexWithNothingIsolated_PublishesNothing()
+        public void TryPlacePiece_DestroyingAVortexWithNoIsland_HandsOffToAnEligibleCell()
         {
             FillRowExcept(y: 5, Gap);
             _boardModel.SetSpecialKind(new GridPosition(0, 5), SpecialCellKind.Vortex);
 
-            var left = new GridPosition(0, 0);
-            var right = new GridPosition(1, 0);
-            _boardModel.Occupy(left, 2);
-            _boardModel.Occupy(right, 2);
+            var eligible = new GridPosition(0, 0);
+            _boardModel.Occupy(eligible, 2);
 
             _system.TryPlacePiece(0, Gap);
 
-            Assert.AreNotEqual(Board.EMPTY, _boardModel.GetCell(left));
-            Assert.AreNotEqual(Board.EMPTY, _boardModel.GetCell(right));
-            Assert.AreEqual(0, _pulledBroker.Published.Count);
+            Assert.AreEqual(SpecialCellKind.Vortex, _boardModel.GetSpecialKind(eligible));
+            Assert.AreEqual(1, _islandFilledBroker.Published.Count);
+            Assert.AreEqual(0, _islandFilledBroker.Published[0].FilledCells.Count);
+            Assert.AreEqual(1, _islandFilledBroker.Published[0].HandOffTargets.Count);
+            Assert.AreEqual(eligible, _islandFilledBroker.Published[0].HandOffTargets[0]);
+        }
+
+        /// <summary>No island and no eligible cell either publishes nothing at all — subscribers read the
+        /// message itself as "the vortex did something".</summary>
+        [Test]
+        public void TryPlacePiece_DestroyingAVortexWithNoIslandAndNoEligibleCell_PublishesNothing()
+        {
+            FillRowExcept(y: 5, Gap);
+            _boardModel.SetSpecialKind(new GridPosition(0, 5), SpecialCellKind.Vortex);
+
+            _system.TryPlacePiece(0, Gap);
+
+            Assert.AreEqual(0, _islandFilledBroker.Published.Count);
         }
 
         [Test]
@@ -179,65 +191,56 @@ namespace MustyBlockBlast.Tests.EditMode
 
             _system.TryPlacePiece(0, Gap);
 
-            Assert.AreEqual(0, _pulledBroker.Published.Count);
+            Assert.AreEqual(0, _islandFilledBroker.Published.Count);
         }
 
-        // --- The Demolition Hammer path (issue #156, AC2) ---
+        // --- The Demolition Hammer path (issue #156, AC2 / issue #349) ---
 
-        /// <summary>AC2: a vortex destroyed by a hammer drags the board's isolated blocks inwards exactly
-        /// as one destroyed by a completed line does. A hammer destroys a single cell and completes no
-        /// line, so nothing but the pull itself can explain the stray having moved.</summary>
+        /// <summary>A vortex destroyed by a hammer fills the board's islands exactly as one destroyed by
+        /// a completed line does. A hammer destroys a single cell and completes no line, so nothing but
+        /// the fill itself can explain the island having been reclaimed.</summary>
         [Test]
-        public void TryUseDemolitionHammer_OnAVortex_PullsTheIsolatedBlocksInwards()
+        public void TryUseDemolitionHammer_OnAVortexWithAnIsland_FillsIt()
         {
             var vortex = new GridPosition(4, 4);
             _boardModel.Occupy(vortex, 1);
             _boardModel.SetSpecialKind(vortex, SpecialCellKind.Vortex);
 
-            var stray = new GridPosition(0, 0);
-            _boardModel.Occupy(stray, 2);
+            OccupyRing(0, 0, 2, 2);
+            var island = new GridPosition(1, 1);
 
             _trayModel.SetSlot(0, PieceCatalog.SingleCell, 1, SpecialPieceKind.DemolitionHammer);
 
             Assert.IsTrue(_system.TryUseDemolitionHammer(0, vortex));
 
-            // Equal distances on both axes, and the tie goes to the horizontal — VortexEffect's fixed
-            // rule, so the same board always resolves the same way whatever destroyed the tile.
-            var pulledTo = new GridPosition(1, 0);
-            Assert.AreEqual(Board.EMPTY, _boardModel.GetCell(stray), "The cell it left is empty.");
-            Assert.AreNotEqual(Board.EMPTY, _boardModel.GetCell(pulledTo), "One step inwards.");
-
-            Assert.AreEqual(1, _pulledBroker.Published.Count);
-            Assert.AreEqual(1, _pulledBroker.Published[0].Pulls.Count);
-            Assert.AreEqual(stray, _pulledBroker.Published[0].Pulls[0].From);
-            Assert.AreEqual(pulledTo, _pulledBroker.Published[0].Pulls[0].To);
+            Assert.IsTrue(_boardModel.GetCell(island) != Board.EMPTY, "The island was reclaimed.");
+            Assert.AreEqual(1, _islandFilledBroker.Published.Count);
+            Assert.AreEqual(1, _islandFilledBroker.Published[0].FilledCells.Count);
+            Assert.AreEqual(island, _islandFilledBroker.Published[0].FilledCells[0]);
         }
 
-        /// <summary>The same "the message means blocks moved" contract on the hammer path: a vortex that
-        /// found nothing isolated publishes nothing.</summary>
+        /// <summary>The same hand-off contract on the hammer path: no island hands the tag off instead.</summary>
         [Test]
-        public void TryUseDemolitionHammer_OnAVortexWithNothingIsolated_PublishesNothing()
+        public void TryUseDemolitionHammer_OnAVortexWithNoIsland_HandsOffToAnEligibleCell()
         {
             var vortex = new GridPosition(4, 4);
             _boardModel.Occupy(vortex, 1);
             _boardModel.SetSpecialKind(vortex, SpecialCellKind.Vortex);
 
-            var left = new GridPosition(0, 0);
-            var right = new GridPosition(1, 0);
-            _boardModel.Occupy(left, 2);
-            _boardModel.Occupy(right, 2);
+            var eligible = new GridPosition(0, 0);
+            _boardModel.Occupy(eligible, 2);
 
             _trayModel.SetSlot(0, PieceCatalog.SingleCell, 1, SpecialPieceKind.DemolitionHammer);
 
             Assert.IsTrue(_system.TryUseDemolitionHammer(0, vortex));
 
-            Assert.AreNotEqual(Board.EMPTY, _boardModel.GetCell(left));
-            Assert.AreNotEqual(Board.EMPTY, _boardModel.GetCell(right));
-            Assert.AreEqual(0, _pulledBroker.Published.Count);
+            Assert.AreEqual(SpecialCellKind.Vortex, _boardModel.GetSpecialKind(eligible));
+            Assert.AreEqual(1, _islandFilledBroker.Published.Count);
+            Assert.AreEqual(1, _islandFilledBroker.Published[0].HandOffTargets.Count);
         }
 
-        /// <summary>A hammer swung at an ordinary cell pulls nothing: the pull belongs to the tile, not
-        /// to the hammer.</summary>
+        /// <summary>A hammer swung at an ordinary cell reclaims nothing: the effect belongs to the tile,
+        /// not to the hammer.</summary>
         [Test]
         public void TryUseDemolitionHammer_OnAnOrdinaryCell_PublishesNothing()
         {
@@ -249,7 +252,7 @@ namespace MustyBlockBlast.Tests.EditMode
 
             Assert.IsTrue(_system.TryUseDemolitionHammer(0, target));
 
-            Assert.AreEqual(0, _pulledBroker.Published.Count);
+            Assert.AreEqual(0, _islandFilledBroker.Published.Count);
             Assert.AreNotEqual(Board.EMPTY, _boardModel.GetCell(new GridPosition(0, 0)), "Left alone.");
         }
 
@@ -283,31 +286,31 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.AreEqual(Board.EMPTY, _boardModel.GetCell(gem), "The gem cell went.");
             Assert.AreEqual(SpecialCellKind.None, _boardModel.GetSpecialKind(gem), "And so did its kind.");
 
-            // A gem destroys nothing at all, so the bystander is untouched — and, being the only other
-            // block, it is isolated, which is what would have moved had a vortex been involved.
+            // A gem destroys nothing at all, so the bystander is untouched.
             Assert.AreNotEqual(Board.EMPTY, _boardModel.GetCell(bystander));
-            Assert.AreEqual(0, _pulledBroker.Published.Count);
+            Assert.AreEqual(0, _islandFilledBroker.Published.Count);
         }
 
         /// <summary>AC6: a snapshot taken before the placement restores the board exactly, vortex tiles
-        /// and pulled blocks included. Rides entirely on <c>Board.Clone</c>/<c>CopyFrom</c> being
+        /// and reclaimed islands included. Rides entirely on <c>Board.Clone</c>/<c>CopyFrom</c> being
         /// kind-agnostic, which holds because the effect mutates nothing outside the board's own cells;
         /// stated explicitly because the acceptance criterion is about this kind specifically.</summary>
         [Test]
-        public void ABoardSnapshot_TakenBeforeAPlacementThatPulls_RestoresTheBoardExactly()
+        public void ABoardSnapshot_TakenBeforeAPlacementThatFills_RestoresTheBoardExactly()
         {
             FillRowExcept(y: 5, Gap);
             var vortex = new GridPosition(0, 5);
             _boardModel.SetSpecialKind(vortex, SpecialCellKind.Vortex);
 
-            var stray = new GridPosition(0, 0);
-            _boardModel.Occupy(stray, 2);
+            OccupyRing(2, 2, 4, 4);
+            var island = new GridPosition(3, 3);
 
             Board snapshot = _boardModel.Board.Clone();
             Assert.AreEqual(SpecialCellKind.Vortex, snapshot.GetSpecialKind(vortex), "The clone carries the kind.");
+            Assert.AreEqual(Board.EMPTY, snapshot[island], "The clone carries the island's empty cell too.");
 
             _system.TryPlacePiece(0, Gap);
-            Assert.AreEqual(Board.EMPTY, _boardModel.GetCell(stray), "The pull happened.");
+            Assert.IsTrue(_boardModel.GetCell(island) != Board.EMPTY, "The fill happened.");
 
             _boardModel.Board.CopyFrom(snapshot);
 
@@ -325,6 +328,7 @@ namespace MustyBlockBlast.Tests.EditMode
             }
 
             Assert.AreEqual(SpecialCellKind.Vortex, _boardModel.GetSpecialKind(vortex), "The vortex is back.");
+            Assert.AreEqual(Board.EMPTY, _boardModel.Board[island], "And the island is empty again.");
         }
 
         /// <summary>Fills <paramref name="gap"/>'s row around it and places a fresh single there,
@@ -364,6 +368,28 @@ namespace MustyBlockBlast.Tests.EditMode
                 }
 
                 _boardModel.Occupy(position, 1);
+            }
+        }
+
+        /// <summary>Occupies the border ring of the [minX..maxX] x [minY..maxY] rectangle, leaving its
+        /// centre cell empty and boxed in on every side — a one-cell island. The rectangle must be at
+        /// least 3x3 for a centre to exist.</summary>
+        private void OccupyRing(int minX, int minY, int maxX, int maxY)
+        {
+            int centerX = (minX + maxX) / 2;
+            int centerY = (minY + maxY) / 2;
+
+            for (int y = minY; y <= maxY; y++)
+            {
+                for (int x = minX; x <= maxX; x++)
+                {
+                    if (x == centerX && y == centerY)
+                    {
+                        continue;
+                    }
+
+                    _boardModel.Occupy(new GridPosition(x, y), 1);
+                }
             }
         }
     }

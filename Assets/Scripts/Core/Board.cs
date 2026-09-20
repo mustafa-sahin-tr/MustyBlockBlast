@@ -375,6 +375,77 @@ namespace MustyBlockBlast.Core
             return true;
         }
 
+        /// <summary>
+        /// True when row <paramref name="y"/> is missing exactly one occupied playable cell — one
+        /// placement short of <see cref="IsRowFull"/>.
+        /// <para>
+        /// Holes are skipped exactly as <see cref="IsRowFull"/> skips them, so a row shortened by holes
+        /// is judged against its own playable count, not the board's width. A row with no playable
+        /// cells at all is never reported, for the same reason <see cref="IsRowFull"/> never reports
+        /// one: nothing could ever complete it.
+        /// </para>
+        /// </summary>
+        public bool IsRowOneCellFromFull(int y)
+        {
+            if (_shape.PlayableCountInRow(y) == 0)
+            {
+                return false;
+            }
+
+            int missingCount = 0;
+            for (int x = 0; x < Width; x++)
+            {
+                var position = new GridPosition(x, y);
+                if (_shape.IsHole(position))
+                {
+                    continue;
+                }
+
+                if (_cells[Index(position)] == EMPTY)
+                {
+                    missingCount++;
+                    if (missingCount > 1)
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            return missingCount == 1;
+        }
+
+        /// <summary>True when column <paramref name="x"/> is missing exactly one occupied playable
+        /// cell. Same rule as <see cref="IsRowOneCellFromFull"/>, including the all-holes and
+        /// no-playable-cells cases.</summary>
+        public bool IsColumnOneCellFromFull(int x)
+        {
+            if (_shape.PlayableCountInColumn(x) == 0)
+            {
+                return false;
+            }
+
+            int missingCount = 0;
+            for (int y = 0; y < Height; y++)
+            {
+                var position = new GridPosition(x, y);
+                if (_shape.IsHole(position))
+                {
+                    continue;
+                }
+
+                if (_cells[Index(position)] == EMPTY)
+                {
+                    missingCount++;
+                    if (missingCount > 1)
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            return missingCount == 1;
+        }
+
         /// <summary>True when every playable cell of column <paramref name="x"/> is filled. Same rule
         /// as <see cref="IsRowFull"/>, including the all-holes case.</summary>
         public bool IsColumnFull(int x)
@@ -626,6 +697,115 @@ namespace MustyBlockBlast.Core
             }
 
             return largest;
+        }
+
+        /// <summary>
+        /// Appends every cell of every fully-enclosed pocket of empty, playable cells (4-directional) to
+        /// <paramref name="results"/> (not cleared first — the same append convention as
+        /// <see cref="CollectRowCells"/>/<see cref="CollectColumnCells"/>) — the geometry
+        /// <see cref="VortexEffect"/> fills in on destruction (issue #349).
+        /// <para>
+        /// <b>Deliberately not <see cref="HasIsolatedEmptyCells"/>'s border-seeded reachability.</b> That
+        /// method treats every empty cell literally sitting on the outer edge as automatically
+        /// "reachable", whatever is around it — which is exactly wrong for a pocket that happens to run
+        /// along the board's last row or column: cells boxed in on every in-board side still get waved
+        /// through as "not isolated" purely for being on the edge (see that method's own remarks). This
+        /// method instead partitions every empty playable cell into its connected component — the same
+        /// 4-directional flood fill <see cref="LargestEmptyRegionSize"/> walks — and calls every
+        /// component except the single largest one an island. That classification does not care whether
+        /// a component touches the edge, only whether it is connected to the board's one biggest
+        /// remaining open area, which is what actually decides whether a piece can ever reach it again.
+        /// </para>
+        /// <para>
+        /// A board whose empty cells form one connected region — however that region is shaped,
+        /// edge-hugging or not — has exactly one component, which is trivially "the largest", so nothing
+        /// is appended: an island only exists once the empty space has genuinely split into pieces.
+        /// Likewise a board with no empty cells at all appends nothing, there being no component to
+        /// compare.
+        /// </para>
+        /// <para>
+        /// Ties for largest are broken by scan order (row-major, first found wins) — arbitrary but
+        /// fixed, so the same board always resolves the same way. Holes are walls to the fill exactly as
+        /// an occupied cell is, for the same reason <see cref="LargestEmptyRegionSize"/> treats them so:
+        /// neither can ever hold a block.
+        /// </para>
+        /// <para>
+        /// Allocates two board-sized scratch arrays and a handful of small lists — cheap enough to run
+        /// once per vortex trigger (not a per-frame concern, so this is not held to the Update-path
+        /// zero-alloc rule, exactly as <see cref="HasIsolatedEmptyCells"/> is not).
+        /// </para>
+        /// </summary>
+        public void CollectEnclosedEmptyIslands(List<GridPosition> results)
+        {
+            if (results == null)
+            {
+                throw new ArgumentNullException(nameof(results));
+            }
+
+            var visited = new bool[CellCount];
+            var stack = new int[CellCount];
+            var components = new List<List<GridPosition>>();
+
+            for (int rootIndex = 0; rootIndex < _cells.Length; rootIndex++)
+            {
+                if (_cells[rootIndex] != EMPTY || visited[rootIndex])
+                {
+                    continue;
+                }
+
+                int stackCount = SeedIfEmpty(rootIndex % Width, rootIndex / Width, visited, stack, 0);
+                if (stackCount == 0)
+                {
+                    // SeedIfEmpty refused the root itself — it is a hole, not a playable empty cell — so
+                    // there is no component here to walk.
+                    continue;
+                }
+
+                var component = new List<GridPosition>();
+                while (stackCount > 0)
+                {
+                    stackCount--;
+                    int index = stack[stackCount];
+                    int x = index % Width;
+                    int y = index / Width;
+                    component.Add(new GridPosition(x, y));
+
+                    stackCount = SeedIfEmpty(x - 1, y, visited, stack, stackCount);
+                    stackCount = SeedIfEmpty(x + 1, y, visited, stack, stackCount);
+                    stackCount = SeedIfEmpty(x, y - 1, visited, stack, stackCount);
+                    stackCount = SeedIfEmpty(x, y + 1, visited, stack, stackCount);
+                }
+
+                components.Add(component);
+            }
+
+            if (components.Count <= 1)
+            {
+                return;
+            }
+
+            int largestIndex = 0;
+            for (int i = 1; i < components.Count; i++)
+            {
+                if (components[i].Count > components[largestIndex].Count)
+                {
+                    largestIndex = i;
+                }
+            }
+
+            for (int i = 0; i < components.Count; i++)
+            {
+                if (i == largestIndex)
+                {
+                    continue;
+                }
+
+                List<GridPosition> component = components[i];
+                for (int j = 0; j < component.Count; j++)
+                {
+                    results.Add(component[j]);
+                }
+            }
         }
 
         /// <summary>Marks (x, y) visited and pushes it onto the flood-fill stack, when it is playable,

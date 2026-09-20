@@ -627,7 +627,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300696
-    m_Localized: Slowly pulls the filled cells around it toward its own centre. Place a piece directly on it to destroy it.
+    m_Localized: Fills in any fully enclosed pocket of empty cells on the board. Place a piece directly on it to destroy it.
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300697

@@ -7,14 +7,15 @@ using MustyBlockBlast.Gameplay.Models;
 namespace MustyBlockBlast.Gameplay.Systems
 {
     /// <summary>
-    /// Scores explosive-core blasts. Kept apart from <see cref="ScoreSystem"/> for the same reason
-    /// <see cref="PowerUpScoreSystem"/> is: the streak counters are a placement concept, and a blast is
-    /// not a placement — the player lined up the row and column that spawned the core, not the cells
-    /// the blast happened to reach. It reads the streak, never writes it.
+    /// Scores explosive-core detonations. Kept apart from <see cref="ScoreSystem"/> for the same reason
+    /// <see cref="PowerUpScoreSystem"/> is: the streak counters are a placement concept, and a
+    /// detonation is not a placement — the player lined up the row and column that spawned the core, not
+    /// the lines it went on to finish for them. It reads the streak, never writes it.
     /// <para>
-    /// A blast pays per cell (<see cref="ScoreRules.PlacementScore"/>), at exactly the rate a spent
-    /// Bomb pays: the two destroy the same clamped 3x3 footprint, so paying them differently would say
-    /// the same destruction is worth different amounts depending on what set it off.
+    /// A finished line pays the ordinary line-clear rate (<see cref="ScoreRules.ClearScore"/>), exactly
+    /// as a placement completing that same line the hard way would — the whole point of the mechanic is
+    /// that a near-complete line finished by the core is worth what finishing it normally would have
+    /// been, never a flat per-cell blast payout.
     /// </para>
     /// </summary>
     public sealed class ExplosiveCoreScoreSystem : IDisposable
@@ -40,14 +41,14 @@ namespace MustyBlockBlast.Gameplay.Systems
 
         private void OnDetonated(ExplosiveCoreDetonatedMessage message)
         {
-            // A blast whose footprint was already empty is never published, but a zero count would pay
-            // nothing anyway — guarded rather than assumed, so nothing is published for a gain of 0.
-            if (message.ClearedCellCount <= 0)
+            // A hand-off finished no line — there is nothing to pay for, and a zero count would pay
+            // nothing anyway, so this is guarded rather than assumed.
+            if (message.FinishedLineCount <= 0)
             {
                 return;
             }
 
-            int gained = ScoreRules.PlacementScore(message.ClearedCellCount);
+            int gained = ScoreRules.ClearScore(message.FinishedLineCount, _scoreModel.Streak.Value);
             if (gained <= 0)
             {
                 return;

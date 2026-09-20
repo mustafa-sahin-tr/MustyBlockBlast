@@ -240,7 +240,23 @@ MonoBehaviour:
   _previewLeadMarginFraction: 0.5
   _fadeDuration: 0.2
   _intersectionFlashDuration: 0.08
-  _pullDuration: 0.18
+  _singleLineStaggerDuration: 0.15
+  _shatterShardSizeFraction: 0.22
+  _shatterFlyDistanceFraction: 0.9
+  _emberSizeFraction: 0.16
+  _emberDriftFraction: 0.6
+  _flyToCornerMinScale: 0.15
+  _crossClearComboDuration: 0.3
+  _crossClearBarThicknessFraction: 0.34
+  _colorCleanserBeamDuration: 0.32
+  _colorCleanserBeamThicknessFraction: 0.22
+  _specialSpawnPopDuration: 0.28
+  _specialSpawnStartScale: 0.05
+  _specialSpawnOvershootScale: 1.18
+  _islandFillDuration: 0.5
+  _islandFillStartScale: 0.05
+  _islandFillOvershootScale: 1.12
+  _vortexHandOffPopDuration: 0.28
   _explosiveCoreIconSprite: {fileID: 21300000, guid: c53af4cf0f2a44f729553516acd704af, type: 3}
   _laserIconSprite: {fileID: 21300000, guid: 862e09e595fe24172ab289c448ac6599, type: 3}
   _scoreGemIconSprite: {fileID: 21300000, guid: 4875adc60070e484fa8ef1b7f7b07c8f, type: 3}
@@ -1865,6 +1881,122 @@ MonoBehaviour:
   m_EditorClassIdentifier: Unity.InputSystem::UnityEngine.InputSystem.InputActionReference
   m_Asset: {fileID: -944628639613478452, guid: 2bcd2660ca9b64942af0de543d8d7100, type: 3}
   m_ActionId: 7607c7b6-cd76-4816-beef-bd0341cfe950
+--- !u!1 &1375135743
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1375135744}
+  - component: {fileID: 1375135745}
+  m_Layer: 0
+  m_Name: PowerUpGrantAnimation
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &1375135744
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1375135743}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1595068338}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &1375135745
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1375135743}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b4632e7c6a1444f29b2f98210ba57deb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.PowerUpGrantAnimationView
+  _icons:
+  - {fileID: 21300000, guid: 4eb7949ce29df43d7b0049a7da99d113, type: 3}
+  - {fileID: 21300000, guid: a78c069ff5050429a949119407ba55bc, type: 3}
+  - {fileID: 21300000, guid: 87efac498a1b6431ca61e9d6ef9975c3, type: 3}
+  - {fileID: 21300000, guid: b8923c044f1444f61bca85e1063f9aa7, type: 3}
+  - {fileID: 21300000, guid: be62b63a90b49414abad0b08aaae3c0b, type: 3}
+  - {fileID: 21300000, guid: c0997faea234d4ebcb32abfe7840f76f, type: 3}
+  - {fileID: 21300000, guid: 3ed537dccdd5e431bb0d9db764852859, type: 3}
+  - {fileID: 21300000, guid: b1457f48ecdf546ad82e33b5da56435f, type: 3}
+  - {fileID: 21300000, guid: df082345de6c341249b4b446e357c822, type: 3}
+  _startScaleMultiplier: 6
+  _flightDuration: 0.5
+--- !u!1 &1407474798
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1407474800}
+  - component: {fileID: 1407474799}
+  m_Layer: 0
+  m_Name: PowerUpGrantSfx
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1407474799
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1407474798}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c57be0a915f77414da83b7ab061cad33, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.PowerUpGrantSfxView
+  _clips:
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+--- !u!4 &1407474800
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1407474798}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1408565921
 GameObject:
   m_ObjectHideFlags: 0
@@ -2374,6 +2506,7 @@ RectTransform:
   - {fileID: 98212318}
   - {fileID: 1934059591}
   - {fileID: 1448311301}
+  - {fileID: 1375135744}
   m_Father: {fileID: 979778625}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
@@ -2964,3 +3097,4 @@ SceneRoots:
   - {fileID: 1186743026}
   - {fileID: 1102059203}
   - {fileID: 988015912}
+  - {fileID: 1407474800}

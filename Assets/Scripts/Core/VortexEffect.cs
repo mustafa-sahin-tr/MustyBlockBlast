@@ -3,117 +3,104 @@ using System.Collections.Generic;
 
 namespace MustyBlockBlast.Core
 {
-    /// <summary>One block a vortex dragged one cell inwards: where it stood and where it now stands.
-    /// Both ends are kept because the board no longer knows either once the move is done — the source
-    /// is empty and the destination is indistinguishable from a block that was always there — and
-    /// Presentation needs both to animate the slide.</summary>
-    public readonly struct VortexPull
-    {
-        public VortexPull(GridPosition from, GridPosition to)
-        {
-            From = from;
-            To = to;
-        }
-
-        /// <summary>The cell the block left, which is empty afterwards.</summary>
-        public GridPosition From { get; }
-
-        /// <summary>The cell the block now occupies, one step nearer the vortex.</summary>
-        public GridPosition To { get; }
-    }
-
     /// <summary>
-    /// <see cref="SpecialCellKind.Vortex"/>'s effect: destroying one drags every <em>isolated</em>
-    /// block on the board one cell towards where the vortex stood, tidying the stragglers a
-    /// nearly-full board leaves scattered about.
+    /// <see cref="SpecialCellKind.Vortex"/>'s effect: destroying one fills every fully-enclosed pocket
+    /// ("island") of empty cells the board has at that moment — see
+    /// <see cref="Board.CollectEnclosedEmptyIslands"/> for what counts as one — reclaiming dead space the
+    /// player could otherwise never clear (issue #349).
     /// <para>
-    /// <b>Isolation</b> is a single-pass, per-cell test and deliberately not a flood fill: a cell is
-    /// isolated when it is occupied and each of its four orthogonal neighbours is off-board, a hole, or
-    /// unoccupied. Off-board and hole count as "nothing there" for the same reason they do everywhere
-    /// else — neither can ever hold a block — and the whole test goes through
-    /// <see cref="Board.IsPlayable"/>/<see cref="Board.IsOccupied"/>, so it makes no assumption about
-    /// board size or shape.
+    /// <b>Replaces the earlier "drag isolated blocks inwards" behaviour outright.</b> The kind keeps its
+    /// name, id and spawn rule (<see cref="VortexSpawnSelector"/> is untouched by this rewrite); only
+    /// what happens on destruction changed.
     /// </para>
     /// <para>
-    /// <b>The pull is exactly one step</b>, along whichever axis is farther from the vortex (on a tie,
-    /// horizontally — an arbitrary but fixed choice, so the same board always resolves the same way and
-    /// a snapshot of it replays identically). Isolation already guarantees all four neighbours are
-    /// free, so that one step never has to be blocked, path-walked or slid: there is nothing in the
-    /// way by construction. The one case that still has to be checked is two isolated blocks pulling
-    /// into the <em>same</em> free cell — the second one stays put rather than overwriting the first.
+    /// <b>Hand-off.</b> When the board has no island at all, the tag is transferred instead: a uniformly
+    /// random currently-occupied cell that carries no <see cref="SpecialCellKind"/> of its own is chosen
+    /// and tagged <see cref="SpecialCellKind.Vortex"/>, so the ability is not simply lost on a board that
+    /// happens to have nothing to reclaim. A board with no eligible cell either — nothing occupied, or
+    /// every occupied cell already special — hands off to nothing at all, which is a no-op exactly as
+    /// every other special cell's "found no target" case is.
     /// </para>
     /// <para>
-    /// Isolation is measured once, before anything moves, and the moves are then applied to that
-    /// snapshot. Re-testing as it went would make each block's fate depend on how far down the scan the
-    /// previous one happened to be, which is the sort of order-dependence a player cannot read off the
-    /// board.
+    /// <b>Colouring a filled cell</b> draws uniformly from 1..<see cref="Board.COLOUR_COUNT"/>, the same
+    /// range an ordinary piece's colour is drawn from: colour is cosmetic and never affects placement or
+    /// clearing, so a reclaimed cell needs no rule of its own.
     /// </para>
     /// <para>
-    /// Nothing is cleared and nothing is created: a pull moves a block's colour <em>and</em> its own
-    /// special kind, so a pulled laser is still a laser. It deliberately never clears a completed line
-    /// either — <see cref="CascadeClearResolver"/> re-checks fullness on the next iteration, which is
-    /// how a pull that completes a line chains.
+    /// <b>Never overwrites a Reinforced cell.</b> A fill only ever targets cells
+    /// <see cref="Board.CollectEnclosedEmptyIslands"/> reports, which are empty by construction, and a
+    /// hit count belongs to the block standing on a cell — an empty one has none.
     /// </para>
     /// <para>
-    /// Long-lived by design, exactly as <see cref="ExplosiveCoreEffect"/> and <see cref="LaserEffect"/>
-    /// are: one instance per System that resolves clears, with <see cref="BeginResolution"/> called
-    /// before each resolution rather than a fresh instance allocated. <see cref="Pulls"/> is therefore
-    /// a buffer this instance owns and overwrites — a caller that needs it beyond the current
-    /// resolution must copy it.
+    /// <b>Never clears a line itself</b>, even one a fill happens to complete —
+    /// <see cref="CascadeClearResolver"/> re-checks fullness on the next iteration, which is how a fill
+    /// that completes a line chains, exactly as every other effect's fill/destroy does.
+    /// </para>
+    /// <para>
+    /// Long-lived by design, exactly as <see cref="ExplosiveCoreEffect"/>, <see cref="LaserEffect"/> and
+    /// <see cref="ChainLightningEffect"/> are: one instance per System that resolves clears, with
+    /// <see cref="BeginResolution"/> called before each resolution rather than a fresh instance
+    /// allocated. <see cref="FilledCells"/> and <see cref="HandOffTargets"/> are therefore buffers this
+    /// instance owns and overwrites — a caller that needs either beyond the current resolution must copy
+    /// them.
     /// </para>
     /// </summary>
     public sealed class VortexEffect : ISpecialCellEffect
     {
-        private readonly List<VortexPull> _pulls = new List<VortexPull>(Board.SIZE * Board.SIZE);
-
-        /// <summary>The isolated cells of the scan currently being applied. Filled and consumed inside a
-        /// single <see cref="Apply"/> call, so one buffer serves every vortex in a resolution.</summary>
-        private readonly List<GridPosition> _isolatedBuffer = new List<GridPosition>(Board.SIZE * Board.SIZE);
-
-        /// <summary>Every move this effect made since the last <see cref="BeginResolution"/>, in the
-        /// order it made them. A block that was isolated but had nowhere free to go is not listed: it
-        /// did not move, so nothing about it changed and nothing should be animated for it.</summary>
-        public IReadOnlyList<VortexPull> Pulls => _pulls;
-
         /// <summary>
-        /// True when <paramref name="position"/> holds a block whose four orthogonal neighbours are all
-        /// empty, holes, or off the board. Public because it is the feature's one new board reading and
-        /// is what the spawn rule, the tests and any later effect all have to agree on.
+        /// The random stream a fill's colour and a hand-off's target are drawn from, supplied rather
+        /// than created so the System that owns the run owns its randomness — exactly as
+        /// <see cref="ChainLightningEffect"/> takes one, and for the same reason: one seeded stream per
+        /// run makes a run reproducible, which a stream this class created for itself could never be.
         /// </summary>
-        public static bool IsIsolated(Board board, GridPosition position)
+        private readonly Random _random;
+
+        /// <summary>Every cell filled since the last <see cref="BeginResolution"/>, in the order the scan
+        /// found them, across every vortex destroyed in that resolution.</summary>
+        private readonly List<GridPosition> _filledCells = new List<GridPosition>(Board.SIZE * Board.SIZE);
+
+        /// <summary>Every cell a hand-off tagged since the last <see cref="BeginResolution"/>. Almost
+        /// always at most one — a resolution hands off more than once only when several vortices were
+        /// destroyed and each in turn found the board already clear of islands.</summary>
+        private readonly List<GridPosition> _handOffTargets = new List<GridPosition>(4);
+
+        /// <summary>Scratch buffer for one <see cref="Apply"/> call's island scan. Cleared and refilled
+        /// on every call, so one buffer serves every vortex in a resolution.</summary>
+        private readonly List<GridPosition> _islandBuffer = new List<GridPosition>(Board.SIZE * Board.SIZE);
+
+        public VortexEffect(Random random)
         {
-            if (board == null)
-            {
-                throw new ArgumentNullException(nameof(board));
-            }
-
-            if (!board.IsPlayable(position) || !board.IsOccupied(position))
-            {
-                return false;
-            }
-
-            return !HoldsBlock(board, new GridPosition(position.X - 1, position.Y))
-                && !HoldsBlock(board, new GridPosition(position.X + 1, position.Y))
-                && !HoldsBlock(board, new GridPosition(position.X, position.Y - 1))
-                && !HoldsBlock(board, new GridPosition(position.X, position.Y + 1));
+            _random = random ?? throw new ArgumentNullException(nameof(random));
         }
 
-        /// <summary>Starts a new resolution: forgets the previous one's pulls. Must be called before the
-        /// resolution that will apply this effect, or the two resolutions' moves would be reported as
-        /// one — and Presentation would animate a slide that already finished.</summary>
-        public void BeginResolution() => _pulls.Clear();
+        /// <summary>Every cell a fill reclaimed since the last <see cref="BeginResolution"/>. Empty for a
+        /// trigger that found no island — that case writes to <see cref="HandOffTargets"/> instead, never
+        /// here.</summary>
+        public IReadOnlyList<GridPosition> FilledCells => _filledCells;
+
+        /// <summary>Every cell a hand-off tagged <see cref="SpecialCellKind.Vortex"/> since the last
+        /// <see cref="BeginResolution"/>. Empty for a trigger that found at least one island and filled it
+        /// instead.</summary>
+        public IReadOnlyList<GridPosition> HandOffTargets => _handOffTargets;
+
+        /// <summary>Starts a new resolution: forgets the previous one's fills and hand-offs. Must be
+        /// called before the resolution that will apply this effect, or the two resolutions' work would
+        /// be reported as one and Presentation would replay an animation that already finished.</summary>
+        public void BeginResolution()
+        {
+            _filledCells.Clear();
+            _handOffTargets.Clear();
+        }
 
         /// <summary>
-        /// Drags every isolated block one cell towards <paramref name="trigger"/>'s position.
+        /// Fills every island the board currently has, or — when it has none — hands the vortex tag to a
+        /// random eligible cell.
         /// <para>
         /// The trigger's own cell is already empty when this is called (see
-        /// <see cref="ISpecialCellEffect"/>), so it is the centre to pull towards — and, being empty, it
-        /// is never itself one of the blocks that move.
-        /// </para>
-        /// <para>
-        /// Needs no iteration cap of its own, unlike the blast and wipe chains: one call is one scan
-        /// followed by at most one move per cell, with nothing queued and nothing revisited, so it
-        /// terminates on the board's cell count by construction.
+        /// <see cref="ISpecialCellEffect"/>), so it can itself be part of an island the scan finds (it
+        /// was just vacated, after all) or, when nothing is enclosed, it is simply one more empty cell —
+        /// never a hand-off candidate, since <see cref="SelectHandOffTarget"/> only ever considers
+        /// occupied cells.
         /// </para>
         /// </summary>
         public void Apply(Board board, SpecialCellTrigger trigger)
@@ -128,120 +115,93 @@ namespace MustyBlockBlast.Core
                 return;
             }
 
-            CollectIsolated(board);
+            _islandBuffer.Clear();
+            board.CollectEnclosedEmptyIslands(_islandBuffer);
 
-            for (int i = 0; i < _isolatedBuffer.Count; i++)
+            if (_islandBuffer.Count > 0)
             {
-                GridPosition from = _isolatedBuffer[i];
-                if (!TryResolveTarget(board, from, trigger.Position, out GridPosition to))
+                for (int i = 0; i < _islandBuffer.Count; i++)
                 {
-                    continue;
+                    GridPosition cell = _islandBuffer[i];
+                    board.Occupy(cell, DrawColourId());
+                    _filledCells.Add(cell);
                 }
 
-                Move(board, from, to);
+                return;
             }
-        }
 
-        /// <summary>True when <paramref name="position"/> is a cell that currently holds a block. False
-        /// for an empty cell, a hole and anything off the board alike — the three cases isolation
-        /// treats identically, because none of them is something a block is touching.</summary>
-        private static bool HoldsBlock(Board board, GridPosition position)
-            => board.IsPlayable(position) && board.IsOccupied(position);
-
-        /// <summary>
-        /// Where <paramref name="from"/>'s block goes, or false when it stays put.
-        /// <para>
-        /// The axis is whichever of the two distances to <paramref name="center"/> is greater, so a
-        /// block always closes the larger of its two gaps first; a tie goes to the horizontal, chosen
-        /// arbitrarily and fixed here so the rule is stated exactly once and always resolves the same
-        /// way.
-        /// </para>
-        /// <para>
-        /// The target is still checked for being playable and free: isolation guarantees the four
-        /// neighbours held no block <em>when the scan ran</em>, and an earlier pull in the same scan may
-        /// since have taken this one's destination. That block was there first and keeps it.
-        /// </para>
-        /// </summary>
-        private static bool TryResolveTarget(
-            Board board, GridPosition from, GridPosition center, out GridPosition target)
-        {
-            target = from;
-
-            int deltaX = center.X - from.X;
-            int deltaY = center.Y - from.Y;
-            if (deltaX == 0 && deltaY == 0)
+            GridPosition? handOff = SelectHandOffTarget(board);
+            if (handOff == null)
             {
-                return false;
+                return;
             }
 
-            target = Math.Abs(deltaX) >= Math.Abs(deltaY)
-                ? new GridPosition(from.X + Math.Sign(deltaX), from.Y)
-                : new GridPosition(from.X, from.Y + Math.Sign(deltaY));
-
-            return board.IsPlayable(target) && !board.IsOccupied(target);
+            board.SetSpecialKind(handOff.Value, SpecialCellKind.Vortex);
+            _handOffTargets.Add(handOff.Value);
         }
 
+        /// <summary>A uniform 1..<see cref="Board.COLOUR_COUNT"/> draw — the same range an ordinary
+        /// piece's colour comes from. Colour is cosmetic and never affects placement or clearing, so a
+        /// reclaimed cell needs no rule of its own.</summary>
+        private int DrawColourId() => 1 + _random.Next(Board.COLOUR_COUNT);
+
         /// <summary>
-        /// Appends every isolated cell of the board to <see cref="_isolatedBuffer"/>, which is cleared
-        /// first. One pass, one test per cell, no queue and no fill.
+        /// One occupied cell with no <see cref="SpecialCellKind"/> of its own, chosen uniformly, or null
+        /// when none exists — a board with nothing occupied, or where every occupied cell already carries
+        /// a kind, hands off to nothing (issue #349 AC3/AC6).
         /// <para>
-        /// <b>A reinforced cell is never a pull source</b> (issue #153). A pull is not a destruction: it
-        /// empties one cell and fills another, and nothing dies. So neither answer the damage gate could
-        /// give is right for it — spending a hit would charge the cell for a destruction that did not
-        /// happen, and moving it for free would let a vortex shunt the level's authored obstacle
-        /// somewhere else, which no acceptance criterion asks for and the player cannot read off the
-        /// board. A reinforced cell is a fixture: it is removed only by being cleared through, and only
-        /// there. The test itself (<see cref="IsIsolated"/>) is deliberately left alone — "is this block
-        /// touching anything" is a board reading the spawn rule also asks, and it has not changed.
+        /// Counts the candidates and then walks to the chosen one, rather than collecting them into a
+        /// list — the board is small, cheap to visit twice, and it keeps the pick allocation-free.
+        /// Shaped like <see cref="ScoreGemSpawnSelector.SelectSpawnPosition"/>, except that selector's
+        /// reward is allowed to land on an already-special cell and this is not: a hand-off cell must be
+        /// free to become the vortex, not something else's already.
         /// </para>
         /// </summary>
-        private void CollectIsolated(Board board)
+        private GridPosition? SelectHandOffTarget(Board board)
         {
-            _isolatedBuffer.Clear();
+            int candidateCount = 0;
+            for (int y = 0; y < board.Height; y++)
+            {
+                for (int x = 0; x < board.Width; x++)
+                {
+                    if (IsEligibleHandOffTarget(board, new GridPosition(x, y)))
+                    {
+                        candidateCount++;
+                    }
+                }
+            }
+
+            if (candidateCount == 0)
+            {
+                return null;
+            }
+
+            int chosen = _random.Next(candidateCount);
+            int seen = 0;
 
             for (int y = 0; y < board.Height; y++)
             {
                 for (int x = 0; x < board.Width; x++)
                 {
-                    var position = new GridPosition(x, y);
-                    if (IsIsolated(board, position) && board.GetHitCount(position) == 0)
+                    var candidate = new GridPosition(x, y);
+                    if (!IsEligibleHandOffTarget(board, candidate))
                     {
-                        _isolatedBuffer.Add(position);
+                        continue;
                     }
+
+                    if (seen == chosen)
+                    {
+                        return candidate;
+                    }
+
+                    seen++;
                 }
             }
+
+            return null;
         }
 
-        /// <summary>Moves one block, colour and special kind together. The kind is read before the
-        /// source is cleared: <see cref="Board.Clear"/> resets it, so afterwards the board no longer
-        /// knows a pulled laser was ever a laser.
-        /// <para>
-        /// Deliberately the unconditional <see cref="Board.Clear"/> rather than
-        /// <see cref="Board.TryDamage"/>: this is a relocation, not a destruction, and the only blocks
-        /// that reach it are un-reinforced ones (see <see cref="CollectIsolated"/>), so there is no hit
-        /// to spend and nothing for the damage gate to decide.
-        /// </para>
-        /// </summary>
-        private void Move(Board board, GridPosition from, GridPosition to)
-        {
-            int colourId = board[from];
-            SpecialCellKind kind = board.GetSpecialKind(from);
-
-            // Read before Board.Clear, which zeroes both the kind and the countdown along with the
-            // colour: a pulled SpecialCellKind.Timer cell keeps counting down from wherever it stood,
-            // not from a countdown reset to zero by the very relocation that spared it (issue #307).
-            int timerCountdown = kind == SpecialCellKind.Timer ? board.GetTimerCountdown(from) : 0;
-
-            board.Clear(from);
-            board.Occupy(to, colourId);
-            board.SetSpecialKind(to, kind);
-
-            if (kind == SpecialCellKind.Timer)
-            {
-                board.SetTimerCountdown(to, timerCountdown);
-            }
-
-            _pulls.Add(new VortexPull(from, to));
-        }
+        private static bool IsEligibleHandOffTarget(Board board, GridPosition position)
+            => board.IsOccupied(position) && board.GetSpecialKind(position) == SpecialCellKind.None;
     }
 }

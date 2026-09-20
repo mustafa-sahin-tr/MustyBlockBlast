@@ -81,7 +81,7 @@ namespace MustyBlockBlast.Gameplay.Systems
         private readonly IPublisher<PowerUpGrantedMessage> _grantedPublisher;
         private readonly IPublisher<ExplosiveCoreDetonatedMessage> _explosiveCoreDetonatedPublisher;
         private readonly IPublisher<LaserFiredMessage> _laserFiredPublisher;
-        private readonly IPublisher<VortexPulledMessage> _vortexPulledPublisher;
+        private readonly IPublisher<VortexIslandFilledMessage> _vortexIslandFilledPublisher;
 
         /// <summary>Optional: null in every existing test construction, which predates issue #278.
         /// Guarded on every publish so an un-injected instance behaves exactly as it did before.</summary>
@@ -112,24 +112,42 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// Its own instance rather than the one <see cref="BoardSystem"/> owns. The two can never run
         /// at once — a power-up is applied from an input callback, a placement's cascade from another,
         /// and neither re-enters the other — so sharing would buy nothing, while a second instance
-        /// keeps each System's blast buffer meaning "the blast I just caused".
+        /// keeps each System's own totals meaning "what the power-up I just spent caused".
+        /// <para>
+        /// Built in the constructor rather than here because it takes <see cref="_random"/>, which a
+        /// field initialiser would read before the constructor body has assigned it. Unlike
+        /// <see cref="BoardSystem"/>'s instance, this one's stream is not run-seeded: a power-up's
+        /// hand-off is a rare edge of a rare edge (an explosive core embedded in whatever the power-up
+        /// destroyed, on a board with nothing left to finish), never exercised by a replay or a
+        /// determinism test the way piece draws are.
+        /// </para>
         /// </summary>
-        private readonly ExplosiveCoreEffect _explosiveCoreEffect = new ExplosiveCoreEffect();
+        private readonly ExplosiveCoreEffect _explosiveCoreEffect;
 
         /// <summary>Its own instance for the same reason <see cref="_explosiveCoreEffect"/> is.</summary>
         private readonly LaserEffect _laserEffect = new LaserEffect();
 
         /// <summary>
         /// Its own instance for the same reason the two above are, and with the same reading of what its
-        /// buffer means: <see cref="VortexEffect.Pulls"/> has to list "the blocks the power-up I just
-        /// spent dragged", never a running total shared with whatever the last placement resolved.
+        /// buffers mean: <see cref="VortexEffect.FilledCells"/>/<see cref="VortexEffect.HandOffTargets"/>
+        /// have to list "what the power-up I just spent did", never a running total shared with whatever
+        /// the last placement resolved.
         /// <para>
-        /// The odd one out among the three, as it is in <see cref="BoardSystem"/>: it moves blocks rather
-        /// than destroying them, so what it reports is a list of moves and it is announced through the
-        /// pull seam instead of the cleared-cells one.
+        /// The odd one out among the three, as it is in <see cref="BoardSystem"/>: it creates blocks (or
+        /// hands its tag off) rather than destroying them, so what it reports is a list of filled/handed-off
+        /// cells and it is announced through the vortex seam instead of the cleared-cells one. Needs
+        /// <see cref="_random"/>, so it is built in the constructor rather than here — see that field.
         /// </para>
         /// </summary>
-        private readonly VortexEffect _vortexEffect = new VortexEffect();
+        private readonly VortexEffect _vortexEffect;
+
+        /// <summary>
+        /// The random stream <see cref="_vortexEffect"/> draws a fill's colour and a hand-off's target
+        /// from. This System has no seeded, replayable run of its own — unlike <see cref="BoardSystem"/>,
+        /// which shares one stream across every random decision a run makes — so an ordinary unseeded
+        /// stream is enough: nothing here needs to reproduce a run.
+        /// </summary>
+        private readonly System.Random _random = new System.Random();
 
         /// <summary>
         /// Its own instance for the same reason the two above are: its total has to mean "the coins the
@@ -138,6 +156,11 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// number read from <see cref="CurrencyConfig"/>, which Core must not know about.
         /// </summary>
         private readonly CoinEffect _coinEffect;
+
+        /// <summary>Every effect a power-up's clear can trigger, presented to
+        /// <see cref="CascadeClearResolver"/> as one — see <see cref="ApplyTriggeredSpecials"/>, the one
+        /// place this is used, for why a power-up needs the resolver at all.</summary>
+        private readonly ISpecialCellEffect _specialCellEffects;
 
         private readonly IPublisher<CoinCellsClearedMessage> _coinCellsClearedPublisher;
 
@@ -159,7 +182,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             IPublisher<PowerUpGrantedMessage> grantedPublisher,
             IPublisher<ExplosiveCoreDetonatedMessage> explosiveCoreDetonatedPublisher,
             IPublisher<LaserFiredMessage> laserFiredPublisher,
-            IPublisher<VortexPulledMessage> vortexPulledPublisher,
+            IPublisher<VortexIslandFilledMessage> vortexIslandFilledPublisher,
             IPublisher<CoinCellsClearedMessage> coinCellsClearedPublisher,
             CurrencyConfig currencyConfig,
             ISubscriber<RunStartedMessage> runStartedSubscriber,
@@ -169,11 +192,15 @@ namespace MustyBlockBlast.Gameplay.Systems
         {
             _explosiveCoreDetonatedPublisher = explosiveCoreDetonatedPublisher;
             _laserFiredPublisher = laserFiredPublisher;
-            _vortexPulledPublisher = vortexPulledPublisher;
+            _vortexIslandFilledPublisher = vortexIslandFilledPublisher;
             _coinCellsClearedPublisher = coinCellsClearedPublisher;
             _powerUpUnlockedPublisher = powerUpUnlockedPublisher;
             _holdFirstUsePublisher = holdFirstUsePublisher;
             _coinEffect = new CoinEffect(currencyConfig.CoinCellPayout);
+            _vortexEffect = new VortexEffect(_random);
+            _explosiveCoreEffect = new ExplosiveCoreEffect(_random);
+            _specialCellEffects = new CompositeSpecialCellEffect(
+                _explosiveCoreEffect, _laserEffect, _vortexEffect, _coinEffect);
             _powerUpModel = powerUpModel;
             _levelProgressionModel = levelProgressionModel;
             _levelCatalog = levelCatalog;
@@ -964,11 +991,35 @@ namespace MustyBlockBlast.Gameplay.Systems
                 _coinEffect.Apply(_boardModel.Board, triggers[i]);
             }
 
-            IReadOnlyList<GridPosition> blastedCells = _explosiveCoreEffect.BlastedCells;
-            if (blastedCells.Count > 0)
+            // The core's own effect never clears a line itself — it only fills the one missing cell of
+            // a line it can finish, and relies on a resolver re-checking fullness to actually clear it
+            // (see ExplosiveCoreEffect). A power-up's one-shot clear has no resolver of its own, so this
+            // follow-through gives it one: exactly CascadeClearResolver's own loop, seeded by whatever
+            // the fill above just completed and by nothing else — no other path can leave a full line
+            // sitting on the board between placements. A core caught inside a line this uncovers
+            // re-triggers through the same mechanism, chained as far as the resolver's own cap allows.
+            CascadeClearResult explosiveCoreFollowThrough =
+                CascadeClearResolver.ResolveCascade(_boardModel.Board, _specialCellEffects);
+            for (int phaseIndex = 0; phaseIndex < explosiveCoreFollowThrough.Phases.Count; phaseIndex++)
             {
-                _boardModel.NotifyPowerUpCleared(blastedCells);
-                _explosiveCoreDetonatedPublisher.Publish(new ExplosiveCoreDetonatedMessage(blastedCells.Count));
+                LineClearResult phase = explosiveCoreFollowThrough.Phases[phaseIndex];
+                if (phase.AnyCleared)
+                {
+                    _boardModel.NotifyCleared(phase);
+                }
+            }
+
+            int explosiveCoreFinishedLineCount = _explosiveCoreEffect.FinishedLineCount;
+            IReadOnlyList<GridPosition> explosiveCoreHandOffTargets = _explosiveCoreEffect.HandOffTargets;
+            if (explosiveCoreFinishedLineCount > 0 || explosiveCoreHandOffTargets.Count > 0)
+            {
+                for (int i = 0; i < explosiveCoreHandOffTargets.Count; i++)
+                {
+                    _boardModel.NotifySpecialKindChanged(explosiveCoreHandOffTargets[i]);
+                }
+
+                _explosiveCoreDetonatedPublisher.Publish(new ExplosiveCoreDetonatedMessage(
+                    explosiveCoreFinishedLineCount, explosiveCoreHandOffTargets.Count));
             }
 
             IReadOnlyList<GridPosition> wipedCells = _laserEffect.WipedCells;
@@ -978,21 +1029,30 @@ namespace MustyBlockBlast.Gameplay.Systems
                 _laserFiredPublisher.Publish(new LaserFiredMessage(wipedCells.Count));
             }
 
-            // A vortex's pulls are announced through their own seam rather than the cleared-cells one,
-            // exactly as the placement path announces them: nothing was destroyed, so there is no cell
-            // to fade — each move empties one cell and fills another, and both ends have to reach the
-            // View together or a block would appear to duplicate itself. Published only when something
-            // actually moved, which is the contract VortexPulledMessage states.
-            IReadOnlyList<VortexPull> pulls = _vortexEffect.Pulls;
-            if (pulls.Count > 0)
+            // A vortex's work is announced through its own seam rather than the cleared-cells one,
+            // exactly as the placement path announces it: nothing was destroyed, so there is no cell to
+            // fade — a fill creates a cell and a hand-off only relabels one. Published only when
+            // something actually happened, which is the contract VortexIslandFilledMessage states.
+            IReadOnlyList<GridPosition> islandFilledCells = _vortexEffect.FilledCells;
+            IReadOnlyList<GridPosition> vortexHandOffTargets = _vortexEffect.HandOffTargets;
+            if (islandFilledCells.Count > 0)
             {
-                _boardModel.NotifyPulled(pulls);
+                _boardModel.NotifyIslandFilled(islandFilledCells);
+            }
 
+            if (vortexHandOffTargets.Count > 0)
+            {
+                _boardModel.NotifyVortexHandedOff(vortexHandOffTargets);
+            }
+
+            if (islandFilledCells.Count > 0 || vortexHandOffTargets.Count > 0)
+            {
                 // Copied, unlike the counts above and for the reason the placement path copies it: the
-                // effect's list is a buffer this instance overwrites on the next application, and a
-                // subscriber animating the slide over several frames would otherwise read the next one's
-                // data halfway through. One small list per application that pulled something.
-                _vortexPulledPublisher.Publish(new VortexPulledMessage(new List<VortexPull>(pulls)));
+                // effect's lists are buffers this instance overwrites on the next application, and a
+                // subscriber animating the fill over several frames would otherwise read the next one's
+                // data halfway through. One small pair of lists per application that did either.
+                _vortexIslandFilledPublisher.Publish(new VortexIslandFilledMessage(
+                    new List<GridPosition>(islandFilledCells), new List<GridPosition>(vortexHandOffTargets)));
             }
 
             // A coin cell a Bomb destroys pays exactly as one a completed line destroys does, which is
