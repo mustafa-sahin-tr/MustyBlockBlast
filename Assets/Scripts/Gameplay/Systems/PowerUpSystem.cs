@@ -157,10 +157,6 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// </summary>
         private readonly CoinEffect _coinEffect;
 
-        /// <summary>Backs <see cref="_explosiveCoreEffect"/>'s hand-off pick. See that field's remarks
-        /// for why it is not run-seeded here the way <see cref="BoardSystem"/>'s stream is.</summary>
-        private readonly System.Random _random = new System.Random();
-
         /// <summary>Every effect a power-up's clear can trigger, presented to
         /// <see cref="CascadeClearResolver"/> as one — see <see cref="ApplyTriggeredSpecials"/>, the one
         /// place this is used, for why a power-up needs the resolver at all.</summary>

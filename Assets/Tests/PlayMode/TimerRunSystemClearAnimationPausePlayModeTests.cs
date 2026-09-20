@@ -166,7 +166,7 @@ namespace MustyBlockBlast.Tests.PlayMode
                 new TestMessageBroker<ExplosiveCoreDetonatedMessage>(),
                 new TestMessageBroker<LaserFiredMessage>(),
                 new TestMessageBroker<PiercingRocketFiredMessage>(),
-                new TestMessageBroker<VortexPulledMessage>(),
+                new TestMessageBroker<VortexIslandFilledMessage>(),
                 new TestMessageBroker<ChainLightningTriggeredMessage>(),
                 new TestMessageBroker<CoinCellsClearedMessage>(),
                 ScriptableObject.CreateInstance<CurrencyConfig>(),

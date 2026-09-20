@@ -24,6 +24,10 @@ namespace MustyBlockBlast.Presentation.Views
 
         /// <summary>The cell itself shrinks and slides towards the nearest board corner while fading,
         /// instead of fading in place.</summary>
-        FlyToCorner
+        FlyToCorner,
+
+        /// <summary>The cell falls straight down off the board with an accelerating, gravity-like
+        /// motion, fading out as it drops, instead of fading in place.</summary>
+        Drop
     }
 }

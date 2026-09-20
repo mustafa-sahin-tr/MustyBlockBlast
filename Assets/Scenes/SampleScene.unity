@@ -238,9 +238,9 @@ MonoBehaviour:
   _cellInset: 3
   _cellBevelThickness: 11
   _previewLeadMarginFraction: 0.5
-  _fadeDuration: 0.4
-  _intersectionFlashDuration: 0.12
-  _singleLineStaggerDuration: 0.25
+  _fadeDuration: 0.2
+  _intersectionFlashDuration: 0.08
+  _singleLineStaggerDuration: 0.15
   _shatterShardSizeFraction: 0.22
   _shatterFlyDistanceFraction: 0.9
   _emberSizeFraction: 0.16
@@ -253,7 +253,10 @@ MonoBehaviour:
   _specialSpawnPopDuration: 0.28
   _specialSpawnStartScale: 0.05
   _specialSpawnOvershootScale: 1.18
-  _pullDuration: 0.18
+  _islandFillDuration: 0.5
+  _islandFillStartScale: 0.05
+  _islandFillOvershootScale: 1.12
+  _vortexHandOffPopDuration: 0.28
   _explosiveCoreIconSprite: {fileID: 21300000, guid: c53af4cf0f2a44f729553516acd704af, type: 3}
   _laserIconSprite: {fileID: 21300000, guid: 862e09e595fe24172ab289c448ac6599, type: 3}
   _scoreGemIconSprite: {fileID: 21300000, guid: 4875adc60070e484fa8ef1b7f7b07c8f, type: 3}
@@ -1927,16 +1930,17 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.PowerUpGrantAnimationView
   _icons:
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  _startScaleMultiplier: 2
+  - {fileID: 21300000, guid: 4eb7949ce29df43d7b0049a7da99d113, type: 3}
+  - {fileID: 21300000, guid: a78c069ff5050429a949119407ba55bc, type: 3}
+  - {fileID: 21300000, guid: 87efac498a1b6431ca61e9d6ef9975c3, type: 3}
+  - {fileID: 21300000, guid: b8923c044f1444f61bca85e1063f9aa7, type: 3}
+  - {fileID: 21300000, guid: be62b63a90b49414abad0b08aaae3c0b, type: 3}
+  - {fileID: 21300000, guid: c0997faea234d4ebcb32abfe7840f76f, type: 3}
+  - {fileID: 21300000, guid: 3ed537dccdd5e431bb0d9db764852859, type: 3}
+  - {fileID: 21300000, guid: b1457f48ecdf546ad82e33b5da56435f, type: 3}
+  - {fileID: 21300000, guid: df082345de6c341249b4b446e357c822, type: 3}
+  _startScaleMultiplier: 6
+  _flightDuration: 0.5
 --- !u!1 &1407474798
 GameObject:
   m_ObjectHideFlags: 0

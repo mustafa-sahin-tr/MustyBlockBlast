@@ -64,13 +64,13 @@ namespace MustyBlockBlast.Presentation.Views
 
         [Header("Line Clear Fade")]
         [Tooltip("Seconds a cleared cell takes to fade from its colour to fully transparent.")]
-        [SerializeField] private float _fadeDuration = 0.4f;
+        [SerializeField] private float _fadeDuration = 0.2f;
 
         [Tooltip("Seconds of white flash on a cell that sits on both a cleared row and a cleared column.")]
-        [SerializeField] private float _intersectionFlashDuration = 0.12f;
+        [SerializeField] private float _intersectionFlashDuration = 0.08f;
 
         [Tooltip("Total seconds spread across a single cleared line's cells when it is the only line cleared (issue #328) — cell 0 starts immediately, the line's last cell starts this many seconds later. Two or more simultaneous line clears never stagger, but are floored to last at least as long overall (issue #350).")]
-        [SerializeField] private float _singleLineStaggerDuration = 0.25f;
+        [SerializeField] private float _singleLineStaggerDuration = 0.15f;
 
         [Header("Single Line Clear Effect Variety")]
         [Tooltip("Side of one shatter shard / ember particle, as a fraction of the cell size (issue #331).")]
@@ -1390,6 +1390,19 @@ namespace MustyBlockBlast.Presentation.Views
             PlaySpecialSpawnPopAsync(iconTransform, index, _cellGenerations[index]).Forget();
         }
 
+        /// <summary>The on-screen anchor a special cell's icon sits at, for a flight animation (e.g.
+        /// <see cref="PowerUpGrantAnimationView"/>'s centre-screen-to-destination flight) to land on.
+        /// Null for an out-of-range position or before the board has laid out its cells.</summary>
+        internal RectTransform GetCellIconRectTransform(GridPosition position)
+        {
+            if (_cells == null || !IsPlayableCell(position))
+            {
+                return null;
+            }
+
+            return _cells[CellIndex(position)].SpecialIconTransform;
+        }
+
         /// <summary>
         /// Scales <paramref name="iconTransform"/> from <see cref="_specialSpawnStartScale"/> up past
         /// <see cref="_specialSpawnOvershootScale"/> and back to 1 — a grow-then-settle split of the one
@@ -1738,7 +1751,7 @@ namespace MustyBlockBlast.Presentation.Views
         /// Core/Gameplay's own tests never execute this method (AC4).
         /// </summary>
         private static SingleLineClearEffect PickRandomSingleLineClearEffect()
-            => (SingleLineClearEffect)UnityEngine.Random.Range(0, 3);
+            => (SingleLineClearEffect)UnityEngine.Random.Range(0, 4);
 
         /// <summary>
         /// Plays one cell's stagger delay, optional intersection flash, and fade — the single code path
@@ -1817,6 +1830,9 @@ namespace MustyBlockBlast.Presentation.Views
                         case SingleLineClearEffect.FlyToCorner:
                             completed = await PlayFlyToCornerFadeAsync(view, cell, index, generation);
                             break;
+                        case SingleLineClearEffect.Drop:
+                            completed = await PlayDropFadeAsync(view, index, generation);
+                            break;
                         default:
                             completed = await PlayPlainFadeAsync(view, index, generation, fadeDurationOverride);
                             break;
@@ -1877,7 +1893,7 @@ namespace MustyBlockBlast.Presentation.Views
                     return false;
                 }
 
-                view.SetAlpha(1f - EaseOutCubic(fadeElapsed / fadeDuration));
+                view.SetAlpha(1f - (fadeElapsed / fadeDuration));
 
                 await UniTask.Yield(PlayerLoopTiming.Update, _destroyToken);
                 fadeElapsed += Time.unscaledDeltaTime;
@@ -1923,7 +1939,7 @@ namespace MustyBlockBlast.Presentation.Views
 
                 float t = fadeElapsed / fadeDuration;
                 ApplyClearTint(view, colourId, t, EmberTint);
-                view.SetAlpha(1f - EaseOutCubic(t));
+                view.SetAlpha(1f - t);
 
                 await UniTask.Yield(PlayerLoopTiming.Update, _destroyToken);
                 fadeElapsed += Time.unscaledDeltaTime;
@@ -1965,10 +1981,11 @@ namespace MustyBlockBlast.Presentation.Views
                         break;
                     }
 
-                    float t = EaseOutCubic(fadeElapsed / fadeDuration);
-                    rect.anchoredPosition = Vector2.LerpUnclamped(start, target, t);
-                    rect.localScale = Vector3.one * Mathf.Lerp(1f, minScale, t);
-                    view.SetAlpha(1f - t);
+                    float linearT = fadeElapsed / fadeDuration;
+                    float travelT = EaseOutCubic(linearT);
+                    rect.anchoredPosition = Vector2.LerpUnclamped(start, target, travelT);
+                    rect.localScale = Vector3.one * Mathf.Lerp(1f, minScale, travelT);
+                    view.SetAlpha(1f - linearT);
 
                     await UniTask.Yield(PlayerLoopTiming.Update, _destroyToken);
                     fadeElapsed += Time.unscaledDeltaTime;
@@ -1980,6 +1997,54 @@ namespace MustyBlockBlast.Presentation.Views
                 {
                     rect.anchoredPosition = start;
                     rect.localScale = Vector3.one;
+                }
+            }
+
+            return completed;
+        }
+
+        /// <summary>
+        /// <see cref="SingleLineClearEffect.Drop"/>: the cell falls straight down off the board with
+        /// an accelerating, gravity-like motion (quadratic ease-in), fading out on a plain linear curve
+        /// so it stays clearly visible while it falls rather than vanishing early. Combined with the
+        /// existing per-cell stagger, a whole line reads as falling away one cell after another.
+        /// The rect is always restored to its layout position and scale before this returns, exactly
+        /// like <see cref="PlayFlyToCornerFadeAsync"/>.
+        /// </summary>
+        private async UniTask<bool> PlayDropFadeAsync(CellView view, int index, int generation)
+        {
+            var rect = (RectTransform)view.transform;
+            Vector2 start = rect.anchoredPosition;
+            float fallDistance = (_cellSize + _cellSpacing) * 1.5f;
+
+            float fadeDuration = Mathf.Max(0.01f, _fadeDuration);
+            float fadeElapsed = 0f;
+            bool completed = true;
+
+            try
+            {
+                while (fadeElapsed < fadeDuration)
+                {
+                    if (_cellGenerations[index] != generation)
+                    {
+                        completed = false;
+                        break;
+                    }
+
+                    float t = fadeElapsed / fadeDuration;
+                    float fallT = t * t;
+                    rect.anchoredPosition = start + new Vector2(0f, -fallDistance * fallT);
+                    view.SetAlpha(1f - t);
+
+                    await UniTask.Yield(PlayerLoopTiming.Update, _destroyToken);
+                    fadeElapsed += Time.unscaledDeltaTime;
+                }
+            }
+            finally
+            {
+                if (!_isDestroyed)
+                {
+                    rect.anchoredPosition = start;
                 }
             }
 

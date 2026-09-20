@@ -47,7 +47,7 @@ namespace MustyBlockBlast.Tests.EditMode
                 new TestMessageBroker<ExplosiveCoreDetonatedMessage>(),
                 new TestMessageBroker<LaserFiredMessage>(),
                 new TestMessageBroker<PiercingRocketFiredMessage>(),
-                new TestMessageBroker<VortexPulledMessage>(),
+                new TestMessageBroker<VortexIslandFilledMessage>(),
                 new TestMessageBroker<ChainLightningTriggeredMessage>(),
                 new TestMessageBroker<CoinCellsClearedMessage>(),
                 ScriptableObject.CreateInstance<CurrencyConfig>(),
@@ -60,6 +60,11 @@ namespace MustyBlockBlast.Tests.EditMode
         public void TryPlacePiece_WithAShapedPieceFullyClearedByItsOwnRows_SpawnsAnExplosiveCore()
         {
             FillAllThreeSlots(Square2X2);
+
+            // A single cell outside both cleared rows is the "already-occupied cell" the reward is
+            // meant to borrow — without one, both rows clearing entirely leaves nothing on the board
+            // for the spawn selector to land on, and the reward is correctly (per AC3) skipped.
+            _boardModel.Occupy(new GridPosition(0, 0), 1);
 
             // Rows 3 and 4 each miss only the piece's own footprint; no column ever fills, so the
             // existing cross-clear reward and the score gem's progress counter both stay untouched.

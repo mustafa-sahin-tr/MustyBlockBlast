@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using MessagePipe;
+using MustyBlockBlast.Core;
 using MustyBlockBlast.Gameplay;
 using MustyBlockBlast.Gameplay.Messages;
 using MustyBlockBlast.Gameplay.Reactive;
@@ -13,10 +14,10 @@ using VContainer;
 namespace MustyBlockBlast.Presentation.Views
 {
     /// <summary>
-    /// Flies a large copy of a granted power-up's icon from the centre of the screen down into its
-    /// inventory slot whenever a <see cref="PowerUpGrantedMessage"/> is published while
-    /// <see cref="PowerUpInventoryView"/> is on screen (issue #353) — the rewarded-ad grant and the
-    /// coin-shop purchase grant, both of which occur in this scene. Mirrors
+    /// Flies a large copy of a freshly won icon from the centre of the screen down to its destination —
+    /// a granted power-up's inventory slot on <see cref="PowerUpGrantedMessage"/>, or a newly spawned
+    /// special board cell's own icon spot on <see cref="SpecialCellSpawnedMessage"/> — while
+    /// <see cref="PowerUpInventoryView"/>/<see cref="BoardView"/> is on screen (issue #353). Mirrors
     /// <see cref="BonusFeedbackView"/>'s flight idiom: ease-out cubic, shrinking as it approaches, its
     /// own nested Canvas so the per-frame move never rebuilds the shared UICanvas.
     /// <para>
@@ -25,12 +26,15 @@ namespace MustyBlockBlast.Presentation.Views
     /// the level-up reward path, out of scope for this issue) takes no action beyond publishing
     /// <see cref="PowerUpGrantAnimationCompletedMessage"/> immediately, so nothing waiting on that
     /// signal (see <c>InfoPopupSystem</c>) can ever hang. The same is true of a kind with no icon
-    /// configured below.
+    /// configured below. A special-cell spawn with no resolvable board position (board not laid out,
+    /// or a scope with no <see cref="BoardView"/>) simply takes no action — nothing awaits its
+    /// completion, unlike a power-up grant's.
     /// </para>
     /// <para>
     /// A quantity-purchase fires one <see cref="PowerUpGrantedMessage"/> per unit, synchronously, in
-    /// the same frame. Each is queued and played as its own full flight, one at a time, rather than
-    /// collapsed into a single "+N" icon — see <see cref="ProcessQueueAsync"/>.
+    /// the same frame; likewise a cascade can spawn more than one special cell in one resolution. Each
+    /// is queued and played as its own full flight, one at a time, rather than collapsed or played
+    /// concurrently — see <see cref="ProcessQueueAsync"/>.
     /// </para>
     /// </summary>
     [DisallowMultipleComponent]
@@ -53,8 +57,6 @@ namespace MustyBlockBlast.Presentation.Views
             PowerUpKind.GhostFit,
         };
 
-        private const float FLIGHT_DURATION_SECONDS = 0.6f;
-
         /// <summary>Lower bound on the flight's opening scale, as a multiple of the slot's resting
         /// size (issue #353's decision). Configurable per <see cref="_startScaleMultiplier"/> below,
         /// clamped up to this floor so a hastily-tuned value can never fall under the approved minimum.</summary>
@@ -70,13 +72,50 @@ namespace MustyBlockBlast.Presentation.Views
         [Tooltip("Starting scale as a multiple of the slot's resting size. Floored at 2x.")]
         [SerializeField] private float _startScaleMultiplier = MIN_START_SCALE_MULTIPLIER;
 
+        [Tooltip("Seconds the flight from centre screen to its destination takes.")]
+        [SerializeField] private float _flightDuration = 0.5f;
+
         private readonly CompositeDisposable _disposables = new CompositeDisposable();
-        private readonly Queue<PowerUpKind> _pendingGrants = new Queue<PowerUpKind>();
+        private readonly Queue<PendingFlight> _pendingGrants = new Queue<PendingFlight>();
 
         private ISubscriber<PowerUpGrantedMessage> _powerUpGrantedSubscriber;
+        private ISubscriber<SpecialCellSpawnedMessage> _specialCellSpawnedSubscriber;
         private ISubscriber<RunStartedMessage> _runStartedSubscriber;
         private IPublisher<PowerUpGrantAnimationCompletedMessage> _grantAnimationCompletedPublisher;
         private PowerUpInventoryView _powerUpInventoryView;
+        private BoardView _boardView;
+
+        /// <summary>One queued flight — either a granted power-up (flies to its inventory slot, and
+        /// publishes <see cref="PowerUpGrantAnimationCompletedMessage"/> on arrival) or a newly spawned
+        /// special board cell (flies to its own board icon spot, publishes nothing). A single queue so
+        /// the two sources never play concurrently — see the type's own doc comment.</summary>
+        private readonly struct PendingFlight
+        {
+            private readonly bool _isPowerUp;
+            private readonly PowerUpKind _powerUpKind;
+            private readonly SpecialCellKind _specialCellKind;
+            private readonly GridPosition _position;
+
+            private PendingFlight(
+                bool isPowerUp, PowerUpKind powerUpKind, SpecialCellKind specialCellKind, GridPosition position)
+            {
+                _isPowerUp = isPowerUp;
+                _powerUpKind = powerUpKind;
+                _specialCellKind = specialCellKind;
+                _position = position;
+            }
+
+            public static PendingFlight ForPowerUp(PowerUpKind kind)
+                => new PendingFlight(true, kind, default, default);
+
+            public static PendingFlight ForSpecialCell(SpecialCellKind kind, GridPosition position)
+                => new PendingFlight(false, default, kind, position);
+
+            public bool IsPowerUp => _isPowerUp;
+            public PowerUpKind PowerUpKindValue => _powerUpKind;
+            public SpecialCellKind SpecialCellKindValue => _specialCellKind;
+            public GridPosition Position => _position;
+        }
 
         private Canvas _canvas;
         private GameObject _layerObject;
@@ -95,14 +134,18 @@ namespace MustyBlockBlast.Presentation.Views
         [Inject]
         public void Construct(
             ISubscriber<PowerUpGrantedMessage> powerUpGrantedSubscriber,
+            ISubscriber<SpecialCellSpawnedMessage> specialCellSpawnedSubscriber,
             ISubscriber<RunStartedMessage> runStartedSubscriber,
             IPublisher<PowerUpGrantAnimationCompletedMessage> grantAnimationCompletedPublisher,
-            PowerUpInventoryView powerUpInventoryView)
+            PowerUpInventoryView powerUpInventoryView,
+            BoardView boardView)
         {
             _powerUpGrantedSubscriber = powerUpGrantedSubscriber;
+            _specialCellSpawnedSubscriber = specialCellSpawnedSubscriber;
             _runStartedSubscriber = runStartedSubscriber;
             _grantAnimationCompletedPublisher = grantAnimationCompletedPublisher;
             _powerUpInventoryView = powerUpInventoryView;
+            _boardView = boardView;
         }
 
         private void Awake()
@@ -126,6 +169,11 @@ namespace MustyBlockBlast.Presentation.Views
 
             _powerUpGrantedSubscriber.Subscribe(OnPowerUpGranted).AddTo(_disposables);
 
+            if (_specialCellSpawnedSubscriber != null)
+            {
+                _specialCellSpawnedSubscriber.Subscribe(OnSpecialCellSpawned).AddTo(_disposables);
+            }
+
             if (_runStartedSubscriber != null)
             {
                 _runStartedSubscriber.Subscribe(OnRunStarted).AddTo(_disposables);
@@ -147,7 +195,23 @@ namespace MustyBlockBlast.Presentation.Views
 
         private void OnPowerUpGranted(PowerUpGrantedMessage message)
         {
-            _pendingGrants.Enqueue(message.Kind);
+            Enqueue(PendingFlight.ForPowerUp(message.Kind));
+        }
+
+        /// <summary>Issue #353 (expanded): a newly spawned special board cell — an Explosive Core,
+        /// Vortex, Chain Lightning or Score Gem landing anywhere on the board — gets the same
+        /// centre-screen-to-destination flight as a granted power-up, flying to its own board icon
+        /// spot instead of an inventory slot. Unlike a power-up grant, nothing awaits this flight's
+        /// completion, so a missing destination/icon simply takes no action (see
+        /// <see cref="PlayGrantAsync"/>).</summary>
+        private void OnSpecialCellSpawned(SpecialCellSpawnedMessage message)
+        {
+            Enqueue(PendingFlight.ForSpecialCell(message.Kind, message.Position));
+        }
+
+        private void Enqueue(PendingFlight flight)
+        {
+            _pendingGrants.Enqueue(flight);
 
             if (!_isProcessingQueue)
             {
@@ -156,15 +220,20 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         /// <summary>A fresh run wipes any grants still queued or in flight rather than letting a stale
-        /// flight land after a restart. Every wiped grant still publishes its completion immediately,
-        /// so nothing left waiting on it (see <c>InfoPopupSystem</c>) is stranded.</summary>
+        /// flight land after a restart. Every wiped power-up grant still publishes its completion
+        /// immediately, so nothing left waiting on it (see <c>InfoPopupSystem</c>) is stranded; a
+        /// wiped special-cell spawn publishes nothing, since nothing awaits it.</summary>
         private void OnRunStarted(RunStartedMessage message)
         {
             CancelCurrentFlight();
 
             while (_pendingGrants.Count > 0)
             {
-                PublishCompleted(_pendingGrants.Dequeue());
+                PendingFlight flight = _pendingGrants.Dequeue();
+                if (flight.IsPowerUp)
+                {
+                    PublishCompleted(flight.PowerUpKindValue);
+                }
             }
 
             Hide();
@@ -190,8 +259,8 @@ namespace MustyBlockBlast.Presentation.Views
             {
                 while (_pendingGrants.Count > 0 && !_isDestroyed)
                 {
-                    PowerUpKind kind = _pendingGrants.Dequeue();
-                    await PlayGrantAsync(kind);
+                    PendingFlight flight = _pendingGrants.Dequeue();
+                    await PlayGrantAsync(flight);
                 }
             }
             finally
@@ -200,40 +269,51 @@ namespace MustyBlockBlast.Presentation.Views
             }
         }
 
-        private async UniTask PlayGrantAsync(PowerUpKind kind)
+        private async UniTask PlayGrantAsync(PendingFlight flight)
         {
-            RectTransform slotRect = _powerUpInventoryView != null
-                ? _powerUpInventoryView.GetSlotRectTransform(kind)
-                : null;
+            RectTransform destination = flight.IsPowerUp
+                ? (_powerUpInventoryView != null ? _powerUpInventoryView.GetSlotRectTransform(flight.PowerUpKindValue) : null)
+                : (_boardView != null ? _boardView.GetCellIconRectTransform(flight.Position) : null);
 
-            // No slot to fly into — a scope with no inventory view (out of scope for #353), or a kind
-            // the strip does not draw at all (e.g. Hold, granted only via the ad-reward path). No
-            // action is taken, per the issue's negative acceptance criterion.
-            if (slotRect == null)
+            // No destination to fly into — a scope with no inventory view/board view (out of scope for
+            // #353), or a power-up kind the strip does not draw at all (e.g. Hold, granted only via the
+            // ad-reward path). No action is taken, per the issue's negative acceptance criterion. A
+            // power-up grant still publishes its completion so nothing awaiting it can hang; a
+            // special-cell spawn has nothing awaiting it, so it simply does nothing.
+            if (destination == null)
             {
-                PublishCompleted(kind);
+                if (flight.IsPowerUp)
+                {
+                    PublishCompleted(flight.PowerUpKindValue);
+                }
+
                 return;
             }
 
-            Sprite icon = IconFor(kind);
+            Sprite icon = flight.IsPowerUp ? IconFor(flight.PowerUpKindValue) : _boardView.IconSprite(flight.SpecialCellKindValue);
             if (icon == null)
             {
-                LogMissingIconWarning(kind);
-                PublishCompleted(kind);
+                if (flight.IsPowerUp)
+                {
+                    LogMissingIconWarning(flight.PowerUpKindValue);
+                    PublishCompleted(flight.PowerUpKindValue);
+                }
+
                 return;
             }
 
             _runCts = CancellationTokenSource.CreateLinkedTokenSource(_destroyToken);
             CancellationToken token = _runCts.Token;
 
-            Setup(icon, slotRect);
+            Setup(icon, destination);
 
             try
             {
+                float flightDuration = Mathf.Max(0.01f, _flightDuration);
                 float elapsed = 0f;
-                while (elapsed < FLIGHT_DURATION_SECONDS)
+                while (elapsed < flightDuration)
                 {
-                    Animate(elapsed / FLIGHT_DURATION_SECONDS);
+                    Animate(elapsed / flightDuration);
                     await UniTask.Yield(PlayerLoopTiming.Update, token);
                     elapsed += Time.unscaledDeltaTime;
                 }
@@ -255,7 +335,10 @@ namespace MustyBlockBlast.Presentation.Views
                 }
             }
 
-            PublishCompleted(kind);
+            if (flight.IsPowerUp)
+            {
+                PublishCompleted(flight.PowerUpKindValue);
+            }
         }
 
         private void PublishCompleted(PowerUpKind kind)
