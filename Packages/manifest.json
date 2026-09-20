@@ -1,8 +1,8 @@
 {
   "dependencies": {
     "com.coplaydev.unity-mcp": "https://github.com/CoplayDev/unity-mcp.git?path=/MCPForUnity#main",
-    "com.mtafasahin.mobileservices": "1.0.0",
-    "com.mtafasahin.reactive": "1.0.0",
+    "com.mtafasahin.mobileservices": "https://github.com/mustafa-sahin-tr/mtafasahin-unity-packages.git?path=com.mtafasahin.mobileservices#v1.1.1",
+    "com.mtafasahin.reactive": "https://github.com/mustafa-sahin-tr/mtafasahin-unity-packages.git?path=com.mtafasahin.reactive#v1.1.1",
     "com.cysharp.messagepipe": "1.8.2",
     "com.cysharp.messagepipe.vcontainer": "1.8.2",
     "com.cysharp.unitask": "2.5.11",

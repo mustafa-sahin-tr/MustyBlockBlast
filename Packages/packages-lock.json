@@ -46,20 +46,22 @@
       "hash": "1a2622d90f7bb8cd256b235e9a07eb270262a89a"
     },
     "com.mtafasahin.mobileservices": {
-      "version": "file:com.mtafasahin.mobileservices",
+      "version": "https://github.com/mustafa-sahin-tr/mtafasahin-unity-packages.git?path=com.mtafasahin.mobileservices#v1.1.1",
       "depth": 0,
-      "source": "embedded",
+      "source": "git",
       "dependencies": {
         "com.cysharp.unitask": "2.5.11",
         "com.unity.services.authentication": "3.8.0",
         "com.unity.services.core": "1.18.0"
-      }
+      },
+      "hash": "9b17393ae50eb5b2ba168469f53155c9fc04e1e6"
     },
     "com.mtafasahin.reactive": {
-      "version": "file:com.mtafasahin.reactive",
+      "version": "https://github.com/mustafa-sahin-tr/mtafasahin-unity-packages.git?path=com.mtafasahin.reactive#v1.1.1",
       "depth": 0,
-      "source": "embedded",
-      "dependencies": {}
+      "source": "git",
+      "dependencies": {},
+      "hash": "9b17393ae50eb5b2ba168469f53155c9fc04e1e6"
     },
     "com.unity.2d.animation": {
       "version": "16.0.0",
