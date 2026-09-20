@@ -1422,11 +1422,21 @@ namespace MustyBlockBlast.Presentation.Views
             iconTransform.localScale = Vector3.one;
         }
 
-        /// <summary>An explosive core blasted a region. Claimed exactly as a power-up's cleared region
-        /// is, and for the same reason: no <see cref="LinesClearedMessage"/> follows a blast, so
-        /// without this the cells it emptied would sit showing their old colour.</summary>
+        /// <summary>
+        /// An explosive core detonated: it finished off every row/column that was one cell short and
+        /// filled in the gap, which the board's own cascade re-check then cleared the ordinary way —
+        /// so the finished lines' cells already faded via <see cref="OnCellChanged"/>/<see cref="OnLinesCleared"/>-less
+        /// <c>NotifyCleared</c> exactly as any cascaded clear's do. Claimed here for the same reason a
+        /// power-up's region clear is: those cascaded phases publish no <see cref="LinesClearedMessage"/>
+        /// of their own, so without this sweep the cells would sit showing their old colour rather than
+        /// fading.
+        /// <para>
+        /// A hand-off needs no visual of its own beyond this: the target cell's new icon arrives through
+        /// the ordinary <see cref="MustyBlockBlast.Gameplay.Models.BoardModel.SpecialKindChanged"/> event.
+        /// </para>
+        /// </summary>
         private void OnExplosiveCoreDetonated(ExplosiveCoreDetonatedMessage message)
-            => SweepPendingCells(message.ClearedCellCount);
+            => SweepPendingCells(message.FinishedLineCount);
 
         /// <summary>A laser wiped a line. Claimed exactly as a blast's cells are, and for the same
         /// reason: a wipe does not need the line to be full, so no <see cref="LinesClearedMessage"/>

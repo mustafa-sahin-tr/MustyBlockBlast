@@ -592,37 +592,68 @@ namespace MustyBlockBlast.Tests.EditMode
         }
 
         /// <summary>
-        /// AC6: a core destroyed by a spent power-up blasts exactly as one destroyed by a completed
-        /// line does. The bomb is deliberately not centred on the core — its own 3x3 would then cover
-        /// the whole blast and the chain would have nothing left to clear, so the test would pass
-        /// whether or not the blast ran at all.
+        /// AC1/AC3: a core destroyed by a spent power-up finishes off a near-complete line exactly as
+        /// one destroyed by a completed placement line does — the fill it makes is picked up by the
+        /// follow-through resolution <see cref="PowerUpSystem"/> runs after applying the power-up's own
+        /// clear, not by anything the bomb itself does.
         /// </summary>
         [Test]
-        public void TryApplyBomb_OverAnExplosiveCore_DetonatesItAndBlastsBeyondTheBombsOwnFootprint()
+        public void TryApplyBomb_OverAnExplosiveCore_FinishesANearCompleteLineElsewhere()
         {
             var boardModel = new BoardModel();
             var core = new GridPosition(4, 4);
             boardModel.Occupy(core, 1);
             boardModel.SetSpecialKind(core, SpecialCellKind.ExplosiveCore);
-            boardModel.Occupy(new GridPosition(3, 3), 1);
 
-            // Inside the core's blast footprint but outside the bomb's, so only the chain can reach it.
-            var blastOnly = new GridPosition(5, 5);
-            boardModel.Occupy(blastOnly, 1);
+            // Row 0 is one cell short of full; nothing else on the board is.
+            for (int x = 0; x < Board.SIZE; x++)
+            {
+                if (x == 2)
+                {
+                    continue;
+                }
+
+                boardModel.Occupy(new GridPosition(x, 0), 1);
+            }
 
             PowerUpModel model = new PowerUpModel();
             PowerUpSystem system = CreateSystem(model, boardModel);
             system.GrantDirect(PowerUpKind.Bomb);
 
-            bool applied = system.TryApplyBomb(new GridPosition(3, 3));
+            bool applied = system.TryApplyBomb(core);
 
             Assert.IsTrue(applied);
-            Assert.AreEqual(Board.EMPTY, boardModel.GetCell(blastOnly), "The chained blast should reach here.");
+            Assert.AreEqual(
+                Board.EMPTY, boardModel.GetCell(new GridPosition(1, 0)), "Row 0 was finished, then cleared.");
             Assert.AreEqual(1, _detonatedBroker.Published.Count);
-            Assert.AreEqual(1, _detonatedBroker.Published[0].ClearedCellCount);
+            Assert.AreEqual(1, _detonatedBroker.Published[0].FinishedLineCount);
+            Assert.AreEqual(0, _detonatedBroker.Published[0].HandOffCount);
+        }
 
-            // The bomb still reports only what the bomb itself cleared: the blast is its own event.
-            Assert.AreEqual(2, _appliedBroker.Published[0].ClearedCellCount);
+        /// <summary>AC4: a core destroyed by a spent power-up with nothing on the board one cell short
+        /// hands its kind off instead of doing nothing.</summary>
+        [Test]
+        public void TryApplyBomb_OverAnExplosiveCoreWithNothingToFinish_HandsOffInstead()
+        {
+            var boardModel = new BoardModel();
+            var core = new GridPosition(4, 4);
+            boardModel.Occupy(core, 1);
+            boardModel.SetSpecialKind(core, SpecialCellKind.ExplosiveCore);
+
+            var handOffTarget = new GridPosition(7, 7);
+            boardModel.Occupy(handOffTarget, 1);
+
+            PowerUpModel model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, boardModel);
+            system.GrantDirect(PowerUpKind.Bomb);
+
+            bool applied = system.TryApplyBomb(core);
+
+            Assert.IsTrue(applied);
+            Assert.AreEqual(SpecialCellKind.ExplosiveCore, boardModel.GetSpecialKind(handOffTarget));
+            Assert.AreEqual(1, _detonatedBroker.Published.Count);
+            Assert.AreEqual(0, _detonatedBroker.Published[0].FinishedLineCount);
+            Assert.AreEqual(1, _detonatedBroker.Published[0].HandOffCount);
         }
 
         /// <summary>A power-up that destroyed no special cell must publish no blast at all.</summary>

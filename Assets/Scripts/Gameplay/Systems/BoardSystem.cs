@@ -105,7 +105,12 @@ namespace MustyBlockBlast.Gameplay.Systems
 
         // One long-lived effect per kind, reset per placement rather than reallocated — each owns the
         // buffer its destroyed cells are reported through.
-        private readonly ExplosiveCoreEffect _explosiveCoreEffect = new ExplosiveCoreEffect();
+        //
+        // Built in the constructor rather than here, exactly as _chainLightningEffect is: it takes
+        // _random, which a field initialiser would read before the constructor body has assigned it —
+        // and it shares that one stream deliberately, for a hand-off that replays identically from a
+        // seeded run.
+        private readonly ExplosiveCoreEffect _explosiveCoreEffect;
         private readonly LaserEffect _laserEffect = new LaserEffect();
 
         /// <summary>The odd one out among the board-mutating effects: it moves blocks instead of
@@ -284,6 +289,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             // After the stream it draws from, necessarily: the effect keeps the reference it is handed,
             // and there is exactly one stream per run for every random decision to come out of.
             _chainLightningEffect = new ChainLightningEffect(_random);
+            _explosiveCoreEffect = new ExplosiveCoreEffect(_random);
 
             // Built from the live board's own outline, not from a default square: a scratch board that
             // disagreed with the real one about geometry could not be copied onto at all.
@@ -518,16 +524,6 @@ namespace MustyBlockBlast.Gameplay.Systems
                 }
             }
 
-            // A blast clears a region, not lines, so it is announced the way a power-up's region clear
-            // is rather than through the line-clear path — and before the messages below, so the
-            // board state they report already includes what the blast removed.
-            IReadOnlyList<GridPosition> blastedCells = _explosiveCoreEffect.BlastedCells;
-            bool anyBlasted = blastedCells.Count > 0;
-            if (anyBlasted)
-            {
-                _boardModel.NotifyPowerUpCleared(blastedCells);
-            }
-
             // A laser's wipe is announced the same way and for the same reason: it empties a line
             // whether or not that line was full, so no LinesClearedMessage describes it.
             IReadOnlyList<GridPosition> wipedCells = _laserEffect.WipedCells;
@@ -583,7 +579,6 @@ namespace MustyBlockBlast.Gameplay.Systems
             // CascadeClearResult alone — that property inherits the known reinforced-cell gap this sum
             // exists to not repeat (issue #307 AC11).
             int timerCellsClearedInTime = _timerCellClearEffect.DestroyedCount
-                + _explosiveCoreEffect.TimerCellsDestroyedCount
                 + _laserEffect.TimerCellsDestroyedCount
                 + _chainLightningEffect.TimerCellsDestroyedCount;
 
@@ -601,13 +596,26 @@ namespace MustyBlockBlast.Gameplay.Systems
                     clearResult.ClearedRows, clearResult.ClearedColumns, clearResult.ClearedCellCount));
             }
 
-            // Published after the two messages above so a subscriber that reacts to a blast sees a
+            // Published after the two messages above so a subscriber that reacts to a detonation sees a
             // placement that has already been fully reported, and so the View's line-clear animation
-            // claims its own cells before the blast sweep does.
-            if (anyBlasted)
+            // claims its own cells before the detonation's sweep does. A hand-off's target is announced
+            // here too — SetSpecialKind was called directly on Core.Board, which raises no event of its
+            // own — in the order a View needs it: the cells the core finished have already emptied by
+            // the time this runs, and the target's icon should not appear to jump the queue ahead of
+            // them.
+            int explosiveCoreFinishedLineCount = _explosiveCoreEffect.FinishedLineCount;
+            IReadOnlyList<GridPosition> explosiveCoreHandOffTargets = _explosiveCoreEffect.HandOffTargets;
+            bool anyExplosiveCoreDetonation =
+                explosiveCoreFinishedLineCount > 0 || explosiveCoreHandOffTargets.Count > 0;
+            if (anyExplosiveCoreDetonation)
             {
-                _explosiveCoreDetonatedPublisher.Publish(
-                    new ExplosiveCoreDetonatedMessage(blastedCells.Count));
+                for (int i = 0; i < explosiveCoreHandOffTargets.Count; i++)
+                {
+                    _boardModel.NotifySpecialKindChanged(explosiveCoreHandOffTargets[i]);
+                }
+
+                _explosiveCoreDetonatedPublisher.Publish(new ExplosiveCoreDetonatedMessage(
+                    explosiveCoreFinishedLineCount, explosiveCoreHandOffTargets.Count));
             }
 
             if (anyWiped)
@@ -1213,12 +1221,36 @@ namespace MustyBlockBlast.Gameplay.Systems
                 _coinEffect.Apply(_boardModel.Board, _hammerTriggerBuffer[i]);
             }
 
-            IReadOnlyList<GridPosition> blastedCells = _explosiveCoreEffect.BlastedCells;
-            if (blastedCells.Count > 0)
+            // The core's own effect never clears a line itself — it only fills the one missing cell of
+            // a line it can finish, and relies on a resolver re-checking fullness to actually clear it
+            // (see ExplosiveCoreEffect). A hammer's one-shot destruction has no resolver of its own, so
+            // this follow-through gives it one: exactly CascadeClearResolver's own loop, seeded by
+            // whatever the fill above just completed and by nothing else — no other path can leave a
+            // full line sitting on the board between placements. A core caught inside a line this
+            // uncovers re-triggers through the same mechanism, chained as far as the resolver's own cap
+            // allows.
+            CascadeClearResult explosiveCoreFollowThrough =
+                CascadeClearResolver.ResolveCascade(_boardModel.Board, _specialCellEffects);
+            for (int phaseIndex = 0; phaseIndex < explosiveCoreFollowThrough.Phases.Count; phaseIndex++)
             {
-                _boardModel.NotifyPowerUpCleared(blastedCells);
-                _explosiveCoreDetonatedPublisher.Publish(
-                    new ExplosiveCoreDetonatedMessage(blastedCells.Count));
+                LineClearResult phase = explosiveCoreFollowThrough.Phases[phaseIndex];
+                if (phase.AnyCleared)
+                {
+                    _boardModel.NotifyCleared(phase);
+                }
+            }
+
+            int explosiveCoreFinishedLineCount = _explosiveCoreEffect.FinishedLineCount;
+            IReadOnlyList<GridPosition> explosiveCoreHandOffTargets = _explosiveCoreEffect.HandOffTargets;
+            if (explosiveCoreFinishedLineCount > 0 || explosiveCoreHandOffTargets.Count > 0)
+            {
+                for (int i = 0; i < explosiveCoreHandOffTargets.Count; i++)
+                {
+                    _boardModel.NotifySpecialKindChanged(explosiveCoreHandOffTargets[i]);
+                }
+
+                _explosiveCoreDetonatedPublisher.Publish(new ExplosiveCoreDetonatedMessage(
+                    explosiveCoreFinishedLineCount, explosiveCoreHandOffTargets.Count));
             }
 
             IReadOnlyList<GridPosition> wipedCells = _laserEffect.WipedCells;

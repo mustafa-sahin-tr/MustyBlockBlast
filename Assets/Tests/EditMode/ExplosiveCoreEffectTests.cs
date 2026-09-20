@@ -1,11 +1,13 @@
+using System;
 using MustyBlockBlast.Core;
 using NUnit.Framework;
 
 namespace MustyBlockBlast.Tests.EditMode
 {
     /// <summary>
-    /// Covers the blast itself: the clamped 3x3 footprint, the chain into a second core, the cap that
-    /// bounds a pathological arrangement, and the reporting buffer's per-resolution lifetime.
+    /// Covers the new "finish the job" behaviour: filling every row/column missing exactly one occupied
+    /// playable cell, the hand-off when nothing qualifies, and the reporting counters' per-resolution
+    /// lifetime.
     /// </summary>
     public class ExplosiveCoreEffectTests
     {
@@ -14,184 +16,152 @@ namespace MustyBlockBlast.Tests.EditMode
         [SetUp]
         public void CreateEffect()
         {
-            _effect = new ExplosiveCoreEffect();
+            _effect = new ExplosiveCoreEffect(new Random(1));
             _effect.BeginResolution();
         }
 
+        /// <summary>AC1: a single near-complete row is finished off — occupied all the way and no
+        /// longer missing a cell.</summary>
         [Test]
-        public void Apply_AtTheBoardCentre_ClearsTheWholeThreeByThree()
+        public void Apply_WithOneRowOneCellFromFull_FinishesIt()
         {
-            Board board = FullBoard();
-            var center = new GridPosition(4, 4);
-            board.Clear(center);
+            Board board = new Board();
+            var gap = new GridPosition(3, 5);
+            FillRowExcept(board, y: 5, gap);
+            var trigger = new GridPosition(7, 7);
+            board.Occupy(trigger, 1);
+            board.Clear(trigger);
 
-            _effect.Apply(board, new SpecialCellTrigger(center, SpecialCellKind.ExplosiveCore));
+            _effect.Apply(board, new SpecialCellTrigger(trigger, SpecialCellKind.ExplosiveCore));
 
-            Assert.AreEqual(8, _effect.BlastedCells.Count, "The centre was already empty, so 8 remain.");
-            for (int y = 3; y <= 5; y++)
+            Assert.IsTrue(board.IsRowFull(5));
+            Assert.AreEqual(1, _effect.FinishedLineCount);
+            Assert.AreEqual(0, _effect.HandOffTargets.Count);
+        }
+
+        /// <summary>AC2: a near-complete row AND a near-complete column both finish from the same
+        /// detonation, not just whichever is found first.</summary>
+        [Test]
+        public void Apply_WithARowAndAColumnBothOneCellFromFull_FinishesBoth()
+        {
+            Board board = new Board();
+            FillRowExcept(board, y: 2, new GridPosition(1, 2));
+            FillColumnExcept(board, x: 6, new GridPosition(6, 4));
+
+            _effect.Apply(board, new SpecialCellTrigger(new GridPosition(0, 0), SpecialCellKind.ExplosiveCore));
+
+            Assert.IsTrue(board.IsRowFull(2));
+            Assert.IsTrue(board.IsColumnFull(6));
+            Assert.AreEqual(2, _effect.FinishedLineCount);
+        }
+
+        /// <summary>A row and a column that share their one missing cell both finish from a single
+        /// fill — the shared gap is filled once, not twice.</summary>
+        [Test]
+        public void Apply_WithARowAndAColumnSharingTheirGap_FinishesBothFromOneFill()
+        {
+            Board board = new Board();
+            var gap = new GridPosition(3, 5);
+            FillRowExcept(board, y: 5, gap);
+            FillColumnExcept(board, x: 3, gap);
+
+            _effect.Apply(board, new SpecialCellTrigger(new GridPosition(0, 0), SpecialCellKind.ExplosiveCore));
+
+            Assert.IsTrue(board.IsRowFull(5));
+            Assert.IsTrue(board.IsColumnFull(3));
+            Assert.AreEqual(2, _effect.FinishedLineCount);
+        }
+
+        /// <summary>AC6 negative case: nothing full, nothing one cell short — no line finishes and the
+        /// core hands off instead, without crashing or looping.</summary>
+        [Test]
+        public void Apply_WithNothingOneCellFromFull_HandsOffInstead()
+        {
+            Board board = new Board();
+            board.Occupy(new GridPosition(2, 2), 1);
+
+            _effect.Apply(board, new SpecialCellTrigger(new GridPosition(0, 0), SpecialCellKind.ExplosiveCore));
+
+            Assert.AreEqual(0, _effect.FinishedLineCount);
+            Assert.AreEqual(1, _effect.HandOffTargets.Count);
+            Assert.AreEqual(new GridPosition(2, 2), _effect.HandOffTargets[0]);
+            Assert.AreEqual(SpecialCellKind.ExplosiveCore, board.GetSpecialKind(new GridPosition(2, 2)));
+        }
+
+        /// <summary>AC4's other half: a hand-off never lands on a cell that already carries a special
+        /// kind of its own.</summary>
+        [Test]
+        public void Apply_WithNothingToFinish_HandsOffOnlyToAnOrdinaryOccupiedCell()
+        {
+            Board board = new Board();
+            board.Occupy(new GridPosition(1, 1), 1);
+            board.SetSpecialKind(new GridPosition(1, 1), SpecialCellKind.Laser);
+            board.Occupy(new GridPosition(6, 6), 1);
+
+            _effect.Apply(board, new SpecialCellTrigger(new GridPosition(0, 0), SpecialCellKind.ExplosiveCore));
+
+            Assert.AreEqual(1, _effect.HandOffTargets.Count);
+            Assert.AreEqual(new GridPosition(6, 6), _effect.HandOffTargets[0]);
+        }
+
+        /// <summary>AC4: no eligible cell at all is a no-op, not a crash.</summary>
+        [Test]
+        public void Apply_WithNothingToFinishAndNoEligibleCell_IsANoOp()
+        {
+            Board board = new Board();
+
+            Assert.DoesNotThrow(() => _effect.Apply(
+                board, new SpecialCellTrigger(new GridPosition(0, 0), SpecialCellKind.ExplosiveCore)));
+
+            Assert.AreEqual(0, _effect.FinishedLineCount);
+            Assert.AreEqual(0, _effect.HandOffTargets.Count);
+        }
+
+        /// <summary>AC6: a board with only fully-full, fully-empty or 2+-short lines is untouched.</summary>
+        [Test]
+        public void Apply_OnABoardWithNoQualifyingLine_ChangesNothingOnTheBoardItself()
+        {
+            Board board = new Board();
+            board.Occupy(new GridPosition(0, 0), 1);
+            board.Occupy(new GridPosition(1, 0), 1);
+            board.Occupy(new GridPosition(2, 0), 1);
+
+            _effect.Apply(board, new SpecialCellTrigger(new GridPosition(7, 7), SpecialCellKind.ExplosiveCore));
+
+            Assert.AreEqual(0, _effect.FinishedLineCount);
+            for (int x = 3; x < Board.SIZE; x++)
             {
-                for (int x = 3; x <= 5; x++)
-                {
-                    Assert.IsFalse(board.IsOccupied(new GridPosition(x, y)), $"({x}, {y}) should be empty.");
-                }
+                Assert.IsFalse(board.IsOccupied(new GridPosition(x, 0)), $"({x}, 0) must stay untouched.");
             }
-
-            Assert.IsTrue(board.IsOccupied(new GridPosition(2, 4)), "Outside the footprint, untouched.");
-            Assert.IsTrue(board.IsOccupied(new GridPosition(6, 4)), "Outside the footprint, untouched.");
         }
 
         [Test]
-        public void Apply_AtAnEdge_ClampsToTheBoard()
+        public void BeginResolution_AfterADetonation_ForgetsThePreviousResolutionsCounts()
         {
-            Board board = FullBoard();
-            var center = new GridPosition(0, 4);
-            board.Clear(center);
-
-            _effect.Apply(board, new SpecialCellTrigger(center, SpecialCellKind.ExplosiveCore));
-
-            // A 2x3 column band survives the clamp; the centre was already empty, so 5 cells clear.
-            Assert.AreEqual(5, _effect.BlastedCells.Count);
-            Assert.IsFalse(board.IsOccupied(new GridPosition(1, 3)));
-            Assert.IsFalse(board.IsOccupied(new GridPosition(1, 5)));
-            Assert.IsTrue(board.IsOccupied(new GridPosition(2, 4)));
-        }
-
-        [Test]
-        public void Apply_AtACorner_ClampsToTheBoard()
-        {
-            Board board = FullBoard();
-            var center = new GridPosition(0, 0);
-            board.Clear(center);
-
-            _effect.Apply(board, new SpecialCellTrigger(center, SpecialCellKind.ExplosiveCore));
-
-            // 2x2 at the corner, one of which was already empty.
-            Assert.AreEqual(3, _effect.BlastedCells.Count);
-            Assert.IsFalse(board.IsOccupied(new GridPosition(1, 1)));
-            Assert.IsTrue(board.IsOccupied(new GridPosition(2, 0)));
-            Assert.IsTrue(board.IsOccupied(new GridPosition(0, 2)));
-        }
-
-        /// <summary>AC3: a second core within blast range detonates too, and its own footprint clears.</summary>
-        [Test]
-        public void Apply_WithASecondCoreInRange_DetonatesItAndClearsItsOwnFootprintToo()
-        {
-            Board board = FullBoard();
-            var center = new GridPosition(2, 2);
-            board.Clear(center);
-
-            var chained = new GridPosition(3, 3);
-            board.SetSpecialKind(chained, SpecialCellKind.ExplosiveCore);
-
-            _effect.Apply(board, new SpecialCellTrigger(center, SpecialCellKind.ExplosiveCore));
-
-            // (4, 4) is outside the first blast but inside the chained one's.
-            Assert.IsFalse(board.IsOccupied(new GridPosition(4, 4)), "The chained blast should reach here.");
-            Assert.IsFalse(board.IsOccupied(new GridPosition(4, 2)));
-            Assert.IsTrue(board.IsOccupied(new GridPosition(5, 5)), "Outside both footprints.");
-
-            // Union of the two 3x3s minus the already-empty centre: 9 + 9 - 4 overlap - 1 = 13.
-            Assert.AreEqual(13, _effect.BlastedCells.Count);
-        }
-
-        /// <summary>The chain must not re-detonate a centre it already used, or a pair of adjacent
-        /// cores would bounce between each other forever.</summary>
-        [Test]
-        public void Apply_WithTwoAdjacentCores_Terminates()
-        {
-            Board board = FullBoard();
-            var center = new GridPosition(4, 4);
-            board.Clear(center);
-            board.SetSpecialKind(new GridPosition(5, 4), SpecialCellKind.ExplosiveCore);
-
-            _effect.Apply(board, new SpecialCellTrigger(center, SpecialCellKind.ExplosiveCore));
-
-            Assert.IsFalse(_effect.StoppedAtBlastCap, "Two cores is not a pathological chain.");
-            Assert.IsFalse(board.IsOccupied(new GridPosition(6, 4)), "Reached by the chained blast.");
-        }
-
-        /// <summary>The pathological case the cap exists for: a board that is nothing but cores. It must
-        /// come back bounded rather than hang, and leave the board consistent.</summary>
-        [Test]
-        public void Apply_OnABoardOfNothingButCores_StopsAtTheBlastCap()
-        {
-            Board board = FullBoard();
-            for (int y = 0; y < Board.SIZE; y++)
-            {
-                for (int x = 0; x < Board.SIZE; x++)
-                {
-                    board.SetSpecialKind(new GridPosition(x, y), SpecialCellKind.ExplosiveCore);
-                }
-            }
-
-            var center = new GridPosition(4, 4);
-            board.Clear(center);
-
-            _effect.Apply(board, new SpecialCellTrigger(center, SpecialCellKind.ExplosiveCore));
-
-            Assert.IsTrue(_effect.StoppedAtBlastCap);
-            Assert.LessOrEqual(
-                _effect.BlastedCells.Count,
-                CascadeClearResolver.MAX_CASCADE_ITERATIONS * 9,
-                "At most nine cells per detonation, and at most the cap's worth of detonations.");
-            Assert.IsFalse(board.IsEmpty(), "Cells beyond the cap are simply left standing.");
-        }
-
-        [Test]
-        public void Apply_WithAnAlreadyEmptyFootprint_ReportsNothing()
-        {
-            var board = new Board();
-
-            _effect.Apply(board, new SpecialCellTrigger(new GridPosition(4, 4), SpecialCellKind.ExplosiveCore));
-
-            Assert.AreEqual(0, _effect.BlastedCells.Count);
-        }
-
-        /// <summary>Only occupied cells count as blasted: the buffer is what scoring and the repaint
-        /// both read, and neither may be handed a cell that was already empty.</summary>
-        [Test]
-        public void BlastedCells_ListsExactlyTheCellsThatHeldABlock()
-        {
-            var board = new Board();
-            board.Occupy(new GridPosition(3, 4), 1);
-            board.Occupy(new GridPosition(5, 5), 1);
-            board.Occupy(new GridPosition(7, 7), 1);
-
-            _effect.Apply(board, new SpecialCellTrigger(new GridPosition(4, 4), SpecialCellKind.ExplosiveCore));
-
-            Assert.AreEqual(2, _effect.BlastedCells.Count);
-            CollectionAssert.Contains(_effect.BlastedCells, new GridPosition(3, 4));
-            CollectionAssert.Contains(_effect.BlastedCells, new GridPosition(5, 5));
-            CollectionAssert.DoesNotContain(_effect.BlastedCells, new GridPosition(7, 7));
-        }
-
-        [Test]
-        public void BeginResolution_AfterABlast_ForgetsThePreviousResolutionsCells()
-        {
-            Board board = FullBoard();
-            board.Clear(new GridPosition(4, 4));
-            _effect.Apply(board, new SpecialCellTrigger(new GridPosition(4, 4), SpecialCellKind.ExplosiveCore));
-            Assert.Greater(_effect.BlastedCells.Count, 0);
+            Board board = new Board();
+            FillRowExcept(board, y: 0, new GridPosition(0, 0));
+            _effect.Apply(board, new SpecialCellTrigger(new GridPosition(7, 7), SpecialCellKind.ExplosiveCore));
+            Assert.Greater(_effect.FinishedLineCount, 0);
 
             _effect.BeginResolution();
 
-            Assert.AreEqual(0, _effect.BlastedCells.Count);
-            Assert.IsFalse(_effect.StoppedAtBlastCap);
+            Assert.AreEqual(0, _effect.FinishedLineCount);
+            Assert.AreEqual(0, _effect.HandOffTargets.Count);
         }
 
-        /// <summary>Two triggers in one resolution accumulate into the same buffer — the caller reports
-        /// one blast total per resolution, not one per trigger.</summary>
+        /// <summary>Two triggers in one resolution accumulate into the same totals — the caller reports
+        /// one detonation total per resolution, not one per trigger.</summary>
         [Test]
-        public void Apply_TwiceWithinOneResolution_AccumulatesBothBlasts()
+        public void Apply_TwiceWithinOneResolution_AccumulatesBothDetonations()
         {
-            Board board = FullBoard();
-            board.Clear(new GridPosition(1, 1));
-            board.Clear(new GridPosition(6, 6));
+            Board board = new Board();
+            FillRowExcept(board, y: 0, new GridPosition(0, 0));
+            FillRowExcept(board, y: 1, new GridPosition(0, 1));
 
-            _effect.Apply(board, new SpecialCellTrigger(new GridPosition(1, 1), SpecialCellKind.ExplosiveCore));
-            _effect.Apply(board, new SpecialCellTrigger(new GridPosition(6, 6), SpecialCellKind.ExplosiveCore));
+            _effect.Apply(board, new SpecialCellTrigger(new GridPosition(7, 7), SpecialCellKind.ExplosiveCore));
+            _effect.Apply(board, new SpecialCellTrigger(new GridPosition(7, 6), SpecialCellKind.ExplosiveCore));
 
-            Assert.AreEqual(16, _effect.BlastedCells.Count, "Two disjoint 3x3s, each missing its centre.");
+            Assert.AreEqual(2, _effect.FinishedLineCount);
         }
 
         /// <summary>The effect is installed for one kind only; anything else must pass straight through
@@ -199,27 +169,41 @@ namespace MustyBlockBlast.Tests.EditMode
         [Test]
         public void Apply_WithAnotherKind_DoesNothing()
         {
-            Board board = FullBoard();
-            board.Clear(new GridPosition(4, 4));
+            Board board = new Board();
+            FillRowExcept(board, y: 0, new GridPosition(0, 0));
 
-            _effect.Apply(board, new SpecialCellTrigger(new GridPosition(4, 4), (SpecialCellKind)99));
+            _effect.Apply(board, new SpecialCellTrigger(new GridPosition(7, 7), (SpecialCellKind)99));
 
-            Assert.AreEqual(0, _effect.BlastedCells.Count);
-            Assert.IsTrue(board.IsOccupied(new GridPosition(3, 3)));
+            Assert.AreEqual(0, _effect.FinishedLineCount);
+            Assert.IsFalse(board.IsRowFull(0));
         }
 
-        private static Board FullBoard()
+        private static void FillRowExcept(Board board, int y, GridPosition gap)
         {
-            var board = new Board();
+            for (int x = 0; x < Board.SIZE; x++)
+            {
+                var position = new GridPosition(x, y);
+                if (position.X == gap.X && position.Y == gap.Y)
+                {
+                    continue;
+                }
+
+                board.Occupy(position, 1);
+            }
+        }
+
+        private static void FillColumnExcept(Board board, int x, GridPosition gap)
+        {
             for (int y = 0; y < Board.SIZE; y++)
             {
-                for (int x = 0; x < Board.SIZE; x++)
+                var position = new GridPosition(x, y);
+                if (position.X == gap.X && position.Y == gap.Y)
                 {
-                    board.Occupy(new GridPosition(x, y), 1);
+                    continue;
                 }
-            }
 
-            return board;
+                board.Occupy(position, 1);
+            }
         }
     }
 }

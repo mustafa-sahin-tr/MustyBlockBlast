@@ -68,9 +68,11 @@ namespace MustyBlockBlast.Core
         public bool StoppedAtWipeCap { get; private set; }
 
         /// <summary>Of <see cref="WipedCells"/>, how many were <see cref="SpecialCellKind.Timer"/> cells
-        /// — destroyed mid-wipe rather than through a normal clear phase. See
-        /// <see cref="ExplosiveCoreEffect.TimerCellsDestroyedCount"/> for why this is tracked (issue
-        /// #307 AC11).</summary>
+        /// — destroyed mid-wipe rather than through a normal clear phase, which is exactly the shape of
+        /// the reinforced-cell reporting gap issue #307 AC11 requires this mechanic not repeat: unlike a
+        /// reinforced cell finished off by a wipe (which is silently uncounted), a timer cell caught in
+        /// one is counted here and summed by the caller into the placement's "cleared in time"
+        /// total.</summary>
         public int TimerCellsDestroyedCount { get; private set; }
 
         /// <summary>Starts a new resolution: forgets the previous one's wiped cells. Must be called
