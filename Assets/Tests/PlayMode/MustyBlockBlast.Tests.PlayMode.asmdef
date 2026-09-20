@@ -9,7 +9,9 @@
         "MessagePipe",
         "MessagePipe.VContainer",
         "VContainer",
-        "UnityEngine.TestRunner"
+        "UnityEngine.TestRunner",
+        "Mtafasahin.Reactive",
+        "Mtafasahin.MobileServices"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

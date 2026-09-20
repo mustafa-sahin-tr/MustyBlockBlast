@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using MustyBlockBlast.Gameplay.Localization;
-using MustyBlockBlast.Gameplay.Reactive;
+using Mtafasahin.Reactive;
 
 namespace MustyBlockBlast.Gameplay.Models
 {

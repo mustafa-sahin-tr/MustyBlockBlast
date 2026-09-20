@@ -3,6 +3,7 @@ using Cysharp.Threading.Tasks;
 using MustyBlockBlast.Gameplay.Models;
 using MustyBlockBlast.Gameplay.Settings;
 using UnityEngine;
+using Mtafasahin.MobileServices;
 
 namespace MustyBlockBlast.Gameplay.Systems
 {
@@ -82,7 +83,7 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// <summary>
         /// Whether the player owns the ad-removal product. Read by the settings card so it can show the
         /// purchase as owned instead of offering it again — the flag itself is a
-        /// <see cref="MustyBlockBlast.Gameplay.Reactive.ReactiveProperty{T}"/> on the model, which is
+        /// <see cref="Mtafasahin.Reactive.ReactiveProperty{T}"/> on the model, which is
         /// what a View subscribes to; this is the one-shot answer for a caller that only needs it now.
         /// </summary>
         public bool AdsRemoved => _profileModel.AdsRemoved.Value;

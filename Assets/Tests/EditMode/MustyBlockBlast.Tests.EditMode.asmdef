@@ -9,7 +9,9 @@
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner",
         "Unity.Localization",
-        "Unity.Localization.Editor"
+        "Unity.Localization.Editor",
+        "Mtafasahin.Reactive",
+        "Mtafasahin.MobileServices"
     ],
     "includePlatforms": [
         "Editor"

@@ -1,7 +1,7 @@
 using MessagePipe;
 using MustyBlockBlast.Gameplay.Messages;
 using MustyBlockBlast.Gameplay.Models;
-using MustyBlockBlast.Gameplay.Reactive;
+using Mtafasahin.Reactive;
 using UnityEngine;
 using VContainer;
 

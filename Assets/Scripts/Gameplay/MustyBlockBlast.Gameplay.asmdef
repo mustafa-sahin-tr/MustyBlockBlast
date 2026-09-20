@@ -5,7 +5,9 @@
         "MustyBlockBlast.Core",
         "UniTask",
         "MessagePipe",
-        "VContainer"
+        "VContainer",
+        "Mtafasahin.Reactive",
+        "Mtafasahin.MobileServices"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

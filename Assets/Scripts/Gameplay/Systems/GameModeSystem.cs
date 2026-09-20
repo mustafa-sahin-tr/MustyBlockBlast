@@ -1,6 +1,6 @@
 using System;
 using MustyBlockBlast.Gameplay.Models;
-using MustyBlockBlast.Gameplay.Reactive;
+using Mtafasahin.Reactive;
 using UnityEngine;
 
 namespace MustyBlockBlast.Gameplay.Systems

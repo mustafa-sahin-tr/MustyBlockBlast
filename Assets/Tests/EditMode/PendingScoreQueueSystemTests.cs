@@ -9,6 +9,7 @@ using MustyBlockBlast.Gameplay.Systems;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
+using Mtafasahin.MobileServices;
 
 namespace MustyBlockBlast.Tests.EditMode
 {

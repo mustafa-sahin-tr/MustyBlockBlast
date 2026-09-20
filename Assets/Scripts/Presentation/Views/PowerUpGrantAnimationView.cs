@@ -6,7 +6,7 @@ using MessagePipe;
 using MustyBlockBlast.Core;
 using MustyBlockBlast.Gameplay;
 using MustyBlockBlast.Gameplay.Messages;
-using MustyBlockBlast.Gameplay.Reactive;
+using Mtafasahin.Reactive;
 using UnityEngine;
 using UnityEngine.UI;
 using VContainer;

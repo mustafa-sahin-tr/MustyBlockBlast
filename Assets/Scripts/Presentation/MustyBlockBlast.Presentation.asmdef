@@ -16,7 +16,9 @@
         "Unity.Purchasing",
         "Unity.ResourceManager",
         "UnityEngine.UI",
-        "AppleAuth"
+        "AppleAuth",
+        "Mtafasahin.Reactive",
+        "Mtafasahin.MobileServices"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

@@ -1,5 +1,5 @@
 using System.Collections.Generic;
-using MustyBlockBlast.Gameplay.Reactive;
+using Mtafasahin.Reactive;
 
 namespace MustyBlockBlast.Gameplay.Models
 {
