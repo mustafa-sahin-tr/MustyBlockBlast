@@ -671,6 +671,13 @@ namespace MustyBlockBlast.Gameplay.Systems
             // dock happens to empty.
             TrySpawnScoreGem(clearResult);
 
+            // Same section, last of five: the one reward that reads the piece's own shape and its own
+            // cells rather than only the lines that cleared (issue #352). Placed after every spawn
+            // above so it naturally lands on whichever occupied cell none of them already claimed —
+            // PerfectMatchSpawnSelector excludes any cell that already carries a kind, exactly as the
+            // other selectors' own "already special" checks do.
+            TrySpawnPerfectMatchBonus(piece, anchor, clearResult);
+
             // Armed in the same section and for the same reason as the spawns above: it is this
             // placement's reward, read off the placement's own (primary) clear rather than off the whole
             // cascade, because the reward is for the lines the player lined up. Unlike a core it is not
@@ -1152,6 +1159,40 @@ namespace MustyBlockBlast.Gameplay.Systems
 
             _boardModel.SetSpecialKind(spawn.Value, SpecialCellKind.ScoreGem);
             PublishSpecialCellSpawned(SpecialCellKind.ScoreGem, spawn.Value);
+        }
+
+        /// <summary>
+        /// Spawns this placement's "Perfect Match" reward — a <see cref="SpecialCellKind.ExplosiveCore"/>
+        /// at a uniformly random occupied cell — when it earned one (issue #352):
+        /// <see cref="PerfectMatchQualifier"/> says the piece just placed is neither a single cell nor a
+        /// straight line AND every cell it occupied was itself swept away by this placement's own
+        /// (primary) clear. Not an inventory <c>PowerUpKind.Bomb</c> grant — the same board mechanism the
+        /// other three spawns above use. A placement that did not qualify, or one with no eligible cell
+        /// left once the spawns above have claimed theirs, is silently skipped — not an error state.
+        /// <para>
+        /// Reads <paramref name="clearResult"/>, the placement's own (primary) clear, exactly as the
+        /// three spawns above do: the reward is for the piece the player placed and the lines it lined
+        /// up, never for something a cascade phase went on to clear.
+        /// </para>
+        /// </summary>
+        private void TrySpawnPerfectMatchBonus(Piece piece, GridPosition anchor, LineClearResult clearResult)
+        {
+            if (!PerfectMatchQualifier.Qualifies(piece, anchor, clearResult))
+            {
+                return;
+            }
+
+            GridPosition? spawn = PerfectMatchSpawnSelector.SelectSpawnPosition(_boardModel.Board, _random);
+            if (spawn == null)
+            {
+                return;
+            }
+
+            // Chosen only from cells that are already occupied (see PerfectMatchSpawnSelector), so the
+            // block to sit on already exists — unlike the core's own cross-clear reward, there is
+            // nothing here to occupy first.
+            _boardModel.SetSpecialKind(spawn.Value, SpecialCellKind.ExplosiveCore);
+            PublishSpecialCellSpawned(SpecialCellKind.ExplosiveCore, spawn.Value);
         }
 
         /// <summary>
