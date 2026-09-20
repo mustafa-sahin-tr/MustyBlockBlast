@@ -1971,17 +1971,17 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.PowerUpGrantSfxView
   _clips:
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
+  - {fileID: 8300000, guid: ea9bd102251534d9cb3bd26d4dad78c4, type: 3}
+  - {fileID: 8300000, guid: a11e3a039711d4d94b521f980c56f850, type: 3}
+  - {fileID: 8300000, guid: f28b98b388bf74bc3a8a59071b2a8a08, type: 3}
+  - {fileID: 8300000, guid: 511fa675333b7401ebf773db4b8f1e63, type: 3}
+  - {fileID: 8300000, guid: 1c8a888220c254ab494cbd56eb35d2d0, type: 3}
+  - {fileID: 8300000, guid: 6fc4ec1f93a0048359e4c8339f287ae8, type: 3}
+  - {fileID: 8300000, guid: 4416ea198ac8b45ebbd2dc6c238c86de, type: 3}
+  - {fileID: 8300000, guid: 111f45b221c824b108fc108846a6d7c0, type: 3}
+  - {fileID: 8300000, guid: f994ae8bc9dd84a7783b145633fefdcf, type: 3}
+  - {fileID: 8300000, guid: 122d9be7c9d6841b8b0f6f0771b2d02b, type: 3}
+  - {fileID: 8300000, guid: 3b0bb7dc84c2f441eb802d907b3acb5e, type: 3}
 --- !u!4 &1407474800
 Transform:
   m_ObjectHideFlags: 0
