@@ -46,6 +46,17 @@ namespace MustyBlockBlast.Gameplay.Systems
         private bool _isMenuPaused;
         private bool _isPowerUpArmedPaused;
 
+        /// <summary>
+        /// How many clear animations <see cref="BoardView"/> currently has in flight. A reference
+        /// count rather than a bool: a fast combo can start a second clear animation while the first
+        /// one is still fading (issue #350 AC4), and a naive bool would resume the clock the instant
+        /// either one finished instead of waiting for the union of both spans. Deliberately local to
+        /// this system rather than routed through <see cref="RunPauseModel"/> — that model also feeds
+        /// <c>ObjectiveSystem</c>'s rolling-window objectives in both Endless and Timed mode, which must
+        /// not be paused by a purely cosmetic Timed-mode concession.
+        /// </summary>
+        private int _clearAnimationPauseCount;
+
         public TimerRunSystem(
             TimerModel timerModel,
             RunPauseModel runPauseModel,
@@ -100,6 +111,39 @@ namespace MustyBlockBlast.Gameplay.Systems
         }
 
         /// <summary>
+        /// Holds the countdown for the wall-clock duration of a row/column clear animation, so a player
+        /// never loses Timed-mode seconds watching a clear resolve visually (issue #350). Called once
+        /// per animating cell from the single <c>BoardView</c> code path that plays the fade/stagger/
+        /// flash visuals — covering ordinary placements, power-up-forced clears and cross-clear combo
+        /// flashes uniformly, since they all funnel through that one path.
+        /// <para>
+        /// A reference count, not a bool: pass <c>true</c> when a clear animation starts and
+        /// <c>true</c>/<c>false</c> must be paired per call — every <c>true</c> from a caller must be
+        /// matched by exactly one later <c>false</c> once that specific animation finishes. Overlapping
+        /// animations (a fast combo) each hold their own slot in the count, so the countdown stays
+        /// paused for the union of every span currently open and resumes only once the last one closes.
+        /// </para>
+        /// <para>
+        /// Deliberately not routed through <see cref="RunPauseModel"/>: that model also feeds
+        /// <c>ObjectiveSystem</c>'s rolling-window objectives, which must keep ticking through a clear
+        /// animation in both Endless and Timed mode.
+        /// </para>
+        /// </summary>
+        public void SetClearAnimationPlaying(bool playing)
+        {
+            if (playing)
+            {
+                _clearAnimationPauseCount++;
+                return;
+            }
+
+            if (_clearAnimationPauseCount > 0)
+            {
+                _clearAnimationPauseCount--;
+            }
+        }
+
+        /// <summary>
         /// Publishes the combined pause state to <see cref="RunPauseModel"/> so other wall-clock-driven
         /// systems — currently <c>ObjectiveSystem</c>'s rolling-window objectives — hold the same three
         /// reasons this countdown already does, without each caller needing to know about both.
@@ -111,7 +155,8 @@ namespace MustyBlockBlast.Gameplay.Systems
 
         void ITickable.Tick()
         {
-            if (!_timerModel.IsRunning.Value || _isAppPaused || _isMenuPaused || _isPowerUpArmedPaused)
+            if (!_timerModel.IsRunning.Value || _isAppPaused || _isMenuPaused || _isPowerUpArmedPaused
+                || _clearAnimationPauseCount > 0)
             {
                 return;
             }
@@ -150,6 +195,11 @@ namespace MustyBlockBlast.Gameplay.Systems
             _isAppPaused = false;
             _isMenuPaused = false;
             _isPowerUpArmedPaused = false;
+            // Defensive reset: a fresh run means no clear animation from a previous run can still be
+            // in flight holding this. Any BoardView fade objects from before were destroyed with the
+            // old board, so their eventual SetClearAnimationPlaying(false) — if it still fires — will
+            // never fire for a generation this run recognises.
+            _clearAnimationPauseCount = 0;
             _timerModel.RemainingSeconds.Value = _timedModeSystem.SelectedDuration.Value;
             _timerModel.IsRunning.Value = true;
             _timerModel.IsLowTime.Value = false;
