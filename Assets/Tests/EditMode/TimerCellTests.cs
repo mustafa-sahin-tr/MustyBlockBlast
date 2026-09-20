@@ -238,21 +238,41 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.IsFalse(board.IsOccupied(timer));
         }
 
-        /// <summary>The exact shape of the gap AC11 requires NOT to repeat: a timer cell destroyed by
-        /// another special cell's own blast, mid-cascade rather than through a clear phase.</summary>
+        /// <summary>
+        /// The core's new behaviour never destroys a cell directly — it only fills the one missing cell
+        /// of a near-complete line and leaves clearing it to <see cref="CascadeClearResolver"/>'s next
+        /// iteration, which is where a timer cell's "cleared in time" credit is actually earned (via
+        /// <see cref="TimerCellClearEffect"/>, applied to every phase's own triggers exactly as any other
+        /// clear's are). What is worth pinning here is the boundary: the fill completes the line but does
+        /// not clear it, so a timer cell sitting in it is still standing, still counting, the instant the
+        /// fill lands.
+        /// </summary>
         [Test]
-        public void ExplosiveCoreEffect_BlastingATimerCellStillCounting_ReportsItAsDestroyed()
+        public void ExplosiveCoreEffect_FillingALineWithATimerCellInIt_LeavesItUntouchedUntilTheResolverClears()
         {
             var board = new Board();
-            var timer = new GridPosition(3, 4);
+            var timer = new GridPosition(3, 0);
             board.OccupyTimer(timer, COLOUR, 3);
 
-            var core = new ExplosiveCoreEffect();
+            // Row 0 is one cell short of full; its one gap is not the timer cell.
+            for (int x = 0; x < Board.SIZE; x++)
+            {
+                var position = new GridPosition(x, 0);
+                if (position.Equals(timer) || x == 7)
+                {
+                    continue;
+                }
+
+                board.Occupy(position, OTHER_COLOUR);
+            }
+
+            var core = new ExplosiveCoreEffect(new System.Random(1));
             core.BeginResolution();
             core.Apply(board, new SpecialCellTrigger(new GridPosition(4, 4), SpecialCellKind.ExplosiveCore));
 
-            Assert.IsFalse(board.IsOccupied(timer));
-            Assert.AreEqual(1, core.TimerCellsDestroyedCount);
+            Assert.IsTrue(board.IsRowFull(0), "The fill completed the row.");
+            Assert.IsTrue(board.IsOccupied(timer));
+            Assert.AreEqual(SpecialCellKind.Timer, board.GetSpecialKind(timer));
         }
 
         [Test]

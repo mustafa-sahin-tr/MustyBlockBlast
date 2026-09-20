@@ -22,11 +22,14 @@ namespace MustyBlockBlast.Core
         None = 0,
 
         /// <summary>
-        /// An "explosive core": destroying it also destroys the 3x3 area around it, clamped to the
-        /// board exactly as the Bomb power-up's footprint is (<see cref="PowerUpTargetCells.ForBomb"/>)
-        /// — the two are deliberately the same geometry, so a blast is a blast whatever set it off.
-        /// A second explosive core caught in the blast detonates in turn; see
-        /// <see cref="ExplosiveCoreEffect"/>, which owns that chain.
+        /// An "explosive core": destroying it finishes off every row and column on the board that is
+        /// missing exactly one occupied playable cell, mirroring how <see cref="Board.IsRowFull"/> and
+        /// <see cref="Board.IsColumnFull"/> already treat holes. When nothing qualifies, the kind is
+        /// handed off instead of wasted — transferred to a uniformly random occupied cell carrying no
+        /// special kind of its own, or lost outright when no such cell exists. A second explosive core
+        /// caught in a line this one finishes detonates in turn, through
+        /// <see cref="CascadeClearResolver"/>'s ordinary "every special cell a phase destroys fires its
+        /// effect" mechanism; see <see cref="ExplosiveCoreEffect"/>, which owns the scan and the hand-off.
         /// </summary>
         ExplosiveCore = 1,
 

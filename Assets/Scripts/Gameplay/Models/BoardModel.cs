@@ -300,6 +300,27 @@ namespace MustyBlockBlast.Gameplay.Models
             CellChanged?.Invoke(position, colourId);
         }
 
+        /// <summary>
+        /// Re-announces whatever <see cref="SpecialCellKind"/> <paramref name="position"/> carries right
+        /// now. For a Core effect that tags a cell directly on <see cref="Core.Board"/> — an explosive
+        /// core's hand-off, exactly as a vortex's pull re-announces the kind it carried across at the
+        /// destination — rather than through <see cref="SetSpecialKind"/>, which would tag it a second
+        /// time.
+        /// <para>
+        /// A no-op when the cell reads back <see cref="SpecialCellKind.None"/>: <see cref="SpecialKindChanged"/>
+        /// is an "added" signal only, so there is nothing to announce for a kind that was never actually
+        /// applied.
+        /// </para>
+        /// </summary>
+        internal void NotifySpecialKindChanged(GridPosition position)
+        {
+            SpecialCellKind kind = _board.GetSpecialKind(position);
+            if (kind != SpecialCellKind.None)
+            {
+                SpecialKindChanged?.Invoke(position, kind);
+            }
+        }
+
         /// <summary>Raises change notifications for an arbitrary set of cells a power-up emptied. The
         /// Core resolver has already mutated the board when this is called. Separate from
         /// <see cref="NotifyCleared"/> because a power-up clears a region, not whole lines.</summary>

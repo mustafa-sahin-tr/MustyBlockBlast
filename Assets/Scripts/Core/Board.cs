@@ -375,6 +375,77 @@ namespace MustyBlockBlast.Core
             return true;
         }
 
+        /// <summary>
+        /// True when row <paramref name="y"/> is missing exactly one occupied playable cell — one
+        /// placement short of <see cref="IsRowFull"/>.
+        /// <para>
+        /// Holes are skipped exactly as <see cref="IsRowFull"/> skips them, so a row shortened by holes
+        /// is judged against its own playable count, not the board's width. A row with no playable
+        /// cells at all is never reported, for the same reason <see cref="IsRowFull"/> never reports
+        /// one: nothing could ever complete it.
+        /// </para>
+        /// </summary>
+        public bool IsRowOneCellFromFull(int y)
+        {
+            if (_shape.PlayableCountInRow(y) == 0)
+            {
+                return false;
+            }
+
+            int missingCount = 0;
+            for (int x = 0; x < Width; x++)
+            {
+                var position = new GridPosition(x, y);
+                if (_shape.IsHole(position))
+                {
+                    continue;
+                }
+
+                if (_cells[Index(position)] == EMPTY)
+                {
+                    missingCount++;
+                    if (missingCount > 1)
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            return missingCount == 1;
+        }
+
+        /// <summary>True when column <paramref name="x"/> is missing exactly one occupied playable
+        /// cell. Same rule as <see cref="IsRowOneCellFromFull"/>, including the all-holes and
+        /// no-playable-cells cases.</summary>
+        public bool IsColumnOneCellFromFull(int x)
+        {
+            if (_shape.PlayableCountInColumn(x) == 0)
+            {
+                return false;
+            }
+
+            int missingCount = 0;
+            for (int y = 0; y < Height; y++)
+            {
+                var position = new GridPosition(x, y);
+                if (_shape.IsHole(position))
+                {
+                    continue;
+                }
+
+                if (_cells[Index(position)] == EMPTY)
+                {
+                    missingCount++;
+                    if (missingCount > 1)
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            return missingCount == 1;
+        }
+
         /// <summary>True when every playable cell of column <paramref name="x"/> is filled. Same rule
         /// as <see cref="IsRowFull"/>, including the all-holes case.</summary>
         public bool IsColumnFull(int x)

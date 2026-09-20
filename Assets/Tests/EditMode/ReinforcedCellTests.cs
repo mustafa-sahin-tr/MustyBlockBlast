@@ -460,24 +460,41 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.IsTrue(Contains(laser.WipedCells, new GridPosition(5, 6)));
         }
 
-        /// <summary>And so does a blast, which is the other shape of cascade destruction.</summary>
+        /// <summary>
+        /// The core's new behaviour never damages a cell directly — it only fills the one missing cell
+        /// of a near-complete line and leaves clearing it to <see cref="CascadeClearResolver"/>'s next
+        /// iteration, which is where the reinforced-cell damage gate actually lives (and is already
+        /// covered generally by the placement-level reinforced-cell tests). What is worth pinning here
+        /// is the boundary: the effect completes the line but does not clear it, so a reinforced cell
+        /// sitting in it is untouched — still standing, hit count unspent — the instant the fill lands.
+        /// </summary>
         [Test]
-        public void ExplosiveCoreEffect_BlastingAReinforcedCell_SpendsOneHitAndDoesNotReportIt()
+        public void ExplosiveCoreEffect_FillingALineWithAReinforcedCellInIt_LeavesItUntouchedUntilTheResolverClears()
         {
             var board = new Board();
-            var reinforced = new GridPosition(3, 3);
+            var reinforced = new GridPosition(3, 0);
             board.OccupyReinforced(reinforced, COLOUR, 2);
-            board.Occupy(new GridPosition(3, 4), OTHER_COLOUR);
 
-            var core = new ExplosiveCoreEffect();
+            // Row 0 is one cell short of full; its one gap is not the reinforced cell.
+            for (int x = 0; x < Board.SIZE; x++)
+            {
+                var position = new GridPosition(x, 0);
+                if (position.Equals(reinforced) || x == 7)
+                {
+                    continue;
+                }
+
+                board.Occupy(position, OTHER_COLOUR);
+            }
+
+            var core = new ExplosiveCoreEffect(new System.Random(1));
             core.BeginResolution();
             core.Apply(
                 board, new SpecialCellTrigger(new GridPosition(4, 4), SpecialCellKind.ExplosiveCore));
 
+            Assert.IsTrue(board.IsRowFull(0), "The fill completed the row.");
             Assert.IsTrue(board.IsOccupied(reinforced));
-            Assert.AreEqual(1, board.GetHitCount(reinforced));
-            Assert.IsFalse(Contains(core.BlastedCells, reinforced));
-            Assert.IsTrue(Contains(core.BlastedCells, new GridPosition(3, 4)));
+            Assert.AreEqual(2, board.GetHitCount(reinforced), "Untouched until the resolver actually clears it.");
         }
 
         /// <summary>
