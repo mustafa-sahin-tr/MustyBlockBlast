@@ -34,11 +34,21 @@ Argument: **$ARGUMENTS** — a GitHub issue number (optionally followed by `--qu
 
 3. **Identify scene changes** — what GameObjects, components, or scene setup is needed.
 
+3a. **Check for shared-package involvement.** If any script to create/modify
+   in step 2 lives under (or logically belongs in) `Packages/com.mtafasahin.*`
+   — the shared packages from `github.com/mustafa-sahin-tr/mtafasahin-unity-packages`,
+   referenced as git dependencies in `Packages/manifest.json` — note this in
+   the plan. It'll need `/unity-lib-dev <package>` run first (Phase 2, before
+   editing) to make that package locally editable, and `/unity-publish` run
+   at the end (see Phase 3) to ship the change back to the shared repo.
+
 4. **Present the plan** to the user before implementing. Include:
    - Scripts to create/modify
    - Scene changes via MCP
    - Dependencies on existing systems
    - Estimated complexity (simple / moderate / complex)
+   - Whether this touches a shared package (from step 3a), and that it'll
+     need `/unity-publish` afterward
 
 ## Phase 2: Implement
 
@@ -47,6 +57,10 @@ Argument: **$ARGUMENTS** — a GitHub issue number (optionally followed by `--qu
    - Branch name: `issue-<issue_number>-<kebab-case-slug-of-the-title>` (short, meaningful — the gist of the title, not a literal transliteration).
    - `git checkout -b issue-<issue_number>-<slug>` off the current `main` (pull first if `main` is behind `origin/main`). If that branch already exists (a resumed run), check it out instead of erroring.
    - Do not push the branch or open a PR automatically — that's a separate, explicitly-requested step.
+
+0a. **If step 3a flagged a shared package**, run `/unity-lib-dev <package>`
+   now, before any edits inside it — this embeds it so it's a normal,
+   directly-editable project file for the rest of this phase.
 
 1. **Write C# code** using the `unity-coder` agent:
    - Follow all rules in `.claude/rules/`
@@ -68,6 +82,10 @@ Argument: **$ARGUMENTS** — a GitHub issue number (optionally followed by `--qu
 3. Explain how to test the feature
 4. Note any manual steps needed (e.g., assigning references in Inspector)
 5. Reference the source issue (`#<issue_number>`, its URL) and the branch created in Phase 2 in the summary
+6. **If a shared package was embedded in Phase 2 (step 0a)**, remind the user
+   to run `/unity-publish <package>` before merging this branch — the
+   embedded edit only exists in this project until that's done; it hasn't
+   reached the shared repo or any other consumer yet.
 
 ## Phase 4: Auto-Verify (Optional)
 

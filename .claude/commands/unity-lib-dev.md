@@ -15,7 +15,7 @@ default state (one source of truth, versioned), but it's inconvenient to
 edit directly — changes have to go through a separate clone. This command
 flips a package into "embedded" mode: a real local copy under this
 project's `Packages/`, editable and hot-reloaded exactly like any other
-script in the project. Pair with `/unity-lib-publish` to push local edits
+script in the project. Pair with `/unity-publish` to push local edits
 back out and return to the pinned git dependency when done.
 
 ## Steps
@@ -53,6 +53,6 @@ back out and return to the pinned git dependency when done.
 5. Report which package(s) are now embedded at `Packages/<name>/`, that they
    are plain project files now (git status in this project's repo will show
    them as untracked/new — that's expected, they aren't committed here since
-   this is a temporary working state), and that `/unity-lib-publish` is the
+   this is a temporary working state), and that `/unity-publish` is the
    way back: it tests, publishes the edits to the shared repo, and restores
    the pinned git dependency.

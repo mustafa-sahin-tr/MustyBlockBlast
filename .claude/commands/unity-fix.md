@@ -47,6 +47,12 @@ Use the selected fixer agent to:
    - Physics not working → wrong layers, missing collider/rigidbody
    - Build failure → UnityEditor in runtime, platform defines
 
+2a. **If the bug lives in a shared package** (`Packages/com.mtafasahin.*`,
+   the git-dependency packages from
+   `github.com/mustafa-sahin-tr/mtafasahin-unity-packages`), run
+   `/unity-lib-dev <package>` before touching any of its files — this embeds
+   it so it's directly editable, and marks it for `/unity-publish` later.
+
 3. **Fix** — apply the minimal targeted fix. Don't refactor surrounding code.
 
 4. **Verify:**
@@ -55,3 +61,6 @@ Use the selected fixer agent to:
    - If it was a build issue, suggest running `/unity-build` to verify
 
 5. **Explain** what caused the bug and how the fix prevents recurrence. Reference the source issue (`#<issue_number>`, its URL) and the branch created in step 0.
+6. **If a shared package was embedded in step 2a**, remind the user to run
+   `/unity-publish <package>` before merging this branch — the fix only
+   exists in this project's embedded copy until that's done.
