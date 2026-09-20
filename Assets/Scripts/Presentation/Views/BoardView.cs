@@ -9,6 +9,7 @@ using MustyBlockBlast.Gameplay.Messages;
 using MustyBlockBlast.Gameplay.Models;
 using MustyBlockBlast.Gameplay.Reactive;
 using MustyBlockBlast.Gameplay.Settings;
+using MustyBlockBlast.Gameplay.Systems;
 using UnityEngine;
 using UnityEngine.UI;
 using VContainer;
@@ -63,13 +64,13 @@ namespace MustyBlockBlast.Presentation.Views
 
         [Header("Line Clear Fade")]
         [Tooltip("Seconds a cleared cell takes to fade from its colour to fully transparent.")]
-        [SerializeField] private float _fadeDuration = 0.2f;
+        [SerializeField] private float _fadeDuration = 0.4f;
 
         [Tooltip("Seconds of white flash on a cell that sits on both a cleared row and a cleared column.")]
-        [SerializeField] private float _intersectionFlashDuration = 0.08f;
+        [SerializeField] private float _intersectionFlashDuration = 0.12f;
 
-        [Tooltip("Total seconds spread across a single cleared line's cells when it is the only line cleared (issue #328) — cell 0 starts immediately, the line's last cell starts this many seconds later. Two or more simultaneous line clears never stagger.")]
-        [SerializeField] private float _singleLineStaggerDuration = 0.15f;
+        [Tooltip("Total seconds spread across a single cleared line's cells when it is the only line cleared (issue #328) — cell 0 starts immediately, the line's last cell starts this many seconds later. Two or more simultaneous line clears never stagger, but are floored to last at least as long overall (issue #350).")]
+        [SerializeField] private float _singleLineStaggerDuration = 0.25f;
 
         [Header("Single Line Clear Effect Variety")]
         [Tooltip("Side of one shatter shard / ember particle, as a fraction of the cell size (issue #331).")]
@@ -344,6 +345,7 @@ namespace MustyBlockBlast.Presentation.Views
 
         private BoardModel _boardModel;
         private SettingsModel _settingsModel;
+        private TimerRunSystem _timerRunSystem;
         private ThemeDefinition _currentTheme;
         private ISubscriber<LinesClearedMessage> _linesClearedSubscriber;
         private ISubscriber<RunStartedMessage> _runStartedSubscriber;
@@ -372,6 +374,7 @@ namespace MustyBlockBlast.Presentation.Views
         public void Construct(
             BoardModel boardModel,
             SettingsModel settingsModel,
+            TimerRunSystem timerRunSystem,
             ISubscriber<LinesClearedMessage> linesClearedSubscriber,
             ISubscriber<RunStartedMessage> runStartedSubscriber,
             ISubscriber<PowerUpAppliedMessage> powerUpAppliedSubscriber,
@@ -388,6 +391,7 @@ namespace MustyBlockBlast.Presentation.Views
             _specialCellSpawnedSubscriber = specialCellSpawnedSubscriber;
             _boardModel = boardModel;
             _settingsModel = settingsModel;
+            _timerRunSystem = timerRunSystem;
             _linesClearedSubscriber = linesClearedSubscriber;
             _runStartedSubscriber = runStartedSubscriber;
             _powerUpAppliedSubscriber = powerUpAppliedSubscriber;
@@ -1171,6 +1175,15 @@ namespace MustyBlockBlast.Presentation.Views
             // one per cell.
             SingleLineClearEffect? lineClearEffect = staggerSingleLine ? PickRandomSingleLineClearEffect() : null;
 
+            // Issue #350 AC2: a simultaneous multi-line clear has no stagger, so left alone its total
+            // on-screen time is just _fadeDuration — the single fastest case of all, even though it
+            // clears more of the board than a single line does. Floor its fade to a single-line clear's
+            // own worst case (last staggered cell's start delay plus its own fade) so a multi-line
+            // clear is never the least-visible one.
+            float multiLineFadeDurationOverride = staggerSingleLine
+                ? 0f
+                : Mathf.Max(0f, _singleLineStaggerDuration) + Mathf.Max(0.01f, _fadeDuration);
+
             // Issue #330 AC1: exactly one row and one column clearing together is a "cross-clear" — an
             // additional combo flash plays at their intersection, ON TOP OF (never instead of) whatever
             // LineClearBurstView's own tier already plays for this same message: that view is its own
@@ -1211,7 +1224,7 @@ namespace MustyBlockBlast.Presentation.Views
 
                     PlayClearAsync(
                             new GridPosition(x, y), index, _cellGenerations[index], inRow && inColumn, startDelay,
-                            lineClearEffect)
+                            lineClearEffect, multiLineFadeDurationOverride)
                         .Forget();
                 }
             }
@@ -1717,107 +1730,134 @@ namespace MustyBlockBlast.Presentation.Views
         private static SingleLineClearEffect PickRandomSingleLineClearEffect()
             => (SingleLineClearEffect)UnityEngine.Random.Range(0, 3);
 
+        /// <summary>
+        /// Plays one cell's stagger delay, optional intersection flash, and fade — the single code path
+        /// every row/column clear animation runs through, whatever triggered it (an ordinary placement,
+        /// a power-up-forced clear via <see cref="SweepPendingCells"/>, or a cross-clear combo's
+        /// intersection cell). Issue #350: for exactly that reason, this is also the single place that
+        /// holds <see cref="TimerRunSystem"/>'s clear-animation pause for the Timed-mode countdown — one
+        /// reference-counted <c>true</c>/<c>false</c> pair per cell, so overlapping clears each hold
+        /// their own slot and the clock resumes only once every animating cell has finished.
+        /// </summary>
         private async UniTaskVoid PlayClearAsync(
             GridPosition cell, int index, int generation, bool isIntersection, float startDelay = 0f,
-            SingleLineClearEffect? effect = null)
+            SingleLineClearEffect? effect = null, float fadeDurationOverride = 0f)
         {
             CellView view = _cells[index];
             int colourId = _pendingColourIds[index];
             bool completed;
 
+            _timerRunSystem.SetClearAnimationPlaying(true);
             try
             {
-                float delayElapsed = 0f;
-                while (delayElapsed < startDelay)
+                try
                 {
-                    if (_cellGenerations[index] != generation)
-                    {
-                        return;
-                    }
-
-                    await UniTask.Yield(PlayerLoopTiming.Update, _destroyToken);
-                    delayElapsed += Time.unscaledDeltaTime;
-                }
-
-                if (isIntersection)
-                {
-                    float flashDuration = Mathf.Max(0.01f, _intersectionFlashDuration);
-                    float flashElapsed = 0f;
-
-                    while (flashElapsed < flashDuration)
+                    float delayElapsed = 0f;
+                    while (delayElapsed < startDelay)
                     {
                         if (_cellGenerations[index] != generation)
                         {
                             return;
                         }
 
-                        // Triangle ramp: colour goes to white and back over the flash window.
-                        float blend = 1f - Mathf.Abs(((flashElapsed / flashDuration) * 2f) - 1f);
-                        ApplyClearTint(view, colourId, blend);
-
                         await UniTask.Yield(PlayerLoopTiming.Update, _destroyToken);
-                        flashElapsed += Time.unscaledDeltaTime;
+                        delayElapsed += Time.unscaledDeltaTime;
                     }
 
-                    if (_cellGenerations[index] != generation)
+                    if (isIntersection)
                     {
-                        return;
+                        float flashDuration = Mathf.Max(0.01f, _intersectionFlashDuration);
+                        float flashElapsed = 0f;
+
+                        while (flashElapsed < flashDuration)
+                        {
+                            if (_cellGenerations[index] != generation)
+                            {
+                                return;
+                            }
+
+                            // Triangle ramp: colour goes to white and back over the flash window.
+                            float blend = 1f - Mathf.Abs(((flashElapsed / flashDuration) * 2f) - 1f);
+                            ApplyClearTint(view, colourId, blend);
+
+                            await UniTask.Yield(PlayerLoopTiming.Update, _destroyToken);
+                            flashElapsed += Time.unscaledDeltaTime;
+                        }
+
+                        if (_cellGenerations[index] != generation)
+                        {
+                            return;
+                        }
+
+                        ApplyClearTint(view, colourId, 0f);
                     }
 
-                    ApplyClearTint(view, colourId, 0f);
+                    // Issue #331: WHAT a cell does once its stagger delay (and, on the rare intersection
+                    // cell, its flash) is done varies by the effect chosen once for this whole clear event.
+                    // No effect (multi-line clears, and every power-up kind that is not a single line) keeps
+                    // exactly the plain fade this method always played.
+                    switch (effect)
+                    {
+                        case SingleLineClearEffect.Shatter:
+                            completed = await PlayShatterFadeAsync(view, cell, index, generation, colourId);
+                            break;
+                        case SingleLineClearEffect.Burn:
+                            completed = await PlayBurnFadeAsync(view, cell, index, generation, colourId);
+                            break;
+                        case SingleLineClearEffect.FlyToCorner:
+                            completed = await PlayFlyToCornerFadeAsync(view, cell, index, generation);
+                            break;
+                        default:
+                            completed = await PlayPlainFadeAsync(view, index, generation, fadeDurationOverride);
+                            break;
+                    }
                 }
-
-                // Issue #331: WHAT a cell does once its stagger delay (and, on the rare intersection
-                // cell, its flash) is done varies by the effect chosen once for this whole clear event.
-                // No effect (multi-line clears, and every power-up kind that is not a single line) keeps
-                // exactly the plain fade this method always played.
-                switch (effect)
+                catch (OperationCanceledException)
                 {
-                    case SingleLineClearEffect.Shatter:
-                        completed = await PlayShatterFadeAsync(view, cell, index, generation, colourId);
-                        break;
-                    case SingleLineClearEffect.Burn:
-                        completed = await PlayBurnFadeAsync(view, cell, index, generation, colourId);
-                        break;
-                    case SingleLineClearEffect.FlyToCorner:
-                        completed = await PlayFlyToCornerFadeAsync(view, cell, index, generation);
-                        break;
-                    default:
-                        completed = await PlayPlainFadeAsync(view, index, generation);
-                        break;
+                    // The board view was destroyed mid-fade — nothing left to restore.
+                    return;
                 }
-            }
-            catch (OperationCanceledException)
-            {
-                // The board view was destroyed mid-fade — nothing left to restore.
-                return;
-            }
 
-            if (!completed)
-            {
-                return;
-            }
+                if (!completed)
+                {
+                    return;
+                }
 
-            // Only settle the cell when nothing newer claimed it, otherwise this would stomp the
-            // colour of a piece that was placed here while the fade was running.
-            if (_isDestroyed || _cellGenerations[index] != generation)
-            {
-                return;
-            }
+                // Only settle the cell when nothing newer claimed it, otherwise this would stomp the
+                // colour of a piece that was placed here while the fade was running.
+                if (_isDestroyed || _cellGenerations[index] != generation)
+                {
+                    return;
+                }
 
-            _cellPending[index] = false;
-            ApplyCellColour(cell, Board.EMPTY);
-            ApplyCellIcon(index, _cellSpecialKinds[index]);
-            view.SetAlpha(1f);
+                _cellPending[index] = false;
+                ApplyCellColour(cell, Board.EMPTY);
+                ApplyCellIcon(index, _cellSpecialKinds[index]);
+                view.SetAlpha(1f);
+            }
+            finally
+            {
+                _timerRunSystem.SetClearAnimationPlaying(false);
+            }
         }
 
         /// <summary>The plain opacity fade every clear played before issue #331, and what every clear
         /// with no chosen effect (multi-line clears, region-clearing power-ups) still plays. Returns
         /// false the instant a newer write claims the cell mid-fade, so the caller knows not to settle
-        /// it.</summary>
-        private async UniTask<bool> PlayPlainFadeAsync(CellView view, int index, int generation)
+        /// it.
+        /// <para>
+        /// <paramref name="fadeDurationOverride"/> is issue #350 AC2's multi-line clear floor: a value
+        /// greater than zero replaces <see cref="_fadeDuration"/> for this one call so a multi-line
+        /// clear — which never staggers — lasts at least as long on screen as a single-line clear's own
+        /// worst case. Every other caller passes the default 0, which keeps <see cref="_fadeDuration"/>.
+        /// </para>
+        /// </summary>
+        private async UniTask<bool> PlayPlainFadeAsync(
+            CellView view, int index, int generation, float fadeDurationOverride = 0f)
         {
-            float fadeDuration = Mathf.Max(0.01f, _fadeDuration);
+            float fadeDuration = fadeDurationOverride > 0f
+                ? fadeDurationOverride
+                : Mathf.Max(0.01f, _fadeDuration);
             float fadeElapsed = 0f;
 
             while (fadeElapsed < fadeDuration)
