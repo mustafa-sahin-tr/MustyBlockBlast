@@ -38,7 +38,8 @@ Follow all rules in `.claude/rules/`:
 ## After Writing Code
 
 1. Check console via `read_console` MCP for compilation errors
-2. Summarize changes made
+2. If the change adds/removes/changes a special cell, power-up, piece kind, or other player-facing content, update the matching section in `docs/dev-and-content-guide.html`. Skip this for pure code/bug fixes with no content change.
+3. Summarize changes made
 
 ## What NOT To Do
 

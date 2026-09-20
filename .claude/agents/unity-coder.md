@@ -36,6 +36,7 @@ Follow all rules in `.claude/rules/`:
    - Use `manage_physics` to set up collision layers if needed
 2. **Check console** via `read_console` MCP for compilation errors
 3. **Verify** the feature compiles and components are properly configured
+4. **Update `docs/dev-and-content-guide.html` if relevant** — this is the player-facing content reference (special cells, power-ups, pieces, levels, settings, shop). If the feature adds, removes, or changes any special cell, power-up, piece kind, or other content documented there, update the matching section's data in the same change. If nothing content-facing changed (pure refactor, internal system, bug fix with no new/changed content), skip this — don't touch the file speculatively.
 
 ## MCP Usage Pattern
 

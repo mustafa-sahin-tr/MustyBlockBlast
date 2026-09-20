@@ -64,6 +64,7 @@ In order of likelihood:
 2. Apply minimal fix — don't refactor unrelated code
 3. Check console via MCP — verify error is gone
 4. If the fix involves serialization changes, always add `[FormerlySerializedAs]`
+5. If the bug (or its fix) changes how a special cell, power-up, piece kind, or other player-facing content behaves, update the matching section in `docs/dev-and-content-guide.html`. Most fixes won't touch content — skip this otherwise.
 
 ## What NOT To Do
 

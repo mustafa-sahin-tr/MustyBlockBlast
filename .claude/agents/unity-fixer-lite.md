@@ -33,6 +33,7 @@ You are a Unity debugger handling simple, obvious bug fixes. This is the lightwe
 2. Locate the issue in code
 3. Apply the minimal fix
 4. Check console via `read_console` MCP — verify error is gone
+5. If the fix changes how a special cell, power-up, piece kind, or other player-facing content behaves, update the matching section in `docs/dev-and-content-guide.html`. Skip this for fixes with no content-visible change.
 
 ## What NOT To Do
 
