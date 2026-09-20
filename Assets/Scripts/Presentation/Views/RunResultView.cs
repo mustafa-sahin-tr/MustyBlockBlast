@@ -705,7 +705,13 @@ namespace MustyBlockBlast.Presentation.Views
                     SetFigure(_totalPlate, _pathRunModel.PathTotalScore.Value);
                     break;
                 case GameMode.Timed:
-                    _recordPlate.CaptionText.text = _localizationSystem.Format(LocalizationKeys.SCORE_BEST_TIMED, FormatDuration());
+                    // Classic mode's "Sınırsız" duration (issue #355) never ends by time, so its record
+                    // caption reads like Endless's plain one rather than naming a length that would not
+                    // have applied. The figure itself still comes from _timedHighScoreModel, which
+                    // already keeps this duration's own bucket separate from every other one.
+                    _recordPlate.CaptionText.text = TimedModeConfig.IsEndlessDuration(_lastDurationSeconds)
+                        ? _localizationSystem.Translate(LocalizationKeys.SCORE_BEST)
+                        : _localizationSystem.Format(LocalizationKeys.SCORE_BEST_TIMED, FormatDuration());
                     SetFigure(_recordPlate, _timedHighScoreModel.Best.Value);
                     _totalPlate.CaptionText.text = _localizationSystem.Translate(LocalizationKeys.RUN_RESULT_TOTAL_LABEL);
                     SetFigure(_totalPlate, _profileModel.TotalScoreEarned.Value);

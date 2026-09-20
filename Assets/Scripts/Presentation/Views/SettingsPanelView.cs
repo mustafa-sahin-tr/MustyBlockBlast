@@ -182,6 +182,11 @@ namespace MustyBlockBlast.Presentation.Views
         private const float MODE_NAME_RISE = 26f;
         private const float MODE_DESCRIPTION_DROP = 24f;
 
+        /// <summary>Horizontal room reserved at a mode plate's right edge for the PLAYING tag, so a
+        /// description that wraps to a second line (issue #355 follow-up — some locales' copy, e.g.
+        /// Spanish's "Infinito" description, does not fit one line) never runs under it.</summary>
+        private const float MODE_DESCRIPTION_PLAYING_RESERVE = 150f;
+
         /// <summary>The restart confirmation: a plate at the foot of the mode screen with a title, a
         /// line of body and the two buttons.</summary>
         private const float CONFIRM_CARD_HEIGHT = 250f;
@@ -191,18 +196,24 @@ namespace MustyBlockBlast.Presentation.Views
         private const float CONFIRM_BUTTON_HEIGHT = 84f;
         private const float CONFIRM_BUTTON_GAP = 24f;
 
+        /// <summary>How many timed (non-"Sınırsız") lengths share the bottom chip row — 5/10/15 dk
+        /// today. The endless entry gets its own full-width row above this one instead of a fourth
+        /// column, so "5 dk"/"10 dk"/"15 dk" can stay one line each in every locale (issue #355
+        /// follow-up) rather than needing the number and unit split onto separate lines.</summary>
         private const int DURATION_COLUMN_COUNT = 3;
         private const float OPTION_GAP = 24f;
 
         /// <summary>
-        /// The Timed plate on the mode screen carries a row of duration chips under its header, so it
-        /// is taller than the other two mode plates (issue #270). The header fills the top
-        /// <see cref="ROW_HEIGHT"/> of the plate exactly as every other mode plate does, and the chip
-        /// row fills the rest, with one <see cref="ROW_GAP"/> between them — the same "no extra
-        /// padding, the row height IS the content" language every other row already uses.
+        /// The Timed plate on the mode screen carries two duration chip rows under its header — the
+        /// "Sınırsız" entry full-width on top, the timed lengths in a grid below it (issue #355
+        /// follow-up) — so it is taller than the other two mode plates (issue #270). The header fills
+        /// the top <see cref="ROW_HEIGHT"/> of the plate exactly as every other mode plate does, and the
+        /// two chip rows fill the rest, with one <see cref="ROW_GAP"/> between each pair — the same "no
+        /// extra padding, the row height IS the content" language every other row already uses.
         /// </summary>
         private const float TIMED_CHIP_ROW_HEIGHT = 110f;
-        private const float TIMED_PLATE_HEIGHT = ROW_HEIGHT + ROW_GAP + TIMED_CHIP_ROW_HEIGHT;
+        private const float TIMED_PLATE_HEIGHT =
+            ROW_HEIGHT + (ROW_GAP * 2f) + (TIMED_CHIP_ROW_HEIGHT * 2f);
 
         // Type sizes. The display face is Bowlby One SC where the mock-up uses it (values, names,
         // buttons); everything else is the built-in face in bold, as on the profile card.
@@ -251,9 +262,9 @@ namespace MustyBlockBlast.Presentation.Views
         /// </summary>
         private static readonly GameMode[] SelectableModes =
         {
+            GameMode.Timed,
             GameMode.Endless,
             GameMode.Path,
-            GameMode.Timed,
         };
 
         private readonly CompositeDisposable _disposables = new CompositeDisposable();
@@ -288,7 +299,7 @@ namespace MustyBlockBlast.Presentation.Views
 
         [Header("Layout")]
         [Tooltip("Card size. Every screen inside the card is this one size, so the hub's tab bar never has to chase a sub-screen.")]
-        [SerializeField] private Vector2 _cardSize = new Vector2(880f, 1140f);
+        [SerializeField] private Vector2 _cardSize = new Vector2(880f, 1272f);
 
         [Header("Art")]
         [Tooltip("The chunky display face for the values, names and buttons. Falls back to the built-in "
@@ -1266,6 +1277,13 @@ namespace MustyBlockBlast.Presentation.Views
         /// </summary>
         private string FormatDuration(float seconds)
         {
+            // The "Sınırsız" (endless/no countdown) entry (issue #355) is a duration outside the
+            // minutes format's domain — "0 dk" would misname it — so it gets its own key instead.
+            if (TimedModeConfig.IsEndlessDuration(seconds))
+            {
+                return _localizationSystem.Translate(LocalizationKeys.DURATION_ENDLESS);
+            }
+
             _stringBuilder.Clear();
             _stringBuilder.Append(Mathf.RoundToInt(seconds / 60f));
             return _localizationSystem.Format(LocalizationKeys.FORMAT_MINUTES, _stringBuilder.ToString());
@@ -1292,8 +1310,12 @@ namespace MustyBlockBlast.Presentation.Views
                 bool isPlaying = option.Mode == current;
                 bool isPending = isConfirming && option.Mode == _pendingMode;
 
+                // While a switch is pending confirmation, only the newly-tapped plate rings — the
+                // active mode's ring drops immediately rather than sitting lit alongside it, so the
+                // player never sees two plates highlighted at once.
+                bool showRing = isConfirming ? isPending : isPlaying;
                 Color ringColour = isPending ? _currentTheme.GetShade(PRIMARY_KIND) : _currentTheme.Accent;
-                PaintSelection(option.Selection, isPlaying || isPending, ringColour);
+                PaintSelection(option.Selection, showRing, ringColour);
                 option.PlayingText.color = isPlaying ? _currentTheme.Accent : Color.clear;
             }
         }
@@ -2054,11 +2076,7 @@ namespace MustyBlockBlast.Presentation.Views
             _inkTexts.Add(nameText);
             RegisterLocalized(nameText, ModeNameKey(mode));
 
-            Text descriptionText = CreateLabel(
-                plateRect, "Description", DESCRIPTION_FONT_SIZE, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(textX, -MODE_DESCRIPTION_DROP));
-            _softInkTexts.Add(descriptionText);
-            RegisterLocalized(descriptionText, ModeDescriptionKey(mode));
+            BuildModeDescriptionLabel(plateRect, mode, contentWidth, textX, -MODE_DESCRIPTION_DROP);
 
             // Painted by RefreshModeSelection rather than the ink bucket: it is accent or nothing.
             Text playingText = CreateLabel(
@@ -2067,6 +2085,31 @@ namespace MustyBlockBlast.Presentation.Views
             RegisterLocalized(playingText, LocalizationKeys.SETTINGS_MODE_PLAYING, uppercase: true);
 
             return new ModeOption(mode, plateRect, selection, playingText);
+        }
+
+        /// <summary>
+        /// One mode plate's description line. Wrapping (rather than <see cref="CreateLabel"/>'s usual
+        /// overflow) is deliberate — some locales' copy does not fit one line at
+        /// <see cref="MODE_DESCRIPTION_PLAYING_RESERVE"/>'s width budget (issue #355 follow-up, e.g.
+        /// Spanish's "Infinito" description), and letting it wrap to a second line beats letting it run
+        /// under the PLAYING tag or off the plate.
+        /// </summary>
+        private void BuildModeDescriptionLabel(
+            RectTransform plateRect, GameMode mode, float contentWidth, float textX, float y)
+        {
+            Text descriptionText = CreateLabel(
+                plateRect, "Description", DESCRIPTION_FONT_SIZE, FontStyle.Bold, TextAnchor.MiddleLeft,
+                new Vector2(textX, y));
+            descriptionText.horizontalOverflow = HorizontalWrapMode.Wrap;
+            descriptionText.verticalOverflow = VerticalWrapMode.Overflow;
+
+            var rect = (RectTransform)descriptionText.transform;
+            rect.sizeDelta = new Vector2(
+                contentWidth - ROW_TEXT_INSET - ROW_PADDING_X - MODE_DESCRIPTION_PLAYING_RESERVE,
+                DESCRIPTION_FONT_SIZE * 1.6f * 2f);
+
+            _softInkTexts.Add(descriptionText);
+            RegisterLocalized(descriptionText, ModeDescriptionKey(mode));
         }
 
         /// <summary>
@@ -2099,11 +2142,7 @@ namespace MustyBlockBlast.Presentation.Views
             _inkTexts.Add(nameText);
             RegisterLocalized(nameText, ModeNameKey(mode));
 
-            Text descriptionText = CreateLabel(
-                plateRect, "Description", DESCRIPTION_FONT_SIZE, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(textX, headerCentreY - MODE_DESCRIPTION_DROP));
-            _softInkTexts.Add(descriptionText);
-            RegisterLocalized(descriptionText, ModeDescriptionKey(mode));
+            BuildModeDescriptionLabel(plateRect, mode, contentWidth, textX, headerCentreY - MODE_DESCRIPTION_DROP);
 
             Text playingText = CreateLabel(
                 plateRect, "Playing", LABEL_FONT_SIZE, FontStyle.Bold, TextAnchor.MiddleRight,
@@ -2116,21 +2155,41 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         /// <summary>
-        /// The Timed plate's duration chips: the same 3-column grid <see cref="BuildDurationOption"/>
-        /// used to build for the old stand-alone duration screen, just parented under the Timed plate
-        /// and seated below its header instead of under a sub-header (issue #270).
+        /// The Timed plate's duration chips, in two rows (issue #355 follow-up): "Sınırsız" alone,
+        /// full width, on top — it is a different kind of choice ("play forever") than a length, not a
+        /// fourth one to squeeze in beside them — and the timed lengths in a
+        /// <see cref="DURATION_COLUMN_COUNT"/>-column grid below it, seated under the Timed plate's
+        /// header instead of under a sub-header (issue #270).
         /// </summary>
         private void BuildDurationChips(RectTransform plateRect, float contentWidth, float headerCentreY)
         {
             IReadOnlyList<float> durations = _timedModeSystem.AvailableDurations;
+
+            float endlessRowCentreY = headerCentreY - (ROW_HEIGHT * 0.5f) - ROW_GAP - (TIMED_CHIP_ROW_HEIGHT * 0.5f);
+            float durationsRowCentreY = endlessRowCentreY - TIMED_CHIP_ROW_HEIGHT - ROW_GAP;
+
             float tileWidth = (contentWidth - (OPTION_GAP * (DURATION_COLUMN_COUNT - 1))) / DURATION_COLUMN_COUNT;
             var tileSize = new Vector2(tileWidth, TIMED_CHIP_ROW_HEIGHT);
-            float chipCentreY = headerCentreY - (ROW_HEIGHT * 0.5f) - ROW_GAP - (TIMED_CHIP_ROW_HEIGHT * 0.5f);
+
+            // Counts only the timed lengths seen so far, independent of each entry's index in the
+            // config — so the endless entry, wherever the config lists it, never opens a gap in the
+            // 3-column grid.
+            int timedIndex = 0;
 
             for (int durationIndex = 0; durationIndex < durations.Count; durationIndex++)
             {
-                float x = (durationIndex - ((DURATION_COLUMN_COUNT - 1) * 0.5f)) * (tileWidth + OPTION_GAP);
-                _durationOptions.Add(BuildDurationOption(plateRect, durations[durationIndex], tileSize, new Vector2(x, chipCentreY)));
+                float seconds = durations[durationIndex];
+
+                if (TimedModeConfig.IsEndlessDuration(seconds))
+                {
+                    var endlessSize = new Vector2(contentWidth, TIMED_CHIP_ROW_HEIGHT);
+                    _durationOptions.Add(BuildDurationOption(plateRect, seconds, endlessSize, new Vector2(0f, endlessRowCentreY)));
+                    continue;
+                }
+
+                float x = (timedIndex - ((DURATION_COLUMN_COUNT - 1) * 0.5f)) * (tileWidth + OPTION_GAP);
+                _durationOptions.Add(BuildDurationOption(plateRect, seconds, tileSize, new Vector2(x, durationsRowCentreY)));
+                timedIndex++;
             }
         }
 

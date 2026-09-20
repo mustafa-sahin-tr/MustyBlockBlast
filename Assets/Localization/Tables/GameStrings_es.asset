@@ -878,6 +878,14 @@ MonoBehaviour:
     m_Localized: "Vuelve ma\xF1ana"
     m_Metadata:
       m_Items: []
+  - m_Id: 2468758269452288
+    m_Localized: Ilimitado
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2484042405502976
+    m_Localized: min
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

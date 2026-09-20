@@ -85,9 +85,12 @@ namespace MustyBlockBlast.Presentation.Views
         private const string HEADER_TEXT = "LEADERBOARD";
         private const string ALL_TIME_TAB_TEXT = "ALL-TIME";
         private const string WEEKLY_TAB_TEXT = "WEEKLY";
-        private const string ENDLESS_MODE_TEXT = "Endless";
-        private const string TIMED_MODE_TEXT = "Timed";
-        private const string PATH_MODE_TEXT = "Level path";
+        // Renamed for display only (issue #355): the GameMode enum members and their leaderboard board
+        // ids (see LeaderboardBoardIds) are unchanged, so a Classic-mode (GameMode.Timed) run still
+        // ranks on the same board a Timed run always has.
+        private const string ENDLESS_MODE_TEXT = "Şölen Modu";
+        private const string TIMED_MODE_TEXT = "Klasik Mod";
+        private const string PATH_MODE_TEXT = "Macera Modu";
         private const string LOADING_TEXT = "Loading standings...";
         private const string EMPTY_TEXT = "No scores on this board yet.";
         private const string NOT_RANKED_TEXT = "Level path runs aren't ranked.";

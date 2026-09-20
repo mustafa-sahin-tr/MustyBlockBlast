@@ -179,6 +179,7 @@ namespace MustyBlockBlast.Presentation.Views
         private PowerUpSystem _powerUpSystem;
         private LevelProgressionModel _levelProgressionModel;
         private SettingsModel _settingsModel;
+        private GameModeSystem _gameModeSystem;
         private ISubscriber<RunStartedMessage> _runStartedSubscriber;
         private ISubscriber<GameOverMessage> _gameOverSubscriber;
 
@@ -187,6 +188,14 @@ namespace MustyBlockBlast.Presentation.Views
         private ThemeDefinition _currentTheme;
         private PowerUpKind? _armed;
         private bool _isRunOver;
+
+        /// <summary>
+        /// Whether the active mode's ruleset includes power-ups (issue #355). The strip has nothing to
+        /// offer in Classic mode (<see cref="GameMode.Timed"/>) — it is hidden outright, mirroring how
+        /// <c>LevelPathButtonView.RefreshVisibility</c> hides its own pill outside the one mode it
+        /// applies to.
+        /// </summary>
+        private bool _extrasEnabled = true;
 
         /// <summary>The player's progression frontier, mirrored from
         /// <see cref="LevelProgressionModel.CurrentLevelNumber"/> so a repaint never has to reach back
@@ -211,6 +220,7 @@ namespace MustyBlockBlast.Presentation.Views
             PowerUpSystem powerUpSystem,
             LevelProgressionModel levelProgressionModel,
             SettingsModel settingsModel,
+            GameModeSystem gameModeSystem,
             ISubscriber<RunStartedMessage> runStartedSubscriber,
             ISubscriber<GameOverMessage> gameOverSubscriber)
         {
@@ -218,6 +228,7 @@ namespace MustyBlockBlast.Presentation.Views
             _powerUpSystem = powerUpSystem;
             _levelProgressionModel = levelProgressionModel;
             _settingsModel = settingsModel;
+            _gameModeSystem = gameModeSystem;
             _runStartedSubscriber = runStartedSubscriber;
             _gameOverSubscriber = gameOverSubscriber;
         }
@@ -237,7 +248,7 @@ namespace MustyBlockBlast.Presentation.Views
         private void Start()
         {
             if (_powerUpModel == null || _powerUpSystem == null || _levelProgressionModel == null
-                || _settingsModel == null
+                || _settingsModel == null || _gameModeSystem == null
                 || _runStartedSubscriber == null || _gameOverSubscriber == null)
             {
                 Debug.LogError(
@@ -248,6 +259,10 @@ namespace MustyBlockBlast.Presentation.Views
 
             // Subscribed first so _currentTheme is set before any slot is painted below.
             _settingsModel.CurrentTheme.Subscribe(OnThemeChanged).AddTo(_disposables);
+
+            // Subscribed early, same reason: whether the strip may show at all is decided before any
+            // run-over/theme repaint below runs.
+            _gameModeSystem.CurrentMode.Subscribe(OnModeChanged).AddTo(_disposables);
 
             // Subscribed rather than read once: reaching a kind's unlock level must reveal its slot in
             // the run that got the player there, with no restart and no relaunch. ReactiveProperty
@@ -292,7 +307,7 @@ namespace MustyBlockBlast.Presentation.Views
         {
             wantsShop = false;
 
-            if (_isRunOver || _powerUpSystem == null)
+            if (_isRunOver || !_extrasEnabled || _powerUpSystem == null)
             {
                 return false;
             }
@@ -354,7 +369,7 @@ namespace MustyBlockBlast.Presentation.Views
         /// resolved as either an ordinary tap or the long-press "show info" gesture.</summary>
         internal int GetSlotIndexAt(Vector2 screenPosition)
         {
-            if (_isRunOver || _powerUpSystem == null)
+            if (_isRunOver || !_extrasEnabled || _powerUpSystem == null)
             {
                 return -1;
             }
@@ -505,16 +520,41 @@ namespace MustyBlockBlast.Presentation.Views
         private void OnGameOver(GameOverMessage message) => SetRunOver(true);
 
         /// <summary>
-        /// Power-ups are not offered once the run is over. The strip is dimmed and made non-interactive
-        /// rather than deactivated: toggling the GameObject would rebuild the shared canvas mesh every
-        /// time a run ends or starts.
+        /// Hides the whole strip outright in Classic mode (<see cref="GameMode.Timed"/> — issue #355),
+        /// which has no power-ups to offer: no dimming, no reserved space to tap through, mirroring how
+        /// <c>LevelPathButtonView.RefreshVisibility</c> hides its own Path-only pill.
+        /// </summary>
+        private void OnModeChanged(GameMode mode)
+        {
+            _extrasEnabled = mode != GameMode.Timed;
+            RefreshInteractivity();
+        }
+
+        /// <summary>
+        /// Power-ups are not offered once the run is over, or once the active mode has none to offer.
+        /// The strip is dimmed/hidden and made non-interactive rather than deactivated: toggling the
+        /// GameObject would rebuild the shared canvas mesh every time a run ends, starts or the mode
+        /// changes.
         /// </summary>
         private void SetRunOver(bool isRunOver)
         {
             _isRunOver = isRunOver;
-            _canvasGroup.alpha = isRunOver ? RUN_OVER_ALPHA : 1f;
-            _canvasGroup.interactable = !isRunOver;
-            _canvasGroup.blocksRaycasts = !isRunOver;
+            RefreshInteractivity();
+        }
+
+        private void RefreshInteractivity()
+        {
+            if (!_extrasEnabled)
+            {
+                _canvasGroup.alpha = 0f;
+                _canvasGroup.interactable = false;
+                _canvasGroup.blocksRaycasts = false;
+                return;
+            }
+
+            _canvasGroup.alpha = _isRunOver ? RUN_OVER_ALPHA : 1f;
+            _canvasGroup.interactable = !_isRunOver;
+            _canvasGroup.blocksRaycasts = !_isRunOver;
         }
 
         private void RefreshAllSlots()

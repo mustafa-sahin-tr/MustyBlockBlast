@@ -54,13 +54,22 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// Guarded on publish so an un-injected instance behaves exactly as it did before.</summary>
         private readonly IPublisher<SpecialCellSpawnedMessage> _specialCellSpawnedPublisher;
 
+        /// <summary>
+        /// Which rule set the current run is played under. Read only by <see cref="OnStreakChanged"/>
+        /// so Classic mode's run (<see cref="GameMode.Timed"/> — issue #355) never earns a coin cell,
+        /// exactly as it never earns any other special cell — see <see cref="LaserSpawnSystem"/>'s own
+        /// field for the full reasoning, which applies here unchanged.
+        /// </summary>
+        private readonly GameModeModel _gameModeModel;
+
         /// <summary>DI entry point — VContainer must not pick the seeded constructor.</summary>
         [Inject]
         public CoinStreakTriggerSystem(
             ScoreModel scoreModel,
             BoardModel boardModel,
-            IPublisher<SpecialCellSpawnedMessage> specialCellSpawnedPublisher = null)
-            : this(scoreModel, boardModel, Environment.TickCount, specialCellSpawnedPublisher)
+            IPublisher<SpecialCellSpawnedMessage> specialCellSpawnedPublisher = null,
+            GameModeModel gameModeModel = null)
+            : this(scoreModel, boardModel, Environment.TickCount, specialCellSpawnedPublisher, gameModeModel)
         {
         }
 
@@ -68,11 +77,13 @@ namespace MustyBlockBlast.Gameplay.Systems
             ScoreModel scoreModel,
             BoardModel boardModel,
             int seed,
-            IPublisher<SpecialCellSpawnedMessage> specialCellSpawnedPublisher = null)
+            IPublisher<SpecialCellSpawnedMessage> specialCellSpawnedPublisher = null,
+            GameModeModel gameModeModel = null)
         {
             _boardModel = boardModel;
             _random = new Random(seed);
             _specialCellSpawnedPublisher = specialCellSpawnedPublisher;
+            _gameModeModel = gameModeModel;
 
             // Subscribing fires immediately with the current streak, which is 0 at construction and at
             // every run start — never the threshold — so nothing can spawn from merely starting to
@@ -84,7 +95,7 @@ namespace MustyBlockBlast.Gameplay.Systems
 
         private void OnStreakChanged(int streak)
         {
-            if (streak != SPAWN_STREAK)
+            if (streak != SPAWN_STREAK || (_gameModeModel != null && !_gameModeModel.ExtrasEnabled))
             {
                 return;
             }

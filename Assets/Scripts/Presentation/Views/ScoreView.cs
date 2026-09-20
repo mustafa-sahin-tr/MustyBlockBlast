@@ -478,7 +478,14 @@ namespace MustyBlockBlast.Presentation.Views
             bool isTimed = _gameModeSystem.CurrentMode.Value == GameMode.Timed;
             int best = isTimed ? _timedHighScoreModel.Best.Value : _scoreModel.HighScore.Value;
 
-            if (isTimed)
+            // Classic mode's "Sınırsız" duration (issue #355) plays forever, exactly like Endless, so
+            // it is worded like Endless too — the "best for this length" caption only makes sense for a
+            // length that actually ends the run. The best itself still comes from _timedHighScoreModel
+            // above: that model already carries this duration's own bucket (see TimedHighScoreKey),
+            // never Şölen's (GameMode.Endless's) high score.
+            bool isTimedDuration = isTimed && !TimedModeConfig.IsEndlessDuration(_timedModeSystem.SelectedDuration.Value);
+
+            if (isTimedDuration)
             {
                 // The round length goes through the shared minutes format rather than being spelled
                 // here, so the duration picker and this suffix always read the same way.

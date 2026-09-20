@@ -382,7 +382,13 @@
       <h3 style="margin-top:0">Alt ekranlar</h3>
       <ul class="tight">
         <li><strong>Theme seçici</strong> — sabit 2×2 grid (4 tema), her kart kendi renkleriyle 4×4 mini-board önizlemesi gösterir. Sadece kozmetik.</li>
-        <li><strong>Mode seçici</strong> — Endless / Timed / Path, her biri açıklamalı, aktif olan "PLAYING" etiketli. Farklı bir moda geçiş onay ister (mod değişimi run'ı yeniden başlatır). Timed satırı kendi içinde round-süresi çipleri de gösterir.</li>
+        <li><strong>Mode seçici</strong> — Şölen Modu / Klasik Mod / Macera Modu, her biri açıklamalı, aktif olan "PLAYING" etiketli. Farklı bir moda geçiş onay ister (mod değişimi run'ı yeniden başlatır). Klasik Mod satırı kendi içinde süre çipleri de gösterir: <strong>Sınırsız</strong> / 3 dk / 5 dk / 10 dk (issue #355). Kod tarafında enum üyeleri hâlâ <code>GameMode.Endless</code> / <code>GameMode.Timed</code> / <code>GameMode.Path</code> — sadece görünen adlar değişti, save-data uyumluluğu için ordinal'lar aynı kaldı.
+        <ul class="tight">
+          <li><strong>Şölen Modu</strong> (<code>GameMode.Endless</code>) — hedef yok, özel hücreler ve power-up'lar açık. Kural seti değişmedi.</li>
+          <li><strong>Klasik Mod</strong> (<code>GameMode.Timed</code>) — hedef yok, <strong>özel hücre ve power-up yok</strong> (<code>GameModeModel.ExtrasEnabled</code> bu modda <code>false</code>). Sınırsız seçilirse saat hiç başlamaz ve sonsuza kadar oynanır; 3/5/10 dk seçilirse klasik geri sayımlı round.</li>
+          <li><strong>Macera Modu</strong> (<code>GameMode.Path</code>) — tek bir authored level'a bağlı run. Kural seti değişmedi.</li>
+        </ul>
+        </li>
         <li><strong>Language seçici</strong> — desteklenen her dil kendi dilinde yazılı bir kart; sadece metinleri etkiler.</li>
       </ul>
       <p class="muted">Profil adı düzenleme ve giriş durumu bu ekranda değil, ayrı Profile kartında.</p>

@@ -51,11 +51,11 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 766500871
-    m_Localized: Endless
+    m_Localized: Festival Mode
     m_Metadata:
       m_Items: []
   - m_Id: 766500872
-    m_Localized: Timed
+    m_Localized: Classic
     m_Metadata:
       m_Items: []
   - m_Id: 766500873
@@ -876,6 +876,14 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 2191545129230336
     m_Localized: Come back tomorrow
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2468758269452288
+    m_Localized: Unlimited
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2484042405502976
+    m_Localized: m
     m_Metadata:
       m_Items: []
   references:
