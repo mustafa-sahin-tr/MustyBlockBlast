@@ -461,11 +461,18 @@ rewarding to look at as a run goes on.
 - **Classic mode only.** Skins are exclusive to Classic mode (`GameMode.Timed` in code — the mode
   with no special cells and no power-ups, see "Timed mode" above). Endless and Path runs never
   show a skin, however long they run or however high the score climbs.
-- **Trigger:** as a Classic run's score repeatedly crosses a fixed point interval, a few of the
-  currently placed blocks convert to a randomly chosen theme. From that first conversion onward,
-  newly drawn tray pieces can also arrive already themed.
-- **Theme choice:** every time a block or a new piece gets a skin, one of the four themes is
-  picked independently at random — there is no single theme per run and no fixed order.
+- **Trigger — progressive unlock, then repeat:** a Classic run unlocks the four themes one at a
+  time as its score crosses four fixed milestones (1000/2000/3000/4000 by default), in the same
+  order they're declared in code (cake, candy, jelly, fruit) — reaching the first milestone
+  unlocks only cake, the second adds candy to the pool, and so on until all four are available at
+  the fourth. Crossing each milestone converts a few currently placed blocks to a theme drawn from
+  whatever is unlocked so far. Once every theme is unlocked, every further fixed point interval
+  (500 by default) triggers one more such conversion, themed from the full four-way pool. From the
+  very first conversion onward, newly drawn tray pieces can also arrive already themed, using the
+  same currently-unlocked pool.
+- **Theme choice:** each conversion or newly themed piece picks independently and uniformly at
+  random among whatever themes this run has unlocked so far — never a single theme locked in for
+  the whole run.
 - **Layering:** a block can carry a skin and a special-cell effect at the same time (e.g. a
   candy-themed Coin cell); both render together, and neither changes how the other behaves.
 - **Undo:** a one-step undo restores skins exactly as it restores colour and special-cell state.

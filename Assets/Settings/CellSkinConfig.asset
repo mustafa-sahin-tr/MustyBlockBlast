@@ -12,5 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 43250b1ad48d845dcb21a22e76aa2222, type: 3}
   m_Name: CellSkinConfig
   m_EditorClassIdentifier: MustyBlockBlast.Gameplay::MustyBlockBlast.Gameplay.Settings.CellSkinConfig
-  _scoreIntervalPoints: 500
+  _themeUnlockThresholds: e8030000d0070000b80b0000a00f0000i
+  _repeatIntervalPoints: 500
   _maxCellsPerConversion: 3
