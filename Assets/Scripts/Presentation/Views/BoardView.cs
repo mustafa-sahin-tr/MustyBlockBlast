@@ -352,6 +352,7 @@ namespace MustyBlockBlast.Presentation.Views
         private ISubscriber<PowerUpAppliedMessage> _powerUpAppliedSubscriber;
         private ISubscriber<ExplosiveCoreDetonatedMessage> _explosiveCoreDetonatedSubscriber;
         private ISubscriber<LaserFiredMessage> _laserFiredSubscriber;
+        private ISubscriber<PiercingRocketFiredMessage> _piercingRocketFiredSubscriber;
         private ISubscriber<VortexIslandFilledMessage> _vortexIslandFilledSubscriber;
         private ISubscriber<ChainLightningTriggeredMessage> _chainLightningTriggeredSubscriber;
         private ISubscriber<SpecialCellSpawnedMessage> _specialCellSpawnedSubscriber;
@@ -380,12 +381,14 @@ namespace MustyBlockBlast.Presentation.Views
             ISubscriber<PowerUpAppliedMessage> powerUpAppliedSubscriber,
             ISubscriber<ExplosiveCoreDetonatedMessage> explosiveCoreDetonatedSubscriber,
             ISubscriber<LaserFiredMessage> laserFiredSubscriber,
+            ISubscriber<PiercingRocketFiredMessage> piercingRocketFiredSubscriber,
             ISubscriber<VortexIslandFilledMessage> vortexIslandFilledSubscriber,
             ISubscriber<ChainLightningTriggeredMessage> chainLightningTriggeredSubscriber,
             ISubscriber<SpecialCellSpawnedMessage> specialCellSpawnedSubscriber)
         {
             _explosiveCoreDetonatedSubscriber = explosiveCoreDetonatedSubscriber;
             _laserFiredSubscriber = laserFiredSubscriber;
+            _piercingRocketFiredSubscriber = piercingRocketFiredSubscriber;
             _vortexIslandFilledSubscriber = vortexIslandFilledSubscriber;
             _chainLightningTriggeredSubscriber = chainLightningTriggeredSubscriber;
             _specialCellSpawnedSubscriber = specialCellSpawnedSubscriber;
@@ -527,7 +530,12 @@ namespace MustyBlockBlast.Presentation.Views
             // LinesClearedMessage describes it either.
             _laserFiredSubscriber.Subscribe(OnLaserFired).AddTo(_disposables);
 
-            // Not a sweep, unlike the three above: a vortex destroys nothing, so there is no cell to
+            // And once more for a piercing rocket's wipe, which empties a whole row and a whole column
+            // whether or not either was full — so, exactly like a laser's, no LinesClearedMessage
+            // describes it and nothing else would ever claim the cells it emptied (issue #354).
+            _piercingRocketFiredSubscriber.Subscribe(OnPiercingRocketFired).AddTo(_disposables);
+
+            // Not a sweep, unlike the four above: a vortex destroys nothing, so there is no cell to
             // fade — a fill pops a cell in and a hand-off pops a fresh icon in.
             _vortexIslandFilledSubscriber.Subscribe(OnVortexIslandFilled).AddTo(_disposables);
 
@@ -1477,6 +1485,15 @@ namespace MustyBlockBlast.Presentation.Views
         /// reason: a wipe does not need the line to be full, so no <see cref="LinesClearedMessage"/>
         /// follows it.</summary>
         private void OnLaserFired(LaserFiredMessage message) => SweepPendingCells(message.WipedCellCount);
+
+        /// <summary>A piercing rocket wiped its row and its column. Claimed exactly as a laser's wipe
+        /// is, and for exactly the same reason: the wipe does not need either line to be full, so no
+        /// <see cref="LinesClearedMessage"/> follows it and without this sweep every cell it emptied
+        /// would sit showing its pre-wipe block — a board the model has already emptied but the player
+        /// still sees as full, which is issue #354's "nothing happened, then the row would not
+        /// clear".</summary>
+        private void OnPiercingRocketFired(PiercingRocketFiredMessage message)
+            => SweepPendingCells(message.WipedCellCount);
 
         /// <summary>A chain lightning arced across the board. Claimed exactly as a blast's cells are:
         /// the cells it emptied are scattered rather than lined up, so no <see cref="LinesClearedMessage"/>
