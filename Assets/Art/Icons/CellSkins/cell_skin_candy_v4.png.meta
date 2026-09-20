@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: 25199836b655c4f7d98125bfdcc88afd
+guid: 593901e4fbd434f2b8bb734c75e36009
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -3556942373053690419
-    second: cell_skin_cake_v3_0
+      213: 5574271750982906835
+    second: cell_skin_candy_v4_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -55,7 +55,7 @@ TextureImporter:
   spriteBorder: {x: 0, y: 0, z: 0, w: 0}
   spriteGenerateFallbackPhysicsShape: 1
   alphaUsage: 1
-  alphaIsTransparency: 0
+  alphaIsTransparency: 1
   spriteTessellationMethod: 0
   spriteTessellationDetail: -1
   spriteGeometrySubdivision: -1
@@ -141,7 +141,7 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: cell_skin_cake_v3_0
+      name: cell_skin_candy_v4_0
       rect:
         serializedVersion: 2
         x: 0
@@ -156,8 +156,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: dcd8997d1c333aec0800000000000000
-      internalID: -3556942373053690419
+      spriteID: 3d3b4deaf9acb5d40800000000000000
+      internalID: 5574271750982906835
       vertices: []
       indices: 
       edges: []
@@ -176,7 +176,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      cell_skin_cake_v3_0: -3556942373053690419
+      cell_skin_candy_v4_0: 5574271750982906835
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
