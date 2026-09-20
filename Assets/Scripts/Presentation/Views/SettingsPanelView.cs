@@ -695,8 +695,11 @@ namespace MustyBlockBlast.Presentation.Views
                 }
                 else if (lengthChanged)
                 {
+                    // Same as the confirm dialog's RESTART (issue #360): the run is already restarted at
+                    // the new length, so drop the player straight back into it instead of the Settings
+                    // screen.
                     _gameModeSystem.RestartRun();
-                    SetScreen(PanelScreen.Settings);
+                    Close();
                 }
 
                 return true;
@@ -741,8 +744,10 @@ namespace MustyBlockBlast.Presentation.Views
         {
             if (RectTransformUtility.RectangleContainsScreenPoint(_confirmYesRect, screenPosition, eventCamera))
             {
+                // RESTART already puts the player back into a fresh run of the new mode (issue #360) —
+                // staying on the Settings screen would make them tap Close themselves to see it.
                 _gameModeSystem.SelectMode(_pendingMode);
-                SetScreen(PanelScreen.Settings);
+                Close();
                 return true;
             }
 
