@@ -14,10 +14,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: MustyBlockBlast.Gameplay::MustyBlockBlast.Gameplay.Settings.CellSkinIconCatalog
   _entries:
   - _kind: 1
-    _overlay: {fileID: 21300000, guid: fa5a3027f740a491b9fc0d6f151cdf22, type: 3}
+    _overlay: {fileID: 21300000, guid: 25199836b655c4f7d98125bfdcc88afd, type: 3}
   - _kind: 2
-    _overlay: {fileID: 21300000, guid: 32306c220f5a6468e833eb5492f24690, type: 3}
+    _overlay: {fileID: 21300000, guid: 48f483a19c4894197acce51de172ef1f, type: 3}
   - _kind: 3
-    _overlay: {fileID: 21300000, guid: 86f5f1967b2b44e00a8f6135cee05939, type: 3}
+    _overlay: {fileID: 21300000, guid: 812e5f43bf4fa43f380a60c285bafeeb, type: 3}
   - _kind: 4
-    _overlay: {fileID: 21300000, guid: bcc4807733d2049ebbe0b431b88ec2f6, type: 3}
+    _overlay: {fileID: 21300000, guid: 3cbd13d5845e5427ea2e6d50b52f402d, type: 3}

@@ -104,6 +104,7 @@ namespace MustyBlockBlast.Presentation.Views
         private ObjectiveInfoPopupView _objectiveInfoPopupView;
         private InfoPopupView _infoPopupView;
         private InfoPopupSystem _infoPopupSystem;
+        private CellSkinIconCatalog _cellSkinIconCatalog;
 
         private int _draggedSlot = -1;
 
@@ -188,7 +189,8 @@ namespace MustyBlockBlast.Presentation.Views
             ObjectiveIconContainerView objectiveIconContainerView,
             ObjectiveInfoPopupView objectiveInfoPopupView,
             InfoPopupView infoPopupView,
-            InfoPopupSystem infoPopupSystem)
+            InfoPopupSystem infoPopupSystem,
+            CellSkinIconCatalog cellSkinIconCatalog)
         {
             _boardSystem = boardSystem;
             _boardModel = boardModel;
@@ -213,6 +215,7 @@ namespace MustyBlockBlast.Presentation.Views
             _objectiveInfoPopupView = objectiveInfoPopupView;
             _infoPopupView = infoPopupView;
             _infoPopupSystem = infoPopupSystem;
+            _cellSkinIconCatalog = cellSkinIconCatalog;
         }
 
         private void Awake()
@@ -709,7 +712,8 @@ namespace MustyBlockBlast.Presentation.Views
             BuildGhost(
                 _trayModel.GetPiece(slotIndex),
                 _trayModel.GetColourId(slotIndex),
-                _trayModel.GetSpecialKind(slotIndex));
+                _trayModel.GetSpecialKind(slotIndex),
+                _trayModel.GetCellSkin(slotIndex));
             UpdateDrag(screenPosition);
         }
 
@@ -1104,8 +1108,10 @@ namespace MustyBlockBlast.Presentation.Views
 
         /// <summary>Builds the dragged piece's ghost. Painted through the same seam the dock plate is,
         /// so a special piece looks like itself while it is in the air — a golden 1x1 that turned
-        /// ordinary the moment it was picked up would read as having been lost.</summary>
-        private void BuildGhost(Piece piece, int colourId, SpecialPieceKind specialKind)
+        /// ordinary the moment it was picked up would read as having been lost. Also carries the piece's
+        /// cell-skin overlay (issue #324) for the same reason: a cake/candy/jelly/fruit piece should not
+        /// lose its decoration for the length of the drag.</summary>
+        private void BuildGhost(Piece piece, int colourId, SpecialPieceKind specialKind, CellSkinKind cellSkin)
         {
             if (_currentTheme == null)
             {
@@ -1136,7 +1142,8 @@ namespace MustyBlockBlast.Presentation.Views
                     _boardView.CellBevelThickness);
                 var rect = (RectTransform)cell.transform;
                 rect.anchoredPosition = new Vector2(offsetX + (offset.X * pitch), offsetY + (offset.Y * pitch));
-                SpecialPieceVisuals.Apply(cell, specialKind, _currentTheme, colourId);
+                Sprite skinOverlay = _cellSkinIconCatalog != null ? _cellSkinIconCatalog.Find(cellSkin) : null;
+                SpecialPieceVisuals.Apply(cell, specialKind, _currentTheme, colourId, skinOverlay);
 
                 // After the colours, never before: SetAlpha writes every layer the look just painted,
                 // including the special glyph, so the ghost fades as one block.
