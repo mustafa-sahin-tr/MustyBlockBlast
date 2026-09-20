@@ -20,34 +20,36 @@ Scan this Unity project and generate a tailored CLAUDE.md configuration.
 
 3. **Scan for assembly definitions** (`.asmdef` files) — map the project's assembly structure.
 
-3a. **Install reusable personal packages.** Check whether
-   `~/.claude/resources/mtafasahin-unity-packages/README.md` exists locally.
-   - If it does not, clone it from GitHub first (this machine's `gh`/git credentials own
-     the repo, so a plain clone works):
-     `gh repo clone mustafa-sahin-tr/mtafasahin-unity-packages ~/.claude/resources/mtafasahin-unity-packages`.
-     If that clone fails (no network, no `gh` auth, repo renamed), say so and skip this step
-     rather than blocking the rest of `/unity-init`.
-   - If it already exists locally, run `git -C ~/.claude/resources/mtafasahin-unity-packages pull`
-     first so the copy reflects the latest pushed version, not a stale one from a previous project.
-   - Once the local copy exists, offer to install `com.mtafasahin.reactive` and
-     `com.mtafasahin.mobileservices` (skip any package whose folder already exists under this
-     project's `Packages/`):
-   - Copy `~/.claude/resources/mtafasahin-unity-packages/com.mtafasahin.reactive` and
-     `.../com.mtafasahin.mobileservices` into this project's `Packages/` folder.
-   - Add both to `Packages/manifest.json` `dependencies` (version `"1.0.0"`), plus
-     `com.unity.services.authentication` and `com.unity.services.core` if not already present.
+3a. **Install reusable personal packages.** Source of truth:
+   `github.com/mustafa-sahin-tr/mtafasahin-unity-packages` (private repo, tag-pinned releases —
+   see its README for the version history). Default to the git-dependency form; only fall back to
+   a copy if Unity Package Manager can't reach GitHub with this machine's git credentials.
+   - Add to `Packages/manifest.json` `dependencies` (use the latest tag from the repo's README,
+     e.g. `#v1.1.1` — check, don't assume it's still current):
+     ```
+     "com.mtafasahin.reactive": "https://github.com/mustafa-sahin-tr/mtafasahin-unity-packages.git?path=com.mtafasahin.reactive#v1.1.1",
+     "com.mtafasahin.mobileservices": "https://github.com/mustafa-sahin-tr/mtafasahin-unity-packages.git?path=com.mtafasahin.mobileservices#v1.1.1"
+     ```
+     plus `com.unity.services.authentication` and `com.unity.services.core` if not already present.
      If the project has no Apple Sign-In plugin, remove `"AppleAuth"` from
-     `Mtafasahin.MobileServices.asmdef`'s `references`.
-   - From the assembly scan in step 3, find the project's Gameplay/Systems assembly name and,
-     if any EditMode test sets `ReactiveProperty<T>.Value` directly, its EditMode test assembly
-     name. In the copied `com.mtafasahin.reactive/Runtime/AssemblyInfo.cs`, replace
-     `__GAMEPLAY_ASMDEF__` with the former and `__EDITMODE_TESTS_ASMDEF__` with the latter
-     (delete that `InternalsVisibleTo` line entirely if there is no such test assembly).
-   - Add the new package asmdef names (`Mtafasahin.Reactive`, and `Mtafasahin.MobileServices` if
-     the project will wire auth/leaderboards/IAP/music/sfx through it) as `references` on the
-     Gameplay-equivalent asmdef.
-   - If Unity MCP is connected, run a package resolve + forced recompile and check the console
-     for errors before reporting success.
+     `Mtafasahin.MobileServices.asmdef`'s `references` (that file lives in the fetched package
+     cache under `Library/PackageCache/`, not in this project — editing it there is a per-machine,
+     non-persistent change; if the project genuinely never needs Apple Sign-In, it's fine to leave
+     the unresolved reference, Unity only warns).
+   - Add `Mtafasahin.Reactive`, and `Mtafasahin.MobileServices` if the project will wire
+     auth/leaderboards/IAP/music/sfx through it, as `references` on the Gameplay-equivalent asmdef
+     (asmdef references work identically regardless of whether the referenced package is git or
+     embedded — no per-project edit needed here beyond adding the name).
+   - If Unity MCP is connected: run a package resolve, then a forced recompile, and check the
+     console for errors. **If this project previously had these packages embedded (or any package
+     changed between embedded/git for a package of the same name) and the Editor was already open,
+     Unity's Package Manager caches the old resolution in memory — a plain resolve/refresh will not
+     pick up the change.** Tell the user to close and reopen the Unity Editor, then re-run the
+     resolve + recompile + console check before reporting success.
+   - Only if git access isn't available: copy `com.mtafasahin.reactive` and
+     `com.mtafasahin.mobileservices` from a local clone
+     (`gh repo clone mustafa-sahin-tr/mtafasahin-unity-packages`) into this project's `Packages/`
+     folder instead, and reference them in `manifest.json` with a plain version string.
 
 4. **Scan for scenes** — list all `.unity` files in `Assets/`.
 
