@@ -21,5 +21,17 @@ namespace MustyBlockBlast.Gameplay.Models
         /// </para>
         /// </summary>
         public bool ExtrasEnabled => CurrentMode.Value != GameMode.Timed;
+
+        /// <summary>
+        /// Whether cosmetic cell skins (cake/candy/jelly/fruit — issue #324) are part of the current
+        /// mode's ruleset. True only for <see cref="GameMode.Timed"/> ("Classic") — the exact opposite
+        /// of <see cref="ExtrasEnabled"/>'s gate, and deliberately its own independent property rather
+        /// than <c>!ExtrasEnabled</c>: the two happen to be inverse today because Classic is presently
+        /// the only mode with no special cells/power-ups AND the only one with skins, but they are
+        /// unrelated concepts (one gates gameplay-affecting extras, the other gates a purely cosmetic
+        /// overlay) and a future mode must be free to enable or disable either without the other
+        /// silently following.
+        /// </summary>
+        public bool SkinsEnabled => CurrentMode.Value == GameMode.Timed;
     }
 }

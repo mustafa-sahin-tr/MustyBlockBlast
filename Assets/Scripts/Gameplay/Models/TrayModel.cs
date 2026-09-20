@@ -26,6 +26,13 @@ namespace MustyBlockBlast.Gameplay.Models
         /// offered plain in one slot and tagged in another.</summary>
         private readonly SpecialPieceKind[] _specialKinds = new SpecialPieceKind[SLOT_COUNT];
 
+        /// <summary>The decorative skin each slot's piece carries, parallel to <see cref="_pieces"/>
+        /// exactly as <see cref="_specialKinds"/> is (issue #324) — purely cosmetic, and only ever
+        /// non-<see cref="CellSkinKind.None"/> in <see cref="MustyBlockBlast.Gameplay.GameMode.Timed"/>
+        /// ("Classic"). Every cell of the piece renders the same skin; there is no per-sub-cell
+        /// variation.</summary>
+        private readonly CellSkinKind[] _cellSkins = new CellSkinKind[SLOT_COUNT];
+
         private Piece _heldPiece;
         private int _heldColourId = Board.EMPTY;
         private SpecialPieceKind _heldSpecialKind = SpecialPieceKind.None;
@@ -45,6 +52,11 @@ namespace MustyBlockBlast.Gameplay.Models
         /// <summary>The special behaviour the piece in <paramref name="slotIndex"/> carries.
         /// <see cref="SpecialPieceKind.None"/> for an ordinary drawn piece or an empty slot.</summary>
         public SpecialPieceKind GetSpecialKind(int slotIndex) => _specialKinds[slotIndex];
+
+        /// <summary>The decorative skin the piece in <paramref name="slotIndex"/> carries.
+        /// <see cref="CellSkinKind.None"/> for an ordinary drawn piece, an empty slot, or any piece
+        /// drawn outside Classic mode.</summary>
+        public CellSkinKind GetCellSkin(int slotIndex) => _cellSkins[slotIndex];
 
         /// <summary>The parked piece, or <c>null</c> when the Hold slot is empty.</summary>
         public Piece HeldPiece => _heldPiece;
@@ -101,11 +113,13 @@ namespace MustyBlockBlast.Gameplay.Models
         /// slot is gone, tag included. Only a deliberate injection names a kind.
         /// </summary>
         internal void SetSlot(
-            int slotIndex, Piece piece, int colourId, SpecialPieceKind specialKind = SpecialPieceKind.None)
+            int slotIndex, Piece piece, int colourId, SpecialPieceKind specialKind = SpecialPieceKind.None,
+            CellSkinKind cellSkin = CellSkinKind.None)
         {
             _pieces[slotIndex] = piece;
             _colourIds[slotIndex] = colourId;
             _specialKinds[slotIndex] = piece == null ? SpecialPieceKind.None : specialKind;
+            _cellSkins[slotIndex] = piece == null ? CellSkinKind.None : cellSkin;
             SlotChanged?.Invoke(slotIndex);
         }
 

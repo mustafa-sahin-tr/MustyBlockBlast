@@ -71,6 +71,18 @@ namespace MustyBlockBlast.Gameplay.Systems
         private readonly GameModeModel _gameModeModel;
 
         /// <summary>
+        /// Rolls the cosmetic cell-skin feature (issue #324, sub-issue A): reset at the top of
+        /// <see cref="StartNewRun"/>, asked for a themed skin every time <see cref="RefillTray"/> or
+        /// <see cref="InjectSpecialPiece"/> draws a new tray piece, and stamped onto a placed piece's
+        /// cells in <see cref="TryPlacePiece"/>.
+        /// <para>
+        /// Nullable, and null in most unit tests, for the same reason <see cref="_gameModeModel"/> is —
+        /// treated as "no skins", which is every test that never wires one up.
+        /// </para>
+        /// </summary>
+        private readonly CellSkinSystem _cellSkinSystem;
+
+        /// <summary>
         /// Read, never written, by <see cref="CheckGameOver"/>: a parked piece only counts as a move
         /// the player still has while <see cref="PowerUpModel.HoldCount"/> can pay for the swap that
         /// brings it back. Spending is <see cref="PowerUpSystem"/>'s alone — the Model rather than
@@ -241,7 +253,8 @@ namespace MustyBlockBlast.Gameplay.Systems
             IPublisher<SpecialCellSpawnedMessage> specialCellSpawnedPublisher = null,
             IPublisher<SpecialPieceSpawnedMessage> specialPieceSpawnedPublisher = null,
             LevelTimerCellSeeder timerCellSeeder = null,
-            GameModeModel gameModeModel = null)
+            GameModeModel gameModeModel = null,
+            CellSkinSystem cellSkinSystem = null)
             : this(
                 boardModel, trayModel, scoreGemProgressModel, vortexProgressModel, pieceDraw,
                 runStartedPublisher, piecePlacedPublisher, linesClearedPublisher, gameOverPublisher,
@@ -249,7 +262,7 @@ namespace MustyBlockBlast.Gameplay.Systems
                 piercingRocketFiredPublisher, vortexIslandFilledPublisher, chainLightningTriggeredPublisher,
                 coinCellsClearedPublisher, currencyConfig, Environment.TickCount, reinforcedCellSeeder,
                 powerUpModel, specialCellSpawnedPublisher, specialPieceSpawnedPublisher,
-                timerCellSeeder, gameModeModel)
+                timerCellSeeder, gameModeModel, cellSkinSystem)
         {
         }
 
@@ -277,11 +290,13 @@ namespace MustyBlockBlast.Gameplay.Systems
             IPublisher<SpecialCellSpawnedMessage> specialCellSpawnedPublisher = null,
             IPublisher<SpecialPieceSpawnedMessage> specialPieceSpawnedPublisher = null,
             LevelTimerCellSeeder timerCellSeeder = null,
-            GameModeModel gameModeModel = null)
+            GameModeModel gameModeModel = null,
+            CellSkinSystem cellSkinSystem = null)
         {
             _reinforcedCellSeeder = reinforcedCellSeeder;
             _timerCellSeeder = timerCellSeeder;
             _gameModeModel = gameModeModel;
+            _cellSkinSystem = cellSkinSystem;
             _powerUpModel = powerUpModel;
             _specialCellSpawnedPublisher = specialCellSpawnedPublisher;
             _specialPieceSpawnedPublisher = specialPieceSpawnedPublisher;
@@ -367,6 +382,15 @@ namespace MustyBlockBlast.Gameplay.Systems
             // next one.
             _scoreGemProgressModel.Reset();
             _vortexProgressModel.Reset();
+
+            // Same reason again, and before RefillTray specifically (issue #324 AC9): a Classic run
+            // that unlocked skins must not theme the very next run's opening tray, whatever mode that
+            // next run is played in. Called directly rather than through RunStartedMessage, which
+            // publishes only after RefillTray below.
+            if (_cellSkinSystem != null)
+            {
+                _cellSkinSystem.ResetRun();
+            }
 
             // A parked piece belongs to the run that parked it; carrying it into the next one would
             // hand the player a free piece they never drew.
@@ -474,9 +498,20 @@ namespace MustyBlockBlast.Gameplay.Systems
             // to be placed is known to be a special one.
             SpecialPieceKind pieceKind = _trayModel.GetSpecialKind(slotIndex);
 
+            // Read before the slot is consumed, for the same reason: a piece drawn with a skin
+            // (issue #324) paints every cell it occupies with that skin, purely cosmetic and
+            // independent of the colour/special-kind stamping around it.
+            CellSkinKind pieceCellSkin = _trayModel.GetCellSkin(slotIndex);
+
             for (int i = 0; i < piece.Offsets.Count; i++)
             {
-                _boardModel.Occupy(anchor + piece.Offsets[i], colourId);
+                GridPosition cellPosition = anchor + piece.Offsets[i];
+                _boardModel.Occupy(cellPosition, colourId);
+
+                if (pieceCellSkin != CellSkinKind.None)
+                {
+                    _boardModel.SetCellSkin(cellPosition, pieceCellSkin);
+                }
             }
 
             _trayModel.ConsumeSlot(slotIndex);
@@ -1409,13 +1444,19 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// is, because colour is cosmetic and the icon is what marks the piece as special.</summary>
         private void InjectSpecialPiece(int slotIndex, SpecialPieceKind kind)
         {
-            _trayModel.SetSlot(slotIndex, PieceCatalog.SingleCell, _pieceDraw.DrawColourId(), kind);
+            _trayModel.SetSlot(
+                slotIndex, PieceCatalog.SingleCell, _pieceDraw.DrawColourId(), kind, DrawCellSkin());
 
             if (_specialPieceSpawnedPublisher != null)
             {
                 _specialPieceSpawnedPublisher.Publish(new SpecialPieceSpawnedMessage(kind, slotIndex));
             }
         }
+
+        /// <summary>The skin a freshly drawn tray piece should carry (issue #324). None when no
+        /// <see cref="CellSkinSystem"/> is wired up — every hand-built test board.</summary>
+        private CellSkinKind DrawCellSkin()
+            => _cellSkinSystem != null ? _cellSkinSystem.DrawSkinForNewPiece() : CellSkinKind.None;
 
         private void PublishSpecialCellSpawned(SpecialCellKind kind, GridPosition position)
         {
@@ -1429,7 +1470,9 @@ namespace MustyBlockBlast.Gameplay.Systems
         {
             for (int i = 0; i < TrayModel.SLOT_COUNT; i++)
             {
-                _trayModel.SetSlot(i, _pieceDraw.DrawPiece(), _pieceDraw.DrawColourId());
+                _trayModel.SetSlot(
+                    i, _pieceDraw.DrawPiece(), _pieceDraw.DrawColourId(), specialKind: SpecialPieceKind.None,
+                    cellSkin: DrawCellSkin());
             }
 
             // After the ordinary draw, never instead of it: the injection overrides the slots it claims

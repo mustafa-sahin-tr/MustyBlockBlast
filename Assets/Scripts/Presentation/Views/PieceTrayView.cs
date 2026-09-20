@@ -109,11 +109,18 @@ namespace MustyBlockBlast.Presentation.Views
         private SettingsModel _settingsModel;
         private ThemeDefinition _currentTheme;
 
+        /// <summary>Decorative overlay sprite lookup for cell skins (issue #324) — the same catalog
+        /// <c>BoardView</c> reads, so a piece drawn with a skin looks the same in the tray as it will
+        /// once placed.</summary>
+        private CellSkinIconCatalog _cellSkinIconCatalog;
+
         [Inject]
-        public void Construct(TrayModel trayModel, SettingsModel settingsModel)
+        public void Construct(
+            TrayModel trayModel, SettingsModel settingsModel, CellSkinIconCatalog cellSkinIconCatalog = null)
         {
             _trayModel = trayModel;
             _settingsModel = settingsModel;
+            _cellSkinIconCatalog = cellSkinIconCatalog;
         }
 
         private void Awake()
@@ -355,21 +362,23 @@ namespace MustyBlockBlast.Presentation.Views
                 // colours, so a repaint that ignored the kind would quietly demote it to an ordinary
                 // block the next time the player switched theme.
                 SpecialPieceKind specialKind = _trayModel.GetSpecialKind(slotIndex);
+                CellSkinKind cellSkin = _trayModel.GetCellSkin(slotIndex);
                 for (int i = 0; i < cells.Count; i++)
                 {
-                    ApplyCellLook(cells[i], colourId, specialKind);
+                    ApplyCellLook(cells[i], colourId, specialKind, cellSkin);
                 }
             }
         }
 
-        private void ApplyCellLook(CellView cell, int colourId, SpecialPieceKind specialKind)
+        private void ApplyCellLook(CellView cell, int colourId, SpecialPieceKind specialKind, CellSkinKind cellSkin)
         {
             if (_currentTheme == null)
             {
                 return;
             }
 
-            SpecialPieceVisuals.Apply(cell, specialKind, _currentTheme, colourId);
+            Sprite skinOverlay = _cellSkinIconCatalog != null ? _cellSkinIconCatalog.Find(cellSkin) : null;
+            SpecialPieceVisuals.Apply(cell, specialKind, _currentTheme, colourId, skinOverlay);
         }
 
         private void RebuildSlot(int slotIndex)
@@ -390,6 +399,7 @@ namespace MustyBlockBlast.Presentation.Views
 
             int colourId = _trayModel.GetColourId(slotIndex);
             SpecialPieceKind specialKind = _trayModel.GetSpecialKind(slotIndex);
+            CellSkinKind cellSkin = _trayModel.GetCellSkin(slotIndex);
             PieceLayout.GetBounds(piece, out int width, out int height);
 
             float pitch = _trayCellSize + _trayCellSpacing;
@@ -407,7 +417,7 @@ namespace MustyBlockBlast.Presentation.Views
                     _cellBevelThickness);
                 var rect = (RectTransform)cell.transform;
                 rect.anchoredPosition = new Vector2(offsetX + (offset.X * pitch), offsetY + (offset.Y * pitch));
-                ApplyCellLook(cell, colourId, specialKind);
+                ApplyCellLook(cell, colourId, specialKind, cellSkin);
                 cells.Add(cell);
             }
         }

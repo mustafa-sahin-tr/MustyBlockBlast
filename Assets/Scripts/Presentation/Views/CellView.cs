@@ -60,6 +60,7 @@ namespace MustyBlockBlast.Presentation.Views
         private Image _blockFaceImage;
         private Image _blockGlossImage;
         private Image _specialIconImage;
+        private Image _skinOverlayImage;
         private Image _highlightImage;
         private Image _ghostRingImage;
         private Text _timerCountdownText;
@@ -105,6 +106,20 @@ namespace MustyBlockBlast.Presentation.Views
             glossRect.offsetMax = Vector2.zero;
 
             _blockRoot.SetActive(false);
+
+            // The decorative cell-skin overlay (issue #324): a third, independent visual layer on top
+            // of the flat/block looks and below the special-cell icon, so a cell can carry a skin AND a
+            // SpecialCellKind icon at once with neither occluding the other (AC5). Parented to the cell
+            // rather than to the block root, exactly as the special icon is, so toggling looks can never
+            // take it down with them. Full-bleed rather than bevel-inset like the icon: the art is
+            // authored with a transparent background so the block's own colour still shows through at
+            // the edges.
+            _skinOverlayImage = CreateStretchedImage(transform, "SkinOverlay");
+            _skinOverlayImage.type = Image.Type.Simple;
+            _skinOverlayImage.raycastTarget = false;
+            _skinOverlayImage.color = Color.white;
+            SetStretchInsets((RectTransform)_skinOverlayImage.transform, inset, inset, inset, inset);
+            _skinOverlayImage.gameObject.SetActive(false);
 
             // Built after both looks so it draws on top of whichever is active. In practice only an
             // occupied (block) cell ever wears one — a special kind belongs to the block standing on
@@ -195,6 +210,33 @@ namespace MustyBlockBlast.Presentation.Views
 
         /// <summary>Hides the special-cell icon. Safe to call on a cell that never had one.</summary>
         internal void ClearSpecialIcon() => HideLayer(_specialIconImage);
+
+        /// <summary>
+        /// Shows the decorative cell-skin overlay (issue #324) drawing <paramref name="sprite"/> — its
+        /// own layer, entirely independent of <see cref="SetSpecialIcon(Color)"/>: a cell can show both
+        /// at once (AC5). A null sprite hides the layer instead, mirroring <see cref="ClearSkinOverlay"/>,
+        /// so a caller that already resolved "no overlay for this kind" to null need not branch itself.
+        /// </summary>
+        internal void SetSkinOverlay(Sprite sprite)
+        {
+            if (sprite == null)
+            {
+                ClearSkinOverlay();
+                return;
+            }
+
+            if (_skinOverlayImage == null)
+            {
+                return;
+            }
+
+            _skinOverlayImage.sprite = sprite;
+            ShowLayer(_skinOverlayImage, Color.white);
+        }
+
+        /// <summary>Hides the decorative cell-skin overlay. Safe to call on a cell that never had
+        /// one.</summary>
+        internal void ClearSkinOverlay() => HideLayer(_skinOverlayImage);
 
         /// <summary>The special-cell icon's own transform, exposed only for
         /// <c>BoardView.OnSpecialCellSpawned</c>'s spawn-in pop animation (issue #330 AC2) to animate its
@@ -307,6 +349,11 @@ namespace MustyBlockBlast.Presentation.Views
             // The icon likewise: a destroyed special cell fades out as one block, never as a fading
             // block with a solid mark left floating over it. Restored by the next SetSpecialIcon call.
             ApplyAlpha(_specialIconImage, alpha);
+
+            // And the skin overlay, for the same reason: a skinned block fades out as one piece rather
+            // than leaving its decoration solid over a vanishing block. Restored by the next
+            // SetSkinOverlay call.
+            ApplyAlpha(_skinOverlayImage, alpha);
 
             // And the countdown number, for the same reason: a timer cell that is fading out (cleared
             // in time) must not leave its number floating over an emptying cell.

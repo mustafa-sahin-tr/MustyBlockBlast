@@ -53,6 +53,14 @@ namespace MustyBlockBlast.Gameplay.Models
         public event Action<GridPosition, SpecialCellKind> SpecialKindChanged;
 
         /// <summary>
+        /// Raised when a cell's decorative skin changes (issue #324) — mirrors
+        /// <see cref="SpecialKindChanged"/> exactly, including being "added/changed" only: a skin is
+        /// lost only by <see cref="Core.Board.Clear"/> resetting it along with the colour, which
+        /// <see cref="CellChanged"/> already announces.
+        /// </summary>
+        public event Action<GridPosition, CellSkinKind> CellSkinChanged;
+
+        /// <summary>
         /// Raised for a reinforced cell that is still standing and whose remaining hit count may have
         /// changed. Args: position, hits remaining.
         /// <para>
@@ -104,6 +112,11 @@ namespace MustyBlockBlast.Gameplay.Models
         /// <summary>Read-only access for Views, so a full repaint can re-derive every cell's special
         /// look from the model rather than trusting bookkeeping it accumulated from events.</summary>
         public SpecialCellKind GetSpecialKind(GridPosition position) => _board.GetSpecialKind(position);
+
+        /// <summary>Read-only access for Views, for the reason <see cref="GetSpecialKind"/> is: a full
+        /// repaint re-derives every cell's decorative skin from the model rather than trusting
+        /// bookkeeping it accumulated from events (issue #324).</summary>
+        public CellSkinKind GetCellSkin(GridPosition position) => _board.GetCellSkin(position);
 
         /// <summary>Read-only access for Views, for the reason <see cref="GetSpecialKind"/> is: a full
         /// repaint re-derives every cell's damage look from the model rather than trusting bookkeeping
@@ -167,6 +180,16 @@ namespace MustyBlockBlast.Gameplay.Models
         {
             _board.SetSpecialKind(position, kind);
             SpecialKindChanged?.Invoke(position, kind);
+        }
+
+        /// <summary>Tags a cell with a decorative skin and announces it (issue #324). Independent of
+        /// <see cref="Occupy"/> and of <see cref="SetSpecialKind"/> exactly as
+        /// <see cref="Core.Board.SetCellSkin"/> is independent of <see cref="Core.Board.Occupy"/> and
+        /// <see cref="Core.Board.SetSpecialKind"/>.</summary>
+        internal void SetCellSkin(GridPosition position, CellSkinKind kind)
+        {
+            _board.SetCellSkin(position, kind);
+            CellSkinChanged?.Invoke(position, kind);
         }
 
         /// <summary>

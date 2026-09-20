@@ -56,6 +56,14 @@ namespace MustyBlockBlast.Presentation
             + "simply means no sale is running and every kind costs its standard price.")]
         [SerializeField] private PromotionConfig _promotionConfig;
 
+        [Tooltip("Score interval and batch size for the cosmetic cell-skin conversion (issue #324, " +
+            "Classic mode only). Required — without it the fallback built-in defaults are used.")]
+        [SerializeField] private CellSkinConfig _cellSkinConfig;
+
+        [Tooltip("Decorative overlay sprite per cell-skin theme (issue #324). Optional — a kind left " +
+            "out simply draws no overlay.")]
+        [SerializeField] private CellSkinIconCatalog _cellSkinIconCatalog;
+
         protected override void Configure(IContainerBuilder builder)
         {
             RegisterMessaging(builder);
@@ -190,6 +198,7 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterMessageBroker<CoinCellsClearedMessage>(options);
             builder.RegisterMessageBroker<CoinsGrantedFromPurchaseMessage>(options);
             builder.RegisterMessageBroker<CoinProductsFetchedMessage>(options);
+            builder.RegisterMessageBroker<CellSkinAppliedMessage>(options);
 
             // Info popup infrastructure: InfoPopupSystem subscribes to SpecialCellSpawnedMessage,
             // SpecialPieceSpawnedMessage and HoldFirstUseMessage (PowerUpGrantedMessage, registered
@@ -218,6 +227,8 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterInstance(ResolveCoinBundleConfig());
             builder.RegisterInstance(ResolveRemoveAdsProductConfig());
             builder.RegisterInstance(ResolvePromotionConfig());
+            builder.RegisterInstance(ResolveCellSkinConfig());
+            builder.RegisterInstance(ResolveCellSkinIconCatalog());
 
             // Languages come from the project's Locale assets rather than a scene field: a new
             // language is a Locale asset plus a String Table column, with no scene edit.
@@ -353,6 +364,33 @@ namespace MustyBlockBlast.Presentation
             => _promotionConfig != null ? _promotionConfig : ScriptableObject.CreateInstance<PromotionConfig>();
 
         /// <summary>
+        /// Same defensive shape as <see cref="ResolveTimedModeConfig"/>: a default-valued instance boots
+        /// the scene on the built-in placeholder score interval and one readable error, which beats an
+        /// opaque container failure deep inside a null instance registration.
+        /// </summary>
+        private CellSkinConfig ResolveCellSkinConfig()
+        {
+            if (_cellSkinConfig != null)
+            {
+                return _cellSkinConfig;
+            }
+
+            Debug.LogError(
+                $"{nameof(GameLifetimeScope)} has no {nameof(CellSkinConfig)} assigned. " +
+                "Cell skins are falling back to the built-in default interval.", this);
+            return ScriptableObject.CreateInstance<CellSkinConfig>();
+        }
+
+        /// <summary>
+        /// The same shape as <see cref="ResolveObjectiveIconCatalog"/>, and quiet for the same reason:
+        /// an empty catalog simply means no skin draws an overlay yet, which is not a misconfiguration.
+        /// </summary>
+        private CellSkinIconCatalog ResolveCellSkinIconCatalog()
+            => _cellSkinIconCatalog != null
+                ? _cellSkinIconCatalog
+                : ScriptableObject.CreateInstance<CellSkinIconCatalog>();
+
+        /// <summary>
         /// Same defensive shape as <see cref="ResolveLevelCatalog"/>: an empty catalog boots the scene
         /// with an empty badge wall and one readable error, which beats an opaque container failure
         /// deep inside a null instance registration.
@@ -447,6 +485,11 @@ namespace MustyBlockBlast.Presentation
             builder.Register<SettingsSystem>(Lifetime.Singleton);
             builder.Register<UnityLocalizedStringSource>(Lifetime.Singleton).As<ILocalizedStringSource>();
             builder.Register<LocalizationSystem>(Lifetime.Singleton);
+            // Registered before BoardSystem for readability only — BoardSystem takes it as a
+            // constructor dependency, so the container would order the two itself either way. It
+            // subscribes to ScoreModel.Score in its own constructor, so building it here (rather than
+            // waiting for a lazy resolve) matches every other score-driven trigger System in this file.
+            builder.Register<CellSkinSystem>(Lifetime.Singleton).AsSelf();
             builder.RegisterEntryPoint<BoardSystem>(Lifetime.Singleton).AsSelf();
             builder.Register<GameModeSystem>(Lifetime.Singleton);
             builder.Register<TimedModeSystem>(Lifetime.Singleton);

@@ -449,6 +449,29 @@ should not be a way to farm multipliers. A power-up that clears nothing scores n
 including a joker that only fills a cell. Bomb and Color Cleanser both pay per cell cleared,
 since neither has a fixed region size; Row Clear/Column Clear pay the flat one-line rate.
 
+## Cell skins (cosmetic, Classic mode only)
+
+Blocks can occasionally take on a decorative theme — cake, candy, jelly or fruit — instead of
+their ordinary flat colour. This is **purely cosmetic**: a skin has zero effect on scoring, line
+clearing, or any special-cell effect (Explosive Core, Laser, Score Gem, Vortex, Chain Lightning,
+Coin). A themed Coin cell pays out exactly the same as a plain one; a themed cell completes a
+row/column exactly like a plain one. Skins exist only to make the board feel more varied and
+rewarding to look at as a run goes on.
+
+- **Classic mode only.** Skins are exclusive to Classic mode (`GameMode.Timed` in code — the mode
+  with no special cells and no power-ups, see "Timed mode" above). Endless and Path runs never
+  show a skin, however long they run or however high the score climbs.
+- **Trigger:** as a Classic run's score repeatedly crosses a fixed point interval, a few of the
+  currently placed blocks convert to a randomly chosen theme. From that first conversion onward,
+  newly drawn tray pieces can also arrive already themed.
+- **Theme choice:** every time a block or a new piece gets a skin, one of the four themes is
+  picked independently at random — there is no single theme per run and no fixed order.
+- **Layering:** a block can carry a skin and a special-cell effect at the same time (e.g. a
+  candy-themed Coin cell); both render together, and neither changes how the other behaves.
+- **Undo:** a one-step undo restores skins exactly as it restores colour and special-cell state.
+- **Between runs:** starting a new run always clears every skin, whatever mode the new run is
+  played in — a Classic run's skins never carry into the next run.
+
 ## Hold slot (pocket)
 
 The tenth power-up, and the odd one out. Hold has a persisted charge count like the nine

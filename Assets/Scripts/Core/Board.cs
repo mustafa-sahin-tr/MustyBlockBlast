@@ -17,6 +17,12 @@ namespace MustyBlockBlast.Core
     /// when that cell is destroyed. It is orthogonal to occupancy: no occupancy, fullness or
     /// flood-fill query on this class reads it.
     /// </para>
+    /// <para>
+    /// Each cell also carries a <see cref="CellSkinKind"/> — a purely cosmetic decorative tag,
+    /// orthogonal to occupancy, colour AND <see cref="SpecialCellKind"/> alike: no rule on this class,
+    /// no clear-detection, no scoring and no special-cell effect reads it. See
+    /// <see cref="CellSkinKind"/> for its full contract.
+    /// </para>
     /// </summary>
     public sealed class Board
     {
@@ -53,6 +59,12 @@ namespace MustyBlockBlast.Core
         /// (a cell can be empty, occupied, or occupied-and-special) and every existing read of
         /// <see cref="_cells"/> must keep meaning "is this cell occupied, and in which colour".</summary>
         private readonly SpecialCellKind[] _specialKinds;
+
+        /// <summary>Per-cell decorative skin, indexed exactly like <see cref="_cells"/> and stored the
+        /// same way <see cref="_specialKinds"/> is — a fourth (fifth, counting hit counts) independent
+        /// parallel array rather than bits on any other one, because a skin is orthogonal to occupancy,
+        /// colour AND special kind alike (issue #324). See <see cref="CellSkinKind"/>.</summary>
+        private readonly CellSkinKind[] _cellSkins;
 
         /// <summary>
         /// Per-cell hits still to absorb before the cell can be destroyed, indexed exactly like
@@ -111,17 +123,19 @@ namespace MustyBlockBlast.Core
             _shape = shape ?? throw new ArgumentNullException(nameof(shape));
             _cells = new int[shape.CellCount];
             _specialKinds = new SpecialCellKind[shape.CellCount];
+            _cellSkins = new CellSkinKind[shape.CellCount];
             _hitCounts = new int[shape.CellCount];
             _timerCountdowns = new int[shape.CellCount];
         }
 
         private Board(
-            BoardShape shape, int[] cells, SpecialCellKind[] specialKinds, int[] hitCounts,
-            int[] timerCountdowns)
+            BoardShape shape, int[] cells, SpecialCellKind[] specialKinds, CellSkinKind[] cellSkins,
+            int[] hitCounts, int[] timerCountdowns)
         {
             _shape = shape;
             _cells = cells;
             _specialKinds = specialKinds;
+            _cellSkins = cellSkins;
             _hitCounts = hitCounts;
             _timerCountdowns = timerCountdowns;
         }
@@ -207,6 +221,7 @@ namespace MustyBlockBlast.Core
             int index = Index(position);
             _cells[index] = EMPTY;
             _specialKinds[index] = SpecialCellKind.None;
+            _cellSkins[index] = CellSkinKind.None;
             _hitCounts[index] = 0;
             _timerCountdowns[index] = 0;
         }
@@ -266,6 +281,18 @@ namespace MustyBlockBlast.Core
         /// cell and then tag it in two steps; the tag is reset only by <see cref="Clear"/>.</summary>
         public void SetSpecialKind(GridPosition position, SpecialCellKind kind)
             => _specialKinds[Index(position)] = kind;
+
+        /// <summary>The decorative skin the block on <paramref name="position"/> carries.
+        /// <see cref="CellSkinKind.None"/> for an ordinary or empty cell, and for every cell of every
+        /// board built before this feature existed. See <see cref="CellSkinKind"/>.</summary>
+        public CellSkinKind GetCellSkin(GridPosition position) => _cellSkins[Index(position)];
+
+        /// <summary>Tags <paramref name="position"/> with a decorative skin. Independent of
+        /// <see cref="Occupy"/> and of <see cref="SetSpecialKind"/> exactly as they are independent of
+        /// each other — a cell can be occupied, tagged special, skinned, any combination — and is reset
+        /// only by <see cref="Clear"/>.</summary>
+        public void SetCellSkin(GridPosition position, CellSkinKind kind)
+            => _cellSkins[Index(position)] = kind;
 
         /// <summary>Placements still to elapse before <paramref name="position"/> converts from
         /// <see cref="SpecialCellKind.Timer"/> to an ordinary cell. 0 for any cell that is not a timer
@@ -843,13 +870,16 @@ namespace MustyBlockBlast.Core
             var specialCopy = new SpecialCellKind[_specialKinds.Length];
             Array.Copy(_specialKinds, specialCopy, _specialKinds.Length);
 
+            var cellSkinCopy = new CellSkinKind[_cellSkins.Length];
+            Array.Copy(_cellSkins, cellSkinCopy, _cellSkins.Length);
+
             int[] hitCountCopy = new int[_hitCounts.Length];
             Array.Copy(_hitCounts, hitCountCopy, _hitCounts.Length);
 
             int[] timerCountdownCopy = new int[_timerCountdowns.Length];
             Array.Copy(_timerCountdowns, timerCountdownCopy, _timerCountdowns.Length);
 
-            return new Board(_shape, copy, specialCopy, hitCountCopy, timerCountdownCopy);
+            return new Board(_shape, copy, specialCopy, cellSkinCopy, hitCountCopy, timerCountdownCopy);
         }
 
         /// <summary>Overwrites this board's cells with <paramref name="source"/>'s. Used to reuse a scratch
@@ -879,6 +909,7 @@ namespace MustyBlockBlast.Core
 
             Array.Copy(source._cells, _cells, _cells.Length);
             Array.Copy(source._specialKinds, _specialKinds, _specialKinds.Length);
+            Array.Copy(source._cellSkins, _cellSkins, _cellSkins.Length);
             Array.Copy(source._hitCounts, _hitCounts, _hitCounts.Length);
             Array.Copy(source._timerCountdowns, _timerCountdowns, _timerCountdowns.Length);
         }

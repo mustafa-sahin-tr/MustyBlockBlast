@@ -225,6 +225,16 @@
       <p class="muted"><strong>Not:</strong> Coin, şu anda level içeriğiyle doğrudan besleyebildiğimiz <em>tek</em> özel hücre türü — diğer 5 tanesi sadece oyun içi tetikleyicilerle kazanılıyor.</p>
     </div>
   </div>
+
+  <div class="card">
+    <h2>Kozmetik Hücre Skinleri <span class="anchor-badge">CellSkinKind — sadece Classic mod</span></h2>
+    <p>Board üzerindeki bir küp bazen kek/şeker/jöle/meyve temalı bir dekoratif görünüm kazanır — bu, <code>SpecialCellKind</code>'dan tamamen bağımsız, <strong>salt kozmetik</strong> ikinci bir hücre etiketidir (<code>CellSkinKind</code>). Skorlamaya, satır/sütun temizlemeye ve hiçbir özel hücre efektine (Explosive Core, Laser, Score Gem, Vortex, Chain Lightning, Coin) etkisi yoktur — temalı bir Coin hücresi, temasız bir Coin hücresiyle birebir aynı ödemeyi yapar. Bir hücre aynı anda hem bir skin hem bir <code>SpecialCellKind</code> taşıyabilir; ikisi de katmanlı gösterilir (<code>CellView.SetSkinOverlay</code> + <code>SetSpecialIcon</code>, birbirini engellemez).</p>
+    <div class="callout"><strong>Sadece Classic modda (<code>GameMode.Timed</code>).</strong> <code>GameModeModel.SkinsEnabled</code>, <code>ExtrasEnabled</code>'dan bağımsız ayrı bir kapıdır ve kasıtlı olarak onun tersidir: Classic'te extras (özel hücre/power-up) kapalıyken skin açık, diğer modlarda (Endless, Path) extras açıkken skin hiç yok.</div>
+    <p><strong>4 tema:</strong> Cake (kek), Candy (şeker), Jelly (jöle), Fruit (meyve) — her biri <code>CellSkinIconCatalog</code> üzerinden ayrı bir dekoratif sprite ile eşleşir (<code>Assets/Art/Icons/CellSkins/</code>, fal.ai ile üretildi). Hangi tema atanacağı, her seferinde <strong>bağımsız ve tamamen rastgele</strong> seçilir — run başına tek tema veya sıralı ilerleme yok.</p>
+    <p><strong>Nasıl tetiklenir:</strong> Classic modda oynanan bir run'ın skoru, <code>CellSkinConfig.ScoreIntervalPoints</code> (varsayılan 500) katlarından birini her geçtiğinde, tahtadaki dolu ve henüz düz (skin'siz) hücrelerden en fazla <code>CellSkinConfig.MaxCellsPerConversion</code> (varsayılan 3) tanesi rastgele temalanır. Bu, run boyunca <strong>tekrar eden</strong> bir tetikleyicidir, tek seferlik değil. İlk dönüşümden itibaren, o run'ın geri kalanında tepsiye gelen yeni parçalar da temalı gelebilir.</p>
+    <p><strong>Undo ve run geçişi:</strong> Tek adımlık undo skin'leri de tam olarak eski haline döndürür (<code>Board.Clone</code>/<code>CopyFrom</code> skin dizisini de kopyalar). Yeni bir run başladığında (hangi mod olursa olsun) tüm skin state'i sıfırlanır — bir önceki run'dan skin asla taşınmaz.</p>
+    <p class="muted">Kod: <code>CellSkinKind.cs</code>, <code>CellSkinSystem.cs</code>, <code>CellSkinConfig.cs</code>, <code>CellSkinIconCatalog.cs</code>, <code>GameModeModel.SkinsEnabled</code>, <code>Board.GetCellSkin</code>/<code>SetCellSkin</code>, <code>TrayModel.GetCellSkin</code>, <code>CellView.SetSkinOverlay</code>/<code>ClearSkinOverlay</code></p>
+  </div>
 </section>
 
 <!-- =========================== POWER-UPS =========================== -->

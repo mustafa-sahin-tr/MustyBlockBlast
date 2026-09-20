@@ -44,6 +44,16 @@ namespace MustyBlockBlast.Presentation.Views
         /// </para>
         /// </summary>
         internal static void Apply(CellView cell, SpecialPieceKind kind, ThemeDefinition theme, int colourId)
+            => Apply(cell, kind, theme, colourId, null);
+
+        /// <summary>
+        /// As the four-argument overload, but also painting the dock plate's decorative cell-skin
+        /// overlay (issue #324) — <paramref name="skinOverlay"/> is the already-resolved sprite (or
+        /// null for none), resolved by the caller via <c>CellSkinIconCatalog.Find</c> so this stays a
+        /// pure paint function with no catalog dependency of its own.
+        /// </summary>
+        internal static void Apply(
+            CellView cell, SpecialPieceKind kind, ThemeDefinition theme, int colourId, Sprite skinOverlay)
         {
             if (cell == null)
             {
@@ -59,6 +69,8 @@ namespace MustyBlockBlast.Presentation.Views
                 cell.SetEmbossedColours(
                     theme.GetFill(colourId), theme.GetHighlight(colourId), theme.GetShade(colourId));
             }
+
+            cell.SetSkinOverlay(skinOverlay);
 
             Sprite glyph = GlyphFor(kind);
             if (glyph == null)

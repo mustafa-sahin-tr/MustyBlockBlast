@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 796df3a9193c34f588fcb61f23da8013, type: 3}
+  m_Name: CellSkinIconCatalog
+  m_EditorClassIdentifier: MustyBlockBlast.Gameplay::MustyBlockBlast.Gameplay.Settings.CellSkinIconCatalog
+  _entries:
+  - _kind: 1
+    _overlay: {fileID: 21300000, guid: fa5a3027f740a491b9fc0d6f151cdf22, type: 3}
+  - _kind: 2
+    _overlay: {fileID: 21300000, guid: 32306c220f5a6468e833eb5492f24690, type: 3}
+  - _kind: 3
+    _overlay: {fileID: 21300000, guid: 86f5f1967b2b44e00a8f6135cee05939, type: 3}
+  - _kind: 4
+    _overlay: {fileID: 21300000, guid: bcc4807733d2049ebbe0b431b88ec2f6, type: 3}

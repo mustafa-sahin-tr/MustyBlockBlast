@@ -332,6 +332,11 @@ namespace MustyBlockBlast.Presentation.Views
         // the cell — which is why no "pending kind" counterpart is needed.
         private SpecialCellKind[] _cellSpecialKinds;
 
+        /// <summary>The decorative skin each cell has settled on (issue #324), parallel to the colour
+        /// bookkeeping above and mirroring <see cref="_cellSpecialKinds"/> exactly, including the same
+        /// "fades with the block, no pending counterpart needed" reasoning.</summary>
+        private CellSkinKind[] _cellSkinKinds;
+
         /// <summary>Hits each cell has left, parallel to the bookkeeping above. 0 for every ordinary
         /// cell, which is every cell on a board no level reinforced. Drives the damage blend in
         /// <see cref="ApplyCellColour"/>, so every repaint path picks it up without knowing about
@@ -356,6 +361,11 @@ namespace MustyBlockBlast.Presentation.Views
         private ISubscriber<VortexIslandFilledMessage> _vortexIslandFilledSubscriber;
         private ISubscriber<ChainLightningTriggeredMessage> _chainLightningTriggeredSubscriber;
         private ISubscriber<SpecialCellSpawnedMessage> _specialCellSpawnedSubscriber;
+
+        /// <summary>Decorative overlay sprite lookup for cell skins (issue #324). Optional — a null
+        /// catalog (misconfigured scene) or a kind left unauthored in it simply draws no overlay,
+        /// exactly as an unassigned special-cell icon sprite falls back to the shared starburst.</summary>
+        private CellSkinIconCatalog _cellSkinIconCatalog;
 
         /// <summary>The grid's layout origin and pitch, kept from <see cref="BuildCells"/> so the pull
         /// animation can work out where a cell one step away sits without re-deriving the layout.</summary>
@@ -384,8 +394,10 @@ namespace MustyBlockBlast.Presentation.Views
             ISubscriber<PiercingRocketFiredMessage> piercingRocketFiredSubscriber,
             ISubscriber<VortexIslandFilledMessage> vortexIslandFilledSubscriber,
             ISubscriber<ChainLightningTriggeredMessage> chainLightningTriggeredSubscriber,
-            ISubscriber<SpecialCellSpawnedMessage> specialCellSpawnedSubscriber)
+            ISubscriber<SpecialCellSpawnedMessage> specialCellSpawnedSubscriber,
+            CellSkinIconCatalog cellSkinIconCatalog = null)
         {
+            _cellSkinIconCatalog = cellSkinIconCatalog;
             _explosiveCoreDetonatedSubscriber = explosiveCoreDetonatedSubscriber;
             _laserFiredSubscriber = laserFiredSubscriber;
             _piercingRocketFiredSubscriber = piercingRocketFiredSubscriber;
@@ -515,6 +527,7 @@ namespace MustyBlockBlast.Presentation.Views
 
             _boardModel.CellChanged += OnCellChanged;
             _boardModel.SpecialKindChanged += OnSpecialKindChanged;
+            _boardModel.CellSkinChanged += OnCellSkinChanged;
             _boardModel.HitCountChanged += OnHitCountChanged;
             _boardModel.TimerCountdownChanged += OnTimerCountdownChanged;
             _boardModel.TimerCellExpired += OnTimerCellExpired;
@@ -561,6 +574,7 @@ namespace MustyBlockBlast.Presentation.Views
             {
                 _boardModel.CellChanged -= OnCellChanged;
                 _boardModel.SpecialKindChanged -= OnSpecialKindChanged;
+                _boardModel.CellSkinChanged -= OnCellSkinChanged;
                 _boardModel.HitCountChanged -= OnHitCountChanged;
                 _boardModel.TimerCountdownChanged -= OnTimerCountdownChanged;
                 _boardModel.TimerCellExpired -= OnTimerCellExpired;
@@ -945,6 +959,7 @@ namespace MustyBlockBlast.Presentation.Views
             _pendingGenerations = new int[cellCount];
             _cellPending = new bool[cellCount];
             _cellSpecialKinds = new SpecialCellKind[cellCount];
+            _cellSkinKinds = new CellSkinKind[cellCount];
             _cellHitCounts = new int[cellCount];
             _cellTimerCountdowns = new int[cellCount];
 
@@ -1019,6 +1034,12 @@ namespace MustyBlockBlast.Presentation.Views
                     _cellSpecialKinds[index] = _boardModel.GetSpecialKind(cell);
                     ApplyCellIcon(index, _cellSpecialKinds[index]);
 
+                    // Re-derived from the model for the same reason the special kind just above is
+                    // (issue #324): a Classic run resumed mid-game (e.g. a domain reload in the editor)
+                    // must repaint whatever skins it already converted, not just what has changed since.
+                    _cellSkinKinds[index] = _boardModel.GetCellSkin(cell);
+                    ApplyCellSkin(index, _cellSkinKinds[index]);
+
                     // Re-derived from the model for the same reason the special kind just above is: a
                     // level's timer cells are on the board before the first repaint ever runs.
                     _cellTimerCountdowns[index] = _boardModel.GetTimerCountdown(cell);
@@ -1050,6 +1071,12 @@ namespace MustyBlockBlast.Presentation.Views
                 _cellSpecialKinds[index] = _boardModel.GetSpecialKind(cell);
                 ApplyCellIcon(index, _cellSpecialKinds[index]);
 
+                // Read back for the same reason (issue #324): this is also the notification a piece
+                // placement raises for a cell it is about to skin, and the skin's own notification
+                // follows — see OnCellSkinChanged.
+                _cellSkinKinds[index] = _boardModel.GetCellSkin(cell);
+                ApplyCellSkin(index, _cellSkinKinds[index]);
+
                 // Read back for the same reason: this is also the notification OccupyTimer raises when
                 // a timer cell is seeded, and the countdown's own notification follows.
                 _cellTimerCountdowns[index] = _boardModel.GetTimerCountdown(cell);
@@ -1076,6 +1103,10 @@ namespace MustyBlockBlast.Presentation.Views
             // The icon is left on screen and fades with the block it belongs to; the settled state is
             // already "no kind", because Board.Clear resets a destroyed cell's kind with its colour.
             _cellSpecialKinds[index] = SpecialCellKind.None;
+
+            // Same reasoning again (issue #324): the skin overlay fades with the block rather than
+            // vanishing instantly, and Board.Clear resets it along with the special kind and colour.
+            _cellSkinKinds[index] = CellSkinKind.None;
 
             // And so is its hit count: a cell only ever reaches "empty" by being destroyed, which is
             // the last hit by definition. This is why a damaged cell needs a signal of its own but a
@@ -1359,6 +1390,16 @@ namespace MustyBlockBlast.Presentation.Views
             int index = CellIndex(cell);
             _cellSpecialKinds[index] = kind;
             ApplyCellIcon(index, kind);
+        }
+
+        /// <summary>A cell's decorative skin changed (issue #324) — a score-threshold conversion, or a
+        /// piece placement painting the cells it landed on. Mirrors <see cref="OnSpecialKindChanged"/>
+        /// exactly, including needing no "lost a skin" counterpart for the same reason.</summary>
+        private void OnCellSkinChanged(GridPosition cell, CellSkinKind kind)
+        {
+            int index = CellIndex(cell);
+            _cellSkinKinds[index] = kind;
+            ApplyCellSkin(index, kind);
         }
 
         /// <summary>
@@ -2623,6 +2664,22 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             return sprite != null ? sprite : UiSpriteFactory.Starburst;
+        }
+
+        /// <summary>Shows or hides one cell's decorative skin overlay (issue #324). Allocation-free and
+        /// idempotent, like <see cref="ApplyCellIcon"/> it mirrors, so every repaint path can call it
+        /// unconditionally. Unlike a special-cell icon there is no built-in fallback glyph: an
+        /// unauthored kind (or no catalog at all) simply draws nothing, leaving the cell's flat colour
+        /// alone.</summary>
+        private void ApplyCellSkin(int index, CellSkinKind kind)
+        {
+            if (kind == CellSkinKind.None || _cellSkinIconCatalog == null)
+            {
+                _cells[index].ClearSkinOverlay();
+                return;
+            }
+
+            _cells[index].SetSkinOverlay(_cellSkinIconCatalog.Find(kind));
         }
 
         /// <summary>Draws a clearing cell blended towards the flash tint, keeping it on the same
