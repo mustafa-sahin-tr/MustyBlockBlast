@@ -60,6 +60,7 @@ namespace MustyBlockBlast.Presentation.Views
 
         private TimerModel _timerModel;
         private GameModeSystem _gameModeSystem;
+        private TimedModeSystem _timedModeSystem;
         private TimerRunSystem _timerRunSystem;
         private SettingsModel _settingsModel;
         private LocalizationModel _localizationModel;
@@ -87,6 +88,7 @@ namespace MustyBlockBlast.Presentation.Views
         public void Construct(
             TimerModel timerModel,
             GameModeSystem gameModeSystem,
+            TimedModeSystem timedModeSystem,
             TimerRunSystem timerRunSystem,
             SettingsModel settingsModel,
             LocalizationModel localizationModel,
@@ -95,6 +97,7 @@ namespace MustyBlockBlast.Presentation.Views
         {
             _timerModel = timerModel;
             _gameModeSystem = gameModeSystem;
+            _timedModeSystem = timedModeSystem;
             _timerRunSystem = timerRunSystem;
             _settingsModel = settingsModel;
             _localizationModel = localizationModel;
@@ -106,7 +109,8 @@ namespace MustyBlockBlast.Presentation.Views
 
         private void Start()
         {
-            if (_timerModel == null || _gameModeSystem == null || _timerRunSystem == null || _settingsModel == null
+            if (_timerModel == null || _gameModeSystem == null || _timedModeSystem == null
+                || _timerRunSystem == null || _settingsModel == null
                 || _localizationModel == null || _localizationSystem == null || _scoreView == null)
             {
                 Debug.LogError($"{nameof(TimerHudView)} was not injected. Is it registered in the LifetimeScope?", this);
@@ -120,6 +124,7 @@ namespace MustyBlockBlast.Presentation.Views
             _settingsModel.CurrentTheme.Subscribe(OnThemeChanged).AddTo(_disposables);
             _localizationModel.CurrentLocale.Subscribe(OnLocaleChanged).AddTo(_disposables);
             _gameModeSystem.CurrentMode.Subscribe(OnModeChanged).AddTo(_disposables);
+            _timedModeSystem.SelectedDuration.Subscribe(OnSelectedDurationChanged).AddTo(_disposables);
 
             _timerModel.IsLowTime.Subscribe(OnLowTimeChanged).AddTo(_disposables);
 
@@ -179,9 +184,26 @@ namespace MustyBlockBlast.Presentation.Views
             _pillPlate.color = _currentTheme != null ? _currentTheme.GetFill(_timerKind) : Color.clear;
         }
 
-        /// <summary>Shown through the CanvasGroup rather than by toggling the GameObject, so a mode
-        /// switch never rebuilds the shared canvas mesh.</summary>
-        private void OnModeChanged(GameMode mode) => _group.alpha = mode == GameMode.Timed ? 1f : 0f;
+        private void OnModeChanged(GameMode mode) => ApplyVisibility();
+
+        /// <summary>
+        /// The selected length decides visibility as much as the mode does: Classic's "Sınırsız" entry
+        /// is a timed-mode duration that never counts down (issue #363), so the pill must go away for it
+        /// exactly as it does in Endless.
+        /// </summary>
+        private void OnSelectedDurationChanged(float durationSeconds) => ApplyVisibility();
+
+        /// <summary>
+        /// The single writer of the pill's visibility, so the mode subscription and the duration
+        /// subscription can never fight over it. Shown through the CanvasGroup rather than by toggling
+        /// the GameObject, so a mode switch never rebuilds the shared canvas mesh.
+        /// </summary>
+        private void ApplyVisibility()
+        {
+            bool hasCountdown = _gameModeSystem.CurrentMode.Value == GameMode.Timed
+                && !TimedModeConfig.IsEndlessDuration(_timedModeSystem.SelectedDuration.Value);
+            _group.alpha = hasCountdown ? 1f : 0f;
+        }
 
         /// <summary>
         /// Re-renders the countdown in the new language. Skipped before the first tick, when there is
