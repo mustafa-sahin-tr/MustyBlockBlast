@@ -1,4 +1,6 @@
 using System;
+using System.Threading;
+using Cysharp.Threading.Tasks;
 using MessagePipe;
 using MustyBlockBlast.Core;
 using MustyBlockBlast.Gameplay.Localization;
@@ -53,6 +55,15 @@ namespace MustyBlockBlast.Gameplay.Systems
         private const string POWERUP_ID_PREFIX = "PowerUp_";
         private const string SPECIAL_PIECE_ID_PREFIX = "SpecialPiece_";
 
+        /// <summary>
+        /// How long <see cref="TryAutoOpenAfterGrantAnimationAsync"/> waits for a matching
+        /// <see cref="PowerUpGrantAnimationCompletedMessage"/> before giving up and opening anyway
+        /// (issue #353). Defensive only: every scope that can grant a power-up while this System is
+        /// alive also hosts the grant-animation View, which always publishes completion — including the
+        /// "no slot to fly to" and "no icon configured" cases — so this should never actually elapse.
+        /// </summary>
+        private static readonly TimeSpan GrantAnimationTimeout = TimeSpan.FromSeconds(2f);
+
         private readonly InfoPopupModel _model;
 
         private readonly IDisposable _specialCellSpawnedSubscription;
@@ -60,16 +71,24 @@ namespace MustyBlockBlast.Gameplay.Systems
         private readonly IDisposable _holdFirstUseSubscription;
         private readonly IDisposable _specialPieceSpawnedSubscription;
 
+        private readonly ISubscriber<PowerUpGrantAnimationCompletedMessage> _grantAnimationCompletedSubscriber;
+
+        /// <summary>Cancelled on <see cref="Dispose"/> so a pending <see cref="TryAutoOpenAfterGrantAnimationAsync"/>
+        /// wait can never touch <see cref="_model"/> after this System is torn down.</summary>
+        private readonly CancellationTokenSource _disposeCts = new CancellationTokenSource();
+
         [Inject]
         public InfoPopupSystem(
             InfoPopupModel model,
             PowerUpModel powerUpModel,
             ISubscriber<SpecialCellSpawnedMessage> specialCellSpawnedSubscriber,
             ISubscriber<PowerUpGrantedMessage> powerUpGrantedSubscriber,
+            ISubscriber<PowerUpGrantAnimationCompletedMessage> grantAnimationCompletedSubscriber,
             ISubscriber<HoldFirstUseMessage> holdFirstUseSubscriber,
             ISubscriber<SpecialPieceSpawnedMessage> specialPieceSpawnedSubscriber)
         {
             _model = model;
+            _grantAnimationCompletedSubscriber = grantAnimationCompletedSubscriber;
 
             RunAlreadyGrantedPowerUpMigration(powerUpModel);
 
@@ -85,6 +104,9 @@ namespace MustyBlockBlast.Gameplay.Systems
             _powerUpGrantedSubscription.Dispose();
             _holdFirstUseSubscription.Dispose();
             _specialPieceSpawnedSubscription.Dispose();
+
+            _disposeCts.Cancel();
+            _disposeCts.Dispose();
         }
 
         /// <summary>
@@ -117,10 +139,91 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// the old coach-mark system's starter-three-only gating. <see cref="PowerUpGrantedMessage"/>
         /// fires on every grant, not only the first, so "first" is decided here by the seen-flag,
         /// mirroring <see cref="OnHoldFirstUse"/>.
+        /// <para>
+        /// Unlike the other three triggers, this one does not open through <see cref="TryAutoOpen"/>
+        /// directly: issue #353 gave every in-scene grant a flying icon that lands in the power-up
+        /// strip, and the card must never cover it mid-flight. See
+        /// <see cref="TryAutoOpenAfterGrantAnimationAsync"/>.
+        /// </para>
         /// </summary>
         private void OnPowerUpGranted(PowerUpGrantedMessage message)
         {
-            TryAutoOpen(InfoPopupSubjectKind.PowerUp, (int)message.Kind);
+            TryAutoOpenAfterGrantAnimationAsync(message.Kind).Forget();
+        }
+
+        /// <summary>
+        /// Mirrors <see cref="TryAutoOpen"/>'s seen/already-open gating exactly and in the same order —
+        /// including marking the id seen synchronously, before anything is awaited, so a same-frame
+        /// multi-grant (a purchase of quantity &gt; 1, which fires one <see cref="PowerUpGrantedMessage"/>
+        /// per unit) still only ever considers opening once, exactly as it did before this method
+        /// existed. The one difference: when this call would actually open the card, it first awaits the
+        /// matching <see cref="PowerUpGrantAnimationCompletedMessage"/> (or a defensive timeout — see
+        /// <see cref="GrantAnimationTimeout"/>) so the flying icon has already landed in its inventory
+        /// slot before the card appears over it (#353).
+        /// </summary>
+        private async UniTaskVoid TryAutoOpenAfterGrantAnimationAsync(PowerUpKind kind)
+        {
+            BuildContent(InfoPopupSubjectKind.PowerUp, (int)kind, out string id, out string headerKey, out string bodyKey);
+            if (IsSeen(id))
+            {
+                return;
+            }
+
+            if (_model.OpenContent.Value != null)
+            {
+                MarkSeen(id);
+                return;
+            }
+
+            MarkSeen(id);
+
+            try
+            {
+                await AwaitGrantAnimationCompletedAsync(kind, _disposeCts.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                // Disposed (scene/scope tearing down) before the icon landed — nothing left to open.
+                return;
+            }
+
+            // Something else may have opened while the icon was still flying; the explainer never
+            // bumps whatever got there first.
+            if (_model.OpenContent.Value == null)
+            {
+                _model.OpenContent.Value = new InfoPopupContent(id, InfoPopupSubjectKind.PowerUp, (int)kind, headerKey, bodyKey);
+            }
+        }
+
+        /// <summary>
+        /// Awaits the next <see cref="PowerUpGrantAnimationCompletedMessage"/> matching
+        /// <paramref name="kind"/>, or <see cref="GrantAnimationTimeout"/>, whichever comes first. The
+        /// timeout exists only so a missing or misbehaving animation View can never permanently block a
+        /// first-time card — every real code path publishes the completion message promptly, including
+        /// when it deliberately skipped the animation (see
+        /// <see cref="MustyBlockBlast.Gameplay.Messages.PowerUpGrantAnimationCompletedMessage"/>).
+        /// </summary>
+        private async UniTask AwaitGrantAnimationCompletedAsync(PowerUpKind kind, CancellationToken cancellationToken)
+        {
+            UniTaskCompletionSource<bool> completionSource = new UniTaskCompletionSource<bool>();
+            IDisposable subscription = _grantAnimationCompletedSubscriber.Subscribe(message =>
+            {
+                if (message.Kind == kind)
+                {
+                    completionSource.TrySetResult(true);
+                }
+            });
+
+            try
+            {
+                await UniTask.WhenAny(
+                    completionSource.Task.AttachExternalCancellation(cancellationToken),
+                    UniTask.Delay(GrantAnimationTimeout, cancellationToken: cancellationToken));
+            }
+            finally
+            {
+                subscription.Dispose();
+            }
         }
 
         private void OnHoldFirstUse(HoldFirstUseMessage message)
