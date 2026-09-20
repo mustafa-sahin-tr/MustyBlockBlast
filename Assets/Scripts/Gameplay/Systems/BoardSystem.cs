@@ -92,7 +92,7 @@ namespace MustyBlockBlast.Gameplay.Systems
         private readonly IPublisher<ExplosiveCoreDetonatedMessage> _explosiveCoreDetonatedPublisher;
         private readonly IPublisher<LaserFiredMessage> _laserFiredPublisher;
         private readonly IPublisher<PiercingRocketFiredMessage> _piercingRocketFiredPublisher;
-        private readonly IPublisher<VortexPulledMessage> _vortexPulledPublisher;
+        private readonly IPublisher<VortexIslandFilledMessage> _vortexIslandFilledPublisher;
         private readonly IPublisher<ChainLightningTriggeredMessage> _chainLightningTriggeredPublisher;
         private readonly IPublisher<CoinCellsClearedMessage> _coinCellsClearedPublisher;
 
@@ -108,10 +108,11 @@ namespace MustyBlockBlast.Gameplay.Systems
         private readonly ExplosiveCoreEffect _explosiveCoreEffect = new ExplosiveCoreEffect();
         private readonly LaserEffect _laserEffect = new LaserEffect();
 
-        /// <summary>The odd one out among the board-mutating effects: it moves blocks instead of
-        /// destroying them, so what it reports is a list of moves rather than a count of emptied
-        /// cells.</summary>
-        private readonly VortexEffect _vortexEffect = new VortexEffect();
+        /// <summary>The odd one out among the board-mutating effects: it creates blocks instead of
+        /// destroying them (or hands its own tag off), so what it reports is a list of filled/hand-off
+        /// cells rather than a count of emptied ones. Built in the constructor rather than here because
+        /// it takes <see cref="_random"/>, for the same reason <see cref="_chainLightningEffect"/> is.</summary>
+        private readonly VortexEffect _vortexEffect;
 
         /// <summary>The one effect that needs a random stream to do its work — it picks the cells it
         /// vaporizes rather than deriving them from geometry. Built in the constructor rather than here
@@ -226,7 +227,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             IPublisher<ExplosiveCoreDetonatedMessage> explosiveCoreDetonatedPublisher,
             IPublisher<LaserFiredMessage> laserFiredPublisher,
             IPublisher<PiercingRocketFiredMessage> piercingRocketFiredPublisher,
-            IPublisher<VortexPulledMessage> vortexPulledPublisher,
+            IPublisher<VortexIslandFilledMessage> vortexIslandFilledPublisher,
             IPublisher<ChainLightningTriggeredMessage> chainLightningTriggeredPublisher,
             IPublisher<CoinCellsClearedMessage> coinCellsClearedPublisher,
             CurrencyConfig currencyConfig,
@@ -240,7 +241,7 @@ namespace MustyBlockBlast.Gameplay.Systems
                 boardModel, trayModel, scoreGemProgressModel, vortexProgressModel, pieceDraw,
                 runStartedPublisher, piecePlacedPublisher, linesClearedPublisher, gameOverPublisher,
                 trayRefilledPublisher, explosiveCoreDetonatedPublisher, laserFiredPublisher,
-                piercingRocketFiredPublisher, vortexPulledPublisher, chainLightningTriggeredPublisher,
+                piercingRocketFiredPublisher, vortexIslandFilledPublisher, chainLightningTriggeredPublisher,
                 coinCellsClearedPublisher, currencyConfig, Environment.TickCount, reinforcedCellSeeder,
                 powerUpModel, specialCellSpawnedPublisher, specialPieceSpawnedPublisher,
                 timerCellSeeder, gameModeModel)
@@ -261,7 +262,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             IPublisher<ExplosiveCoreDetonatedMessage> explosiveCoreDetonatedPublisher,
             IPublisher<LaserFiredMessage> laserFiredPublisher,
             IPublisher<PiercingRocketFiredMessage> piercingRocketFiredPublisher,
-            IPublisher<VortexPulledMessage> vortexPulledPublisher,
+            IPublisher<VortexIslandFilledMessage> vortexIslandFilledPublisher,
             IPublisher<ChainLightningTriggeredMessage> chainLightningTriggeredPublisher,
             IPublisher<CoinCellsClearedMessage> coinCellsClearedPublisher,
             CurrencyConfig currencyConfig,
@@ -285,13 +286,16 @@ namespace MustyBlockBlast.Gameplay.Systems
             // and there is exactly one stream per run for every random decision to come out of.
             _chainLightningEffect = new ChainLightningEffect(_random);
 
+            // Same reason, same stream: a fill's colour and a hand-off's target both draw from it.
+            _vortexEffect = new VortexEffect(_random);
+
             // Built from the live board's own outline, not from a default square: a scratch board that
             // disagreed with the real one about geometry could not be copied onto at all.
             _previewScratchBoard = new Board(boardModel.Shape);
             _explosiveCoreDetonatedPublisher = explosiveCoreDetonatedPublisher;
             _laserFiredPublisher = laserFiredPublisher;
             _piercingRocketFiredPublisher = piercingRocketFiredPublisher;
-            _vortexPulledPublisher = vortexPulledPublisher;
+            _vortexIslandFilledPublisher = vortexIslandFilledPublisher;
             _chainLightningTriggeredPublisher = chainLightningTriggeredPublisher;
             _coinCellsClearedPublisher = coinCellsClearedPublisher;
             _coinEffect = new CoinEffect(currencyConfig.CoinCellPayout);
@@ -556,15 +560,21 @@ namespace MustyBlockBlast.Gameplay.Systems
                 _boardModel.NotifyPowerUpCleared(vaporizedCells);
             }
 
-            // A vortex's pulls are announced through their own seam rather than the cleared-cells one:
-            // nothing was destroyed, so there is no cell to fade — each move empties one cell and fills
-            // another, and both ends have to reach the View together or a block would appear to
-            // duplicate itself.
-            IReadOnlyList<VortexPull> pulls = _vortexEffect.Pulls;
-            bool anyPulled = pulls.Count > 0;
-            if (anyPulled)
+            // A vortex's work is announced through its own seam rather than the cleared-cells one:
+            // nothing was destroyed, so there is no cell to fade — a fill creates a cell and a hand-off
+            // only relabels one, neither of which the "this cell is empty now" path can describe.
+            IReadOnlyList<GridPosition> islandFilledCells = _vortexEffect.FilledCells;
+            IReadOnlyList<GridPosition> vortexHandOffTargets = _vortexEffect.HandOffTargets;
+            bool anyIslandFilled = islandFilledCells.Count > 0;
+            bool anyHandedOff = vortexHandOffTargets.Count > 0;
+            if (anyIslandFilled)
             {
-                _boardModel.NotifyPulled(pulls);
+                _boardModel.NotifyIslandFilled(islandFilledCells);
+            }
+
+            if (anyHandedOff)
+            {
+                _boardModel.NotifyVortexHandedOff(vortexHandOffTargets);
             }
 
             // After every emptied/filled cell has been announced: a reinforced cell this resolution only
@@ -630,13 +640,14 @@ namespace MustyBlockBlast.Gameplay.Systems
                     new ChainLightningTriggeredMessage(vaporizedCells.Count));
             }
 
-            if (anyPulled)
+            if (anyIslandFilled || anyHandedOff)
             {
-                // Copied, unlike every count above: the effect's list is a buffer it overwrites on the
-                // next placement, and a subscriber animating the slide over several frames would
-                // otherwise be reading next move's data halfway through. One small list per placement
-                // that pulled something — never per frame.
-                _vortexPulledPublisher.Publish(new VortexPulledMessage(new List<VortexPull>(pulls)));
+                // Copied, unlike every count above: the effect's lists are buffers it overwrites on the
+                // next placement, and a subscriber animating the fill over several frames would
+                // otherwise be reading next move's data halfway through. One small pair of lists per
+                // placement that did either — never per frame.
+                _vortexIslandFilledPublisher.Publish(new VortexIslandFilledMessage(
+                    new List<GridPosition>(islandFilledCells), new List<GridPosition>(vortexHandOffTargets)));
             }
 
             // Announced last of all, and on its own channel: a coin cell changed nothing on the board, so
@@ -1193,10 +1204,10 @@ namespace MustyBlockBlast.Gameplay.Systems
             _explosiveCoreEffect.BeginResolution();
             _laserEffect.BeginResolution();
 
-            // And the vortex, for the same reason: a vortex tile a hammer destroys drags the board's
-            // strays inwards exactly as one destroyed by a completed line does. A pull is not a
-            // destruction, so unlike the two above it can never chain into ending the run — it only
-            // rearranges what is already standing.
+            // And the vortex, for the same reason: a vortex tile a hammer destroys fills the board's
+            // islands (or hands off) exactly as one destroyed by a completed line does. A fill is not a
+            // destruction, so unlike the two above it can never chain into ending the run — it only adds
+            // to what is already standing.
             _vortexEffect.BeginResolution();
 
             // The coin effect goes with them for the same reason they are here at all: a coin cell a
@@ -1228,14 +1239,25 @@ namespace MustyBlockBlast.Gameplay.Systems
                 _laserFiredPublisher.Publish(new LaserFiredMessage(wipedCells.Count));
             }
 
-            // Announced exactly as the placement path announces its pulls — their own seam, both ends of
-            // every move, and a copy of the buffer so a subscriber animating the slide is not reading the
-            // next resolution's data halfway through.
-            IReadOnlyList<VortexPull> pulls = _vortexEffect.Pulls;
-            if (pulls.Count > 0)
+            // Announced exactly as the placement path announces its vortex work — its own seam, and a
+            // copy of the buffers so a subscriber animating the fill is not reading the next
+            // resolution's data halfway through.
+            IReadOnlyList<GridPosition> islandFilledCells = _vortexEffect.FilledCells;
+            IReadOnlyList<GridPosition> vortexHandOffTargets = _vortexEffect.HandOffTargets;
+            if (islandFilledCells.Count > 0)
             {
-                _boardModel.NotifyPulled(pulls);
-                _vortexPulledPublisher.Publish(new VortexPulledMessage(new List<VortexPull>(pulls)));
+                _boardModel.NotifyIslandFilled(islandFilledCells);
+            }
+
+            if (vortexHandOffTargets.Count > 0)
+            {
+                _boardModel.NotifyVortexHandedOff(vortexHandOffTargets);
+            }
+
+            if (islandFilledCells.Count > 0 || vortexHandOffTargets.Count > 0)
+            {
+                _vortexIslandFilledPublisher.Publish(new VortexIslandFilledMessage(
+                    new List<GridPosition>(islandFilledCells), new List<GridPosition>(vortexHandOffTargets)));
             }
 
             PublishCoinsAwarded();

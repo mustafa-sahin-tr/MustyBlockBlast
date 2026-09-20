@@ -50,12 +50,23 @@ namespace MustyBlockBlast.Core
         ScoreGem = 3,
 
         /// <summary>
-        /// A "vortex": destroying it drags every <em>isolated</em> block — one whose four orthogonal
-        /// neighbours are all empty, holes or off the board — one cell towards where the vortex stood,
-        /// emptying the cell each of them leaves behind. The one kind that moves blocks rather than
-        /// destroying them, so a board it tidies holds exactly as many blocks afterwards as before; see
-        /// <see cref="VortexEffect"/>, which owns the scan and the move. A pull that completes a line
-        /// clears it through the ordinary cascade, not through the effect.
+        /// A "vortex": destroying it fills every fully-enclosed pocket ("island") of empty cells the
+        /// board has at that moment — see <see cref="Board.CollectEnclosedEmptyIslands"/> for what
+        /// counts as one — reclaiming dead space the player could otherwise never clear (issue #349).
+        /// The one kind that creates blocks rather than destroying or moving them, so a board it tidies
+        /// holds <em>more</em> occupied cells afterwards, never fewer; see <see cref="VortexEffect"/>,
+        /// which owns the scan and the fill. A fill that completes a line clears it through the ordinary
+        /// cascade, not through the effect.
+        /// <para>
+        /// When the board has no island at all, the tag is instead handed off to a uniformly random
+        /// occupied cell carrying no <see cref="SpecialCellKind"/> of its own, so the ability survives a
+        /// destruction that found nothing to reclaim; a board with no eligible cell either is a no-op.
+        /// </para>
+        /// <para>
+        /// Replaces this kind's original "drag every isolated occupied block one cell inwards" effect
+        /// outright — the kind keeps its name, id and spawn rule, only what happens on destruction
+        /// changed.
+        /// </para>
         /// </summary>
         Vortex = 4,
 

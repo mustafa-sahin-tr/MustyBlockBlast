@@ -58,7 +58,7 @@ namespace MustyBlockBlast.Tests.EditMode
                 new TestMessageBroker<ExplosiveCoreDetonatedMessage>(),
                 new TestMessageBroker<LaserFiredMessage>(),
                 new TestMessageBroker<PiercingRocketFiredMessage>(),
-                new TestMessageBroker<VortexPulledMessage>(),
+                new TestMessageBroker<VortexIslandFilledMessage>(),
                 new TestMessageBroker<ChainLightningTriggeredMessage>(),
                 _coinCellsBroker,
                 _config,

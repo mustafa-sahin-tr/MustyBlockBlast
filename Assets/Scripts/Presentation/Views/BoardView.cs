@@ -111,9 +111,18 @@ namespace MustyBlockBlast.Presentation.Views
         [Tooltip("Icon scale a spawn-in pop overshoots to on its way from _specialSpawnStartScale before settling back to 1.")]
         [SerializeField] private float _specialSpawnOvershootScale = 1.18f;
 
-        [Header("Vortex Pull")]
-        [Tooltip("Seconds a block dragged by a vortex takes to slide the one cell it was pulled.")]
-        [SerializeField] private float _pullDuration = 0.18f;
+        [Header("Vortex Island Fill (issue #349)")]
+        [Tooltip("Seconds a cell a vortex reclaimed takes to pop in from _islandFillStartScale to its resting size. At least 0.4s so filling many cells still reads clearly rather than looking instant.")]
+        [SerializeField] private float _islandFillDuration = 0.5f;
+
+        [Tooltip("Block scale an island fill starts from before growing past 1 (see _islandFillOvershootScale) and settling back to 1.")]
+        [SerializeField] private float _islandFillStartScale = 0.05f;
+
+        [Tooltip("Block scale an island fill overshoots to on its way from _islandFillStartScale before settling back to 1.")]
+        [SerializeField] private float _islandFillOvershootScale = 1.12f;
+
+        [Tooltip("Seconds a vortex's hand-off target's icon takes to pop in — reuses the special-cell spawn-in pop's shape at its own duration, since a hand-off is a fresh icon appearing exactly as a genuine spawn is.")]
+        [SerializeField] private float _vortexHandOffPopDuration = 0.28f;
 
         [Header("Special Cell Icons")]
         [Tooltip("Falls back to UiSpriteFactory.Starburst, tinted, for any kind left unassigned here.")]
@@ -341,7 +350,7 @@ namespace MustyBlockBlast.Presentation.Views
         private ISubscriber<PowerUpAppliedMessage> _powerUpAppliedSubscriber;
         private ISubscriber<ExplosiveCoreDetonatedMessage> _explosiveCoreDetonatedSubscriber;
         private ISubscriber<LaserFiredMessage> _laserFiredSubscriber;
-        private ISubscriber<VortexPulledMessage> _vortexPulledSubscriber;
+        private ISubscriber<VortexIslandFilledMessage> _vortexIslandFilledSubscriber;
         private ISubscriber<ChainLightningTriggeredMessage> _chainLightningTriggeredSubscriber;
         private ISubscriber<SpecialCellSpawnedMessage> _specialCellSpawnedSubscriber;
 
@@ -368,13 +377,13 @@ namespace MustyBlockBlast.Presentation.Views
             ISubscriber<PowerUpAppliedMessage> powerUpAppliedSubscriber,
             ISubscriber<ExplosiveCoreDetonatedMessage> explosiveCoreDetonatedSubscriber,
             ISubscriber<LaserFiredMessage> laserFiredSubscriber,
-            ISubscriber<VortexPulledMessage> vortexPulledSubscriber,
+            ISubscriber<VortexIslandFilledMessage> vortexIslandFilledSubscriber,
             ISubscriber<ChainLightningTriggeredMessage> chainLightningTriggeredSubscriber,
             ISubscriber<SpecialCellSpawnedMessage> specialCellSpawnedSubscriber)
         {
             _explosiveCoreDetonatedSubscriber = explosiveCoreDetonatedSubscriber;
             _laserFiredSubscriber = laserFiredSubscriber;
-            _vortexPulledSubscriber = vortexPulledSubscriber;
+            _vortexIslandFilledSubscriber = vortexIslandFilledSubscriber;
             _chainLightningTriggeredSubscriber = chainLightningTriggeredSubscriber;
             _specialCellSpawnedSubscriber = specialCellSpawnedSubscriber;
             _boardModel = boardModel;
@@ -515,8 +524,8 @@ namespace MustyBlockBlast.Presentation.Views
             _laserFiredSubscriber.Subscribe(OnLaserFired).AddTo(_disposables);
 
             // Not a sweep, unlike the three above: a vortex destroys nothing, so there is no cell to
-            // fade — each of its moves is a block sliding from one cell to the next.
-            _vortexPulledSubscriber.Subscribe(OnVortexPulled).AddTo(_disposables);
+            // fade — a fill pops a cell in and a hand-off pops a fresh icon in.
+            _vortexIslandFilledSubscriber.Subscribe(OnVortexIslandFilled).AddTo(_disposables);
 
             // Back to the sweep: a chain lightning strike destroys, and its cells are scattered rather
             // than lined up, so nothing else would ever claim them.
@@ -1442,94 +1451,114 @@ namespace MustyBlockBlast.Presentation.Views
             => SweepPendingCells(message.VaporizedCellCount);
 
         /// <summary>
-        /// A vortex dragged blocks inwards. Deliberately not a sweep: nothing was destroyed, so nothing
-        /// may fade — a block that slid away and then faded out would read as a block that was
-        /// destroyed, which is the opposite of what happened.
+        /// A vortex reclaimed an island, handed its tag off, or both (issue #349). Deliberately not a
+        /// sweep: nothing was destroyed, so nothing may fade — a fill creates a cell and a hand-off only
+        /// relabels one.
         /// <para>
-        /// The model has already announced both ends of every move by the time this runs (the source
-        /// empty, the destination filled), so each cell is showing its final state and the only thing
-        /// left is the travel: the source is settled empty at once, and the destination is drawn one
-        /// cell back and slid into place.
+        /// The model has already announced every filled cell's new colour and the hand-off's new icon by
+        /// the time this runs (<see cref="BoardModel.NotifyIslandFilled"/>/
+        /// <see cref="BoardModel.NotifyVortexHandedOff"/> both fire synchronously before this message
+        /// publishes), so every cell involved is already showing its final look and the only thing left
+        /// is the pop that makes the change read as an event rather than a silent repaint.
         /// </para>
         /// </summary>
-        private void OnVortexPulled(VortexPulledMessage message)
+        private void OnVortexIslandFilled(VortexIslandFilledMessage message)
         {
-            if (_cells == null || message.Pulls == null)
+            if (_cells == null)
             {
                 return;
             }
 
-            IReadOnlyList<VortexPull> pulls = message.Pulls;
-            for (int i = 0; i < pulls.Count; i++)
+            IReadOnlyList<GridPosition> filledCells = message.FilledCells;
+            if (filledCells != null)
             {
-                VortexPull pull = pulls[i];
-                if (!IsPlayableCell(pull.From) || !IsPlayableCell(pull.To))
+                for (int i = 0; i < filledCells.Count; i++)
                 {
-                    continue;
+                    GridPosition cell = filledCells[i];
+                    if (!IsPlayableCell(cell))
+                    {
+                        continue;
+                    }
+
+                    int index = CellIndex(cell);
+
+                    // Empty means a later cascade phase already cleared this fill — the completed-line
+                    // fade already claimed it, and popping it in first would make a cell that is fading
+                    // out grow while it does so.
+                    if (_cellColourIds[index] == Board.EMPTY)
+                    {
+                        continue;
+                    }
+
+                    RectTransform blockTransform = _cells[index].BlockTransform;
+                    if (blockTransform == null)
+                    {
+                        continue;
+                    }
+
+                    PlayIslandFillPopAsync(blockTransform, index, ++_cellGenerations[index]).Forget();
                 }
+            }
 
-                SettleVacatedCell(pull.From);
-
-                int toIndex = CellIndex(pull.To);
-
-                // Empty means a later cascade phase cleared the block after it arrived. It is already
-                // claimed by that phase's fade, and sliding it in first would make a cell that is
-                // fading out travel across the board while it does so.
-                if (_cellColourIds[toIndex] == Board.EMPTY)
+            IReadOnlyList<GridPosition> handOffTargets = message.HandOffTargets;
+            if (handOffTargets != null)
+            {
+                for (int i = 0; i < handOffTargets.Count; i++)
                 {
-                    continue;
-                }
+                    GridPosition cell = handOffTargets[i];
+                    if (!IsPlayableCell(cell))
+                    {
+                        continue;
+                    }
 
-                PlayPullAsync(pull.From, pull.To, toIndex, ++_cellGenerations[toIndex]).Forget();
+                    int index = CellIndex(cell);
+                    RectTransform iconTransform = _cells[index].SpecialIconTransform;
+                    if (iconTransform == null)
+                    {
+                        continue;
+                    }
+
+                    PlayVortexHandOffPopAsync(iconTransform, index, ++_cellGenerations[index]).Forget();
+                }
             }
         }
 
-        /// <summary>Settles a cell a block slid out of: empty, opaque, no icon, and with any fade that
-        /// had claimed it invalidated. <see cref="OnCellChanged"/> holds an emptied cell's old look on
-        /// screen waiting for whoever emptied it to start a fade, and there is no fade coming here —
-        /// the block did not die, it left.</summary>
-        private void SettleVacatedCell(GridPosition cell)
-        {
-            int index = CellIndex(cell);
-
-            _cellPending[index] = false;
-            _cellGenerations[index]++;
-
-            ApplyCellColour(cell, _cellColourIds[index]);
-            ApplyCellIcon(index, _cellSpecialKinds[index]);
-            _cells[index].SetAlpha(1f);
-        }
-
         /// <summary>
-        /// Slides the cell at <paramref name="to"/> in from <paramref name="from"/>'s position.
-        /// <para>
-        /// The destination cell's own rect is what moves — no second object is spawned and nothing is
-        /// reparented, so the slide costs no allocation and the block that arrives is the one that was
-        /// already drawn there. The rect is snapped back to its layout position on every exit path,
-        /// including a cancelled or superseded one: the position is layout, owned by nothing else, so
-        /// restoring it is always the correct thing to do.
-        /// </para>
+        /// Scales the cell at <paramref name="index"/>'s block from <see cref="_islandFillStartScale"/>
+        /// up past <see cref="_islandFillOvershootScale"/> and back to 1 — the same grow-then-settle
+        /// shape <see cref="PlaySpecialSpawnPopAsync"/> uses, one layer down (the whole block rather than
+        /// just its icon), and at its own, longer duration (issue #349 AC4: at least 0.4s, deliberately
+        /// longer and more deliberate than the removed 0.18s pull). Watches
+        /// <see cref="_cellGenerations"/> without owning it, exactly as <see cref="PlaySpecialSpawnPopAsync"/>
+        /// does: any destructive write to this cell bumps that counter on its own and this simply bails,
+        /// leaving whatever repaint path caused the bump to settle the block's final look and scale.
         /// </summary>
-        private async UniTaskVoid PlayPullAsync(GridPosition from, GridPosition to, int index, int generation)
+        private async UniTaskVoid PlayIslandFillPopAsync(RectTransform blockTransform, int index, int generation)
         {
-            var rect = (RectTransform)_cells[index].transform;
-            Vector2 target = CellAnchoredPosition(to);
-            Vector2 start = CellAnchoredPosition(from);
+            const float GrowFraction = 0.7f;
+
+            float startScale = Mathf.Clamp(_islandFillStartScale, 0.001f, 1f);
+            float overshootScale = Mathf.Max(1f, _islandFillOvershootScale);
+            float duration = Mathf.Max(0.4f, _islandFillDuration);
+
+            blockTransform.localScale = Vector3.one * startScale;
 
             try
             {
-                float duration = Mathf.Max(0.01f, _pullDuration);
                 float elapsed = 0f;
-
                 while (elapsed < duration)
                 {
                     if (_cellGenerations[index] != generation)
                     {
-                        break;
+                        return;
                     }
 
-                    rect.anchoredPosition = Vector2.LerpUnclamped(
-                        start, target, EaseOutCubic(elapsed / duration));
+                    float t = elapsed / duration;
+                    float scale = t < GrowFraction
+                        ? Mathf.Lerp(startScale, overshootScale, EaseOutCubic(t / GrowFraction))
+                        : Mathf.Lerp(overshootScale, 1f, (t - GrowFraction) / (1f - GrowFraction));
+
+                    blockTransform.localScale = Vector3.one * scale;
 
                     await UniTask.Yield(PlayerLoopTiming.Update, _destroyToken);
                     elapsed += Time.unscaledDeltaTime;
@@ -1537,16 +1566,69 @@ namespace MustyBlockBlast.Presentation.Views
             }
             catch (OperationCanceledException)
             {
-                // The board view was destroyed mid-slide — the rect is going with it.
+                // The board view was destroyed mid-pop — the block is going with it.
                 return;
             }
 
-            if (_isDestroyed)
+            if (_isDestroyed || _cellGenerations[index] != generation)
             {
                 return;
             }
 
-            rect.anchoredPosition = target;
+            blockTransform.localScale = Vector3.one;
+        }
+
+        /// <summary>
+        /// A hand-off's fresh icon pops in exactly as a genuinely spawned special cell's does — reusing
+        /// <see cref="PlaySpecialSpawnPopAsync"/>'s shape at <see cref="_vortexHandOffPopDuration"/>
+        /// rather than <see cref="_specialSpawnPopDuration"/>: a hand-off is not the "born" moment
+        /// <see cref="SpecialCellSpawnedMessage"/> reports (see <see cref="OnSpecialCellSpawned"/>'s own
+        /// remarks — the kind already existed, it just moved cells), so it is played from here rather
+        /// than through that message, with its own duration so the two can be tuned independently.
+        /// </summary>
+        private async UniTaskVoid PlayVortexHandOffPopAsync(RectTransform iconTransform, int index, int generation)
+        {
+            const float GrowFraction = 0.7f;
+
+            float startScale = Mathf.Clamp(_specialSpawnStartScale, 0.001f, 1f);
+            float overshootScale = Mathf.Max(1f, _specialSpawnOvershootScale);
+            float duration = Mathf.Max(0.01f, _vortexHandOffPopDuration);
+
+            iconTransform.localScale = Vector3.one * startScale;
+
+            try
+            {
+                float elapsed = 0f;
+                while (elapsed < duration)
+                {
+                    if (_cellGenerations[index] != generation)
+                    {
+                        return;
+                    }
+
+                    float t = elapsed / duration;
+                    float scale = t < GrowFraction
+                        ? Mathf.Lerp(startScale, overshootScale, EaseOutCubic(t / GrowFraction))
+                        : Mathf.Lerp(overshootScale, 1f, (t - GrowFraction) / (1f - GrowFraction));
+
+                    iconTransform.localScale = Vector3.one * scale;
+
+                    await UniTask.Yield(PlayerLoopTiming.Update, _destroyToken);
+                    elapsed += Time.unscaledDeltaTime;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // The board view was destroyed mid-pop — the icon is going with it.
+                return;
+            }
+
+            if (_isDestroyed || _cellGenerations[index] != generation)
+            {
+                return;
+            }
+
+            iconTransform.localScale = Vector3.one;
         }
 
         /// <summary>Where one cell's rect sits in the grid — the same arithmetic
@@ -1806,8 +1888,8 @@ namespace MustyBlockBlast.Presentation.Views
         /// grid's centre), fading as it goes, instead of fading in place. The rect is always restored
         /// to its layout position and scale before this returns — on early cancellation as much as on
         /// a full run — because the cell is reused by whatever the model puts there next and nothing
-        /// else resets a cell's transform (unlike <see cref="PlayPullAsync"/>'s slide, which always
-        /// lands back on a layout position it owns for its whole duration).
+        /// else resets a cell's transform (unlike <see cref="PlayIslandFillPopAsync"/>'s scale, which
+        /// always settles back to 1 on its own exit paths).
         /// </summary>
         private async UniTask<bool> PlayFlyToCornerFadeAsync(
             CellView view, GridPosition cell, int index, int generation)

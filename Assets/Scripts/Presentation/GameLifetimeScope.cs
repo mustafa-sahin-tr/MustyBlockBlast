@@ -179,7 +179,7 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterMessageBroker<ExplosiveCoreDetonatedMessage>(options);
             builder.RegisterMessageBroker<LaserFiredMessage>(options);
             builder.RegisterMessageBroker<PiercingRocketFiredMessage>(options);
-            builder.RegisterMessageBroker<VortexPulledMessage>(options);
+            builder.RegisterMessageBroker<VortexIslandFilledMessage>(options);
             builder.RegisterMessageBroker<ChainLightningTriggeredMessage>(options);
             builder.RegisterMessageBroker<ObjectiveProgressChangedMessage>(options);
             builder.RegisterMessageBroker<ObjectiveCompletedMessage>(options);

@@ -203,6 +203,15 @@ namespace MustyBlockBlast.Presentation.Views
         internal RectTransform SpecialIconTransform
             => _specialIconImage != null ? (RectTransform)_specialIconImage.transform : null;
 
+        /// <summary>The block layer's own transform, exposed only for
+        /// <c>BoardView.OnVortexIslandFilled</c>'s fill-in pop animation (issue #349 AC4) to animate its
+        /// <c>localScale</c> without touching the cell's own rect (which the fade/stagger effects in
+        /// <c>BoardView.PlayClearAsync</c> already own) — the same reasoning
+        /// <see cref="SpecialIconTransform"/> is exposed for, one layer down. Null before
+        /// <see cref="Build"/> runs.</summary>
+        internal RectTransform BlockTransform
+            => _blockRoot != null ? (RectTransform)_blockRoot.transform : null;
+
         /// <summary>Shows <paramref name="countdown"/> as the cell's placements-remaining number (issue
         /// #307 AC6a). Independent of every other layer, exactly as <see cref="SetSpecialIcon(Color)"/>
         /// is: allocates nothing beyond the string conversion, so it is safe on any repaint path.</summary>

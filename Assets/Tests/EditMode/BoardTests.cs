@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using MustyBlockBlast.Core;
 using NUnit.Framework;
 
@@ -8,7 +9,9 @@ namespace MustyBlockBlast.Tests.EditMode
     /// flood-fill correctly distinguishes a walled-off hole from one with any path to the edge, and
     /// treats every border cell as inherently reachable), <see cref="Board.LargestEmptyRegionSize"/> (the
     /// second flood-fill, which counts connected components rather than answering a reachability
-    /// question) and <see cref="Board.IsCenterCoreEmpty"/>.</summary>
+    /// question), <see cref="Board.CollectEnclosedEmptyIslands"/> (the third, component-based flood-fill
+    /// issue #349 added, which — unlike <see cref="Board.HasIsolatedEmptyCells"/> — also catches a pocket
+    /// that happens to sit on the board's last row or column) and <see cref="Board.IsCenterCoreEmpty"/>.</summary>
     public class BoardTests
     {
         [Test]
@@ -196,6 +199,157 @@ namespace MustyBlockBlast.Tests.EditMode
 
             Assert.Throws<System.ArgumentException>(
                 () => board.LargestEmptyRegionSize(new bool[4], new int[Board.SIZE * Board.SIZE]));
+        }
+
+        [Test]
+        public void CollectEnclosedEmptyIslands_OnAnEmptyBoard_FindsNoIsland()
+        {
+            // Every empty cell forms one single connected region — trivially "the largest" — so nothing
+            // is reported, whatever shape that region happens to be.
+            Board board = new Board();
+            var results = new List<GridPosition>();
+
+            board.CollectEnclosedEmptyIslands(results);
+
+            Assert.AreEqual(0, results.Count);
+        }
+
+        [Test]
+        public void CollectEnclosedEmptyIslands_WithOneOpenRegionOnly_FindsNoIslandEvenIfItTouchesTheEdge()
+        {
+            // Everything occupied except an open corridor from the middle out to the edge: one region,
+            // edge-touching or not, so there is nothing smaller for it to be compared against.
+            Board board = new Board();
+            FillEntireBoard(board);
+            for (int x = 0; x <= 3; x++)
+            {
+                board.Clear(new GridPosition(x, 3));
+            }
+
+            var results = new List<GridPosition>();
+            board.CollectEnclosedEmptyIslands(results);
+
+            Assert.AreEqual(0, results.Count);
+        }
+
+        [Test]
+        public void CollectEnclosedEmptyIslands_WithAWalledOffInteriorPocket_ReportsExactlyItsCells()
+        {
+            // The 3x3 block around (3,3) is occupied except its centre: a one-cell pocket with no path
+            // to the rest of the board's open space, which is everything outside the block.
+            Board board = new Board();
+            for (int y = 2; y <= 4; y++)
+            {
+                for (int x = 2; x <= 4; x++)
+                {
+                    board.Occupy(new GridPosition(x, y), 1);
+                }
+            }
+
+            GridPosition pocket = new GridPosition(3, 3);
+            board.Clear(pocket);
+
+            var results = new List<GridPosition>();
+            board.CollectEnclosedEmptyIslands(results);
+
+            Assert.AreEqual(1, results.Count);
+            Assert.AreEqual(pocket, results[0]);
+        }
+
+        /// <summary>
+        /// Issue #349 AC2: a pocket on the board's last row/column, boxed in from every in-board side, is
+        /// still an island — the case <see cref="Board.HasIsolatedEmptyCells"/> misses because it treats
+        /// every border-cell as inherently reachable regardless of what surrounds it (see
+        /// <see cref="EmptyCellOnTheBorder_IsNeverIsolated"/> above). Here the pocket sits in the last row
+        /// (y = 7) and includes the last column too (x = 7), and the rest of the board is occupied except
+        /// one larger, unambiguously-the-main-region opening elsewhere, so the pocket is not "the
+        /// largest" and is reported.
+        /// </summary>
+        [Test]
+        public void CollectEnclosedEmptyIslands_WithAPocketOnTheLastRowAndColumn_StillReportsIt()
+        {
+            Board board = new Board();
+            FillEntireBoard(board);
+
+            // The main open area: a 4x4 block, plus a two-cell corridor out to the left edge so it is
+            // genuinely reachable from the border — otherwise HasIsolatedEmptyCells would (correctly, by
+            // its own definition) flag this block itself as isolated, and the assertion below would prove
+            // nothing about the pocket specifically.
+            for (int y = 2; y <= 5; y++)
+            {
+                for (int x = 2; x <= 5; x++)
+                {
+                    board.Clear(new GridPosition(x, y));
+                }
+            }
+
+            board.Clear(new GridPosition(0, 2));
+            board.Clear(new GridPosition(1, 2));
+
+            // The dead pocket: the last three cells of the last row. Boxed in above (row 6 is still
+            // fully occupied) and to the left (column 4, row 7 is occupied); below and to the right of
+            // (7, 7) is off-board, which is a wall exactly as an occupied cell is.
+            var pocket = new List<GridPosition>
+            {
+                new GridPosition(5, 7), new GridPosition(6, 7), new GridPosition(7, 7),
+            };
+            for (int i = 0; i < pocket.Count; i++)
+            {
+                board.Clear(pocket[i]);
+            }
+
+            Assert.IsFalse(
+                board.HasIsolatedEmptyCells(),
+                "The border-seeded flood-fill waves this pocket through for sitting on the edge.");
+
+            var results = new List<GridPosition>();
+            board.CollectEnclosedEmptyIslands(results);
+
+            Assert.AreEqual(pocket.Count, results.Count);
+            for (int i = 0; i < pocket.Count; i++)
+            {
+                Assert.Contains(pocket[i], results);
+            }
+        }
+
+        [Test]
+        public void CollectEnclosedEmptyIslands_WithTwoSeparatePockets_ReportsBothButNotTheMainRegion()
+        {
+            Board board = new Board();
+            FillEntireBoard(board);
+
+            // The main open area.
+            for (int y = 2; y <= 5; y++)
+            {
+                for (int x = 2; x <= 5; x++)
+                {
+                    board.Clear(new GridPosition(x, y));
+                }
+            }
+
+            GridPosition firstPocket = new GridPosition(0, 0);
+            GridPosition secondPocket = new GridPosition(0, 7);
+            board.Clear(firstPocket);
+            board.Clear(secondPocket);
+
+            var results = new List<GridPosition>();
+            board.CollectEnclosedEmptyIslands(results);
+
+            Assert.AreEqual(2, results.Count);
+            Assert.Contains(firstPocket, results);
+            Assert.Contains(secondPocket, results);
+        }
+
+        [Test]
+        public void CollectEnclosedEmptyIslands_DoesNotClearResultsFirst()
+        {
+            // Matches the append convention of CollectRowCells/CollectColumnCells.
+            Board board = new Board();
+            var results = new List<GridPosition> { new GridPosition(0, 0) };
+
+            board.CollectEnclosedEmptyIslands(results);
+
+            Assert.AreEqual(1, results.Count, "The pre-existing entry must survive.");
         }
 
         [Test]

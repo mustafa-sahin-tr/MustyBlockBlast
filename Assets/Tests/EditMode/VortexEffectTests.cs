@@ -1,13 +1,15 @@
-using System.Collections.Generic;
+using System;
 using MustyBlockBlast.Core;
 using NUnit.Framework;
 
 namespace MustyBlockBlast.Tests.EditMode
 {
     /// <summary>
-    /// Covers the pull itself: which blocks count as isolated (including the hole and off-board cases
-    /// that read as "nothing there"), the one-step move and the axis it picks, the cases where a block
-    /// stays put, and the chain into a line the pull itself completes.
+    /// Covers the fill itself (issue #349): which cells count as an island (via
+    /// <see cref="Board.CollectEnclosedEmptyIslands"/>, including the border-row/column edge case that
+    /// method exists to catch), multiple islands filled by one trigger, the hand-off when no island
+    /// exists (and its own no-op when no eligible cell exists either), that a Reinforced cell is never
+    /// overwritten, and the chain into a line a fill itself completes.
     /// </summary>
     public class VortexEffectTests
     {
@@ -16,219 +18,235 @@ namespace MustyBlockBlast.Tests.EditMode
         [SetUp]
         public void CreateEffect()
         {
-            _effect = new VortexEffect();
+            _effect = new VortexEffect(new Random(1));
             _effect.BeginResolution();
         }
 
-        /// <summary>AC2: a lone block with four empty neighbours is isolated and moves one step in.</summary>
         [Test]
-        public void Apply_WithOneIsolatedBlock_PullsItOneStepTowardsTheCentre()
+        public void Constructor_WithNoRandom_Throws()
         {
-            var board = new Board();
-            var stray = new GridPosition(0, 4);
-            board.Occupy(stray, 1);
-            var center = new GridPosition(4, 4);
-
-            _effect.Apply(board, new SpecialCellTrigger(center, SpecialCellKind.Vortex));
-
-            Assert.IsFalse(board.IsOccupied(stray), "The cell it left must be empty.");
-            Assert.IsTrue(board.IsOccupied(new GridPosition(1, 4)), "One step, never more.");
-            Assert.AreEqual(1, _effect.Pulls.Count);
-            Assert.AreEqual(stray, _effect.Pulls[0].From);
-            Assert.AreEqual(new GridPosition(1, 4), _effect.Pulls[0].To);
+            Assert.Throws<ArgumentNullException>(() => new VortexEffect(null));
         }
 
+        /// <summary>AC1: a single interior island present at trigger time is filled in the same
+        /// resolution.</summary>
         [Test]
-        public void Apply_MovesTheBlocksColourAndSpecialKindWithIt()
+        public void Apply_WithASingleInteriorIsland_FillsEveryCellOfIt()
         {
-            var board = new Board();
-            var stray = new GridPosition(0, 0);
-            board.Occupy(stray, 5);
-            board.SetSpecialKind(stray, SpecialCellKind.Laser);
+            Board board = new Board();
+            OccupyRectangle(board, 2, 2, 4, 4, 1);
+            GridPosition island = new GridPosition(3, 3);
+            board.Clear(island);
 
-            _effect.Apply(board, new SpecialCellTrigger(new GridPosition(4, 0), SpecialCellKind.Vortex));
+            _effect.Apply(board, new SpecialCellTrigger(new GridPosition(0, 0), SpecialCellKind.Vortex));
 
-            var moved = new GridPosition(1, 0);
-            Assert.AreEqual(5, board[moved], "A pulled block keeps its colour.");
-            Assert.AreEqual(SpecialCellKind.Laser, board.GetSpecialKind(moved), "And its own kind.");
-            Assert.AreEqual(SpecialCellKind.None, board.GetSpecialKind(stray));
+            Assert.IsTrue(board.IsOccupied(island));
+            Assert.AreEqual(1, _effect.FilledCells.Count);
+            Assert.AreEqual(island, _effect.FilledCells[0]);
+            Assert.AreEqual(0, _effect.HandOffTargets.Count, "A fill and a hand-off never happen together.");
         }
 
-        /// <summary>A block with an occupied orthogonal neighbour is not isolated, and neither is the
-        /// neighbour — the whole pair stays exactly where it is.</summary>
+        /// <summary>AC2: an island whose cells sit on the board's last row and column, boxed in on every
+        /// in-board side, is filled exactly as an interior one is — the case
+        /// <see cref="Board.HasIsolatedEmptyCells"/> misses.</summary>
         [Test]
-        public void Apply_WithAdjacentBlocks_MovesNeither()
+        public void Apply_WithAnIslandOnTheLastRowAndColumn_FillsIt()
         {
-            var board = new Board();
-            var left = new GridPosition(0, 4);
-            var right = new GridPosition(1, 4);
-            board.Occupy(left, 1);
-            board.Occupy(right, 1);
+            Board board = new Board();
+            FillEntireBoard(board);
+            OccupyRectangle(board, 2, 2, 4, 4, 1);
+            // Un-occupy the "main" open area so it exists as somewhere for the pocket not to be.
+            for (int y = 2; y <= 5; y++)
+            {
+                for (int x = 2; x <= 5; x++)
+                {
+                    board.Clear(new GridPosition(x, y));
+                }
+            }
 
-            _effect.Apply(board, new SpecialCellTrigger(new GridPosition(4, 4), SpecialCellKind.Vortex));
+            var pocket = new[]
+            {
+                new GridPosition(5, 7), new GridPosition(6, 7), new GridPosition(7, 7),
+            };
+            for (int i = 0; i < pocket.Length; i++)
+            {
+                board.Clear(pocket[i]);
+            }
 
-            Assert.IsTrue(board.IsOccupied(left));
-            Assert.IsTrue(board.IsOccupied(right));
-            Assert.AreEqual(0, _effect.Pulls.Count);
+            _effect.Apply(board, new SpecialCellTrigger(new GridPosition(0, 0), SpecialCellKind.Vortex));
+
+            for (int i = 0; i < pocket.Length; i++)
+            {
+                Assert.IsTrue(board.IsOccupied(pocket[i]), $"{pocket[i]} should have been reclaimed.");
+            }
+
+            Assert.AreEqual(pocket.Length, _effect.FilledCells.Count);
         }
 
-        /// <summary>A diagonal neighbour is not an orthogonal one, so both blocks are still isolated.</summary>
+        /// <summary>Multiple islands present at once are all filled by the one trigger, not just the
+        /// first found.</summary>
         [Test]
-        public void Apply_WithDiagonallyAdjacentBlocks_PullsBoth()
+        public void Apply_WithTwoSeparateIslands_FillsBothInOneCall()
         {
-            var board = new Board();
-            board.Occupy(new GridPosition(0, 0), 1);
-            board.Occupy(new GridPosition(1, 1), 1);
+            Board board = new Board();
+            FillEntireBoard(board);
+            for (int y = 2; y <= 5; y++)
+            {
+                for (int x = 2; x <= 5; x++)
+                {
+                    board.Clear(new GridPosition(x, y));
+                }
+            }
 
-            _effect.Apply(board, new SpecialCellTrigger(new GridPosition(4, 4), SpecialCellKind.Vortex));
+            GridPosition firstIsland = new GridPosition(0, 0);
+            GridPosition secondIsland = new GridPosition(0, 7);
+            board.Clear(firstIsland);
+            board.Clear(secondIsland);
 
-            Assert.AreEqual(2, _effect.Pulls.Count);
+            _effect.Apply(board, new SpecialCellTrigger(new GridPosition(2, 2), SpecialCellKind.Vortex));
+
+            Assert.IsTrue(board.IsOccupied(firstIsland));
+            Assert.IsTrue(board.IsOccupied(secondIsland));
+            Assert.AreEqual(2, _effect.FilledCells.Count);
         }
 
-        /// <summary>A hole reads as "nothing there" exactly as an empty cell does, so a block whose only
-        /// non-empty neighbour is a hole is still isolated.</summary>
+        /// <summary>A filled cell's colour is always a real playable colour, never
+        /// <see cref="Board.EMPTY"/> and never out of range.</summary>
         [Test]
-        public void Apply_WithAHoleAsANeighbour_StillCountsTheBlockAsIsolated()
+        public void Apply_FillsWithAValidColourId()
         {
-            var shape = new BoardShape(Board.SIZE, Board.SIZE, new[] { new GridPosition(3, 4) });
-            var board = new Board(shape);
-            var stray = new GridPosition(2, 4);
-            board.Occupy(stray, 1);
+            Board board = new Board();
+            OccupyRectangle(board, 2, 2, 4, 4, 1);
+            GridPosition island = new GridPosition(3, 3);
+            board.Clear(island);
 
-            _effect.Apply(board, new SpecialCellTrigger(new GridPosition(0, 4), SpecialCellKind.Vortex));
+            _effect.Apply(board, new SpecialCellTrigger(new GridPosition(0, 0), SpecialCellKind.Vortex));
 
-            Assert.IsFalse(board.IsOccupied(stray));
-            Assert.IsTrue(board.IsOccupied(new GridPosition(1, 4)), "Pulled away from the hole, towards the vortex.");
+            int colourId = board[island];
+            Assert.GreaterOrEqual(colourId, 1);
+            Assert.LessOrEqual(colourId, Board.COLOUR_COUNT);
         }
 
-        /// <summary>The board edge reads as "nothing there" too — a corner block has only two real
-        /// neighbours and is isolated when both are empty.</summary>
+        /// <summary>AC5: a Reinforced cell is never a fill target — the scan only ever finds empty cells,
+        /// and a reinforced cell is (by definition) occupied.</summary>
         [Test]
-        public void Apply_AtACorner_TreatsOffBoardNeighboursAsEmpty()
+        public void Apply_NeverOverwritesAReinforcedCell()
         {
-            var board = new Board();
-            board.Occupy(new GridPosition(0, 0), 1);
+            Board board = new Board();
+            OccupyRectangle(board, 2, 2, 4, 4, 1);
+            GridPosition island = new GridPosition(3, 3);
+            board.Clear(island);
 
-            _effect.Apply(board, new SpecialCellTrigger(new GridPosition(0, 5), SpecialCellKind.Vortex));
+            GridPosition reinforced = new GridPosition(0, 0);
+            board.OccupyReinforced(reinforced, 2, hitCount: 3);
 
-            Assert.AreEqual(1, _effect.Pulls.Count);
-            Assert.AreEqual(new GridPosition(0, 1), _effect.Pulls[0].To);
+            _effect.Apply(board, new SpecialCellTrigger(new GridPosition(0, 1), SpecialCellKind.Vortex));
+
+            Assert.AreEqual(2, board[reinforced], "Untouched colour.");
+            Assert.AreEqual(3, board.GetHitCount(reinforced), "Untouched hit count.");
         }
 
-        /// <summary>The axis is whichever distance to the vortex is greater — here the vertical one,
-        /// even though there is a horizontal gap to close as well.</summary>
+        /// <summary>AC3/AC6: with no island, the tag hands off to a uniformly random occupied cell that
+        /// carries no special kind of its own.</summary>
         [Test]
-        public void Apply_WithTheGreaterGapVertical_PullsVertically()
+        public void Apply_WithNoIsland_HandsOffToAnEligibleOccupiedCell()
         {
-            var board = new Board();
-            board.Occupy(new GridPosition(3, 0), 1);
+            Board board = new Board();
+            GridPosition eligible = new GridPosition(4, 4);
+            board.Occupy(eligible, 1);
 
-            _effect.Apply(board, new SpecialCellTrigger(new GridPosition(4, 6), SpecialCellKind.Vortex));
+            _effect.Apply(board, new SpecialCellTrigger(new GridPosition(0, 0), SpecialCellKind.Vortex));
 
-            Assert.AreEqual(new GridPosition(3, 1), _effect.Pulls[0].To);
+            Assert.AreEqual(0, _effect.FilledCells.Count, "No island existed to fill.");
+            Assert.AreEqual(1, _effect.HandOffTargets.Count);
+            Assert.AreEqual(eligible, _effect.HandOffTargets[0]);
+            Assert.AreEqual(SpecialCellKind.Vortex, board.GetSpecialKind(eligible));
         }
 
+        /// <summary>A cell that already carries a kind of its own is not an eligible hand-off target.</summary>
         [Test]
-        public void Apply_WithTheGreaterGapHorizontal_PullsHorizontally()
+        public void Apply_WithNoIsland_NeverHandsOffToACellThatAlreadyHasAKind()
         {
-            var board = new Board();
-            board.Occupy(new GridPosition(0, 3), 1);
+            Board board = new Board();
+            GridPosition alreadySpecial = new GridPosition(4, 4);
+            board.Occupy(alreadySpecial, 1);
+            board.SetSpecialKind(alreadySpecial, SpecialCellKind.Laser);
 
-            _effect.Apply(board, new SpecialCellTrigger(new GridPosition(6, 4), SpecialCellKind.Vortex));
+            GridPosition eligible = new GridPosition(0, 0);
+            board.Occupy(eligible, 2);
 
-            Assert.AreEqual(new GridPosition(1, 3), _effect.Pulls[0].To);
+            _effect.Apply(board, new SpecialCellTrigger(new GridPosition(7, 7), SpecialCellKind.Vortex));
+
+            Assert.AreEqual(1, _effect.HandOffTargets.Count);
+            Assert.AreEqual(eligible, _effect.HandOffTargets[0]);
+            Assert.AreEqual(SpecialCellKind.Laser, board.GetSpecialKind(alreadySpecial), "Left alone.");
         }
 
-        /// <summary>The documented tie-break: equal gaps on both axes pull horizontally. Arbitrary but
-        /// fixed, so the same board always resolves the same way.</summary>
+        /// <summary>AC6 (negative): with no island and no eligible cell either — nothing occupied at all
+        /// — the hand-off is a no-op.</summary>
         [Test]
-        public void Apply_WithEqualGapsOnBothAxes_PullsHorizontally()
+        public void Apply_WithNoIslandAndNoEligibleCell_IsANoOp()
         {
-            var board = new Board();
-            board.Occupy(new GridPosition(1, 1), 1);
+            Board board = new Board();
 
-            _effect.Apply(board, new SpecialCellTrigger(new GridPosition(4, 4), SpecialCellKind.Vortex));
+            _effect.Apply(board, new SpecialCellTrigger(new GridPosition(0, 0), SpecialCellKind.Vortex));
 
-            Assert.AreEqual(new GridPosition(2, 1), _effect.Pulls[0].To, "The tie goes to the horizontal.");
+            Assert.AreEqual(0, _effect.FilledCells.Count);
+            Assert.AreEqual(0, _effect.HandOffTargets.Count);
+            Assert.IsTrue(board.IsEmpty());
         }
 
-        /// <summary>Two isolated blocks pulling into the same free cell: the first one there keeps it and
-        /// the second stays put rather than overwriting it.</summary>
+        /// <summary>The same no-op when every occupied cell already carries its own kind.</summary>
         [Test]
-        public void Apply_WithTwoBlocksPullingIntoTheSameCell_MovesOnlyTheFirst()
+        public void Apply_WithNoIslandAndEveryOccupiedCellAlreadySpecial_IsANoOp()
         {
-            var board = new Board();
-            var lower = new GridPosition(4, 2);
-            var upper = new GridPosition(4, 6);
-            board.Occupy(lower, 1);
-            board.Occupy(upper, 2);
+            Board board = new Board();
+            GridPosition onlyOccupied = new GridPosition(4, 4);
+            board.Occupy(onlyOccupied, 1);
+            board.SetSpecialKind(onlyOccupied, SpecialCellKind.Coin);
 
-            _effect.Apply(board, new SpecialCellTrigger(new GridPosition(4, 4), SpecialCellKind.Vortex));
+            _effect.Apply(board, new SpecialCellTrigger(new GridPosition(0, 0), SpecialCellKind.Vortex));
 
-            Assert.AreEqual(2, _effect.Pulls.Count, "Both gaps are vertical, so both blocks move one step.");
-            Assert.IsTrue(board.IsOccupied(new GridPosition(4, 3)));
-            Assert.IsTrue(board.IsOccupied(new GridPosition(4, 5)));
-
-            // Now the two are one cell apart around the empty centre; a second vortex on that centre
-            // pulls the lower one into it, and the upper one — scanned later — finds it taken.
-            _effect.BeginResolution();
-            _effect.Apply(board, new SpecialCellTrigger(new GridPosition(4, 4), SpecialCellKind.Vortex));
-
-            Assert.AreEqual(1, _effect.Pulls.Count, "The second block had nowhere free to go.");
-            Assert.AreEqual(new GridPosition(4, 4), _effect.Pulls[0].To);
-            Assert.AreEqual(1, board[new GridPosition(4, 4)], "The first block there keeps the cell.");
-            Assert.IsTrue(board.IsOccupied(new GridPosition(4, 5)), "The second stayed exactly where it was.");
+            Assert.AreEqual(0, _effect.FilledCells.Count);
+            Assert.AreEqual(0, _effect.HandOffTargets.Count);
+            Assert.AreEqual(SpecialCellKind.Coin, board.GetSpecialKind(onlyOccupied), "Left alone.");
         }
 
         /// <summary>A kind that is not a vortex is ignored, exactly as every other effect ignores one.</summary>
         [Test]
         public void Apply_WithAnotherKind_DoesNothing()
         {
-            var board = new Board();
+            Board board = new Board();
             board.Occupy(new GridPosition(0, 0), 1);
 
             _effect.Apply(board, new SpecialCellTrigger(new GridPosition(4, 4), SpecialCellKind.Laser));
 
-            Assert.IsTrue(board.IsOccupied(new GridPosition(0, 0)));
-            Assert.AreEqual(0, _effect.Pulls.Count);
+            Assert.AreEqual(0, _effect.FilledCells.Count);
+            Assert.AreEqual(0, _effect.HandOffTargets.Count);
         }
 
         [Test]
-        public void BeginResolution_ForgetsThePreviousResolutionsPulls()
+        public void BeginResolution_ForgetsThePreviousResolutionsWork()
         {
-            var board = new Board();
-            board.Occupy(new GridPosition(0, 0), 1);
-            _effect.Apply(board, new SpecialCellTrigger(new GridPosition(4, 0), SpecialCellKind.Vortex));
-            Assert.AreEqual(1, _effect.Pulls.Count);
+            Board board = new Board();
+            OccupyRectangle(board, 2, 2, 4, 4, 1);
+            board.Clear(new GridPosition(3, 3));
+            _effect.Apply(board, new SpecialCellTrigger(new GridPosition(0, 0), SpecialCellKind.Vortex));
+            Assert.AreEqual(1, _effect.FilledCells.Count);
 
             _effect.BeginResolution();
 
-            Assert.AreEqual(0, _effect.Pulls.Count);
+            Assert.AreEqual(0, _effect.FilledCells.Count);
+            Assert.AreEqual(0, _effect.HandOffTargets.Count);
         }
 
+        /// <summary>AC7: a fill that completes a line is not cleared by the effect itself — the cascade
+        /// loop's next iteration is what catches it, exactly as every other effect's fill/move/destroy
+        /// leaves a completed line standing for it.</summary>
         [Test]
-        public void IsIsolated_WithAnEmptyCell_IsFalse()
+        public void ResolveCascade_WhenAFillCompletesALine_ChainsIntoASecondPhase()
         {
-            var board = new Board();
-
-            Assert.IsFalse(VortexEffect.IsIsolated(board, new GridPosition(3, 3)));
-        }
-
-        [Test]
-        public void IsIsolated_WithAHoleCell_IsFalse()
-        {
-            var shape = new BoardShape(Board.SIZE, Board.SIZE, new[] { new GridPosition(3, 3) });
-            var board = new Board(shape);
-
-            Assert.IsFalse(VortexEffect.IsIsolated(board, new GridPosition(3, 3)));
-        }
-
-        /// <summary>AC5: a pull that completes a line is cleared by the cascade loop, not by the effect —
-        /// so the chain happens through the engine that already owns "clear, detect, apply, re-check".</summary>
-        [Test]
-        public void ResolveCascade_WhenAPullCompletesALine_ChainsIntoASecondPhase()
-        {
-            var board = new Board();
+            Board board = new Board();
 
             // Row 0 is full, so it clears first. Its cell (7, 0) carries the vortex.
             for (int x = 0; x < Board.SIZE; x++)
@@ -238,39 +256,60 @@ namespace MustyBlockBlast.Tests.EditMode
 
             board.SetSpecialKind(new GridPosition(7, 0), SpecialCellKind.Vortex);
 
-            // Row 2 is one cell short of full: (7, 2) is empty and (7, 3) holds the isolated block that
-            // will be pulled down into it. Row 3 is otherwise empty, so that block has no neighbours.
+            // Row 7 is one cell short of full, and that one cell — (7, 7) — is a one-cell island: boxed
+            // in by (7, 6) above and the rest of row 7 to its left, with the board's own corner closing
+            // it off on the other two sides. Placed on the bottom edge, deliberately, so removing it
+            // leaves everything above as a single connected block rather than splitting the board in two.
             for (int x = 0; x < Board.SIZE - 1; x++)
             {
-                board.Occupy(new GridPosition(x, 2), 1);
+                board.Occupy(new GridPosition(x, 7), 1);
             }
 
-            board.Occupy(new GridPosition(7, 3), 1);
+            board.Occupy(new GridPosition(7, 6), 1);
 
             CascadeClearResult result = CascadeClearResolver.ResolveCascade(board, _effect);
 
             Assert.AreEqual(1, result.Primary.LineCount, "Phase 0 is the row the placement completed.");
-            Assert.AreEqual(1, result.CascadePhaseCount, "The pull completed row 2, which is phase 1.");
+            Assert.AreEqual(1, result.CascadePhaseCount, "The fill completed row 7, which is phase 1.");
             Assert.AreEqual(2, result.TotalLineCount);
-            Assert.IsFalse(board.IsOccupied(new GridPosition(7, 3)), "The pulled block left this cell...");
-            Assert.IsFalse(board.IsOccupied(new GridPosition(7, 2)), "...and row 2 then cleared out from under it.");
+            Assert.IsFalse(board.IsOccupied(new GridPosition(7, 7)), "Filled, then cleared by the cascade.");
         }
 
-        /// <summary>The pull never clears a line itself, even a completed one — that is the cascade
+        /// <summary>The fill never clears a line itself, even a completed one — that is the cascade
         /// loop's job, and doing it here would double-report it.</summary>
         [Test]
         public void Apply_NeverClearsAnything()
         {
-            var board = new Board();
-            var isolated = new List<GridPosition> { new GridPosition(0, 0), new GridPosition(4, 6) };
-            for (int i = 0; i < isolated.Count; i++)
+            Board board = new Board();
+            OccupyRectangle(board, 2, 2, 4, 4, 1);
+            board.Clear(new GridPosition(3, 3));
+            int occupiedBefore = board.OccupiedCellCount();
+
+            _effect.Apply(board, new SpecialCellTrigger(new GridPosition(0, 0), SpecialCellKind.Vortex));
+
+            Assert.AreEqual(occupiedBefore + 1, board.OccupiedCellCount(), "A fill only ever adds blocks.");
+        }
+
+        private static void OccupyRectangle(Board board, int minX, int minY, int maxX, int maxY, int colourId)
+        {
+            for (int y = minY; y <= maxY; y++)
             {
-                board.Occupy(isolated[i], 1);
+                for (int x = minX; x <= maxX; x++)
+                {
+                    board.Occupy(new GridPosition(x, y), colourId);
+                }
             }
+        }
 
-            _effect.Apply(board, new SpecialCellTrigger(new GridPosition(4, 4), SpecialCellKind.Vortex));
-
-            Assert.AreEqual(isolated.Count, board.OccupiedCellCount(), "A pull moves blocks; it destroys none.");
+        private static void FillEntireBoard(Board board)
+        {
+            for (int y = 0; y < Board.SIZE; y++)
+            {
+                for (int x = 0; x < Board.SIZE; x++)
+                {
+                    board.Occupy(new GridPosition(x, y), 1);
+                }
+            }
         }
     }
 }

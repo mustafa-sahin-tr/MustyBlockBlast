@@ -8,7 +8,7 @@ namespace MustyBlockBlast.Gameplay.Messages
     /// <para>
     /// A count, exactly as <see cref="LaserFiredMessage"/> is, and for the same reason: the cells it
     /// destroyed already reached Presentation through the ordinary "this cell is empty now" path, so a
-    /// number is enough to tell it to sweep them. Only <see cref="VortexPulledMessage"/> has to carry
+    /// number is enough to tell it to sweep them. Only <see cref="VortexIslandFilledMessage"/> has to carry
     /// positions, because a move is the one thing a count cannot describe.
     /// </para>
     /// <para>
