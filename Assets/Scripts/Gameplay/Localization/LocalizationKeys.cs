@@ -25,6 +25,12 @@ namespace MustyBlockBlast.Gameplay.Localization
         /// round lengths are minutes rather than seconds.</summary>
         public const string FORMAT_MINUTES = "format.minutes";
 
+        /// <summary>Classic mode's "Sınırsız" duration picker entry (issue #355) — the sentinel length
+        /// (<see cref="Gameplay.Settings.TimedModeConfig.ENDLESS_DURATION_SECONDS"/>) that plays forever
+        /// with no countdown. Its own key rather than a 0-minute <see cref="FORMAT_MINUTES"/>: "0 dk"
+        /// would misname a duration that never ends.</summary>
+        public const string DURATION_ENDLESS = "duration.endless";
+
         // --- Power-ups ---
 
         /// <summary>Double Multiplier's HUD banner while its window is open. <c>{0}</c> is the

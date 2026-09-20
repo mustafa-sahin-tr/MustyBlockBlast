@@ -41,6 +41,11 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// <summary>Read-only view of the active mode, for Views to subscribe to.</summary>
         public ReactiveProperty<GameMode> CurrentMode => _model.CurrentMode;
 
+        /// <summary>Whether the active mode's ruleset includes special cells and power-ups (issue #355).
+        /// See <see cref="GameModeModel.ExtrasEnabled"/> — this is a plain passthrough for callers that
+        /// already depend on this System rather than the Model.</summary>
+        public bool ExtrasEnabled => _model.ExtrasEnabled;
+
         /// <summary>Switches mode, persists it and restarts the run. Re-selecting the active mode does nothing.</summary>
         public void SelectMode(GameMode mode)
         {

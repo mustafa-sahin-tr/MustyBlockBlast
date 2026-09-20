@@ -875,6 +875,10 @@ MonoBehaviour:
     m_Key: shop.ad.caption_exhausted
     m_Metadata:
       m_Items: []
+  - m_Id: 2468758269452288
+    m_Key: duration.endless
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

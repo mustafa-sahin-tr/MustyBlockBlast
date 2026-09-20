@@ -322,6 +322,12 @@ namespace MustyBlockBlast.Gameplay.Systems
 
         public bool IsGameOver { get; private set; }
 
+        /// <summary>Whether special cells may spawn under the active mode's ruleset (issue #355). True
+        /// when no <see cref="GameModeModel"/> was injected at all — every hand-built test board — so
+        /// this gate is inert everywhere it predates it, and reads <see cref="GameModeModel.ExtrasEnabled"/>
+        /// otherwise, exactly as <see cref="PowerUpSystem"/> does for the power-up side of the same rule.</summary>
+        private bool ExtrasEnabled => _gameModeModel == null || _gameModeModel.ExtrasEnabled;
+
         void IStartable.Start() => StartNewRun();
 
         public void StartNewRun()
@@ -671,31 +677,38 @@ namespace MustyBlockBlast.Gameplay.Systems
             // and so on. Spawning first would quietly cost the player every perfect-clear reward they
             // just earned. It also reads the board as the whole cascade left it, not mid-cascade: what
             // matters is whether the intersection is free once everything has settled.
-            TrySpawnExplosiveCore(clearResult, colourId);
+            //
+            // The whole block is gated on ExtrasEnabled (issue #355): Classic mode (GameMode.Timed) has
+            // no special cells at all, so none of these five rewards may ever appear on its board,
+            // whatever this placement cleared.
+            if (ExtrasEnabled)
+            {
+                TrySpawnExplosiveCore(clearResult, colourId);
 
-            // Same section, same reasons, and deliberately after the core: the two rewards can be
-            // earned by one placement, and the core picks its cell first so a vortex can never take the
-            // intersection the core's rule is defined on.
-            TrySpawnVortex(clearResult, colourId);
+                // Same section, same reasons, and deliberately after the core: the two rewards can be
+                // earned by one placement, and the core picks its cell first so a vortex can never take
+                // the intersection the core's rule is defined on.
+                TrySpawnVortex(clearResult, colourId);
 
-            // Same section, same reasons, and last of the four: one placement can earn more than one
-            // reward, and each selector skips a cell that already carries a kind, so spawning in a fixed
-            // order is what keeps two rewards off the same cell. The shape that earned this one is read
-            // from the piece itself — the only spawn rule in the game that depends on what was placed
-            // rather than only on what cleared.
-            TrySpawnChainLightning(clearResult, colourId, piece.Id);
+                // Same section, same reasons, and last of the four: one placement can earn more than one
+                // reward, and each selector skips a cell that already carries a kind, so spawning in a
+                // fixed order is what keeps two rewards off the same cell. The shape that earned this one
+                // is read from the piece itself — the only spawn rule in the game that depends on what
+                // was placed rather than only on what cleared.
+                TrySpawnChainLightning(clearResult, colourId, piece.Id);
 
-            // Read off this placement's own (primary) clear, same as the three spawns above — a gem is
-            // owed to the placement that reached its cross-clear count, not deferred to whenever the
-            // dock happens to empty.
-            TrySpawnScoreGem(clearResult);
+                // Read off this placement's own (primary) clear, same as the three spawns above — a gem
+                // is owed to the placement that reached its cross-clear count, not deferred to whenever
+                // the dock happens to empty.
+                TrySpawnScoreGem(clearResult);
 
-            // Same section, last of five: the one reward that reads the piece's own shape and its own
-            // cells rather than only the lines that cleared (issue #352). Placed after every spawn
-            // above so it naturally lands on whichever occupied cell none of them already claimed —
-            // PerfectMatchSpawnSelector excludes any cell that already carries a kind, exactly as the
-            // other selectors' own "already special" checks do.
-            TrySpawnPerfectMatchBonus(piece, anchor, clearResult);
+                // Same section, last of five: the one reward that reads the piece's own shape and its own
+                // cells rather than only the lines that cleared (issue #352). Placed after every spawn
+                // above so it naturally lands on whichever occupied cell none of them already claimed —
+                // PerfectMatchSpawnSelector excludes any cell that already carries a kind, exactly as the
+                // other selectors' own "already special" checks do.
+                TrySpawnPerfectMatchBonus(piece, anchor, clearResult);
+            }
 
             // Armed in the same section and for the same reason as the spawns above: it is this
             // placement's reward, read off the placement's own (primary) clear rather than off the whole

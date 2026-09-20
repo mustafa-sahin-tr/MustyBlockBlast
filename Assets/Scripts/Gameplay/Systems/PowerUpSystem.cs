@@ -273,7 +273,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             if (kind == PowerUpKind.Reroll || kind == PowerUpKind.DoubleMultiplier
                 || kind == PowerUpKind.GhostFit || kind == PowerUpKind.CoinSower || kind == PowerUpKind.Hold
                 || _boardSystem.IsGameOver || IsLocked(kind) || IsBannedInActivePathLevel(kind)
-                || CountOf(kind).Value <= 0)
+                || CountOf(kind).Value <= 0 || !_gameModeModel.ExtrasEnabled)
             {
                 return;
             }
@@ -497,7 +497,8 @@ namespace MustyBlockBlast.Gameplay.Systems
         public bool TryApplyReroll()
         {
             if (_boardSystem.IsGameOver || IsLocked(PowerUpKind.Reroll)
-                || IsBannedInActivePathLevel(PowerUpKind.Reroll) || CountOf(PowerUpKind.Reroll).Value <= 0)
+                || IsBannedInActivePathLevel(PowerUpKind.Reroll) || CountOf(PowerUpKind.Reroll).Value <= 0
+                || !_gameModeModel.ExtrasEnabled)
             {
                 return false;
             }
@@ -546,7 +547,7 @@ namespace MustyBlockBlast.Gameplay.Systems
         {
             if (_boardSystem.IsGameOver || IsLocked(PowerUpKind.DoubleMultiplier)
                 || IsBannedInActivePathLevel(PowerUpKind.DoubleMultiplier)
-                || CountOf(PowerUpKind.DoubleMultiplier).Value <= 0)
+                || CountOf(PowerUpKind.DoubleMultiplier).Value <= 0 || !_gameModeModel.ExtrasEnabled)
             {
                 return false;
             }
@@ -591,7 +592,8 @@ namespace MustyBlockBlast.Gameplay.Systems
         public bool TryApplyGhostFit()
         {
             if (_boardSystem.IsGameOver || IsLocked(PowerUpKind.GhostFit)
-                || IsBannedInActivePathLevel(PowerUpKind.GhostFit) || CountOf(PowerUpKind.GhostFit).Value <= 0)
+                || IsBannedInActivePathLevel(PowerUpKind.GhostFit) || CountOf(PowerUpKind.GhostFit).Value <= 0
+                || !_gameModeModel.ExtrasEnabled)
             {
                 return false;
             }
@@ -648,7 +650,7 @@ namespace MustyBlockBlast.Gameplay.Systems
         public bool TryApplyHold(int slotIndex)
         {
             if (IsLocked(PowerUpKind.Hold) || IsBannedInActivePathLevel(PowerUpKind.Hold)
-                || CountOf(PowerUpKind.Hold).Value <= 0)
+                || CountOf(PowerUpKind.Hold).Value <= 0 || !_gameModeModel.ExtrasEnabled)
             {
                 return false;
             }

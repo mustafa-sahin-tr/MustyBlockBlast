@@ -2,6 +2,7 @@ using System;
 using MessagePipe;
 using MustyBlockBlast.Gameplay.Messages;
 using MustyBlockBlast.Gameplay.Models;
+using MustyBlockBlast.Gameplay.Settings;
 using UnityEngine;
 using VContainer.Unity;
 
@@ -192,6 +193,18 @@ namespace MustyBlockBlast.Gameplay.Systems
                 return;
             }
 
+            float duration = _timedModeSystem.SelectedDuration.Value;
+            if (TimedModeConfig.IsEndlessDuration(duration))
+            {
+                // Classic mode's "Sınırsız" duration (issue #355): the run plays forever with no clock
+                // and no countdown HUD, exactly like Endless — the only difference from Endless is the
+                // ruleset GameModeModel.ExtrasEnabled gates, which this System never touches.
+                _timerModel.IsRunning.Value = false;
+                _timerModel.RemainingSeconds.Value = 0f;
+                _timerModel.IsLowTime.Value = false;
+                return;
+            }
+
             _isAppPaused = false;
             _isMenuPaused = false;
             _isPowerUpArmedPaused = false;
@@ -200,7 +213,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             // old board, so their eventual SetClearAnimationPlaying(false) — if it still fires — will
             // never fire for a generation this run recognises.
             _clearAnimationPauseCount = 0;
-            _timerModel.RemainingSeconds.Value = _timedModeSystem.SelectedDuration.Value;
+            _timerModel.RemainingSeconds.Value = duration;
             _timerModel.IsRunning.Value = true;
             _timerModel.IsLowTime.Value = false;
         }

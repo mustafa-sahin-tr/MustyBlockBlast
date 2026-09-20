@@ -344,6 +344,74 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.AreEqual(3, model.BombCount.Value);
         }
 
+        // --- issue #355: Classic mode (GameMode.Timed) has no power-ups ---
+
+        /// <summary>Classic mode's ruleset (<c>GameModeModel.ExtrasEnabled</c> false for
+        /// <see cref="GameMode.Timed"/>) refuses to arm a targeted power-up even while holding one,
+        /// exactly as a level-gated or Path-banned kind is refused.</summary>
+        [Test]
+        public void Arm_InClassicMode_DoesNotArmEvenWhenHeld()
+        {
+            PersistCount(PowerUpKind.Bomb, 3);
+            _gameModeModel.CurrentMode.Value = GameMode.Timed;
+            var model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, new BoardModel());
+
+            system.Arm(PowerUpKind.Bomb);
+
+            Assert.IsNull(model.Armed.Value);
+            Assert.AreEqual(3, model.BombCount.Value);
+        }
+
+        /// <summary>The three targetless kinds are applied directly rather than armed, so each needs its
+        /// own refusal in Classic mode.</summary>
+        [Test]
+        public void TryApplyReroll_InClassicMode_DoesNotApplyEvenWhenHeld()
+        {
+            PersistCount(PowerUpKind.Reroll, 2);
+            _gameModeModel.CurrentMode.Value = GameMode.Timed;
+            var model = new PowerUpModel();
+            var boardModel = new BoardModel();
+            var trayModel = new TrayModel();
+            trayModel.SetSlot(0, new Piece("test_single", new[] { new GridPosition(0, 0) }), 1);
+            trayModel.SetSlot(1, new Piece("test_single", new[] { new GridPosition(0, 0) }), 1);
+            trayModel.SetSlot(2, new Piece("test_single", new[] { new GridPosition(0, 0) }), 1);
+            PowerUpSystem system = CreateSystem(model, boardModel, trayModel);
+
+            bool applied = system.TryApplyReroll();
+
+            Assert.IsFalse(applied);
+            Assert.AreEqual(2, model.RerollCount.Value);
+        }
+
+        [Test]
+        public void TryApplyDoubleMultiplier_InClassicMode_DoesNotApplyEvenWhenHeld()
+        {
+            PersistCount(PowerUpKind.DoubleMultiplier, 2);
+            _gameModeModel.CurrentMode.Value = GameMode.Timed;
+            var model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, new BoardModel());
+
+            bool applied = system.TryApplyDoubleMultiplier();
+
+            Assert.IsFalse(applied);
+            Assert.AreEqual(2, model.DoubleMultiplierCount.Value);
+        }
+
+        [Test]
+        public void TryApplyGhostFit_InClassicMode_DoesNotApplyEvenWhenHeld()
+        {
+            PersistCount(PowerUpKind.GhostFit, 2);
+            _gameModeModel.CurrentMode.Value = GameMode.Timed;
+            var model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, new BoardModel());
+
+            bool applied = system.TryApplyGhostFit();
+
+            Assert.IsFalse(applied);
+            Assert.AreEqual(2, model.GhostFitCount.Value);
+        }
+
         /// <summary>AC4: the ban is enforced independently of Arm — calling the apply method directly
         /// with a banned kind still refuses and spends nothing.</summary>
         [Test]
