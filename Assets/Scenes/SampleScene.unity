@@ -1982,6 +1982,11 @@ MonoBehaviour:
   - {fileID: 8300000, guid: f994ae8bc9dd84a7783b145633fefdcf, type: 3}
   - {fileID: 8300000, guid: 122d9be7c9d6841b8b0f6f0771b2d02b, type: 3}
   - {fileID: 8300000, guid: 3b0bb7dc84c2f441eb802d907b3acb5e, type: 3}
+  _specialCellClips:
+  - {fileID: 8300000, guid: 7583355b5ffde41928f280b1b73f810f, type: 3}
+  - {fileID: 8300000, guid: 9ab514add3f1a42b089ca59d33353355, type: 3}
+  - {fileID: 8300000, guid: ba3f6ba85f4684463b925f6a67cacf15, type: 3}
+  - {fileID: 8300000, guid: 4dc5141d5fef34fb5a5e19863d1c1848, type: 3}
 --- !u!4 &1407474800
 Transform:
   m_ObjectHideFlags: 0
