@@ -62,12 +62,20 @@ they have no second orientation and Rotate has nothing to do to them.
   (A "always offer at least one placeable piece" rule is a possible later tuning knob, but it
   changes the game's character and is deliberately excluded from v1.)
 
-The **one exception** is the Reroll power-up (see "Power-ups"), and only for the set it draws:
-a set the player spent an earned power-up on is retried until at least one of its three pieces
-fits the board. That guarantee is scoped to Reroll alone — ordinary refills are untouched by it,
-so the difficulty above still holds for ordinary play. The retry is bounded; if the bound is
-exhausted the last set drawn is used as-is, which can only happen on a board no catalog piece
-fits at all — a board that was already out of moves.
+There are **two exceptions**, both bounded-retry and both scoped to the moment they apply —
+ordinary refills are untouched by either, so the difficulty above still holds for ordinary play:
+
+- The Reroll power-up (see "Power-ups"): a set the player spent an earned power-up on is retried
+  until at least one of its three pieces fits the board.
+- The no-moves rescue (see "Game over"): offered only after a run has already run out of moves,
+  its replacement set carries the same "at least one piece fits" guarantee as Reroll, and is
+  additionally biased, within its retry budget, toward including a piece that clears at least one
+  row or column — preferring the candidate that clears the most lines simultaneously among the
+  sets it tries.
+
+Both retries are bounded; if the bound is exhausted the last (or best-found) set drawn is used
+as-is, which can only happen on a board no catalog piece fits at all — a board that was already
+out of moves.
 
 ## Clearing
 
@@ -255,7 +263,19 @@ Objectives" (sub-issues #72 and #73).
 
 After each placement, and after each tray refill, check whether **any** remaining tray piece —
 or the piece parked in the hold slot, if there is one — fits **anywhere** on the board. If none
-does, the run ends.
+does, the run is over — subject to two life-lines, tried in order, before it actually ends:
+
+1. **Demolition Hammer life-line.** If the board is at least 90% full and this run hasn't already
+   been handed one, a Demolition Hammer is injected into the dock instead of ending the run — see
+   "Power-ups". This can happen at most once per run.
+2. **No-moves rescue.** If the hammer doesn't apply (or has already been used this run), the run
+   ends, but the ending is marked *rescue-available* — in every mode, with no cap on how many
+   times this can happen in a run. The player is offered a rewarded ad on the end-of-run card;
+   accepting it discards all three dock pieces (the held piece, if any, is untouched) and draws a
+   fresh set under the same bounded-retry, solvability-biased rule the no-moves rescue draw uses
+   (see "Drawing pieces"), then resumes the same run. Declining, or the ad failing, ends the run
+   exactly as if no rescue had been offered. This is a wholly separate mechanic from the Reroll
+   power-up — it spends nothing from Reroll's inventory and Reroll's own behaviour is unchanged.
 
 This check is also what powers the "no moves" hint state, so it must be cheap enough to run
 every placement.
