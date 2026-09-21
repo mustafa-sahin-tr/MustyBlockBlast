@@ -228,6 +228,41 @@ namespace MustyBlockBlast.Presentation.Views
         /// </summary>
         private static readonly Color CoinIconTint = new Color(1f, 0.82f, 0.25f, 1f);
 
+        /// <summary>How far a kind's glow halo (issue #365) is blended towards white on top of its own
+        /// <see cref="IconTint"/> — bright enough to read as an emissive backing against any theme's
+        /// fill (AC3) while the blend keeps enough of the source hue that a kind's glow still looks
+        /// unmistakably its own colour rather than one shared white halo for all seven (AC5).
+        /// <para>
+        /// Tuned against the worst case found by checking every theme's 5 <c>_kindFills</c> against every
+        /// kind's glow (issue #365 AC3): a saturated near-white-luminance fill (Yaz's yellow,
+        /// <c>0.299R+0.587G+0.114B</c> &#8776; 0.82) sitting next to a cool glow (Vortex) at the pulse's
+        /// dimmest instant still separates further in luminance than the original bug's flat-icon
+        /// contrast gap (&#8776; 0.035) did — and unlike that flat icon, this glow adds a moving pulse and
+        /// a separate near-white rim-light on the icon itself, neither of which a single luminance number
+        /// captures.
+        /// </para>
+        /// </summary>
+        private const float GLOW_TINT_WHITEN = 0.6f;
+
+        /// <summary>The glow halo's resting alpha at rest (before the per-frame pulse in
+        /// <see cref="Update"/> multiplies it) — bright enough to lift a special cell's contrast on every
+        /// theme fill (AC3) while staying inside the halo's own soft falloff rather than reading as a
+        /// solid disc (AC4's "stays subtle").</summary>
+        private const float GLOW_BASE_ALPHA = 0.68f;
+
+        /// <summary>The glow pulse's alpha multiplier range (issue #365 AC4): never fully off, so the
+        /// halo does not flicker out every cycle, and never brighter than its resting alpha, so the pulse
+        /// reads as a gentle breathe rather than a flash. Kept fairly narrow (0.75..1) rather than
+        /// dropping further, so the dimmest instant of the pulse never gives up the contrast margin
+        /// <see cref="GLOW_TINT_WHITEN"/> and <see cref="GLOW_BASE_ALPHA"/> were tuned for.</summary>
+        private const float GLOW_PULSE_MIN_MULTIPLIER = 0.75f;
+        private const float GLOW_PULSE_MAX_MULTIPLIER = 1f;
+
+        /// <summary>The glow pulse's speed, in radians of <see cref="Mathf.Sin"/> per second — chosen for
+        /// a slow, deliberate breathe (about one full cycle every 3-4 seconds) rather than anything that
+        /// could read as urgent or distracting on a board with several special cells pulsing at once.</summary>
+        private const float GLOW_PULSE_SPEED = 1.8f;
+
         /// <summary>
         /// How far a hole cell's fill is pushed towards black relative to an empty cell's, and how far
         /// its alpha is pulled down. Derived from the active theme rather than authored per theme, and
@@ -342,6 +377,19 @@ namespace MustyBlockBlast.Presentation.Views
         /// ordinary one, parallel to the bookkeeping above. 0 for every cell that is not a timer cell —
         /// drives the countdown number in <see cref="ApplyTimerCountdown"/> (issue #307 AC6a).</summary>
         private int[] _cellTimerCountdowns;
+
+        /// <summary>Which cells currently show the special-cell glow halo (issue #365), parallel to the
+        /// bookkeeping above — mirrors <see cref="_activeGlowCells"/>'s membership so
+        /// <see cref="ApplyCellIcon"/> can add/remove a cell exactly once per actual kind change instead
+        /// of scanning the list.</summary>
+        private bool[] _glowActiveMask;
+
+        /// <summary>Every cell currently glowing, in no particular order — the one collection
+        /// <see cref="Update"/> walks each frame to drive the pulse, so a full board never has to poll
+        /// all 64 cells for the handful that are actually special. Pre-allocated once and maintained by
+        /// adding/removing single entries in <see cref="ApplyCellIcon"/>, never rebuilt, so the per-frame
+        /// walk allocates nothing.</summary>
+        private readonly List<CellView> _activeGlowCells = new List<CellView>(Board.SIZE * Board.SIZE);
 
         private BoardModel _boardModel;
         private SettingsModel _settingsModel;
@@ -550,6 +598,32 @@ namespace MustyBlockBlast.Presentation.Views
             _specialCellSpawnedSubscriber.Subscribe(OnSpecialCellSpawned).AddTo(_disposables);
 
             RedrawAll();
+        }
+
+        /// <summary>
+        /// Drives the special-cell glow halo's gentle pulse (issue #365 AC4) — one
+        /// <see cref="Mathf.Sin"/>-based scalar computed once per frame and applied to every currently
+        /// glowing cell, rather than polling all 64 cells: <see cref="_activeGlowCells"/> is maintained
+        /// incrementally by <see cref="ApplyCellIcon"/> and holds nothing but cells whose kind is not
+        /// <see cref="SpecialCellKind.None"/>. Allocates nothing — the list's <c>Count</c> and indexer
+        /// do not allocate, and <see cref="CellView.SetGlowPulse"/> only writes one float.
+        /// </summary>
+        private void Update()
+        {
+            int glowingCount = _activeGlowCells.Count;
+            if (glowingCount == 0)
+            {
+                return;
+            }
+
+            float wave = 0.5f + (0.5f * Mathf.Sin(Time.time * GLOW_PULSE_SPEED));
+            float multiplier = GLOW_PULSE_MIN_MULTIPLIER
+                + ((GLOW_PULSE_MAX_MULTIPLIER - GLOW_PULSE_MIN_MULTIPLIER) * wave);
+
+            for (int glowIndex = 0; glowIndex < glowingCount; glowIndex++)
+            {
+                _activeGlowCells[glowIndex].SetGlowPulse(multiplier);
+            }
         }
 
         private void OnDestroy()
@@ -947,6 +1021,12 @@ namespace MustyBlockBlast.Presentation.Views
             _cellSpecialKinds = new SpecialCellKind[cellCount];
             _cellHitCounts = new int[cellCount];
             _cellTimerCountdowns = new int[cellCount];
+            _glowActiveMask = new bool[cellCount];
+
+            // A rebuild (EnsureBuilt on a board-shape change) destroys every previous CellView, so any
+            // entries left over from the old grid would be stale references — cleared rather than left
+            // to be pruned lazily, since nothing else ever removes from this list.
+            _activeGlowCells.Clear();
 
             for (int i = 0; i < cellCount; i++)
             {
@@ -2551,13 +2631,32 @@ namespace MustyBlockBlast.Presentation.Views
         /// the outline toggle it mirrors, so every repaint path can call it unconditionally.</summary>
         private void ApplyCellIcon(int index, SpecialCellKind kind)
         {
+            CellView cell = _cells[index];
+
             if (kind == SpecialCellKind.None)
             {
-                _cells[index].ClearSpecialIcon();
+                cell.ClearSpecialIcon();
+                cell.ClearSpecialGlow();
+
+                // Negative test (issue #365 AC7): a None cell never glows, so it never has an entry to
+                // remove — this only fires for a cell that actually was glowing a moment ago.
+                if (_glowActiveMask[index])
+                {
+                    _glowActiveMask[index] = false;
+                    _activeGlowCells.Remove(cell);
+                }
+
                 return;
             }
 
-            _cells[index].SetSpecialIcon(IconTint(kind), IconSprite(kind));
+            cell.SetSpecialIcon(IconTint(kind), IconSprite(kind));
+            cell.SetSpecialGlow(GlowTint(kind));
+
+            if (!_glowActiveMask[index])
+            {
+                _glowActiveMask[index] = true;
+                _activeGlowCells.Add(cell);
+            }
         }
 
         /// <summary>The tint one kind's icon is drawn in. Stated once, as a switch rather than a chain
@@ -2581,6 +2680,24 @@ namespace MustyBlockBlast.Presentation.Views
                 default:
                     return SpecialIconTint;
             }
+        }
+
+        /// <summary>
+        /// The colour one kind's glow halo (issue #365) is drawn in behind its icon — derived from
+        /// <see cref="IconTint"/> rather than a second per-kind table, so every kind that ever gets a new
+        /// icon tint automatically gets a matching glow with no second switch to keep in sync (AC2).
+        /// Blended towards white (<see cref="GLOW_TINT_WHITEN"/>) for brightness against any theme fill
+        /// (AC3) while keeping enough of the source hue that a kind's glow is still recognisably its own
+        /// colour, not a shared white halo for all seven (AC5). Not reused by <see cref="InfoPopupView"/>
+        /// — its hero icon stays flat by design (AC6) — so, unlike <see cref="IconTint"/>, this is
+        /// private.
+        /// </summary>
+        private static Color GlowTint(SpecialCellKind kind)
+        {
+            Color tint = IconTint(kind);
+            Color glow = Color.Lerp(tint, Color.white, GLOW_TINT_WHITEN);
+            glow.a = GLOW_BASE_ALPHA;
+            return glow;
         }
 
         /// <summary>

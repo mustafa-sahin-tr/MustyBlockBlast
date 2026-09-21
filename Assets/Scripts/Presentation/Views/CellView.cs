@@ -48,6 +48,27 @@ namespace MustyBlockBlast.Presentation.Views
         /// tell apart at a glance.</summary>
         private const float SPECIAL_ICON_BEVEL_INSET_MULTIPLIER = 0.5f;
 
+        /// <summary>How far the special-cell glow halo (issue #365) bleeds past the cell's own bounds,
+        /// in reference pixels, so it reads as a soft radiating backing like the approved mockup rather
+        /// than a shape confined to the icon's own inset. Kept under half the board's cell spacing (8px,
+        /// see BoardView's <c>_cellSpacing</c>) so the halo's already-soft falloff never visibly reaches
+        /// the neighbouring cell on a full 8x8 board.</summary>
+        private const float SPECIAL_GLOW_OUTSET = 6f;
+
+        /// <summary>How much larger than the icon itself the fake rim-light copy behind it is drawn, so
+        /// a sliver of it shows past the tinted icon's edge as a bright outline (the mockup's rim-light)
+        /// without a custom shader.</summary>
+        private const float SPECIAL_ICON_RIM_SCALE = 1.16f;
+
+        /// <summary>Alpha the rim-light copy is drawn at — bright but not fully opaque, so it reads as a
+        /// highlight rather than a second solid icon.</summary>
+        private const float SPECIAL_ICON_RIM_ALPHA = 0.85f;
+
+        /// <summary>Colour of the icon rim-light: near-white for every kind, since the per-kind hue
+        /// identity (issue #365 AC5) is carried by the tinted icon and glow on top of it, not by the
+        /// outline.</summary>
+        private static readonly Color SpecialIconRimColour = new Color(1f, 1f, 1f, SPECIAL_ICON_RIM_ALPHA);
+
         /// <summary>Reference-pixel font size for the <see cref="MustyBlockBlast.Core.SpecialCellKind.Timer"/>
         /// countdown number (issue #307 AC6a) — legible at a glance without competing with the cell's
         /// own special-icon glyph.</summary>
@@ -59,10 +80,17 @@ namespace MustyBlockBlast.Presentation.Views
         private Image _blockShadeImage;
         private Image _blockFaceImage;
         private Image _blockGlossImage;
+        private Image _specialGlowImage;
+        private Image _specialIconRimImage;
         private Image _specialIconImage;
         private Image _highlightImage;
         private Image _ghostRingImage;
         private Text _timerCountdownText;
+
+        /// <summary>The resting alpha the glow halo was last shown at (issue #365) — the target
+        /// <see cref="SetGlowPulse"/> multiplies against, since the halo's own colour alpha is
+        /// overwritten every frame by the pulse rather than by <see cref="SetSpecialGlow"/>.</summary>
+        private float _glowBaseAlpha;
 
         private void Awake() => CacheOuter();
 
@@ -106,6 +134,37 @@ namespace MustyBlockBlast.Presentation.Views
 
             _blockRoot.SetActive(false);
 
+            float iconInset = inset + (bevelThickness * SPECIAL_ICON_BEVEL_INSET_MULTIPLIER);
+
+            // The special-cell glow halo (issue #365): a soft, bright backing behind the icon so a
+            // special cell reads as special even on a theme fill it happens to be close in luminance
+            // to. Built before the icon (and before the rim below) so it is their junior sibling and
+            // therefore draws behind both, while still drawing over the block/flat face layers built
+            // above it. Sized past the cell's own bounds (SPECIAL_GLOW_OUTSET) so it bleeds outward
+            // like the mockup's starburst rather than sitting flush inside the bevel.
+            _specialGlowImage = CreateStretchedImage(transform, "SpecialGlow");
+            _specialGlowImage.sprite = UiSpriteFactory.RadialGlow;
+            _specialGlowImage.type = Image.Type.Simple;
+            _specialGlowImage.raycastTarget = false;
+            _specialGlowImage.color = Color.clear;
+            SetStretchInsets(
+                (RectTransform)_specialGlowImage.transform,
+                -SPECIAL_GLOW_OUTSET, -SPECIAL_GLOW_OUTSET, -SPECIAL_GLOW_OUTSET, -SPECIAL_GLOW_OUTSET);
+            _specialGlowImage.gameObject.SetActive(false);
+
+            // The icon's rim-light (issue #365): a near-white, slightly larger copy of the same sprite,
+            // drawn directly behind the tinted icon so a sliver of it shows past the tinted icon's own
+            // edge as a bright outline — the mockup's rim-light, without a custom shader. Its sprite and
+            // scale are kept in step with the icon's own by SetSpecialIcon below.
+            _specialIconRimImage = CreateStretchedImage(transform, "SpecialIconRim");
+            _specialIconRimImage.sprite = UiSpriteFactory.Starburst;
+            _specialIconRimImage.type = Image.Type.Simple;
+            _specialIconRimImage.raycastTarget = false;
+            _specialIconRimImage.color = Color.clear;
+            SetStretchInsets(
+                (RectTransform)_specialIconRimImage.transform, iconInset, iconInset, iconInset, iconInset);
+            _specialIconRimImage.gameObject.SetActive(false);
+
             // Built after both looks so it draws on top of whichever is active. In practice only an
             // occupied (block) cell ever wears one — a special kind belongs to the block standing on
             // the cell — but it is parented to the cell rather than to the block root so toggling
@@ -116,8 +175,6 @@ namespace MustyBlockBlast.Presentation.Views
             _specialIconImage.type = Image.Type.Simple;
             _specialIconImage.raycastTarget = false;
             _specialIconImage.color = Color.clear;
-
-            float iconInset = inset + (bevelThickness * SPECIAL_ICON_BEVEL_INSET_MULTIPLIER);
             SetStretchInsets((RectTransform)_specialIconImage.transform, iconInset, iconInset, iconInset, iconInset);
             _specialIconImage.gameObject.SetActive(false);
 
@@ -191,10 +248,71 @@ namespace MustyBlockBlast.Presentation.Views
 
             _specialIconImage.transform.localScale = Vector3.one;
             ShowLayer(_specialIconImage, colour);
+
+            // The rim-light copy (issue #365) always mirrors the icon's own sprite and resets its own
+            // scale on every call for the same reason the icon's does: an ordinary repaint must show it
+            // at rest, whatever the sprite or scale a previous call — or a spawn-in pop — left it at.
+            if (_specialIconRimImage != null)
+            {
+                if (sprite != null)
+                {
+                    _specialIconRimImage.sprite = sprite;
+                }
+
+                _specialIconRimImage.transform.localScale = Vector3.one * SPECIAL_ICON_RIM_SCALE;
+                ShowLayer(_specialIconRimImage, SpecialIconRimColour);
+            }
         }
 
-        /// <summary>Hides the special-cell icon. Safe to call on a cell that never had one.</summary>
-        internal void ClearSpecialIcon() => HideLayer(_specialIconImage);
+        /// <summary>Hides the special-cell icon and its rim-light. Safe to call on a cell that never had
+        /// one.</summary>
+        internal void ClearSpecialIcon()
+        {
+            HideLayer(_specialIconImage);
+            HideLayer(_specialIconRimImage);
+        }
+
+        /// <summary>Shows the special-cell glow halo (issue #365) behind the icon in
+        /// <paramref name="colour"/> — its alpha is the halo's resting brightness, which
+        /// <see cref="SetGlowPulse"/> then modulates every frame. Independent of every other layer and
+        /// allocates nothing, so it is safe on any repaint path.</summary>
+        internal void SetSpecialGlow(Color colour)
+        {
+            if (_specialGlowImage == null)
+            {
+                return;
+            }
+
+            _glowBaseAlpha = colour.a;
+            ShowLayer(_specialGlowImage, colour);
+        }
+
+        /// <summary>Hides the glow halo. Safe to call on a cell that never had one — including every
+        /// <see cref="MustyBlockBlast.Core.SpecialCellKind.None"/> cell, which never calls
+        /// <see cref="SetSpecialGlow"/> in the first place.</summary>
+        internal void ClearSpecialGlow()
+        {
+            HideLayer(_specialGlowImage);
+            _glowBaseAlpha = 0f;
+        }
+
+        /// <summary>Scales the glow halo's current alpha by <paramref name="alphaMultiplier"/> against
+        /// its resting brightness from the last <see cref="SetSpecialGlow"/> call — the one per-frame
+        /// touch point <c>BoardView.Update</c> needs for the halo's gentle pulse (issue #365 AC4).
+        /// Touches only the halo's own alpha, never its colour or any other layer, and allocates
+        /// nothing, so a board's worth of active glows can be driven from one field every frame. A no-op
+        /// on a cell whose glow is not currently showing, so a caller need not guard the call itself.</summary>
+        internal void SetGlowPulse(float alphaMultiplier)
+        {
+            if (_specialGlowImage == null || !_specialGlowImage.gameObject.activeSelf)
+            {
+                return;
+            }
+
+            Color colour = _specialGlowImage.color;
+            colour.a = _glowBaseAlpha * alphaMultiplier;
+            _specialGlowImage.color = colour;
+        }
 
         /// <summary>The special-cell icon's own transform, exposed only for
         /// <c>BoardView.OnSpecialCellSpawned</c>'s spawn-in pop animation (issue #330 AC2) to animate its
@@ -307,6 +425,13 @@ namespace MustyBlockBlast.Presentation.Views
             // The icon likewise: a destroyed special cell fades out as one block, never as a fading
             // block with a solid mark left floating over it. Restored by the next SetSpecialIcon call.
             ApplyAlpha(_specialIconImage, alpha);
+
+            // And its rim-light and glow halo (issue #365), each fading in proportion to its own resting
+            // alpha exactly as the gloss ellipse does above, so neither is left at full brightness — or
+            // floating over a fading cell — mid-fade. Restored by the next SetSpecialIcon /
+            // SetSpecialGlow call.
+            ApplyAlpha(_specialIconRimImage, alpha * SPECIAL_ICON_RIM_ALPHA);
+            ApplyAlpha(_specialGlowImage, alpha * _glowBaseAlpha);
 
             // And the countdown number, for the same reason: a timer cell that is fading out (cleared
             // in time) must not leave its number floating over an emptying cell.
