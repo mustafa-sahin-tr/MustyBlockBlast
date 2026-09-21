@@ -153,6 +153,11 @@ namespace MustyBlockBlast.Gameplay.Systems
             gained = _doubleMultiplierModel.Multiply(gained);
             bonusGained = _doubleMultiplierModel.Multiply(bonusGained);
 
+            // Read before the gem multiplies the total, so the delta below is exactly what the gem
+            // itself was worth on this placement — base score and every rule bonus alike, whichever mix
+            // produced it.
+            int gainedBeforeScoreGem = gained;
+
             // Layered on top of the frenzy rather than replacing it: each multiplier is applied to the
             // running total in turn, so a gem destroyed inside a 2x window is worth 6x. Zero stays zero
             // here too — there is no floor — so a placement that scored nothing scores nothing however
@@ -160,6 +165,14 @@ namespace MustyBlockBlast.Gameplay.Systems
             // reason it is doubled with it: the celebration must match the points actually credited.
             gained = ScoreRules.ScoreGemMultiplied(gained, message.DestroyedScoreGemCount);
             bonusGained = ScoreRules.ScoreGemMultiplied(bonusGained, message.DestroyedScoreGemCount);
+
+            // The gem's own contribution — everything the multiplier added on top of what this
+            // placement already earned — folded into the same "extra credited this placement" figure
+            // the bonus popup shows (issue: "score gem silindiğinde... +30 gibi... gösterir"). Never
+            // negative (the multiplier only ever scales up or leaves the total unchanged), and 0 when
+            // no gem was destroyed, so a gem-free placement's popup is untouched by this.
+            int scoreGemBonus = gained - gainedBeforeScoreGem;
+            bonusGained += scoreGemBonus;
 
             if (message.LinesCleared > 0)
             {

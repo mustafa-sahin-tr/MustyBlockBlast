@@ -33,17 +33,20 @@ namespace MustyBlockBlast.Gameplay.Systems
         private readonly ScoreModel _scoreModel;
         private readonly DoubleMultiplierModel _doubleMultiplierModel;
         private readonly IPublisher<ScoreChangedMessage> _scoreChangedPublisher;
+        private readonly IPublisher<BonusScoredMessage> _bonusScoredPublisher;
         private readonly IDisposable _subscription;
 
         public PowerUpScoreSystem(
             ScoreModel scoreModel,
             DoubleMultiplierModel doubleMultiplierModel,
             ISubscriber<PowerUpAppliedMessage> powerUpAppliedSubscriber,
-            IPublisher<ScoreChangedMessage> scoreChangedPublisher)
+            IPublisher<ScoreChangedMessage> scoreChangedPublisher,
+            IPublisher<BonusScoredMessage> bonusScoredPublisher)
         {
             _scoreModel = scoreModel;
             _doubleMultiplierModel = doubleMultiplierModel;
             _scoreChangedPublisher = scoreChangedPublisher;
+            _bonusScoredPublisher = bonusScoredPublisher;
             _subscription = powerUpAppliedSubscriber.Subscribe(OnPowerUpApplied);
         }
 
@@ -70,6 +73,10 @@ namespace MustyBlockBlast.Gameplay.Systems
             // was worth nothing, doubled or not.
             gained = _doubleMultiplierModel.Multiply(gained);
 
+            // Read before the gem multiplies the total, exactly as ScoreSystem reads its own — see that
+            // System's OnPiecePlaced for the full reasoning the delta below relies on.
+            int gainedBeforeScoreGem = gained;
+
             // Layered on top of the frenzy rather than replacing it, exactly as a placement's is: a gem
             // destroyed by a spent power-up inside a 2x window is worth 6x. The zero case never reaches
             // here — the early-out above already dropped it — so there is nothing for the (floorless)
@@ -80,6 +87,14 @@ namespace MustyBlockBlast.Gameplay.Systems
 
             _scoreChangedPublisher.Publish(new ScoreChangedMessage(
                 _scoreModel.Score.Value, gained, _scoreModel.Streak.Value));
+
+            // The gem's own contribution to this clear, shown exactly as a placement's is (issue: "score
+            // gem silindiğinde... +30 gibi... gösterir") — nothing is published for a gem-free clear.
+            int scoreGemBonus = gained - gainedBeforeScoreGem;
+            if (scoreGemBonus > 0)
+            {
+                _bonusScoredPublisher.Publish(new BonusScoredMessage(scoreGemBonus));
+            }
         }
 
         /// <summary>

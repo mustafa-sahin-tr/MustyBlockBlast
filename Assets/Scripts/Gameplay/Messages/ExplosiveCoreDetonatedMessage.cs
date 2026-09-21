@@ -1,3 +1,6 @@
+using System.Collections.Generic;
+using MustyBlockBlast.Core;
+
 namespace MustyBlockBlast.Gameplay.Messages
 {
     /// <summary>
@@ -18,10 +21,12 @@ namespace MustyBlockBlast.Gameplay.Messages
     /// </summary>
     public readonly struct ExplosiveCoreDetonatedMessage
     {
-        public ExplosiveCoreDetonatedMessage(int finishedLineCount, int handOffCount)
+        public ExplosiveCoreDetonatedMessage(
+            int finishedLineCount, int handOffCount, IReadOnlyList<ExplosiveCoreDetonation> detonations)
         {
             FinishedLineCount = finishedLineCount;
             HandOffCount = handOffCount;
+            Detonations = detonations;
         }
 
         /// <summary>How many rows and columns this detonation (and any chained detonation) finished —
@@ -35,5 +40,13 @@ namespace MustyBlockBlast.Gameplay.Messages
         /// cell instead. Usually 0 or 1; higher only when more than one core detonated in the same
         /// resolution and more than one of them found nothing left to finish.</summary>
         public int HandOffCount { get; }
+
+        /// <summary>Every detonation that finished at least one line, in the order it happened — the
+        /// origin cell each one flew its icon from and the gaps it landed on and filled, one flight per
+        /// entry. Never null, though it may be empty (a resolution that only handed off cores). A
+        /// caller-owned copy of <see cref="MustyBlockBlast.Core.ExplosiveCoreEffect.Detonations"/>, not
+        /// the live buffer: that buffer is cleared on the next resolution, and a subscriber flies through
+        /// this list across several frames.</summary>
+        public IReadOnlyList<ExplosiveCoreDetonation> Detonations { get; }
     }
 }

@@ -630,8 +630,12 @@ namespace MustyBlockBlast.Gameplay.Systems
                     _boardModel.NotifySpecialKindChanged(explosiveCoreHandOffTargets[i]);
                 }
 
+                // Copied, not the live buffer: Detonations is a per-target flight list Presentation
+                // plays out across several frames, and the effect overwrites its own buffer on its next
+                // resolution — exactly why VortexIslandFilledMessage copies its own fill lists.
                 _explosiveCoreDetonatedPublisher.Publish(new ExplosiveCoreDetonatedMessage(
-                    explosiveCoreFinishedLineCount, explosiveCoreHandOffTargets.Count));
+                    explosiveCoreFinishedLineCount, explosiveCoreHandOffTargets.Count,
+                    new List<ExplosiveCoreDetonation>(_explosiveCoreEffect.Detonations)));
             }
 
             if (anyWiped)
@@ -1314,8 +1318,10 @@ namespace MustyBlockBlast.Gameplay.Systems
                     _boardModel.NotifySpecialKindChanged(explosiveCoreHandOffTargets[i]);
                 }
 
+                // Copied, exactly as the placement path copies it — see that call site's own remark.
                 _explosiveCoreDetonatedPublisher.Publish(new ExplosiveCoreDetonatedMessage(
-                    explosiveCoreFinishedLineCount, explosiveCoreHandOffTargets.Count));
+                    explosiveCoreFinishedLineCount, explosiveCoreHandOffTargets.Count,
+                    new List<ExplosiveCoreDetonation>(_explosiveCoreEffect.Detonations)));
             }
 
             IReadOnlyList<GridPosition> wipedCells = _laserEffect.WipedCells;

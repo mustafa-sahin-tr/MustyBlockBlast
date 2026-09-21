@@ -33,7 +33,7 @@ namespace MustyBlockBlast.Tests.EditMode
         [Test]
         public void OnDetonated_ScoresTheOrdinaryLineClearRate()
         {
-            _detonatedBroker.Publish(new ExplosiveCoreDetonatedMessage(finishedLineCount: 1, handOffCount: 0));
+            _detonatedBroker.Publish(new ExplosiveCoreDetonatedMessage(finishedLineCount: 1, handOffCount: 0, detonations: null));
 
             Assert.AreEqual(ScoreRules.ClearScore(1, _scoreModel.Streak.Value), _scoreModel.Score.Value);
         }
@@ -43,7 +43,7 @@ namespace MustyBlockBlast.Tests.EditMode
         [Test]
         public void OnDetonated_WithTwoFinishedLines_ScoresTheTwoLineRate()
         {
-            _detonatedBroker.Publish(new ExplosiveCoreDetonatedMessage(finishedLineCount: 2, handOffCount: 0));
+            _detonatedBroker.Publish(new ExplosiveCoreDetonatedMessage(finishedLineCount: 2, handOffCount: 0, detonations: null));
 
             Assert.AreEqual(ScoreRules.ClearScore(2, _scoreModel.Streak.Value), _scoreModel.Score.Value);
         }
@@ -53,7 +53,7 @@ namespace MustyBlockBlast.Tests.EditMode
         {
             _scoreModel.Streak.Value = 4;
 
-            _detonatedBroker.Publish(new ExplosiveCoreDetonatedMessage(finishedLineCount: 1, handOffCount: 0));
+            _detonatedBroker.Publish(new ExplosiveCoreDetonatedMessage(finishedLineCount: 1, handOffCount: 0, detonations: null));
 
             Assert.AreEqual(ScoreRules.ClearScore(1, 4), _scoreModel.Score.Value);
             Assert.Greater(_scoreModel.Score.Value, ScoreRules.ClearScore(1, 0));
@@ -62,7 +62,7 @@ namespace MustyBlockBlast.Tests.EditMode
         [Test]
         public void OnDetonated_PublishesTheGainForTheHud()
         {
-            _detonatedBroker.Publish(new ExplosiveCoreDetonatedMessage(finishedLineCount: 1, handOffCount: 0));
+            _detonatedBroker.Publish(new ExplosiveCoreDetonatedMessage(finishedLineCount: 1, handOffCount: 0, detonations: null));
 
             Assert.AreEqual(1, _scoreChangedBroker.Published.Count);
             Assert.AreEqual(_scoreModel.Score.Value, _scoreChangedBroker.Published[0].Gained);
@@ -74,7 +74,7 @@ namespace MustyBlockBlast.Tests.EditMode
         {
             _doubleMultiplierModel.RemainingSeconds.Value = DoubleMultiplierModel.WINDOW_SECONDS;
 
-            _detonatedBroker.Publish(new ExplosiveCoreDetonatedMessage(finishedLineCount: 1, handOffCount: 0));
+            _detonatedBroker.Publish(new ExplosiveCoreDetonatedMessage(finishedLineCount: 1, handOffCount: 0, detonations: null));
 
             Assert.AreEqual(ScoreRules.ClearScore(1, 0) * 2, _scoreModel.Score.Value);
         }
@@ -88,7 +88,7 @@ namespace MustyBlockBlast.Tests.EditMode
             _scoreModel.MultiClearStreak.Value = 2;
             _scoreModel.CumulativeMultiClearCount.Value = 7;
 
-            _detonatedBroker.Publish(new ExplosiveCoreDetonatedMessage(finishedLineCount: 1, handOffCount: 0));
+            _detonatedBroker.Publish(new ExplosiveCoreDetonatedMessage(finishedLineCount: 1, handOffCount: 0, detonations: null));
 
             Assert.AreEqual(3, _scoreModel.Streak.Value);
             Assert.AreEqual(2, _scoreModel.MultiClearStreak.Value);
@@ -99,7 +99,7 @@ namespace MustyBlockBlast.Tests.EditMode
         [Test]
         public void OnDetonated_WithOnlyAHandOff_ScoresNothingAndPublishesNothing()
         {
-            _detonatedBroker.Publish(new ExplosiveCoreDetonatedMessage(finishedLineCount: 0, handOffCount: 1));
+            _detonatedBroker.Publish(new ExplosiveCoreDetonatedMessage(finishedLineCount: 0, handOffCount: 1, detonations: null));
 
             Assert.AreEqual(0, _scoreModel.Score.Value);
             Assert.AreEqual(0, _scoreChangedBroker.Published.Count);

@@ -15,6 +15,7 @@ namespace MustyBlockBlast.Tests.EditMode
     {
         private TestMessageBroker<PowerUpAppliedMessage> _appliedBroker;
         private TestMessageBroker<ScoreChangedMessage> _scoreChangedBroker;
+        private TestMessageBroker<BonusScoredMessage> _bonusScoredBroker;
         private ScoreModel _scoreModel;
 
         [SetUp]
@@ -22,9 +23,10 @@ namespace MustyBlockBlast.Tests.EditMode
         {
             _appliedBroker = new TestMessageBroker<PowerUpAppliedMessage>();
             _scoreChangedBroker = new TestMessageBroker<ScoreChangedMessage>();
+            _bonusScoredBroker = new TestMessageBroker<BonusScoredMessage>();
             _scoreModel = new ScoreModel();
             PowerUpScoreSystem unused = new PowerUpScoreSystem(
-                _scoreModel, new DoubleMultiplierModel(), _appliedBroker, _scoreChangedBroker);
+                _scoreModel, new DoubleMultiplierModel(), _appliedBroker, _scoreChangedBroker, _bonusScoredBroker);
         }
 
         [Test]
@@ -201,7 +203,7 @@ namespace MustyBlockBlast.Tests.EditMode
         {
             var scoreModel = new ScoreModel();
             var system = new PowerUpScoreSystem(
-                scoreModel, new DoubleMultiplierModel(), _appliedBroker, _scoreChangedBroker);
+                scoreModel, new DoubleMultiplierModel(), _appliedBroker, _scoreChangedBroker, _bonusScoredBroker);
 
             system.Dispose();
             _appliedBroker.Publish(new PowerUpAppliedMessage(PowerUpKind.Bomb, 5));

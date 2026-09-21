@@ -41,9 +41,10 @@ namespace MustyBlockBlast.Presentation.Views
         private const float FADE_FRACTION = 0.35f;
 
         /// <summary>Floor the flight's punch-adjusted scale shrinks to as the popup nears the score
-        /// counter (#329) — never all the way to zero, so the label is still legible for its last
-        /// visible frame rather than popping out of existence.</summary>
-        private const float FLIGHT_MIN_SCALE = 0.3f;
+        /// counter (#329) — kept close to 1 so the label stays roughly as large as the score digits it
+        /// is flying towards for the whole trip, rather than reading as a shrinking speck by the time it
+        /// arrives.</summary>
+        private const float FLIGHT_MIN_SCALE = 0.85f;
 
         /// <summary>Colour flashes the big tier cycles through per second.</summary>
         private const float BIG_FLASH_CYCLES = 3f;

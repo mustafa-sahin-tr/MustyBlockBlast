@@ -384,7 +384,7 @@ namespace MustyBlockBlast.Tests.EditMode
         private void CreatePowerUpScoreSystem()
         {
             PowerUpScoreSystem unused = new PowerUpScoreSystem(
-                _scoreModel, _doubleMultiplierModel, _appliedBroker, _scoreChangedBroker);
+                _scoreModel, _doubleMultiplierModel, _appliedBroker, _scoreChangedBroker, _bonusScoredBroker);
         }
 
         /// <summary>Only ever asked to hold and release the pause flags here; it is never ticked.</summary>

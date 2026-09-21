@@ -227,11 +227,12 @@ namespace MustyBlockBlast.Presentation.Views
         /// tint, because a piece that is tapped rather than dragged has to be told apart by shape.
         /// Allocates nothing, so it is safe on any repaint path.
         /// <para>
-        /// Always snaps the icon's own scale back to identity (issue #330 AC2): every ordinary repaint
-        /// path (a theme switch, a redraw, a cancelled fade) must show the icon at its resting size, and
-        /// the one path that wants anything else — <c>BoardView.OnSpecialCellSpawned</c>'s pop-in — pulls
-        /// the scale back down itself, synchronously, immediately after this call returns and before the
-        /// frame this drew ever renders.
+        /// Always snaps the icon's own scale and rotation back to identity (issue #330 AC2): every
+        /// ordinary repaint path (a theme switch, a redraw, a cancelled fade) must show the icon at its
+        /// resting size and orientation, and the one path that wants anything else —
+        /// <c>BoardView.OnSpecialCellSpawned</c>'s spin-and-shrink pop-in — pulls the scale and rotation
+        /// back down itself, synchronously, immediately after this call returns and before the frame this
+        /// drew ever renders.
         /// </para>
         /// </summary>
         internal void SetSpecialIcon(Color colour, Sprite sprite)
@@ -247,6 +248,7 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             _specialIconImage.transform.localScale = Vector3.one;
+            _specialIconImage.transform.localRotation = Quaternion.identity;
             ShowLayer(_specialIconImage, colour);
 
             // The rim-light copy (issue #365) always mirrors the icon's own sprite and resets its own

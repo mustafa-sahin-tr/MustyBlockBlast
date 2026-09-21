@@ -103,14 +103,36 @@ namespace MustyBlockBlast.Presentation.Views
         [SerializeField] private float _colorCleanserBeamThicknessFraction = 0.22f;
 
         [Header("Special Cell Spawn-In (issue #330)")]
-        [Tooltip("Seconds a freshly spawned special cell's icon takes to pop in, scaling up from _specialSpawnStartScale to its resting size.")]
-        [SerializeField] private float _specialSpawnPopDuration = 0.28f;
+        [Tooltip("Seconds a freshly spawned special cell's icon takes to spin and shrink from _specialSpawnHeroScale down to its resting size.")]
+        [SerializeField] private float _specialSpawnPopDuration = 0.55f;
 
-        [Tooltip("Icon scale a spawn-in pop starts from before growing past 1 (see _specialSpawnOvershootScale) and settling back to 1.")]
+        [Tooltip("Icon scale a spawn-in pop starts from before growing past 1 (see _specialSpawnOvershootScale) and settling back to 1. Only used by the vortex hand-off pop (see _vortexHandOffPopDuration) — the birth pop uses _specialSpawnHeroScale instead.")]
         [SerializeField] private float _specialSpawnStartScale = 0.05f;
 
-        [Tooltip("Icon scale a spawn-in pop overshoots to on its way from _specialSpawnStartScale before settling back to 1.")]
+        [Tooltip("Icon scale a spawn-in pop overshoots to on its way from _specialSpawnStartScale before settling back to 1. Only used by the vortex hand-off pop (see _vortexHandOffPopDuration) — the birth pop uses _specialSpawnLandingOvershootScale instead.")]
         [SerializeField] private float _specialSpawnOvershootScale = 1.18f;
+
+        [Tooltip("Icon scale a freshly spawned special cell's icon starts at, as a multiple of its resting size (so it reads as roughly this many cells wide) before it spins down into its cell.")]
+        [SerializeField] private float _specialSpawnHeroScale = 4f;
+
+        [Tooltip("Degrees a freshly spawned special cell's icon spins around itself while shrinking from _specialSpawnHeroScale down into its cell.")]
+        [SerializeField] private float _specialSpawnSpinDegrees = 360f;
+
+        [Tooltip("Icon scale the birth pop dips to just past 1 right before landing, for a soft settle rather than stopping dead at 1.")]
+        [SerializeField] private float _specialSpawnLandingOvershootScale = 1.08f;
+
+        [Header("Explosive Core Detonation Flight")]
+        [Tooltip("Seconds one detonation's icon takes to fly from its origin cell to the gap it finishes. Played once per finished line, in order — see OnExplosiveCoreDetonated.")]
+        [SerializeField] private float _explosiveCoreFlightDuration = 0.6f;
+
+        [Tooltip("Icon size during the flight, as a multiple of the cell size, so it reads clearly while crossing several cells.")]
+        [SerializeField] private float _explosiveCoreFlightIconScale = 1.35f;
+
+        [Tooltip("Extra scale the flight icon swells to at the midpoint of its travel, on top of _explosiveCoreFlightIconScale, before shrinking back down to it by the time it lands — e.g. 0.4 grows it 40% bigger at the midpoint.")]
+        [SerializeField] private float _explosiveCoreFlightPulseScale = 0.4f;
+
+        [Tooltip("Seconds paused after one flight lands and its line's cells start fading, before the next flight in the sequence departs.")]
+        [SerializeField] private float _explosiveCoreLandingPause = 0.12f;
 
         [Header("Vortex Island Fill (issue #349)")]
         [Tooltip("Seconds a cell a vortex reclaimed takes to pop in from _islandFillStartScale to its resting size. At least 0.4s so filling many cells still reads clearly rather than looking instant.")]
@@ -1492,23 +1514,31 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         /// <summary>
-        /// Scales <paramref name="iconTransform"/> from <see cref="_specialSpawnStartScale"/> up past
-        /// <see cref="_specialSpawnOvershootScale"/> and back to 1 — a grow-then-settle split of the one
-        /// duration, the same shape <see cref="LineClearBurstView.AnimateText"/> already uses for its own
-        /// pop, rather than inventing a second serialized duration for a two-phase flourish. Watches
+        /// A special cell's birth pop: <paramref name="iconTransform"/> starts at
+        /// <see cref="_specialSpawnHeroScale"/> — roughly a 4x4-cell icon — spinning
+        /// <see cref="_specialSpawnSpinDegrees"/> around itself as it shrinks down past
+        /// <see cref="_specialSpawnLandingOvershootScale"/> and settles at 1, its resting size. The cell
+        /// is brought to the front of the shared <see cref="_cellLayerRoot"/> sibling order first (see
+        /// <see cref="BuildCellLayer"/>) so the oversized icon draws over every neighbouring cell rather
+        /// than being clipped behind whichever one happens to sit later in that order. Watches
         /// <see cref="_cellGenerations"/> without owning it (never bumps it): any destructive write to
         /// this cell — a new placement, a clear — bumps that counter on its own and this simply bails,
-        /// leaving whatever repaint path caused the bump to settle the icon's final look and scale.
+        /// leaving whatever repaint path caused the bump to settle the icon's final look, scale and
+        /// rotation.
         /// </summary>
         private async UniTaskVoid PlaySpecialSpawnPopAsync(RectTransform iconTransform, int index, int generation)
         {
-            const float GrowFraction = 0.7f;
+            const float ShrinkFraction = 0.7f;
 
-            float startScale = Mathf.Clamp(_specialSpawnStartScale, 0.001f, 1f);
-            float overshootScale = Mathf.Max(1f, _specialSpawnOvershootScale);
+            float heroScale = Mathf.Max(1f, _specialSpawnHeroScale);
+            float landingOvershoot = Mathf.Max(1f, _specialSpawnLandingOvershootScale);
+            float spinDegrees = _specialSpawnSpinDegrees;
             float duration = Mathf.Max(0.01f, _specialSpawnPopDuration);
 
-            iconTransform.localScale = Vector3.one * startScale;
+            _cells[index].transform.SetAsLastSibling();
+
+            iconTransform.localScale = Vector3.one * heroScale;
+            iconTransform.localRotation = Quaternion.identity;
 
             try
             {
@@ -1521,11 +1551,12 @@ namespace MustyBlockBlast.Presentation.Views
                     }
 
                     float t = elapsed / duration;
-                    float scale = t < GrowFraction
-                        ? Mathf.Lerp(startScale, overshootScale, EaseOutCubic(t / GrowFraction))
-                        : Mathf.Lerp(overshootScale, 1f, (t - GrowFraction) / (1f - GrowFraction));
+                    float scale = t < ShrinkFraction
+                        ? Mathf.Lerp(heroScale, landingOvershoot, EaseOutCubic(t / ShrinkFraction))
+                        : Mathf.Lerp(landingOvershoot, 1f, (t - ShrinkFraction) / (1f - ShrinkFraction));
 
                     iconTransform.localScale = Vector3.one * scale;
+                    iconTransform.localRotation = Quaternion.Euler(0f, 0f, Mathf.Lerp(0f, spinDegrees, EaseOutCubic(t)));
 
                     await UniTask.Yield(PlayerLoopTiming.Update, _destroyToken);
                     elapsed += Time.unscaledDeltaTime;
@@ -1543,23 +1574,202 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             iconTransform.localScale = Vector3.one;
+            iconTransform.localRotation = Quaternion.identity;
         }
 
         /// <summary>
         /// An explosive core detonated: it finished off every row/column that was one cell short and
-        /// filled in the gap, which the board's own cascade re-check then cleared the ordinary way —
-        /// so the finished lines' cells already faded via <see cref="OnCellChanged"/>/<see cref="OnLinesCleared"/>-less
-        /// <c>NotifyCleared</c> exactly as any cascaded clear's do. Claimed here for the same reason a
-        /// power-up's region clear is: those cascaded phases publish no <see cref="LinesClearedMessage"/>
-        /// of their own, so without this sweep the cells would sit showing their old colour rather than
-        /// fading.
+        /// filled in the gap, which the board's own cascade re-check then cleared the ordinary way — so
+        /// the finished lines' cells are already sitting pending (marked, never repainted, by the same
+        /// <c>NotifyCleared</c> path an ordinary <see cref="OnLinesCleared"/> claims) by the time this
+        /// runs.
+        /// <para>
+        /// AC (issue: "explosive core nereleri yok etti... hissetmeli"): rather than fading every pending
+        /// cell at once, this flies the core's own icon from <see cref="ExplosiveCoreDetonation.Origin"/>
+        /// to each gap it finished, landing on and sweeping only that gap's row and column before moving
+        /// to the next — one detonation, and within it one finished line, at a time — so the player can
+        /// actually watch the core travel to and finish each line rather than see the board change all
+        /// at once. <see cref="ExplosiveCoreDetonatedMessage.Detonations"/> is empty only in a build
+        /// where a caller predates this AC (there is none today, but the message keeps working without
+        /// it), which falls back to the original one-shot sweep by count.
+        /// </para>
         /// <para>
         /// A hand-off needs no visual of its own beyond this: the target cell's new icon arrives through
         /// the ordinary <see cref="MustyBlockBlast.Gameplay.Models.BoardModel.SpecialKindChanged"/> event.
         /// </para>
         /// </summary>
         private void OnExplosiveCoreDetonated(ExplosiveCoreDetonatedMessage message)
-            => SweepPendingCells(message.FinishedLineCount);
+        {
+            IReadOnlyList<ExplosiveCoreDetonation> detonations = message.Detonations;
+            if (detonations == null || detonations.Count == 0)
+            {
+                SweepPendingCells(message.FinishedLineCount);
+                return;
+            }
+
+            PlayExplosiveCoreDetonationsAsync(detonations).Forget();
+        }
+
+        /// <summary>
+        /// Plays every detonation's flights in order, and within one detonation every finished line in
+        /// the order <see cref="MustyBlockBlast.Core.ExplosiveCoreEffect"/> found it (rows, then
+        /// columns) — a single sequence covering the whole resolution, so a second core caught in the
+        /// first one's chain plays its own flights right after rather than concurrently with them.
+        /// </summary>
+        private async UniTaskVoid PlayExplosiveCoreDetonationsAsync(
+            IReadOnlyList<ExplosiveCoreDetonation> detonations)
+        {
+            try
+            {
+                for (int i = 0; i < detonations.Count; i++)
+                {
+                    ExplosiveCoreDetonation detonation = detonations[i];
+                    IReadOnlyList<GridPosition> targets = detonation.FinishedTargets;
+
+                    for (int j = 0; j < targets.Count; j++)
+                    {
+                        if (_isDestroyed)
+                        {
+                            return;
+                        }
+
+                        await PlayExplosiveCoreFlightAsync(detonation.Origin, targets[j]);
+                        SweepPendingCellsAt(targets[j]);
+
+                        float pauseDuration = Mathf.Max(0f, _explosiveCoreLandingPause);
+                        float pauseElapsed = 0f;
+                        while (pauseElapsed < pauseDuration)
+                        {
+                            await UniTask.Yield(PlayerLoopTiming.Update, _destroyToken);
+                            pauseElapsed += Time.unscaledDeltaTime;
+                        }
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // The board view was destroyed mid-sequence — nothing left to fly to.
+            }
+        }
+
+        /// <summary>
+        /// One flight: a transient copy of the explosive core's own icon travels in a straight,
+        /// ease-out line from <paramref name="origin"/>'s cell to <paramref name="target"/>'s, swelling
+        /// to <see cref="_explosiveCoreFlightPulseScale"/> past its resting size at the midpoint of the
+        /// trip and shrinking back down by the time it lands, then is destroyed —
+        /// <paramref name="target"/>'s own gap fill is invisible on the board (it was written straight
+        /// to <c>Core.Board</c>, which raises no repaint of its own), so this icon is the only visual of
+        /// the core actually reaching it.
+        /// </summary>
+        private async UniTask PlayExplosiveCoreFlightAsync(GridPosition origin, GridPosition target)
+        {
+            if (_cellLayerRoot == null)
+            {
+                return;
+            }
+
+            RectTransform icon = CreateExplosiveCoreFlightIcon();
+            Vector2 start = CellAnchoredPosition(origin);
+            Vector2 end = CellAnchoredPosition(target);
+            icon.anchoredPosition = start;
+
+            float duration = Mathf.Max(0.01f, _explosiveCoreFlightDuration);
+            float pulseAmplitude = Mathf.Max(0f, _explosiveCoreFlightPulseScale);
+
+            try
+            {
+                float elapsed = 0f;
+                while (elapsed < duration)
+                {
+                    float linearT = elapsed / duration;
+                    float travelT = EaseOutCubic(linearT);
+                    icon.anchoredPosition = Vector2.LerpUnclamped(start, end, travelT);
+
+                    // A half sine over the raw (un-eased) t: 0 at both ends, its peak exactly at the
+                    // midpoint, so the swell reads as tied to distance travelled rather than to the
+                    // eased, front-loaded pace of the travel itself.
+                    float pulse = 1f + (pulseAmplitude * Mathf.Sin(linearT * Mathf.PI));
+                    icon.localScale = Vector3.one * pulse;
+
+                    await UniTask.Yield(PlayerLoopTiming.Update, _destroyToken);
+                    elapsed += Time.unscaledDeltaTime;
+                }
+            }
+            finally
+            {
+                if (!_isDestroyed && icon != null)
+                {
+                    Destroy(icon.gameObject);
+                }
+            }
+        }
+
+        /// <summary>The explosive core's own icon and tint, sized to
+        /// <see cref="_explosiveCoreFlightIconScale"/> so it reads clearly while crossing several cells,
+        /// parented to <see cref="_cellLayerRoot"/> and brought to the front of it — exactly the
+        /// reasoning <see cref="CreateEffectParticle"/> gives for its own particles — so the flight draws
+        /// over every cell it passes rather than behind whichever one happens to sit later in the sibling
+        /// order.</summary>
+        private RectTransform CreateExplosiveCoreFlightIcon()
+        {
+            var iconObject = new GameObject("ExplosiveCoreFlight", typeof(RectTransform), typeof(Image));
+            var rect = (RectTransform)iconObject.transform;
+            rect.SetParent(_cellLayerRoot, false);
+            rect.sizeDelta = Vector2.one * (_cellSize * Mathf.Max(0.01f, _explosiveCoreFlightIconScale));
+            rect.SetAsLastSibling();
+
+            Image image = iconObject.GetComponent<Image>();
+            image.sprite = IconSprite(SpecialCellKind.ExplosiveCore);
+            image.type = Image.Type.Simple;
+            image.raycastTarget = false;
+            image.color = IconTint(SpecialCellKind.ExplosiveCore);
+
+            return rect;
+        }
+
+        /// <summary>Sweeps only the pending cells in <paramref name="crossing"/>'s own row and column —
+        /// <see cref="SweepPendingCells"/> narrowed to one finished line, so a detonation's flights each
+        /// claim only the line they just landed on rather than every pending cell in the whole
+        /// resolution at once. Safe to call on a row-only or column-only finish: a cell the other axis
+        /// would have swept but was never pending is simply skipped, exactly as
+        /// <see cref="SweepPendingCells"/> already skips every non-pending cell.</summary>
+        private void SweepPendingCellsAt(GridPosition crossing)
+        {
+            if (_cells == null)
+            {
+                return;
+            }
+
+            for (int x = 0; x < _width; x++)
+            {
+                // Skipped here, not missed: the column sweep below covers (crossing.X, crossing.Y) once,
+                // which is the only way to sweep it exactly once rather than twice.
+                if (x == crossing.X)
+                {
+                    continue;
+                }
+
+                SweepPendingCellAt(new GridPosition(x, crossing.Y));
+            }
+
+            for (int y = 0; y < _height; y++)
+            {
+                SweepPendingCellAt(new GridPosition(crossing.X, y));
+            }
+        }
+
+        private void SweepPendingCellAt(GridPosition cell)
+        {
+            int index = CellIndex(cell);
+            if (!_cellPending[index])
+            {
+                return;
+            }
+
+            // See SweepPendingCells's own remark: bumped first so this fade is the cell's only owner.
+            _cellGenerations[index]++;
+            PlayClearAsync(cell, index, _cellGenerations[index], false, 0f, null).Forget();
+        }
 
         /// <summary>A laser wiped a line. Claimed exactly as a blast's cells are, and for the same
         /// reason: a wipe does not need the line to be full, so no <see cref="LinesClearedMessage"/>

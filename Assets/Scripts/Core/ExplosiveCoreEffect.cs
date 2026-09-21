@@ -43,6 +43,11 @@ namespace MustyBlockBlast.Core
         /// the last <see cref="BeginResolution"/>, in the order it handed them off.</summary>
         private readonly List<GridPosition> _handOffTargets = new List<GridPosition>(4);
 
+        /// <summary>One entry per <see cref="Apply"/> call that finished at least one line since the
+        /// last <see cref="BeginResolution"/>, in the order those calls ran — Presentation's script for
+        /// flying each detonation's icon to the lines it finished. See <see cref="ExplosiveCoreDetonation"/>.</summary>
+        private readonly List<ExplosiveCoreDetonation> _detonations = new List<ExplosiveCoreDetonation>(4);
+
         private readonly Random _random;
 
         /// <summary>
@@ -66,6 +71,12 @@ namespace MustyBlockBlast.Core
         /// the last <see cref="BeginResolution"/>. Empty unless a detonation found nothing to finish.</summary>
         public IReadOnlyList<GridPosition> HandOffTargets => _handOffTargets;
 
+        /// <summary>Every detonation that finished at least one line since the last
+        /// <see cref="BeginResolution"/>, in the order they happened. Empty unless something qualified —
+        /// a detonation that only handed off appears in <see cref="HandOffTargets"/> instead, never
+        /// here.</summary>
+        public IReadOnlyList<ExplosiveCoreDetonation> Detonations => _detonations;
+
         /// <summary>Starts a new resolution: forgets the previous one's counts. Must be called before
         /// the resolution that will apply this effect, or the two resolutions' totals would be reported
         /// as one.</summary>
@@ -73,6 +84,7 @@ namespace MustyBlockBlast.Core
         {
             FinishedLineCount = 0;
             _handOffTargets.Clear();
+            _detonations.Clear();
         }
 
         /// <summary>
@@ -121,17 +133,36 @@ namespace MustyBlockBlast.Core
                 return;
             }
 
+            // Sized for the ordinary case of one gap per qualifying line; a shared corner fills fewer.
+            // Allocated fresh per detonation, never pooled: ExplosiveCoreDetonation hands this straight
+            // out through Detonations, and Presentation reads it across several frames of flight — a
+            // buffer this instance reused on its next Apply call would be read out from under it.
+            var finishedTargets = new List<GridPosition>(_qualifyingRows.Count + _qualifyingColumns.Count);
+
             for (int i = 0; i < _qualifyingRows.Count; i++)
             {
-                FillRowGap(board, _qualifyingRows[i]);
+                GridPosition? gap = FillRowGap(board, _qualifyingRows[i]);
+                if (gap.HasValue)
+                {
+                    finishedTargets.Add(gap.Value);
+                }
             }
 
             for (int i = 0; i < _qualifyingColumns.Count; i++)
             {
-                FillColumnGap(board, _qualifyingColumns[i]);
+                GridPosition? gap = FillColumnGap(board, _qualifyingColumns[i]);
+                if (gap.HasValue)
+                {
+                    finishedTargets.Add(gap.Value);
+                }
             }
 
             FinishedLineCount += _qualifyingRows.Count + _qualifyingColumns.Count;
+
+            if (finishedTargets.Count > 0)
+            {
+                _detonations.Add(new ExplosiveCoreDetonation(trigger.Position, finishedTargets));
+            }
         }
 
         /// <summary>
@@ -148,7 +179,7 @@ namespace MustyBlockBlast.Core
         /// left to do — which is exactly the "both cleared" outcome a shared gap is supposed to produce.
         /// </para>
         /// </summary>
-        private static void FillRowGap(Board board, int y)
+        private static GridPosition? FillRowGap(Board board, int y)
         {
             GridPosition gap = default;
             bool foundGap = false;
@@ -175,15 +206,16 @@ namespace MustyBlockBlast.Core
 
             if (!foundGap)
             {
-                return;
+                return null;
             }
 
             board.Occupy(gap, ResolveFillColour(referenceColour));
+            return gap;
         }
 
         /// <summary>Column counterpart of <see cref="FillRowGap"/>. Same rule, same fallback, same
         /// already-filled no-op.</summary>
-        private static void FillColumnGap(Board board, int x)
+        private static GridPosition? FillColumnGap(Board board, int x)
         {
             GridPosition gap = default;
             bool foundGap = false;
@@ -210,10 +242,11 @@ namespace MustyBlockBlast.Core
 
             if (!foundGap)
             {
-                return;
+                return null;
             }
 
             board.Occupy(gap, ResolveFillColour(referenceColour));
+            return gap;
         }
 
         /// <summary>The colour a filled gap takes: whatever colour the line already carried, or the

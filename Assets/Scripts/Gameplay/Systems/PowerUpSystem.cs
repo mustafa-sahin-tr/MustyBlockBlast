@@ -1020,8 +1020,10 @@ namespace MustyBlockBlast.Gameplay.Systems
                     _boardModel.NotifySpecialKindChanged(explosiveCoreHandOffTargets[i]);
                 }
 
+                // Copied, exactly as the placement path copies it — see that call site's own remark.
                 _explosiveCoreDetonatedPublisher.Publish(new ExplosiveCoreDetonatedMessage(
-                    explosiveCoreFinishedLineCount, explosiveCoreHandOffTargets.Count));
+                    explosiveCoreFinishedLineCount, explosiveCoreHandOffTargets.Count,
+                    new List<ExplosiveCoreDetonation>(_explosiveCoreEffect.Detonations)));
             }
 
             IReadOnlyList<GridPosition> wipedCells = _laserEffect.WipedCells;
