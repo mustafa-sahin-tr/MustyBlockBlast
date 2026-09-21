@@ -170,6 +170,11 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterMessageBroker<NewRecordMessage>(options);
             builder.RegisterMessageBroker<BonusScoredMessage>(options);
             builder.RegisterMessageBroker<GameOverMessage>(options);
+
+            // The no-moves rescue's "that ending was taken back" (issue #370): BoardSystem publishes it
+            // on an accepted rescue; TimerRunSystem releases the clock on it. The end-of-run card and
+            // the strip will listen too once #371 wires the offer's UI.
+            builder.RegisterMessageBroker<RunRescuedMessage>(options);
             builder.RegisterMessageBroker<PlaySfxRequestedMessage>(options);
             builder.RegisterMessageBroker<PlayMusicRequestedMessage>(options);
             builder.RegisterMessageBroker<StopMusicRequestedMessage>(options);
@@ -491,6 +496,12 @@ namespace MustyBlockBlast.Presentation
             // a power-up are different offers with different outcomes, so they get different interfaces.
             builder.Register<DeterministicCoinRewardSource>(Lifetime.Singleton)
                 .As<ICoinRewardSource>().AsSelf();
+
+            // The third seam of the same stub (issue #370): the ad that buys back a no-moves ending.
+            // Its own interface for the reason the coin one has its own — a rescue is not an inventory
+            // item — and its presence is what makes BoardSystem mark a NoMovesLeft ending rescuable.
+            builder.Register<DeterministicRescueRewardSource>(Lifetime.Singleton)
+                .As<IRescueRewardSource>().AsSelf();
 
             // The real-money half, and the one binding here that is not a stub: this is the actual
             // Unity IAP integration, and the only type in the project that touches that SDK.

@@ -112,6 +112,22 @@ namespace MustyBlockBlast.Gameplay.Systems
         private readonly IDisposable _coinCellsSubscription;
         private readonly IDisposable _coinProductsFetchedSubscription;
 
+        /// <summary>Optional: null in every test construction that predates issue #370, which is why
+        /// <see cref="OnGameOver"/> also recognises a run boundary on its own — see
+        /// <see cref="_scoreBankedThisRun"/>.</summary>
+        private readonly IDisposable _runStartedSubscription;
+
+        /// <summary>
+        /// How much of the current run's score <see cref="OnGameOver"/> has already put into the pool.
+        /// A run can end more than once (issue #370: a rescue-eligible <see cref="GameOverMessage"/>
+        /// taken back through <c>BoardSystem.TryApplyNoMovesRescueAsync</c> is followed by another
+        /// ending later), and banking the whole score on each would pay the player twice for the same
+        /// points — a rescue is bought with an ad, not with coins. So each ending banks only what the
+        /// run has scored since the last one. Reset on <see cref="RunStartedMessage"/>; a score that
+        /// went <em>down</em> is also taken as a new run, since within one it can only ever climb.
+        /// </summary>
+        private int _scoreBankedThisRun;
+
         /// <summary>
         /// Set once the coin catalog's connect-and-fetch has been asked for (issue #256), and never
         /// cleared. What makes <see cref="WarmUpCoinCatalog"/> idempotent for the Coins tab's own promise
@@ -174,7 +190,8 @@ namespace MustyBlockBlast.Gameplay.Systems
             IPublisher<CoinsGrantedFromPurchaseMessage> purchaseGrantPublisher,
             ISubscriber<GameOverMessage> gameOverSubscriber,
             ISubscriber<CoinCellsClearedMessage> coinCellsClearedSubscriber,
-            ISubscriber<CoinProductsFetchedMessage> coinProductsFetchedSubscriber)
+            ISubscriber<CoinProductsFetchedMessage> coinProductsFetchedSubscriber,
+            ISubscriber<RunStartedMessage> runStartedSubscriber = null)
             : this(
                 profileModel,
                 dailyAdGrantModel,
@@ -195,7 +212,8 @@ namespace MustyBlockBlast.Gameplay.Systems
                 coinCellsClearedSubscriber,
                 coinProductsFetchedSubscriber,
                 UtcNow,
-                LocalNow)
+                LocalNow,
+                runStartedSubscriber)
         {
         }
 
@@ -219,7 +237,8 @@ namespace MustyBlockBlast.Gameplay.Systems
             ISubscriber<CoinCellsClearedMessage> coinCellsClearedSubscriber,
             ISubscriber<CoinProductsFetchedMessage> coinProductsFetchedSubscriber,
             Func<DateTime> utcNowProvider,
-            Func<DateTime> localNowProvider = null)
+            Func<DateTime> localNowProvider = null,
+            ISubscriber<RunStartedMessage> runStartedSubscriber = null)
         {
             _promotionConfig = promotionConfig;
             _utcNowProvider = utcNowProvider ?? UtcNow;
@@ -255,6 +274,11 @@ namespace MustyBlockBlast.Gameplay.Systems
             // ICoinPurchaseService implementation is bound — the Coins tab's rows have nothing to show
             // until this fires at least once.
             _coinProductsFetchedSubscription = coinProductsFetchedSubscriber.Subscribe(OnCoinProductsFetched);
+
+            // The run boundary OnGameOver's per-run banking counts from — see _scoreBankedThisRun.
+            _runStartedSubscription = runStartedSubscriber != null
+                ? runStartedSubscriber.Subscribe(OnRunStarted)
+                : null;
         }
 
         /// <summary>
@@ -704,6 +728,10 @@ namespace MustyBlockBlast.Gameplay.Systems
             _gameOverSubscription.Dispose();
             _coinCellsSubscription.Dispose();
             _coinProductsFetchedSubscription.Dispose();
+            if (_runStartedSubscription != null)
+            {
+                _runStartedSubscription.Dispose();
+            }
         }
 
         /// <summary>The async body behind <see cref="WarmUpCoinCatalog"/>'s fire-and-forget call. Its own
@@ -830,16 +858,32 @@ namespace MustyBlockBlast.Gameplay.Systems
         private void OnGameOver(GameOverMessage message)
         {
             int runScore = _scoreModel.Score.Value;
-            if (runScore <= 0)
+
+            // A score below what this run already banked cannot be the same run: within one it only
+            // ever climbs. The fallback boundary for a construction without a RunStartedMessage feed.
+            if (runScore < _scoreBankedThisRun)
+            {
+                _scoreBankedThisRun = 0;
+            }
+
+            // Only what the run has scored since its last ending, if it had one — see
+            // _scoreBankedThisRun for why an ending is not always the last.
+            int unbankedScore = runScore - _scoreBankedThisRun;
+            if (unbankedScore <= 0)
             {
                 return;
             }
 
-            int newTotal = _profileModel.TotalScoreEarned.Value + runScore;
+            _scoreBankedThisRun = runScore;
+
+            int newTotal = _profileModel.TotalScoreEarned.Value + unbankedScore;
             _profileModel.TotalScoreEarned.Value = newTotal;
             PlayerPrefs.SetInt(TOTAL_SCORE_EARNED_KEY, newTotal);
             PlayerPrefs.Save();
         }
+
+        /// <summary>A new run banks from zero, whatever the previous one ended on.</summary>
+        private void OnRunStarted(RunStartedMessage message) => _scoreBankedThisRun = 0;
 
         /// <summary>
         /// Records <paramref name="transactionId"/> as honoured, in memory and in PlayerPrefs.

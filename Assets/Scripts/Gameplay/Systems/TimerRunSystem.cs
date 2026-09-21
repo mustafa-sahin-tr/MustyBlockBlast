@@ -18,11 +18,11 @@ namespace MustyBlockBlast.Gameplay.Systems
     /// <item>Does nothing at all in endless runs, and is cleared when the mode leaves timed.</item>
     /// </list>
     /// <para>
-    /// Three independent pause reasons — app backgrounding, a modal menu panel being open, and a
-    /// power-up being armed — combine with OR: any one of them holds the clock. Dragging a piece
-    /// deliberately does <b>not</b> pause: holding a piece in mid-air would otherwise be free time.
-    /// Aiming a power-up does, because the player earned that power-up outside the run and must not
-    /// be charged run time for spending it.
+    /// Four independent pause reasons — app backgrounding, a modal menu panel being open, a
+    /// power-up being armed, and a rescue-eligible game over awaiting its answer — combine with OR:
+    /// any one of them holds the clock. Dragging a piece deliberately does <b>not</b> pause: holding a
+    /// piece in mid-air would otherwise be free time. Aiming a power-up does, because the player
+    /// earned that power-up outside the run and must not be charged run time for spending it.
     /// </para>
     /// </summary>
     public sealed class TimerRunSystem : ITickable, IDisposable
@@ -43,9 +43,23 @@ namespace MustyBlockBlast.Gameplay.Systems
         private readonly IDisposable _gameOverSubscription;
         private readonly IDisposable _modeSubscription;
 
+        /// <summary>Optional: null in every test construction that predates issue #370. Without it a
+        /// rescue-paused clock only resumes on the next run, which no such test exercises.</summary>
+        private readonly IDisposable _runRescuedSubscription;
+
         private bool _isAppPaused;
         private bool _isMenuPaused;
         private bool _isPowerUpArmedPaused;
+
+        /// <summary>
+        /// Held from a <see cref="GameOverMessage"/> marked <see cref="GameOverMessage.IsRescueAvailable"/>
+        /// until the ending is either taken back (<see cref="RunRescuedMessage"/>) or superseded by a
+        /// fresh run (issue #370 AC7). A pause rather than a stop, unlike every other ending: a rescued
+        /// run picks its clock up where it left off, and the seconds the card and the ad were on screen
+        /// must not have been charged to it — the same reasoning as a modal menu's pause. A declined
+        /// offer simply leaves the clock held until the restart that resets every flag here.
+        /// </summary>
+        private bool _isRescuePaused;
 
         /// <summary>
         /// How many clear animations <see cref="BoardView"/> currently has in flight. A reference
@@ -65,7 +79,8 @@ namespace MustyBlockBlast.Gameplay.Systems
             TimedModeSystem timedModeSystem,
             BoardSystem boardSystem,
             ISubscriber<RunStartedMessage> runStartedSubscriber,
-            ISubscriber<GameOverMessage> gameOverSubscriber)
+            ISubscriber<GameOverMessage> gameOverSubscriber,
+            ISubscriber<RunRescuedMessage> runRescuedSubscriber = null)
         {
             _timerModel = timerModel;
             _runPauseModel = runPauseModel;
@@ -76,6 +91,9 @@ namespace MustyBlockBlast.Gameplay.Systems
             _runStartedSubscription = runStartedSubscriber.Subscribe(OnRunStarted);
             _gameOverSubscription = gameOverSubscriber.Subscribe(OnGameOver);
             _modeSubscription = _gameModeSystem.CurrentMode.Subscribe(OnModeChanged);
+            _runRescuedSubscription = runRescuedSubscriber != null
+                ? runRescuedSubscriber.Subscribe(OnRunRescued)
+                : null;
         }
 
         /// <summary>
@@ -146,18 +164,19 @@ namespace MustyBlockBlast.Gameplay.Systems
 
         /// <summary>
         /// Publishes the combined pause state to <see cref="RunPauseModel"/> so other wall-clock-driven
-        /// systems — currently <c>ObjectiveSystem</c>'s rolling-window objectives — hold the same three
+        /// systems — currently <c>ObjectiveSystem</c>'s rolling-window objectives — hold the same four
         /// reasons this countdown already does, without each caller needing to know about both.
         /// </summary>
         private void RefreshPauseModel()
         {
-            _runPauseModel.IsPaused.Value = _isAppPaused || _isMenuPaused || _isPowerUpArmedPaused;
+            _runPauseModel.IsPaused.Value =
+                _isAppPaused || _isMenuPaused || _isPowerUpArmedPaused || _isRescuePaused;
         }
 
         void ITickable.Tick()
         {
             if (!_timerModel.IsRunning.Value || _isAppPaused || _isMenuPaused || _isPowerUpArmedPaused
-                || _clearAnimationPauseCount > 0)
+                || _isRescuePaused || _clearAnimationPauseCount > 0)
             {
                 return;
             }
@@ -180,6 +199,10 @@ namespace MustyBlockBlast.Gameplay.Systems
             _runStartedSubscription.Dispose();
             _gameOverSubscription.Dispose();
             _modeSubscription.Dispose();
+            if (_runRescuedSubscription != null)
+            {
+                _runRescuedSubscription.Dispose();
+            }
         }
 
         /// <summary>
@@ -188,6 +211,15 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// </summary>
         private void OnRunStarted(RunStartedMessage message)
         {
+            // Before the mode check, unlike the other flags: a rescue pause is taken in every mode
+            // (RunPauseModel feeds Endless-mode objectives too), so a declined Endless offer would
+            // otherwise leave the next Endless run's rolling windows held forever.
+            if (_isRescuePaused)
+            {
+                _isRescuePaused = false;
+                RefreshPauseModel();
+            }
+
             if (_gameModeSystem.CurrentMode.Value != GameMode.Timed)
             {
                 return;
@@ -221,8 +253,31 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// <summary>
         /// Stops the clock whichever way the run ended — expiring here, or running out of moves. Note
         /// the restart path re-arms it: restarting starts a fresh run, which is the reset trigger.
+        /// <para>
+        /// Except for an ending the player may still take back (issue #370 AC7): that one only holds
+        /// the clock, keeping the remaining seconds live for the rescue to resume from — see
+        /// <see cref="_isRescuePaused"/>.
+        /// </para>
         /// </summary>
-        private void OnGameOver(GameOverMessage message) => _timerModel.IsRunning.Value = false;
+        private void OnGameOver(GameOverMessage message)
+        {
+            if (message.IsRescueAvailable)
+            {
+                _isRescuePaused = true;
+                RefreshPauseModel();
+                return;
+            }
+
+            _timerModel.IsRunning.Value = false;
+        }
+
+        /// <summary>The rescue-eligible ending was taken back: release the hold it took, and the clock
+        /// picks up from exactly the seconds it was holding.</summary>
+        private void OnRunRescued(RunRescuedMessage message)
+        {
+            _isRescuePaused = false;
+            RefreshPauseModel();
+        }
 
         private void OnModeChanged(GameMode mode)
         {
