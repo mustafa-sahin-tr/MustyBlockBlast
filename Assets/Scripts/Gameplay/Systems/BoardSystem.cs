@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
+using Cysharp.Threading.Tasks;
 using MessagePipe;
 using MustyBlockBlast.Core;
 using MustyBlockBlast.Gameplay.Messages;
@@ -102,6 +104,17 @@ namespace MustyBlockBlast.Gameplay.Systems
 
         /// <summary>Optional, for the same reason <see cref="_specialCellSpawnedPublisher"/> is.</summary>
         private readonly IPublisher<SpecialPieceSpawnedMessage> _specialPieceSpawnedPublisher;
+
+        /// <summary>
+        /// Pays for the no-moves rescue (issue #370) — the rewarded ad behind
+        /// <see cref="TryApplyNoMovesRescueAsync"/>. Optional, and null in every test construction that
+        /// predates the rescue: without a source there is nothing that could pay, so no ending is ever
+        /// marked rescue-available and the run ends exactly as it did before.
+        /// </summary>
+        private readonly IRescueRewardSource _rescueRewardSource;
+
+        /// <summary>Optional, for the same reason <see cref="_specialCellSpawnedPublisher"/> is.</summary>
+        private readonly IPublisher<RunRescuedMessage> _runRescuedPublisher;
 
         // One long-lived effect per kind, reset per placement rather than reallocated — each owns the
         // buffer its destroyed cells are reported through.
@@ -216,6 +229,25 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// </summary>
         private bool _hammerGrantedThisRun;
 
+        /// <summary>
+        /// Whether the ending most recently announced can still be taken back through
+        /// <see cref="TryApplyNoMovesRescueAsync"/>. Set by the one place that can offer it — the
+        /// <see cref="GameOverReason.NoMovesLeft"/> tail of <see cref="CheckGameOver"/>, once the hammer
+        /// has failed — and consumed by the accept, the decline, a failed request and
+        /// <see cref="StartNewRun"/> alike, so nothing about an offer can outlive the ending it was made
+        /// for. Deliberately not a per-run counter: the rescue is unlimited, and each new dead end makes
+        /// its own offer.
+        /// </summary>
+        private bool _isRescueOffered;
+
+        /// <summary>
+        /// True from the moment a rescue request is handed to <see cref="_rescueRewardSource"/> until
+        /// its answer has been acted on. The re-entrancy guard for the one <c>await</c> in this System:
+        /// a second tap while the ad is up must not open a second request, and — since the run is still
+        /// over throughout — nothing else can change the board or the dock in the meantime.
+        /// </summary>
+        private bool _isRescueRequestPending;
+
         /// <summary>DI entry point — VContainer must not pick the seeded constructor.</summary>
         [Inject]
         public BoardSystem(
@@ -241,7 +273,9 @@ namespace MustyBlockBlast.Gameplay.Systems
             IPublisher<SpecialCellSpawnedMessage> specialCellSpawnedPublisher = null,
             IPublisher<SpecialPieceSpawnedMessage> specialPieceSpawnedPublisher = null,
             LevelTimerCellSeeder timerCellSeeder = null,
-            GameModeModel gameModeModel = null)
+            GameModeModel gameModeModel = null,
+            IRescueRewardSource rescueRewardSource = null,
+            IPublisher<RunRescuedMessage> runRescuedPublisher = null)
             : this(
                 boardModel, trayModel, scoreGemProgressModel, vortexProgressModel, pieceDraw,
                 runStartedPublisher, piecePlacedPublisher, linesClearedPublisher, gameOverPublisher,
@@ -249,7 +283,7 @@ namespace MustyBlockBlast.Gameplay.Systems
                 piercingRocketFiredPublisher, vortexIslandFilledPublisher, chainLightningTriggeredPublisher,
                 coinCellsClearedPublisher, currencyConfig, Environment.TickCount, reinforcedCellSeeder,
                 powerUpModel, specialCellSpawnedPublisher, specialPieceSpawnedPublisher,
-                timerCellSeeder, gameModeModel)
+                timerCellSeeder, gameModeModel, rescueRewardSource, runRescuedPublisher)
         {
         }
 
@@ -277,12 +311,16 @@ namespace MustyBlockBlast.Gameplay.Systems
             IPublisher<SpecialCellSpawnedMessage> specialCellSpawnedPublisher = null,
             IPublisher<SpecialPieceSpawnedMessage> specialPieceSpawnedPublisher = null,
             LevelTimerCellSeeder timerCellSeeder = null,
-            GameModeModel gameModeModel = null)
+            GameModeModel gameModeModel = null,
+            IRescueRewardSource rescueRewardSource = null,
+            IPublisher<RunRescuedMessage> runRescuedPublisher = null)
         {
             _reinforcedCellSeeder = reinforcedCellSeeder;
             _timerCellSeeder = timerCellSeeder;
             _gameModeModel = gameModeModel;
             _powerUpModel = powerUpModel;
+            _rescueRewardSource = rescueRewardSource;
+            _runRescuedPublisher = runRescuedPublisher;
             _specialCellSpawnedPublisher = specialCellSpawnedPublisher;
             _specialPieceSpawnedPublisher = specialPieceSpawnedPublisher;
             _random = new Random(seed);
@@ -361,6 +399,11 @@ namespace MustyBlockBlast.Gameplay.Systems
             _goldenInjectionPending = false;
             _piercingRocketInjectionPending = false;
             _hammerGrantedThisRun = false;
+
+            // An offer belongs to the ending it was made for, and this run has no ending yet. The
+            // pending flag is left alone on purpose: a request already in flight against the old run
+            // sees IsGameOver false when it lands and refuses itself (see TryApplyNoMovesRescueAsync).
+            _isRescueOffered = false;
 
             // Same reason: cross-clear progress towards the next Score Gem, and line-clear progress
             // towards the next Vortex, belong to the run that earned them and must not carry into the
@@ -840,8 +883,128 @@ namespace MustyBlockBlast.Gameplay.Systems
                 return;
             }
 
+            // Never rescue-available from here: a rescue answers "no piece fits", and every reason a
+            // caller can supply is something else (the clock, an objective). The one NoMovesLeft ending
+            // that can be rescued is CheckGameOver's own, which reaches EndRun directly.
+            EndRun(reason, isRescueAvailable: false);
+        }
+
+        /// <summary>
+        /// Takes back the <see cref="GameOverReason.NoMovesLeft"/> ending most recently announced, if it
+        /// was marked <see cref="GameOverMessage.IsRescueAvailable"/> (issue #370): asks
+        /// <see cref="IRescueRewardSource"/> to pay for it and, once granted, replaces all three dock
+        /// slots with a fresh set from <see cref="WeightedPieceDraw.TryDrawLineClearingSet"/>, clears
+        /// <see cref="IsGameOver"/>, publishes <see cref="RunRescuedMessage"/> and re-checks the new dock.
+        /// <para>
+        /// Returns whether the rescue was granted and applied — <em>not</em> whether the run survived
+        /// it. The replacement set is biased towards a line clear and preferred solvable, but on a board
+        /// no catalog piece fits it can still be dead; that is a fresh dead end, and the re-check ends
+        /// the run again, marked rescue-available again, exactly as the first one was. The rescue is
+        /// unlimited, not capped: there is no retry budget beyond the draw's own.
+        /// </para>
+        /// <para>
+        /// Whole-set discard, Hold slot untouched — <see cref="TryRerollTray"/>'s contract, for the same
+        /// reasons: every dock piece was just found unplaceable so none is worth keeping, and a parked
+        /// piece was set aside deliberately and is not on offer. No <see cref="TrayRefilledMessage"/>
+        /// either, for the reason that method gives. Unlike a reroll, nothing here reads or spends the
+        /// inventory: the ad is the whole price, and <see cref="PowerUpKind.Reroll"/>'s count is neither
+        /// consulted nor changed.
+        /// </para>
+        /// <para>
+        /// Refused — false, nothing requested, nothing changed — when the run is not over, when the
+        /// ending was not rescue-available (or the offer was already consumed by an earlier accept,
+        /// decline or failed request), and while a request is still in flight. A refusal
+        /// (<see cref="RescueRewardResult.Granted"/> false), a cancellation and a source that throws all
+        /// leave the run ended exactly as it was, with the offer consumed: no second attempt against the
+        /// same ending, no <see cref="GameOverMessage"/> re-published for it, and no state left pending.
+        /// </para>
+        /// </summary>
+        public async UniTask<bool> TryApplyNoMovesRescueAsync(CancellationToken cancellationToken)
+        {
+            if (!IsGameOver || !_isRescueOffered || _isRescueRequestPending || _rescueRewardSource == null)
+            {
+                return false;
+            }
+
+            _isRescueRequestPending = true;
+            bool granted;
+            try
+            {
+                RescueRewardResult result = await _rescueRewardSource.RequestRescueRewardAsync(cancellationToken);
+                granted = result.Granted;
+            }
+            catch (OperationCanceledException)
+            {
+                // The caller went away mid-request — a View destroyed, a scene unloaded. Nothing to
+                // undo: the run was over before the request and is over still.
+                granted = false;
+            }
+            catch (Exception)
+            {
+                // A source that errors (an SDK failing to load a fill, say) is treated as a refusal for
+                // the run's sake — over, offer consumed, nothing pending — but the error itself is not
+                // this System's to hide: it goes on to the caller, exactly as PowerUpSystem's grant lets
+                // its source's errors through.
+                _isRescueOffered = false;
+                throw;
+            }
+            finally
+            {
+                _isRescueRequestPending = false;
+            }
+
+            // Re-read after the await, not before it: a new run can have opened while the ad was up
+            // (StartNewRun does not wait for anyone), and a rescue that landed on it would hand the
+            // player a free reroll of a dock that was never dead.
+            if (!granted || !IsGameOver || !_isRescueOffered)
+            {
+                _isRescueOffered = false;
+                return false;
+            }
+
+            _isRescueOffered = false;
+
+            // The return value is intentionally ignored, as TryRerollTray ignores its draw's: false only
+            // means no attempt produced a clearing piece, and the buffers then hold the best merely
+            // solvable set seen — or, on a board nothing fits, a complete set the re-check below ends the
+            // run on. Either way the player gets three real pieces.
+            _pieceDraw.TryDrawLineClearingSet(_boardModel.Board, _rerollPieceBuffer, _rerollColourBuffer, out _);
+
+            for (int slotIndex = 0; slotIndex < TrayModel.SLOT_COUNT; slotIndex++)
+            {
+                _trayModel.SetSlot(slotIndex, _rerollPieceBuffer[slotIndex], _rerollColourBuffer[slotIndex]);
+            }
+
+            // Live again before anyone is told, so a subscriber that reacts to the rescue by reading
+            // this System (can the strip re-enable? may the player drag?) gets the answer the message
+            // implies. Published before the re-check, so "rescued" always precedes any second "over".
+            IsGameOver = false;
+            if (_runRescuedPublisher != null)
+            {
+                _runRescuedPublisher.Publish(new RunRescuedMessage());
+            }
+
+            CheckGameOver();
+            return true;
+        }
+
+        /// <summary>
+        /// Declines the rescue most recently offered (issue #370): the run stays ended exactly as it was,
+        /// and the offer is consumed so a later <see cref="TryApplyNoMovesRescueAsync"/> against the same
+        /// ending is refused rather than honoured. No message is published — the ending already was, and
+        /// nothing about it has changed. A no-op when nothing is on offer.
+        /// </summary>
+        public void DeclineNoMovesRescue() => _isRescueOffered = false;
+
+        /// <summary>
+        /// The one place a run ends. Sets the invariant and publishes the ending; when
+        /// <paramref name="isRescueAvailable"/> is set, also records that this ending may be taken back.
+        /// </summary>
+        private void EndRun(GameOverReason reason, bool isRescueAvailable)
+        {
             IsGameOver = true;
-            _gameOverPublisher.Publish(new GameOverMessage(reason));
+            _isRescueOffered = isRescueAvailable;
+            _gameOverPublisher.Publish(new GameOverMessage(reason, isRescueAvailable));
         }
 
         /// <summary>
@@ -1496,8 +1659,12 @@ namespace MustyBlockBlast.Gameplay.Systems
                 return;
             }
 
-            IsGameOver = true;
-            _gameOverPublisher.Publish(new GameOverMessage(GameOverReason.NoMovesLeft));
+            // Only once the hammer has failed — spent already, or the board not full enough to earn it —
+            // is the ad-gated rescue put on the table (issue #370), and only from this one NoMovesLeft
+            // path: it answers "no piece fits", which no other ending is about. Unconditional on mode,
+            // and unconditional on how many times this run has already been rescued. Without a source
+            // to pay for it there is no offer to make, and the run ends as it always did.
+            EndRun(GameOverReason.NoMovesLeft, isRescueAvailable: _rescueRewardSource != null);
         }
 
         /// <summary>Whether the swap that brings the parked piece back can be paid for. Without an

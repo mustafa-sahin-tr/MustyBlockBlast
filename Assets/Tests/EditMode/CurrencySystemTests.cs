@@ -192,6 +192,51 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.AreEqual(200, system.AvailableToConvert);
         }
 
+        /// <summary>
+        /// Issue #370: a run can end twice — a rescue-available ending taken back, then a real one —
+        /// and the score at the first ending must not be banked again at the second. Only what the run
+        /// scored in between is added, so a rescue is paid for with an ad and never with coins.
+        /// </summary>
+        [Test]
+        public void OnGameOver_AfterARescuedEnding_BanksOnlyWhatTheRunScoredSince()
+        {
+            var profileModel = new ProfileModel();
+            var scoreModel = new ScoreModel();
+            var runStartedBroker = new TestMessageBroker<RunStartedMessage>();
+            CurrencySystem system = CreateSystem(profileModel, scoreModel, runStartedBroker: runStartedBroker);
+
+            runStartedBroker.Publish(new RunStartedMessage());
+            scoreModel.Score.Value = 300;
+            _gameOverBroker.Publish(new GameOverMessage(GameOverReason.NoMovesLeft, isRescueAvailable: true));
+            scoreModel.Score.Value = 450;
+            _gameOverBroker.Publish(new GameOverMessage(GameOverReason.NoMovesLeft, isRescueAvailable: true));
+
+            Assert.AreEqual(450, profileModel.TotalScoreEarned.Value, "300 at the first ending, then the 150 since.");
+            Assert.AreEqual(450, system.AvailableToConvert);
+        }
+
+        /// <summary>The per-run counter starts over on a new run, even one that happens to end on a
+        /// score no higher than the last ending's.</summary>
+        [Test]
+        public void OnGameOver_InTheNextRun_BanksFromZeroAgain()
+        {
+            var profileModel = new ProfileModel();
+            var scoreModel = new ScoreModel();
+            var runStartedBroker = new TestMessageBroker<RunStartedMessage>();
+            CurrencySystem unused = CreateSystem(profileModel, scoreModel, runStartedBroker: runStartedBroker);
+
+            runStartedBroker.Publish(new RunStartedMessage());
+            scoreModel.Score.Value = 100;
+            _gameOverBroker.Publish(new GameOverMessage(GameOverReason.NoMovesLeft, isRescueAvailable: true));
+
+            runStartedBroker.Publish(new RunStartedMessage());
+            scoreModel.Score.Value = 0;
+            scoreModel.Score.Value = 100;
+            _gameOverBroker.Publish(new GameOverMessage(GameOverReason.NoMovesLeft));
+
+            Assert.AreEqual(200, profileModel.TotalScoreEarned.Value);
+        }
+
         // --- AC4, AC5: partial conversion ---
 
         /// <summary>
@@ -1644,7 +1689,8 @@ namespace MustyBlockBlast.Tests.EditMode
             ProfileModel profileModel,
             ScoreModel scoreModel,
             ICoinRewardSource coinRewardSource = null,
-            DailyAdGrantModel dailyAdGrantModel = null)
+            DailyAdGrantModel dailyAdGrantModel = null,
+            TestMessageBroker<RunStartedMessage> runStartedBroker = null)
         {
             return new CurrencySystem(
                 profileModel,
@@ -1676,7 +1722,8 @@ namespace MustyBlockBlast.Tests.EditMode
                 // The same seeded instant doubles as the daily ad cap's "local now" (issue #257): this
                 // fixture has no reason to run the two clocks apart, and reusing the one field lets a
                 // day-rollover test move "today" the same way the promotion tests already move "now".
-                () => _utcNow);
+                () => _utcNow,
+                runStartedBroker);
         }
 
         /// <summary>
