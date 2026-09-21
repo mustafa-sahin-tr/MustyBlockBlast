@@ -19,5 +19,9 @@ namespace MustyBlockBlast.Presentation.Views
 
         /// <summary>"Next level · n": start the level after the one just completed.</summary>
         NextLevel,
+
+        /// <summary>"Watch ad" (issue #371): take back a no-moves ending through
+        /// <c>BoardSystem.TryApplyNoMovesRescueAsync</c> — a rewarded ad for a fresh dock, not a restart.</summary>
+        WatchAd,
     }
 }

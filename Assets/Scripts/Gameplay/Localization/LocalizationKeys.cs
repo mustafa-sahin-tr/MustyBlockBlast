@@ -190,6 +190,9 @@ namespace MustyBlockBlast.Gameplay.Localization
         /// <summary>The restart button when a Path level was failed rather than cleared.</summary>
         public const string RUN_RESULT_TRY_AGAIN = "result.try_again";
 
+        /// <summary>The rewarded-ad rescue button on a no-moves ending (issue #371): a fresh dock, same run.</summary>
+        public const string RUN_RESULT_WATCH_AD = "result.watch_ad";
+
         // --- Game modes ---
 
         public const string MODE_ENDLESS = "mode.endless";

@@ -879,6 +879,10 @@ MonoBehaviour:
     m_Key: duration.endless
     m_Metadata:
       m_Items: []
+  - m_Id: 2961806942265344
+    m_Key: result.watch_ad
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

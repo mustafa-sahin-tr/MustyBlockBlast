@@ -1,4 +1,7 @@
+using System;
 using System.Collections.Generic;
+using System.Threading;
+using Cysharp.Threading.Tasks;
 using MustyBlockBlast.Core;
 using MustyBlockBlast.Gameplay;
 using MustyBlockBlast.Gameplay.Models;
@@ -164,6 +167,15 @@ namespace MustyBlockBlast.Presentation.Views
         private GridPosition _hammerTargetCell;
         private bool _hasHammerTarget;
 
+        /// <summary>Cached once so the rescue request (issue #371) is cancelled with this View rather
+        /// than left awaiting an ad on a destroyed object.</summary>
+        private CancellationToken _destroyToken;
+
+        /// <summary>True from a "watch ad" tap until <see cref="BoardSystem.TryApplyNoMovesRescueAsync"/>
+        /// has come back. The System refuses a second request while one is in flight anyway; this
+        /// keeps that refusal from being read here as "the ad was declined" and pulling the button.</summary>
+        private bool _isRescueRequestInFlight;
+
         [Inject]
         public void Construct(
             BoardSystem boardSystem,
@@ -218,6 +230,7 @@ namespace MustyBlockBlast.Presentation.Views
         private void Awake()
         {
             _canvas = GetComponentInParent<Canvas>();
+            _destroyToken = this.GetCancellationTokenOnDestroy();
             _pointerPositionAction = new InputAction("PointerPosition", InputActionType.Value, "<Pointer>/position");
             _pointerPressAction = new InputAction("PointerPress", InputActionType.Button, "<Pointer>/press");
 
@@ -437,7 +450,13 @@ namespace MustyBlockBlast.Presentation.Views
                     case RunEndAction.PlayAgain:
                         // "Play again" and Path's "Try again" are the same restart: the mode and, in
                         // Path, the active level are untouched, so the run that starts is the same one.
+                        // A restart while a rescue is on offer is the player declining it (issue #371):
+                        // said so explicitly, though StartNewRun drops the offer on its own as well.
+                        _boardSystem.DeclineNoMovesRescue();
                         _boardSystem.StartNewRun();
+                        break;
+                    case RunEndAction.WatchAd:
+                        RequestNoMovesRescueAsync().Forget();
                         break;
                 }
 
@@ -596,6 +615,48 @@ namespace MustyBlockBlast.Presentation.Views
             _ghostFitSystem.DismissUnlessSuggestedSlot(slotIndex);
 
             BeginDrag(slotIndex, screenPosition);
+        }
+
+        /// <summary>
+        /// The "watch ad" tap on the end-of-run card (issue #371): asks <see cref="BoardSystem"/> to
+        /// take the no-moves ending back. Granted, the System publishes the rescue and the card closes
+        /// itself on it — nothing to do here. Refused, failed or cancelled, the run stays ended and the
+        /// card stays up with its restart; the one thing this View adds is pulling the now-dead rescue
+        /// button, since the System consumes the offer on any outcome. A source that throws is treated
+        /// the same way, once its error has been logged — the ad SDK's failure is not the player's
+        /// problem, and the restart is still there.
+        /// </summary>
+        private async UniTaskVoid RequestNoMovesRescueAsync()
+        {
+            if (_isRescueRequestInFlight)
+            {
+                return;
+            }
+
+            _isRescueRequestInFlight = true;
+            bool granted = false;
+            try
+            {
+                granted = await _boardSystem.TryApplyNoMovesRescueAsync(_destroyToken);
+            }
+            catch (OperationCanceledException)
+            {
+                // This View is going away; there is no card left to tidy.
+                return;
+            }
+            catch (Exception exception)
+            {
+                Debug.LogException(exception, this);
+            }
+            finally
+            {
+                _isRescueRequestInFlight = false;
+            }
+
+            if (!granted && _runResultView.IsOpen)
+            {
+                _runResultView.WithdrawRescueOffer();
+            }
         }
 
         private void OnPressReleased(InputAction.CallbackContext context)

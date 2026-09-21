@@ -41,7 +41,9 @@ namespace MustyBlockBlast.Presentation.Views
     /// Modal while open: <see cref="BoardInputView"/> routes every tap into <see cref="HandleTap"/>,
     /// which claims a badge itself and hands anything else back as a <see cref="RunEndAction"/> for
     /// the input View to carry out. There is no close control and a tap outside the card does
-    /// nothing; the card closes on <see cref="RunStartedMessage"/>, which every action ends in.
+    /// nothing; the card closes on <see cref="RunStartedMessage"/>, which every restart ends in, or on
+    /// <see cref="RunRescuedMessage"/> (issue #371), when a no-moves ending is taken back by the
+    /// rewarded-ad rescue and the same run carries on with a fresh dock.
     /// </para>
     /// </summary>
     [DisallowMultipleComponent]
@@ -122,6 +124,11 @@ namespace MustyBlockBlast.Presentation.Views
         private const int PRIMARY_KIND = 1;
         private const int SECONDARY_KIND = 2;
 
+        /// <summary>Button slots the card can draw, stacked top to bottom. Three is the most any card
+        /// needs: a Classic no-moves ending with a rescue on offer (issue #371) — "watch ad", "play
+        /// again", "change mode". Every other card uses one or two and hides the rest.</summary>
+        private const int BUTTON_SLOT_COUNT = 3;
+
         /// <summary>The record value's ink: the accent pulled toward black, as <see cref="ScoreView"/>
         /// paints its best figure, so the record reads as gold without washing out on the pale plate.</summary>
         private const float RECORD_VALUE_SHADE = 0.35f;
@@ -183,6 +190,7 @@ namespace MustyBlockBlast.Presentation.Views
         private readonly Image[] _starDiscs = new Image[STAR_COUNT];
         private readonly Image[] _starDiscShadows = new Image[STAR_COUNT];
         private readonly Image[] _starGlyphs = new Image[STAR_COUNT];
+        private readonly ActionButton[] _buttons = new ActionButton[BUTTON_SLOT_COUNT];
 
         private ScoreModel _scoreModel;
         private ProfileModel _profileModel;
@@ -200,6 +208,7 @@ namespace MustyBlockBlast.Presentation.Views
         private ISubscriber<GameOverMessage> _gameOverSubscriber;
         private ISubscriber<RunStartedMessage> _runStartedSubscriber;
         private ISubscriber<NewRecordMessage> _newRecordSubscriber;
+        private ISubscriber<RunRescuedMessage> _runRescuedSubscriber;
 
         private Canvas _canvas;
         private GameObject _panel;
@@ -233,9 +242,6 @@ namespace MustyBlockBlast.Presentation.Views
         private Text _badgesHeadingText;
         private Text _claimHintText;
 
-        private ActionButton _primaryButton;
-        private ActionButton _secondaryButton;
-
         private ThemeDefinition _currentTheme;
 
         /// <summary>The score of the run that just ended, captured on game over: the model's own value
@@ -268,6 +274,14 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>Whether <see cref="NewRecordMessage"/> fired during the run that just ended.
         /// Cleared on run start, so a record from an earlier run can never tag a later card.</summary>
         private bool _isNewRecordThisRun;
+
+        /// <summary>
+        /// <see cref="GameOverMessage.IsRescueAvailable"/> of the last game over (issue #371): whether
+        /// the card offers "watch ad" beside the restart. Captured with the reason so a language switch
+        /// re-words the same buttons; withdrawn by <see cref="WithdrawRescueOffer"/> once the rescue
+        /// has been refused, since the System consumes the offer and a second tap would do nothing.
+        /// </summary>
+        private bool _isRescueAvailable;
 
         /// <summary>One built badge row. Rebuilt never, repainted on every open and every claim.</summary>
         private sealed class BadgeRow
@@ -381,7 +395,8 @@ namespace MustyBlockBlast.Presentation.Views
             LevelCatalog levelCatalog,
             ISubscriber<GameOverMessage> gameOverSubscriber,
             ISubscriber<RunStartedMessage> runStartedSubscriber,
-            ISubscriber<NewRecordMessage> newRecordSubscriber)
+            ISubscriber<NewRecordMessage> newRecordSubscriber,
+            ISubscriber<RunRescuedMessage> runRescuedSubscriber)
         {
             _scoreModel = scoreModel;
             _profileModel = profileModel;
@@ -399,6 +414,7 @@ namespace MustyBlockBlast.Presentation.Views
             _gameOverSubscriber = gameOverSubscriber;
             _runStartedSubscriber = runStartedSubscriber;
             _newRecordSubscriber = newRecordSubscriber;
+            _runRescuedSubscriber = runRescuedSubscriber;
         }
 
         private void Awake()
@@ -414,7 +430,7 @@ namespace MustyBlockBlast.Presentation.Views
                 || _badgeModel == null || _badgeSystem == null || _badgeCatalog == null || _settingsModel == null
                 || _localizationModel == null || _localizationSystem == null || _gameModeSystem == null
                 || _timedModeSystem == null || _gameOverSubscriber == null || _runStartedSubscriber == null
-                || _newRecordSubscriber == null)
+                || _newRecordSubscriber == null || _runRescuedSubscriber == null)
             {
                 Debug.LogError($"{nameof(RunResultView)} was not injected. Is it registered in the LifetimeScope?", this);
                 return;
@@ -432,6 +448,7 @@ namespace MustyBlockBlast.Presentation.Views
             _gameOverSubscriber.Subscribe(OnGameOver).AddTo(_disposables);
             _runStartedSubscriber.Subscribe(OnRunStarted).AddTo(_disposables);
             _newRecordSubscriber.Subscribe(OnNewRecord).AddTo(_disposables);
+            _runRescuedSubscriber.Subscribe(OnRunRescued).AddTo(_disposables);
         }
 
         private void OnDestroy() => _disposables.Dispose();
@@ -480,24 +497,43 @@ namespace MustyBlockBlast.Presentation.Views
                 }
             }
 
-            if (RectTransformUtility.RectangleContainsScreenPoint(_primaryButton.Rect, screenPosition, eventCamera))
+            for (int buttonIndex = 0; buttonIndex < _buttons.Length; buttonIndex++)
             {
-                return _primaryButton.Action;
-            }
-
-            if (_secondaryButton.Rect.gameObject.activeSelf
-                && RectTransformUtility.RectangleContainsScreenPoint(_secondaryButton.Rect, screenPosition, eventCamera))
-            {
-                return _secondaryButton.Action;
+                ActionButton button = _buttons[buttonIndex];
+                if (button.Rect.gameObject.activeSelf
+                    && RectTransformUtility.RectangleContainsScreenPoint(button.Rect, screenPosition, eventCamera))
+                {
+                    return button.Action;
+                }
             }
 
             return RunEndAction.None;
+        }
+
+        /// <summary>
+        /// Takes "watch ad" off the card (issue #371). <see cref="BoardInputView"/> calls this once
+        /// <c>BoardSystem.TryApplyNoMovesRescueAsync</c> has come back false — the ad was refused,
+        /// failed or cancelled — because the System consumes the offer on any outcome and the button
+        /// would otherwise sit there doing nothing. The rest of the card is untouched: the run stays
+        /// ended and the restart is still there to tap.
+        /// </summary>
+        internal void WithdrawRescueOffer()
+        {
+            if (!_isRescueAvailable)
+            {
+                return;
+            }
+
+            _isRescueAvailable = false;
+            RefreshButtons();
+            Layout();
         }
 
         private void OnGameOver(GameOverMessage message)
         {
             _runScore = _scoreModel.Score.Value;
             _lastReason = message.Reason;
+            _isRescueAvailable = message.IsRescueAvailable;
             _lastMode = _gameModeSystem.CurrentMode.Value;
             _lastDurationSeconds = _timedModeSystem.SelectedDuration.Value;
 
@@ -518,6 +554,15 @@ namespace MustyBlockBlast.Presentation.Views
         private void OnRunStarted(RunStartedMessage message)
         {
             _isNewRecordThisRun = false;
+            _panel.SetActive(false);
+        }
+
+        /// <summary>The ending was taken back (issue #371): the same run carries on with a fresh dock,
+        /// so the card simply goes away. Nothing else is reset — the record flag and the badge list
+        /// belong to the run, and the run is still the same one.</summary>
+        private void OnRunRescued(RunRescuedMessage message)
+        {
+            _isRescueAvailable = false;
             _panel.SetActive(false);
         }
 
@@ -574,8 +619,10 @@ namespace MustyBlockBlast.Presentation.Views
             _claimHintText.color = theme.Accent;
 
             RefreshBadges();
-            PaintButton(_primaryButton);
-            PaintButton(_secondaryButton);
+            for (int buttonIndex = 0; buttonIndex < _buttons.Length; buttonIndex++)
+            {
+                PaintButton(_buttons[buttonIndex]);
+            }
         }
 
         private void PaintStatPlate(StatPlate statPlate, Color valueColour)
@@ -868,11 +915,14 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         /// <summary>
-        /// Which buttons the card offers, from the captured reason and mode. A Path success with a
-        /// next level leads with the green advance and keeps "play again" under it; a Path failure
-        /// is a single "try again"; Timed keeps its "change mode" escape hatch under "play again";
-        /// everything else — Endless, or a Path success on the last authored level — is the one
-        /// restart button.
+        /// Which buttons the card offers, from the captured reason and mode, filled top to bottom. A
+        /// Path success with a next level leads with the green advance and keeps "play again" under
+        /// it; a no-moves ending with a rescue on offer (issue #371) leads with the green "watch ad"
+        /// and keeps the restart under it — a fresh dock for the same run is the better offer, and
+        /// the restart is what the player gets by ignoring it; a Path failure is otherwise a single
+        /// "try again"; Timed keeps its "change mode" escape hatch under the restart; everything
+        /// else — Endless, or a Path success on the last authored level — is the one restart button.
+        /// Only a no-moves ending ever adds a button, so every other reason's card is exactly as it was.
         /// </summary>
         private void RefreshButtons()
         {
@@ -882,45 +932,58 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             bool isPath = _lastMode == GameMode.Path;
-            bool showSecondary;
+            int buttonIndex = 0;
 
             if (_lastReason == GameOverReason.LevelCompleted && _hasNextLevel)
             {
                 _stringBuilder.Clear();
                 _stringBuilder.Append(NextLevelNumber);
                 ConfigureButton(
-                    _primaryButton, RunEndAction.NextLevel, HudChrome.GREEN_KIND,
+                    buttonIndex++, RunEndAction.NextLevel, HudChrome.GREEN_KIND,
                     _localizationSystem.Format(LocalizationKeys.RUN_RESULT_NEXT_LEVEL, _stringBuilder.ToString()));
                 ConfigureButton(
-                    _secondaryButton, RunEndAction.PlayAgain, PRIMARY_KIND,
+                    buttonIndex++, RunEndAction.PlayAgain, PRIMARY_KIND,
                     _localizationSystem.Translate(LocalizationKeys.RUN_RESULT_PLAY_AGAIN));
-                showSecondary = true;
             }
             else
             {
+                // The flag is only ever set on a no-moves ending, but the reason is checked too so the
+                // card can never grow a rescue button for a reason the System has no rescue for.
+                if (_lastReason == GameOverReason.NoMovesLeft && _isRescueAvailable)
+                {
+                    ConfigureButton(
+                        buttonIndex++, RunEndAction.WatchAd, HudChrome.GREEN_KIND,
+                        _localizationSystem.Translate(LocalizationKeys.RUN_RESULT_WATCH_AD));
+                }
+
                 string restartKey = isPath && _lastReason != GameOverReason.LevelCompleted
                     ? LocalizationKeys.RUN_RESULT_TRY_AGAIN
                     : LocalizationKeys.RUN_RESULT_PLAY_AGAIN;
                 ConfigureButton(
-                    _primaryButton, RunEndAction.PlayAgain, PRIMARY_KIND, _localizationSystem.Translate(restartKey));
+                    buttonIndex++, RunEndAction.PlayAgain, PRIMARY_KIND, _localizationSystem.Translate(restartKey));
 
-                showSecondary = _lastMode == GameMode.Timed;
-                if (showSecondary)
+                if (_lastMode == GameMode.Timed)
                 {
                     ConfigureButton(
-                        _secondaryButton, RunEndAction.ChangeMode, SECONDARY_KIND,
+                        buttonIndex++, RunEndAction.ChangeMode, SECONDARY_KIND,
                         _localizationSystem.Translate(LocalizationKeys.RUN_RESULT_CHANGE_MODE));
                 }
             }
 
-            _secondaryButton.Rect.gameObject.SetActive(showSecondary);
+            for (int hiddenIndex = buttonIndex; hiddenIndex < _buttons.Length; hiddenIndex++)
+            {
+                _buttons[hiddenIndex].Action = RunEndAction.None;
+                _buttons[hiddenIndex].Rect.gameObject.SetActive(false);
+            }
         }
 
-        private void ConfigureButton(ActionButton button, RunEndAction action, int kind, string label)
+        private void ConfigureButton(int buttonIndex, RunEndAction action, int kind, string label)
         {
+            ActionButton button = _buttons[buttonIndex];
             button.Action = action;
             button.Kind = kind;
             button.LabelText.text = label;
+            button.Rect.gameObject.SetActive(true);
             PaintButton(button);
         }
 
@@ -986,12 +1049,20 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             y += BUTTONS_TOP_PAD;
-            HangCentre(_primaryButton.Rect, 0f, y + (BUTTON_HEIGHT * 0.5f));
-            y += BUTTON_HEIGHT;
-            if (_secondaryButton.Rect.gameObject.activeSelf)
+            for (int buttonIndex = 0; buttonIndex < _buttons.Length; buttonIndex++)
             {
-                y += BUTTON_GAP;
-                HangCentre(_secondaryButton.Rect, 0f, y + (BUTTON_HEIGHT * 0.5f));
+                ActionButton button = _buttons[buttonIndex];
+                if (!button.Rect.gameObject.activeSelf)
+                {
+                    continue;
+                }
+
+                if (buttonIndex > 0)
+                {
+                    y += BUTTON_GAP;
+                }
+
+                HangCentre(button.Rect, 0f, y + (BUTTON_HEIGHT * 0.5f));
                 y += BUTTON_HEIGHT;
             }
 
@@ -1083,9 +1154,11 @@ namespace MustyBlockBlast.Presentation.Views
                 _badgeRows[rowIndex] = BuildBadgeRow(rowIndex);
             }
 
-            _primaryButton = BuildButton("PrimaryButton");
-            _secondaryButton = BuildButton("SecondaryButton");
-            _secondaryButton.Rect.gameObject.SetActive(false);
+            for (int buttonIndex = 0; buttonIndex < BUTTON_SLOT_COUNT; buttonIndex++)
+            {
+                _buttons[buttonIndex] = BuildButton($"Button_{buttonIndex}");
+                _buttons[buttonIndex].Rect.gameObject.SetActive(buttonIndex == 0);
+            }
 
             _panel = panelObject;
         }
