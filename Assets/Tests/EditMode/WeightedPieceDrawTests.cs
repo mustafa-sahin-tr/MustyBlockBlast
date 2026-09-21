@@ -8,7 +8,8 @@ namespace MustyBlockBlast.Tests.EditMode
     /// <summary>
     /// Covers the two halves of the draw contract that must not drift into each other: the ordinary
     /// draw is unguaranteed and stays that way, while the Reroll-only set draw is guaranteed within a
-    /// bound and degrades gracefully when even that bound cannot deliver.
+    /// bound and degrades gracefully when even that bound cannot deliver. The line-clear-preferring
+    /// variant is held to the same bound and the same fallback, plus its own preference.
     /// <para>
     /// Everything here is seeded, so "the ordinary draw can come up unplayable" is demonstrated by a
     /// specific reproducible draw rather than by a probabilistic sample.
@@ -126,6 +127,152 @@ namespace MustyBlockBlast.Tests.EditMode
 
             Assert.Throws<System.ArgumentException>(
                 () => draw.TryDrawSolvableSet(new Board(), new Piece[3], new int[2]));
+        }
+
+        /// <summary>
+        /// The positive case: row 0 is one cell short, so any set with a piece that can drop into that
+        /// gap clears a line. Small pieces dominate the catalog, so over a full budget the draw must find
+        /// one — and report it, and leave it in the buffers.
+        /// </summary>
+        [Test]
+        public void TryDrawLineClearingSet_WithAnObviousLineToClear_ReturnsASetContainingAClearingPiece()
+        {
+            Board board = BoardWithOneGapInRowZero();
+            var pieces = new Piece[3];
+            var colourIds = new int[3];
+
+            bool found = new WeightedPieceDraw(seed: 3).TryDrawLineClearingSet(
+                board, pieces, colourIds, out int maxLineCount);
+
+            Assert.IsTrue(found);
+            Assert.GreaterOrEqual(maxLineCount, 1);
+            Assert.AreEqual(maxLineCount, MaxLinesAnyPieceClears(board, pieces));
+            Assert.IsTrue(MoveAvailability.HasAnyMove(board, pieces));
+        }
+
+        /// <summary>
+        /// AC4's fallback: an empty board is trivially solvable but no catalog piece spans eight cells,
+        /// so no attempt can clear a line. The draw must then degrade to exactly what
+        /// <see cref="WeightedPieceDraw.TryDrawSolvableSet"/> promises — a complete, placeable set — and
+        /// say honestly that it found no clearing piece.
+        /// </summary>
+        [Test]
+        public void TryDrawLineClearingSet_WhenNoClearIsReachable_FallsBackToASolvableSet()
+        {
+            var board = new Board();
+            var pieces = new Piece[3];
+            var colourIds = new int[3];
+
+            bool found = new WeightedPieceDraw(seed: 5).TryDrawLineClearingSet(
+                board, pieces, colourIds, out int maxLineCount);
+
+            Assert.IsFalse(found);
+            Assert.AreEqual(0, maxLineCount);
+            Assert.IsTrue(MoveAvailability.HasAnyMove(board, pieces));
+            for (int slotIndex = 0; slotIndex < pieces.Length; slotIndex++)
+            {
+                Assert.IsNotNull(pieces[slotIndex]);
+                Assert.GreaterOrEqual(colourIds[slotIndex], 1);
+                Assert.LessOrEqual(colourIds[slotIndex], WeightedPieceDraw.COLOUR_COUNT);
+            }
+        }
+
+        /// <summary>
+        /// The "never worse than the solvable draw" clause, on the board that defeats the ordinary draw:
+        /// the same seed that produces an unplayable ordinary set still yields a playable one here,
+        /// because a solvable attempt always outranks an unplaceable one.
+        /// </summary>
+        [Test]
+        public void TryDrawLineClearingSet_OnTheSeedThatDefeatsTheOrdinaryDraw_StillFindsAPlayableSet()
+        {
+            Board board = BoardWithOpenCorner();
+            Assert.IsTrue(TryFindUnplayableOrdinaryDrawSeed(board, out int seed));
+
+            var pieces = new Piece[3];
+            var colourIds = new int[3];
+            new WeightedPieceDraw(seed).TryDrawLineClearingSet(board, pieces, colourIds, out _);
+
+            Assert.IsTrue(MoveAvailability.HasAnyMove(board, pieces));
+        }
+
+        /// <summary>The full-board fallback, mirroring the solvable draw's: no attempt can succeed, the
+        /// draw terminates within its bound, throws nothing, and hands back a complete set.</summary>
+        [Test]
+        public void TryDrawLineClearingSet_OnAFullBoard_GivesUpWithinTheBoundAndStillReturnsASet()
+        {
+            Board board = FullBoard();
+            var pieces = new Piece[3];
+            var colourIds = new int[3];
+            var draw = new WeightedPieceDraw(seed: 42);
+
+            bool found = true;
+            int maxLineCount = -1;
+            Assert.DoesNotThrow(
+                () => found = draw.TryDrawLineClearingSet(board, pieces, colourIds, out maxLineCount));
+
+            Assert.IsFalse(found);
+            Assert.AreEqual(0, maxLineCount);
+            for (int slotIndex = 0; slotIndex < pieces.Length; slotIndex++)
+            {
+                Assert.IsNotNull(pieces[slotIndex], "The fallback must still hand back a full set.");
+            }
+        }
+
+        /// <summary>Same argument as the solvable draw's fixed-attempt test: on a hopeless board only the
+        /// cap ends the loop, so two identically seeded draws agree exactly only if the cap is fixed.</summary>
+        [Test]
+        public void TryDrawLineClearingSet_OnAFullBoard_StopsAtAFixedAttemptCount()
+        {
+            Board board = FullBoard();
+
+            var firstPieces = new Piece[3];
+            var firstColours = new int[3];
+            new WeightedPieceDraw(seed: 8).TryDrawLineClearingSet(board, firstPieces, firstColours, out _);
+
+            var secondPieces = new Piece[3];
+            var secondColours = new int[3];
+            new WeightedPieceDraw(seed: 8).TryDrawLineClearingSet(board, secondPieces, secondColours, out _);
+
+            CollectionAssert.AreEqual(firstPieces, secondPieces);
+            CollectionAssert.AreEqual(firstColours, secondColours);
+        }
+
+        [Test]
+        public void TryDrawLineClearingSet_WithMismatchedBufferLengths_IsRejected()
+        {
+            var draw = new WeightedPieceDraw(seed: 2);
+
+            Assert.Throws<System.ArgumentException>(
+                () => draw.TryDrawLineClearingSet(new Board(), new Piece[3], new int[2], out _));
+        }
+
+        private static int MaxLinesAnyPieceClears(Board board, Piece[] pieces)
+        {
+            var opportunity = new LineClearOpportunity();
+            int best = 0;
+            for (int slotIndex = 0; slotIndex < pieces.Length; slotIndex++)
+            {
+                int lineCount = opportunity.MaxLinesAnyPlacementClears(board, pieces[slotIndex]);
+                if (lineCount > best)
+                {
+                    best = lineCount;
+                }
+            }
+
+            return best;
+        }
+
+        /// <summary>Row 0 filled except its first cell; everything else open. Any piece that can cover
+        /// (0,0) without spilling into the rest of row 0 clears that row.</summary>
+        private static Board BoardWithOneGapInRowZero()
+        {
+            var board = new Board();
+            for (int x = 1; x < Board.SIZE; x++)
+            {
+                board.Occupy(new GridPosition(x, 0), 1);
+            }
+
+            return board;
         }
 
         /// <summary>The first seed whose three ordinary draws are all unplaceable on
