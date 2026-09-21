@@ -1,7 +1,7 @@
 ---
 name: unity-security-reviewer
 description: "Reviews Unity projects for security vulnerabilities — PlayerPrefs secrets, unencrypted saves, hardcoded API keys, insecure network calls, certificate pinning, debug builds in release config."
-model: sonnet
+model: fable
 color: red
 tools: Read, Glob, Grep
 ---
