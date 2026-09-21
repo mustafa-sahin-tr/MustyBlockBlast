@@ -108,6 +108,25 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// as "this is where the player already is", never as a crossing to announce.</summary>
         private int _lastObservedLevelNumber;
 
+        /// <summary>No rotate session open — see <see cref="_rotateSessionSlotIndex"/>.</summary>
+        private const int NO_ROTATE_SESSION = -1;
+
+        /// <summary>
+        /// The dock slot a rotate session is open on, or <see cref="NO_ROTATE_SESSION"/> (issue #373).
+        /// A session opens on the first <see cref="TryApplyRotate"/> tap on a slot and stays open across
+        /// every further tap on that same slot, each of which turns the piece for free. It is settled by
+        /// <see cref="CommitRotateSession"/> — from every path that drops the armed selection, and from
+        /// a tap that moves on to a different slot — which is the one moment a charge can be spent.
+        /// </summary>
+        private int _rotateSessionSlotIndex = NO_ROTATE_SESSION;
+
+        /// <summary>
+        /// The piece <see cref="_rotateSessionSlotIndex"/> held before the session's first turn. Compared
+        /// by <see cref="Piece.Id"/> at commit time: <see cref="PieceRotator"/> only ever swaps in catalog
+        /// pieces, so an id match means the player turned the piece all the way back to where it started.
+        /// </summary>
+        private Piece _rotateSessionOriginalPiece;
+
         /// <summary>
         /// Its own instance rather than the one <see cref="BoardSystem"/> owns. The two can never run
         /// at once — a power-up is applied from an input callback, a placement's cascade from another,
@@ -270,6 +289,11 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// </summary>
         public void Arm(PowerUpKind kind)
         {
+            // Arming overwrites the selection outright rather than going through Disarm, so a rotate
+            // session left open by the previous selection has to be settled here or it would be
+            // stranded. Before the guard, so a run this commit happens to end is refused below.
+            CommitRotateSession();
+
             if (kind == PowerUpKind.Reroll || kind == PowerUpKind.DoubleMultiplier
                 || kind == PowerUpKind.GhostFit || kind == PowerUpKind.CoinSower || kind == PowerUpKind.Hold
                 || _boardSystem.IsGameOver || IsLocked(kind) || IsBannedInActivePathLevel(kind)
@@ -427,18 +451,30 @@ namespace MustyBlockBlast.Gameplay.Systems
         }
 
         /// <summary>
-        /// Spends one rotate on the dock piece in <paramref name="slotIndex"/>, turning it 90 degrees
-        /// clockwise. The only application aimed at the tray rather than the board: no cell changes, so
-        /// nothing clears and nothing scores.
+        /// Turns the dock piece in <paramref name="slotIndex"/> 90 degrees clockwise, for free, as a
+        /// preview (issue #373). The only application aimed at the tray rather than the board: no cell
+        /// changes, so nothing clears and nothing scores.
+        /// <para>
+        /// A rotate is not paid for tap by tap. The first tap on a slot opens a <em>session</em> on it,
+        /// remembering the piece as it was; every further tap on the same slot keeps turning it, still
+        /// free, with the power-up still armed. The session is settled by
+        /// <see cref="CommitRotateSession"/> when the armed selection is dropped — cancelled, replaced by
+        /// arming or applying another kind, or ended with the run — and only then is exactly one charge
+        /// spent, and only if the piece's final shape differs from the one the session opened on. Turning
+        /// it all the way back round and leaving it costs nothing. A tap that moves on to a different
+        /// slot settles the first slot's session before opening one on the second.
+        /// </para>
         /// <para>
         /// Rotating swaps the slot to the catalog piece that already describes that orientation rather
         /// than rewriting the piece's offsets, so the slot always holds a real catalog piece whose id
-        /// still matches its shape (see <see cref="PieceRotator"/>).
+        /// still matches its shape (see <see cref="PieceRotator"/>) — which is also what lets the commit
+        /// recognise "back where it started" by id.
         /// </para>
         /// <para>
         /// Follows the "peek before spend" contract of <see cref="TryApplyJoker"/>: an out-of-range or
         /// empty slot, and a fully symmetrical piece whose rotation would be a no-op, are all refused
-        /// outright — nothing is spent, nothing is disarmed, the player simply aims again.
+        /// outright — nothing is spent, nothing is disarmed, no session is opened or settled, the
+        /// player simply aims again.
         /// </para>
         /// </summary>
         public bool TryApplyRotate(int slotIndex)
@@ -456,11 +492,72 @@ namespace MustyBlockBlast.Gameplay.Systems
                 return false;
             }
 
-            TrySpend(PowerUpKind.Rotate);
+            // Moving on to another piece settles the one being left behind first: whether that piece
+            // ended up changed decides its charge, and it must not be carried into the new session.
+            if (_rotateSessionSlotIndex != NO_ROTATE_SESSION && _rotateSessionSlotIndex != slotIndex)
+            {
+                CommitRotateSession();
+
+                // That settle can end the run (see CommitRotateSession), and a run that is over has no
+                // dock left to keep turning.
+                if (_boardSystem.IsGameOver)
+                {
+                    return false;
+                }
+            }
+
+            if (_rotateSessionSlotIndex == NO_ROTATE_SESSION)
+            {
+                _rotateSessionSlotIndex = slotIndex;
+                _rotateSessionOriginalPiece = piece;
+            }
 
             // Colour is carried over untouched: rotating changes the shape on offer, never which piece
             // it is to the player.
             _trayModel.SetSlot(slotIndex, rotated, _trayModel.GetColourId(slotIndex));
+            return true;
+        }
+
+        /// <summary>
+        /// Settles the open rotate session, if any (issue #373): spends the one charge a net change
+        /// costs, or nothing when the piece was turned back to where it started. The only place a
+        /// rotate is ever paid for, published or re-checked, so however many taps a session took it
+        /// counts as at most one application.
+        /// <para>
+        /// Reached from <see cref="Disarm"/> (cancel, another kind's successful application, both run
+        /// boundaries), from <see cref="Arm"/> (which replaces the selection without disarming), from
+        /// <see cref="TryApplyHold"/> (which permutes the very slots a session is keyed on) and from a
+        /// <see cref="TryApplyRotate"/> tap that moves on to a different slot. Clears its own state
+        /// before doing anything else, so the game-over re-check it can raise — which lands back in
+        /// <see cref="Disarm"/> — finds nothing left to settle.
+        /// </para>
+        /// </summary>
+        private void CommitRotateSession()
+        {
+            if (_rotateSessionSlotIndex == NO_ROTATE_SESSION)
+            {
+                return;
+            }
+
+            int slotIndex = _rotateSessionSlotIndex;
+            Piece originalPiece = _rotateSessionOriginalPiece;
+            _rotateSessionSlotIndex = NO_ROTATE_SESSION;
+            _rotateSessionOriginalPiece = null;
+
+            Piece currentPiece = _trayModel.GetPiece(slotIndex);
+            if (currentPiece == null)
+            {
+                return;
+            }
+
+            // Back to its original orientation: the dock is exactly as the player found it, so there is
+            // nothing to pay for, nothing to announce and nothing for the game-over check to re-read.
+            if (currentPiece.Id == originalPiece.Id)
+            {
+                return;
+            }
+
+            TrySpend(PowerUpKind.Rotate);
 
             // Published so an application is an application whatever it targeted — the badge counter
             // that tracks "power-ups used" must see this one too. Zero cleared cells means scoring and
@@ -468,14 +565,9 @@ namespace MustyBlockBlast.Gameplay.Systems
             _appliedPublisher.Publish(new PowerUpAppliedMessage(
                 PowerUpKind.Rotate, clearedCellCount: 0, clearedLineCount: 0));
 
-            Disarm();
-
-            // Disarmed first, then re-checked: unlike a park (which only permutes pieces between dock
-            // and pocket), this changes *which shapes* the player holds, so the move that kept the run
-            // alive may no longer exist — and a game over raised from here must not find a selection
-            // still armed behind it.
+            // Unlike a park (which only permutes pieces between dock and pocket), this changes *which
+            // shapes* the player holds, so the move that kept the run alive may no longer exist.
             _boardSystem.RecheckGameOver();
-            return true;
         }
 
         /// <summary>
@@ -655,6 +747,12 @@ namespace MustyBlockBlast.Gameplay.Systems
                 return false;
             }
 
+            // A park moves pieces between the very slots a rotate session is keyed on, so an open one
+            // is settled against the dock as it stands before anything is permuted. Unreachable
+            // through the input path today (a press while armed is an aim, never a drag), so this is
+            // a guard against the session outliving the piece it was about, not a gameplay rule.
+            CommitRotateSession();
+
             if (!_boardSystem.TryParkPiece(slotIndex))
             {
                 return false;
@@ -779,14 +877,39 @@ namespace MustyBlockBlast.Gameplay.Systems
         }
 
         /// <summary>Shared exit from armed mode: a successful application, an explicit cancel and both
-        /// run boundaries all land here, so the clock is never left held by a selection that is gone.</summary>
+        /// run boundaries all land here, so the clock is never left held by a selection that is gone —
+        /// and, being the one choke point every dropped selection passes through, it is also where an
+        /// open rotate session is settled (see <see cref="CommitRotateSession"/>).</summary>
         private void Disarm()
         {
+            // Selection dropped first, session settled second: the settle can raise a game over, and
+            // a game over must not find a selection still armed behind it. The re-entry that game over
+            // makes into this method finds the session already cleared and the drop already done.
             _powerUpModel.Armed.Value = null;
             _timerRunSystem.SetPowerUpArmedPaused(false);
+            CommitRotateSession();
         }
 
-        private void OnRunStarted(RunStartedMessage message) => Disarm();
+        // A run boundary, not a settle: BoardSystem.StartNewRun redraws the whole tray before this
+        // message goes out, so by the time it arrives the slot an open session was keyed on no longer
+        // holds the piece the session was about — comparing against it would charge (or not) for a
+        // reason that has nothing to do with anything the player did. Discarded before Disarm rather
+        // than run through CommitRotateSession, which is only correct while the tray it reads is still
+        // the one the session opened against.
+        private void OnRunStarted(RunStartedMessage message)
+        {
+            DiscardRotateSession();
+            Disarm();
+        }
+
+        /// <summary>Drops an open rotate session with no spend, no publish and no game-over re-check —
+        /// the settle <see cref="CommitRotateSession"/> performs, minus the settling. For the one caller
+        /// where committing would be wrong: see <see cref="OnRunStarted"/>.</summary>
+        private void DiscardRotateSession()
+        {
+            _rotateSessionSlotIndex = NO_ROTATE_SESSION;
+            _rotateSessionOriginalPiece = null;
+        }
 
         private void OnGameOver(GameOverMessage message) => Disarm();
 

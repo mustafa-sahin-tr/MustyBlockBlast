@@ -393,9 +393,19 @@ is scoped deliberately narrowly:
   the same rule Joker and Color Cleanser follow for their illegal targets.
 - It touches no cell, so it clears nothing, scores nothing and neither advances nor breaks the
   combo streak.
-- Because it changes **which shapes** the player holds, the no-moves-left check is re-run after
-  it: a rotation that leaves nothing placeable ends the run, exactly as the placement that
-  exhausted the board would.
+- **Turning is a free preview; the charge is paid when the selection is dropped.** While Rotate is
+  armed, every tap on the same dock piece turns it another 90° and the power-up stays armed, so
+  the player can look at every orientation before deciding. The charge is settled only when the
+  armed selection is dropped — by cancelling (tapping the Rotate icon again), by arming or applying
+  a different power-up, or by the run ending — and then **at most one** charge is spent, however
+  many taps it took: one if the piece's final orientation differs from the one it had when the
+  player first tapped it, **none** if it was turned all the way back to where it started. Tapping
+  a different dock piece settles the first piece's charge (by the same rule) before the second
+  piece starts its own free preview.
+- Because it changes **which shapes** the player holds, the no-moves-left check is re-run when
+  the charge is settled — not after every tap — and only if the piece actually ended up changed:
+  a rotation that leaves nothing placeable ends the run, exactly as the placement that exhausted
+  the board would, while a piece turned through a dead orientation and back ends nothing.
 
 Reroll is the first of the three power-ups with **no target**. There is nothing to aim it at — the whole dock is
 the subject — so it is applied on the tap that selects it rather than armed and then aimed, and it

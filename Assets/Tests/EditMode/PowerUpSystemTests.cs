@@ -1384,28 +1384,349 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.AreEqual(1, reloadedModel.ColorCleanserCount.Value);
         }
 
+        // --- Rotate as a free preview, paid for on commit (issue #373) ---
+
+        /// <summary>The tap itself is free: it swaps the piece and nothing else. The charge, the
+        /// application message and the disarm all wait for the session to be settled.</summary>
         [Test]
-        public void TryApplyRotate_OnANonSymmetricalPiece_SwapsInTheRotatedCatalogPieceAndSpendsOne()
+        public void TryApplyRotate_OnANonSymmetricalPiece_SwapsInTheRotatedCatalogPieceWithoutSpendingYet()
         {
             PersistCount(PowerUpKind.Rotate, 2);
             var trayModel = new TrayModel();
             trayModel.SetSlot(1, FindPiece("t_up"), colourId: 3);
             PowerUpModel model = new PowerUpModel();
             PowerUpSystem system = CreateSystem(model, new BoardModel(), trayModel);
+            system.Arm(PowerUpKind.Rotate);
 
             bool applied = system.TryApplyRotate(1);
 
             Assert.IsTrue(applied);
-            Assert.AreEqual(1, model.RotateCount.Value);
+            Assert.AreEqual(2, model.RotateCount.Value);
+            Assert.AreEqual(PowerUpKind.Rotate, model.Armed.Value);
 
             // The slot holds a real catalog piece, so its id still describes its shape.
             Assert.AreEqual("t_right", trayModel.GetPiece(1).Id);
             Assert.AreSame(FindPiece("t_right"), trayModel.GetPiece(1));
             Assert.AreEqual(3, trayModel.GetColourId(1));
 
+            Assert.AreEqual(0, _appliedBroker.Published.Count);
+        }
+
+        /// <summary>Dropping the selection after a net change is what pays: exactly one charge and
+        /// exactly one application message, however the piece got to its final shape.</summary>
+        [Test]
+        public void CancelArm_AfterOneRotateTap_SpendsOneAndPublishesOnce()
+        {
+            PersistCount(PowerUpKind.Rotate, 2);
+            var trayModel = new TrayModel();
+            trayModel.SetSlot(1, FindPiece("t_up"), colourId: 3);
+            PowerUpModel model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, new BoardModel(), trayModel);
+            system.Arm(PowerUpKind.Rotate);
+            system.TryApplyRotate(1);
+
+            system.CancelArm();
+
+            Assert.AreEqual(1, model.RotateCount.Value);
+            Assert.IsNull(model.Armed.Value);
+            Assert.AreEqual("t_right", trayModel.GetPiece(1).Id);
             Assert.AreEqual(1, _appliedBroker.Published.Count);
             Assert.AreEqual(PowerUpKind.Rotate, _appliedBroker.Published[0].Kind);
             Assert.AreEqual(0, _appliedBroker.Published[0].ClearedCellCount);
+        }
+
+        [Test]
+        public void TryApplyRotate_TwiceOnTheSameSlot_KeepsTurningForFreeAndStaysArmed()
+        {
+            PersistCount(PowerUpKind.Rotate, 1);
+            var trayModel = new TrayModel();
+            trayModel.SetSlot(0, FindPiece("t_up"), colourId: 1);
+            PowerUpModel model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, new BoardModel(), trayModel);
+            system.Arm(PowerUpKind.Rotate);
+
+            Assert.IsTrue(system.TryApplyRotate(0));
+            Assert.IsTrue(system.TryApplyRotate(0));
+
+            Assert.AreEqual("t_down", trayModel.GetPiece(0).Id);
+            Assert.AreEqual(1, model.RotateCount.Value);
+            Assert.AreEqual(PowerUpKind.Rotate, model.Armed.Value);
+            Assert.AreEqual(0, _appliedBroker.Published.Count);
+        }
+
+        /// <summary>The issue's own case: a full turn back to where the piece started, then let go —
+        /// the dock is as the player found it, so nothing is spent and nothing is announced.</summary>
+        [Test]
+        public void CancelArm_AfterAFullTurnBackToTheOriginalShape_SpendsNothing()
+        {
+            PersistCount(PowerUpKind.Rotate, 1);
+            var trayModel = new TrayModel();
+            Piece original = FindPiece("t_up");
+            trayModel.SetSlot(0, original, colourId: 1);
+            PowerUpModel model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, new BoardModel(), trayModel);
+            system.Arm(PowerUpKind.Rotate);
+            for (int tapIndex = 0; tapIndex < 4; tapIndex++)
+            {
+                Assert.IsTrue(system.TryApplyRotate(0));
+            }
+
+            system.CancelArm();
+
+            Assert.AreSame(original, trayModel.GetPiece(0));
+            Assert.AreEqual(1, model.RotateCount.Value);
+            Assert.IsNull(model.Armed.Value);
+            Assert.AreEqual(0, _appliedBroker.Published.Count);
+        }
+
+        [Test]
+        public void CancelArm_AfterThreeTaps_SpendsExactlyOneAndPublishesExactlyOnce()
+        {
+            PersistCount(PowerUpKind.Rotate, 3);
+            var trayModel = new TrayModel();
+            trayModel.SetSlot(0, FindPiece("t_up"), colourId: 1);
+            PowerUpModel model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, new BoardModel(), trayModel);
+            system.Arm(PowerUpKind.Rotate);
+            for (int tapIndex = 0; tapIndex < 3; tapIndex++)
+            {
+                Assert.IsTrue(system.TryApplyRotate(0));
+            }
+
+            system.CancelArm();
+
+            Assert.AreEqual("t_left", trayModel.GetPiece(0).Id);
+            Assert.AreEqual(2, model.RotateCount.Value);
+            Assert.AreEqual(1, _appliedBroker.Published.Count);
+        }
+
+        /// <summary>Moving on to another piece settles the first: its net change decides its charge
+        /// before the second slot's session opens, so the two are paid for independently.</summary>
+        [Test]
+        public void TryApplyRotate_OnADifferentSlot_CommitsTheChangedFirstSlotBeforeStartingTheSecond()
+        {
+            PersistCount(PowerUpKind.Rotate, 3);
+            var trayModel = new TrayModel();
+            trayModel.SetSlot(0, FindPiece("t_up"), colourId: 1);
+            trayModel.SetSlot(1, FindPiece("line_h5"), colourId: 2);
+            PowerUpModel model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, new BoardModel(), trayModel);
+            system.Arm(PowerUpKind.Rotate);
+            Assert.IsTrue(system.TryApplyRotate(0));
+
+            Assert.IsTrue(system.TryApplyRotate(1));
+
+            // Slot 0 was paid for on the switch; slot 1's session is still open and unpaid.
+            Assert.AreEqual(2, model.RotateCount.Value);
+            Assert.AreEqual(1, _appliedBroker.Published.Count);
+            Assert.AreEqual(PowerUpKind.Rotate, model.Armed.Value);
+            Assert.AreEqual("t_right", trayModel.GetPiece(0).Id);
+            Assert.AreEqual("line_v5", trayModel.GetPiece(1).Id);
+
+            system.CancelArm();
+
+            Assert.AreEqual(1, model.RotateCount.Value);
+            Assert.AreEqual(2, _appliedBroker.Published.Count);
+        }
+
+        [Test]
+        public void TryApplyRotate_OnADifferentSlot_CommitsAnUnchangedFirstSlotForFree()
+        {
+            PersistCount(PowerUpKind.Rotate, 2);
+            var trayModel = new TrayModel();
+            Piece original = FindPiece("line_h2");
+            trayModel.SetSlot(0, original, colourId: 1);
+            trayModel.SetSlot(1, FindPiece("t_up"), colourId: 2);
+            PowerUpModel model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, new BoardModel(), trayModel);
+            system.Arm(PowerUpKind.Rotate);
+
+            // A two-cell line is back to itself after two turns.
+            Assert.IsTrue(system.TryApplyRotate(0));
+            Assert.IsTrue(system.TryApplyRotate(0));
+            Assert.IsTrue(system.TryApplyRotate(1));
+
+            Assert.AreSame(original, trayModel.GetPiece(0));
+            Assert.AreEqual(2, model.RotateCount.Value);
+            Assert.AreEqual(0, _appliedBroker.Published.Count);
+
+            system.CancelArm();
+
+            Assert.AreEqual(1, model.RotateCount.Value);
+            Assert.AreEqual(1, _appliedBroker.Published.Count);
+        }
+
+        /// <summary>A refused tap on a symmetrical piece is a dead tap in every sense: it neither
+        /// settles nor disturbs the session already open on another slot.</summary>
+        [Test]
+        public void TryApplyRotate_OnASymmetricalPiece_DoesNotDisturbTheSessionOpenOnAnotherSlot()
+        {
+            PersistCount(PowerUpKind.Rotate, 2);
+            var trayModel = new TrayModel();
+            trayModel.SetSlot(0, FindPiece("t_up"), colourId: 1);
+            trayModel.SetSlot(1, FindPiece("square_2x2"), colourId: 2);
+            PowerUpModel model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, new BoardModel(), trayModel);
+            system.Arm(PowerUpKind.Rotate);
+            Assert.IsTrue(system.TryApplyRotate(0));
+
+            Assert.IsFalse(system.TryApplyRotate(1));
+
+            Assert.AreEqual(2, model.RotateCount.Value);
+            Assert.AreEqual(0, _appliedBroker.Published.Count);
+            Assert.AreEqual(PowerUpKind.Rotate, model.Armed.Value);
+
+            // Still the same session: turning slot 0 back and letting go costs nothing.
+            Assert.IsTrue(system.TryApplyRotate(0));
+            Assert.IsTrue(system.TryApplyRotate(0));
+            Assert.IsTrue(system.TryApplyRotate(0));
+            system.CancelArm();
+
+            Assert.AreEqual("t_up", trayModel.GetPiece(0).Id);
+            Assert.AreEqual(2, model.RotateCount.Value);
+            Assert.AreEqual(0, _appliedBroker.Published.Count);
+        }
+
+        /// <summary>Arm replaces the selection without disarming, so it is its own choke point: reaching
+        /// for another kind mid-session settles the rotate as part of the switch.</summary>
+        [Test]
+        public void Arm_OfAnotherKind_WhileARotateSessionChangedThePiece_SpendsTheRotate()
+        {
+            PersistCount(PowerUpKind.Rotate, 1);
+            PersistCount(PowerUpKind.Bomb, 1);
+            var trayModel = new TrayModel();
+            trayModel.SetSlot(0, FindPiece("t_up"), colourId: 1);
+            PowerUpModel model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, new BoardModel(), trayModel);
+            system.Arm(PowerUpKind.Rotate);
+            Assert.IsTrue(system.TryApplyRotate(0));
+
+            system.Arm(PowerUpKind.Bomb);
+
+            Assert.AreEqual(PowerUpKind.Bomb, model.Armed.Value);
+            Assert.AreEqual(0, model.RotateCount.Value);
+            Assert.AreEqual(1, model.BombCount.Value);
+            Assert.AreEqual(1, _appliedBroker.Published.Count);
+            Assert.AreEqual(PowerUpKind.Rotate, _appliedBroker.Published[0].Kind);
+        }
+
+        /// <summary>The targetless kinds end in Disarm, so applying one mid-session settles the rotate
+        /// on the way through.</summary>
+        [Test]
+        public void TryApplyReroll_WhileARotateSessionChangedThePiece_SpendsTheRotateToo()
+        {
+            PersistCount(PowerUpKind.Rotate, 1);
+            PersistCount(PowerUpKind.Reroll, 1);
+            var trayModel = new TrayModel();
+            trayModel.SetSlot(0, FindPiece("t_up"), colourId: 1);
+            PowerUpModel model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, new BoardModel(), trayModel);
+            system.Arm(PowerUpKind.Rotate);
+            Assert.IsTrue(system.TryApplyRotate(0));
+
+            Assert.IsTrue(system.TryApplyReroll());
+
+            Assert.IsNull(model.Armed.Value);
+            Assert.AreEqual(0, model.RotateCount.Value);
+            Assert.AreEqual(0, model.RerollCount.Value);
+            Assert.AreEqual(2, _appliedBroker.Published.Count);
+            Assert.AreEqual(PowerUpKind.Reroll, _appliedBroker.Published[0].Kind);
+            Assert.AreEqual(PowerUpKind.Rotate, _appliedBroker.Published[1].Kind);
+        }
+
+        [Test]
+        public void OnGameOver_WhileARotateSessionChangedThePiece_SettlesItBySpendingOne()
+        {
+            PersistCount(PowerUpKind.Rotate, 1);
+            var trayModel = new TrayModel();
+            trayModel.SetSlot(0, FindPiece("t_up"), colourId: 1);
+            PowerUpModel model = new PowerUpModel();
+            var runStartedBroker = new TestMessageBroker<RunStartedMessage>();
+            var gameOverBroker = new TestMessageBroker<GameOverMessage>();
+            PowerUpSystem system = CreateSystem(
+                model, new BoardModel(), trayModel, runStartedBroker, gameOverBroker);
+            system.Arm(PowerUpKind.Rotate);
+            Assert.IsTrue(system.TryApplyRotate(0));
+
+            gameOverBroker.Publish(new GameOverMessage(GameOverReason.TimeUp));
+
+            Assert.IsNull(model.Armed.Value);
+            Assert.AreEqual(0, model.RotateCount.Value);
+            Assert.AreEqual(1, _appliedBroker.Published.Count);
+        }
+
+        [Test]
+        public void OnGameOver_WhileARotateSessionTurnedThePieceBack_SettlesItForFree()
+        {
+            PersistCount(PowerUpKind.Rotate, 1);
+            var trayModel = new TrayModel();
+            trayModel.SetSlot(0, FindPiece("line_h2"), colourId: 1);
+            PowerUpModel model = new PowerUpModel();
+            var runStartedBroker = new TestMessageBroker<RunStartedMessage>();
+            var gameOverBroker = new TestMessageBroker<GameOverMessage>();
+            PowerUpSystem system = CreateSystem(
+                model, new BoardModel(), trayModel, runStartedBroker, gameOverBroker);
+            system.Arm(PowerUpKind.Rotate);
+            Assert.IsTrue(system.TryApplyRotate(0));
+            Assert.IsTrue(system.TryApplyRotate(0));
+
+            gameOverBroker.Publish(new GameOverMessage(GameOverReason.TimeUp));
+
+            Assert.IsNull(model.Armed.Value);
+            Assert.AreEqual(1, model.RotateCount.Value);
+            Assert.AreEqual(0, _appliedBroker.Published.Count);
+        }
+
+        /// <summary>BoardSystem.StartNewRun redraws the whole tray before RunStartedMessage goes out, so
+        /// an open session's remembered piece is already stale by the time this handler runs — settling
+        /// it against the fresh tray would charge (or not) for a reason unrelated to anything the player
+        /// did. The session is discarded instead: free, whichever way the piece happened to change.</summary>
+        [Test]
+        public void OnRunStarted_WhileARotateSessionChangedThePiece_DiscardsItForFree()
+        {
+            PersistCount(PowerUpKind.Rotate, 1);
+            var trayModel = new TrayModel();
+            trayModel.SetSlot(0, FindPiece("t_up"), colourId: 1);
+            PowerUpModel model = new PowerUpModel();
+            var runStartedBroker = new TestMessageBroker<RunStartedMessage>();
+            var gameOverBroker = new TestMessageBroker<GameOverMessage>();
+            PowerUpSystem system = CreateSystem(
+                model, new BoardModel(), trayModel, runStartedBroker, gameOverBroker);
+            system.Arm(PowerUpKind.Rotate);
+            Assert.IsTrue(system.TryApplyRotate(0));
+
+            runStartedBroker.Publish(new RunStartedMessage());
+
+            Assert.IsNull(model.Armed.Value);
+            Assert.AreEqual(1, model.RotateCount.Value);
+            Assert.AreEqual(0, _appliedBroker.Published.Count);
+        }
+
+        /// <summary>A second session on the same slot, opened after the first was settled, is its own
+        /// affair: the earlier charge is not refunded by turning the piece back afterwards.</summary>
+        [Test]
+        public void TryApplyRotate_AfterACommit_OpensAFreshSessionAgainstTheCommittedShape()
+        {
+            PersistCount(PowerUpKind.Rotate, 2);
+            var trayModel = new TrayModel();
+            trayModel.SetSlot(0, FindPiece("t_up"), colourId: 1);
+            PowerUpModel model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, new BoardModel(), trayModel);
+            system.Arm(PowerUpKind.Rotate);
+            Assert.IsTrue(system.TryApplyRotate(0));
+            system.CancelArm();
+            Assert.AreEqual(1, model.RotateCount.Value);
+
+            // Three more turns bring it back to t_up — a net change from the committed t_right.
+            system.Arm(PowerUpKind.Rotate);
+            Assert.IsTrue(system.TryApplyRotate(0));
+            Assert.IsTrue(system.TryApplyRotate(0));
+            Assert.IsTrue(system.TryApplyRotate(0));
+            system.CancelArm();
+
+            Assert.AreEqual("t_up", trayModel.GetPiece(0).Id);
+            Assert.AreEqual(0, model.RotateCount.Value);
+            Assert.AreEqual(2, _appliedBroker.Published.Count);
         }
 
         [Test]
@@ -1507,7 +1828,9 @@ namespace MustyBlockBlast.Tests.EditMode
             var trayModel = new TrayModel();
             trayModel.SetSlot(0, FindPiece("corner2_missing_tr"), colourId: 1);
             PowerUpSystem system = CreateSystem(new PowerUpModel(), new BoardModel(), trayModel);
+            system.Arm(PowerUpKind.Rotate);
             system.TryApplyRotate(0);
+            system.CancelArm();
 
             PowerUpModel reloadedModel = new PowerUpModel();
             PowerUpSystem unused = CreateSystem(reloadedModel, new BoardModel());
@@ -1515,8 +1838,10 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.AreEqual(1, reloadedModel.RotateCount.Value);
         }
 
+        /// <summary>The selection outlives the tap on purpose: it is what lets the player keep
+        /// turning the same piece, and it is dropping it that settles the charge.</summary>
         [Test]
-        public void TryApplyRotate_OnSuccess_DropsTheArmedSelection()
+        public void TryApplyRotate_OnSuccess_KeepsTheSelectionArmed()
         {
             PersistCount(PowerUpKind.Rotate, 1);
             var trayModel = new TrayModel();
@@ -1527,16 +1852,16 @@ namespace MustyBlockBlast.Tests.EditMode
 
             Assert.IsTrue(system.TryApplyRotate(0));
 
-            Assert.IsNull(model.Armed.Value);
+            Assert.AreEqual(PowerUpKind.Rotate, model.Armed.Value);
         }
 
         /// <summary>
         /// A rotate changes <em>which shapes</em> the player holds, so unlike a park it can take the
-        /// last legal move away. <c>BoardSystem</c> is asked to re-check, and the run ends exactly as
-        /// the placement that exhausted the board would have ended it.
+        /// last legal move away. <c>BoardSystem</c> is asked to re-check when the session is settled,
+        /// and the run ends exactly as the placement that exhausted the board would have ended it.
         /// </summary>
         [Test]
-        public void TryApplyRotate_WhenTheTurnedPieceNoLongerFits_EndsTheRun()
+        public void CancelArm_WhenTheTurnedPieceNoLongerFits_EndsTheRun()
         {
             PersistCount(PowerUpKind.Rotate, 1);
             var boardModel = new BoardModel();
@@ -1555,19 +1880,60 @@ namespace MustyBlockBlast.Tests.EditMode
             var trayModel = new TrayModel();
             trayModel.SetSlot(0, FindPiece("line_h2"), colourId: 1);
             var gameOverBroker = new TestMessageBroker<GameOverMessage>();
-            PowerUpSystem system = CreateSystem(new PowerUpModel(), boardModel, trayModel, gameOverBroker);
+            PowerUpModel model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, boardModel, trayModel, gameOverBroker);
+            system.Arm(PowerUpKind.Rotate);
 
             Assert.IsTrue(system.TryApplyRotate(0));
 
+            // The preview alone ends nothing: the player may still turn it back.
             Assert.AreEqual("line_v2", trayModel.GetPiece(0).Id);
+            Assert.AreEqual(0, gameOverBroker.Published.Count);
+
+            system.CancelArm();
+
             Assert.AreEqual(1, gameOverBroker.Published.Count);
             Assert.AreEqual(GameOverReason.NoMovesLeft, gameOverBroker.Published[0].Reason);
+            Assert.AreEqual(0, model.RotateCount.Value);
+            Assert.IsNull(model.Armed.Value);
+        }
+
+        /// <summary>The re-check belongs to the settle, not the tap: a piece that passed through a
+        /// dead orientation on its way back to a live one ends nothing and costs nothing.</summary>
+        [Test]
+        public void CancelArm_WhenThePieceWasTurnedThroughADeadOrientationAndBack_LeavesTheRunAliveForFree()
+        {
+            PersistCount(PowerUpKind.Rotate, 1);
+            var boardModel = new BoardModel();
+
+            // The same board as above: line_h2 fits, line_v2 does not.
+            FillBoardExcept(
+                boardModel,
+                new GridPosition(0, 0), new GridPosition(1, 0),
+                new GridPosition(3, 2), new GridPosition(5, 2), new GridPosition(7, 2),
+                new GridPosition(0, 4), new GridPosition(2, 4));
+
+            var trayModel = new TrayModel();
+            trayModel.SetSlot(0, FindPiece("line_h2"), colourId: 1);
+            var gameOverBroker = new TestMessageBroker<GameOverMessage>();
+            PowerUpModel model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, boardModel, trayModel, gameOverBroker);
+            system.Arm(PowerUpKind.Rotate);
+            Assert.IsTrue(system.TryApplyRotate(0));
+            Assert.IsTrue(system.TryApplyRotate(0));
+
+            system.CancelArm();
+
+            Assert.AreEqual("line_h2", trayModel.GetPiece(0).Id);
+            Assert.AreEqual(0, gameOverBroker.Published.Count);
+            Assert.AreEqual(1, model.RotateCount.Value);
+            Assert.AreEqual(0, _appliedBroker.Published.Count);
         }
 
         /// <summary>The other half of the same contract: the re-check is a question, not a verdict, so
         /// a rotate that leaves a move standing must not end anything.</summary>
         [Test]
-        public void TryApplyRotate_WhenTheTurnedPieceStillFits_LeavesTheRunAlive()
+        public void CancelArm_WhenTheTurnedPieceStillFits_LeavesTheRunAlive()
         {
             PersistCount(PowerUpKind.Rotate, 1);
             var boardModel = new BoardModel();
@@ -1580,8 +1946,10 @@ namespace MustyBlockBlast.Tests.EditMode
             trayModel.SetSlot(0, FindPiece("line_h2"), colourId: 1);
             var gameOverBroker = new TestMessageBroker<GameOverMessage>();
             PowerUpSystem system = CreateSystem(new PowerUpModel(), boardModel, trayModel, gameOverBroker);
+            system.Arm(PowerUpKind.Rotate);
 
             Assert.IsTrue(system.TryApplyRotate(0));
+            system.CancelArm();
 
             Assert.AreEqual("line_v2", trayModel.GetPiece(0).Id);
             Assert.AreEqual(0, gameOverBroker.Published.Count);
@@ -2502,12 +2870,50 @@ namespace MustyBlockBlast.Tests.EditMode
                 model, boardModel, trayModel, rewardSource, CreateBoardSystem(boardModel, trayModel));
         }
 
+        /// <summary>For the rotate-session tests (issue #373): the run boundaries the system under test
+        /// itself listens on, so a test can end or restart the run and watch an open session settle.</summary>
+        private PowerUpSystem CreateSystem(
+            PowerUpModel model,
+            BoardModel boardModel,
+            TrayModel trayModel,
+            TestMessageBroker<RunStartedMessage> runStartedBroker,
+            TestMessageBroker<GameOverMessage> gameOverBroker)
+        {
+            return CreateSystem(
+                model,
+                boardModel,
+                trayModel,
+                new StubRewardSource(granted: true),
+                CreateBoardSystem(boardModel, trayModel),
+                runStartedBroker,
+                gameOverBroker);
+        }
+
         private PowerUpSystem CreateSystem(
             PowerUpModel model,
             BoardModel boardModel,
             TrayModel trayModel,
             IRewardSource rewardSource,
             BoardSystem boardSystem)
+        {
+            return CreateSystem(
+                model,
+                boardModel,
+                trayModel,
+                rewardSource,
+                boardSystem,
+                new TestMessageBroker<RunStartedMessage>(),
+                new TestMessageBroker<GameOverMessage>());
+        }
+
+        private PowerUpSystem CreateSystem(
+            PowerUpModel model,
+            BoardModel boardModel,
+            TrayModel trayModel,
+            IRewardSource rewardSource,
+            BoardSystem boardSystem,
+            TestMessageBroker<RunStartedMessage> runStartedBroker,
+            TestMessageBroker<GameOverMessage> gameOverBroker)
         {
             _ghostFitModel = new GhostFitModel();
             _ghostFitSystem = new GhostFitSystem(
@@ -2545,8 +2951,8 @@ namespace MustyBlockBlast.Tests.EditMode
                 _vortexIslandFilledBroker,
                 _coinCellsBroker,
                 _currencyConfig,
-                new TestMessageBroker<RunStartedMessage>(),
-                new TestMessageBroker<GameOverMessage>());
+                runStartedBroker,
+                gameOverBroker);
         }
 
         /// <summary>
