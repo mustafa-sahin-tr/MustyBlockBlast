@@ -193,15 +193,14 @@ namespace MustyBlockBlast.Presentation.Views
         private static readonly Color ScoreGemIconTint = new Color(0.44f, 1f, 0.72f, 1f);
 
         /// <summary>
-        /// Colour a <see cref="SpecialCellKind.Vortex"/>'s icon is drawn in. Fixed and unthemed, and a
-        /// third distinct hue, for the reasons <see cref="ScoreGemIconTint"/> is: a vortex neither blows
-        /// a hole in the board nor multiplies a score — it rearranges what is already there — so it has
-        /// to be told apart at a glance from both. A cool violet, as far from the warm near-white of the
-        /// destructive kinds and the green of the gem as the palette allows.
+        /// Colour a <see cref="SpecialCellKind.Vortex"/>'s glow halo is drawn in (see
+        /// <see cref="GlowIdentityColor"/>). A cool violet, as far from the warm near-white of the
+        /// destructive kinds and the green of the gem as the palette allows, so the halo still reads as
+        /// this kind's own colour at a glance.
         /// <para>
-        /// The sprite is shared with every other kind on purpose (<c>UiSpriteFactory.Starburst</c>): one
-        /// sprite for every icon is what keeps an icon on any number of cells batching with the rest of
-        /// the board, so the kinds are separated by tint rather than by a second texture.
+        /// No longer the icon's own tint: Vortex now uses a full-colour hand-picked sprite
+        /// (<c>vortex_icon.png</c>) instead of a white silhouette, so <see cref="IconTint"/> returns
+        /// <see cref="Color.white"/> for it and lets the sprite's own colours show through untouched.
         /// </para>
         /// </summary>
         private static readonly Color VortexIconTint = new Color(0.62f, 0.66f, 1f, 1f);
@@ -221,21 +220,30 @@ namespace MustyBlockBlast.Presentation.Views
         private static readonly Color ChainLightningIconTint = new Color(1f, 0.85f, 0.29f, 1f);
 
         /// <summary>
-        /// Colour a <see cref="SpecialCellKind.Coin"/>'s icon is drawn in. A fifth distinct hue, for the
-        /// reason the others are distinct: a coin destroys nothing and does not even multiply the run's
-        /// score — it pays into a balance that outlives the run — so it must be told apart at a glance
-        /// from the destructive kinds and from the gem alike. Gold, which is the one colour a player
-        /// reads as currency without being told, and the same tint
-        /// <see cref="CoinTotalHudView"/> paints the HUD total with so the cell and the counter it feeds
-        /// are recognisably the same thing.
+        /// Colour a <see cref="SpecialCellKind.Coin"/>'s glow halo is drawn in (see
+        /// <see cref="GlowIdentityColor"/>). Gold, which is the one colour a player reads as currency
+        /// without being told, and the same tint <see cref="CoinTotalHudView"/> paints the HUD total
+        /// with so the cell and the counter it feeds are recognisably the same thing.
         /// <para>
-        /// The sprite is shared with every other kind on purpose (<c>UiSpriteFactory.Starburst</c>): one
-        /// sprite for every icon is what keeps an icon on any number of cells batching with the rest of
-        /// the board, so the kinds are separated by tint rather than by a second texture — which is also
-        /// why a coin cell needs no sprite asset and no atlas of its own.
+        /// No longer the icon's own tint: Coin now uses a full-colour hand-picked sprite
+        /// (<c>coin_icon.png</c>) instead of a white silhouette, so <see cref="IconTint"/> returns
+        /// <see cref="Color.white"/> for it and lets the sprite's own colours show through untouched.
         /// </para>
         /// </summary>
         private static readonly Color CoinIconTint = new Color(1f, 0.82f, 0.25f, 1f);
+
+        /// <summary>
+        /// Colour a <see cref="SpecialCellKind.ExplosiveCore"/>'s glow halo is drawn in (see
+        /// <see cref="GlowIdentityColor"/>). A deep crimson, chosen to sit far from both
+        /// <see cref="CoinIconTint"/>'s gold and <see cref="VortexIconTint"/>'s violet — the core's own
+        /// full-colour sprite (<c>explosive_core_icon.png</c>) is a red/magenta plasma, and an amber or
+        /// gold glow behind it would read as the same kind as a coin at a glance.
+        /// <para>
+        /// Like Vortex and Coin, <see cref="IconTint"/> returns <see cref="Color.white"/> for this kind
+        /// so the sprite's own colours show through untouched; this constant only tints the glow.
+        /// </para>
+        /// </summary>
+        private static readonly Color ExplosiveCoreGlowTint = new Color(1f, 0.2f, 0.35f, 1f);
 
         /// <summary>How far a kind's glow halo (issue #365) is blended towards white on top of its own
         /// <see cref="IconTint"/> — bright enough to read as an emissive backing against any theme's
@@ -2672,19 +2680,55 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>The tint one kind's icon is drawn in. Stated once, as a switch rather than a chain
         /// of conditionals, so a new kind is one line here and nothing else. Internal so
         /// <see cref="InfoPopupView"/> can reuse it for a special cell's popup hero icon rather than
-        /// duplicating this table.</summary>
+        /// duplicating this table.
+        /// <para>
+        /// Vortex, Coin, and ExplosiveCore return <see cref="Color.white"/> (no-op tint): those three
+        /// ship as full-colour hand-picked sprites rather than white silhouettes, so multiplying them by
+        /// anything but white would recolour art that already carries its own palette. Their
+        /// distinguishing hue lives only in <see cref="GlowIdentityColor"/> now, for the halo behind
+        /// them. Every other kind is still a white silhouette tinted here, exactly as before.
+        /// </para>
+        /// </summary>
         internal static Color IconTint(SpecialCellKind kind)
         {
             switch (kind)
             {
+                case SpecialCellKind.Vortex:
+                case SpecialCellKind.Coin:
+                case SpecialCellKind.ExplosiveCore:
+                    return Color.white;
                 case SpecialCellKind.ScoreGem:
                     return ScoreGemIconTint;
-                case SpecialCellKind.Vortex:
-                    return VortexIconTint;
                 case SpecialCellKind.ChainLightning:
                     return ChainLightningIconTint;
+                case SpecialCellKind.Timer:
+                    return SpecialIconTint;
+                default:
+                    return SpecialIconTint;
+            }
+        }
+
+        /// <summary>
+        /// The hue one kind's glow halo (issue #365) is identified by — kept as its own table rather
+        /// than reusing <see cref="IconTint"/> now that Vortex, Coin, and ExplosiveCore tint their icon
+        /// with plain white (their sprite already carries full colour): without this split, their glow
+        /// would go white too and stop reading as their own kind. Every kind not in that trio still maps
+        /// 1:1 with its <see cref="IconTint"/> entry, so nothing else changes.
+        /// </summary>
+        private static Color GlowIdentityColor(SpecialCellKind kind)
+        {
+            switch (kind)
+            {
+                case SpecialCellKind.Vortex:
+                    return VortexIconTint;
                 case SpecialCellKind.Coin:
                     return CoinIconTint;
+                case SpecialCellKind.ExplosiveCore:
+                    return ExplosiveCoreGlowTint;
+                case SpecialCellKind.ScoreGem:
+                    return ScoreGemIconTint;
+                case SpecialCellKind.ChainLightning:
+                    return ChainLightningIconTint;
                 case SpecialCellKind.Timer:
                     return SpecialIconTint;
                 default:
@@ -2694,17 +2738,16 @@ namespace MustyBlockBlast.Presentation.Views
 
         /// <summary>
         /// The colour one kind's glow halo (issue #365) is drawn in behind its icon — derived from
-        /// <see cref="IconTint"/> rather than a second per-kind table, so every kind that ever gets a new
-        /// icon tint automatically gets a matching glow with no second switch to keep in sync (AC2).
-        /// Blended towards white (<see cref="GLOW_TINT_WHITEN"/>) for brightness against any theme fill
-        /// (AC3) while keeping enough of the source hue that a kind's glow is still recognisably its own
-        /// colour, not a shared white halo for all seven (AC5). Not reused by <see cref="InfoPopupView"/>
-        /// — its hero icon stays flat by design (AC6) — so, unlike <see cref="IconTint"/>, this is
-        /// private.
+        /// <see cref="GlowIdentityColor"/> rather than <see cref="IconTint"/> (see that method's remarks
+        /// for why the two split). Blended towards white (<see cref="GLOW_TINT_WHITEN"/>) for brightness
+        /// against any theme fill (AC3) while keeping enough of the source hue that a kind's glow is
+        /// still recognisably its own colour, not a shared white halo for all seven (AC5). Not reused by
+        /// <see cref="InfoPopupView"/> — its hero icon stays flat by design (AC6) — so, unlike
+        /// <see cref="IconTint"/>, this is private.
         /// </summary>
         private static Color GlowTint(SpecialCellKind kind)
         {
-            Color tint = IconTint(kind);
+            Color tint = GlowIdentityColor(kind);
             Color glow = Color.Lerp(tint, Color.white, GLOW_TINT_WHITEN);
             glow.a = GLOW_BASE_ALPHA;
             return glow;
