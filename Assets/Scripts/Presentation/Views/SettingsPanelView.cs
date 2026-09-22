@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Text;
 using Cysharp.Threading.Tasks;
 using MustyBlockBlast.Gameplay;
 using MustyBlockBlast.Gameplay.Localization;
@@ -9,6 +8,7 @@ using MustyBlockBlast.Gameplay.Models;
 using Mtafasahin.Reactive;
 using MustyBlockBlast.Gameplay.Settings;
 using MustyBlockBlast.Gameplay.Systems;
+using MustyBlockBlast.Presentation.Views.Shared;
 using UnityEngine;
 using UnityEngine.UI;
 using VContainer;
@@ -29,13 +29,15 @@ namespace MustyBlockBlast.Presentation.Views
     /// board in that theme's real kind colours. Picking one calls <see cref="SettingsSystem.SetTheme"/>
     /// and returns; the recolour itself is handled by the reactive theme subscriptions in every other
     /// View, so nothing else happens here.</item>
-    /// <item>Mode — one plate per entry in <see cref="SelectableModes"/>, with a one-line description
+    /// <item>Mode — one plate per entry in <see cref="ModePlateBuilder.SelectableModes"/>, with a one-line description
     /// and a PLAYING tag on the active one. Picking the active mode just returns; picking any other
     /// opens the confirmation card at the bottom of the same screen, because switching restarts the
     /// run. The Timed plate is taller than the other two: it carries a 3-column row of duration chips
     /// under its header, so the length is picked in place rather than on a separate screen (issue
     /// #270). Picking a chip always applies immediately; it only opens the confirmation card too when
-    /// Timed was not already the active mode.</item>
+    /// Timed was not already the active mode. The plates and chips themselves are built and repainted
+    /// by the shared <see cref="ModePlateBuilder"/>, which the mode-select scene draws from too (issue
+    /// #379); this card owns only the hit-testing and the confirmation step.</item>
     /// <item>ModeConfirm — the Mode screen with that card showing: KEEP PLAYING steps back, RESTART
     /// calls <see cref="GameModeSystem.SelectMode"/>, which owns the restart.</item>
     /// <item>Language — one plate per shipped language, each labelled in its own language. Picking one
@@ -90,7 +92,6 @@ namespace MustyBlockBlast.Presentation.Views
         /// in its shade, so the shade shows as a lip along the bottom.</summary>
         private const float TILE_SIZE = 96f;
         private const float TILE_LIP = 7f;
-        private const float TILE_CORNER_RADIUS = 28f;
 
         /// <summary>Left edge of a row's text column: after the padding, the tile and a gap.</summary>
         private const float ROW_TEXT_INSET = ROW_PADDING_X + TILE_SIZE + 28f;
@@ -180,14 +181,6 @@ namespace MustyBlockBlast.Presentation.Views
         private const float CHECK_DISC_INSET = 20f;
         private const float CHECK_GLYPH_SIZE = 34f;
 
-        private const float MODE_NAME_RISE = 26f;
-        private const float MODE_DESCRIPTION_DROP = 24f;
-
-        /// <summary>Horizontal room reserved at a mode plate's right edge for the PLAYING tag, so a
-        /// description that wraps to a second line (issue #355 follow-up — some locales' copy, e.g.
-        /// Spanish's "Infinito" description, does not fit one line) never runs under it.</summary>
-        private const float MODE_DESCRIPTION_PLAYING_RESERVE = 150f;
-
         /// <summary>The restart confirmation: a plate at the foot of the mode screen with a title, a
         /// line of body and the two buttons.</summary>
         private const float CONFIRM_CARD_HEIGHT = 250f;
@@ -196,25 +189,6 @@ namespace MustyBlockBlast.Presentation.Views
         private const float CONFIRM_BODY_DROP = 104f;
         private const float CONFIRM_BUTTON_HEIGHT = 84f;
         private const float CONFIRM_BUTTON_GAP = 24f;
-
-        /// <summary>How many timed (non-"Sınırsız") lengths share the bottom chip row — 5/10/15 dk
-        /// today. The endless entry gets its own full-width row above this one instead of a fourth
-        /// column, so "5 dk"/"10 dk"/"15 dk" can stay one line each in every locale (issue #355
-        /// follow-up) rather than needing the number and unit split onto separate lines.</summary>
-        private const int DURATION_COLUMN_COUNT = 3;
-        private const float OPTION_GAP = 24f;
-
-        /// <summary>
-        /// The Timed plate on the mode screen carries two duration chip rows under its header — the
-        /// "Sınırsız" entry full-width on top, the timed lengths in a grid below it (issue #355
-        /// follow-up) — so it is taller than the other two mode plates (issue #270). The header fills
-        /// the top <see cref="ROW_HEIGHT"/> of the plate exactly as every other mode plate does, and the
-        /// two chip rows fill the rest, with one <see cref="ROW_GAP"/> between each pair — the same "no
-        /// extra padding, the row height IS the content" language every other row already uses.
-        /// </summary>
-        private const float TIMED_CHIP_ROW_HEIGHT = 110f;
-        private const float TIMED_PLATE_HEIGHT =
-            ROW_HEIGHT + (ROW_GAP * 2f) + (TIMED_CHIP_ROW_HEIGHT * 2f);
 
         // Type sizes. The display face is Bowlby One SC where the mock-up uses it (values, names,
         // buttons); everything else is the built-in face in bold, as on the profile card.
@@ -227,7 +201,6 @@ namespace MustyBlockBlast.Presentation.Views
         private const int BUTTON_FONT_SIZE = 34;
         private const int CONFIRM_TITLE_FONT_SIZE = 40;
         private const int CONFIRM_BUTTON_FONT_SIZE = 30;
-        private const int OPTION_FONT_SIZE = 44;
 
         /// <summary>How far the well sinks below the card: Ink over CardBackground.</summary>
         private const float WELL_TINT = 0.06f;
@@ -251,39 +224,23 @@ namespace MustyBlockBlast.Presentation.Views
         private const int THEME_KIND = 3;
         private const int LANGUAGE_KIND = 4;
         private const int SOUND_KIND = 2;
-        private const int DURATION_KIND = 1;
         private const int PRIMARY_KIND = 1;
         private const int TOGGLE_KIND = 5;
         private const int OWNED_KIND = 5;
 
-        /// <summary>
-        /// Every mode the picker offers, in display order. The single source of "which modes exist to
-        /// choose from": adding one here (with its tile kind, glyph and description key) is all the
-        /// picker needs.
-        /// </summary>
-        private static readonly GameMode[] SelectableModes =
-        {
-            GameMode.Timed,
-            GameMode.Endless,
-            GameMode.Path,
-        };
-
         private readonly CompositeDisposable _disposables = new CompositeDisposable();
         private readonly List<ThemeOption> _themeOptions = new List<ThemeOption>(4);
-        private readonly List<ModeOption> _modeOptions = new List<ModeOption>(SelectableModes.Length);
-        private readonly List<DurationOption> _durationOptions = new List<DurationOption>(6);
         private readonly List<LanguageOption> _languageOptions = new List<LanguageOption>(3);
-        private readonly StringBuilder _stringBuilder = new StringBuilder(8);
 
         // Repaint buckets: every Image and Text built here belongs to exactly one of them, so a theme
-        // switch is a handful of tight loops instead of a hierarchy walk.
+        // switch is a handful of tight loops instead of a hierarchy walk. The mode plates, the duration
+        // chips and every kind tile are built by _modePlates, which keeps its own buckets.
         private readonly List<Image> _platePlates = new List<Image>(32);
         private readonly List<Image> _plateShadows = new List<Image>(32);
         private readonly List<Image> _inkImages = new List<Image>(24);
         private readonly List<Image> _discFaces = new List<Image>(8);
         private readonly List<Image> _discLips = new List<Image>(8);
         private readonly List<KindImage> _kindFills = new List<KindImage>(24);
-        private readonly List<KindImage> _kindShades = new List<KindImage>(12);
         private readonly List<Text> _inkTexts = new List<Text>(24);
         private readonly List<Text> _softInkTexts = new List<Text>(16);
         private readonly Image[] _themeValueDots = new Image[ThemeDefinition.KIND_COUNT];
@@ -326,6 +283,10 @@ namespace MustyBlockBlast.Presentation.Views
         private ProfileModel _profileModel;
         private AdRemovalSystem _adRemovalSystem;
         private Canvas _canvas;
+
+        /// <summary>Builds and repaints the mode plates and duration chips. Created in <see cref="Start"/>,
+        /// once the systems and the display font it draws with are known.</summary>
+        private ModePlateBuilder _modePlates;
 
         /// <summary>
         /// Guards the Remove Ads button against a second tap while a store prompt is already up: a
@@ -385,7 +346,7 @@ namespace MustyBlockBlast.Presentation.Views
         private Text _languageValueText;
 
         /// <summary>The mode row's tile wears the active mode's own glyph, one per selectable mode.</summary>
-        private readonly GameObject[] _modeRowGlyphs = new GameObject[SelectableModes.Length];
+        private readonly GameObject[] _modeRowGlyphs = new GameObject[ModePlateBuilder.SelectableModes.Length];
 
         private RectTransform _removeAdsButtonRect;
         private Image _removeAdsButtonPlate;
@@ -484,6 +445,7 @@ namespace MustyBlockBlast.Presentation.Views
 
             // Built in Start rather than Awake: the theme grid needs the injected theme catalogue,
             // which is only available once VContainer has run Construct.
+            _modePlates = new ModePlateBuilder(_localizationSystem, _localizationModel, _timedModeSystem, _displayFont);
             BuildPanel();
             SetScreen(PanelScreen.Settings);
             _panel.SetActive(false);
@@ -671,9 +633,10 @@ namespace MustyBlockBlast.Presentation.Views
         /// </summary>
         private bool HandleModeScreenTap(Vector2 screenPosition, Camera eventCamera)
         {
-            for (int optionIndex = 0; optionIndex < _durationOptions.Count; optionIndex++)
+            IReadOnlyList<DurationOption> durationOptions = _modePlates.DurationOptions;
+            for (int optionIndex = 0; optionIndex < durationOptions.Count; optionIndex++)
             {
-                DurationOption durationOption = _durationOptions[optionIndex];
+                DurationOption durationOption = durationOptions[optionIndex];
                 if (!RectTransformUtility.RectangleContainsScreenPoint(durationOption.Rect, screenPosition, eventCamera))
                 {
                     continue;
@@ -706,9 +669,10 @@ namespace MustyBlockBlast.Presentation.Views
                 return true;
             }
 
-            for (int optionIndex = 0; optionIndex < _modeOptions.Count; optionIndex++)
+            IReadOnlyList<ModeOption> modeOptions = _modePlates.ModeOptions;
+            for (int optionIndex = 0; optionIndex < modeOptions.Count; optionIndex++)
             {
-                ModeOption option = _modeOptions[optionIndex];
+                ModeOption option = modeOptions[optionIndex];
                 if (!RectTransformUtility.RectangleContainsScreenPoint(option.Rect, screenPosition, eventCamera))
                 {
                     continue;
@@ -891,11 +855,8 @@ namespace MustyBlockBlast.Presentation.Views
                 kindImage.Image.color = theme.GetFill(kindImage.Kind);
             }
 
-            for (int imageIndex = 0; imageIndex < _kindShades.Count; imageIndex++)
-            {
-                KindImage kindImage = _kindShades[imageIndex];
-                kindImage.Image.color = theme.GetShade(kindImage.Kind);
-            }
+            // The mode plates, the chips and every row's kind tile live in the builder's own buckets.
+            _modePlates.Repaint(theme);
 
             for (int textIndex = 0; textIndex < _inkTexts.Count; textIndex++)
             {
@@ -947,7 +908,7 @@ namespace MustyBlockBlast.Presentation.Views
                 localizedLabel.Label.text = localizedLabel.Uppercase ? Uppercase(wording) : wording;
             }
 
-            RefreshDurationOptionLabels();
+            _modePlates.Relocalize();
             RefreshModeValue();
             RefreshSoundValue();
             RefreshThemeNames();
@@ -1156,11 +1117,12 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             GameMode current = _gameModeSystem.CurrentMode.Value;
-            _modeValueText.text = _localizationSystem.Translate(ModeNameKey(current));
+            _modeValueText.text = _localizationSystem.Translate(ModePlateBuilder.ModeNameKey(current));
 
-            for (int modeIndex = 0; modeIndex < SelectableModes.Length; modeIndex++)
+            GameMode[] selectableModes = ModePlateBuilder.SelectableModes;
+            for (int modeIndex = 0; modeIndex < selectableModes.Length; modeIndex++)
             {
-                bool isCurrent = SelectableModes[modeIndex] == current;
+                bool isCurrent = selectableModes[modeIndex] == current;
                 if (_modeRowGlyphs[modeIndex].activeSelf != isCurrent)
                 {
                     _modeRowGlyphs[modeIndex].SetActive(isCurrent);
@@ -1178,47 +1140,6 @@ namespace MustyBlockBlast.Presentation.Views
             _soundValueText.text = _localizationSystem.Translate(_sfxModel.IsMuted.Value
                 ? LocalizationKeys.SETTINGS_SOUND_OFF
                 : LocalizationKeys.SETTINGS_SOUND_ON);
-        }
-
-        /// <summary>Re-renders the duration tiles, whose wording is a number in the minutes format.</summary>
-        private void RefreshDurationOptionLabels()
-        {
-            for (int optionIndex = 0; optionIndex < _durationOptions.Count; optionIndex++)
-            {
-                DurationOption option = _durationOptions[optionIndex];
-                option.NameText.text = FormatDuration(option.Seconds);
-            }
-        }
-
-        private static string ModeNameKey(GameMode mode)
-        {
-            return mode switch
-            {
-                GameMode.Timed => LocalizationKeys.MODE_TIMED,
-                GameMode.Path => LocalizationKeys.MODE_PATH,
-                _ => LocalizationKeys.MODE_ENDLESS,
-            };
-        }
-
-        private static string ModeDescriptionKey(GameMode mode)
-        {
-            return mode switch
-            {
-                GameMode.Timed => LocalizationKeys.MODE_TIMED_DESCRIPTION,
-                GameMode.Path => LocalizationKeys.MODE_PATH_DESCRIPTION,
-                _ => LocalizationKeys.MODE_ENDLESS_DESCRIPTION,
-            };
-        }
-
-        /// <summary>Which kind's bevel triplet a mode's tile takes, on the row and in the picker.</summary>
-        private static int ModeKind(GameMode mode)
-        {
-            return mode switch
-            {
-                GameMode.Timed => DURATION_KIND,
-                GameMode.Path => LANGUAGE_KIND,
-                _ => MODE_KIND,
-            };
         }
 
         /// <summary>
@@ -1268,37 +1189,15 @@ namespace MustyBlockBlast.Presentation.Views
                 return;
             }
 
-            float selected = _timedModeSystem.SelectedDuration.Value;
-            for (int optionIndex = 0; optionIndex < _durationOptions.Count; optionIndex++)
-            {
-                DurationOption option = _durationOptions[optionIndex];
-                PaintSelection(option.Selection, Mathf.Approximately(option.Seconds, selected), _currentTheme.Accent);
-            }
-        }
-
-        /// <summary>
-        /// Renders a round length through the shared minutes format, the same one the best-score suffix
-        /// and the game-over card use, so a length is spelled identically everywhere it is named. Round
-        /// lengths are whole minutes, so the countdown's own mm:ss clock is not reused here.
-        /// </summary>
-        private string FormatDuration(float seconds)
-        {
-            // The "Sınırsız" (endless/no countdown) entry (issue #355) is a duration outside the
-            // minutes format's domain — "0 dk" would misname it — so it gets its own key instead.
-            if (TimedModeConfig.IsEndlessDuration(seconds))
-            {
-                return _localizationSystem.Translate(LocalizationKeys.DURATION_ENDLESS);
-            }
-
-            _stringBuilder.Clear();
-            _stringBuilder.Append(Mathf.RoundToInt(seconds / 60f));
-            return _localizationSystem.Format(LocalizationKeys.FORMAT_MINUTES, _stringBuilder.ToString());
+            _modePlates.RefreshDurationSelection(_currentTheme, _timedModeSystem.SelectedDuration.Value);
         }
 
         /// <summary>
         /// Repaints the mode plates: the mode being played wears the accent ring and its PLAYING tag;
         /// while the confirmation is up, the mode it asks about wears the call-to-action kind's ring
-        /// instead, so the eye goes from that plate to the RESTART button of the same colour.
+        /// instead, so the eye goes from that plate to the RESTART button of the same colour. Only one
+        /// plate ever rings — the active mode's ring drops the moment a switch is pending rather than
+        /// sitting lit alongside the newly-tapped one.
         /// </summary>
         private void RefreshModeSelection()
         {
@@ -1310,20 +1209,9 @@ namespace MustyBlockBlast.Presentation.Views
             GameMode current = _gameModeSystem.CurrentMode.Value;
             bool isConfirming = _screen == PanelScreen.ModeConfirm;
 
-            for (int optionIndex = 0; optionIndex < _modeOptions.Count; optionIndex++)
-            {
-                ModeOption option = _modeOptions[optionIndex];
-                bool isPlaying = option.Mode == current;
-                bool isPending = isConfirming && option.Mode == _pendingMode;
-
-                // While a switch is pending confirmation, only the newly-tapped plate rings — the
-                // active mode's ring drops immediately rather than sitting lit alongside it, so the
-                // player never sees two plates highlighted at once.
-                bool showRing = isConfirming ? isPending : isPlaying;
-                Color ringColour = isPending ? _currentTheme.GetShade(PRIMARY_KIND) : _currentTheme.Accent;
-                PaintSelection(option.Selection, showRing, ringColour);
-                option.PlayingText.color = isPlaying ? _currentTheme.Accent : Color.clear;
-            }
+            GameMode ringedMode = isConfirming ? _pendingMode : current;
+            Color ringColour = isConfirming ? _currentTheme.GetShade(PRIMARY_KIND) : _currentTheme.Accent;
+            _modePlates.RefreshModeSelection(_currentTheme, current, ringedMode, ringColour);
         }
 
         /// <summary>Re-words the confirmation's title around the mode it asks about.</summary>
@@ -1336,11 +1224,11 @@ namespace MustyBlockBlast.Presentation.Views
 
             _confirmTitleText.text = _localizationSystem.Format(
                 LocalizationKeys.SETTINGS_CONFIRM_SWITCH_TITLE,
-                _localizationSystem.Translate(ModeNameKey(_pendingMode)));
+                _localizationSystem.Translate(ModePlateBuilder.ModeNameKey(_pendingMode)));
         }
 
         /// <summary>Shows or clears a plate's ring and check disc.</summary>
-        private void PaintSelection(Selection selection, bool isSelected, Color ringColour)
+        private void PaintSelection(PlateSelection selection, bool isSelected, Color ringColour)
         {
             selection.Ring.color = isSelected ? ringColour : Color.clear;
             selection.Gap.color = isSelected ? _currentTheme.CardBackground : Color.clear;
@@ -1458,9 +1346,10 @@ namespace MustyBlockBlast.Presentation.Views
 
             // The mode row's tile shows whichever mode is being played; all three glyphs are built and
             // RefreshModeValue shows one.
-            for (int modeIndex = 0; modeIndex < SelectableModes.Length; modeIndex++)
+            GameMode[] selectableModes = ModePlateBuilder.SelectableModes;
+            for (int modeIndex = 0; modeIndex < selectableModes.Length; modeIndex++)
             {
-                _modeRowGlyphs[modeIndex] = BuildModeGlyph(modeTile, SelectableModes[modeIndex], MODE_KIND);
+                _modeRowGlyphs[modeIndex] = _modePlates.BuildModeGlyph(modeTile, selectableModes[modeIndex], MODE_KIND);
             }
 
             BuildPaletteGlyph(themeTile, THEME_KIND);
@@ -1498,7 +1387,7 @@ namespace MustyBlockBlast.Presentation.Views
                 root, objectName, new Vector2(ContentWidth, ROW_HEIGHT),
                 new Vector2(0f, TopY(CONTENT_TOP + (rowIndex * (ROW_HEIGHT + ROW_GAP)), ROW_HEIGHT)));
 
-            tileRect = BuildKindTile(rowRect, kind, new Vector2((-ContentWidth * 0.5f) + ROW_PADDING_X + (TILE_SIZE * 0.5f), 0f));
+            tileRect = _modePlates.BuildKindTile(rowRect, kind, new Vector2((-ContentWidth * 0.5f) + ROW_PADDING_X + (TILE_SIZE * 0.5f), 0f));
 
             float textX = (-ContentWidth * 0.5f) + ROW_TEXT_INSET;
             labelText = CreateLabel(
@@ -1539,7 +1428,7 @@ namespace MustyBlockBlast.Presentation.Views
         /// in, so it draws on top of them.
         /// </summary>
         private RectTransform BuildSelectablePlate(
-            RectTransform parent, string objectName, Vector2 size, Vector2 anchoredPosition, out Selection selection)
+            RectTransform parent, string objectName, Vector2 size, Vector2 anchoredPosition, out PlateSelection selection)
         {
             var rootObject = new GameObject(objectName, typeof(RectTransform));
             var rootRect = (RectTransform)rootObject.transform;
@@ -1554,12 +1443,12 @@ namespace MustyBlockBlast.Presentation.Views
             _plateShadows.Add(BuildRounded(rootRect, "Shadow", size, new Vector2(0f, -PLATE_SHADOW_DROP), PLATE_CORNER_RADIUS));
             _platePlates.Add(BuildRounded(rootRect, "Plate", size, Vector2.zero, PLATE_CORNER_RADIUS));
 
-            selection = new Selection(ring, gap);
+            selection = new PlateSelection(ring, gap);
             return rootRect;
         }
 
         /// <summary>The check disc in a chosen plate's top-right corner: accent over a darker lip, white tick.</summary>
-        private static void AddCheckDisc(RectTransform plateRect, Selection selection)
+        private static void AddCheckDisc(RectTransform plateRect, PlateSelection selection)
         {
             Vector2 centre = new Vector2(
                 (plateRect.sizeDelta.x * 0.5f) - CHECK_DISC_INSET - (CHECK_DISC_SIZE * 0.5f),
@@ -1569,23 +1458,6 @@ namespace MustyBlockBlast.Presentation.Views
             selection.CheckDisc = BuildCircle(plateRect, "CheckDisc", CHECK_DISC_SIZE, centre);
             selection.CheckGlyph = BuildGlyph(
                 plateRect, "Check", UiSpriteFactory.CheckMark, new Vector2(CHECK_GLYPH_SIZE, CHECK_GLYPH_SIZE), centre);
-        }
-
-        /// <summary>A kind-coloured tile: a rounded square in the kind's fill over a taller one in its
-        /// shade, so the shade shows as a lip along the bottom. Returns the tile's rect for the glyph.</summary>
-        private RectTransform BuildKindTile(RectTransform parent, int kind, Vector2 anchoredPosition)
-        {
-            var tileObject = new GameObject("Tile", typeof(RectTransform));
-            var tileRect = (RectTransform)tileObject.transform;
-            tileRect.SetParent(parent, false);
-            Centre(tileRect, new Vector2(TILE_SIZE, TILE_SIZE));
-            tileRect.anchoredPosition = anchoredPosition;
-
-            _kindShades.Add(new KindImage(
-                BuildRounded(tileRect, "Shade", new Vector2(TILE_SIZE, TILE_SIZE), Vector2.zero, TILE_CORNER_RADIUS), kind));
-            _kindFills.Add(new KindImage(
-                BuildRounded(tileRect, "Fill", new Vector2(TILE_SIZE, TILE_SIZE - TILE_LIP), new Vector2(0f, TILE_LIP * 0.5f), TILE_CORNER_RADIUS), kind));
-            return tileRect;
         }
 
         /// <summary>The right-hand chevron disc on a row that steps to a picker: a disc in the empty-cell
@@ -1711,107 +1583,6 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         // ---------------------------------------------------------------------------- glyphs
-
-        /// <summary>
-        /// The glyph a mode's tile wears, white on the kind's fill: two overlapping rings for endless (a
-        /// loose nod to the infinity mark), a clock for timed, and two stops joined by a rise for path.
-        /// The tile's fill kind is needed for the fake cut-outs that turn discs into rings.
-        /// </summary>
-        private GameObject BuildModeGlyph(RectTransform tileRect, GameMode mode, int tileKind)
-        {
-            var glyphObject = new GameObject($"Glyph_{mode}", typeof(RectTransform));
-            var glyphRect = (RectTransform)glyphObject.transform;
-            glyphRect.SetParent(tileRect, false);
-            Centre(glyphRect, new Vector2(TILE_SIZE, TILE_SIZE));
-
-            switch (mode)
-            {
-                case GameMode.Timed:
-                    BuildClockGlyph(glyphRect, tileKind);
-                    break;
-                case GameMode.Path:
-                    BuildTrailGlyph(glyphRect);
-                    break;
-                default:
-                    BuildInfinityGlyph(glyphRect, tileKind);
-                    break;
-            }
-
-            return glyphObject;
-        }
-
-        /// <summary>Two overlapping rings — enough to read as "endless" at tile size.</summary>
-        private void BuildInfinityGlyph(RectTransform parent, int tileKind)
-        {
-            const float RING_DIAMETER = 40f;
-            const float RING_OVERLAP = 13f;
-            const float RING_THICKNESS = 7f;
-
-            for (int discIndex = 0; discIndex < 2; discIndex++)
-            {
-                BuildCircle(parent, $"InfinityDisc_{discIndex}", RING_DIAMETER, new Vector2(RingOffsetX(discIndex), 0f)).color = Color.white;
-            }
-
-            // Fake cut-out: the tile underneath is one opaque colour, so a smaller circle in that
-            // colour turns each disc into a ring. Both holes are drawn after both discs so neither disc
-            // fills the other's hole.
-            for (int holeIndex = 0; holeIndex < 2; holeIndex++)
-            {
-                _kindFills.Add(new KindImage(
-                    BuildCircle(parent, $"InfinityHole_{holeIndex}", RING_DIAMETER - (RING_THICKNESS * 2f), new Vector2(RingOffsetX(holeIndex), 0f)),
-                    tileKind));
-            }
-
-            float RingOffsetX(int index)
-                => (index == 0 ? -1f : 1f) * ((RING_DIAMETER * 0.5f) - (RING_OVERLAP * 0.5f));
-        }
-
-        /// <summary>Ring plus a single off-vertical hand — enough to read as a clock at tile size.</summary>
-        private void BuildClockGlyph(RectTransform parent, int tileKind)
-        {
-            const float DIAL_DIAMETER = 54f;
-            const float FACE_DIAMETER = 40f;
-            const float HAND_LENGTH = 17f;
-            const float HAND_ANGLE = -35f;
-
-            BuildCircle(parent, "ClockDial", DIAL_DIAMETER, Vector2.zero).color = Color.white;
-            _kindFills.Add(new KindImage(BuildCircle(parent, "ClockFace", FACE_DIAMETER, Vector2.zero), tileKind));
-
-            Image hand = BuildRounded(parent, "ClockHand", new Vector2(6f, HAND_LENGTH), Vector2.zero, 3f);
-            hand.rectTransform.localRotation = Quaternion.Euler(0f, 0f, HAND_ANGLE);
-
-            // Pushed half its own length along its rotated axis so the base sits on the centre.
-            hand.rectTransform.anchoredPosition =
-                (Vector2)(Quaternion.Euler(0f, 0f, HAND_ANGLE) * new Vector3(0f, HAND_LENGTH * 0.5f, 0f));
-            hand.color = Color.white;
-        }
-
-        /// <summary>Two stops joined by a rise and a fall — the trail, as the level path draws it.</summary>
-        private void BuildTrailGlyph(RectTransform parent)
-        {
-            const float STOP_DIAMETER = 18f;
-            const float STOP_X = 26f;
-            const float STOP_Y = -14f;
-            const float LEG_LENGTH = 40f;
-            const float LEG_THICKNESS = 7f;
-            const float LEG_ANGLE = 52f;
-
-            for (int legIndex = 0; legIndex < 2; legIndex++)
-            {
-                float sign = legIndex == 0 ? -1f : 1f;
-                Image leg = BuildRounded(
-                    parent, $"TrailLeg_{legIndex}", new Vector2(LEG_LENGTH, LEG_THICKNESS),
-                    new Vector2(sign * 13f, 2f), LEG_THICKNESS * 0.5f);
-                leg.rectTransform.localRotation = Quaternion.Euler(0f, 0f, -sign * LEG_ANGLE);
-                leg.color = Color.white;
-            }
-
-            for (int stopIndex = 0; stopIndex < 2; stopIndex++)
-            {
-                float sign = stopIndex == 0 ? -1f : 1f;
-                BuildCircle(parent, $"TrailStop_{stopIndex}", STOP_DIAMETER, new Vector2(sign * STOP_X, STOP_Y)).color = Color.white;
-            }
-        }
 
         /// <summary>A painter's palette: a white disc with a thumb hole and three paint dabs in the
         /// theme's own kind fills, so the tile previews the very thing the row changes.</summary>
@@ -1976,7 +1747,7 @@ namespace MustyBlockBlast.Presentation.Views
         /// </summary>
         private ThemeOption BuildThemeOption(RectTransform root, ThemeDefinition theme, Vector2 cardSize, Vector2 anchoredPosition)
         {
-            RectTransform cardRect = BuildSelectablePlate(root, $"Theme_{theme.Id}", cardSize, anchoredPosition, out Selection selection);
+            RectTransform cardRect = BuildSelectablePlate(root, $"Theme_{theme.Id}", cardSize, anchoredPosition, out PlateSelection selection);
 
             var previewSize = new Vector2(cardSize.x - (THEME_CARD_PADDING * 2f), THEME_PREVIEW_HEIGHT);
             var previewCentre = new Vector2(0f, (cardSize.y * 0.5f) - THEME_CARD_PADDING - (THEME_PREVIEW_HEIGHT * 0.5f));
@@ -2046,157 +1817,20 @@ namespace MustyBlockBlast.Presentation.Views
             // two, since it carries its duration chips inline rather than on a separate screen (issue
             // #270), and a genuine N-way picker over SelectableModes means shipping a mode is one entry
             // in that array plus its String Table rows — nothing here moves.
+            GameMode[] selectableModes = ModePlateBuilder.SelectableModes;
             float cursorY = SUB_CONTENT_TOP;
-            for (int modeIndex = 0; modeIndex < SelectableModes.Length; modeIndex++)
+            for (int modeIndex = 0; modeIndex < selectableModes.Length; modeIndex++)
             {
-                GameMode mode = SelectableModes[modeIndex];
-                float plateHeight = mode == GameMode.Timed ? TIMED_PLATE_HEIGHT : ROW_HEIGHT;
+                GameMode mode = selectableModes[modeIndex];
+                float plateHeight = ModePlateBuilder.PlateHeight(mode);
                 var anchoredPosition = new Vector2(0f, TopY(cursorY, plateHeight));
 
-                _modeOptions.Add(mode == GameMode.Timed
-                    ? BuildTimedModeOption(root, anchoredPosition)
-                    : BuildModeOption(root, mode, anchoredPosition));
+                _modePlates.BuildModeOption(root, mode, ContentWidth, anchoredPosition);
 
-                cursorY += plateHeight + ROW_GAP;
+                cursorY += plateHeight + ModePlateBuilder.ROW_GAP;
             }
 
             BuildConfirmCard(root);
-        }
-
-        /// <summary>One mode plate: the mode's tile and glyph, its name over a one-line description,
-        /// and the PLAYING tag on the right that only the active mode shows.</summary>
-        private ModeOption BuildModeOption(RectTransform root, GameMode mode, Vector2 anchoredPosition)
-        {
-            float contentWidth = ContentWidth;
-            RectTransform plateRect = BuildSelectablePlate(
-                root, $"ModeOption_{mode}", new Vector2(contentWidth, ROW_HEIGHT), anchoredPosition, out Selection selection);
-
-            int kind = ModeKind(mode);
-            RectTransform tileRect = BuildKindTile(plateRect, kind, new Vector2((-contentWidth * 0.5f) + ROW_PADDING_X + (TILE_SIZE * 0.5f), 0f));
-            BuildModeGlyph(tileRect, mode, kind);
-
-            float textX = (-contentWidth * 0.5f) + ROW_TEXT_INSET;
-            Text nameText = CreateLabel(
-                plateRect, "Name", MODE_NAME_FONT_SIZE, FontStyle.Normal, TextAnchor.MiddleLeft,
-                new Vector2(textX, MODE_NAME_RISE), _displayFont);
-            _inkTexts.Add(nameText);
-            RegisterLocalized(nameText, ModeNameKey(mode));
-
-            BuildModeDescriptionLabel(plateRect, mode, contentWidth, textX, -MODE_DESCRIPTION_DROP);
-
-            // Painted by RefreshModeSelection rather than the ink bucket: it is accent or nothing.
-            Text playingText = CreateLabel(
-                plateRect, "Playing", LABEL_FONT_SIZE, FontStyle.Bold, TextAnchor.MiddleRight,
-                new Vector2((contentWidth * 0.5f) - ROW_PADDING_X, 0f));
-            RegisterLocalized(playingText, LocalizationKeys.SETTINGS_MODE_PLAYING, uppercase: true);
-
-            return new ModeOption(mode, plateRect, selection, playingText);
-        }
-
-        /// <summary>
-        /// One mode plate's description line. Wrapping (rather than <see cref="CreateLabel"/>'s usual
-        /// overflow) is deliberate — some locales' copy does not fit one line at
-        /// <see cref="MODE_DESCRIPTION_PLAYING_RESERVE"/>'s width budget (issue #355 follow-up, e.g.
-        /// Spanish's "Infinito" description), and letting it wrap to a second line beats letting it run
-        /// under the PLAYING tag or off the plate.
-        /// </summary>
-        private void BuildModeDescriptionLabel(
-            RectTransform plateRect, GameMode mode, float contentWidth, float textX, float y)
-        {
-            Text descriptionText = CreateLabel(
-                plateRect, "Description", DESCRIPTION_FONT_SIZE, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(textX, y));
-            descriptionText.horizontalOverflow = HorizontalWrapMode.Wrap;
-            descriptionText.verticalOverflow = VerticalWrapMode.Overflow;
-
-            var rect = (RectTransform)descriptionText.transform;
-            rect.sizeDelta = new Vector2(
-                contentWidth - ROW_TEXT_INSET - ROW_PADDING_X - MODE_DESCRIPTION_PLAYING_RESERVE,
-                DESCRIPTION_FONT_SIZE * 1.6f * 2f);
-
-            _softInkTexts.Add(descriptionText);
-            RegisterLocalized(descriptionText, ModeDescriptionKey(mode));
-        }
-
-        /// <summary>
-        /// The Timed plate: the same header <see cref="BuildModeOption"/> draws — tile, name,
-        /// description, PLAYING tag — plus a row of duration chips underneath, so picking Timed and
-        /// picking its length happen on the one plate instead of two separate screens (issue #270). The
-        /// header fills the plate's top <see cref="ROW_HEIGHT"/> exactly as every other mode plate
-        /// fills its own height, and the chip row fills the rest below one <see cref="ROW_GAP"/>.
-        /// </summary>
-        private ModeOption BuildTimedModeOption(RectTransform root, Vector2 anchoredPosition)
-        {
-            const GameMode mode = GameMode.Timed;
-            float contentWidth = ContentWidth;
-            RectTransform plateRect = BuildSelectablePlate(
-                root, "ModeOption_Timed", new Vector2(contentWidth, TIMED_PLATE_HEIGHT), anchoredPosition, out Selection selection);
-
-            // The header content sits where it would in a plain ROW_HEIGHT plate, just lifted to the
-            // top of the taller one.
-            float headerCentreY = (TIMED_PLATE_HEIGHT * 0.5f) - (ROW_HEIGHT * 0.5f);
-
-            int kind = ModeKind(mode);
-            RectTransform tileRect = BuildKindTile(
-                plateRect, kind, new Vector2((-contentWidth * 0.5f) + ROW_PADDING_X + (TILE_SIZE * 0.5f), headerCentreY));
-            BuildModeGlyph(tileRect, mode, kind);
-
-            float textX = (-contentWidth * 0.5f) + ROW_TEXT_INSET;
-            Text nameText = CreateLabel(
-                plateRect, "Name", MODE_NAME_FONT_SIZE, FontStyle.Normal, TextAnchor.MiddleLeft,
-                new Vector2(textX, headerCentreY + MODE_NAME_RISE), _displayFont);
-            _inkTexts.Add(nameText);
-            RegisterLocalized(nameText, ModeNameKey(mode));
-
-            BuildModeDescriptionLabel(plateRect, mode, contentWidth, textX, headerCentreY - MODE_DESCRIPTION_DROP);
-
-            Text playingText = CreateLabel(
-                plateRect, "Playing", LABEL_FONT_SIZE, FontStyle.Bold, TextAnchor.MiddleRight,
-                new Vector2((contentWidth * 0.5f) - ROW_PADDING_X, headerCentreY));
-            RegisterLocalized(playingText, LocalizationKeys.SETTINGS_MODE_PLAYING, uppercase: true);
-
-            BuildDurationChips(plateRect, contentWidth, headerCentreY);
-
-            return new ModeOption(mode, plateRect, selection, playingText);
-        }
-
-        /// <summary>
-        /// The Timed plate's duration chips, in two rows (issue #355 follow-up): "Sınırsız" alone,
-        /// full width, on top — it is a different kind of choice ("play forever") than a length, not a
-        /// fourth one to squeeze in beside them — and the timed lengths in a
-        /// <see cref="DURATION_COLUMN_COUNT"/>-column grid below it, seated under the Timed plate's
-        /// header instead of under a sub-header (issue #270).
-        /// </summary>
-        private void BuildDurationChips(RectTransform plateRect, float contentWidth, float headerCentreY)
-        {
-            IReadOnlyList<float> durations = _timedModeSystem.AvailableDurations;
-
-            float endlessRowCentreY = headerCentreY - (ROW_HEIGHT * 0.5f) - ROW_GAP - (TIMED_CHIP_ROW_HEIGHT * 0.5f);
-            float durationsRowCentreY = endlessRowCentreY - TIMED_CHIP_ROW_HEIGHT - ROW_GAP;
-
-            float tileWidth = (contentWidth - (OPTION_GAP * (DURATION_COLUMN_COUNT - 1))) / DURATION_COLUMN_COUNT;
-            var tileSize = new Vector2(tileWidth, TIMED_CHIP_ROW_HEIGHT);
-
-            // Counts only the timed lengths seen so far, independent of each entry's index in the
-            // config — so the endless entry, wherever the config lists it, never opens a gap in the
-            // 3-column grid.
-            int timedIndex = 0;
-
-            for (int durationIndex = 0; durationIndex < durations.Count; durationIndex++)
-            {
-                float seconds = durations[durationIndex];
-
-                if (TimedModeConfig.IsEndlessDuration(seconds))
-                {
-                    var endlessSize = new Vector2(contentWidth, TIMED_CHIP_ROW_HEIGHT);
-                    _durationOptions.Add(BuildDurationOption(plateRect, seconds, endlessSize, new Vector2(0f, endlessRowCentreY)));
-                    continue;
-                }
-
-                float x = (timedIndex - ((DURATION_COLUMN_COUNT - 1) * 0.5f)) * (tileWidth + OPTION_GAP);
-                _durationOptions.Add(BuildDurationOption(plateRect, seconds, tileSize, new Vector2(x, durationsRowCentreY)));
-                timedIndex++;
-            }
         }
 
         /// <summary>
@@ -2252,21 +1886,6 @@ namespace MustyBlockBlast.Presentation.Views
             RegisterLocalized(_confirmYesText, LocalizationKeys.SETTINGS_CONFIRM_YES, uppercase: true);
         }
 
-        /// <summary>One duration chip: built for the Timed mode plate's inline picker (issue #270), the
-        /// same look the old stand-alone duration screen used.</summary>
-        private DurationOption BuildDurationOption(RectTransform root, float seconds, Vector2 tileSize, Vector2 anchoredPosition)
-        {
-            RectTransform plateRect = BuildSelectablePlate(
-                root, $"DurationOption_{Mathf.RoundToInt(seconds)}", tileSize, anchoredPosition, out Selection selection);
-
-            Text nameText = CreateLabel(
-                plateRect, "Name", OPTION_FONT_SIZE, FontStyle.Normal, TextAnchor.MiddleCenter, Vector2.zero, _displayFont);
-            _inkTexts.Add(nameText);
-            nameText.text = FormatDuration(seconds);
-
-            return new DurationOption(seconds, plateRect, selection, nameText);
-        }
-
         /// <summary>
         /// Built from <c>LocalizationModel.AvailableLocales</c> the same way the theme grid is built
         /// from the theme catalogue, so shipping a language is a Locale asset plus its String Table
@@ -2297,7 +1916,7 @@ namespace MustyBlockBlast.Presentation.Views
         {
             float contentWidth = ContentWidth;
             RectTransform plateRect = BuildSelectablePlate(
-                root, $"LanguageOption_{locale.Code}", new Vector2(contentWidth, ROW_HEIGHT), anchoredPosition, out Selection selection);
+                root, $"LanguageOption_{locale.Code}", new Vector2(contentWidth, ROW_HEIGHT), anchoredPosition, out PlateSelection selection);
 
             // Not a String Table lookup and deliberately never re-worded: a language is always
             // labelled in its own language, so this plate reads the same in every locale.
@@ -2413,31 +2032,10 @@ namespace MustyBlockBlast.Presentation.Views
 
         // ---------------------------------------------------------------------------- option records
 
-        /// <summary>The parts of a choosable plate that repaint on selection: the ring, its gap and,
-        /// on the plates that have one, the check disc.</summary>
-        private sealed class Selection
-        {
-            internal Selection(Image ring, Image gap)
-            {
-                Ring = ring;
-                Gap = gap;
-            }
-
-            internal Image Ring { get; }
-
-            internal Image Gap { get; }
-
-            internal Image CheckLip { get; set; }
-
-            internal Image CheckDisc { get; set; }
-
-            internal Image CheckGlyph { get; set; }
-        }
-
         /// <summary>One tappable theme card: its theme id plus the bits that repaint on selection.</summary>
         private sealed class ThemeOption
         {
-            internal ThemeOption(int themeId, RectTransform rect, Selection selection, Text nameText)
+            internal ThemeOption(int themeId, RectTransform rect, PlateSelection selection, Text nameText)
             {
                 ThemeId = themeId;
                 Rect = rect;
@@ -2449,35 +2047,15 @@ namespace MustyBlockBlast.Presentation.Views
 
             internal RectTransform Rect { get; }
 
-            internal Selection Selection { get; }
+            internal PlateSelection Selection { get; }
 
             internal Text NameText { get; }
-        }
-
-        /// <summary>One tappable mode plate: the mode it selects plus the bits that repaint on selection.</summary>
-        private sealed class ModeOption
-        {
-            internal ModeOption(GameMode mode, RectTransform rect, Selection selection, Text playingText)
-            {
-                Mode = mode;
-                Rect = rect;
-                Selection = selection;
-                PlayingText = playingText;
-            }
-
-            internal GameMode Mode { get; }
-
-            internal RectTransform Rect { get; }
-
-            internal Selection Selection { get; }
-
-            internal Text PlayingText { get; }
         }
 
         /// <summary>One tappable language plate: the locale it selects plus its selection visuals.</summary>
         private sealed class LanguageOption
         {
-            internal LanguageOption(string localeCode, RectTransform rect, Selection selection)
+            internal LanguageOption(string localeCode, RectTransform rect, PlateSelection selection)
             {
                 LocaleCode = localeCode;
                 Rect = rect;
@@ -2488,27 +2066,7 @@ namespace MustyBlockBlast.Presentation.Views
 
             internal RectTransform Rect { get; }
 
-            internal Selection Selection { get; }
-        }
-
-        /// <summary>One tappable duration tile: the length it selects plus its selection visuals.</summary>
-        private sealed class DurationOption
-        {
-            internal DurationOption(float seconds, RectTransform rect, Selection selection, Text nameText)
-            {
-                Seconds = seconds;
-                Rect = rect;
-                Selection = selection;
-                NameText = nameText;
-            }
-
-            internal float Seconds { get; }
-
-            internal RectTransform Rect { get; }
-
-            internal Selection Selection { get; }
-
-            internal Text NameText { get; }
+            internal PlateSelection Selection { get; }
         }
     }
 }

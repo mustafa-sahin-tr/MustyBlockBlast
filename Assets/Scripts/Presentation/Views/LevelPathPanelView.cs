@@ -245,6 +245,10 @@ namespace MustyBlockBlast.Presentation.Views
 
         private ThemeDefinition _currentTheme;
 
+        /// <summary>Set by an <see cref="Open"/> that arrives before <see cref="Start"/> has built the
+        /// card; honoured at the end of Start. See <see cref="Open"/>.</summary>
+        private bool _openRequestedBeforeBuild;
+
         /// <summary>One built node widget. Rebuilt never, repainted whenever the ladder or theme moves.</summary>
         private sealed class LevelNode
         {
@@ -366,6 +370,15 @@ namespace MustyBlockBlast.Presentation.Views
             // hidden, and each decides something the card renders.
             _pathRunModel.PathTotalScore.Subscribe(OnPathTotalChanged).AddTo(_disposables);
             _gameModeSystem.CurrentMode.Subscribe(OnModeChanged).AddTo(_disposables);
+
+            // Last, once the card is built and painted: an Open() that arrived before Start — the
+            // mode-select scene's "Macera Modu picked, open the picker on boot" request (issue #379),
+            // delivered by PendingLevelPathOpenSystem's entry point — is honoured now.
+            if (_openRequestedBeforeBuild)
+            {
+                _openRequestedBeforeBuild = false;
+                Open();
+            }
         }
 
         private void OnDestroy() => _disposables.Dispose();
@@ -375,11 +388,19 @@ namespace MustyBlockBlast.Presentation.Views
 
         /// <summary>
         /// Shows the panel, scrolled straight to the player's current level. Re-opening never
-        /// double-pauses the clock: an already-open panel returns immediately.
+        /// double-pauses the clock: an already-open panel returns immediately. A call that lands
+        /// before the card is built (a boot-time request from a VContainer entry point, which may run
+        /// ahead of this MonoBehaviour's Start) is remembered and carried out at the end of Start.
         /// </summary>
         internal void Open()
         {
-            if (_panel == null || IsOpen)
+            if (_panel == null)
+            {
+                _openRequestedBeforeBuild = true;
+                return;
+            }
+
+            if (IsOpen)
             {
                 return;
             }
