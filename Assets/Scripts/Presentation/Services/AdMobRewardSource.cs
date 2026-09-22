@@ -89,6 +89,19 @@ namespace MustyBlockBlast.Presentation.Services
 
         private bool _isRequestInFlight;
 
+        /// <summary>
+        /// Runs consent and SDK initialisation now rather than waiting for the first reward request —
+        /// Google's own guidance for the reward-earned latency this buys back. Called once at boot by
+        /// <see cref="AdWarmUpSystem"/>; every one of the three seam methods still calls
+        /// <see cref="EnsureReadyAsync"/> itself and finds the cached result already sitting there, so
+        /// nothing here is load-bearing for correctness — a boot that never reaches this still ends up
+        /// consented and initialised on the player's first ad, exactly as before this existed.
+        /// </summary>
+        public async UniTask WarmUpAsync(CancellationToken cancellationToken)
+        {
+            await EnsureReadyAsync(cancellationToken);
+        }
+
         public async UniTask<RewardResult> RequestRewardAsync(
             PowerUpKind kind, CancellationToken cancellationToken)
         {
