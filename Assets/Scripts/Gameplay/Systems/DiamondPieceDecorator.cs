@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using MustyBlockBlast.Core;
 using MustyBlockBlast.Gameplay.Models;
+using MustyBlockBlast.Gameplay.Settings;
 using VContainer;
 
 namespace MustyBlockBlast.Gameplay.Systems
@@ -22,9 +23,19 @@ namespace MustyBlockBlast.Gameplay.Systems
     /// <para>
     /// <b>Colour.</b> A gem is one of the colours the active diamond objectives actually name, chosen
     /// uniformly among them. A level asking for "10 red" therefore only ever deals red gems; a level
-    /// asking for red, blue and green deals each about a third of the time. Level-authored spawn rate
-    /// and colour weighting are the next slice (#396); until then the chance and the colour rule are
-    /// the fixed defaults below.
+    /// asking for red, blue and green deals each about a third of the time.
+    /// </para>
+    /// <para>
+    /// <b>Rate and count (issue #396).</b> How often a piece is decorated, and how many of its cells,
+    /// are the level's to tune: <see cref="LevelObjectiveConfig.DiamondDecorationChance"/>,
+    /// <see cref="LevelObjectiveConfig.DiamondMinDecoratedCells"/> and
+    /// <see cref="LevelObjectiveConfig.DiamondMaxDecoratedCells"/>, read from the active Path level's
+    /// first row on every draw (via <see cref="LevelCatalog.Find"/>, the lookup for anything that
+    /// belongs to the level rather than to one of its objectives). A level that authors nothing, and a
+    /// draw with no active level row to read at all, fall back to the field defaults — the ~20% and
+    /// <c>1..CellCount-1</c> of #390 — so nothing dealt before the fields existed deals any differently.
+    /// The count is always clamped to <c>1..CellCount-1</c> whatever the level says: a 1-cell piece is
+    /// never decorated and no piece ever has every cell decorated.
     /// </para>
     /// <para>
     /// <b>Randomness.</b> Its own seeded stream, exactly as <see cref="WeightedPieceDraw"/> owns its
@@ -34,11 +45,10 @@ namespace MustyBlockBlast.Gameplay.Systems
     /// </summary>
     public sealed class DiamondPieceDecorator
     {
-        /// <summary>Share of eligible (multi-cell) draws that come out decorated. The "~20%" of #390.</summary>
-        internal const double DECORATION_CHANCE = 0.2;
-
         private readonly ObjectiveModel _objectiveModel;
         private readonly GameModeModel _gameModeModel;
+        private readonly LevelCatalog _levelCatalog;
+        private readonly PathRunModel _pathRunModel;
         private readonly Random _random;
 
         /// <summary>The distinct colour ids the active diamond objectives name, rebuilt per decorated
@@ -51,15 +61,32 @@ namespace MustyBlockBlast.Gameplay.Systems
 
         /// <summary>DI entry point — VContainer must not pick the seeded constructor.</summary>
         [Inject]
-        public DiamondPieceDecorator(ObjectiveModel objectiveModel, GameModeModel gameModeModel)
-            : this(objectiveModel, gameModeModel, Environment.TickCount)
+        public DiamondPieceDecorator(
+            ObjectiveModel objectiveModel,
+            GameModeModel gameModeModel,
+            LevelCatalog levelCatalog,
+            PathRunModel pathRunModel)
+            : this(objectiveModel, gameModeModel, Environment.TickCount, levelCatalog, pathRunModel)
         {
         }
 
-        internal DiamondPieceDecorator(ObjectiveModel objectiveModel, GameModeModel gameModeModel, int seed)
+        /// <summary>
+        /// Seeded constructor for tests. <paramref name="levelCatalog"/> and <paramref name="pathRunModel"/>
+        /// are optional so a test that only exercises the gate and the default roll need not build a
+        /// catalog: without both, every draw uses the field defaults, exactly as a run with no active
+        /// level row does.
+        /// </summary>
+        internal DiamondPieceDecorator(
+            ObjectiveModel objectiveModel,
+            GameModeModel gameModeModel,
+            int seed,
+            LevelCatalog levelCatalog = null,
+            PathRunModel pathRunModel = null)
         {
             _objectiveModel = objectiveModel ?? throw new ArgumentNullException(nameof(objectiveModel));
             _gameModeModel = gameModeModel ?? throw new ArgumentNullException(nameof(gameModeModel));
+            _levelCatalog = levelCatalog;
+            _pathRunModel = pathRunModel;
             _random = new Random(seed);
         }
 
@@ -85,8 +112,8 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// decorated, with <paramref name="diamondColourIdsByOffset"/> holding a gem colour for each
         /// decorated <see cref="Piece.Offsets"/> index and <see cref="TrayModel.NO_DIAMOND"/> everywhere
         /// else; returns false — buffer zeroed — for a plain draw. A 1-cell piece is never decorated and
-        /// a multi-cell piece never has every cell decorated: the count is uniform in
-        /// <c>1..CellCount-1</c> (AC2).
+        /// a multi-cell piece never has every cell decorated: the count is uniform in the level's
+        /// authored range, clamped to <c>1..CellCount-1</c> (AC2).
         /// <para>
         /// The buffer must be at least <see cref="Piece.CellCount"/> long; it is owned by the caller and
         /// reused, so a decorated draw allocates nothing.
@@ -113,14 +140,21 @@ namespace MustyBlockBlast.Gameplay.Systems
                 return false;
             }
 
-            if (_random.NextDouble() >= DECORATION_CHANCE)
+            LevelObjectiveConfig level = ActiveLevelConfig();
+
+            // NextDouble is in [0, 1), so a chance of 0 never decorates and a chance of 1 always does.
+            double chance = level != null
+                ? level.DiamondDecorationChance
+                : LevelObjectiveConfig.DEFAULT_DIAMOND_DECORATION_CHANCE;
+            if (_random.NextDouble() >= chance)
             {
                 return false;
             }
 
             // IsActive above has just filled the pool; it is non-empty or we would not be here.
             int poolCount = CollectColourPool();
-            int decoratedCount = _random.Next(1, cellCount);
+            ResolveDecoratedCountRange(level, cellCount, out int minCount, out int maxCount);
+            int decoratedCount = _random.Next(minCount, maxCount + 1);
 
             EnsureOffsetIndexBuffer(cellCount);
             for (int offsetIndex = 0; offsetIndex < cellCount; offsetIndex++)
@@ -141,6 +175,64 @@ namespace MustyBlockBlast.Gameplay.Systems
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// The row whose diamond tunables this draw reads: the active Path level's first row, or null
+        /// when there is none to read — no catalog or run model injected (tests), no active Path level
+        /// (<see cref="PathRunModel.NO_ACTIVE_LEVEL"/>), or a level number the catalog does not author.
+        /// </summary>
+        private LevelObjectiveConfig ActiveLevelConfig()
+        {
+            if (_levelCatalog == null || _pathRunModel == null)
+            {
+                return null;
+            }
+
+            int activeLevelNumber = _pathRunModel.ActiveLevelNumber.Value;
+            if (activeLevelNumber == PathRunModel.NO_ACTIVE_LEVEL)
+            {
+                return null;
+            }
+
+            return _levelCatalog.Find(activeLevelNumber);
+        }
+
+        /// <summary>
+        /// The inclusive range the decorated count is drawn from for a <paramref name="cellCount"/>-cell
+        /// piece. Without a level row it is the fixed <c>1..CellCount-1</c> of #390. With one, the
+        /// authored min and max are clamped into that same band — the band is a rule of the mechanic,
+        /// not a default the level may override — and an uncapped max means the band's top.
+        /// </summary>
+        private static void ResolveDecoratedCountRange(
+            LevelObjectiveConfig level, int cellCount, out int minCount, out int maxCount)
+        {
+            int hardMax = cellCount - 1;
+            minCount = LevelObjectiveConfig.DEFAULT_DIAMOND_MIN_DECORATED_CELLS;
+            maxCount = hardMax;
+
+            if (level == null)
+            {
+                return;
+            }
+
+            minCount = Clamp(level.DiamondMinDecoratedCells, LevelObjectiveConfig.DEFAULT_DIAMOND_MIN_DECORATED_CELLS, hardMax);
+
+            int authoredMax = level.DiamondMaxDecoratedCells;
+            if (authoredMax != LevelObjectiveConfig.DIAMOND_MAX_DECORATED_CELLS_UNCAPPED)
+            {
+                maxCount = Clamp(authoredMax, minCount, hardMax);
+            }
+        }
+
+        private static int Clamp(int value, int min, int max)
+        {
+            if (value < min)
+            {
+                return min;
+            }
+
+            return value > max ? max : value;
         }
 
         /// <summary>Fills <see cref="_colourPool"/> with the distinct colour ids the tracked
