@@ -16,6 +16,9 @@ namespace MustyBlockBlast.Gameplay.Systems
     /// <item>Reaching zero ends the run through <see cref="BoardSystem.ForceGameOver"/>, so "the run
     /// is over" stays a single invariant owned by <see cref="BoardSystem"/>.</item>
     /// <item>Does nothing at all in endless runs, and is cleared when the mode leaves timed.</item>
+    /// <item>Every row or column a placement clears adds <see cref="SECONDS_PER_CLEARED_LINE"/> back
+    /// to the clock (issue #319) — flat per line, uncapped, announced through
+    /// <see cref="TimeExtendedMessage"/> so the HUD can acknowledge it.</item>
     /// </list>
     /// <para>
     /// Four independent pause reasons — app backgrounding, a modal menu panel being open, a
@@ -34,6 +37,15 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// </summary>
         private const float LOW_TIME_WARNING_THRESHOLD_SECONDS = 10f;
 
+        /// <summary>
+        /// Seconds handed back for each row or column a placement clears (issue #319). Flat: a
+        /// placement clearing N lines at once adds N times this, whatever round length was picked, and
+        /// there is deliberately no cap per clear or per run — a skilled Timed run is allowed to keep
+        /// extending itself indefinitely. That is a product decision, not an oversight; do not add a
+        /// ceiling here "just in case".
+        /// </summary>
+        private const float SECONDS_PER_CLEARED_LINE = 5f;
+
         private readonly TimerModel _timerModel;
         private readonly RunPauseModel _runPauseModel;
         private readonly GameModeSystem _gameModeSystem;
@@ -46,6 +58,14 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// <summary>Optional: null in every test construction that predates issue #370. Without it a
         /// rescue-paused clock only resumes on the next run, which no such test exercises.</summary>
         private readonly IDisposable _runRescuedSubscription;
+
+        /// <summary>Optional for the same reason as <see cref="_runRescuedSubscription"/>: null in test
+        /// constructions that predate issue #319, none of which place a piece through this system.</summary>
+        private readonly IDisposable _piecePlacedSubscription;
+
+        /// <summary>Optional, paired with <see cref="_piecePlacedSubscription"/>. Null means the clock
+        /// still extends, silently — the announcement is only for the HUD.</summary>
+        private readonly IPublisher<TimeExtendedMessage> _timeExtendedPublisher;
 
         private bool _isAppPaused;
         private bool _isMenuPaused;
@@ -80,19 +100,25 @@ namespace MustyBlockBlast.Gameplay.Systems
             BoardSystem boardSystem,
             ISubscriber<RunStartedMessage> runStartedSubscriber,
             ISubscriber<GameOverMessage> gameOverSubscriber,
-            ISubscriber<RunRescuedMessage> runRescuedSubscriber = null)
+            ISubscriber<RunRescuedMessage> runRescuedSubscriber = null,
+            ISubscriber<PiecePlacedMessage> piecePlacedSubscriber = null,
+            IPublisher<TimeExtendedMessage> timeExtendedPublisher = null)
         {
             _timerModel = timerModel;
             _runPauseModel = runPauseModel;
             _gameModeSystem = gameModeSystem;
             _timedModeSystem = timedModeSystem;
             _boardSystem = boardSystem;
+            _timeExtendedPublisher = timeExtendedPublisher;
 
             _runStartedSubscription = runStartedSubscriber.Subscribe(OnRunStarted);
             _gameOverSubscription = gameOverSubscriber.Subscribe(OnGameOver);
             _modeSubscription = _gameModeSystem.CurrentMode.Subscribe(OnModeChanged);
             _runRescuedSubscription = runRescuedSubscriber != null
                 ? runRescuedSubscriber.Subscribe(OnRunRescued)
+                : null;
+            _piecePlacedSubscription = piecePlacedSubscriber != null
+                ? piecePlacedSubscriber.Subscribe(OnPiecePlaced)
                 : null;
         }
 
@@ -202,6 +228,49 @@ namespace MustyBlockBlast.Gameplay.Systems
             if (_runRescuedSubscription != null)
             {
                 _runRescuedSubscription.Dispose();
+            }
+
+            if (_piecePlacedSubscription != null)
+            {
+                _piecePlacedSubscription.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// Hands back <see cref="SECONDS_PER_CLEARED_LINE"/> per row/column the placement cleared
+        /// (issue #319). Gated on <see cref="TimerModel.IsRunning"/> rather than on the mode alone,
+        /// because that flag is the one thing that is only ever true while a real countdown exists:
+        /// it is false in Endless, false for Classic's "Sınırsız" duration (a Timed-mode run with no
+        /// clock, which still publishes placements), and false once the clock expired — none of those
+        /// have seconds to extend. The mode check is kept as well so the intent reads at a glance.
+        /// <para>
+        /// Only placements feed this: power-up clears never reach it, and need no exclusion, because
+        /// <see cref="GameModeModel.ExtrasEnabled"/> is false in Timed mode — no power-up can be armed
+        /// there, so no <see cref="PowerUpAppliedMessage"/> is ever published during a countdown.
+        /// </para>
+        /// <para>
+        /// Writes <see cref="TimerModel.RemainingSeconds"/> and <see cref="TimerModel.IsLowTime"/> as
+        /// the same pair <see cref="ITickable.Tick"/> does, so a clear that lifts the clock back over
+        /// the threshold drops the warning look immediately instead of on the next countdown frame.
+        /// </para>
+        /// </summary>
+        private void OnPiecePlaced(PiecePlacedMessage message)
+        {
+            if (message.LinesCleared <= 0
+                || !_timerModel.IsRunning.Value
+                || _gameModeSystem.CurrentMode.Value != GameMode.Timed)
+            {
+                return;
+            }
+
+            float secondsAdded = message.LinesCleared * SECONDS_PER_CLEARED_LINE;
+            float remaining = _timerModel.RemainingSeconds.Value + secondsAdded;
+            _timerModel.RemainingSeconds.Value = remaining;
+            _timerModel.IsLowTime.Value = remaining < LOW_TIME_WARNING_THRESHOLD_SECONDS;
+
+            if (_timeExtendedPublisher != null)
+            {
+                _timeExtendedPublisher.Publish(new TimeExtendedMessage(message.LinesCleared, secondsAdded));
             }
         }
 
