@@ -31,6 +31,18 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// <see cref="SpecialPieceKind.PiercingRocket"/> on the next refill.</summary>
         private const int ROCKET_TRIGGER_LINE_COUNT = 3;
 
+        /// <summary>
+        /// Issue #400: false pauses chain lightning formation without deleting it, exactly as
+        /// <see cref="LaserSpawnSystem"/> pauses the laser (#399). While this is false,
+        /// <see cref="TrySpawnChainLightning"/> returns before its selector runs, so a 3x3 square or a
+        /// 1x5 bar that clears a line earns nothing from this mechanic. <see cref="ChainLightningEffect"/>
+        /// and <see cref="ChainLightningSpawnSelector"/> stay intact for a possible revival: flip the
+        /// flag and the tile forms again exactly as the method's own doc describes.
+        /// <para>A <c>static readonly</c> rather than a <c>const</c> so the compiler does not flag the
+        /// gated body as unreachable code.</para>
+        /// </summary>
+        private static readonly bool ChainLightningFormationEnabled = false;
+
         private readonly BoardModel _boardModel;
         private readonly TrayModel _trayModel;
         private readonly ScoreGemProgressModel _scoreGemProgressModel;
@@ -1286,9 +1298,21 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// whole cascade, exactly as the core's and the vortex's rules do: the reward is for the line the
         /// player lined up with that piece, not for one a special cell's effect went on to complete.
         /// </para>
+        /// <para>
+        /// Formation is currently switched off (issue #400): <see cref="ChainLightningFormationEnabled"/>
+        /// gates this method before anything else runs, so a qualifying placement is reached and
+        /// ignored. Everything below the gate is left intact for a possible revival.
+        /// </para>
         /// </summary>
         private void TrySpawnChainLightning(LineClearResult clearResult, int colourId, string pieceId)
         {
+            if (!ChainLightningFormationEnabled)
+            {
+                // Issue #400: formation paused. Checked first so no piece id, clear, or board state can
+                // reach the spawn below.
+                return;
+            }
+
             GridPosition? spawn = ChainLightningSpawnSelector.SelectSpawnPosition(
                 _boardModel.Board, clearResult.ClearedRows, clearResult.ClearedColumns, pieceId);
             if (spawn == null)

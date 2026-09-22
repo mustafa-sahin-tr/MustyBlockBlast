@@ -9,9 +9,13 @@ using UnityEngine;
 namespace MustyBlockBlast.Tests.EditMode
 {
     /// <summary>
-    /// End-to-end cover for the placement side of the chain lightning: which shapes earn one, that a
-    /// clear is as necessary as the shape, that a destroyed tile takes the right number of cells and says
-    /// so, and that a tile caught in another's strike fires through the same resolution.
+    /// End-to-end cover for the placement side of the chain lightning while its formation is paused
+    /// (issue #400): the shapes that used to earn one — a 3x3 square or a 1x5 bar that also clears a
+    /// line — now earn nothing, and non-qualifying placements still earn nothing. The effect itself is
+    /// untouched, so a tile placed on the board by hand still takes the right number of cells and says
+    /// so, and a tile caught in another's strike still fires through the same resolution. A future
+    /// revival only has to flip <c>BoardSystem.ChainLightningFormationEnabled</c>; the formation tests
+    /// here then become the ones to invert.
     /// </summary>
     public class BoardSystemChainLightningTests
     {
@@ -62,9 +66,11 @@ namespace MustyBlockBlast.Tests.EditMode
                 seed: 1);
         }
 
-        /// <summary>AC1: a 1x5 bar that also clears a line spawns a tile, on a cell the clear emptied.</summary>
+        /// <summary>#400 AC1/AC3: a 1x5 bar that also clears a line — the old trigger — no longer spawns
+        /// a tile. The placement itself still succeeds and the cleared row is left genuinely empty: no
+        /// block is re-occupied to carry a tile.</summary>
         [Test]
-        public void TryPlacePiece_WithAHorizontal1X5ThatClearsALine_SpawnsAChainLightning()
+        public void TryPlacePiece_WithAHorizontal1X5ThatClearsALine_SpawnsNoChainLightning()
         {
             FillAllThreeSlots(LineH5);
             FillRowFrom(y: 5, fromX: 0, toX: 2);
@@ -72,27 +78,31 @@ namespace MustyBlockBlast.Tests.EditMode
             bool placed = _system.TryPlacePiece(0, new GridPosition(3, 5));
 
             Assert.IsTrue(placed);
-            var spawn = new GridPosition(0, 5);
-            Assert.AreEqual(SpecialCellKind.ChainLightning, _boardModel.GetSpecialKind(spawn));
-            Assert.AreNotEqual(Board.EMPTY, _boardModel.GetCell(spawn), "The tile needs a block to sit on.");
+            AssertRowCarriesNoKindAndIsEmpty(y: 5);
         }
 
+        /// <summary>#400 AC1/AC3: the vertical bar is gated off the same way.</summary>
         [Test]
-        public void TryPlacePiece_WithAVertical1X5ThatClearsALine_SpawnsAChainLightning()
+        public void TryPlacePiece_WithAVertical1X5ThatClearsALine_SpawnsNoChainLightning()
         {
             FillAllThreeSlots(LineV5);
             FillColumnFrom(x: 4, fromY: 0, toY: 2);
 
-            _system.TryPlacePiece(0, new GridPosition(4, 3));
+            bool placed = _system.TryPlacePiece(0, new GridPosition(4, 3));
 
-            Assert.AreEqual(
-                SpecialCellKind.ChainLightning, _boardModel.GetSpecialKind(new GridPosition(4, 0)));
+            Assert.IsTrue(placed);
+            for (int y = 0; y < Board.SIZE; y++)
+            {
+                var position = new GridPosition(4, y);
+                Assert.AreEqual(SpecialCellKind.None, _boardModel.GetSpecialKind(position), $"(4, {y}) kind.");
+                Assert.AreEqual(Board.EMPTY, _boardModel.GetCell(position), $"(4, {y}) should stay cleared.");
+            }
         }
 
-        /// <summary>A 3x3 square whose landing completes a row earns one too — the second qualifying
-        /// shape, and the reason the rule is stated on ids rather than on cell count.</summary>
+        /// <summary>#400 AC1/AC3: a 3x3 square whose landing completes rows — the second old qualifying
+        /// shape — earns nothing either.</summary>
         [Test]
-        public void TryPlacePiece_WithASquare3X3ThatClearsALine_SpawnsAChainLightning()
+        public void TryPlacePiece_WithASquare3X3ThatClearsALine_SpawnsNoChainLightning()
         {
             FillAllThreeSlots(Square3X3);
 
@@ -103,10 +113,55 @@ namespace MustyBlockBlast.Tests.EditMode
                 FillRowFrom(y, fromX: 0, toX: 4);
             }
 
-            _system.TryPlacePiece(0, new GridPosition(5, 0));
+            bool placed = _system.TryPlacePiece(0, new GridPosition(5, 0));
 
-            Assert.AreEqual(
-                SpecialCellKind.ChainLightning, _boardModel.GetSpecialKind(new GridPosition(0, 0)));
+            Assert.IsTrue(placed);
+            for (int y = 0; y <= 2; y++)
+            {
+                AssertRowCarriesNoKindAndIsEmpty(y);
+            }
+        }
+
+        /// <summary>#400 AC3, stated on the board as a whole: after the old trigger fires, no cell
+        /// anywhere carries a chain lightning, and the View is never told one spawned.</summary>
+        [Test]
+        public void TryPlacePiece_WithTheOldChainLightningTrigger_LeavesNoChainLightningAnywhere()
+        {
+            FillAllThreeSlots(LineH5);
+            FillRowFrom(y: 5, fromX: 0, toX: 2);
+
+            int chainLightningKindsRaised = 0;
+            _boardModel.SpecialKindChanged += (position, kind) =>
+            {
+                if (kind == SpecialCellKind.ChainLightning)
+                {
+                    chainLightningKindsRaised++;
+                }
+            };
+
+            _system.TryPlacePiece(0, new GridPosition(3, 5));
+
+            Assert.AreEqual(0, chainLightningKindsRaised, "No chain lightning kind should be announced.");
+            for (int x = 0; x < Board.SIZE; x++)
+            {
+                for (int y = 0; y < Board.SIZE; y++)
+                {
+                    Assert.AreNotEqual(
+                        SpecialCellKind.ChainLightning,
+                        _boardModel.GetSpecialKind(new GridPosition(x, y)),
+                        $"({x}, {y}) should not be a chain lightning.");
+                }
+            }
+        }
+
+        private void AssertRowCarriesNoKindAndIsEmpty(int y)
+        {
+            for (int x = 0; x < Board.SIZE; x++)
+            {
+                var position = new GridPosition(x, y);
+                Assert.AreEqual(SpecialCellKind.None, _boardModel.GetSpecialKind(position), $"({x}, {y}) kind.");
+                Assert.AreEqual(Board.EMPTY, _boardModel.GetCell(position), $"({x}, {y}) should stay cleared.");
+            }
         }
 
         /// <summary>The shape is half the rule: the same bar that clears nothing earns nothing.</summary>
