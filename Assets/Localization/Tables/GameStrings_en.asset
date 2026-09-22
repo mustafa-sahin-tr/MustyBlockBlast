@@ -611,7 +611,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300692
-    m_Localized: When a line clear destroys this cell, it also blasts the cells right around it, kicking off a chain of extra clearing.
+    m_Localized: "When a row or column clear destroys this cell, it also wipes the full line running the other way \u2014 cleared by a row, it takes out its whole column; cleared by a column, its whole row \u2014 full or not, edge to edge. Destroyed by a bomb or anything with no line to it, it wipes both. Every cell it wipes scores a bonus."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300693

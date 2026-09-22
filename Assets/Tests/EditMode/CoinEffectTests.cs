@@ -142,6 +142,70 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.AreEqual(PAYOUT, _effect.TotalCoinsAwarded);
         }
 
+        // --- Issue #401: the per-cell value ---
+
+        /// <summary>AC5: a trigger carrying a value pays that value, and the constructor default is not
+        /// consulted at all.</summary>
+        [TestCase(ClearAxis.None)]
+        [TestCase(ClearAxis.Row)]
+        [TestCase(ClearAxis.Column)]
+        public void Apply_ToAPricedCoinAlongOneAxisOrNone_AwardsItsOwnValue(ClearAxis axis)
+        {
+            _effect.Apply(_board, Trigger(SpecialCellKind.Coin, axis, coinValue: 16));
+
+            Assert.AreEqual(16, _effect.TotalCoinsAwarded);
+        }
+
+        /// <summary>AC6: the intersection doubling is applied to the coin's own value.</summary>
+        [Test]
+        public void Apply_ToAPricedCoinAtBothAxes_AwardsDoubleItsOwnValue()
+        {
+            _effect.Apply(_board, Trigger(SpecialCellKind.Coin, ClearAxis.Both, coinValue: 8));
+
+            Assert.AreEqual(16, _effect.TotalCoinsAwarded);
+        }
+
+        /// <summary>A trigger with no value of its own — every level-authored coin — still pays the
+        /// configured default, so nothing that predates per-cell values changes.</summary>
+        [Test]
+        public void Apply_ToAnUnpricedCoin_FallsBackToTheDefault()
+        {
+            _effect.Apply(_board, Trigger(SpecialCellKind.Coin, ClearAxis.Row, coinValue: 0));
+
+            Assert.AreEqual(PAYOUT, _effect.TotalCoinsAwarded);
+        }
+
+        /// <summary>Priced and unpriced coins in one resolution each pay at their own rate.</summary>
+        [Test]
+        public void Apply_ToAPricedAndAnUnpricedCoin_SumsEachAtItsOwnRate()
+        {
+            _effect.Apply(_board, Trigger(SpecialCellKind.Coin, ClearAxis.Row, coinValue: 2));
+            _effect.Apply(_board, Trigger(SpecialCellKind.Coin, ClearAxis.Both, coinValue: 0));
+
+            Assert.AreEqual(2 + (PAYOUT * 2), _effect.TotalCoinsAwarded);
+        }
+
+        /// <summary>The value travels with the trigger: a coin priced on the board and destroyed by the
+        /// cascade loop pays its own value, because <c>CollectTriggered</c> read it before the clear
+        /// wiped it.</summary>
+        [Test]
+        public void ResolveCascade_OverAFullRowHoldingAPricedCoin_PaysItsOwnValueThroughTheEffect()
+        {
+            for (int x = 0; x < Board.SIZE; x++)
+            {
+                _board.Occupy(new GridPosition(x, 4), 1);
+            }
+
+            var coin = new GridPosition(2, 4);
+            _board.SetSpecialKind(coin, SpecialCellKind.Coin);
+            _board.SetCoinValue(coin, 4);
+
+            CascadeClearResolver.ResolveCascade(_board, _effect);
+
+            Assert.AreEqual(4, _effect.TotalCoinsAwarded);
+            Assert.AreEqual(0, _board.GetCoinValue(coin), "Destroyed: the value went with the block.");
+        }
+
         [Test]
         public void Apply_WithNoBoard_Throws()
         {
@@ -151,5 +215,8 @@ namespace MustyBlockBlast.Tests.EditMode
 
         private static SpecialCellTrigger Trigger(SpecialCellKind kind, ClearAxis axis)
             => new SpecialCellTrigger(new GridPosition(2, 3), kind, axis);
+
+        private static SpecialCellTrigger Trigger(SpecialCellKind kind, ClearAxis axis, int coinValue)
+            => new SpecialCellTrigger(new GridPosition(2, 3), kind, axis, coinValue);
     }
 }

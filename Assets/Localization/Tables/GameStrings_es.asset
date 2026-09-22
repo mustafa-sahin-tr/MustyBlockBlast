@@ -611,7 +611,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300692
-    m_Localized: "Cuando una l\xEDnea despejada destruye esta celda, tambi\xE9n hace estallar las celdas de alrededor, iniciando una reacci\xF3n en cadena."
+    m_Localized: "Cuando una fila o columna despejada destruye esta celda, tambi\xE9n borra la l\xEDnea completa en el otro sentido: despejada por una fila, se lleva toda su columna; por una columna, toda su fila, llena o no, de extremo a extremo. Destruida por una bomba o algo sin l\xEDnea, borra ambas. Cada celda que borra suma puntos de bonificaci\xF3n."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300693

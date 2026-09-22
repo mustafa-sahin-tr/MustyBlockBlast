@@ -98,6 +98,28 @@ namespace MustyBlockBlast.Core
         /// </summary>
         private readonly int[] _timerCountdowns;
 
+        /// <summary>
+        /// Coins a <see cref="SpecialCellKind.Coin"/> cell pays when destroyed, indexed exactly like
+        /// <see cref="_cells"/>. <c>0</c> — every cell of every board authored before per-cell coin
+        /// values existed, and every cell whose kind is not Coin — means "no value of its own": a coin
+        /// cell reading 0 falls back to the economy's configured default when it pays out (see
+        /// <see cref="CoinEffect"/>), so a level-authored coin that never had a value set behaves exactly
+        /// as it did before this array existed.
+        /// <para>
+        /// A fifth parallel array, for the reason the hit counts and the timer countdowns are separate
+        /// from each other and from the kind: "how much this coin is worth" is its own quantity, set
+        /// once by whatever spawned the coin (issue #401 — the streak escalation writes 1, 2, 4, 8, 16)
+        /// and read once when the coin is destroyed. Reusing <see cref="_hitCounts"/> or
+        /// <see cref="_timerCountdowns"/> would have a coin worth 3 coins be destroyed on its third hit.
+        /// </para>
+        /// <para>
+        /// Reset by <see cref="Clear"/> and copied by <see cref="Clone"/>/<see cref="CopyFrom"/> exactly
+        /// as the other three arrays are, so Undo's full-snapshot restore brings a coin's value back
+        /// along with the coin.
+        /// </para>
+        /// </summary>
+        private readonly int[] _coinValues;
+
         /// <summary>The standard <see cref="SIZE"/> x <see cref="SIZE"/> hole-free board. Delegates to
         /// <see cref="BoardShape.Standard"/> so every level authored before board shapes existed keeps
         /// the exact geometry it was authored against.</summary>
@@ -113,17 +135,19 @@ namespace MustyBlockBlast.Core
             _specialKinds = new SpecialCellKind[shape.CellCount];
             _hitCounts = new int[shape.CellCount];
             _timerCountdowns = new int[shape.CellCount];
+            _coinValues = new int[shape.CellCount];
         }
 
         private Board(
             BoardShape shape, int[] cells, SpecialCellKind[] specialKinds, int[] hitCounts,
-            int[] timerCountdowns)
+            int[] timerCountdowns, int[] coinValues)
         {
             _shape = shape;
             _cells = cells;
             _specialKinds = specialKinds;
             _hitCounts = hitCounts;
             _timerCountdowns = timerCountdowns;
+            _coinValues = coinValues;
         }
 
         /// <summary>The outline this board was built with. Shared, immutable and safe to hand out — a
@@ -209,6 +233,7 @@ namespace MustyBlockBlast.Core
             _specialKinds[index] = SpecialCellKind.None;
             _hitCounts[index] = 0;
             _timerCountdowns[index] = 0;
+            _coinValues[index] = 0;
         }
 
         /// <summary>
@@ -294,6 +319,29 @@ namespace MustyBlockBlast.Core
             Occupy(position, colourId);
             SetSpecialKind(position, SpecialCellKind.Timer);
             _timerCountdowns[Index(position)] = startingCountdown;
+        }
+
+        /// <summary>Coins the <see cref="SpecialCellKind.Coin"/> cell on <paramref name="position"/> pays
+        /// when destroyed. 0 for a cell that was never given a value of its own — an ordinary or empty
+        /// cell, or a level-authored coin — which <see cref="CoinEffect"/> reads as "pay the configured
+        /// default".</summary>
+        public int GetCoinValue(GridPosition position) => _coinValues[Index(position)];
+
+        /// <summary>
+        /// Overwrites <paramref name="position"/>'s coin value. Independent of <see cref="SetSpecialKind"/>
+        /// exactly as that is independent of <see cref="Occupy"/>: a spawner tags a cell as a coin and
+        /// then prices it in two steps, and the value is reset only by <see cref="Clear"/>. Refuses a
+        /// negative value rather than storing it — a coin can be worth nothing, never a fine.
+        /// </summary>
+        public void SetCoinValue(GridPosition position, int coinValue)
+        {
+            if (coinValue < 0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(coinValue), coinValue, "A coin cell's value cannot be negative.");
+            }
+
+            _coinValues[Index(position)] = coinValue;
         }
 
         /// <summary>Appends every <em>playable</em> cell of row <paramref name="y"/> to
@@ -849,7 +897,10 @@ namespace MustyBlockBlast.Core
             int[] timerCountdownCopy = new int[_timerCountdowns.Length];
             Array.Copy(_timerCountdowns, timerCountdownCopy, _timerCountdowns.Length);
 
-            return new Board(_shape, copy, specialCopy, hitCountCopy, timerCountdownCopy);
+            int[] coinValueCopy = new int[_coinValues.Length];
+            Array.Copy(_coinValues, coinValueCopy, _coinValues.Length);
+
+            return new Board(_shape, copy, specialCopy, hitCountCopy, timerCountdownCopy, coinValueCopy);
         }
 
         /// <summary>Overwrites this board's cells with <paramref name="source"/>'s. Used to reuse a scratch
@@ -881,6 +932,7 @@ namespace MustyBlockBlast.Core
             Array.Copy(source._specialKinds, _specialKinds, _specialKinds.Length);
             Array.Copy(source._hitCounts, _hitCounts, _hitCounts.Length);
             Array.Copy(source._timerCountdowns, _timerCountdowns, _timerCountdowns.Length);
+            Array.Copy(source._coinValues, _coinValues, _coinValues.Length);
         }
 
         /// <summary>Flat index of <paramref name="position"/> — also the index a caller's own per-cell

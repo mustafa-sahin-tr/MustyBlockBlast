@@ -121,19 +121,6 @@ namespace MustyBlockBlast.Presentation.Views
         [Tooltip("Icon scale the birth pop dips to just past 1 right before landing, for a soft settle rather than stopping dead at 1.")]
         [SerializeField] private float _specialSpawnLandingOvershootScale = 1.08f;
 
-        [Header("Explosive Core Detonation Flight")]
-        [Tooltip("Seconds one detonation's icon takes to fly from its origin cell to the gap it finishes. Played once per finished line, in order — see OnExplosiveCoreDetonated.")]
-        [SerializeField] private float _explosiveCoreFlightDuration = 0.6f;
-
-        [Tooltip("Icon size during the flight, as a multiple of the cell size, so it reads clearly while crossing several cells.")]
-        [SerializeField] private float _explosiveCoreFlightIconScale = 1.35f;
-
-        [Tooltip("Extra scale the flight icon swells to at the midpoint of its travel, on top of _explosiveCoreFlightIconScale, before shrinking back down to it by the time it lands — e.g. 0.4 grows it 40% bigger at the midpoint.")]
-        [SerializeField] private float _explosiveCoreFlightPulseScale = 0.4f;
-
-        [Tooltip("Seconds paused after one flight lands and its line's cells start fading, before the next flight in the sequence departs.")]
-        [SerializeField] private float _explosiveCoreLandingPause = 0.12f;
-
         [Header("Vortex Island Fill (issue #349)")]
         [Tooltip("Seconds a cell a vortex reclaimed takes to pop in from _islandFillStartScale to its resting size. At least 0.4s so filling many cells still reads clearly rather than looking instant.")]
         [SerializeField] private float _islandFillDuration = 0.5f;
@@ -206,15 +193,14 @@ namespace MustyBlockBlast.Presentation.Views
         private static readonly Color ScoreGemIconTint = new Color(0.44f, 1f, 0.72f, 1f);
 
         /// <summary>
-        /// Colour a <see cref="SpecialCellKind.Vortex"/>'s icon is drawn in. Fixed and unthemed, and a
-        /// third distinct hue, for the reasons <see cref="ScoreGemIconTint"/> is: a vortex neither blows
-        /// a hole in the board nor multiplies a score — it rearranges what is already there — so it has
-        /// to be told apart at a glance from both. A cool violet, as far from the warm near-white of the
-        /// destructive kinds and the green of the gem as the palette allows.
+        /// Colour a <see cref="SpecialCellKind.Vortex"/>'s glow halo is drawn in (see
+        /// <see cref="GlowIdentityColor"/>). A cool violet, as far from the warm near-white of the
+        /// destructive kinds and the green of the gem as the palette allows, so the halo still reads as
+        /// this kind's own colour at a glance.
         /// <para>
-        /// The sprite is shared with every other kind on purpose (<c>UiSpriteFactory.Starburst</c>): one
-        /// sprite for every icon is what keeps an icon on any number of cells batching with the rest of
-        /// the board, so the kinds are separated by tint rather than by a second texture.
+        /// No longer the icon's own tint: Vortex now uses a full-colour hand-picked sprite
+        /// (<c>vortex_icon.png</c>) instead of a white silhouette, so <see cref="IconTint"/> returns
+        /// <see cref="Color.white"/> for it and lets the sprite's own colours show through untouched.
         /// </para>
         /// </summary>
         private static readonly Color VortexIconTint = new Color(0.62f, 0.66f, 1f, 1f);
@@ -234,21 +220,30 @@ namespace MustyBlockBlast.Presentation.Views
         private static readonly Color ChainLightningIconTint = new Color(1f, 0.85f, 0.29f, 1f);
 
         /// <summary>
-        /// Colour a <see cref="SpecialCellKind.Coin"/>'s icon is drawn in. A fifth distinct hue, for the
-        /// reason the others are distinct: a coin destroys nothing and does not even multiply the run's
-        /// score — it pays into a balance that outlives the run — so it must be told apart at a glance
-        /// from the destructive kinds and from the gem alike. Gold, which is the one colour a player
-        /// reads as currency without being told, and the same tint
-        /// <see cref="CoinTotalHudView"/> paints the HUD total with so the cell and the counter it feeds
-        /// are recognisably the same thing.
+        /// Colour a <see cref="SpecialCellKind.Coin"/>'s glow halo is drawn in (see
+        /// <see cref="GlowIdentityColor"/>). Gold, which is the one colour a player reads as currency
+        /// without being told, and the same tint <see cref="CoinTotalHudView"/> paints the HUD total
+        /// with so the cell and the counter it feeds are recognisably the same thing.
         /// <para>
-        /// The sprite is shared with every other kind on purpose (<c>UiSpriteFactory.Starburst</c>): one
-        /// sprite for every icon is what keeps an icon on any number of cells batching with the rest of
-        /// the board, so the kinds are separated by tint rather than by a second texture — which is also
-        /// why a coin cell needs no sprite asset and no atlas of its own.
+        /// No longer the icon's own tint: Coin now uses a full-colour hand-picked sprite
+        /// (<c>coin_icon.png</c>) instead of a white silhouette, so <see cref="IconTint"/> returns
+        /// <see cref="Color.white"/> for it and lets the sprite's own colours show through untouched.
         /// </para>
         /// </summary>
         private static readonly Color CoinIconTint = new Color(1f, 0.82f, 0.25f, 1f);
+
+        /// <summary>
+        /// Colour a <see cref="SpecialCellKind.ExplosiveCore"/>'s glow halo is drawn in (see
+        /// <see cref="GlowIdentityColor"/>). A deep crimson, chosen to sit far from both
+        /// <see cref="CoinIconTint"/>'s gold and <see cref="VortexIconTint"/>'s violet — the core's own
+        /// full-colour sprite (<c>explosive_core_icon.png</c>) is a red/magenta plasma, and an amber or
+        /// gold glow behind it would read as the same kind as a coin at a glance.
+        /// <para>
+        /// Like Vortex and Coin, <see cref="IconTint"/> returns <see cref="Color.white"/> for this kind
+        /// so the sprite's own colours show through untouched; this constant only tints the glow.
+        /// </para>
+        /// </summary>
+        private static readonly Color ExplosiveCoreGlowTint = new Color(1f, 0.2f, 0.35f, 1f);
 
         /// <summary>How far a kind's glow halo (issue #365) is blended towards white on top of its own
         /// <see cref="IconTint"/> — bright enough to read as an emissive backing against any theme's
@@ -592,8 +587,8 @@ namespace MustyBlockBlast.Presentation.Views
             _runStartedSubscriber.Subscribe(OnRunStarted).AddTo(_disposables);
             _powerUpAppliedSubscriber.Subscribe(OnPowerUpApplied).AddTo(_disposables);
 
-            // Same handler as a power-up's: a blast empties a region rather than whole lines, so its
-            // cells need claiming exactly the way a power-up's cleared region does.
+            // Same handler as a power-up's: a core's bonus wipe empties a line whether or not it was
+            // full, so its cells need claiming exactly the way a power-up's cleared region does.
             _explosiveCoreDetonatedSubscriber.Subscribe(OnExplosiveCoreDetonated).AddTo(_disposables);
 
             // Same again for a laser's wipe, which empties a line whether or not it was full — so no
@@ -1577,199 +1572,12 @@ namespace MustyBlockBlast.Presentation.Views
             iconTransform.localRotation = Quaternion.identity;
         }
 
-        /// <summary>
-        /// An explosive core detonated: it finished off every row/column that was one cell short and
-        /// filled in the gap, which the board's own cascade re-check then cleared the ordinary way — so
-        /// the finished lines' cells are already sitting pending (marked, never repainted, by the same
-        /// <c>NotifyCleared</c> path an ordinary <see cref="OnLinesCleared"/> claims) by the time this
-        /// runs.
-        /// <para>
-        /// AC (issue: "explosive core nereleri yok etti... hissetmeli"): rather than fading every pending
-        /// cell at once, this flies the core's own icon from <see cref="ExplosiveCoreDetonation.Origin"/>
-        /// to each gap it finished, landing on and sweeping only that gap's row and column before moving
-        /// to the next — one detonation, and within it one finished line, at a time — so the player can
-        /// actually watch the core travel to and finish each line rather than see the board change all
-        /// at once. <see cref="ExplosiveCoreDetonatedMessage.Detonations"/> is empty only in a build
-        /// where a caller predates this AC (there is none today, but the message keeps working without
-        /// it), which falls back to the original one-shot sweep by count.
-        /// </para>
-        /// <para>
-        /// A hand-off needs no visual of its own beyond this: the target cell's new icon arrives through
-        /// the ordinary <see cref="MustyBlockBlast.Gameplay.Models.BoardModel.SpecialKindChanged"/> event.
-        /// </para>
-        /// </summary>
+        /// <summary>An explosive core detonated and its bonus wipe emptied the line at right angles to
+        /// whatever destroyed it (issue #398). Claimed exactly as a laser's wipe is, and for the same
+        /// reason: a wipe does not need the line to be full, so no <see cref="LinesClearedMessage"/>
+        /// follows it — the same line-sweep VFX path <see cref="OnLaserFired"/> plays.</summary>
         private void OnExplosiveCoreDetonated(ExplosiveCoreDetonatedMessage message)
-        {
-            IReadOnlyList<ExplosiveCoreDetonation> detonations = message.Detonations;
-            if (detonations == null || detonations.Count == 0)
-            {
-                SweepPendingCells(message.FinishedLineCount);
-                return;
-            }
-
-            PlayExplosiveCoreDetonationsAsync(detonations).Forget();
-        }
-
-        /// <summary>
-        /// Plays every detonation's flights in order, and within one detonation every finished line in
-        /// the order <see cref="MustyBlockBlast.Core.ExplosiveCoreEffect"/> found it (rows, then
-        /// columns) — a single sequence covering the whole resolution, so a second core caught in the
-        /// first one's chain plays its own flights right after rather than concurrently with them.
-        /// </summary>
-        private async UniTaskVoid PlayExplosiveCoreDetonationsAsync(
-            IReadOnlyList<ExplosiveCoreDetonation> detonations)
-        {
-            try
-            {
-                for (int i = 0; i < detonations.Count; i++)
-                {
-                    ExplosiveCoreDetonation detonation = detonations[i];
-                    IReadOnlyList<GridPosition> targets = detonation.FinishedTargets;
-
-                    for (int j = 0; j < targets.Count; j++)
-                    {
-                        if (_isDestroyed)
-                        {
-                            return;
-                        }
-
-                        await PlayExplosiveCoreFlightAsync(detonation.Origin, targets[j]);
-                        SweepPendingCellsAt(targets[j]);
-
-                        float pauseDuration = Mathf.Max(0f, _explosiveCoreLandingPause);
-                        float pauseElapsed = 0f;
-                        while (pauseElapsed < pauseDuration)
-                        {
-                            await UniTask.Yield(PlayerLoopTiming.Update, _destroyToken);
-                            pauseElapsed += Time.unscaledDeltaTime;
-                        }
-                    }
-                }
-            }
-            catch (OperationCanceledException)
-            {
-                // The board view was destroyed mid-sequence — nothing left to fly to.
-            }
-        }
-
-        /// <summary>
-        /// One flight: a transient copy of the explosive core's own icon travels in a straight,
-        /// ease-out line from <paramref name="origin"/>'s cell to <paramref name="target"/>'s, swelling
-        /// to <see cref="_explosiveCoreFlightPulseScale"/> past its resting size at the midpoint of the
-        /// trip and shrinking back down by the time it lands, then is destroyed —
-        /// <paramref name="target"/>'s own gap fill is invisible on the board (it was written straight
-        /// to <c>Core.Board</c>, which raises no repaint of its own), so this icon is the only visual of
-        /// the core actually reaching it.
-        /// </summary>
-        private async UniTask PlayExplosiveCoreFlightAsync(GridPosition origin, GridPosition target)
-        {
-            if (_cellLayerRoot == null)
-            {
-                return;
-            }
-
-            RectTransform icon = CreateExplosiveCoreFlightIcon();
-            Vector2 start = CellAnchoredPosition(origin);
-            Vector2 end = CellAnchoredPosition(target);
-            icon.anchoredPosition = start;
-
-            float duration = Mathf.Max(0.01f, _explosiveCoreFlightDuration);
-            float pulseAmplitude = Mathf.Max(0f, _explosiveCoreFlightPulseScale);
-
-            try
-            {
-                float elapsed = 0f;
-                while (elapsed < duration)
-                {
-                    float linearT = elapsed / duration;
-                    float travelT = EaseOutCubic(linearT);
-                    icon.anchoredPosition = Vector2.LerpUnclamped(start, end, travelT);
-
-                    // A half sine over the raw (un-eased) t: 0 at both ends, its peak exactly at the
-                    // midpoint, so the swell reads as tied to distance travelled rather than to the
-                    // eased, front-loaded pace of the travel itself.
-                    float pulse = 1f + (pulseAmplitude * Mathf.Sin(linearT * Mathf.PI));
-                    icon.localScale = Vector3.one * pulse;
-
-                    await UniTask.Yield(PlayerLoopTiming.Update, _destroyToken);
-                    elapsed += Time.unscaledDeltaTime;
-                }
-            }
-            finally
-            {
-                if (!_isDestroyed && icon != null)
-                {
-                    Destroy(icon.gameObject);
-                }
-            }
-        }
-
-        /// <summary>The explosive core's own icon and tint, sized to
-        /// <see cref="_explosiveCoreFlightIconScale"/> so it reads clearly while crossing several cells,
-        /// parented to <see cref="_cellLayerRoot"/> and brought to the front of it — exactly the
-        /// reasoning <see cref="CreateEffectParticle"/> gives for its own particles — so the flight draws
-        /// over every cell it passes rather than behind whichever one happens to sit later in the sibling
-        /// order.</summary>
-        private RectTransform CreateExplosiveCoreFlightIcon()
-        {
-            var iconObject = new GameObject("ExplosiveCoreFlight", typeof(RectTransform), typeof(Image));
-            var rect = (RectTransform)iconObject.transform;
-            rect.SetParent(_cellLayerRoot, false);
-            rect.sizeDelta = Vector2.one * (_cellSize * Mathf.Max(0.01f, _explosiveCoreFlightIconScale));
-            rect.SetAsLastSibling();
-
-            Image image = iconObject.GetComponent<Image>();
-            image.sprite = IconSprite(SpecialCellKind.ExplosiveCore);
-            image.type = Image.Type.Simple;
-            image.raycastTarget = false;
-            image.color = IconTint(SpecialCellKind.ExplosiveCore);
-
-            return rect;
-        }
-
-        /// <summary>Sweeps only the pending cells in <paramref name="crossing"/>'s own row and column —
-        /// <see cref="SweepPendingCells"/> narrowed to one finished line, so a detonation's flights each
-        /// claim only the line they just landed on rather than every pending cell in the whole
-        /// resolution at once. Safe to call on a row-only or column-only finish: a cell the other axis
-        /// would have swept but was never pending is simply skipped, exactly as
-        /// <see cref="SweepPendingCells"/> already skips every non-pending cell.</summary>
-        private void SweepPendingCellsAt(GridPosition crossing)
-        {
-            if (_cells == null)
-            {
-                return;
-            }
-
-            for (int x = 0; x < _width; x++)
-            {
-                // Skipped here, not missed: the column sweep below covers (crossing.X, crossing.Y) once,
-                // which is the only way to sweep it exactly once rather than twice.
-                if (x == crossing.X)
-                {
-                    continue;
-                }
-
-                SweepPendingCellAt(new GridPosition(x, crossing.Y));
-            }
-
-            for (int y = 0; y < _height; y++)
-            {
-                SweepPendingCellAt(new GridPosition(crossing.X, y));
-            }
-        }
-
-        private void SweepPendingCellAt(GridPosition cell)
-        {
-            int index = CellIndex(cell);
-            if (!_cellPending[index])
-            {
-                return;
-            }
-
-            // See SweepPendingCells's own remark: bumped first so this fade is the cell's only owner.
-            _cellGenerations[index]++;
-            PlayClearAsync(cell, index, _cellGenerations[index], false, 0f, null).Forget();
-        }
+            => SweepPendingCells(message.WipedCellCount);
 
         /// <summary>A laser wiped a line. Claimed exactly as a blast's cells are, and for the same
         /// reason: a wipe does not need the line to be full, so no <see cref="LinesClearedMessage"/>
@@ -2872,19 +2680,55 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>The tint one kind's icon is drawn in. Stated once, as a switch rather than a chain
         /// of conditionals, so a new kind is one line here and nothing else. Internal so
         /// <see cref="InfoPopupView"/> can reuse it for a special cell's popup hero icon rather than
-        /// duplicating this table.</summary>
+        /// duplicating this table.
+        /// <para>
+        /// Vortex, Coin, and ExplosiveCore return <see cref="Color.white"/> (no-op tint): those three
+        /// ship as full-colour hand-picked sprites rather than white silhouettes, so multiplying them by
+        /// anything but white would recolour art that already carries its own palette. Their
+        /// distinguishing hue lives only in <see cref="GlowIdentityColor"/> now, for the halo behind
+        /// them. Every other kind is still a white silhouette tinted here, exactly as before.
+        /// </para>
+        /// </summary>
         internal static Color IconTint(SpecialCellKind kind)
         {
             switch (kind)
             {
+                case SpecialCellKind.Vortex:
+                case SpecialCellKind.Coin:
+                case SpecialCellKind.ExplosiveCore:
+                    return Color.white;
                 case SpecialCellKind.ScoreGem:
                     return ScoreGemIconTint;
-                case SpecialCellKind.Vortex:
-                    return VortexIconTint;
                 case SpecialCellKind.ChainLightning:
                     return ChainLightningIconTint;
+                case SpecialCellKind.Timer:
+                    return SpecialIconTint;
+                default:
+                    return SpecialIconTint;
+            }
+        }
+
+        /// <summary>
+        /// The hue one kind's glow halo (issue #365) is identified by — kept as its own table rather
+        /// than reusing <see cref="IconTint"/> now that Vortex, Coin, and ExplosiveCore tint their icon
+        /// with plain white (their sprite already carries full colour): without this split, their glow
+        /// would go white too and stop reading as their own kind. Every kind not in that trio still maps
+        /// 1:1 with its <see cref="IconTint"/> entry, so nothing else changes.
+        /// </summary>
+        private static Color GlowIdentityColor(SpecialCellKind kind)
+        {
+            switch (kind)
+            {
+                case SpecialCellKind.Vortex:
+                    return VortexIconTint;
                 case SpecialCellKind.Coin:
                     return CoinIconTint;
+                case SpecialCellKind.ExplosiveCore:
+                    return ExplosiveCoreGlowTint;
+                case SpecialCellKind.ScoreGem:
+                    return ScoreGemIconTint;
+                case SpecialCellKind.ChainLightning:
+                    return ChainLightningIconTint;
                 case SpecialCellKind.Timer:
                     return SpecialIconTint;
                 default:
@@ -2894,17 +2738,16 @@ namespace MustyBlockBlast.Presentation.Views
 
         /// <summary>
         /// The colour one kind's glow halo (issue #365) is drawn in behind its icon — derived from
-        /// <see cref="IconTint"/> rather than a second per-kind table, so every kind that ever gets a new
-        /// icon tint automatically gets a matching glow with no second switch to keep in sync (AC2).
-        /// Blended towards white (<see cref="GLOW_TINT_WHITEN"/>) for brightness against any theme fill
-        /// (AC3) while keeping enough of the source hue that a kind's glow is still recognisably its own
-        /// colour, not a shared white halo for all seven (AC5). Not reused by <see cref="InfoPopupView"/>
-        /// — its hero icon stays flat by design (AC6) — so, unlike <see cref="IconTint"/>, this is
-        /// private.
+        /// <see cref="GlowIdentityColor"/> rather than <see cref="IconTint"/> (see that method's remarks
+        /// for why the two split). Blended towards white (<see cref="GLOW_TINT_WHITEN"/>) for brightness
+        /// against any theme fill (AC3) while keeping enough of the source hue that a kind's glow is
+        /// still recognisably its own colour, not a shared white halo for all seven (AC5). Not reused by
+        /// <see cref="InfoPopupView"/> — its hero icon stays flat by design (AC6) — so, unlike
+        /// <see cref="IconTint"/>, this is private.
         /// </summary>
         private static Color GlowTint(SpecialCellKind kind)
         {
-            Color tint = IconTint(kind);
+            Color tint = GlowIdentityColor(kind);
             Color glow = Color.Lerp(tint, Color.white, GLOW_TINT_WHITEN);
             glow.a = GLOW_BASE_ALPHA;
             return glow;

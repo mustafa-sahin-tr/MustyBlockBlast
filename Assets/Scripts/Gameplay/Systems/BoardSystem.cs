@@ -31,6 +31,18 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// <see cref="SpecialPieceKind.PiercingRocket"/> on the next refill.</summary>
         private const int ROCKET_TRIGGER_LINE_COUNT = 3;
 
+        /// <summary>
+        /// Issue #400: false pauses chain lightning formation without deleting it, exactly as
+        /// <see cref="LaserSpawnSystem"/> pauses the laser (#399). While this is false,
+        /// <see cref="TrySpawnChainLightning"/> returns before its selector runs, so a 3x3 square or a
+        /// 1x5 bar that clears a line earns nothing from this mechanic. <see cref="ChainLightningEffect"/>
+        /// and <see cref="ChainLightningSpawnSelector"/> stay intact for a possible revival: flip the
+        /// flag and the tile forms again exactly as the method's own doc describes.
+        /// <para>A <c>static readonly</c> rather than a <c>const</c> so the compiler does not flag the
+        /// gated body as unreachable code.</para>
+        /// </summary>
+        private static readonly bool ChainLightningFormationEnabled = false;
+
         private readonly BoardModel _boardModel;
         private readonly TrayModel _trayModel;
         private readonly ScoreGemProgressModel _scoreGemProgressModel;
@@ -118,12 +130,7 @@ namespace MustyBlockBlast.Gameplay.Systems
 
         // One long-lived effect per kind, reset per placement rather than reallocated — each owns the
         // buffer its destroyed cells are reported through.
-        //
-        // Built in the constructor rather than here, exactly as _chainLightningEffect is: it takes
-        // _random, which a field initialiser would read before the constructor body has assigned it —
-        // and it shares that one stream deliberately, for a hand-off that replays identically from a
-        // seeded run.
-        private readonly ExplosiveCoreEffect _explosiveCoreEffect;
+        private readonly ExplosiveCoreEffect _explosiveCoreEffect = new ExplosiveCoreEffect();
         private readonly LaserEffect _laserEffect = new LaserEffect();
 
         /// <summary>The odd one out among the board-mutating effects: it creates blocks instead of
@@ -328,7 +335,6 @@ namespace MustyBlockBlast.Gameplay.Systems
             // After the stream it draws from, necessarily: the effect keeps the reference it is handed,
             // and there is exactly one stream per run for every random decision to come out of.
             _chainLightningEffect = new ChainLightningEffect(_random);
-            _explosiveCoreEffect = new ExplosiveCoreEffect(_random);
 
             // Same reason, same stream: a fill's colour and a hand-off's target both draw from it.
             _vortexEffect = new VortexEffect(_random);
@@ -586,6 +592,15 @@ namespace MustyBlockBlast.Gameplay.Systems
                 _boardModel.NotifyPowerUpCleared(wipedCells);
             }
 
+            // An explosive core's bonus wipe is the same shape of event as a laser's (issue #398): one
+            // opposite line emptied whether or not it was full, so it is announced the same way.
+            IReadOnlyList<GridPosition> coreWipedCells = _explosiveCoreEffect.WipedCells;
+            bool anyCoreWiped = coreWipedCells.Count > 0;
+            if (anyCoreWiped)
+            {
+                _boardModel.NotifyPowerUpCleared(coreWipedCells);
+            }
+
             // A rocket's wipe is announced the same way and for the same reason as a laser's: it empties
             // two lines whether or not they were full, so no LinesClearedMessage describes it.
             IReadOnlyList<GridPosition> rocketWipedCells = _piercingRocketEffect.WipedCells;
@@ -639,6 +654,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             // exists to not repeat (issue #307 AC11).
             int timerCellsClearedInTime = _timerCellClearEffect.DestroyedCount
                 + _laserEffect.TimerCellsDestroyedCount
+                + _explosiveCoreEffect.TimerCellsDestroyedCount
                 + _chainLightningEffect.TimerCellsDestroyedCount;
 
             _piecePlacedPublisher.Publish(new PiecePlacedMessage(
@@ -657,28 +673,11 @@ namespace MustyBlockBlast.Gameplay.Systems
 
             // Published after the two messages above so a subscriber that reacts to a detonation sees a
             // placement that has already been fully reported, and so the View's line-clear animation
-            // claims its own cells before the detonation's sweep does. A hand-off's target is announced
-            // here too — SetSpecialKind was called directly on Core.Board, which raises no event of its
-            // own — in the order a View needs it: the cells the core finished have already emptied by
-            // the time this runs, and the target's icon should not appear to jump the queue ahead of
-            // them.
-            int explosiveCoreFinishedLineCount = _explosiveCoreEffect.FinishedLineCount;
-            IReadOnlyList<GridPosition> explosiveCoreHandOffTargets = _explosiveCoreEffect.HandOffTargets;
-            bool anyExplosiveCoreDetonation =
-                explosiveCoreFinishedLineCount > 0 || explosiveCoreHandOffTargets.Count > 0;
-            if (anyExplosiveCoreDetonation)
+            // claims its own cells before the detonation's sweep does.
+            if (anyCoreWiped)
             {
-                for (int i = 0; i < explosiveCoreHandOffTargets.Count; i++)
-                {
-                    _boardModel.NotifySpecialKindChanged(explosiveCoreHandOffTargets[i]);
-                }
-
-                // Copied, not the live buffer: Detonations is a per-target flight list Presentation
-                // plays out across several frames, and the effect overwrites its own buffer on its next
-                // resolution — exactly why VortexIslandFilledMessage copies its own fill lists.
-                _explosiveCoreDetonatedPublisher.Publish(new ExplosiveCoreDetonatedMessage(
-                    explosiveCoreFinishedLineCount, explosiveCoreHandOffTargets.Count,
-                    new List<ExplosiveCoreDetonation>(_explosiveCoreEffect.Detonations)));
+                _explosiveCoreDetonatedPublisher.Publish(
+                    new ExplosiveCoreDetonatedMessage(coreWipedCells.Count));
             }
 
             if (anyWiped)
@@ -1299,9 +1298,21 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// whole cascade, exactly as the core's and the vortex's rules do: the reward is for the line the
         /// player lined up with that piece, not for one a special cell's effect went on to complete.
         /// </para>
+        /// <para>
+        /// Formation is currently switched off (issue #400): <see cref="ChainLightningFormationEnabled"/>
+        /// gates this method before anything else runs, so a qualifying placement is reached and
+        /// ignored. Everything below the gate is left intact for a possible revival.
+        /// </para>
         /// </summary>
         private void TrySpawnChainLightning(LineClearResult clearResult, int colourId, string pieceId)
         {
+            if (!ChainLightningFormationEnabled)
+            {
+                // Issue #400: formation paused. Checked first so no piece id, clear, or board state can
+                // reach the spawn below.
+                return;
+            }
+
             GridPosition? spawn = ChainLightningSpawnSelector.SelectSpawnPosition(
                 _boardModel.Board, clearResult.ClearedRows, clearResult.ClearedColumns, pieceId);
             if (spawn == null)
@@ -1361,13 +1372,15 @@ namespace MustyBlockBlast.Gameplay.Systems
         }
 
         /// <summary>
-        /// Spawns this placement's "Perfect Match" reward — a <see cref="SpecialCellKind.ExplosiveCore"/>
-        /// at a uniformly random occupied cell — when it earned one (issue #352):
+        /// Spawns this placement's "Perfect Match" reward — a <see cref="SpecialCellKind.Vortex"/> at a
+        /// uniformly random occupied cell — when it earned one (issue #352, kind changed by issue #397):
         /// <see cref="PerfectMatchQualifier"/> says the piece just placed is neither a single cell nor a
         /// straight line AND every cell it occupied was itself swept away by this placement's own
-        /// (primary) clear. Not an inventory <c>PowerUpKind.Bomb</c> grant — the same board mechanism the
-        /// other three spawns above use. A placement that did not qualify, or one with no eligible cell
-        /// left once the spawns above have claimed theirs, is silently skipped — not an error state.
+        /// (primary) clear. A vortex rather than an explosive core because the core is defined by the
+        /// cross-clear that forms it (<see cref="TrySpawnExplosiveCore"/>), which this mechanic has
+        /// nothing to do with. Same board mechanism the other spawns above use. A placement that did not
+        /// qualify, or one with no eligible cell left once the spawns above have claimed theirs, is
+        /// silently skipped — not an error state.
         /// <para>
         /// Reads <paramref name="clearResult"/>, the placement's own (primary) clear, exactly as the
         /// three spawns above do: the reward is for the piece the player placed and the lines it lined
@@ -1390,8 +1403,8 @@ namespace MustyBlockBlast.Gameplay.Systems
             // Chosen only from cells that are already occupied (see PerfectMatchSpawnSelector), so the
             // block to sit on already exists — unlike the core's own cross-clear reward, there is
             // nothing here to occupy first.
-            _boardModel.SetSpecialKind(spawn.Value, SpecialCellKind.ExplosiveCore);
-            PublishSpecialCellSpawned(SpecialCellKind.ExplosiveCore, spawn.Value);
+            _boardModel.SetSpecialKind(spawn.Value, SpecialCellKind.Vortex);
+            PublishSpecialCellSpawned(SpecialCellKind.Vortex, spawn.Value);
         }
 
         /// <summary>
@@ -1453,38 +1466,32 @@ namespace MustyBlockBlast.Gameplay.Systems
                 _coinEffect.Apply(_boardModel.Board, _hammerTriggerBuffer[i]);
             }
 
-            // The core's own effect never clears a line itself — it only fills the one missing cell of
-            // a line it can finish, and relies on a resolver re-checking fullness to actually clear it
-            // (see ExplosiveCoreEffect). A hammer's one-shot destruction has no resolver of its own, so
-            // this follow-through gives it one: exactly CascadeClearResolver's own loop, seeded by
-            // whatever the fill above just completed and by nothing else — no other path can leave a
-            // full line sitting on the board between placements. A core caught inside a line this
-            // uncovers re-triggers through the same mechanism, chained as far as the resolver's own cap
-            // allows.
-            CascadeClearResult explosiveCoreFollowThrough =
+            // The vortex's fill never clears a line itself — it only fills island cells and relies on a
+            // resolver re-checking fullness to actually clear whatever that completed (see
+            // VortexEffect). A hammer's one-shot destruction has no resolver of its own, so this
+            // follow-through gives it one: exactly CascadeClearResolver's own loop, seeded by whatever
+            // the fill above just completed and by nothing else — no other path can leave a full line
+            // sitting on the board between placements (a core's or laser's wipe only ever removes
+            // cells). A special cell caught inside a line this uncovers re-triggers through the same
+            // mechanism, chained as far as the resolver's own cap allows.
+            CascadeClearResult fillFollowThrough =
                 CascadeClearResolver.ResolveCascade(_boardModel.Board, _specialCellEffects);
-            for (int phaseIndex = 0; phaseIndex < explosiveCoreFollowThrough.Phases.Count; phaseIndex++)
+            for (int phaseIndex = 0; phaseIndex < fillFollowThrough.Phases.Count; phaseIndex++)
             {
-                LineClearResult phase = explosiveCoreFollowThrough.Phases[phaseIndex];
+                LineClearResult phase = fillFollowThrough.Phases[phaseIndex];
                 if (phase.AnyCleared)
                 {
                     _boardModel.NotifyCleared(phase);
                 }
             }
 
-            int explosiveCoreFinishedLineCount = _explosiveCoreEffect.FinishedLineCount;
-            IReadOnlyList<GridPosition> explosiveCoreHandOffTargets = _explosiveCoreEffect.HandOffTargets;
-            if (explosiveCoreFinishedLineCount > 0 || explosiveCoreHandOffTargets.Count > 0)
+            // Announced exactly as the placement path announces a core's bonus wipe (issue #398).
+            IReadOnlyList<GridPosition> coreWipedCells = _explosiveCoreEffect.WipedCells;
+            if (coreWipedCells.Count > 0)
             {
-                for (int i = 0; i < explosiveCoreHandOffTargets.Count; i++)
-                {
-                    _boardModel.NotifySpecialKindChanged(explosiveCoreHandOffTargets[i]);
-                }
-
-                // Copied, exactly as the placement path copies it — see that call site's own remark.
-                _explosiveCoreDetonatedPublisher.Publish(new ExplosiveCoreDetonatedMessage(
-                    explosiveCoreFinishedLineCount, explosiveCoreHandOffTargets.Count,
-                    new List<ExplosiveCoreDetonation>(_explosiveCoreEffect.Detonations)));
+                _boardModel.NotifyPowerUpCleared(coreWipedCells);
+                _explosiveCoreDetonatedPublisher.Publish(
+                    new ExplosiveCoreDetonatedMessage(coreWipedCells.Count));
             }
 
             IReadOnlyList<GridPosition> wipedCells = _laserEffect.WipedCells;

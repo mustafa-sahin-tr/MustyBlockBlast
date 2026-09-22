@@ -23,10 +23,15 @@ namespace MustyBlockBlast.Core
     /// came about.
     /// </para>
     /// <para>
-    /// The per-cell value is supplied by whichever System constructs this rather than being a constant
-    /// here, because it is an economy number and the economy is configured in a Gameplay-layer asset that
-    /// Core must never reference. Core owns "a coin pays, and pays twice on an intersection"; the
-    /// Gameplay layer owns how much.
+    /// <b>What a coin is worth is the coin's own</b> (issue #401): each coin cell carries its value on the
+    /// board (<see cref="Board.GetCoinValue"/>), captured into <see cref="SpecialCellTrigger.CoinValue"/>
+    /// by whatever destroyed it, and that is the base this effect doubles or not. A coin priced at 0 —
+    /// one nothing ever priced, which today is every level-authored coin — pays the default supplied by
+    /// whichever System constructs this instead, so a coin that predates per-cell values behaves exactly
+    /// as it always did. The default lives in the Gameplay layer rather than as a constant here because it
+    /// is an economy number and the economy is configured in an asset Core must never reference. Core
+    /// owns "a coin pays what it is worth, and pays twice on an intersection"; the Gameplay layer owns
+    /// the fallback amount.
     /// </para>
     /// <para>
     /// Long-lived by design, exactly as <see cref="ExplosiveCoreEffect"/> and <see cref="LaserEffect"/>
@@ -38,12 +43,13 @@ namespace MustyBlockBlast.Core
     /// </summary>
     public sealed class CoinEffect : ISpecialCellEffect
     {
-        /// <summary>How many coins one destroyed coin cell is worth before the intersection doubling.</summary>
-        private readonly int _coinValuePerCell;
+        /// <summary>What a destroyed coin cell that carries no value of its own is worth before the
+        /// intersection doubling. Read only when <see cref="SpecialCellTrigger.CoinValue"/> is 0.</summary>
+        private readonly int _defaultCoinValuePerCell;
 
-        public CoinEffect(int coinValuePerCell)
+        public CoinEffect(int defaultCoinValuePerCell)
         {
-            _coinValuePerCell = coinValuePerCell;
+            _defaultCoinValuePerCell = defaultCoinValuePerCell;
         }
 
         /// <summary>Coins owed for every coin cell destroyed since the last
@@ -69,9 +75,11 @@ namespace MustyBlockBlast.Core
                 return;
             }
 
+            int coinValue = trigger.CoinValue > 0 ? trigger.CoinValue : _defaultCoinValuePerCell;
+
             TotalCoinsAwarded += trigger.Axis == ClearAxis.Both
-                ? _coinValuePerCell * 2
-                : _coinValuePerCell;
+                ? coinValue * 2
+                : coinValue;
         }
     }
 }

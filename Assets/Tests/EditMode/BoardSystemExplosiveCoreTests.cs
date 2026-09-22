@@ -11,8 +11,8 @@ namespace MustyBlockBlast.Tests.EditMode
     /// <summary>
     /// End-to-end cover for the placement side of the explosive core: a placement that closes a row and
     /// a column spawns one, a placement that closes only one of the two does not, and a core caught in a
-    /// completed line finishes off a near-complete line elsewhere, hands off when nothing qualifies, and
-    /// re-triggers a second core it chains into.
+    /// completed line wipes the line at right angles to it (issue #398) — only that line, chaining into a
+    /// second core the wipe catches, never handing off, and never spawning a fresh core of its own.
     /// </summary>
     public class BoardSystemExplosiveCoreTests
     {
@@ -124,78 +124,138 @@ namespace MustyBlockBlast.Tests.EditMode
             AssertNoCoreAnywhere();
         }
 
-        /// <summary>AC1/AC3: a core destroyed by a completed line finishes off a different row that was
-        /// one cell short, and the detonation is reported once with the line it finished.</summary>
+        /// <summary>AC1/AC9: a core destroyed by a completed row wipes its full column — including
+        /// cells nowhere near the line the player completed — and nothing else: not its own row (already
+        /// gone), and not a second axis it is not entitled to.</summary>
         [Test]
-        public void TryPlacePiece_CompletingALineThatHoldsACore_FinishesANearCompleteLineElsewhereAndReportsIt()
+        public void TryPlacePiece_CompletingARowThatHoldsACore_WipesOnlyTheCoresColumn()
         {
             var gap = new GridPosition(3, 5);
             FillRowExcept(y: 5, gap);
-            _boardModel.SetSpecialKind(new GridPosition(0, 5), SpecialCellKind.ExplosiveCore);
+            var core = new GridPosition(0, 5);
+            _boardModel.SetSpecialKind(core, SpecialCellKind.ExplosiveCore);
 
-            // Row 0 is one cell short of full; nothing else on the board is.
-            FillRowExcept(y: 0, new GridPosition(2, 0));
+            // Two bystanders in the core's column, and one outside it.
+            _boardModel.Occupy(new GridPosition(0, 1), 2);
+            _boardModel.Occupy(new GridPosition(0, 7), 2);
+            var survivor = new GridPosition(1, 1);
+            _boardModel.Occupy(survivor, 2);
 
-            _system.TryPlacePiece(0, gap);
+            bool placed = _system.TryPlacePiece(0, gap);
 
-            Assert.IsFalse(_boardModel.Board.IsOccupied(new GridPosition(1, 0)), "Row 0 was finished, then cleared.");
-            Assert.IsFalse(_boardModel.Board.IsOccupied(new GridPosition(2, 0)), "The gap the core filled.");
+            Assert.IsTrue(placed);
+            Assert.AreEqual(Board.EMPTY, _boardModel.GetCell(new GridPosition(0, 1)));
+            Assert.AreEqual(Board.EMPTY, _boardModel.GetCell(new GridPosition(0, 7)));
+            Assert.AreNotEqual(Board.EMPTY, _boardModel.GetCell(survivor), "Outside the wiped column.");
 
             Assert.AreEqual(1, _detonatedBroker.Published.Count);
-            Assert.AreEqual(1, _detonatedBroker.Published[0].FinishedLineCount);
-            Assert.AreEqual(0, _detonatedBroker.Published[0].HandOffCount);
+            Assert.AreEqual(2, _detonatedBroker.Published[0].WipedCellCount);
         }
 
-        /// <summary>AC4: a core destroyed with nothing on the board one cell short hands its kind off to
-        /// the one other occupied, not-yet-special cell instead of doing nothing.</summary>
+        /// <summary>AC1/AC9's other half: destroyed by a column clear, it wipes its full row and only
+        /// its row.</summary>
         [Test]
-        public void TryPlacePiece_CompletingALineThatHoldsACoreWithNothingToFinish_HandsOffInstead()
+        public void TryPlacePiece_CompletingAColumnThatHoldsACore_WipesOnlyTheCoresRow()
+        {
+            var gap = new GridPosition(3, 5);
+            FillColumnExcept(x: 3, gap);
+            _boardModel.SetSpecialKind(new GridPosition(3, 0), SpecialCellKind.ExplosiveCore);
+
+            _boardModel.Occupy(new GridPosition(6, 0), 2);
+            var survivor = new GridPosition(6, 1);
+            _boardModel.Occupy(survivor, 2);
+
+            _system.TryPlacePiece(0, gap);
+
+            Assert.AreEqual(Board.EMPTY, _boardModel.GetCell(new GridPosition(6, 0)));
+            Assert.AreNotEqual(Board.EMPTY, _boardModel.GetCell(survivor), "Outside the wiped row.");
+
+            Assert.AreEqual(1, _detonatedBroker.Published.Count);
+            Assert.AreEqual(1, _detonatedBroker.Published[0].WipedCellCount);
+        }
+
+        /// <summary>AC2: a core whose opposite line is already empty does nothing — no wipe reported, and
+        /// no hand-off of its kind to some other occupied cell.</summary>
+        [Test]
+        public void TryPlacePiece_CompletingALineThatHoldsACoreWithAnEmptyOppositeLine_IsANoOpWithNoHandOff()
         {
             var gap = new GridPosition(3, 5);
             FillRowExcept(y: 5, gap);
             _boardModel.SetSpecialKind(new GridPosition(0, 5), SpecialCellKind.ExplosiveCore);
 
-            var handOffTarget = new GridPosition(7, 7);
-            _boardModel.Occupy(handOffTarget, 1);
+            var bystander = new GridPosition(7, 7);
+            _boardModel.Occupy(bystander, 1);
 
             _system.TryPlacePiece(0, gap);
 
-            Assert.AreEqual(SpecialCellKind.ExplosiveCore, _boardModel.GetSpecialKind(handOffTarget));
-            Assert.AreEqual(1, _detonatedBroker.Published.Count);
-            Assert.AreEqual(0, _detonatedBroker.Published[0].FinishedLineCount);
-            Assert.AreEqual(1, _detonatedBroker.Published[0].HandOffCount);
+            Assert.AreEqual(0, _detonatedBroker.Published.Count);
+            Assert.AreNotEqual(Board.EMPTY, _boardModel.GetCell(bystander), "Off the wiped column.");
+            AssertNoCoreAnywhere();
         }
 
         /// <summary>
-        /// AC5: a second core caught inside the line the first core's fill completes detonates in turn —
-        /// through <see cref="CascadeClearResolver"/>'s ordinary mechanism, with nothing here re-invoking
-        /// the effect by hand. Proven by the second core's own consequence actually happening: with
-        /// nothing left on the board to finish once row 0 clears, it hands off to the one remaining
-        /// occupied cell. If the chain never fired, that cell would still carry no special kind at all.
+        /// AC4: a second core caught in the first core's column wipe fires in turn — destroyed by a
+        /// column, so down its own row — through the effect's own chain, with one resolution reporting
+        /// one wipe total.
         /// </summary>
         [Test]
-        public void TryPlacePiece_WithASecondCoreChainedIntoTheFinishedLine_ReTriggersItsOwnEffect()
+        public void TryPlacePiece_WhereTheWipeCatchesASecondCore_ChainsAndReportsBothWipes()
         {
             var gap = new GridPosition(3, 5);
             FillRowExcept(y: 5, gap);
             _boardModel.SetSpecialKind(new GridPosition(0, 5), SpecialCellKind.ExplosiveCore);
 
-            // Row 0 is one cell short of full, and carries a second core of its own.
-            FillRowExcept(y: 0, new GridPosition(2, 0));
-            _boardModel.SetSpecialKind(new GridPosition(0, 0), SpecialCellKind.ExplosiveCore);
+            // In the first core's column, so the column wipe destroys it — and it was destroyed by a
+            // column, so it fires down its own row.
+            var chained = new GridPosition(0, 2);
+            _boardModel.Occupy(chained, 2);
+            _boardModel.SetSpecialKind(chained, SpecialCellKind.ExplosiveCore);
 
-            // The one cell left standing anywhere once both rows are gone.
-            var handOffTarget = new GridPosition(7, 7);
-            _boardModel.Occupy(handOffTarget, 1);
+            var reachedOnlyByTheChain = new GridPosition(7, 2);
+            _boardModel.Occupy(reachedOnlyByTheChain, 2);
 
             _system.TryPlacePiece(0, gap);
 
-            Assert.IsTrue(_boardModel.Board.IsEmpty() == false, "The hand-off target is still standing.");
-            Assert.AreEqual(SpecialCellKind.ExplosiveCore, _boardModel.GetSpecialKind(handOffTarget));
+            Assert.AreEqual(
+                Board.EMPTY,
+                _boardModel.GetCell(reachedOnlyByTheChain),
+                "Only the chained row wipe can reach here.");
+
+            Assert.AreEqual(1, _detonatedBroker.Published.Count, "One resolution, one wipe total.");
+            Assert.AreEqual(2, _detonatedBroker.Published[0].WipedCellCount);
+            AssertNoCoreAnywhere();
+        }
+
+        /// <summary>
+        /// AC3: the bonus wipe never mints a fresh core. The placement itself closes only a row (no
+        /// cross-clear, so no spawn of its own); the core it destroys then empties its whole column,
+        /// which leaves "a row and a column both emptied" on the board — the shape of a cross-clear —
+        /// but the spawn rule reads the placement's own primary clear only, so nothing is spawned.
+        /// </summary>
+        [Test]
+        public void TryPlacePiece_WhereTheBonusWipeEmptiesAWholeColumn_SpawnsNoNewCore()
+        {
+            var gap = new GridPosition(3, 5);
+            FillRowExcept(y: 5, gap);
+            _boardModel.SetSpecialKind(new GridPosition(0, 5), SpecialCellKind.ExplosiveCore);
+
+            // Every cell of column 0 but one is occupied — one short, so the placement itself cannot
+            // close it and only the wipe empties it.
+            for (int y = 1; y < Board.SIZE; y++)
+            {
+                _boardModel.Occupy(new GridPosition(0, y), 2);
+            }
+
+            _system.TryPlacePiece(0, gap);
+
+            for (int y = 0; y < Board.SIZE; y++)
+            {
+                Assert.AreEqual(Board.EMPTY, _boardModel.GetCell(new GridPosition(0, y)), $"Column cell (0, {y}).");
+            }
 
             Assert.AreEqual(1, _detonatedBroker.Published.Count);
-            Assert.AreEqual(1, _detonatedBroker.Published[0].FinishedLineCount, "Row 0, finished by the first core.");
-            Assert.AreEqual(1, _detonatedBroker.Published[0].HandOffCount, "The second core's own consequence.");
+            Assert.AreEqual(Board.SIZE - 2, _detonatedBroker.Published[0].WipedCellCount, "Rows 1-4, 6, 7 of column 0.");
+            AssertNoCoreAnywhere();
         }
 
         /// <summary>A placement that set nothing off must not publish an empty detonation — subscribers
@@ -211,19 +271,21 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.AreEqual(0, _detonatedBroker.Published.Count);
         }
 
-        /// <summary>AC6 negative case: a board with no full-or-one-short line anywhere else is left
-        /// completely alone by the core's own scan, beyond the line the placement itself completed.</summary>
+        /// <summary>A core standing well clear of the completed line is not destroyed, so it does not
+        /// fire — and keeps its kind for next time.</summary>
         [Test]
-        public void TryPlacePiece_CompletingALineThatHoldsACoreWithNoQualifyingLineAndNoHandOffTarget_DoesNotThrow()
+        public void TryPlacePiece_WithACoreOffTheClearedLine_LeavesItStanding()
         {
             var gap = new GridPosition(3, 5);
             FillRowExcept(y: 5, gap);
-            _boardModel.SetSpecialKind(new GridPosition(0, 5), SpecialCellKind.ExplosiveCore);
+            var core = new GridPosition(6, 1);
+            _boardModel.Occupy(core, 2);
+            _boardModel.SetSpecialKind(core, SpecialCellKind.ExplosiveCore);
 
-            Assert.DoesNotThrow(() => _system.TryPlacePiece(0, gap));
+            _system.TryPlacePiece(0, gap);
 
+            Assert.AreEqual(SpecialCellKind.ExplosiveCore, _boardModel.GetSpecialKind(core));
             Assert.AreEqual(0, _detonatedBroker.Published.Count);
-            Assert.IsTrue(_boardModel.Board.IsEmpty());
         }
 
         /// <summary>AC7's half that Core owns: a snapshot taken before the placement restores the board

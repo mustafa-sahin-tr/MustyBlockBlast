@@ -132,16 +132,8 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// at once — a power-up is applied from an input callback, a placement's cascade from another,
         /// and neither re-enters the other — so sharing would buy nothing, while a second instance
         /// keeps each System's own totals meaning "what the power-up I just spent caused".
-        /// <para>
-        /// Built in the constructor rather than here because it takes <see cref="_random"/>, which a
-        /// field initialiser would read before the constructor body has assigned it. Unlike
-        /// <see cref="BoardSystem"/>'s instance, this one's stream is not run-seeded: a power-up's
-        /// hand-off is a rare edge of a rare edge (an explosive core embedded in whatever the power-up
-        /// destroyed, on a board with nothing left to finish), never exercised by a replay or a
-        /// determinism test the way piece draws are.
-        /// </para>
         /// </summary>
-        private readonly ExplosiveCoreEffect _explosiveCoreEffect;
+        private readonly ExplosiveCoreEffect _explosiveCoreEffect = new ExplosiveCoreEffect();
 
         /// <summary>Its own instance for the same reason <see cref="_explosiveCoreEffect"/> is.</summary>
         private readonly LaserEffect _laserEffect = new LaserEffect();
@@ -217,7 +209,6 @@ namespace MustyBlockBlast.Gameplay.Systems
             _holdFirstUsePublisher = holdFirstUsePublisher;
             _coinEffect = new CoinEffect(currencyConfig.CoinCellPayout);
             _vortexEffect = new VortexEffect(_random);
-            _explosiveCoreEffect = new ExplosiveCoreEffect(_random);
             _specialCellEffects = new CompositeSpecialCellEffect(
                 _explosiveCoreEffect, _laserEffect, _vortexEffect, _coinEffect);
             _powerUpModel = powerUpModel;
@@ -1116,37 +1107,33 @@ namespace MustyBlockBlast.Gameplay.Systems
                 _coinEffect.Apply(_boardModel.Board, triggers[i]);
             }
 
-            // The core's own effect never clears a line itself — it only fills the one missing cell of
-            // a line it can finish, and relies on a resolver re-checking fullness to actually clear it
-            // (see ExplosiveCoreEffect). A power-up's one-shot clear has no resolver of its own, so this
+            // The vortex's fill never clears a line itself — it only fills island cells and relies on a
+            // resolver re-checking fullness to actually clear whatever that completed (see
+            // VortexEffect). A power-up's one-shot clear has no resolver of its own, so this
             // follow-through gives it one: exactly CascadeClearResolver's own loop, seeded by whatever
             // the fill above just completed and by nothing else — no other path can leave a full line
-            // sitting on the board between placements. A core caught inside a line this uncovers
-            // re-triggers through the same mechanism, chained as far as the resolver's own cap allows.
-            CascadeClearResult explosiveCoreFollowThrough =
+            // sitting on the board between placements (a core's or laser's wipe only ever removes
+            // cells). A special cell caught inside a line this uncovers re-triggers through the same
+            // mechanism, chained as far as the resolver's own cap allows.
+            CascadeClearResult fillFollowThrough =
                 CascadeClearResolver.ResolveCascade(_boardModel.Board, _specialCellEffects);
-            for (int phaseIndex = 0; phaseIndex < explosiveCoreFollowThrough.Phases.Count; phaseIndex++)
+            for (int phaseIndex = 0; phaseIndex < fillFollowThrough.Phases.Count; phaseIndex++)
             {
-                LineClearResult phase = explosiveCoreFollowThrough.Phases[phaseIndex];
+                LineClearResult phase = fillFollowThrough.Phases[phaseIndex];
                 if (phase.AnyCleared)
                 {
                     _boardModel.NotifyCleared(phase);
                 }
             }
 
-            int explosiveCoreFinishedLineCount = _explosiveCoreEffect.FinishedLineCount;
-            IReadOnlyList<GridPosition> explosiveCoreHandOffTargets = _explosiveCoreEffect.HandOffTargets;
-            if (explosiveCoreFinishedLineCount > 0 || explosiveCoreHandOffTargets.Count > 0)
+            // Announced exactly as BoardSystem announces a core's bonus wipe (issue #398): the cells it
+            // emptied through the "this cell is empty now" path, then the count for scoring.
+            IReadOnlyList<GridPosition> coreWipedCells = _explosiveCoreEffect.WipedCells;
+            if (coreWipedCells.Count > 0)
             {
-                for (int i = 0; i < explosiveCoreHandOffTargets.Count; i++)
-                {
-                    _boardModel.NotifySpecialKindChanged(explosiveCoreHandOffTargets[i]);
-                }
-
-                // Copied, exactly as the placement path copies it — see that call site's own remark.
-                _explosiveCoreDetonatedPublisher.Publish(new ExplosiveCoreDetonatedMessage(
-                    explosiveCoreFinishedLineCount, explosiveCoreHandOffTargets.Count,
-                    new List<ExplosiveCoreDetonation>(_explosiveCoreEffect.Detonations)));
+                _boardModel.NotifyPowerUpCleared(coreWipedCells);
+                _explosiveCoreDetonatedPublisher.Publish(
+                    new ExplosiveCoreDetonatedMessage(coreWipedCells.Count));
             }
 
             IReadOnlyList<GridPosition> wipedCells = _laserEffect.WipedCells;

@@ -6,11 +6,14 @@ using NUnit.Framework;
 namespace MustyBlockBlast.Tests.EditMode
 {
     /// <summary>
-    /// Covers the spawn trigger: the streak that earns a laser converts exactly one cell, exactly once,
-    /// and a board with nothing to convert is silently skipped.
+    /// Covers the spawn trigger while laser formation is paused (issue #399): the streak that used to
+    /// earn a laser now earns nothing, at the threshold, past it, and on a rebuilt streak. The System
+    /// stays wired and disposable so a future revival only has to flip its gate; these tests then
+    /// become the ones to invert.
     /// </summary>
     public class LaserSpawnSystemTests
     {
+        /// <summary>The streak that earned a laser before #399 paused formation.</summary>
         private const int SPAWN_STREAK = 4;
 
         private ScoreModel _scoreModel;
@@ -28,33 +31,36 @@ namespace MustyBlockBlast.Tests.EditMode
         [TearDown]
         public void DisposeSystem() => _system.Dispose();
 
-        /// <summary>AC1 and AC3: reaching the streak always converts a cell, with no roll deciding
-        /// whether the reward appears at all.</summary>
+        /// <summary>AC1: the old threshold no longer converts anything, even with a full row of
+        /// candidates to convert.</summary>
         [Test]
-        public void OnReachingTheSpawnStreak_ConvertsOneOccupiedCellIntoALaser()
+        public void OnReachingTheOldSpawnStreak_ConvertsNothing()
         {
             OccupyRow(3);
 
             AdvanceStreakTo(SPAWN_STREAK);
 
-            Assert.AreEqual(1, CountLasers());
+            Assert.AreEqual(0, CountLasers());
         }
 
+        /// <summary>AC1: nothing is announced either — the gate sits before the selector, so no
+        /// special-kind change is ever raised from this System.</summary>
         [Test]
-        public void OnReachingTheSpawnStreak_ConvertsACellThatHoldsABlock()
+        public void OnReachingTheOldSpawnStreak_AnnouncesNothingToTheView()
         {
             OccupyRow(3);
 
+            int raised = 0;
+            _boardModel.SpecialKindChanged += (position, kind) => raised++;
+
             AdvanceStreakTo(SPAWN_STREAK);
 
-            GridPosition laser = FindTheLaser();
-            Assert.AreNotEqual(Board.EMPTY, _boardModel.GetCell(laser), "A laser has to sit on a block.");
+            Assert.AreEqual(0, raised);
         }
 
-        /// <summary>Converted in place: a placement that earned the streak must not have its own board
-        /// state quietly changed by its reward.</summary>
+        /// <summary>AC1: the board is left exactly as it was — colours and occupancy untouched.</summary>
         [Test]
-        public void OnReachingTheSpawnStreak_LeavesOccupancyAndColoursAlone()
+        public void OnReachingTheOldSpawnStreak_LeavesTheBoardAlone()
         {
             OccupyRow(3);
 
@@ -62,36 +68,16 @@ namespace MustyBlockBlast.Tests.EditMode
 
             for (int x = 0; x < Board.SIZE; x++)
             {
-                Assert.AreEqual(1, _boardModel.GetCell(new GridPosition(x, 3)), $"({x}, 3) colour.");
+                var position = new GridPosition(x, 3);
+                Assert.AreEqual(1, _boardModel.GetCell(position), $"({x}, 3) colour.");
+                Assert.AreEqual(SpecialCellKind.None, _boardModel.GetSpecialKind(position), $"({x}, 3) kind.");
             }
 
             Assert.AreEqual(Board.SIZE, _boardModel.Board.OccupiedCellCount());
         }
 
         [Test]
-        public void OnReachingTheSpawnStreak_AnnouncesTheNewKindToTheView()
-        {
-            OccupyRow(3);
-
-            GridPosition announced = default;
-            SpecialCellKind announcedKind = SpecialCellKind.None;
-            int raised = 0;
-            _boardModel.SpecialKindChanged += (position, kind) =>
-            {
-                announced = position;
-                announcedKind = kind;
-                raised++;
-            };
-
-            AdvanceStreakTo(SPAWN_STREAK);
-
-            Assert.AreEqual(1, raised);
-            Assert.AreEqual(SpecialCellKind.Laser, announcedKind);
-            Assert.AreEqual(announced, FindTheLaser());
-        }
-
-        [Test]
-        public void BelowTheSpawnStreak_ConvertsNothing()
+        public void BelowTheOldSpawnStreak_ConvertsNothing()
         {
             OccupyRow(3);
 
@@ -100,27 +86,25 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.AreEqual(0, CountLasers());
         }
 
-        /// <summary>The edge-triggered claim: the threshold is crossed once, so continuing to clear must
-        /// not hand out a laser per placement for the rest of the run.</summary>
+        /// <summary>AC1: "under any streak value" — walk the streak well past the old threshold and
+        /// nothing is ever handed out.</summary>
         [Test]
-        public void ContinuingPastTheSpawnStreak_ConvertsNothingFurther()
+        public void ContinuingPastTheOldSpawnStreak_ConvertsNothing()
         {
             OccupyRow(3);
 
             AdvanceStreakTo(SPAWN_STREAK + 4);
 
-            Assert.AreEqual(1, CountLasers(), "Only the placement that crossed the threshold earns one.");
+            Assert.AreEqual(0, CountLasers());
         }
 
-        /// <summary>Breaking the streak and rebuilding it is a second achievement, and earns a second
-        /// laser — which is the intent, not a leak.</summary>
+        /// <summary>Breaking and rebuilding the streak used to be a second achievement; with formation
+        /// paused it is nothing twice.</summary>
         [Test]
-        public void RebuildingTheStreakAfterItBroke_ConvertsAnotherCell()
+        public void RebuildingTheStreakAfterItBroke_ConvertsNothing()
         {
             FillBoard();
 
-            // Counted as announcements rather than as lasers on the board: the two rolls are independent
-            // and may land on the same cell, which is a legitimate outcome and not a missing spawn.
             int raised = 0;
             _boardModel.SpecialKindChanged += (position, kind) => raised++;
 
@@ -128,26 +112,11 @@ namespace MustyBlockBlast.Tests.EditMode
             _scoreModel.Streak.Value = 0;
             AdvanceStreakTo(SPAWN_STREAK);
 
-            Assert.AreEqual(2, raised);
+            Assert.AreEqual(0, raised);
         }
 
-        /// <summary>AC4: no occupied cell to convert — a streak-completing placement that also emptied
-        /// the board — is silently skipped.</summary>
-        [Test]
-        public void OnReachingTheSpawnStreak_WithAnEmptyBoard_ConvertsNothing()
-        {
-            int raised = 0;
-            _boardModel.SpecialKindChanged += (position, kind) => raised++;
-
-            AdvanceStreakTo(SPAWN_STREAK);
-
-            Assert.AreEqual(0, CountLasers());
-            Assert.AreEqual(0, raised, "Nothing happened, so nothing is announced.");
-        }
-
-        /// <summary>Construction subscribes and is immediately handed the current streak. That streak is
-        /// 0 at construction and at every run start — never the threshold — so merely starting to listen
-        /// can never spawn anything.</summary>
+        /// <summary>Construction subscribes and is immediately handed the current streak, which is 0 —
+        /// and now gated regardless — so merely starting to listen can never spawn anything.</summary>
         [Test]
         public void Constructing_SpawnsNothingByItself()
         {
@@ -161,7 +130,7 @@ namespace MustyBlockBlast.Tests.EditMode
         }
 
         [Test]
-        public void AfterDispose_ReachingTheSpawnStreak_ConvertsNothing()
+        public void AfterDispose_ReachingTheOldSpawnStreak_ConvertsNothing()
         {
             OccupyRow(3);
             _system.Dispose();
@@ -169,6 +138,36 @@ namespace MustyBlockBlast.Tests.EditMode
             AdvanceStreakTo(SPAWN_STREAK);
 
             Assert.AreEqual(0, CountLasers());
+        }
+
+        /// <summary>
+        /// AC3 (#399): the paused streak-4 threshold does not resurrect a laser through any other
+        /// streak-driven spawner. Since issue #401 the coin escalation legitimately drops a coin at
+        /// streak 4 (worth 4), so with both spawners listening a streak of 4 yields coins only — never a
+        /// laser. (<c>GoldenPieceTriggerSystem</c> needs a full <c>BoardSystem</c> and is not constructed
+        /// here; it fires at 5.)
+        /// </summary>
+        [Test]
+        public void OnReachingTheOldSpawnStreak_WithEveryStreakSpawnerListening_GrantsNoLaser()
+        {
+            OccupyRow(3);
+
+            int lasersAnnounced = 0;
+            _boardModel.SpecialKindChanged += (position, kind) =>
+            {
+                if (kind == SpecialCellKind.Laser)
+                {
+                    lasersAnnounced++;
+                }
+            };
+
+            using (var coinSystem = new CoinStreakEscalationSystem(_scoreModel, _boardModel, seed: 1))
+            {
+                AdvanceStreakTo(SPAWN_STREAK);
+
+                Assert.AreEqual(0, lasersAnnounced, "No spawner may claim the streak-4 threshold for a laser.");
+                Assert.AreEqual(0, CountLasers());
+            }
         }
 
         /// <summary>Steps the streak one at a time, the only way <c>ScoreSystem</c> ever moves it.</summary>
@@ -211,24 +210,6 @@ namespace MustyBlockBlast.Tests.EditMode
             }
 
             return count;
-        }
-
-        private GridPosition FindTheLaser()
-        {
-            for (int y = 0; y < Board.SIZE; y++)
-            {
-                for (int x = 0; x < Board.SIZE; x++)
-                {
-                    var position = new GridPosition(x, y);
-                    if (_boardModel.GetSpecialKind(position) == SpecialCellKind.Laser)
-                    {
-                        return position;
-                    }
-                }
-            }
-
-            Assert.Fail("No laser was spawned.");
-            return default;
         }
     }
 }

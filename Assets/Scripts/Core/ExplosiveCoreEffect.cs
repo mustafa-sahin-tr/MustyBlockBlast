@@ -4,96 +4,105 @@ using System.Collections.Generic;
 namespace MustyBlockBlast.Core
 {
     /// <summary>
-    /// <see cref="SpecialCellKind.ExplosiveCore"/>'s effect: destroying one finishes off every row and
-    /// column that is missing exactly one occupied playable cell — a "finish the job" tool rather than
-    /// an area blast.
+    /// <see cref="SpecialCellKind.ExplosiveCore"/>'s effect (issue #398): destroying one wipes the full
+    /// line running at right angles to whatever destroyed it, and any core caught in that wipe fires in
+    /// turn — the bonus-wipe payoff that actually matches the cross-clear which earns a core.
     /// <para>
-    /// <b>It never clears a line itself.</b> Exactly as <see cref="VortexEffect"/>'s pull and
-    /// <see cref="ChainLightningEffect"/>'s strike deliberately leave a completed line standing for
-    /// <see cref="CascadeClearResolver"/> to notice on its next iteration, this effect only occupies the
-    /// one missing cell of a qualifying row/column. The line is now genuinely full, so the resolver's
-    /// own re-check clears it the ordinary way on the very next iteration — the same code path a
-    /// placement's own clear uses, which is what lets a core caught inside that clear re-trigger its own
-    /// effect through the resolver's existing "every special cell a phase destroys fires its effect"
-    /// mechanism, with no plumbing added here for it.
+    /// The axis comes from <see cref="SpecialCellTrigger.Axis"/>, which whatever destroyed the cell
+    /// recorded at the one moment it was still known. A row clear took it out, so it wipes its column;
+    /// a column clear, so it wipes its row; both at once (it sat on their intersection), so it wipes
+    /// both. <see cref="ClearAxis.None"/> — a Bomb, a Colour Cleanser, a hammer — has no opposite to
+    /// compute, so it likewise wipes both: the alternative would be to pick an axis arbitrarily or to
+    /// drop the effect entirely, and neither is something the player could read off the board.
     /// </para>
     /// <para>
-    /// <b>Hand-off.</b> When nothing on the board is one cell short, the core's job cannot be done this
-    /// detonation, so its kind is transferred instead of wasted: a uniformly random currently-occupied
-    /// cell carrying no special kind of its own becomes the new <see cref="SpecialCellKind.ExplosiveCore"/>.
-    /// A board with no eligible cell (every occupied cell already special, or nothing occupied at all)
-    /// simply loses the core — there is nowhere left to hand it to.
+    /// The cells of a line come from <see cref="Board.CollectRowCells"/>/<see cref="Board.CollectColumnCells"/>
+    /// rather than a width/height loop here, so line geometry — including which cells of a line are
+    /// holes and therefore not there at all — stays defined in exactly one place.
     /// </para>
     /// <para>
-    /// Long-lived by design, exactly as <see cref="LaserEffect"/> and <see cref="VortexEffect"/> are:
-    /// one instance is owned by each System that resolves clears, and <see cref="BeginResolution"/> is
-    /// called before each resolution rather than a fresh instance being allocated.
+    /// Fullness is irrelevant: a wipe clears every occupied cell of the line whether or not the line
+    /// was complete, exactly as a Row Clear / Column Clear power-up does. A wipe whose opposite line is
+    /// already empty is simply a no-op — no hand-off, no fallback (AC2). It deliberately does not clear
+    /// a line "because it is full" either — the cascade loop re-checks fullness itself on the next
+    /// iteration. A wipe only ever removes cells, so it can never complete a line, and the spawn rule
+    /// (<see cref="ExplosiveCoreSpawnSelector"/>) reads the placement's own primary clear only — which
+    /// is what keeps a bonus wipe from ever minting a fresh core (AC3).
+    /// </para>
+    /// <para>
+    /// Long-lived by design, exactly as <see cref="LaserEffect"/> is (the algorithm here is a port of
+    /// that effect's, keyed on this kind): one instance per System that resolves clears, with
+    /// <see cref="BeginResolution"/> called before each resolution rather than a fresh instance
+    /// allocated. <see cref="WipedCells"/> is therefore a buffer this instance owns and overwrites — a
+    /// caller that needs it beyond the current resolution must copy it.
     /// </para>
     /// </summary>
     public sealed class ExplosiveCoreEffect : ISpecialCellEffect
     {
-        private readonly List<int> _qualifyingRows = new List<int>(Board.SIZE);
-        private readonly List<int> _qualifyingColumns = new List<int>(Board.SIZE);
+        private readonly List<GridPosition> _wipedCells = new List<GridPosition>(Board.SIZE * Board.SIZE);
 
-        /// <summary>Every currently-occupied, not-already-special cell found while looking for a
-        /// hand-off target. Refilled and consumed within one <see cref="TryHandOff"/> call.</summary>
-        private readonly List<GridPosition> _handOffCandidates = new List<GridPosition>(Board.SIZE * Board.SIZE);
+        /// <summary>The cells of the one line currently being wiped. Filled and consumed inside a single
+        /// <see cref="WipeLine"/> call, so one buffer serves the whole chain.</summary>
+        private readonly List<GridPosition> _lineBuffer = new List<GridPosition>(Board.SIZE);
 
-        /// <summary>Every cell this effect handed <see cref="SpecialCellKind.ExplosiveCore"/> to since
-        /// the last <see cref="BeginResolution"/>, in the order it handed them off.</summary>
-        private readonly List<GridPosition> _handOffTargets = new List<GridPosition>(4);
+        /// <summary>Cores still to fire in the current chain, as a queue walked by index — never
+        /// recursion, which a board-sized chain would drive 64 frames deep. Parallel to
+        /// <see cref="_pendingAxes"/>.</summary>
+        private readonly List<GridPosition> _pendingOrigins = new List<GridPosition>(Board.SIZE * Board.SIZE);
 
-        /// <summary>One entry per <see cref="Apply"/> call that finished at least one line since the
-        /// last <see cref="BeginResolution"/>, in the order those calls ran — Presentation's script for
-        /// flying each detonation's icon to the lines it finished. See <see cref="ExplosiveCoreDetonation"/>.</summary>
-        private readonly List<ExplosiveCoreDetonation> _detonations = new List<ExplosiveCoreDetonation>(4);
+        /// <summary>How each queued core was destroyed, which is what decides the line it wipes. Kept
+        /// beside the origin rather than recomputed, because after the wipe that destroyed it the board
+        /// no longer knows.</summary>
+        private readonly List<ClearAxis> _pendingAxes = new List<ClearAxis>(Board.SIZE * Board.SIZE);
 
-        private readonly Random _random;
+        /// <summary>Which cells have already fired in the current chain, so a core caught in the wipe of
+        /// a core it itself caught cannot fire twice. Indexed exactly as the board indexes its own cells,
+        /// and grown to fit a board bigger than the standard one the first time such a board is seen —
+        /// never per call, and never shrunk.</summary>
+        private bool[] _fired = new bool[Board.SIZE * Board.SIZE];
 
-        /// <summary>
-        /// The random stream a hand-off target is drawn from, supplied rather than created so the
-        /// System that owns the run owns its randomness — one seeded stream per run makes a run
-        /// reproducible, which a stream this class created for itself never could.
-        /// </summary>
-        public ExplosiveCoreEffect(Random random)
-        {
-            _random = random ?? throw new ArgumentNullException(nameof(random));
-        }
+        /// <summary>Every cell this effect emptied since the last <see cref="BeginResolution"/>, in the
+        /// order it emptied them. Only cells that actually held a block are listed: an already-empty
+        /// cell on a wiped line is not "cleared" and must not be scored or repainted as if it were.</summary>
+        public IReadOnlyList<GridPosition> WipedCells => _wipedCells;
 
-        /// <summary>How many rows and columns this effect finished (filled full) since the last
-        /// <see cref="BeginResolution"/> — summed across every <see cref="Apply"/> call in the
-        /// resolution, exactly as a placement's own <c>LineCount</c> would be. What the finished lines
-        /// actually destroy is reported by the cascade's own next phase, not by this effect: filling the
-        /// one missing cell is all this effect ever does to the board.</summary>
-        public int FinishedLineCount { get; private set; }
+        /// <summary>True when a chain since the last <see cref="BeginResolution"/> stopped because it
+        /// reached <see cref="CascadeClearResolver.MAX_CASCADE_ITERATIONS"/> firings rather than because
+        /// it ran out of cores. Surfaced for tests and diagnostics; the board is left consistent either
+        /// way.</summary>
+        public bool StoppedAtWipeCap { get; private set; }
 
-        /// <summary>Every cell this effect handed <see cref="SpecialCellKind.ExplosiveCore"/> to since
-        /// the last <see cref="BeginResolution"/>. Empty unless a detonation found nothing to finish.</summary>
-        public IReadOnlyList<GridPosition> HandOffTargets => _handOffTargets;
+        /// <summary>Of <see cref="WipedCells"/>, how many were <see cref="SpecialCellKind.Timer"/> cells
+        /// — destroyed mid-wipe rather than through a normal clear phase, so they never pass through
+        /// <see cref="TimerCellClearEffect"/>. Counted here and summed by the caller into the placement's
+        /// "cleared in time" total, exactly as <see cref="LaserEffect.TimerCellsDestroyedCount"/> is
+        /// (issue #307 AC11).</summary>
+        public int TimerCellsDestroyedCount { get; private set; }
 
-        /// <summary>Every detonation that finished at least one line since the last
-        /// <see cref="BeginResolution"/>, in the order they happened. Empty unless something qualified —
-        /// a detonation that only handed off appears in <see cref="HandOffTargets"/> instead, never
-        /// here.</summary>
-        public IReadOnlyList<ExplosiveCoreDetonation> Detonations => _detonations;
-
-        /// <summary>Starts a new resolution: forgets the previous one's counts. Must be called before
-        /// the resolution that will apply this effect, or the two resolutions' totals would be reported
-        /// as one.</summary>
+        /// <summary>Starts a new resolution: forgets the previous one's wiped cells. Must be called
+        /// before the resolution that will apply this effect, or the two resolutions' cells would be
+        /// reported as one.</summary>
         public void BeginResolution()
         {
-            FinishedLineCount = 0;
-            _handOffTargets.Clear();
-            _detonations.Clear();
+            _wipedCells.Clear();
+            TimerCellsDestroyedCount = 0;
+            StoppedAtWipeCap = false;
         }
 
         /// <summary>
-        /// Finishes every row/column missing exactly one occupied playable cell, or — when none
-        /// qualifies — hands the core's kind off to a random occupied, not-yet-special cell.
+        /// Wipes the line (or lines) opposite to how <paramref name="trigger"/> was destroyed, then the
+        /// lines opposite to how every core that wipe destroyed was destroyed, and so on until the chain
+        /// runs out.
         /// <para>
         /// The trigger's own cell is already empty when this is called (see
-        /// <see cref="ISpecialCellEffect"/>); it plays no other part here; unlike the blast this
-        /// replaces, the core's own former position is not a centre to act around.
+        /// <see cref="ISpecialCellEffect"/>), so it is an origin to wipe through, never a cell to clear.
+        /// </para>
+        /// <para>
+        /// One chain is bounded at <see cref="CascadeClearResolver.MAX_CASCADE_ITERATIONS"/> firings.
+        /// The "never the same origin twice" guard already bounds it at the cell count of the board, so
+        /// the cap is belt-and-braces against a future board shape or effect ordering that breaks that
+        /// assumption — reaching it is not a failure state: whatever is left standing is simply left
+        /// standing, exactly as the cascade loop's own cap leaves a full line standing.
         /// </para>
         /// </summary>
         public void Apply(Board board, SpecialCellTrigger trigger)
@@ -108,183 +117,105 @@ namespace MustyBlockBlast.Core
                 return;
             }
 
-            _qualifyingRows.Clear();
-            _qualifyingColumns.Clear();
-
-            for (int y = 0; y < board.Height; y++)
+            if (_fired.Length < board.CellCount)
             {
-                if (board.IsRowOneCellFromFull(y))
+                _fired = new bool[board.CellCount];
+            }
+
+            _pendingOrigins.Clear();
+            _pendingAxes.Clear();
+            Array.Clear(_fired, 0, _fired.Length);
+
+            // A cell that is already empty can never be wiped (only occupied cells are read), so marking
+            // the trigger's own — already emptied — position costs nothing and keeps the guard uniform:
+            // every origin in the queue was marked on the way in.
+            MarkFired(board, trigger.Position);
+            _pendingOrigins.Add(trigger.Position);
+            _pendingAxes.Add(trigger.Axis);
+
+            for (int originIndex = 0; originIndex < _pendingOrigins.Count; originIndex++)
+            {
+                if (originIndex >= CascadeClearResolver.MAX_CASCADE_ITERATIONS)
                 {
-                    _qualifyingRows.Add(y);
+                    StoppedAtWipeCap = true;
+                    return;
                 }
-            }
 
-            for (int x = 0; x < board.Width; x++)
-            {
-                if (board.IsColumnOneCellFromFull(x))
+                GridPosition origin = _pendingOrigins[originIndex];
+                ClearAxis destroyedBy = _pendingAxes[originIndex];
+
+                // Opposite-axis, stated as two exclusions rather than a switch: destroyed along a row
+                // means "not the row", destroyed along a column means "not the column", and the two
+                // remaining cases — Both and None — are excluded by neither and so wipe both lines.
+                if (destroyedBy != ClearAxis.Row)
                 {
-                    _qualifyingColumns.Add(x);
+                    WipeLine(board, origin, wipeRow: true);
                 }
-            }
 
-            if (_qualifyingRows.Count == 0 && _qualifyingColumns.Count == 0)
-            {
-                TryHandOff(board);
-                return;
-            }
-
-            // Sized for the ordinary case of one gap per qualifying line; a shared corner fills fewer.
-            // Allocated fresh per detonation, never pooled: ExplosiveCoreDetonation hands this straight
-            // out through Detonations, and Presentation reads it across several frames of flight — a
-            // buffer this instance reused on its next Apply call would be read out from under it.
-            var finishedTargets = new List<GridPosition>(_qualifyingRows.Count + _qualifyingColumns.Count);
-
-            for (int i = 0; i < _qualifyingRows.Count; i++)
-            {
-                GridPosition? gap = FillRowGap(board, _qualifyingRows[i]);
-                if (gap.HasValue)
+                if (destroyedBy != ClearAxis.Column)
                 {
-                    finishedTargets.Add(gap.Value);
+                    WipeLine(board, origin, wipeRow: false);
                 }
-            }
-
-            for (int i = 0; i < _qualifyingColumns.Count; i++)
-            {
-                GridPosition? gap = FillColumnGap(board, _qualifyingColumns[i]);
-                if (gap.HasValue)
-                {
-                    finishedTargets.Add(gap.Value);
-                }
-            }
-
-            FinishedLineCount += _qualifyingRows.Count + _qualifyingColumns.Count;
-
-            if (finishedTargets.Count > 0)
-            {
-                _detonations.Add(new ExplosiveCoreDetonation(trigger.Position, finishedTargets));
             }
         }
 
-        /// <summary>
-        /// Occupies row <paramref name="y"/>'s one missing playable cell, completing it.
-        /// <para>
-        /// Reads a fallback colour from any occupied cell already in the row while it looks for the
-        /// gap, so the finished line matches whatever the player was already building rather than an
-        /// arbitrary id — and falls back to the palette's first colour on the one row shape that can
-        /// qualify with zero occupied cells (a single-playable-cell row that is entirely empty).
-        /// </para>
-        /// <para>
-        /// A no-op if the gap turns out already filled: a row and a column that share their one missing
-        /// cell are both queued from the same, unmutated scan, so the second fill to run finds nothing
-        /// left to do — which is exactly the "both cleared" outcome a shared gap is supposed to produce.
-        /// </para>
-        /// </summary>
-        private static GridPosition? FillRowGap(Board board, int y)
+        /// <summary>Clears every occupied cell of one line through <paramref name="origin"/>, recording
+        /// them and queueing any core among them as a further origin. The kind is read before the cell
+        /// is cleared: <see cref="Board.Clear"/> resets it, so afterwards a destroyed core is
+        /// indistinguishable from an ordinary block.</summary>
+        private void WipeLine(Board board, GridPosition origin, bool wipeRow)
         {
-            GridPosition gap = default;
-            bool foundGap = false;
-            int referenceColour = Board.EMPTY;
+            _lineBuffer.Clear();
 
-            for (int x = 0; x < board.Width; x++)
+            if (wipeRow)
             {
-                var position = new GridPosition(x, y);
-                if (board.IsHole(position))
+                board.CollectRowCells(origin.Y, _lineBuffer);
+            }
+            else
+            {
+                board.CollectColumnCells(origin.X, _lineBuffer);
+            }
+
+            // A core this wipe destroys was destroyed *by this line*, which is exactly what decides the
+            // line it will wipe in turn — so the chain keeps turning ninety degrees each step.
+            ClearAxis destroyedBy = wipeRow ? ClearAxis.Row : ClearAxis.Column;
+
+            for (int i = 0; i < _lineBuffer.Count; i++)
+            {
+                GridPosition cell = _lineBuffer[i];
+                if (!board.IsOccupied(cell))
                 {
                     continue;
                 }
 
-                if (board.IsOccupied(position))
-                {
-                    referenceColour = board[position];
-                }
-                else
-                {
-                    gap = position;
-                    foundGap = true;
-                }
-            }
+                SpecialCellKind kind = board.GetSpecialKind(cell);
 
-            if (!foundGap)
-            {
-                return null;
-            }
-
-            board.Occupy(gap, ResolveFillColour(referenceColour));
-            return gap;
-        }
-
-        /// <summary>Column counterpart of <see cref="FillRowGap"/>. Same rule, same fallback, same
-        /// already-filled no-op.</summary>
-        private static GridPosition? FillColumnGap(Board board, int x)
-        {
-            GridPosition gap = default;
-            bool foundGap = false;
-            int referenceColour = Board.EMPTY;
-
-            for (int y = 0; y < board.Height; y++)
-            {
-                var position = new GridPosition(x, y);
-                if (board.IsHole(position))
+                // Through the damage gate, not Board.Clear: a reinforced cell on the wiped line spends
+                // one hit and stays standing (issue #153 AC5), and a cell that survived is neither a
+                // wiped cell nor a core this wipe could have set off.
+                if (!board.TryDamage(cell))
                 {
                     continue;
                 }
 
-                if (board.IsOccupied(position))
+                _wipedCells.Add(cell);
+
+                if (kind == SpecialCellKind.Timer)
                 {
-                    referenceColour = board[position];
+                    TimerCellsDestroyedCount++;
                 }
-                else
+
+                if (kind == SpecialCellKind.ExplosiveCore && !IsFired(board, cell))
                 {
-                    gap = position;
-                    foundGap = true;
+                    MarkFired(board, cell);
+                    _pendingOrigins.Add(cell);
+                    _pendingAxes.Add(destroyedBy);
                 }
             }
-
-            if (!foundGap)
-            {
-                return null;
-            }
-
-            board.Occupy(gap, ResolveFillColour(referenceColour));
-            return gap;
         }
 
-        /// <summary>The colour a filled gap takes: whatever colour the line already carried, or the
-        /// palette's first colour when the line held nothing to copy from. The fill is cleared again on
-        /// the very next cascade iteration, so this is cosmetic only — it never affects which lines
-        /// clear or what they score.</summary>
-        private static int ResolveFillColour(int referenceColour)
-            => referenceColour == Board.EMPTY ? 1 : referenceColour;
+        private bool IsFired(Board board, GridPosition position) => _fired[board.Index(position)];
 
-        /// <summary>
-        /// Transfers <see cref="SpecialCellKind.ExplosiveCore"/> onto a uniformly random occupied cell
-        /// carrying no special kind of its own. A no-op when no such cell exists — the core is simply
-        /// lost, exactly as a Vortex with nothing isolated to pull moves nothing.
-        /// </summary>
-        private void TryHandOff(Board board)
-        {
-            _handOffCandidates.Clear();
-
-            for (int y = 0; y < board.Height; y++)
-            {
-                for (int x = 0; x < board.Width; x++)
-                {
-                    var position = new GridPosition(x, y);
-                    if (board.IsOccupied(position) && board.GetSpecialKind(position) == SpecialCellKind.None)
-                    {
-                        _handOffCandidates.Add(position);
-                    }
-                }
-            }
-
-            if (_handOffCandidates.Count == 0)
-            {
-                return;
-            }
-
-            GridPosition target = _handOffCandidates[_random.Next(_handOffCandidates.Count)];
-            board.SetSpecialKind(target, SpecialCellKind.ExplosiveCore);
-            _handOffTargets.Add(target);
-        }
+        private void MarkFired(Board board, GridPosition position) => _fired[board.Index(position)] = true;
     }
 }

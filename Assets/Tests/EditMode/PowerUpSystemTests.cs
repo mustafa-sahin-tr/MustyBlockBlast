@@ -661,29 +661,23 @@ namespace MustyBlockBlast.Tests.EditMode
         }
 
         /// <summary>
-        /// AC1/AC3: a core destroyed by a spent power-up finishes off a near-complete line exactly as
-        /// one destroyed by a completed placement line does — the fill it makes is picked up by the
-        /// follow-through resolution <see cref="PowerUpSystem"/> runs after applying the power-up's own
-        /// clear, not by anything the bomb itself does.
+        /// Issue #398 AC1: a core destroyed by a spent power-up was destroyed with no axis, so its bonus
+        /// wipe takes both its row and its column — beyond the bomb's own 3x3 footprint — exactly as one
+        /// destroyed by a completed line wipes the line at right angles to it.
         /// </summary>
         [Test]
-        public void TryApplyBomb_OverAnExplosiveCore_FinishesANearCompleteLineElsewhere()
+        public void TryApplyBomb_OverAnExplosiveCore_WipesTheCoresRowAndColumn()
         {
             var boardModel = new BoardModel();
             var core = new GridPosition(4, 4);
             boardModel.Occupy(core, 1);
             boardModel.SetSpecialKind(core, SpecialCellKind.ExplosiveCore);
 
-            // Row 0 is one cell short of full; nothing else on the board is.
-            for (int x = 0; x < Board.SIZE; x++)
-            {
-                if (x == 2)
-                {
-                    continue;
-                }
-
-                boardModel.Occupy(new GridPosition(x, 0), 1);
-            }
+            // Well outside the bomb's 3x3: one on the core's row, one on its column, one on neither.
+            boardModel.Occupy(new GridPosition(0, 4), 1);
+            boardModel.Occupy(new GridPosition(4, 0), 1);
+            var survivor = new GridPosition(0, 0);
+            boardModel.Occupy(survivor, 1);
 
             PowerUpModel model = new PowerUpModel();
             PowerUpSystem system = CreateSystem(model, boardModel);
@@ -692,25 +686,25 @@ namespace MustyBlockBlast.Tests.EditMode
             bool applied = system.TryApplyBomb(core);
 
             Assert.IsTrue(applied);
-            Assert.AreEqual(
-                Board.EMPTY, boardModel.GetCell(new GridPosition(1, 0)), "Row 0 was finished, then cleared.");
+            Assert.AreEqual(Board.EMPTY, boardModel.GetCell(new GridPosition(0, 4)), "On the wiped row.");
+            Assert.AreEqual(Board.EMPTY, boardModel.GetCell(new GridPosition(4, 0)), "On the wiped column.");
+            Assert.AreNotEqual(Board.EMPTY, boardModel.GetCell(survivor), "On neither line.");
             Assert.AreEqual(1, _detonatedBroker.Published.Count);
-            Assert.AreEqual(1, _detonatedBroker.Published[0].FinishedLineCount);
-            Assert.AreEqual(0, _detonatedBroker.Published[0].HandOffCount);
+            Assert.AreEqual(2, _detonatedBroker.Published[0].WipedCellCount);
         }
 
-        /// <summary>AC4: a core destroyed by a spent power-up with nothing on the board one cell short
-        /// hands its kind off instead of doing nothing.</summary>
+        /// <summary>Issue #398 AC2: a core destroyed by a spent power-up with nothing else on its row
+        /// or column does nothing — no wipe reported, and no hand-off of its kind.</summary>
         [Test]
-        public void TryApplyBomb_OverAnExplosiveCoreWithNothingToFinish_HandsOffInstead()
+        public void TryApplyBomb_OverAnExplosiveCoreWithEmptyLines_IsANoOpWithNoHandOff()
         {
             var boardModel = new BoardModel();
             var core = new GridPosition(4, 4);
             boardModel.Occupy(core, 1);
             boardModel.SetSpecialKind(core, SpecialCellKind.ExplosiveCore);
 
-            var handOffTarget = new GridPosition(7, 7);
-            boardModel.Occupy(handOffTarget, 1);
+            var bystander = new GridPosition(7, 7);
+            boardModel.Occupy(bystander, 1);
 
             PowerUpModel model = new PowerUpModel();
             PowerUpSystem system = CreateSystem(model, boardModel);
@@ -719,10 +713,9 @@ namespace MustyBlockBlast.Tests.EditMode
             bool applied = system.TryApplyBomb(core);
 
             Assert.IsTrue(applied);
-            Assert.AreEqual(SpecialCellKind.ExplosiveCore, boardModel.GetSpecialKind(handOffTarget));
-            Assert.AreEqual(1, _detonatedBroker.Published.Count);
-            Assert.AreEqual(0, _detonatedBroker.Published[0].FinishedLineCount);
-            Assert.AreEqual(1, _detonatedBroker.Published[0].HandOffCount);
+            Assert.AreEqual(SpecialCellKind.None, boardModel.GetSpecialKind(bystander), "No hand-off.");
+            Assert.AreNotEqual(Board.EMPTY, boardModel.GetCell(bystander), "Off both lines.");
+            Assert.AreEqual(0, _detonatedBroker.Published.Count);
         }
 
         /// <summary>A power-up that destroyed no special cell must publish no blast at all.</summary>

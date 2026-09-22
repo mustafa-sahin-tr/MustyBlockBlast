@@ -238,41 +238,24 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.IsFalse(board.IsOccupied(timer));
         }
 
-        /// <summary>
-        /// The core's new behaviour never destroys a cell directly — it only fills the one missing cell
-        /// of a near-complete line and leaves clearing it to <see cref="CascadeClearResolver"/>'s next
-        /// iteration, which is where a timer cell's "cleared in time" credit is actually earned (via
-        /// <see cref="TimerCellClearEffect"/>, applied to every phase's own triggers exactly as any other
-        /// clear's are). What is worth pinning here is the boundary: the fill completes the line but does
-        /// not clear it, so a timer cell sitting in it is still standing, still counting, the instant the
-        /// fill lands.
-        /// </summary>
+        /// <summary>The core's bonus wipe (issue #398) destroys a timer cell mid-wipe rather than through
+        /// a clear phase, so — exactly as a laser's wipe does — it counts the cell itself for the
+        /// placement's "cleared in time" total.</summary>
         [Test]
-        public void ExplosiveCoreEffect_FillingALineWithATimerCellInIt_LeavesItUntouchedUntilTheResolverClears()
+        public void ExplosiveCoreEffect_WipingATimerCellStillCounting_ReportsItAsDestroyed()
         {
             var board = new Board();
-            var timer = new GridPosition(3, 0);
-            board.OccupyTimer(timer, COLOUR, 3);
+            var timer = new GridPosition(5, 6);
+            board.OccupyTimer(timer, COLOUR, 2);
 
-            // Row 0 is one cell short of full; its one gap is not the timer cell.
-            for (int x = 0; x < Board.SIZE; x++)
-            {
-                var position = new GridPosition(x, 0);
-                if (position.Equals(timer) || x == 7)
-                {
-                    continue;
-                }
-
-                board.Occupy(position, OTHER_COLOUR);
-            }
-
-            var core = new ExplosiveCoreEffect(new System.Random(1));
+            var core = new ExplosiveCoreEffect();
             core.BeginResolution();
-            core.Apply(board, new SpecialCellTrigger(new GridPosition(4, 4), SpecialCellKind.ExplosiveCore));
+            core.Apply(
+                board,
+                new SpecialCellTrigger(new GridPosition(0, 6), SpecialCellKind.ExplosiveCore, ClearAxis.Column));
 
-            Assert.IsTrue(board.IsRowFull(0), "The fill completed the row.");
-            Assert.IsTrue(board.IsOccupied(timer));
-            Assert.AreEqual(SpecialCellKind.Timer, board.GetSpecialKind(timer));
+            Assert.IsFalse(board.IsOccupied(timer));
+            Assert.AreEqual(1, core.TimerCellsDestroyedCount);
         }
 
         [Test]
