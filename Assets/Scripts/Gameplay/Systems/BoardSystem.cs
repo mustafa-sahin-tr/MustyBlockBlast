@@ -97,6 +97,27 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// </summary>
         private readonly PowerUpModel _powerUpModel;
 
+        /// <summary>
+        /// Rolls the diamond decoration of every piece this System deals (issue #394). Asked once per
+        /// dealt slot from <see cref="DealSlot"/>; it gates itself to a Path run with an active diamond
+        /// objective, so this System never learns why a draw came out plain.
+        /// <para>
+        /// Nullable, and null in most unit tests, for the reason <see cref="_reinforcedCellSeeder"/> is:
+        /// without one, no piece is ever decorated and every deal is exactly what it was.
+        /// </para>
+        /// </summary>
+        private readonly DiamondPieceDecorator _diamondPieceDecorator;
+
+        /// <summary>Receives one dealt piece's decoration from <see cref="_diamondPieceDecorator"/>
+        /// before it is copied onto the tray. Grown to the largest piece dealt and reused, so a
+        /// decorated deal allocates nothing after the first of its size.</summary>
+        private int[] _diamondDecorationBuffer = Array.Empty<int>();
+
+        /// <summary>Holds the parked piece's decoration across the one moment in
+        /// <see cref="TryParkPiece"/> when the Hold slot has been overwritten and the vacated dock slot
+        /// not yet written. Grown and reused for the same reason as <see cref="_diamondDecorationBuffer"/>.</summary>
+        private int[] _heldDiamondScratch = Array.Empty<int>();
+
         private readonly PlacementSnapper _placementSnapper = new PlacementSnapper();
         private readonly IPublisher<RunStartedMessage> _runStartedPublisher;
         private readonly IPublisher<PiecePlacedMessage> _piecePlacedPublisher;
@@ -296,7 +317,8 @@ namespace MustyBlockBlast.Gameplay.Systems
             LevelTimerCellSeeder timerCellSeeder = null,
             GameModeModel gameModeModel = null,
             IRescueRewardSource rescueRewardSource = null,
-            IPublisher<RunRescuedMessage> runRescuedPublisher = null)
+            IPublisher<RunRescuedMessage> runRescuedPublisher = null,
+            DiamondPieceDecorator diamondPieceDecorator = null)
             : this(
                 boardModel, trayModel, scoreGemProgressModel, vortexProgressModel, pieceDraw,
                 runStartedPublisher, piecePlacedPublisher, linesClearedPublisher, gameOverPublisher,
@@ -304,7 +326,8 @@ namespace MustyBlockBlast.Gameplay.Systems
                 piercingRocketFiredPublisher, vortexIslandFilledPublisher, chainLightningTriggeredPublisher,
                 coinCellsClearedPublisher, currencyConfig, Environment.TickCount, reinforcedCellSeeder,
                 powerUpModel, specialCellSpawnedPublisher, specialPieceSpawnedPublisher,
-                timerCellSeeder, gameModeModel, rescueRewardSource, runRescuedPublisher)
+                timerCellSeeder, gameModeModel, rescueRewardSource, runRescuedPublisher,
+                diamondPieceDecorator)
         {
         }
 
@@ -334,10 +357,12 @@ namespace MustyBlockBlast.Gameplay.Systems
             LevelTimerCellSeeder timerCellSeeder = null,
             GameModeModel gameModeModel = null,
             IRescueRewardSource rescueRewardSource = null,
-            IPublisher<RunRescuedMessage> runRescuedPublisher = null)
+            IPublisher<RunRescuedMessage> runRescuedPublisher = null,
+            DiamondPieceDecorator diamondPieceDecorator = null)
         {
             _reinforcedCellSeeder = reinforcedCellSeeder;
             _timerCellSeeder = timerCellSeeder;
+            _diamondPieceDecorator = diamondPieceDecorator;
             _gameModeModel = gameModeModel;
             _powerUpModel = powerUpModel;
             _rescueRewardSource = rescueRewardSource;
@@ -537,9 +562,26 @@ namespace MustyBlockBlast.Gameplay.Systems
             // to be placed is known to be a special one.
             SpecialPieceKind pieceKind = _trayModel.GetSpecialKind(slotIndex);
 
+            // Same moment, same reason, for the decoration: it is read off the slot per offset as each
+            // cell is written, and the slot is consumed only once the loop is done (issue #394 AC5).
+            bool hasDiamonds = _trayModel.HasDiamonds(slotIndex);
+
             for (int i = 0; i < piece.Offsets.Count; i++)
             {
-                _boardModel.Occupy(anchor + piece.Offsets[i], colourId);
+                GridPosition position = anchor + piece.Offsets[i];
+                int diamondColourId = hasDiamonds ? _trayModel.GetDiamondColourId(slotIndex, i) : TrayModel.NO_DIAMOND;
+
+                // A decorated cell lands as a diamond only where DiamondCellRules allows one (AC3);
+                // anywhere else — and every undecorated cell — is placed exactly as it always was.
+                if (diamondColourId != TrayModel.NO_DIAMOND
+                    && DiamondCellRules.CanCarryDiamond(_boardModel.Board, position))
+                {
+                    _boardModel.OccupyDiamond(position, colourId, diamondColourId);
+                }
+                else
+                {
+                    _boardModel.Occupy(position, colourId);
+                }
             }
 
             _trayModel.ConsumeSlot(slotIndex);
@@ -877,11 +919,24 @@ namespace MustyBlockBlast.Gameplay.Systems
             int previouslyHeldColourId = _trayModel.HeldColourId;
             SpecialPieceKind previouslyHeldKind = _trayModel.HeldSpecialKind;
 
+            // The decoration travels too, and has to be copied out first: SetHeld below overwrites the
+            // pocket's buffer, which is the only place the outgoing piece's gems are recorded.
+            IReadOnlyList<int> previouslyHeldDiamonds = null;
+            if (previouslyHeld != null && _trayModel.HasHeldDiamonds)
+            {
+                EnsureCapacity(ref _heldDiamondScratch, previouslyHeld.CellCount);
+                CopyInto(_trayModel.HeldDiamondColourIds, _heldDiamondScratch);
+                previouslyHeldDiamonds = _heldDiamondScratch;
+            }
+
             // The kind travels with the piece in both directions. A golden 1x1 set aside and taken back
             // out is the same golden 1x1 — dropping the tag on the way through the pocket would quietly
-            // demote a piece the player earned.
-            _trayModel.SetHeld(piece, _trayModel.GetColourId(slotIndex), _trayModel.GetSpecialKind(slotIndex));
-            _trayModel.SetSlot(slotIndex, previouslyHeld, previouslyHeldColourId, previouslyHeldKind);
+            // demote a piece the player earned. The same goes for a diamond-decorated piece (issue #394).
+            _trayModel.SetHeld(
+                piece, _trayModel.GetColourId(slotIndex), _trayModel.GetSpecialKind(slotIndex),
+                _trayModel.GetDiamondColourIds(slotIndex));
+            _trayModel.SetSlot(
+                slotIndex, previouslyHeld, previouslyHeldColourId, previouslyHeldKind, previouslyHeldDiamonds);
 
             // No game-over re-check: a park only permutes pieces between the dock and the pocket, so
             // the set of pieces the player can still play is exactly the one CheckGameOver last found
@@ -992,7 +1047,7 @@ namespace MustyBlockBlast.Gameplay.Systems
 
             for (int slotIndex = 0; slotIndex < TrayModel.SLOT_COUNT; slotIndex++)
             {
-                _trayModel.SetSlot(slotIndex, _rerollPieceBuffer[slotIndex], _rerollColourBuffer[slotIndex]);
+                DealSlot(slotIndex, _rerollPieceBuffer[slotIndex], _rerollColourBuffer[slotIndex]);
             }
 
             // Live again before anyone is told, so a subscriber that reacts to the rescue by reading
@@ -1078,7 +1133,7 @@ namespace MustyBlockBlast.Gameplay.Systems
 
             for (int slotIndex = 0; slotIndex < TrayModel.SLOT_COUNT; slotIndex++)
             {
-                _trayModel.SetSlot(slotIndex, _rerollPieceBuffer[slotIndex], _rerollColourBuffer[slotIndex]);
+                DealSlot(slotIndex, _rerollPieceBuffer[slotIndex], _rerollColourBuffer[slotIndex]);
             }
 
             wasClutchSave = hadNoLegalMoves && MoveAvailability.HasAnyMove(_boardModel.Board, _rerollPieceBuffer);
@@ -1656,11 +1711,49 @@ namespace MustyBlockBlast.Gameplay.Systems
             }
         }
 
+        /// <summary>
+        /// Writes one ordinarily drawn piece into a dock slot, decorated with diamonds when
+        /// <see cref="_diamondPieceDecorator"/> says so (issue #394). The one seam every ordinary deal —
+        /// refill, reroll, rescue — goes through, so no draw path can miss the decoration roll; the
+        /// special-piece injections deliberately do not, as a 1x1 is never decorated anyway.
+        /// </summary>
+        private void DealSlot(int slotIndex, Piece piece, int colourId)
+        {
+            if (_diamondPieceDecorator == null || piece == null)
+            {
+                _trayModel.SetSlot(slotIndex, piece, colourId);
+                return;
+            }
+
+            EnsureCapacity(ref _diamondDecorationBuffer, piece.CellCount);
+            bool decorated = _diamondPieceDecorator.TryDecorate(piece, _diamondDecorationBuffer);
+            _trayModel.SetSlot(
+                slotIndex, piece, colourId, SpecialPieceKind.None, decorated ? _diamondDecorationBuffer : null);
+        }
+
+        private static void EnsureCapacity(ref int[] buffer, int length)
+        {
+            if (buffer.Length < length)
+            {
+                buffer = new int[length];
+            }
+        }
+
+        private static void CopyInto(IReadOnlyList<int> source, int[] destination)
+        {
+            Array.Clear(destination, 0, destination.Length);
+            int count = source.Count < destination.Length ? source.Count : destination.Length;
+            for (int index = 0; index < count; index++)
+            {
+                destination[index] = source[index];
+            }
+        }
+
         private void RefillTray()
         {
             for (int i = 0; i < TrayModel.SLOT_COUNT; i++)
             {
-                _trayModel.SetSlot(i, _pieceDraw.DrawPiece(), _pieceDraw.DrawColourId());
+                DealSlot(i, _pieceDraw.DrawPiece(), _pieceDraw.DrawColourId());
             }
 
             // After the ordinary draw, never instead of it: the injection overrides the slots it claims

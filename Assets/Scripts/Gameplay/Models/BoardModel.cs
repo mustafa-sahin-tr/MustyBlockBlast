@@ -164,6 +164,20 @@ namespace MustyBlockBlast.Gameplay.Models
             TimerCountdownChanged?.Invoke(position, startingCountdown);
         }
 
+        /// <summary>Occupies a cell as a <see cref="SpecialCellKind.Diamond"/> cell of gem colour
+        /// <paramref name="diamondColourId"/> and announces both halves of it — the block, then its kind
+        /// — in the order <see cref="OccupyTimer"/> establishes. The gem colour is written before the
+        /// kind is announced, so a View reacting to <see cref="SpecialKindChanged"/> by reading
+        /// <see cref="Core.Board.GetDiamondColourId"/> back sees a coloured diamond, never a blank one.
+        /// Reached from a decorated piece's placement (issue #394); see
+        /// <see cref="Core.Board.OccupyDiamond"/>.</summary>
+        internal void OccupyDiamond(GridPosition position, int colourId, int diamondColourId)
+        {
+            _board.OccupyDiamond(position, colourId, diamondColourId);
+            CellChanged?.Invoke(position, colourId);
+            SpecialKindChanged?.Invoke(position, SpecialCellKind.Diamond);
+        }
+
         /// <summary>Tags a cell with a special behaviour and announces it. Separate from
         /// <see cref="Occupy"/> exactly as <see cref="Core.Board.SetSpecialKind"/> is separate from
         /// <see cref="Core.Board.Occupy"/>: a spawner occupies a cell and then tags it, and the two

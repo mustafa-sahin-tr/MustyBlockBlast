@@ -127,6 +127,11 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// </summary>
         private Piece _rotateSessionOriginalPiece;
 
+        /// <summary>Receives a rotated piece's re-indexed diamond decoration (issue #394) before it is
+        /// copied onto the tray. Grown to the largest piece rotated and reused, so a rotate allocates
+        /// nothing after the first of its size.</summary>
+        private int[] _rotatedDiamondBuffer = Array.Empty<int>();
+
         /// <summary>
         /// Its own instance rather than the one <see cref="BoardSystem"/> owns. The two can never run
         /// at once — a power-up is applied from an input callback, a placement's cascade from another,
@@ -505,8 +510,23 @@ namespace MustyBlockBlast.Gameplay.Systems
             }
 
             // Colour is carried over untouched: rotating changes the shape on offer, never which piece
-            // it is to the player.
-            _trayModel.SetSlot(slotIndex, rotated, _trayModel.GetColourId(slotIndex));
+            // it is to the player. So is the diamond decoration (issue #394) — re-indexed onto the
+            // turned piece's own offset order, so each gem stays on the cell it was on.
+            IReadOnlyList<int> rotatedDiamonds = null;
+            if (_trayModel.HasDiamonds(slotIndex))
+            {
+                if (_rotatedDiamondBuffer.Length < rotated.CellCount)
+                {
+                    _rotatedDiamondBuffer = new int[rotated.CellCount];
+                }
+
+                PieceRotator.MapCellValuesClockwise(
+                    piece, rotated, _trayModel.GetDiamondColourIds(slotIndex), _rotatedDiamondBuffer);
+                rotatedDiamonds = _rotatedDiamondBuffer;
+            }
+
+            _trayModel.SetSlot(
+                slotIndex, rotated, _trayModel.GetColourId(slotIndex), SpecialPieceKind.None, rotatedDiamonds);
             return true;
         }
 
