@@ -597,7 +597,9 @@ namespace MustyBlockBlast.Presentation
 
             // Rolls the diamond decoration of every dealt piece (issue #394). BoardSystem asks it per
             // dealt slot; it reads ObjectiveModel and GameModeModel live to gate itself to a Path run
-            // with an active DiamondsCleared objective, so it needs no subscription of its own.
+            // with an active DiamondsCleared objective, so it needs no subscription of its own. The
+            // spawn chance and decorated-count range come from the active level's first LevelCatalog
+            // row via PathRunModel (issue #396), the same lookup the coin seeder and PowerUpSystem use.
             builder.Register<DiamondPieceDecorator>(Lifetime.Singleton).AsSelf();
             builder.Register<ObjectiveSystem>(Lifetime.Singleton);
             builder.Register<LevelProgressionSystem>(Lifetime.Singleton);

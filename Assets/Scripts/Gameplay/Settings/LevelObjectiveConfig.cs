@@ -38,6 +38,24 @@ namespace MustyBlockBlast.Gameplay.Settings
         /// null — the same never-existed-yet case <see cref="EmptyReinforcedCells"/> covers.</summary>
         private static readonly PowerUpKind[] EmptyBannedPowerUps = new PowerUpKind[0];
 
+        /// <summary>
+        /// Share of eligible (multi-cell) draws a diamond level decorates when it authors nothing else:
+        /// the "~20%" of #390, and exactly the rate every diamond level dealt at before
+        /// <see cref="_diamondDecorationChance"/> existed. Also what <c>DiamondPieceDecorator</c> falls
+        /// back to when no level row is in play at all.
+        /// </summary>
+        internal const float DEFAULT_DIAMOND_DECORATION_CHANCE = 0.2f;
+
+        /// <summary>Fewest diamonds a decorated piece carries by default: one.</summary>
+        internal const int DEFAULT_DIAMOND_MIN_DECORATED_CELLS = 1;
+
+        /// <summary>
+        /// The <see cref="_diamondMaxDecoratedCells"/> value that means "no authored cap": a decorated
+        /// piece may carry up to every cell but one, which is the range #390 AC1 fixes and the one every
+        /// diamond level dealt with before the field existed.
+        /// </summary>
+        internal const int DIAMOND_MAX_DECORATED_CELLS_UNCAPPED = 0;
+
         [Tooltip("1-based level number. This is the identity of the level, not its position in the list.")]
         [SerializeField] private int _levelNumber = 1;
 
@@ -118,6 +136,24 @@ namespace MustyBlockBlast.Gameplay.Settings
             "default) bans nothing, which is what every level authored before this field existed " +
             "does. Ignored entirely outside Path mode.")]
         [SerializeField] private List<PowerUpKind> _bannedPowerUps = new List<PowerUpKind>();
+
+        [Header("Diamonds")]
+        [Tooltip("Share (0..1) of dealt multi-cell pieces that carry diamonds while this level's " +
+            "DiamondsCleared objective is active. 0.2 (the default) is the ~20% every diamond level " +
+            "dealt at before this field existed. Read from the level's FIRST row only — it tunes the " +
+            "level, not one of its objectives. Ignored by a level without a DiamondsCleared objective.")]
+        [Range(0f, 1f)]
+        [SerializeField] private float _diamondDecorationChance = DEFAULT_DIAMOND_DECORATION_CHANCE;
+
+        [Tooltip("Fewest diamonds a decorated piece carries. 1 (the default) is what every diamond level " +
+            "dealt with before this field existed. Clamped to the piece at draw time: a piece never has " +
+            "every cell decorated, so a 2-cell piece always carries exactly one however high this is.")]
+        [SerializeField] private int _diamondMinDecoratedCells = DEFAULT_DIAMOND_MIN_DECORATED_CELLS;
+
+        [Tooltip("Most diamonds a decorated piece carries. 0 (the default) means no cap — up to every " +
+            "cell but one, which is what every diamond level dealt with before this field existed. Any " +
+            "other value is clamped to the piece at draw time and must not be below the minimum.")]
+        [SerializeField] private int _diamondMaxDecoratedCells = DIAMOND_MAX_DECORATED_CELLS_UNCAPPED;
 
         /// <summary>1-based level number; <see cref="LevelCatalog"/> looks levels up by this, not by index.</summary>
         public int LevelNumber => _levelNumber;
@@ -206,6 +242,30 @@ namespace MustyBlockBlast.Gameplay.Settings
         /// </summary>
         public IReadOnlyList<PowerUpKind> BannedPowerUps =>
             _bannedPowerUps ?? (IReadOnlyList<PowerUpKind>)EmptyBannedPowerUps;
+
+        /// <summary>
+        /// Share (0..1) of dealt multi-cell pieces <c>DiamondPieceDecorator</c> decorates while this
+        /// level's <see cref="ObjectiveType.DiamondsCleared"/> objective is active.
+        /// <para>
+        /// Level-wide rather than per-objective, so — like <see cref="CompletionScoreBonus"/> and every
+        /// other tunable that belongs to the level rather than to one of its rows — it is read from the
+        /// row <see cref="LevelCatalog.Find"/> returns: the level's first. A level authoring three
+        /// colours as three rows tunes its spawn rate once, on the first of them. Defaulting to
+        /// <see cref="DEFAULT_DIAMOND_DECORATION_CHANCE"/> is what keeps every diamond level authored
+        /// before this field existed dealing exactly as it did.
+        /// </para>
+        /// </summary>
+        public float DiamondDecorationChance => _diamondDecorationChance;
+
+        /// <summary>Fewest diamonds a decorated piece carries; clamped to the piece at draw time. Read
+        /// from the level's first row, as <see cref="DiamondDecorationChance"/> is.</summary>
+        public int DiamondMinDecoratedCells => _diamondMinDecoratedCells;
+
+        /// <summary>Most diamonds a decorated piece carries, or
+        /// <see cref="DIAMOND_MAX_DECORATED_CELLS_UNCAPPED"/> for "every cell but one"; clamped to the
+        /// piece at draw time. Read from the level's first row, as <see cref="DiamondDecorationChance"/>
+        /// is.</summary>
+        public int DiamondMaxDecoratedCells => _diamondMaxDecoratedCells;
 
         /// <summary>
         /// Builds this level's board outline. Returns the shared <see cref="BoardShape.Standard"/>
@@ -507,6 +567,27 @@ namespace MustyBlockBlast.Gameplay.Settings
                 }
             }
 
+            // Checked on every row, not just the first: the fields are harmless defaults on a row that
+            // is never read for them, and a bad value on a later row is still a typo worth naming.
+            if (_diamondDecorationChance < 0f || _diamondDecorationChance > 1f)
+            {
+                error = "Diamond decoration chance must be between 0 and 1 — it is a share of dealt pieces.";
+                return false;
+            }
+
+            if (_diamondMinDecoratedCells < DEFAULT_DIAMOND_MIN_DECORATED_CELLS)
+            {
+                error = "Diamond min decorated cells must be 1 or more — a decorated piece always carries at least one diamond.";
+                return false;
+            }
+
+            if (_diamondMaxDecoratedCells != DIAMOND_MAX_DECORATED_CELLS_UNCAPPED
+                && _diamondMaxDecoratedCells < _diamondMinDecoratedCells)
+            {
+                error = $"Diamond max decorated cells must be {DIAMOND_MAX_DECORATED_CELLS_UNCAPPED} (no cap) or at least the minimum ({_diamondMinDecoratedCells}).";
+                return false;
+            }
+
             IReadOnlyList<PowerUpKind> bannedPowerUps = BannedPowerUps;
             for (int i = 0; i < bannedPowerUps.Count; i++)
             {
@@ -612,6 +693,9 @@ namespace MustyBlockBlast.Gameplay.Settings
             _completionScoreBonus = Mathf.Max(0, _completionScoreBonus);
             _coinCellCount = Mathf.Max(0, _coinCellCount);
             _requiredColourId = Mathf.Clamp(_requiredColourId, 1, Board.COLOUR_COUNT);
+            _diamondDecorationChance = Mathf.Clamp01(_diamondDecorationChance);
+            _diamondMinDecoratedCells = Mathf.Max(DEFAULT_DIAMOND_MIN_DECORATED_CELLS, _diamondMinDecoratedCells);
+            _diamondMaxDecoratedCells = Mathf.Max(DIAMOND_MAX_DECORATED_CELLS_UNCAPPED, _diamondMaxDecoratedCells);
 
             // Clamped per entry rather than reported, for the reason every numeric field above is: a
             // hit count outside the range is a typo with one sensible reading, and the developer sees
