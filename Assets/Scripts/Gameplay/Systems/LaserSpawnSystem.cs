@@ -31,11 +31,29 @@ namespace MustyBlockBlast.Gameplay.Systems
     /// change, so a value being written again is not an event either. Break the streak and rebuild it
     /// to 4 and the player has earned another laser — which is the intent, not a leak.
     /// </para>
+    /// <para>
+    /// Formation is currently switched off (issue #399): the laser's wipe-and-chain effect was ported
+    /// onto the explosive core in #398, and two kinds sharing one effect on the same board is not
+    /// wanted. <see cref="FormationEnabled"/> gates <see cref="OnStreakChanged"/> before anything
+    /// else runs, so the streak-4 threshold is reached and ignored. Everything below the gate —
+    /// this System, <see cref="LaserSpawnSelector"/>, <see cref="LaserEffect"/>,
+    /// <see cref="LaserScoreSystem"/> — is left intact for a possible revival: flip the flag and the
+    /// laser forms again exactly as documented above.
+    /// </para>
     /// </summary>
     public sealed class LaserSpawnSystem : IDisposable
     {
         /// <summary>The streak that earns a laser.</summary>
         private const int SPAWN_STREAK = 4;
+
+        /// <summary>
+        /// Issue #399: false pauses laser formation without deleting it. No other streak-driven System
+        /// claims <see cref="SPAWN_STREAK"/> — the golden piece triggers at 5 and the coin cell at 6 —
+        /// so while this is false, reaching a streak of 4 earns nothing.
+        /// <para>A <c>static readonly</c> rather than a <c>const</c> so the compiler does not flag the
+        /// gated body as unreachable code.</para>
+        /// </summary>
+        private static readonly bool FormationEnabled = false;
 
         private readonly BoardModel _boardModel;
 
@@ -93,6 +111,13 @@ namespace MustyBlockBlast.Gameplay.Systems
 
         private void OnStreakChanged(int streak)
         {
+            if (!FormationEnabled)
+            {
+                // Issue #399: formation paused. Checked first so no streak value, mode, or board state
+                // can reach the spawn below.
+                return;
+            }
+
             if (streak != SPAWN_STREAK || (_gameModeModel != null && !_gameModeModel.ExtrasEnabled))
             {
                 return;
