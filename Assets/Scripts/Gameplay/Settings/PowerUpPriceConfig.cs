@@ -15,10 +15,12 @@ namespace MustyBlockBlast.Gameplay.Settings
     /// so the two read the same way.
     /// </para>
     /// <para>
-    /// The shipped numbers are placeholders, scaled roughly against
-    /// <see cref="PowerUpUnlockLevels"/>: the three kinds available from a fresh install are the
-    /// cheapest, and each later gate costs more. They are not a balanced economy and are not claimed
-    /// to be one; what matters here is that the price of a power-up has exactly one home.
+    /// The shipped numbers are the deliberate price pass from issue #402, priced by what a kind is
+    /// worth to the player rather than by where its unlock gate sits: a one-cell Joker and a hint
+    /// (GhostFit) are cheap, the region clearers and Rotate sit in the middle, Reroll and ColorCleanser
+    /// a step above, and DoubleMultiplier — a whole window of doubled score — is the dear one. The
+    /// table below and <c>Assets/Settings/PowerUpPriceConfig.asset</c> must agree; the shipped asset
+    /// is what the player sees, and <c>PowerUpPriceConfigTests</c> pins both.
     /// </para>
     /// </summary>
     [CreateAssetMenu(menuName = "MustyBlockBlast/Power-Up Price Config", fileName = "PowerUpPriceConfig")]
@@ -49,13 +51,14 @@ namespace MustyBlockBlast.Gameplay.Settings
             new PowerUpPrice(PowerUpKind.RowClear, 50),
             new PowerUpPrice(PowerUpKind.ColumnClear, 50),
 
-            // One gate every five levels from here, and a price that climbs with each.
-            new PowerUpPrice(PowerUpKind.Joker, 100),
-            new PowerUpPrice(PowerUpKind.ColorCleanser, 150),
-            new PowerUpPrice(PowerUpKind.Rotate, 200),
-            new PowerUpPrice(PowerUpKind.Reroll, 250),
-            new PowerUpPrice(PowerUpKind.DoubleMultiplier, 300),
-            new PowerUpPrice(PowerUpKind.GhostFit, 350),
+            // The gated six, priced by value rather than by gate (issue #402): a price does not climb
+            // with the unlock level, so a late-unlocking kind can be the cheapest row in the shop.
+            new PowerUpPrice(PowerUpKind.Joker, 10),
+            new PowerUpPrice(PowerUpKind.ColorCleanser, 75),
+            new PowerUpPrice(PowerUpKind.Rotate, 50),
+            new PowerUpPrice(PowerUpKind.Reroll, 75),
+            new PowerUpPrice(PowerUpKind.DoubleMultiplier, 200),
+            new PowerUpPrice(PowerUpKind.GhostFit, 25),
 
             // Priced per coin cell sown, not per level: the level-start picker charges
             // quantity * this, so the figure here is what one extra coin cell costs. Deliberately

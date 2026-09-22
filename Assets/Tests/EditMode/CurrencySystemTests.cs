@@ -754,17 +754,14 @@ namespace MustyBlockBlast.Tests.EditMode
         // --- Issue #163: buying power-ups with coins ---
 
         /// <summary>
-        /// Pins the placeholder prices the purchase tests quote against. Not a claim about the economy —
-        /// the numbers are expected to be retuned in the asset — only that a freshly created config
-        /// prices every kind with a positive figure, so the shop is never a wall of unbuyable rows, and
-        /// that the starter three are no dearer than the gated six.
+        /// The structural half of the price contract: a freshly created config prices every kind with a
+        /// positive, buyable figure, so the shop is never a wall of unbuyable rows. The exact figures
+        /// are pinned in <c>PowerUpPriceConfigTests</c> (issue #402); this test deliberately does not
+        /// order the kinds against each other, because that pass priced by value rather than by gate.
         /// </summary>
         [Test]
         public void PowerUpPriceConfig_OnAFreshInstance_PricesEveryKindAbovePlaceholderZero()
         {
-            int starterPrice = _priceConfig.GetPrice(PowerUpKind.Bomb);
-            Assert.Greater(starterPrice, 0);
-
             PowerUpKind[] allKinds = (PowerUpKind[])System.Enum.GetValues(typeof(PowerUpKind));
             for (int kindIndex = 0; kindIndex < allKinds.Length; kindIndex++)
             {
@@ -779,12 +776,6 @@ namespace MustyBlockBlast.Tests.EditMode
                 int price = _priceConfig.GetPrice(allKinds[kindIndex]);
                 Assert.Greater(price, 0, $"{allKinds[kindIndex]} has no usable price.");
                 Assert.Less(price, int.MaxValue, $"{allKinds[kindIndex]} is priced as unbuyable.");
-
-                if (PowerUpUnlockLevels.LevelFor(allKinds[kindIndex]) > PowerUpUnlockLevels.ALWAYS_UNLOCKED)
-                {
-                    Assert.GreaterOrEqual(
-                        price, starterPrice, "A gated kind must not be cheaper than a starter one.");
-                }
             }
         }
 
@@ -1143,8 +1134,8 @@ namespace MustyBlockBlast.Tests.EditMode
 
         /// <summary>
         /// AC2's quoting half: inside the window the shop is quoted the discounted figure. Asserted
-        /// against the standard price too, so this cannot pass on a config that priced Joker at 75 all
-        /// along.
+        /// against the standard price too, so this cannot pass on a config that priced Joker at 7 all
+        /// along. (25% off 10 is 7.5, floored to 7 — see the rounding test below.)
         /// </summary>
         [Test]
         public void QuotePriceFor_InsideAnActivePromotion_QuotesTheDiscountedPrice()
@@ -1152,8 +1143,8 @@ namespace MustyBlockBlast.Tests.EditMode
             AddCampaign(PowerUpKind.Joker, 25, WindowAroundDefaultNow);
             CurrencySystem system = CreateSystem(new ProfileModel(), new ScoreModel());
 
-            Assert.AreEqual(100, _priceConfig.GetPrice(PowerUpKind.Joker), "Price config changed.");
-            Assert.AreEqual(75L, system.QuotePriceFor(PowerUpKind.Joker, 1));
+            Assert.AreEqual(10, _priceConfig.GetPrice(PowerUpKind.Joker), "Price config changed.");
+            Assert.AreEqual(7L, system.QuotePriceFor(PowerUpKind.Joker, 1));
         }
 
         /// <summary>
@@ -1193,8 +1184,8 @@ namespace MustyBlockBlast.Tests.EditMode
             AddCampaign(PowerUpKind.ColorCleanser, 50, FutureWindow);
             CurrencySystem system = CreateSystem(new ProfileModel(), new ScoreModel());
 
-            Assert.AreEqual(100L, system.QuotePriceFor(PowerUpKind.Joker, 1));
-            Assert.AreEqual(150L, system.QuotePriceFor(PowerUpKind.ColorCleanser, 1));
+            Assert.AreEqual(10L, system.QuotePriceFor(PowerUpKind.Joker, 1));
+            Assert.AreEqual(75L, system.QuotePriceFor(PowerUpKind.ColorCleanser, 1));
         }
 
         /// <summary>
@@ -1208,11 +1199,11 @@ namespace MustyBlockBlast.Tests.EditMode
             AddCampaign(PowerUpKind.Joker, 25, WindowAroundDefaultNow);
             CurrencySystem system = CreateSystem(new ProfileModel(), new ScoreModel());
 
-            Assert.AreEqual(75L, system.QuotePriceFor(PowerUpKind.Joker, 1));
+            Assert.AreEqual(7L, system.QuotePriceFor(PowerUpKind.Joker, 1));
 
             _utcNow = new DateTime(2026, 7, 1, 0, 0, 0, DateTimeKind.Utc);
 
-            Assert.AreEqual(100L, system.QuotePriceFor(PowerUpKind.Joker, 1));
+            Assert.AreEqual(10L, system.QuotePriceFor(PowerUpKind.Joker, 1));
         }
 
         /// <summary>
@@ -1231,8 +1222,8 @@ namespace MustyBlockBlast.Tests.EditMode
             PowerUpPurchaseResult result = system.TryPurchasePowerUp(PowerUpKind.Joker, 1);
 
             Assert.AreEqual(PowerUpPurchaseResult.Success, result);
-            Assert.AreEqual(125, profileModel.CoinBalance.Value, "The standard 100 was charged.");
-            Assert.AreEqual(125, PlayerPrefs.GetInt(COIN_BALANCE_KEY, 0));
+            Assert.AreEqual(193, profileModel.CoinBalance.Value, "The standard 10 was charged.");
+            Assert.AreEqual(193, PlayerPrefs.GetInt(COIN_BALANCE_KEY, 0));
             Assert.AreEqual(1, CountOf(PowerUpKind.Joker));
         }
 
@@ -1251,7 +1242,7 @@ namespace MustyBlockBlast.Tests.EditMode
             PowerUpPurchaseResult result = system.TryPurchasePowerUp(PowerUpKind.Joker, 1);
 
             Assert.AreEqual(PowerUpPurchaseResult.Success, result);
-            Assert.AreEqual(100, profileModel.CoinBalance.Value);
+            Assert.AreEqual(190, profileModel.CoinBalance.Value);
         }
 
         /// <summary>AC4's other half at the till: a campaign that has not opened yet charges standard
@@ -1265,7 +1256,7 @@ namespace MustyBlockBlast.Tests.EditMode
 
             system.TryPurchasePowerUp(PowerUpKind.Joker, 1);
 
-            Assert.AreEqual(100, profileModel.CoinBalance.Value);
+            Assert.AreEqual(190, profileModel.CoinBalance.Value);
         }
 
         /// <summary>
@@ -1295,12 +1286,13 @@ namespace MustyBlockBlast.Tests.EditMode
         {
             AddCampaign(PowerUpKind.Joker, 50, WindowAroundDefaultNow);
             var profileModel = new ProfileModel();
-            CurrencySystem system = CreateSystemWithCoins(profileModel, coins: 60);
+            // Six coins: short of Joker's standard 10, enough for the discounted 5.
+            CurrencySystem system = CreateSystemWithCoins(profileModel, coins: 6);
 
             PowerUpPurchaseResult result = system.TryPurchasePowerUp(PowerUpKind.Joker, 1);
 
             Assert.AreEqual(PowerUpPurchaseResult.Success, result);
-            Assert.AreEqual(10, profileModel.CoinBalance.Value);
+            Assert.AreEqual(1, profileModel.CoinBalance.Value);
         }
 
         /// <summary>
