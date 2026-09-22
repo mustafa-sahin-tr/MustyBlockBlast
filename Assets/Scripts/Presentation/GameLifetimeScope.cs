@@ -515,7 +515,13 @@ namespace MustyBlockBlast.Presentation
             // only on the SDK's reward-earned callback — and the only type in the project that touches
             // the ad SDK. Ships with Google's public TEST ids; see the class for the swap-out note.
             builder.Register<AdMobRewardSource>(Lifetime.Singleton)
-                .As<IRewardSource>().As<ICoinRewardSource>().As<IRescueRewardSource>();
+                .As<IRewardSource>().As<ICoinRewardSource>().As<IRescueRewardSource>().AsSelf();
+
+            // Runs consent + SDK init at boot rather than on the player's first reward request, per
+            // Google's own latency guidance. AsSelf above is what lets this take the concrete type
+            // directly — there is nothing to warm up behind the Deterministic stubs in the #if branch,
+            // so this entry point only exists where AdMobRewardSource itself does.
+            builder.RegisterEntryPoint<AdWarmUpSystem>();
 #endif
 
             // The real-money half, and the one binding here that is not a stub: this is the actual
