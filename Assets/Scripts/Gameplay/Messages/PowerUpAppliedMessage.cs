@@ -93,6 +93,33 @@ namespace MustyBlockBlast.Gameplay.Messages
             bool wasClutchSave, int destroyedScoreGemCount, int reinforcedCellsFullyClearedCount,
             IReadOnlyList<int> destroyedCellCountByColour, int timerCellsClearedInTimeCount,
             GridPosition? targetCell, IReadOnlyList<GridPosition> clearedCellPositions)
+            : this(
+                kind, clearedCellCount, clearedLineCount, emptiedLineCount, wasClutchSave,
+                destroyedScoreGemCount, reinforcedCellsFullyClearedCount, destroyedCellCountByColour,
+                timerCellsClearedInTimeCount, targetCell, clearedCellPositions,
+                destroyedDiamondCountByColour: null)
+        {
+        }
+
+        public PowerUpAppliedMessage(
+            PowerUpKind kind, int clearedCellCount, int clearedLineCount, int emptiedLineCount,
+            bool wasClutchSave, int destroyedScoreGemCount, int reinforcedCellsFullyClearedCount,
+            IReadOnlyList<int> destroyedCellCountByColour, int timerCellsClearedInTimeCount,
+            IReadOnlyList<int> destroyedDiamondCountByColour)
+            : this(
+                kind, clearedCellCount, clearedLineCount, emptiedLineCount, wasClutchSave,
+                destroyedScoreGemCount, reinforcedCellsFullyClearedCount, destroyedCellCountByColour,
+                timerCellsClearedInTimeCount, targetCell: null, clearedCellPositions: null,
+                destroyedDiamondCountByColour: destroyedDiamondCountByColour)
+        {
+        }
+
+        public PowerUpAppliedMessage(
+            PowerUpKind kind, int clearedCellCount, int clearedLineCount, int emptiedLineCount,
+            bool wasClutchSave, int destroyedScoreGemCount, int reinforcedCellsFullyClearedCount,
+            IReadOnlyList<int> destroyedCellCountByColour, int timerCellsClearedInTimeCount,
+            GridPosition? targetCell, IReadOnlyList<GridPosition> clearedCellPositions,
+            IReadOnlyList<int> destroyedDiamondCountByColour)
         {
             Kind = kind;
             ClearedCellCount = clearedCellCount;
@@ -105,6 +132,7 @@ namespace MustyBlockBlast.Gameplay.Messages
             TimerCellsClearedInTimeCount = timerCellsClearedInTimeCount;
             TargetCell = targetCell;
             ClearedCellPositions = clearedCellPositions;
+            DestroyedDiamondCountByColour = destroyedDiamondCountByColour;
         }
 
         public PowerUpKind Kind { get; }
@@ -197,5 +225,20 @@ namespace MustyBlockBlast.Gameplay.Messages
         /// nothing reads it for them today.
         /// </summary>
         public IReadOnlyList<GridPosition> ClearedCellPositions { get; }
+
+        /// <summary>
+        /// <see cref="MustyBlockBlast.Core.SpecialCellKind.Diamond"/> cells this application's direct
+        /// clear destroyed, counted per the gem's own colour id (see <c>ColourTally</c>), read from
+        /// <c>PowerUpClearResult.TriggeredSpecials</c> at publish time. Data plumbing for
+        /// <see cref="MustyBlockBlast.Core.ObjectiveType.DiamondsCleared"/>, the only thing that reads
+        /// it. Null for a kind that clears nothing.
+        /// <para>
+        /// Does NOT include a diamond a triggered blast/wipe/strike destroys afterward in
+        /// <c>ApplyTriggeredSpecials</c> — the same pre-existing gap
+        /// <see cref="TimerCellsClearedInTimeCount"/> documents for this secondary power-up-triggered
+        /// chain.
+        /// </para>
+        /// </summary>
+        public IReadOnlyList<int> DestroyedDiamondCountByColour { get; }
     }
 }

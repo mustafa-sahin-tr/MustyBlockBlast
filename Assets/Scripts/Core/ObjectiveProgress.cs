@@ -240,6 +240,19 @@ namespace MustyBlockBlast.Core
                     }
 
                     break;
+
+                case ObjectiveType.DiamondsCleared:
+                    // The ColourCleared shape, keyed on the diamond's own colour rather than the
+                    // block's: things destroyed, not events, so one placement that takes out several
+                    // diamonds of the wanted colour credits every one of them. The two tallies are
+                    // independent — a red diamond on a blue block never reaches ColourCleared's red.
+                    int destroyedDiamondsOfColour = context.DestroyedDiamondCountOf(Definition.RequiredColourId);
+                    if (destroyedDiamondsOfColour > 0)
+                    {
+                        CurrentValue = Math.Min(CurrentValue + destroyedDiamondsOfColour, Definition.TargetValue);
+                    }
+
+                    break;
             }
 
             if (CurrentValue == previousValue)
@@ -395,6 +408,39 @@ namespace MustyBlockBlast.Core
             }
 
             int destroyedOfColour = ColourTally.CountOf(destroyedCellCountByColour, Definition.RequiredColourId);
+            if (destroyedOfColour <= 0)
+            {
+                return false;
+            }
+
+            int previousValue = CurrentValue;
+            CurrentValue = Math.Min(CurrentValue + destroyedOfColour, Definition.TargetValue);
+            if (CurrentValue == previousValue)
+            {
+                return false;
+            }
+
+            IsComplete = CurrentValue >= Definition.TargetValue;
+            return true;
+        }
+
+        /// <summary>
+        /// Credits the diamonds a power-up clear destroyed, by gem colour, to a
+        /// <see cref="ObjectiveType.DiamondsCleared"/> objective — the power-up mirror of the placement
+        /// branch above, exactly as <see cref="ApplyPowerUpColourCleared"/> is of its own. The two event
+        /// sources are disjoint by construction (a placement publishes <c>PiecePlacedMessage</c>, a spent
+        /// power-up <c>PowerUpAppliedMessage</c>, never both for one destruction), so nothing is ever
+        /// counted twice. A clear that took no diamond of the wanted colour (or a null tally) changes
+        /// nothing and returns false.
+        /// </summary>
+        public bool ApplyPowerUpDiamondsCleared(IReadOnlyList<int> destroyedDiamondCountByColour)
+        {
+            if (IsComplete || Definition.Type != ObjectiveType.DiamondsCleared)
+            {
+                return false;
+            }
+
+            int destroyedOfColour = ColourTally.CountOf(destroyedDiamondCountByColour, Definition.RequiredColourId);
             if (destroyedOfColour <= 0)
             {
                 return false;

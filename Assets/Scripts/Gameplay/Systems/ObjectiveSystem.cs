@@ -146,7 +146,8 @@ namespace MustyBlockBlast.Gameplay.Systems
                 elapsedRunSeconds,
                 message.ReinforcedCellsFullyClearedCount,
                 message.DestroyedCellCountByColour,
-                message.TimerCellsClearedInTimeCount);
+                message.TimerCellsClearedInTimeCount,
+                message.DestroyedDiamondCountByColour);
 
             ApplyToAllObjectives(objective => objective.ApplyPlacement(context));
         }
@@ -183,6 +184,14 @@ namespace MustyBlockBlast.Gameplay.Systems
             {
                 ApplyToAllObjectives(objective =>
                     objective.ApplyPowerUpColourCleared(message.DestroyedCellCountByColour));
+            }
+
+            // Same placement as the colour branch, for the same reason: a diamond dies to any kind
+            // that clears a region, so this must run before the early returns below.
+            if (message.DestroyedDiamondCountByColour != null && message.ClearedCellCount > 0)
+            {
+                ApplyToAllObjectives(objective =>
+                    objective.ApplyPowerUpDiamondsCleared(message.DestroyedDiamondCountByColour));
             }
 
             if (message.Kind == PowerUpKind.Bomb && message.EmptiedLineCount > 0)

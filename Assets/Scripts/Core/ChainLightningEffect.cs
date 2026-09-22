@@ -96,6 +96,16 @@ namespace MustyBlockBlast.Core
         /// total.</summary>
         public int TimerCellsDestroyedCount { get; private set; }
 
+        private readonly int[] _diamondsDestroyedCountByColour = new int[ColourTally.LENGTH];
+
+        /// <summary>Of <see cref="VaporizedCells"/>, how many were <see cref="SpecialCellKind.Diamond"/>
+        /// cells, per gem colour — destroyed mid-strike rather than through a normal clear phase, so
+        /// they never pass through <see cref="DiamondClearEffect"/>. Counted here and summed by the
+        /// caller into the placement's per-colour diamond total, exactly as
+        /// <see cref="TimerCellsDestroyedCount"/> is (issue #393 AC3). A buffer this instance overwrites
+        /// on the next <see cref="BeginResolution"/>.</summary>
+        public IReadOnlyList<int> DiamondsDestroyedCountByColour => _diamondsDestroyedCountByColour;
+
         /// <summary>Starts a new resolution: forgets the previous one's vaporized cells. Must be called
         /// before the resolution that will apply this effect, or the two resolutions' cells would be
         /// reported as one — and Presentation would sweep cells that vanished a move ago.</summary>
@@ -103,6 +113,7 @@ namespace MustyBlockBlast.Core
         {
             _vaporizedCells.Clear();
             TimerCellsDestroyedCount = 0;
+            Array.Clear(_diamondsDestroyedCountByColour, 0, _diamondsDestroyedCountByColour.Length);
             StoppedAtChainCap = false;
         }
 
@@ -191,6 +202,9 @@ namespace MustyBlockBlast.Core
 
                 SpecialCellKind kind = board.GetSpecialKind(cell);
 
+                // Read before the damage gate for the same reason the kind is: Board.Clear wipes it.
+                int diamondColourId = kind == SpecialCellKind.Diamond ? board.GetDiamondColourId(cell) : 0;
+
                 // Through the damage gate, not Board.Clear: a reinforced cell the arc happened to pick
                 // spends one hit and stays standing (issue #153 AC5), and a cell that survived is
                 // neither a vaporized cell nor a tile this strike could have set off. The target was
@@ -205,6 +219,11 @@ namespace MustyBlockBlast.Core
                 if (kind == SpecialCellKind.Timer)
                 {
                     TimerCellsDestroyedCount++;
+                }
+
+                if (kind == SpecialCellKind.Diamond)
+                {
+                    ColourTally.Increment(_diamondsDestroyedCountByColour, diamondColourId);
                 }
 
                 if (kind == SpecialCellKind.ChainLightning && !IsStruck(board, cell))

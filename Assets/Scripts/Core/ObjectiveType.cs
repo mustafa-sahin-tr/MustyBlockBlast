@@ -148,5 +148,25 @@ namespace MustyBlockBlast.Core
         /// </para>
         /// </summary>
         TimerCellsMeltedInTime = 19,
+
+        /// <summary>
+        /// Destroy <c>TargetValue</c> <see cref="SpecialCellKind.Diamond"/> cells whose gem colour is
+        /// <c>RequiredColourId</c> — colour-scoped exactly as <see cref="ColourCleared"/> is, but by the
+        /// diamond's own colour (<see cref="SpecialCellTrigger.DiamondColourId"/>), never by the colour
+        /// of the block it rode on. Counts THINGS DESTROYED, like <see cref="ColourCleared"/> and
+        /// <see cref="TimerCellsMeltedInTime"/>, not events: one placement that takes out several
+        /// diamonds at once credits every one of them. A diamond credits no score — see
+        /// <see cref="DiamondClearEffect"/>.
+        /// <para>
+        /// Advanced by BOTH <see cref="ObjectiveProgress.ApplyPlacement"/> (a placement's whole
+        /// resolution — arriving as <c>PiecePlacedMessage.DestroyedDiamondCountByColour</c>, summed
+        /// across every destruction path: the primary clear, a cascaded phase, AND a special cell's own
+        /// blast/wipe/strike mid-cascade, the same AC11-shaped sum <see cref="TimerCellsMeltedInTime"/>
+        /// uses) AND a dedicated <see cref="ObjectiveProgress.ApplyPowerUpDiamondsCleared"/> (a spent
+        /// power-up can destroy one too, arriving as
+        /// <c>PowerUpAppliedMessage.DestroyedDiamondCountByColour</c>).
+        /// </para>
+        /// </summary>
+        DiamondsCleared = 20,
     }
 }

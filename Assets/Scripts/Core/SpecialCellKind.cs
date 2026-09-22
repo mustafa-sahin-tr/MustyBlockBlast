@@ -133,5 +133,32 @@ namespace MustyBlockBlast.Core
         /// </para>
         /// </summary>
         Timer = 7,
+
+        /// <summary>
+        /// A "diamond": a collectible, and the third kind that destroys nothing at all. Destroying it —
+        /// by a completed line, a cascaded phase, a special cell's own blast/wipe/strike, or a spent
+        /// power-up — credits exactly one unit to a <c>ObjectiveType.DiamondsCleared</c> objective of the
+        /// diamond's own colour, and does nothing else: no board effect, no score bonus (deliberately
+        /// NOT the <see cref="ScoreGem"/> path — a diamond is a counter, never a multiplier), no coin.
+        /// There is deliberately no <see cref="ISpecialCellEffect"/> implementation that mutates
+        /// anything for it, mirroring <see cref="ScoreGem"/>, <see cref="Coin"/> and <see cref="Timer"/>;
+        /// <see cref="DiamondClearEffect"/> exists only to count the ones a resolution destroyed, per
+        /// colour.
+        /// <para>
+        /// A diamond's colour is its own attribute, stored in its own per-cell array on <see cref="Board"/>
+        /// (<see cref="Board.GetDiamondColourId"/>) and deliberately NOT the block's cosmetic
+        /// <c>colourId</c>: the block a diamond rides on may be any colour the piece was drawn in, and the
+        /// objective is scoped by the gem, not the block — so a red diamond on a blue block counts for
+        /// "clear red diamonds", not for "clear blue cells" beyond what any blue cell already does.
+        /// Copied by <see cref="Board.Clone"/>/<see cref="Board.CopyFrom"/> along with the kind, so Undo's
+        /// full-snapshot restore brings the diamond back in its own colour (issue #393 AC5).
+        /// </para>
+        /// <para>
+        /// Slice 1 of the Diamond epic (issue #390): this kind, its counting effect and its objective
+        /// exist here; how a diamond reaches a piece (#394), how it is drawn (#395) and how a level
+        /// authors it (#396) are separate slices. Until those land nothing spawns one outside a test.
+        /// </para>
+        /// </summary>
+        Diamond = 8,
     }
 }

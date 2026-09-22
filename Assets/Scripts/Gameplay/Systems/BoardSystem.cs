@@ -163,6 +163,20 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// AC5).</summary>
         private readonly TimerCellClearEffect _timerCellClearEffect = new TimerCellClearEffect();
 
+        /// <summary>The Diamond counterpart of <see cref="_timerCellClearEffect"/>: changes nothing on
+        /// the board, only counts the <see cref="SpecialCellKind.Diamond"/> cells this placement's
+        /// resolution destroyed, per gem colour — the objective data
+        /// <see cref="PiecePlacedMessage.DestroyedDiamondCountByColour"/> is assembled from (issue #393
+        /// AC3). Deliberately never read by scoring: a diamond carries no bonus (AC4).</summary>
+        private readonly DiamondClearEffect _diamondClearEffect = new DiamondClearEffect();
+
+        /// <summary>The per-placement sum of every destruction path's diamond tally — the phase-based
+        /// clears via <see cref="_diamondClearEffect"/> plus the three blast/wipe/strike effects' own
+        /// counters. Owned and reused so the once-per-placement sum allocates nothing; handed to
+        /// <see cref="PiecePlacedMessage"/> as a snapshot copy, because this buffer is overwritten on
+        /// the next placement and a subscriber must never read the next move's data.</summary>
+        private readonly int[] _destroyedDiamondCountByColourBuffer = new int[ColourTally.LENGTH];
+
         /// <summary>The other effect that changes nothing on the board: it only totals what the coin
         /// cells this placement's resolution destroyed are worth. Built in the constructor rather than
         /// here because the per-cell payout is an economy number read from
@@ -351,7 +365,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             _coinEffect = new CoinEffect(currencyConfig.CoinCellPayout);
             _specialCellEffects = new CompositeSpecialCellEffect(
                 _explosiveCoreEffect, _laserEffect, _scoreGemEffect, _vortexEffect, _chainLightningEffect,
-                _coinEffect, _timerCellClearEffect);
+                _coinEffect, _timerCellClearEffect, _diamondClearEffect);
             _boardModel = boardModel;
             _trayModel = trayModel;
             _scoreGemProgressModel = scoreGemProgressModel;
@@ -551,6 +565,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             _chainLightningEffect.BeginResolution();
             _coinEffect.BeginResolution();
             _timerCellClearEffect.BeginResolution();
+            _diamondClearEffect.BeginResolution();
 
             // Before the cascade, deliberately. The rocket empties its row and column whether or not
             // either was full, so running it first is what keeps a cell from being removed by the wipe
@@ -657,13 +672,19 @@ namespace MustyBlockBlast.Gameplay.Systems
                 + _explosiveCoreEffect.TimerCellsDestroyedCount
                 + _chainLightningEffect.TimerCellsDestroyedCount;
 
+            // The same every-destruction-path sum for diamonds (issue #393 AC3), per gem colour: the
+            // phase-based clears through _diamondClearEffect plus the three effects that destroy cells
+            // outside a clear phase. Summed into a reused buffer, then copied for the message, because
+            // the message may outlive this placement in a subscriber's hands and the buffer will not.
+            int[] destroyedDiamondCountByColour = SumDestroyedDiamondsByColour();
+
             _piecePlacedPublisher.Publish(new PiecePlacedMessage(
                 piece.Id, anchor, PieceFamilyClassifier.Classify(piece.Id), piece.CellCount, colourId,
                 clearResult.LineCount, clearResult.ClearedRows.Count, clearResult.ClearedColumns.Count,
                 clearResult.MonochromeLineCount, _boardModel.Board.IsEmpty(), occupiedCellCountBeforeClear,
                 anyCornerCleared, _boardModel.Board.IsCenterCoreEmpty(), _boardModel.Board.HasIsolatedEmptyCells(),
                 _scoreGemEffect.DestroyedCount, cascade.TotalReinforcedCellsFullyClearedCount,
-                cascade.TotalDestroyedCellCountByColour, timerCellsClearedInTime));
+                cascade.TotalDestroyedCellCountByColour, timerCellsClearedInTime, destroyedDiamondCountByColour));
 
             if (clearResult.AnyCleared)
             {
@@ -1428,6 +1449,40 @@ namespace MustyBlockBlast.Gameplay.Systems
                 // just above), so whatever they blast is folded into the same placement's report.
                 _specialCellEffects.Apply(_boardModel.Board, triggers[i]);
             }
+        }
+
+        /// <summary>
+        /// Every diamond this placement's resolution destroyed, per gem colour, across every
+        /// destruction path — or null when it destroyed none, so a placement that touched no diamond
+        /// publishes exactly the null the message's older overloads always did. Returns a fresh copy
+        /// when non-null; see <see cref="_destroyedDiamondCountByColourBuffer"/> for why.
+        /// </summary>
+        private int[] SumDestroyedDiamondsByColour()
+        {
+            Array.Clear(_destroyedDiamondCountByColourBuffer, 0, _destroyedDiamondCountByColourBuffer.Length);
+            ColourTally.Add(_diamondClearEffect.DestroyedCountByColour, _destroyedDiamondCountByColourBuffer);
+            ColourTally.Add(_laserEffect.DiamondsDestroyedCountByColour, _destroyedDiamondCountByColourBuffer);
+            ColourTally.Add(_explosiveCoreEffect.DiamondsDestroyedCountByColour, _destroyedDiamondCountByColourBuffer);
+            ColourTally.Add(_chainLightningEffect.DiamondsDestroyedCountByColour, _destroyedDiamondCountByColourBuffer);
+
+            bool anyDestroyed = false;
+            for (int colourId = 1; colourId < _destroyedDiamondCountByColourBuffer.Length; colourId++)
+            {
+                if (_destroyedDiamondCountByColourBuffer[colourId] > 0)
+                {
+                    anyDestroyed = true;
+                    break;
+                }
+            }
+
+            if (!anyDestroyed)
+            {
+                return null;
+            }
+
+            int[] copy = new int[_destroyedDiamondCountByColourBuffer.Length];
+            Array.Copy(_destroyedDiamondCountByColourBuffer, copy, copy.Length);
+            return copy;
         }
 
         /// <summary>

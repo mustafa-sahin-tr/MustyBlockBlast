@@ -74,6 +74,33 @@ namespace MustyBlockBlast.Core
             int reinforcedCellsFullyCleared,
             IReadOnlyList<int> destroyedCellCountByColour,
             int timerCellsClearedInTime)
+            : this(
+                linesCleared, rowsCleared, columnsCleared, pieceFamily, pieceId, currentRunScore,
+                boardEmptyAfterPlacement, currentStreak, occupiedCellCountBeforeClear, anyCornerCleared,
+                centerCoreEmptyAfterPlacement, hasIsolatedHolesAfterPlacement, elapsedRunSeconds,
+                reinforcedCellsFullyCleared, destroyedCellCountByColour, timerCellsClearedInTime,
+                destroyedDiamondCountByColour: null)
+        {
+        }
+
+        public ObjectivePlacementContext(
+            int linesCleared,
+            int rowsCleared,
+            int columnsCleared,
+            PieceFamily pieceFamily,
+            string pieceId,
+            int currentRunScore,
+            bool boardEmptyAfterPlacement,
+            int currentStreak,
+            int occupiedCellCountBeforeClear,
+            bool anyCornerCleared,
+            bool centerCoreEmptyAfterPlacement,
+            bool hasIsolatedHolesAfterPlacement,
+            float elapsedRunSeconds,
+            int reinforcedCellsFullyCleared,
+            IReadOnlyList<int> destroyedCellCountByColour,
+            int timerCellsClearedInTime,
+            IReadOnlyList<int> destroyedDiamondCountByColour)
         {
             LinesCleared = linesCleared;
             RowsCleared = rowsCleared;
@@ -91,6 +118,7 @@ namespace MustyBlockBlast.Core
             ReinforcedCellsFullyCleared = reinforcedCellsFullyCleared;
             DestroyedCellCountByColour = destroyedCellCountByColour;
             TimerCellsClearedInTime = timerCellsClearedInTime;
+            DestroyedDiamondCountByColour = destroyedDiamondCountByColour;
         }
 
         /// <summary>Rows plus columns cleared by this placement; zero when nothing cleared.</summary>
@@ -165,5 +193,20 @@ namespace MustyBlockBlast.Core
         /// special cell's own blast/wipe/strike mid-cascade alike. See
         /// <see cref="ObjectiveType.TimerCellsMeltedInTime"/>.</summary>
         public int TimerCellsClearedInTime { get; }
+
+        /// <summary>
+        /// How many <see cref="SpecialCellKind.Diamond"/> cells this placement's whole resolution
+        /// destroyed — the primary clear, every cascaded phase, and a special cell's own
+        /// blast/wipe/strike mid-cascade alike — indexed by the gem's own colour id (index 0 unused),
+        /// never by the block's. Null when nothing was tallied — read through
+        /// <see cref="DestroyedDiamondCountOf"/>, which treats null as "none". See
+        /// <see cref="ObjectiveType.DiamondsCleared"/>.
+        /// </summary>
+        public IReadOnlyList<int> DestroyedDiamondCountByColour { get; }
+
+        /// <summary>Diamonds of gem colour <paramref name="colourId"/> this placement destroyed, or zero
+        /// when none were tallied or the id is outside the tally.</summary>
+        public int DestroyedDiamondCountOf(int colourId)
+            => ColourTally.CountOf(DestroyedDiamondCountByColour, colourId);
     }
 }
