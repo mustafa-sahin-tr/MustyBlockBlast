@@ -488,7 +488,14 @@ namespace MustyBlockBlast.Presentation.Views
 
             bool isComplete = objective.IsComplete;
             int kind = KindBySlot[slotIndex % KindBySlot.Length];
-            Color plateColour = _currentTheme.GetFill(kind);
+
+            // A diamond goal's plate is the gem's own colour rather than the slot's (issue #395): the
+            // chip's white diamond glyph on a red plate is the same red gem the tray and board show,
+            // so "collect three of these" needs no words. Every other type keeps the slot order that
+            // matches the mockup's teal / purple / gold row.
+            Color plateColour = objective.Definition.Type == ObjectiveType.DiamondsCleared
+                ? DiamondVisuals.Tint(_currentTheme, objective.Definition.RequiredColourId)
+                : _currentTheme.GetFill(kind);
 
             chip.ShadowImage.color = _currentTheme.CardShadow;
             chip.PlateImage.color = _currentTheme.CardBackground;

@@ -326,6 +326,14 @@ namespace MustyBlockBlast.Gameplay.Localization
         /// <c>ObjectiveDescriptionFormatter</c>.</summary>
         public const string OBJECTIVE_COLOUR_CLEARED = "objective.colour_cleared";
 
+        /// <summary>DiamondsCleared's title (issue #395).</summary>
+        public const string OBJECTIVE_NAME_DIAMONDS_CLEARED = "objective.name.diamonds_cleared";
+
+        /// <summary>DiamondsCleared's description. <c>{0}</c> is the gem colour's inline swatch, the
+        /// same rich-text glyph <see cref="OBJECTIVE_COLOUR_CLEARED"/> uses, since the objective is
+        /// scoped by the diamond's colour the way ColourCleared is by the block's.</summary>
+        public const string OBJECTIVE_DIAMONDS_CLEARED = "objective.diamonds_cleared";
+
         // Translated display names for individual catalog pieces, keyed by piece id in
         // ObjectiveDescriptionFormatter.PieceIdNameKey. Not exhaustive — only pieces an authored
         // objective actually references need one; an unmapped id falls back to its raw catalog id.

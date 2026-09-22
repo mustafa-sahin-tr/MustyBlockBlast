@@ -121,6 +121,12 @@ namespace MustyBlockBlast.Gameplay.Models
         /// 0 for a cell that was never priced, which pays the configured default.</summary>
         public int GetCoinValue(GridPosition position) => _board.GetCoinValue(position);
 
+        /// <summary>Read-only access for Views, for the reason <see cref="GetSpecialKind"/> is: a full
+        /// repaint re-derives a <see cref="SpecialCellKind.Diamond"/> cell's gem colour from the model
+        /// rather than trusting bookkeeping it accumulated from events. 0 for a cell carrying no
+        /// diamond (issue #395).</summary>
+        public int GetDiamondColourId(GridPosition position) => _board.GetDiamondColourId(position);
+
         /// <summary>Core board handed to the stateless Core rule helpers. Systems only.</summary>
         internal Board Board => _board;
 

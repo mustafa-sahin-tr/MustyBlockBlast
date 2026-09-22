@@ -890,6 +890,14 @@ MonoBehaviour:
     m_Localized: VER ANUNCIO
     m_Metadata:
       m_Items: []
+  - m_Id: 3259943258939392
+    m_Localized: Caza de Diamantes
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3259943359602688
+    m_Localized: "Despeja los bloques que llevan un diamante de este color \u2014 {0} \u2014 para recogerlo. Los bloques con diamante llegan a tu bandeja mientras este objetivo est\xE9 activo."
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

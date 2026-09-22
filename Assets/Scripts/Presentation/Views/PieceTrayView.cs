@@ -107,13 +107,19 @@ namespace MustyBlockBlast.Presentation.Views
         private Canvas _canvas;
         private TrayModel _trayModel;
         private SettingsModel _settingsModel;
+        private BoardView _boardView;
         private ThemeDefinition _currentTheme;
 
+        /// <summary><paramref name="boardView"/> is consulted for one thing only: the diamond glyph
+        /// sprite it already owns (issue #395), so a decorated tray cell wears the very sprite the board
+        /// will draw once it lands — the same borrowing <see cref="InfoPopupView"/> does for its hero
+        /// icon, rather than a second serialized copy of the same asset here.</summary>
         [Inject]
-        public void Construct(TrayModel trayModel, SettingsModel settingsModel)
+        public void Construct(TrayModel trayModel, SettingsModel settingsModel, BoardView boardView)
         {
             _trayModel = trayModel;
             _settingsModel = settingsModel;
+            _boardView = boardView;
         }
 
         private void Awake()
@@ -137,7 +143,7 @@ namespace MustyBlockBlast.Presentation.Views
 
         private void Start()
         {
-            if (_trayModel == null || _settingsModel == null)
+            if (_trayModel == null || _settingsModel == null || _boardView == null)
             {
                 Debug.LogError($"{nameof(PieceTrayView)} was not injected. Is it registered in the LifetimeScope?", this);
                 return;
@@ -357,12 +363,18 @@ namespace MustyBlockBlast.Presentation.Views
                 SpecialPieceKind specialKind = _trayModel.GetSpecialKind(slotIndex);
                 for (int i = 0; i < cells.Count; i++)
                 {
-                    ApplyCellLook(cells[i], colourId, specialKind);
+                    // Cells were added in Piece.Offsets order (RebuildSlot), so the cell's list index
+                    // is the offset index the model keys the diamond decoration by.
+                    ApplyCellLook(cells[i], colourId, specialKind, _trayModel.GetDiamondColourId(slotIndex, i));
                 }
             }
         }
 
-        private void ApplyCellLook(CellView cell, int colourId, SpecialPieceKind specialKind)
+        /// <summary>Paints one tray cell: the piece's ordinary or special look first, then the diamond
+        /// decoration (issue #395) on top of it, so a gem always rides the block's colour fill rather
+        /// than replacing it. <paramref name="diamondColourId"/> is <see cref="TrayModel.NO_DIAMOND"/>
+        /// for an undecorated cell, which leaves the first paint untouched.</summary>
+        private void ApplyCellLook(CellView cell, int colourId, SpecialPieceKind specialKind, int diamondColourId)
         {
             if (_currentTheme == null)
             {
@@ -370,6 +382,7 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             SpecialPieceVisuals.Apply(cell, specialKind, _currentTheme, colourId);
+            DiamondVisuals.Apply(cell, diamondColourId, _currentTheme, _boardView.IconSprite(SpecialCellKind.Diamond));
         }
 
         private void RebuildSlot(int slotIndex)
@@ -407,7 +420,7 @@ namespace MustyBlockBlast.Presentation.Views
                     _cellBevelThickness);
                 var rect = (RectTransform)cell.transform;
                 rect.anchoredPosition = new Vector2(offsetX + (offset.X * pitch), offsetY + (offset.Y * pitch));
-                ApplyCellLook(cell, colourId, specialKind);
+                ApplyCellLook(cell, colourId, specialKind, _trayModel.GetDiamondColourId(slotIndex, i));
                 cells.Add(cell);
             }
         }
