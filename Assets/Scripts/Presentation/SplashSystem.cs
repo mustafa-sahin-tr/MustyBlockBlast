@@ -8,12 +8,13 @@ namespace MustyBlockBlast.Presentation
 {
     /// <summary>
     /// Boot System for the splash scene. Waits for a fixed placeholder duration — or until a skip is
-    /// requested, whichever comes first — then transitions to gameplay. Pure C# — no MonoBehaviour,
-    /// no View. Registered as a VContainer entry point.
+    /// requested, whichever comes first — then transitions to the mode-select scene (issue #379),
+    /// which in turn hands over to gameplay once a mode is picked. Pure C# — no MonoBehaviour, no
+    /// View. Registered as a VContainer entry point.
     /// </summary>
     public sealed class SplashSystem : IAsyncStartable, IDisposable
     {
-        private const string TARGET_SCENE_NAME = "SampleScene";
+        private const string TARGET_SCENE_NAME = "ModeSelect";
 
         private readonly float _splashDurationSeconds;
         private readonly CancellationTokenSource _skipCts = new CancellationTokenSource();

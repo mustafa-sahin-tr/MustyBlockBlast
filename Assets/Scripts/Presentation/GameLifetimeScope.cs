@@ -458,6 +458,14 @@ namespace MustyBlockBlast.Presentation
             builder.Register<UnityLocalizedStringSource>(Lifetime.Singleton).As<ILocalizedStringSource>();
             builder.Register<LocalizationSystem>(Lifetime.Singleton);
             builder.RegisterEntryPoint<BoardSystem>(Lifetime.Singleton).AsSelf();
+
+            // After BoardSystem on purpose: VContainer runs IStartable entry points in registration
+            // order, and the level path picker this opens (issue #379) belongs over an already-started
+            // run. The request it consumes is written by the mode-select scene when Macera Modu is
+            // picked; LevelPathOpenRequestSystem is that request's one reader and writer, registered
+            // in both scopes for the same reason the language stack is.
+            builder.Register<LevelPathOpenRequestSystem>(Lifetime.Singleton);
+            builder.RegisterEntryPoint<PendingLevelPathOpenSystem>(Lifetime.Singleton);
             builder.Register<GameModeSystem>(Lifetime.Singleton);
             builder.Register<TimedModeSystem>(Lifetime.Singleton);
 
