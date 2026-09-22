@@ -20,17 +20,17 @@ MonoBehaviour:
   - _kind: 2
     _coinPrice: 50
   - _kind: 3
-    _coinPrice: 100
+    _coinPrice: 10
   - _kind: 4
-    _coinPrice: 150
+    _coinPrice: 75
   - _kind: 5
-    _coinPrice: 200
+    _coinPrice: 50
   - _kind: 6
-    _coinPrice: 250
+    _coinPrice: 75
   - _kind: 7
-    _coinPrice: 300
+    _coinPrice: 200
   - _kind: 8
-    _coinPrice: 350
+    _coinPrice: 25
   - _kind: 9
     _coinPrice: 60
   _coinSowerMaxQuantity: 5

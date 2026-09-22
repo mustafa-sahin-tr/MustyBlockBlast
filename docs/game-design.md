@@ -383,6 +383,31 @@ The gate governs **visibility and use only**. It never touches the inventory: a 
 already held is kept in full even if its kind is locked, and simply becomes usable when the
 player reaches its level.
 
+### Shop prices
+
+The nine power-ups above are sold for coins in the Power-up Shop, one at a time or in
+quantity. Prices are set by what a kind is worth to the player, **not** by its unlock level —
+a late-unlocking kind can be the cheapest row in the shop:
+
+| Power-up | Price (coins) |
+|---|---|
+| Joker | 10 |
+| Bomb | 50 |
+| Row clear | 50 |
+| Column clear | 50 |
+| Color Cleanser | 75 |
+| Rotate | 50 |
+| Reroll | 75 |
+| Double Multiplier | 200 |
+| Ghost Fit | 25 |
+
+The price never opens the gate: a locked kind is refused by the shop at any price, and a
+promotion (see `PromotionConfig`) only ever discounts these figures — it cannot make a locked
+kind buyable either. Coin Sower is sold separately, by the coin cell, from the level-start
+picker rather than from this shop. **Hold is the existing example of a power-up that is not
+coin-purchasable at all:** it has no shop row and no price, and is earned only through
+rewarded ads (see "Hold slot (pocket)").
+
 The first three force-clear their region whether or not it is full. The joker is the
 exception: it adds a cell rather than removing any, and clears only on the condition a
 normal placement clears on — the line genuinely became full. Tapping an occupied cell is
@@ -495,10 +520,14 @@ since neither has a fixed region size; Row Clear/Column Clear pay the flat one-l
 ## Hold slot (pocket)
 
 The tenth power-up, and the odd one out. Hold has a persisted charge count like the nine
-above, earned the same way (rewarded ads) and kept across runs — but it is never armed from
+above, earned through rewarded ads and kept across runs — but it is never armed from
 the strip. It lives in its own slot beside the tray, always on screen from the first run
 (no level gate), and is invoked by a drag rather than a tap-and-aim. It never touches the
 board.
+
+Hold is also the one power-up with **no coin price**: it has no row in the Power-up Shop (see
+"Shop prices") and cannot be bought with coins at all. A rewarded ad is the only way to earn
+a charge. It is the standing example of an ad-only power-up.
 
 A single extra slot sits beside the tray. The player drags a tray piece onto it to **park**
 that piece. **Every park costs one charge**, whether the pocket was empty or not; with no
