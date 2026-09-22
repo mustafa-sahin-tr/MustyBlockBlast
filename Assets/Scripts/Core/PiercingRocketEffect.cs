@@ -125,7 +125,7 @@ namespace MustyBlockBlast.Core
                 if (kind != SpecialCellKind.None)
                 {
                     _triggeredSpecials.Add(new SpecialCellTrigger(
-                        cell, kind, ResolveAxis(cell, origin)));
+                        cell, kind, ResolveAxis(cell, origin), board.GetCoinValue(cell)));
                 }
             }
 

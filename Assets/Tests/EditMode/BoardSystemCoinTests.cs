@@ -242,6 +242,69 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.AreEqual(Payout, _coinCellsBroker.Published[0].TotalCoins);
         }
 
+        /// <summary>Issue #401 AC5: a coin that carries its own value pays that value, not the configured
+        /// default. Priced deliberately at something the default is not.</summary>
+        [Test]
+        public void TryPlacePiece_CompletingARowThatHoldsAPricedCoin_AnnouncesThatCoinsOwnValue()
+        {
+            int pricedValue = Payout + 11;
+            var gap = new GridPosition(3, 5);
+            FillRowExcept(y: 5, gap);
+            _boardModel.SetCoinCell(new GridPosition(0, 5), pricedValue);
+
+            _system.TryPlacePiece(0, gap);
+
+            Assert.AreEqual(1, _coinCellsBroker.Published.Count);
+            Assert.AreEqual(pricedValue, _coinCellsBroker.Published[0].TotalCoins);
+        }
+
+        /// <summary>Issue #401 AC6: the intersection doubling applies to the coin's own value.</summary>
+        [Test]
+        public void TryPlacePiece_ClosingARowAndAColumnOverAPricedCoinAtTheirIntersection_AnnouncesDoubleItsOwnValue()
+        {
+            int pricedValue = 16;
+            var intersection = new GridPosition(3, 5);
+            FillRowExcept(y: 5, new GridPosition(4, 5));
+            FillColumnExcept(x: 3, new GridPosition(3, 4));
+            _boardModel.SetCoinCell(intersection, pricedValue);
+
+            _trayModel.SetSlot(1, Diagonal, 1);
+            _system.TryPlacePiece(1, new GridPosition(3, 4));
+
+            Assert.AreEqual(1, _coinCellsBroker.Published.Count);
+            Assert.AreEqual(pricedValue * 2, _coinCellsBroker.Published[0].TotalCoins);
+        }
+
+        /// <summary>A priced coin and an unpriced (level-authored style) coin in one clear: each pays at
+        /// its own rate, and they add up.</summary>
+        [Test]
+        public void TryPlacePiece_CompletingARowHoldingAPricedAndAnUnpricedCoin_AnnouncesEachAtItsOwnRate()
+        {
+            var gap = new GridPosition(3, 5);
+            FillRowExcept(y: 5, gap);
+            _boardModel.SetCoinCell(new GridPosition(0, 5), 8);
+            _boardModel.SetSpecialKind(new GridPosition(6, 5), SpecialCellKind.Coin);
+
+            _system.TryPlacePiece(0, gap);
+
+            Assert.AreEqual(8 + Payout, _coinCellsBroker.Published[0].TotalCoins);
+        }
+
+        /// <summary>The hammer path reads the per-cell value too: every destruction goes through the same
+        /// trigger capture.</summary>
+        [Test]
+        public void TryUseDemolitionHammer_OnAPricedCoinCell_AnnouncesItsOwnValue()
+        {
+            var coin = new GridPosition(2, 2);
+            _boardModel.Occupy(coin, 1);
+            _boardModel.SetCoinCell(coin, 4);
+            _trayModel.SetSlot(0, PieceCatalog.SingleCell, 1, SpecialPieceKind.DemolitionHammer);
+
+            _system.TryUseDemolitionHammer(0, coin);
+
+            Assert.AreEqual(4, _coinCellsBroker.Published[0].TotalCoins);
+        }
+
         private void FillRowExcept(int y, GridPosition gap)
         {
             for (int x = 0; x < Board.SIZE; x++)

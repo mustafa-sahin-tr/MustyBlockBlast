@@ -118,8 +118,8 @@ namespace MustyBlockBlast.Presentation
                 // nothing else would ever construct it.
                 container.Resolve<GoldenPieceTriggerSystem>();
 
-                // Same reason again: it watches the streak for the coin cell's trigger.
-                container.Resolve<CoinStreakTriggerSystem>();
+                // Same reason again: it watches the streak for the coin cell's escalating drops.
+                container.Resolve<CoinStreakEscalationSystem>();
 
                 // Subscribes to RunStartedMessage and PiecePlacedMessage in its constructor, so it must
                 // be listening before the first run opens — nothing else resolves it either.
@@ -576,10 +576,10 @@ namespace MustyBlockBlast.Presentation
             // Watches the combo streak and asks BoardSystem to inject a golden 1x1 at the next refill.
             builder.Register<GoldenPieceTriggerSystem>(Lifetime.Singleton).AsSelf();
 
-            // The third streak watcher: it converts an occupied cell into a coin cell. Its own System
-            // for the reason LaserSpawnSystem is — the trigger is a score concept BoardSystem never
-            // reads.
-            builder.Register<CoinStreakTriggerSystem>(Lifetime.Singleton).AsSelf();
+            // The third streak watcher: it converts an occupied cell into a coin cell at every streak
+            // level from 2 to 6, worth 1/2/4/8/16 coins (issue #401). Its own System for the reason
+            // LaserSpawnSystem is — the trigger is a score concept BoardSystem never reads.
+            builder.Register<CoinStreakEscalationSystem>(Lifetime.Singleton).AsSelf();
 
             // Puts a level's authored coin cells on the board. Separate from LevelProgressionSystem,
             // which owns which level is played but deliberately never writes to the board.

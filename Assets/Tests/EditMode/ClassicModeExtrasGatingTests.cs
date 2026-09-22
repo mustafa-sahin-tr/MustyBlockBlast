@@ -78,7 +78,7 @@ namespace MustyBlockBlast.Tests.EditMode
             }
         }
 
-        // --- LaserSpawnSystem / CoinStreakTriggerSystem: no streak-earned special cells either ---
+        // --- LaserSpawnSystem / CoinStreakEscalationSystem: no streak-earned special cells either ---
 
         [Test]
         public void LaserSpawnSystem_InClassicMode_ReachingTheSpawnStreak_SpawnsNoLaser()
@@ -97,8 +97,9 @@ namespace MustyBlockBlast.Tests.EditMode
             }
         }
 
+        /// <summary>Issue #401 AC7: none of the five paying streak levels drops a coin in Classic mode.</summary>
         [Test]
-        public void CoinStreakTriggerSystem_InClassicMode_ReachingTheSpawnStreak_SpawnsNoCoin()
+        public void CoinStreakEscalationSystem_InClassicMode_ClimbingThroughEveryPayingStreak_SpawnsNoCoin()
         {
             var scoreModel = new ScoreModel();
             var boardModel = new BoardModel();
@@ -106,11 +107,12 @@ namespace MustyBlockBlast.Tests.EditMode
             var gameModeModel = new GameModeModel();
             gameModeModel.CurrentMode.Value = GameMode.Timed;
 
-            using (var system = new CoinStreakTriggerSystem(scoreModel, boardModel, seed: 1, gameModeModel: gameModeModel))
+            using (var system = new CoinStreakEscalationSystem(scoreModel, boardModel, seed: 1, gameModeModel: gameModeModel))
             {
-                AdvanceStreakTo(scoreModel, 6);
+                AdvanceStreakTo(scoreModel, 7);
 
                 Assert.AreEqual(SpecialCellKind.None, boardModel.GetSpecialKind(new GridPosition(0, 0)));
+                Assert.AreEqual(0, boardModel.GetCoinValue(new GridPosition(0, 0)));
             }
         }
 

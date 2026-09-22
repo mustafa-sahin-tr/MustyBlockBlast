@@ -141,30 +141,32 @@ namespace MustyBlockBlast.Tests.EditMode
         }
 
         /// <summary>
-        /// AC3: the now-unused streak-4 threshold is not silently picked up by the other streak-driven
-        /// special-cell spawner. <c>CoinStreakTriggerSystem</c> fires at 6 (and
-        /// <c>GoldenPieceTriggerSystem</c>, which needs a full <c>BoardSystem</c> and is not constructed
-        /// here, at 5), so with both spawners listening a streak of 4 leaves every cell plain.
+        /// AC3 (#399): the paused streak-4 threshold does not resurrect a laser through any other
+        /// streak-driven spawner. Since issue #401 the coin escalation legitimately drops a coin at
+        /// streak 4 (worth 4), so with both spawners listening a streak of 4 yields coins only — never a
+        /// laser. (<c>GoldenPieceTriggerSystem</c> needs a full <c>BoardSystem</c> and is not constructed
+        /// here; it fires at 5.)
         /// </summary>
         [Test]
-        public void OnReachingTheOldSpawnStreak_WithEveryStreakSpawnerListening_GrantsNoSpecialCell()
+        public void OnReachingTheOldSpawnStreak_WithEveryStreakSpawnerListening_GrantsNoLaser()
         {
             OccupyRow(3);
 
-            int raised = 0;
-            _boardModel.SpecialKindChanged += (position, kind) => raised++;
+            int lasersAnnounced = 0;
+            _boardModel.SpecialKindChanged += (position, kind) =>
+            {
+                if (kind == SpecialCellKind.Laser)
+                {
+                    lasersAnnounced++;
+                }
+            };
 
-            using (var coinSystem = new CoinStreakTriggerSystem(_scoreModel, _boardModel, seed: 1))
+            using (var coinSystem = new CoinStreakEscalationSystem(_scoreModel, _boardModel, seed: 1))
             {
                 AdvanceStreakTo(SPAWN_STREAK);
 
-                Assert.AreEqual(0, raised, "No spawner may claim the streak-4 threshold.");
-                for (int x = 0; x < Board.SIZE; x++)
-                {
-                    Assert.AreEqual(
-                        SpecialCellKind.None, _boardModel.GetSpecialKind(new GridPosition(x, 3)),
-                        $"({x}, 3) should carry no special kind at streak {SPAWN_STREAK}.");
-                }
+                Assert.AreEqual(0, lasersAnnounced, "No spawner may claim the streak-4 threshold for a laser.");
+                Assert.AreEqual(0, CountLasers());
             }
         }
 

@@ -45,10 +45,16 @@ namespace MustyBlockBlast.Core
         }
 
         public SpecialCellTrigger(GridPosition position, SpecialCellKind kind, ClearAxis axis)
+            : this(position, kind, axis, 0)
+        {
+        }
+
+        public SpecialCellTrigger(GridPosition position, SpecialCellKind kind, ClearAxis axis, int coinValue)
         {
             Position = position;
             Kind = kind;
             Axis = axis;
+            CoinValue = coinValue;
         }
 
         public GridPosition Position { get; }
@@ -58,6 +64,15 @@ namespace MustyBlockBlast.Core
         /// <summary>The line this cell was destroyed along, or <see cref="ClearAxis.None"/> when
         /// whatever destroyed it had none.</summary>
         public ClearAxis Axis { get; }
+
+        /// <summary>
+        /// The coins this cell was priced at (<see cref="Board.GetCoinValue"/>), read at the one moment
+        /// it was still known — for the same reason <see cref="Axis"/> and <see cref="Position"/> are
+        /// carried: by the time <see cref="CoinEffect"/> runs the cell is cleared and the board has
+        /// forgotten it. 0 for a coin that was never priced (a level-authored one), which pays the
+        /// configured default, and 0 — meaningless and unread — for every kind that is not a coin.
+        /// </summary>
+        public int CoinValue { get; }
     }
 
     /// <summary>
@@ -132,7 +147,8 @@ namespace MustyBlockBlast.Core
                 }
 
                 results.Add(new SpecialCellTrigger(
-                    position, kind, ResolveAxis(position, clearedRows, clearedColumns)));
+                    position, kind, ResolveAxis(position, clearedRows, clearedColumns),
+                    board.GetCoinValue(position)));
             }
         }
 

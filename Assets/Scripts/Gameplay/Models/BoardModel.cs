@@ -116,6 +116,11 @@ namespace MustyBlockBlast.Gameplay.Models
         /// cell.</summary>
         public int GetTimerCountdown(GridPosition position) => _board.GetTimerCountdown(position);
 
+        /// <summary>Read-only access, for the reason <see cref="GetHitCount"/> is. Coins the
+        /// <see cref="SpecialCellKind.Coin"/> cell on <paramref name="position"/> pays when destroyed;
+        /// 0 for a cell that was never priced, which pays the configured default.</summary>
+        public int GetCoinValue(GridPosition position) => _board.GetCoinValue(position);
+
         /// <summary>Core board handed to the stateless Core rule helpers. Systems only.</summary>
         internal Board Board => _board;
 
@@ -167,6 +172,23 @@ namespace MustyBlockBlast.Gameplay.Models
         {
             _board.SetSpecialKind(position, kind);
             SpecialKindChanged?.Invoke(position, kind);
+        }
+
+        /// <summary>
+        /// Tags a cell as a <see cref="SpecialCellKind.Coin"/> worth <paramref name="coinValue"/> and
+        /// announces the kind, in the one call a spawner that prices its coins needs (issue #401). The
+        /// value is written <em>before</em> the kind is announced, so a View that reacts to
+        /// <see cref="SpecialKindChanged"/> by reading the model back sees the priced coin, never an
+        /// unpriced one.
+        /// <para>
+        /// No event of its own for the value: nothing renders it today, and a coin's value never changes
+        /// after it is set — it is destroyed, and <see cref="CellChanged"/> announces that.
+        /// </para>
+        /// </summary>
+        internal void SetCoinCell(GridPosition position, int coinValue)
+        {
+            _board.SetCoinValue(position, coinValue);
+            SetSpecialKind(position, SpecialCellKind.Coin);
         }
 
         /// <summary>
