@@ -49,12 +49,15 @@ namespace MustyBlockBlast.Core
             // A colour outside the palette could never be drawn, so the objective could never advance.
             // Checked here as the thresholds above are, so a misauthored level fails at build rather
             // than sitting unreachable on the path.
-            if (type == ObjectiveType.ColourCleared
+            // DiamondsCleared is colour-scoped the same way (by the diamond's own colour), so the same
+            // check applies for the same reason: a diamond of a colour outside the palette can never
+            // exist, so the objective could never advance.
+            if ((type == ObjectiveType.ColourCleared || type == ObjectiveType.DiamondsCleared)
                 && (requiredColourId < 1 || requiredColourId > Board.COLOUR_COUNT))
             {
                 throw new System.ArgumentOutOfRangeException(
                     nameof(requiredColourId), requiredColourId,
-                    $"ColourCleared needs a colour id between 1 and {Board.COLOUR_COUNT}.");
+                    $"{type} needs a colour id between 1 and {Board.COLOUR_COUNT}.");
             }
 
             Id = id;
@@ -105,8 +108,9 @@ namespace MustyBlockBlast.Core
         public float WindowSeconds { get; }
 
         /// <summary>Colour id (1..<see cref="Board.COLOUR_COUNT"/>) a <see cref="ObjectiveType.ColourCleared"/>
-        /// objective counts. Zero for every other type. Refers to the theme-agnostic id, never to a
-        /// theme's colour, so progress survives a theme switch untouched.</summary>
+        /// objective counts cells of, or a <see cref="ObjectiveType.DiamondsCleared"/> objective counts
+        /// diamonds of (by the gem's own colour). Zero for every other type. Refers to the theme-agnostic
+        /// id, never to a theme's colour, so progress survives a theme switch untouched.</summary>
         public int RequiredColourId { get; }
     }
 }

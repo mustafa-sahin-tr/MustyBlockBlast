@@ -50,11 +50,18 @@ namespace MustyBlockBlast.Core
         }
 
         public SpecialCellTrigger(GridPosition position, SpecialCellKind kind, ClearAxis axis, int coinValue)
+            : this(position, kind, axis, coinValue, 0)
+        {
+        }
+
+        public SpecialCellTrigger(
+            GridPosition position, SpecialCellKind kind, ClearAxis axis, int coinValue, int diamondColourId)
         {
             Position = position;
             Kind = kind;
             Axis = axis;
             CoinValue = coinValue;
+            DiamondColourId = diamondColourId;
         }
 
         public GridPosition Position { get; }
@@ -73,6 +80,15 @@ namespace MustyBlockBlast.Core
         /// configured default, and 0 — meaningless and unread — for every kind that is not a coin.
         /// </summary>
         public int CoinValue { get; }
+
+        /// <summary>
+        /// The colour of this cell's <see cref="SpecialCellKind.Diamond"/> gem
+        /// (<see cref="Board.GetDiamondColourId"/>), read at the one moment it was still known — for
+        /// exactly the reason <see cref="CoinValue"/> is carried: by the time <see cref="DiamondClearEffect"/>
+        /// runs the cell is cleared and the board has forgotten it. 0 — meaningless and unread — for
+        /// every kind that is not a diamond.
+        /// </summary>
+        public int DiamondColourId { get; }
     }
 
     /// <summary>
@@ -148,7 +164,7 @@ namespace MustyBlockBlast.Core
 
                 results.Add(new SpecialCellTrigger(
                     position, kind, ResolveAxis(position, clearedRows, clearedColumns),
-                    board.GetCoinValue(position)));
+                    board.GetCoinValue(position), board.GetDiamondColourId(position)));
             }
         }
 

@@ -65,8 +65,9 @@ namespace MustyBlockBlast.Gameplay.Settings
             "Used by PieceIdCount and PieceIdLineClear only.")]
         [SerializeField] private string _requiredPieceId = "square_3x3";
 
-        [Tooltip("Piece colour id (1..5) whose cells a ColourCleared objective counts. The id is theme-"
-            + "agnostic: the swatch the player sees comes from the active theme at runtime. Unused otherwise.")]
+        [Tooltip("Colour id (1..5) a ColourCleared objective counts cells of, or a DiamondsCleared objective "
+            + "counts diamonds of. The id is theme-agnostic: the swatch the player sees comes from the active "
+            + "theme at runtime. Unused otherwise.")]
         [SerializeField] private int _requiredColourId = 1;
 
         [Tooltip("Grant a power-up when this level is completed. Off by default — milestone levels " +
@@ -267,8 +268,14 @@ namespace MustyBlockBlast.Gameplay.Settings
                 _requiredOccupancyThreshold,
                 _requiredPieceId,
                 _windowSeconds,
-                _objectiveType == ObjectiveType.ColourCleared ? _requiredColourId : 0);
+                IsColourScoped(_objectiveType) ? _requiredColourId : 0);
         }
+
+        /// <summary>The types that read <c>_requiredColourId</c>: <see cref="ObjectiveType.ColourCleared"/>
+        /// (by block colour) and <see cref="ObjectiveType.DiamondsCleared"/> (by the diamond's own colour).
+        /// Every other type ignores the field entirely.</summary>
+        private static bool IsColourScoped(ObjectiveType type)
+            => type == ObjectiveType.ColourCleared || type == ObjectiveType.DiamondsCleared;
 
         /// <summary>
         /// The target <see cref="ToObjectiveDefinition"/> actually builds with: the authored
@@ -478,10 +485,10 @@ namespace MustyBlockBlast.Gameplay.Settings
                 }
             }
 
-            if (_objectiveType == ObjectiveType.ColourCleared
+            if (IsColourScoped(_objectiveType)
                 && (_requiredColourId < 1 || _requiredColourId > Board.COLOUR_COUNT))
             {
-                error = $"ColourCleared needs a required colour id between 1 and {Board.COLOUR_COUNT} — no other id is ever drawn.";
+                error = $"{_objectiveType} needs a required colour id between 1 and {Board.COLOUR_COUNT} — no other id is ever drawn.";
                 return false;
             }
 

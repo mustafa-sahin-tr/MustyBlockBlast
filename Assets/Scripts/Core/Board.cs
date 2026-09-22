@@ -120,6 +120,28 @@ namespace MustyBlockBlast.Core
         /// </summary>
         private readonly int[] _coinValues;
 
+        /// <summary>
+        /// The colour a <see cref="SpecialCellKind.Diamond"/> cell's gem is, indexed exactly like
+        /// <see cref="_cells"/> and independent of the block colour <see cref="_cells"/> holds at the same
+        /// index. <c>0</c> — every cell of every board authored before diamonds existed, and every cell
+        /// whose kind is not Diamond — means "no diamond colour", exactly as a 0 coin value means "no
+        /// value of its own".
+        /// <para>
+        /// A sixth parallel array rather than a reuse of <see cref="_cells"/>: the block a diamond rides
+        /// on keeps the cosmetic colour its piece was drawn in, and every existing read of
+        /// <see cref="_cells"/> (line fullness, the per-colour destroyed tally a
+        /// <c>ObjectiveType.ColourCleared</c> objective reads, monochrome counts) must keep meaning "is
+        /// this cell occupied, and in which colour". The diamond's colour is what a
+        /// <c>ObjectiveType.DiamondsCleared</c> objective is scoped by, and nothing else reads it.
+        /// </para>
+        /// <para>
+        /// Reset by <see cref="Clear"/> and copied by <see cref="Clone"/>/<see cref="CopyFrom"/> exactly
+        /// as the other four arrays are, so Undo's full-snapshot restore brings a diamond back in its
+        /// own colour along with the diamond (issue #393 AC5).
+        /// </para>
+        /// </summary>
+        private readonly int[] _diamondColourIds;
+
         /// <summary>The standard <see cref="SIZE"/> x <see cref="SIZE"/> hole-free board. Delegates to
         /// <see cref="BoardShape.Standard"/> so every level authored before board shapes existed keeps
         /// the exact geometry it was authored against.</summary>
@@ -136,11 +158,12 @@ namespace MustyBlockBlast.Core
             _hitCounts = new int[shape.CellCount];
             _timerCountdowns = new int[shape.CellCount];
             _coinValues = new int[shape.CellCount];
+            _diamondColourIds = new int[shape.CellCount];
         }
 
         private Board(
             BoardShape shape, int[] cells, SpecialCellKind[] specialKinds, int[] hitCounts,
-            int[] timerCountdowns, int[] coinValues)
+            int[] timerCountdowns, int[] coinValues, int[] diamondColourIds)
         {
             _shape = shape;
             _cells = cells;
@@ -148,6 +171,7 @@ namespace MustyBlockBlast.Core
             _hitCounts = hitCounts;
             _timerCountdowns = timerCountdowns;
             _coinValues = coinValues;
+            _diamondColourIds = diamondColourIds;
         }
 
         /// <summary>The outline this board was built with. Shared, immutable and safe to hand out — a
@@ -234,6 +258,7 @@ namespace MustyBlockBlast.Core
             _hitCounts[index] = 0;
             _timerCountdowns[index] = 0;
             _coinValues[index] = 0;
+            _diamondColourIds[index] = 0;
         }
 
         /// <summary>
@@ -342,6 +367,57 @@ namespace MustyBlockBlast.Core
             }
 
             _coinValues[Index(position)] = coinValue;
+        }
+
+        /// <summary>The colour of the <see cref="SpecialCellKind.Diamond"/> gem on <paramref name="position"/>
+        /// — the gem's own colour, NOT the block colour <see cref="this[GridPosition]"/> reports for the
+        /// same cell. 0 for a cell that carries no diamond, which is every cell of a board nothing
+        /// decorated.</summary>
+        public int GetDiamondColourId(GridPosition position) => _diamondColourIds[Index(position)];
+
+        /// <summary>
+        /// Overwrites <paramref name="position"/>'s diamond colour. Independent of <see cref="SetSpecialKind"/>
+        /// exactly as <see cref="SetCoinValue"/> is: a spawner tags a cell as a diamond and then colours
+        /// it in two steps, and the colour is reset only by <see cref="Clear"/>. Refuses an id outside
+        /// <c>0..</c><see cref="COLOUR_COUNT"/> rather than storing it — a diamond can only be a colour a
+        /// <c>DiamondsCleared</c> objective could ever name, or 0 for "none".
+        /// </summary>
+        public void SetDiamondColourId(GridPosition position, int diamondColourId)
+        {
+            if (diamondColourId < 0 || diamondColourId > COLOUR_COUNT)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(diamondColourId), diamondColourId,
+                    $"A diamond's colour id must be 0 or between 1 and {COLOUR_COUNT}.");
+            }
+
+            _diamondColourIds[Index(position)] = diamondColourId;
+        }
+
+        /// <summary>
+        /// Occupies an empty cell as a <see cref="SpecialCellKind.Diamond"/> cell of gem colour
+        /// <paramref name="diamondColourId"/> riding on a block of colour <paramref name="colourId"/> —
+        /// the seeding primitive, exactly as <see cref="OccupyTimer"/> is for a timer cell: it sets the
+        /// block, the kind and the gem colour together, in the one call a seeder (or an EditMode test)
+        /// needs. In this slice (issue #393) nothing in the game calls it; the piece-decoration slice
+        /// (#394) is what will put a diamond on the board during play.
+        /// <para>
+        /// A diamond must be a real colour, not 0: an uncoloured diamond could never advance any
+        /// colour-scoped objective, so seeding one is refused here rather than left to sit inert.
+        /// </para>
+        /// </summary>
+        public void OccupyDiamond(GridPosition position, int colourId, int diamondColourId)
+        {
+            if (diamondColourId < 1 || diamondColourId > COLOUR_COUNT)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(diamondColourId), diamondColourId,
+                    $"A diamond needs a colour id between 1 and {COLOUR_COUNT}.");
+            }
+
+            Occupy(position, colourId);
+            SetSpecialKind(position, SpecialCellKind.Diamond);
+            _diamondColourIds[Index(position)] = diamondColourId;
         }
 
         /// <summary>Appends every <em>playable</em> cell of row <paramref name="y"/> to
@@ -900,7 +976,12 @@ namespace MustyBlockBlast.Core
             int[] coinValueCopy = new int[_coinValues.Length];
             Array.Copy(_coinValues, coinValueCopy, _coinValues.Length);
 
-            return new Board(_shape, copy, specialCopy, hitCountCopy, timerCountdownCopy, coinValueCopy);
+            int[] diamondColourIdCopy = new int[_diamondColourIds.Length];
+            Array.Copy(_diamondColourIds, diamondColourIdCopy, _diamondColourIds.Length);
+
+            return new Board(
+                _shape, copy, specialCopy, hitCountCopy, timerCountdownCopy, coinValueCopy,
+                diamondColourIdCopy);
         }
 
         /// <summary>Overwrites this board's cells with <paramref name="source"/>'s. Used to reuse a scratch
@@ -933,6 +1014,7 @@ namespace MustyBlockBlast.Core
             Array.Copy(source._hitCounts, _hitCounts, _hitCounts.Length);
             Array.Copy(source._timerCountdowns, _timerCountdowns, _timerCountdowns.Length);
             Array.Copy(source._coinValues, _coinValues, _coinValues.Length);
+            Array.Copy(source._diamondColourIds, _diamondColourIds, _diamondColourIds.Length);
         }
 
         /// <summary>Flat index of <paramref name="position"/> — also the index a caller's own per-cell

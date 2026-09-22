@@ -401,7 +401,8 @@ namespace MustyBlockBlast.Gameplay.Systems
                 destroyedScoreGemCount: ScoreGemEffect.CountDestroyed(result.TriggeredSpecials),
                 reinforcedCellsFullyClearedCount: result.ReinforcedCellsFullyClearedCount,
                 destroyedCellCountByColour: result.DestroyedCellCountByColour,
-                timerCellsClearedInTimeCount: TimerCellClearEffect.CountDestroyed(result.TriggeredSpecials)));
+                timerCellsClearedInTimeCount: TimerCellClearEffect.CountDestroyed(result.TriggeredSpecials),
+                destroyedDiamondCountByColour: DiamondClearEffect.CountDestroyedByColour(result.TriggeredSpecials)));
 
             // A joker completes lines rather than clearing a region, but a core standing in one of
             // those lines is destroyed just the same — and a destroyed core blasts whatever destroyed
@@ -1058,7 +1059,8 @@ namespace MustyBlockBlast.Gameplay.Systems
                 destroyedCellCountByColour: result.DestroyedCellCountByColour,
                 timerCellsClearedInTimeCount: TimerCellClearEffect.CountDestroyed(result.TriggeredSpecials),
                 targetCell: targetCell,
-                clearedCellPositions: targetCell.HasValue ? result.ClearedCells : null));
+                clearedCellPositions: targetCell.HasValue ? result.ClearedCells : null,
+                destroyedDiamondCountByColour: DiamondClearEffect.CountDestroyedByColour(result.TriggeredSpecials)));
 
             ApplyTriggeredSpecials(result.TriggeredSpecials);
         }

@@ -128,6 +128,36 @@ namespace MustyBlockBlast.Gameplay.Messages
             int reinforcedCellsFullyClearedCount,
             IReadOnlyList<int> destroyedCellCountByColour,
             int timerCellsClearedInTimeCount)
+            : this(
+                pieceId, anchor, pieceFamily, cellCount, colourId, linesCleared, rowsCleared,
+                columnsCleared, monochromeLineCount, boardEmptyAfterPlacement,
+                occupiedCellCountBeforeClear, anyCornerCleared, centerCoreEmptyAfterPlacement,
+                hasIsolatedHolesAfterPlacement, destroyedScoreGemCount,
+                reinforcedCellsFullyClearedCount, destroyedCellCountByColour,
+                timerCellsClearedInTimeCount, destroyedDiamondCountByColour: null)
+        {
+        }
+
+        public PiecePlacedMessage(
+            string pieceId,
+            GridPosition anchor,
+            PieceFamily pieceFamily,
+            int cellCount,
+            int colourId,
+            int linesCleared,
+            int rowsCleared,
+            int columnsCleared,
+            int monochromeLineCount,
+            bool boardEmptyAfterPlacement,
+            int occupiedCellCountBeforeClear,
+            bool anyCornerCleared,
+            bool centerCoreEmptyAfterPlacement,
+            bool hasIsolatedHolesAfterPlacement,
+            int destroyedScoreGemCount,
+            int reinforcedCellsFullyClearedCount,
+            IReadOnlyList<int> destroyedCellCountByColour,
+            int timerCellsClearedInTimeCount,
+            IReadOnlyList<int> destroyedDiamondCountByColour)
         {
             PieceId = pieceId;
             Anchor = anchor;
@@ -147,6 +177,7 @@ namespace MustyBlockBlast.Gameplay.Messages
             ReinforcedCellsFullyClearedCount = reinforcedCellsFullyClearedCount;
             DestroyedCellCountByColour = destroyedCellCountByColour;
             TimerCellsClearedInTimeCount = timerCellsClearedInTimeCount;
+            DestroyedDiamondCountByColour = destroyedDiamondCountByColour;
         }
 
         public string PieceId { get; }
@@ -238,5 +269,18 @@ namespace MustyBlockBlast.Gameplay.Messages
         /// </para>
         /// </summary>
         public int TimerCellsClearedInTimeCount { get; }
+
+        /// <summary>
+        /// <see cref="SpecialCellKind.Diamond"/> cells this placement's whole resolution destroyed —
+        /// the primary clear, every cascaded phase, AND a special cell's own blast/wipe/strike
+        /// mid-cascade, summed the same way <see cref="TimerCellsClearedInTimeCount"/> is — counted per
+        /// the gem's own colour id (see <see cref="ColourTally"/>), never the block's. Null when the
+        /// publisher tallied nothing.
+        /// <para>
+        /// Data plumbing for <see cref="ObjectiveType.DiamondsCleared"/>, the only thing that reads it.
+        /// Deliberately not read by any scoring System: a diamond carries no bonus (issue #393 AC4).
+        /// </para>
+        /// </summary>
+        public IReadOnlyList<int> DestroyedDiamondCountByColour { get; }
     }
 }

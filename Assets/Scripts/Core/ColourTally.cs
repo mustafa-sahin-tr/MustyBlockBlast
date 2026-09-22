@@ -40,6 +40,20 @@ namespace MustyBlockBlast.Core
             }
         }
 
+        /// <summary>Counts one cell of <paramref name="colourId"/> into <paramref name="tally"/>. An id
+        /// outside the palette is ignored rather than thrown on, for the reason <see cref="Add(Board, IReadOnlyList{GridPosition}, int[])"/>
+        /// ignores one: a tally must never fail a resolve over a value it cannot classify. Shared by
+        /// every effect that counts <see cref="SpecialCellKind.Diamond"/> cells by their own colour
+        /// (<see cref="DiamondClearEffect"/> and the blast/wipe/strike effects) so "which slot does this
+        /// colour go in" has one definition.</summary>
+        public static void Increment(int[] tally, int colourId)
+        {
+            if (colourId >= 1 && colourId < LENGTH)
+            {
+                tally[colourId]++;
+            }
+        }
+
         /// <summary>Sums <paramref name="other"/> into <paramref name="tally"/>. A null source adds nothing.</summary>
         public static void Add(IReadOnlyList<int> other, int[] tally)
         {
