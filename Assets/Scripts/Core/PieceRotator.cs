@@ -72,6 +72,45 @@ namespace MustyBlockBlast.Core
         }
 
         /// <summary>
+        /// Carries per-cell data across a clockwise turn: for every offset index of
+        /// <paramref name="source"/>, writes <paramref name="sourceValues"/>' entry into
+        /// <paramref name="rotatedValues"/> at the index of the <em>turned</em> cell in
+        /// <paramref name="rotated"/>'s own offset order. Exists for the diamond decoration a tray slot
+        /// stores by offset index (issue #394): two catalog entries that are each other's rotation list
+        /// their cells in unrelated orders, so the decoration has to be re-indexed or a rotate would
+        /// silently move the gems to different cells.
+        /// <para>
+        /// <paramref name="rotated"/> must be what <see cref="TryRotateClockwise"/> returned for
+        /// <paramref name="source"/>; the mapping is defined only under that contract. Entries of
+        /// <paramref name="rotatedValues"/> past the piece's cell count are zeroed. Allocates nothing.
+        /// </para>
+        /// </summary>
+        public static void MapCellValuesClockwise(
+            Piece source, Piece rotated, IReadOnlyList<int> sourceValues, int[] rotatedValues)
+        {
+            System.Array.Clear(rotatedValues, 0, rotatedValues.Length);
+
+            IReadOnlyList<GridPosition> sourceOffsets = source.Offsets;
+            IReadOnlyList<GridPosition> rotatedOffsets = rotated.Offsets;
+            GetRotationOrigin(sourceOffsets, out int minY, out int maxX);
+
+            for (int sourceIndex = 0; sourceIndex < sourceOffsets.Count; sourceIndex++)
+            {
+                int value = sourceIndex < sourceValues.Count ? sourceValues[sourceIndex] : 0;
+                if (value == 0)
+                {
+                    continue;
+                }
+
+                int rotatedIndex = IndexOf(rotatedOffsets, RotateClockwise(sourceOffsets[sourceIndex], minY, maxX));
+                if (rotatedIndex >= 0 && rotatedIndex < rotatedValues.Length)
+                {
+                    rotatedValues[rotatedIndex] = value;
+                }
+            }
+        }
+
+        /// <summary>
         /// Whether <paramref name="candidate"/> is exactly <paramref name="source"/> turned 90 degrees
         /// clockwise.
         /// <para>
@@ -137,16 +176,19 @@ namespace MustyBlockBlast.Core
         }
 
         private static bool Contains(IReadOnlyList<GridPosition> offsets, GridPosition offset)
+            => IndexOf(offsets, offset) >= 0;
+
+        private static int IndexOf(IReadOnlyList<GridPosition> offsets, GridPosition offset)
         {
             for (int i = 0; i < offsets.Count; i++)
             {
                 if (offsets[i].Equals(offset))
                 {
-                    return true;
+                    return i;
                 }
             }
 
-            return false;
+            return -1;
         }
     }
 }

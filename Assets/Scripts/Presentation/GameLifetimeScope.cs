@@ -594,6 +594,11 @@ namespace MustyBlockBlast.Presentation
             // calls it inline too, right after that one, so a timer cell is also standing before the
             // tray is dealt (issue #307 AC7/AC8).
             builder.Register<LevelTimerCellSeeder>(Lifetime.Singleton).AsSelf();
+
+            // Rolls the diamond decoration of every dealt piece (issue #394). BoardSystem asks it per
+            // dealt slot; it reads ObjectiveModel and GameModeModel live to gate itself to a Path run
+            // with an active DiamondsCleared objective, so it needs no subscription of its own.
+            builder.Register<DiamondPieceDecorator>(Lifetime.Singleton).AsSelf();
             builder.Register<ObjectiveSystem>(Lifetime.Singleton);
             builder.Register<LevelProgressionSystem>(Lifetime.Singleton);
             builder.Register<BadgeStatsSystem>(Lifetime.Singleton);
