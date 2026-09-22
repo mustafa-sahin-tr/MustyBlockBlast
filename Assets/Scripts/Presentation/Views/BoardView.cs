@@ -144,6 +144,9 @@ namespace MustyBlockBlast.Presentation.Views
         [SerializeField] private Sprite _coinIconSprite;
         [SerializeField] private Sprite _timerIconSprite;
 
+        [Tooltip("White silhouette, tinted at runtime in the gem's own theme colour (issue #395). Also drawn on decorated tray, pocket and drag-ghost cells through DiamondVisuals.")]
+        [SerializeField] private Sprite _diamondIconSprite;
+
         private static readonly Color FlashTint = Color.white;
 
         /// <summary>The colour a <see cref="SingleLineClearEffect.Burn"/> cell's fill blends towards as
@@ -394,6 +397,12 @@ namespace MustyBlockBlast.Presentation.Views
         /// ordinary one, parallel to the bookkeeping above. 0 for every cell that is not a timer cell —
         /// drives the countdown number in <see cref="ApplyTimerCountdown"/> (issue #307 AC6a).</summary>
         private int[] _cellTimerCountdowns;
+
+        /// <summary>The gem colour of each <see cref="SpecialCellKind.Diamond"/> cell, parallel to the
+        /// bookkeeping above. <see cref="TrayModel.NO_DIAMOND"/> for every cell that is not a diamond
+        /// cell — drives the per-cell icon and glow tint in <see cref="ApplyCellIcon"/> (issue #395),
+        /// which is the one kind whose tint is a per-cell value rather than a per-kind constant.</summary>
+        private int[] _cellDiamondColourIds;
 
         /// <summary>Which cells currently show the special-cell glow halo (issue #365), parallel to the
         /// bookkeeping above — mirrors <see cref="_activeGlowCells"/>'s membership so
@@ -1038,6 +1047,7 @@ namespace MustyBlockBlast.Presentation.Views
             _cellSpecialKinds = new SpecialCellKind[cellCount];
             _cellHitCounts = new int[cellCount];
             _cellTimerCountdowns = new int[cellCount];
+            _cellDiamondColourIds = new int[cellCount];
             _glowActiveMask = new bool[cellCount];
 
             // A rebuild (EnsureBuilt on a board-shape change) destroys every previous CellView, so any
@@ -1112,8 +1122,9 @@ namespace MustyBlockBlast.Presentation.Views
 
                     // Re-derived from the model, never carried over from the bookkeeping: a full
                     // repaint must be able to correct any icon state a cancelled fade or a rebuilt run
-                    // left behind.
+                    // left behind. The diamond colour is read before the icon paint, which reads it.
                     _cellSpecialKinds[index] = _boardModel.GetSpecialKind(cell);
+                    _cellDiamondColourIds[index] = _boardModel.GetDiamondColourId(cell);
                     ApplyCellIcon(index, _cellSpecialKinds[index]);
 
                     // Re-derived from the model for the same reason the special kind just above is: a
@@ -1144,7 +1155,9 @@ namespace MustyBlockBlast.Presentation.Views
 
                 // Read back rather than assumed empty: this is also the notification a spawner raises
                 // when it occupies the cell it is about to tag, and the tag's own notification follows.
+                // OccupyDiamond writes the gem colour before raising this, so it is read here too.
                 _cellSpecialKinds[index] = _boardModel.GetSpecialKind(cell);
+                _cellDiamondColourIds[index] = _boardModel.GetDiamondColourId(cell);
                 ApplyCellIcon(index, _cellSpecialKinds[index]);
 
                 // Read back for the same reason: this is also the notification OccupyTimer raises when
@@ -1171,8 +1184,10 @@ namespace MustyBlockBlast.Presentation.Views
             _cellColourIds[index] = Board.EMPTY;
 
             // The icon is left on screen and fades with the block it belongs to; the settled state is
-            // already "no kind", because Board.Clear resets a destroyed cell's kind with its colour.
+            // already "no kind", because Board.Clear resets a destroyed cell's kind with its colour —
+            // and its gem colour with it.
             _cellSpecialKinds[index] = SpecialCellKind.None;
+            _cellDiamondColourIds[index] = TrayModel.NO_DIAMOND;
 
             // And so is its hit count: a cell only ever reaches "empty" by being destroyed, which is
             // the last hit by definition. This is why a damaged cell needs a signal of its own but a
@@ -1455,6 +1470,12 @@ namespace MustyBlockBlast.Presentation.Views
         {
             int index = CellIndex(cell);
             _cellSpecialKinds[index] = kind;
+
+            // Read back rather than carried: a vortex hand-off can move a diamond kind onto a cell
+            // whose gem colour this view has never seen (issue #395).
+            _cellDiamondColourIds[index] = kind == SpecialCellKind.Diamond
+                ? _boardModel.GetDiamondColourId(cell)
+                : TrayModel.NO_DIAMOND;
             ApplyCellIcon(index, kind);
         }
 
@@ -2588,6 +2609,15 @@ namespace MustyBlockBlast.Presentation.Views
                     // restores the alpha on its next tick.
                     int colourId = _cellPending[index] ? _pendingColourIds[index] : _cellColourIds[index];
                     ApplyCellColour(new GridPosition(x, y), colourId);
+
+                    // A diamond's icon is tinted from the theme (issue #395), unlike every other kind's
+                    // fixed tint, so it is the one icon a theme switch has to repaint. Settled cells
+                    // only: a fading cell's kind is already None, and re-applying that would take its
+                    // still-fading icon down early.
+                    if (_cellSpecialKinds[index] == SpecialCellKind.Diamond && !_cellPending[index])
+                    {
+                        ApplyCellIcon(index, SpecialCellKind.Diamond);
+                    }
                 }
             }
         }
@@ -2667,8 +2697,30 @@ namespace MustyBlockBlast.Presentation.Views
                 return;
             }
 
-            cell.SetSpecialIcon(IconTint(kind), IconSprite(kind));
-            cell.SetSpecialGlow(GlowTint(kind));
+            if (kind == SpecialCellKind.Diamond)
+            {
+                // The one kind whose hue is a per-cell value (the gem's own colour, issue #395) rather
+                // than a per-kind constant: painted through the shared seam the tray, pocket and drag
+                // ghost paint through, so a diamond lands on the board looking exactly as it did in
+                // the air. Falls back to the kind's flat tint only while no theme is known yet, or for
+                // a diamond cell the model reports no gem colour for (an upstream invariant breach,
+                // but still a cell that must show it is special rather than draw nothing).
+                if (_currentTheme != null && _cellDiamondColourIds[index] != TrayModel.NO_DIAMOND)
+                {
+                    DiamondVisuals.Apply(
+                        cell, _cellDiamondColourIds[index], _currentTheme, IconSprite(kind));
+                }
+                else
+                {
+                    cell.SetSpecialIcon(IconTint(kind), IconSprite(kind));
+                    cell.SetSpecialGlow(GlowTint(kind));
+                }
+            }
+            else
+            {
+                cell.SetSpecialIcon(IconTint(kind), IconSprite(kind));
+                cell.SetSpecialGlow(GlowTint(kind));
+            }
 
             if (!_glowActiveMask[index])
             {
@@ -2745,10 +2797,18 @@ namespace MustyBlockBlast.Presentation.Views
         /// <see cref="InfoPopupView"/> — its hero icon stays flat by design (AC6) — so, unlike
         /// <see cref="IconTint"/>, this is private.
         /// </summary>
-        private static Color GlowTint(SpecialCellKind kind)
+        private static Color GlowTint(SpecialCellKind kind) => GlowTintFrom(GlowIdentityColor(kind));
+
+        /// <summary>
+        /// The glow halo colour for an identity hue that is not a per-kind constant — a
+        /// <see cref="SpecialCellKind.Diamond"/>'s gem colour (issue #395), which is per cell and comes
+        /// from the theme. The same whiten-and-alpha step <see cref="GlowTint"/> applies to every fixed
+        /// kind, split out so <see cref="DiamondVisuals"/> can give a decorated tray, pocket or ghost
+        /// cell the very halo the board will draw once it lands.
+        /// </summary>
+        internal static Color GlowTintFrom(Color identity)
         {
-            Color tint = GlowIdentityColor(kind);
-            Color glow = Color.Lerp(tint, Color.white, GLOW_TINT_WHITEN);
+            Color glow = Color.Lerp(identity, Color.white, GLOW_TINT_WHITEN);
             glow.a = GLOW_BASE_ALPHA;
             return glow;
         }
@@ -2786,6 +2846,9 @@ namespace MustyBlockBlast.Presentation.Views
                     break;
                 case SpecialCellKind.Timer:
                     sprite = _timerIconSprite;
+                    break;
+                case SpecialCellKind.Diamond:
+                    sprite = _diamondIconSprite;
                     break;
                 default:
                     sprite = null;

@@ -45,6 +45,12 @@ namespace MustyBlockBlast.Presentation.Views
                     return localization.Format(
                         LocalizationKeys.OBJECTIVE_COLOUR_CLEARED, Swatch(definition.RequiredColourId, theme));
 
+                case ObjectiveType.DiamondsCleared:
+                    // Scoped by the gem's colour exactly as ColourCleared is by the block's, so it
+                    // borrows the same inline swatch rather than a colour name (issue #395).
+                    return localization.Format(
+                        LocalizationKeys.OBJECTIVE_DIAMONDS_CLEARED, Swatch(definition.RequiredColourId, theme));
+
                 case ObjectiveType.SimultaneousLineClear:
                     return localization.Format(
                         LocalizationKeys.OBJECTIVE_SIMULTANEOUS_LINE_CLEAR,
@@ -164,6 +170,8 @@ namespace MustyBlockBlast.Presentation.Views
                     return LocalizationKeys.OBJECTIVE_NAME_REINFORCED_CELLS_CLEARED;
                 case ObjectiveType.ColourCleared:
                     return LocalizationKeys.OBJECTIVE_NAME_COLOUR_CLEARED;
+                case ObjectiveType.DiamondsCleared:
+                    return LocalizationKeys.OBJECTIVE_NAME_DIAMONDS_CLEARED;
                 default:
                     return LocalizationKeys.OBJECTIVE_NAME_SIMULTANEOUS_LINE_CLEAR;
             }

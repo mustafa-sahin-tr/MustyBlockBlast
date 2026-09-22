@@ -242,6 +242,15 @@ namespace MustyBlockBlast.Presentation.Views
                 _heroCoreImages[coreIndex].color = plateColour;
             }
 
+            // The diamond goal's authored glyph is a white silhouette rather than full-colour art
+            // (issue #395), tinted here in the gem's own theme colour — the colour the objective is
+            // scoped by — exactly as the board's cells and the GOAL chip tint it. Left as-is when the
+            // hero fell back to the procedural glyph, which is already painted in ink above.
+            if (objective.Definition.Type == ObjectiveType.DiamondsCleared && _heroIconImage.sprite != null)
+            {
+                _heroIconImage.color = DiamondVisuals.Tint(_currentTheme, objective.Definition.RequiredColourId);
+            }
+
             _heroCheckMark.color = isComplete ? _currentTheme.CardBackground : Color.clear;
 
             _chrome.TitleText.color = isComplete ? _currentTheme.Accent : _currentTheme.Ink;

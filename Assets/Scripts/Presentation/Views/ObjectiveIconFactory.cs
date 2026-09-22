@@ -145,6 +145,14 @@ namespace MustyBlockBlast.Presentation.Views
                     AddRefreshRing(parent, inkImages, size * 0.74f);
                     break;
 
+                case ObjectiveType.DiamondsCleared:
+                    // A cut gem in silhouette: the flat table across the top with the pavilion tapering
+                    // to a point below it (issue #395). The procedural fallback only — the catalog
+                    // carries the authored diamond glyph the board's cells wear.
+                    AddBar(parent, inkImages, barLength * 0.9f, barThickness * 1.2f, new Vector2(0f, size * 0.22f));
+                    AddFacet(parent, inkImages, size * 0.62f, upright: false);
+                    break;
+
                 default:
                     // An objective type added without a glyph still draws something legible rather than
                     // an empty slot, which would read as a bug.

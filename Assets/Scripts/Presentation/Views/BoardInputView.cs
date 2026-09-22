@@ -768,6 +768,7 @@ namespace MustyBlockBlast.Presentation.Views
             _boardSystem.BeginPlacementPreview();
             _trayView.SetSlotVisible(slotIndex, false);
             BuildGhost(
+                slotIndex,
                 _trayModel.GetPiece(slotIndex),
                 _trayModel.GetColourId(slotIndex),
                 _trayModel.GetSpecialKind(slotIndex));
@@ -1165,13 +1166,17 @@ namespace MustyBlockBlast.Presentation.Views
 
         /// <summary>Builds the dragged piece's ghost. Painted through the same seam the dock plate is,
         /// so a special piece looks like itself while it is in the air — a golden 1x1 that turned
-        /// ordinary the moment it was picked up would read as having been lost.</summary>
-        private void BuildGhost(Piece piece, int colourId, SpecialPieceKind specialKind)
+        /// ordinary the moment it was picked up would read as having been lost. The same goes for the
+        /// diamond decoration (issue #395), read per cell off <paramref name="slotIndex"/> exactly as the
+        /// placement will read it on drop, so the gems in the air are the gems that land.</summary>
+        private void BuildGhost(int slotIndex, Piece piece, int colourId, SpecialPieceKind specialKind)
         {
             if (_currentTheme == null)
             {
                 return;
             }
+
+            Sprite diamondGlyph = _boardView.IconSprite(SpecialCellKind.Diamond);
 
             var ghostObject = new GameObject("DragGhost", typeof(RectTransform));
             _ghostRoot = (RectTransform)ghostObject.transform;
@@ -1198,9 +1203,11 @@ namespace MustyBlockBlast.Presentation.Views
                 var rect = (RectTransform)cell.transform;
                 rect.anchoredPosition = new Vector2(offsetX + (offset.X * pitch), offsetY + (offset.Y * pitch));
                 SpecialPieceVisuals.Apply(cell, specialKind, _currentTheme, colourId);
+                DiamondVisuals.Apply(
+                    cell, _trayModel.GetDiamondColourId(slotIndex, i), _currentTheme, diamondGlyph);
 
                 // After the colours, never before: SetAlpha writes every layer the look just painted,
-                // including the special glyph, so the ghost fades as one block.
+                // including the special glyph and the gem, so the ghost fades as one block.
                 cell.SetAlpha(_ghostAlpha);
                 _ghostCells.Add(cell);
             }

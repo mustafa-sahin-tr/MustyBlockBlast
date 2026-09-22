@@ -148,6 +148,7 @@ namespace MustyBlockBlast.Presentation.Views
         private SettingsModel _settingsModel;
         private LocalizationModel _localizationModel;
         private LocalizationSystem _localizationSystem;
+        private BoardView _boardView;
         private ThemeDefinition _currentTheme;
         private bool _isHovered;
         private int _holdCount;
@@ -160,7 +161,8 @@ namespace MustyBlockBlast.Presentation.Views
             PowerUpSystem powerUpSystem,
             SettingsModel settingsModel,
             LocalizationModel localizationModel,
-            LocalizationSystem localizationSystem)
+            LocalizationSystem localizationSystem,
+            BoardView boardView)
         {
             _trayModel = trayModel;
             _powerUpModel = powerUpModel;
@@ -168,6 +170,10 @@ namespace MustyBlockBlast.Presentation.Views
             _settingsModel = settingsModel;
             _localizationModel = localizationModel;
             _localizationSystem = localizationSystem;
+
+            // Consulted for the diamond glyph sprite only (issue #395), exactly as PieceTrayView does,
+            // so a parked decorated piece keeps the very gems it had in the tray.
+            _boardView = boardView;
         }
 
         private void Awake()
@@ -180,7 +186,7 @@ namespace MustyBlockBlast.Presentation.Views
         private void Start()
         {
             if (_trayModel == null || _powerUpModel == null || _powerUpSystem == null || _settingsModel == null
-                || _localizationModel == null || _localizationSystem == null)
+                || _localizationModel == null || _localizationSystem == null || _boardView == null)
             {
                 Debug.LogError(
                     $"{nameof(HoldSlotView)} was not injected. Is it registered in the LifetimeScope?", this);
@@ -361,7 +367,9 @@ namespace MustyBlockBlast.Presentation.Views
                 _trayModel != null ? _trayModel.HeldSpecialKind : SpecialPieceKind.None;
             for (int i = 0; i < _pieceCells.Count; i++)
             {
-                ApplyCellLook(_pieceCells[i], colourId, specialKind);
+                // Cells were added in Piece.Offsets order (RebuildHeldPiece), so the list index is the
+                // offset index the model keys the diamond decoration by.
+                ApplyCellLook(_pieceCells[i], colourId, specialKind, _trayModel.GetHeldDiamondColourId(i));
             }
         }
 
@@ -433,8 +441,11 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>Paints one cell of the parked piece. A special piece keeps its look through the
         /// pocket — the kind travels with the piece in both directions (see
         /// <c>BoardSystem.TryParkPiece</c>), so parking a golden 1x1 must not make it look ordinary.
-        /// A hammer can never get here: parking one is refused.</summary>
-        private void ApplyCellLook(CellView cell, int colourId, SpecialPieceKind specialKind)
+        /// A hammer can never get here: parking one is refused. The diamond decoration (issue #395)
+        /// travels through the pocket the same way, and is painted on top of that look, never instead
+        /// of it; <paramref name="diamondColourId"/> is <see cref="TrayModel.NO_DIAMOND"/> for an
+        /// undecorated cell.</summary>
+        private void ApplyCellLook(CellView cell, int colourId, SpecialPieceKind specialKind, int diamondColourId)
         {
             if (_currentTheme == null)
             {
@@ -442,6 +453,7 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             SpecialPieceVisuals.Apply(cell, specialKind, _currentTheme, colourId);
+            DiamondVisuals.Apply(cell, diamondColourId, _currentTheme, _boardView.IconSprite(SpecialCellKind.Diamond));
         }
 
         private void RebuildHeldPiece()
@@ -481,7 +493,7 @@ namespace MustyBlockBlast.Presentation.Views
                     _pieceRoot, $"HoldCell_{i}", cellSize, _cellInset, _cellBevelThickness);
                 var rect = (RectTransform)cell.transform;
                 rect.anchoredPosition = new Vector2(offsetX + (offset.X * pitch), offsetY + (offset.Y * pitch));
-                ApplyCellLook(cell, colourId, specialKind);
+                ApplyCellLook(cell, colourId, specialKind, _trayModel.GetHeldDiamondColourId(i));
                 _pieceCells.Add(cell);
             }
 

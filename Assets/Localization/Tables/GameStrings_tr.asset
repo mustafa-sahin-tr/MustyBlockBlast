@@ -890,6 +890,14 @@ MonoBehaviour:
     m_Localized: "REKLAM \u0130ZLE"
     m_Metadata:
       m_Items: []
+  - m_Id: 3259943258939392
+    m_Localized: "Elmas Av\u0131"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3259943359602688
+    m_Localized: "Bu renkteki \u2014 {0} \u2014 elmas ta\u015F\u0131yan bloklar\u0131 temizleyerek elmaslar\u0131 topla. Bu hedef aktifken elmasl\u0131 bloklar tepsine gelir."
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []
