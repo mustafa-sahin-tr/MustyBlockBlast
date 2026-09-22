@@ -38,6 +38,7 @@ MonoBehaviour:
     m_Scopes:
     - jp.hadashikick
     - com.cysharp
+    - com.google
     m_IsDefault: 0
     m_IsUnityRegistry: 0
     m_Capabilities: 0
@@ -51,7 +52,7 @@ MonoBehaviour:
     m_Modified: 0
     m_ErrorMessage: 
     m_UserModificationsEntityId:
-      m_rawData: 1099511639661
+      m_rawData: 1099511639583
     m_OriginalEntityId:
-      m_rawData: 1099511639662
+      m_rawData: 1099511639585
   m_LoadAssets: 0
