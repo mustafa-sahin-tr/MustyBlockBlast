@@ -6,6 +6,11 @@
 # See: https://github.com/github/gitignore/tree/main/Global
 #
 .utmp/
+# Signing keys — never commit these
+/keystores/
+*.jks
+*.keystore
+*.pfx
 /[Ll]ibrary/
 /[Tt]emp/
 /[Oo]bj/
