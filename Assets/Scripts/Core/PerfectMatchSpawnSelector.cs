@@ -4,7 +4,8 @@ namespace MustyBlockBlast.Core
 {
     /// <summary>
     /// Decides where a qualifying "Perfect Match" placement's reward — a
-    /// <see cref="SpecialCellKind.ExplosiveCore"/> — is spawned (issue #352). Deterministic in the part
+    /// <see cref="SpecialCellKind.Vortex"/> since issue #397, previously an explosive core — is spawned
+    /// (issue #352). The kind is the caller's decision, not this selector's. Deterministic in the part
     /// that matters: whether <see cref="PerfectMatchQualifier"/> says a placement earned one is decided
     /// entirely before this runs. Only <em>which</em> cell is random.
     /// <para>
@@ -93,7 +94,7 @@ namespace MustyBlockBlast.Core
             return count;
         }
 
-        /// <summary>True when <paramref name="candidate"/> could carry the core: occupied and carrying
+        /// <summary>True when <paramref name="candidate"/> could carry the reward: occupied and carrying
         /// no kind of its own yet.</summary>
         private static bool IsCandidate(Board board, GridPosition candidate)
             => board.IsOccupied(candidate) && board.GetSpecialKind(candidate) == SpecialCellKind.None;

@@ -1361,13 +1361,15 @@ namespace MustyBlockBlast.Gameplay.Systems
         }
 
         /// <summary>
-        /// Spawns this placement's "Perfect Match" reward — a <see cref="SpecialCellKind.ExplosiveCore"/>
-        /// at a uniformly random occupied cell — when it earned one (issue #352):
+        /// Spawns this placement's "Perfect Match" reward — a <see cref="SpecialCellKind.Vortex"/> at a
+        /// uniformly random occupied cell — when it earned one (issue #352, kind changed by issue #397):
         /// <see cref="PerfectMatchQualifier"/> says the piece just placed is neither a single cell nor a
         /// straight line AND every cell it occupied was itself swept away by this placement's own
-        /// (primary) clear. Not an inventory <c>PowerUpKind.Bomb</c> grant — the same board mechanism the
-        /// other three spawns above use. A placement that did not qualify, or one with no eligible cell
-        /// left once the spawns above have claimed theirs, is silently skipped — not an error state.
+        /// (primary) clear. A vortex rather than an explosive core because the core is defined by the
+        /// cross-clear that forms it (<see cref="TrySpawnExplosiveCore"/>), which this mechanic has
+        /// nothing to do with. Same board mechanism the other spawns above use. A placement that did not
+        /// qualify, or one with no eligible cell left once the spawns above have claimed theirs, is
+        /// silently skipped — not an error state.
         /// <para>
         /// Reads <paramref name="clearResult"/>, the placement's own (primary) clear, exactly as the
         /// three spawns above do: the reward is for the piece the player placed and the lines it lined
@@ -1390,8 +1392,8 @@ namespace MustyBlockBlast.Gameplay.Systems
             // Chosen only from cells that are already occupied (see PerfectMatchSpawnSelector), so the
             // block to sit on already exists — unlike the core's own cross-clear reward, there is
             // nothing here to occupy first.
-            _boardModel.SetSpecialKind(spawn.Value, SpecialCellKind.ExplosiveCore);
-            PublishSpecialCellSpawned(SpecialCellKind.ExplosiveCore, spawn.Value);
+            _boardModel.SetSpecialKind(spawn.Value, SpecialCellKind.Vortex);
+            PublishSpecialCellSpawned(SpecialCellKind.Vortex, spawn.Value);
         }
 
         /// <summary>

@@ -9,11 +9,16 @@ using UnityEngine;
 namespace MustyBlockBlast.Tests.EditMode
 {
     /// <summary>
-    /// End-to-end cover for the placement side of the "Perfect Match" bonus (issue #352): a shaped piece
-    /// consumed whole by its own placement spawns an explosive core on a random occupied cell, a single
-    /// cell or a straight line never does regardless of how completely it clears, a partial self-clear
-    /// never does either, and the reward stacks with the existing cross-clear core reward without the two
-    /// ever landing on the same cell.
+    /// End-to-end cover for the placement side of the "Perfect Match" bonus (issue #352; reward kind
+    /// changed to vortex by issue #397): a shaped piece consumed whole by its own placement spawns a
+    /// vortex on a random occupied cell — never an explosive core, which stays the cross-clear's own
+    /// reward — a single cell or a straight line never does regardless of how completely it clears, a
+    /// partial self-clear never does either, and the reward stacks with the existing cross-clear core
+    /// reward without the two ever landing on the same cell.
+    /// <para>
+    /// Every scenario here clears fewer than the five lines the run-long vortex progress counter needs,
+    /// so any vortex found on the board in these tests came from Perfect Match alone.
+    /// </para>
     /// </summary>
     public class BoardSystemPerfectMatchTests
     {
@@ -54,10 +59,11 @@ namespace MustyBlockBlast.Tests.EditMode
                 seed: 1);
         }
 
-        /// <summary>AC1/AC2: a 2x2 square consumed whole by the two rows it completes spawns an
-        /// explosive core, borrowing an already-occupied cell rather than needing one of its own.</summary>
+        /// <summary>AC1/AC4 (#397): a 2x2 square consumed whole by the two rows it completes spawns a
+        /// vortex — and no explosive core, since no column cleared — borrowing an already-occupied cell
+        /// rather than needing one of its own.</summary>
         [Test]
-        public void TryPlacePiece_WithAShapedPieceFullyClearedByItsOwnRows_SpawnsAnExplosiveCore()
+        public void TryPlacePiece_WithAShapedPieceFullyClearedByItsOwnRows_SpawnsAVortexNotAnExplosiveCore()
         {
             FillAllThreeSlots(Square2X2);
 
@@ -74,7 +80,8 @@ namespace MustyBlockBlast.Tests.EditMode
             bool placed = _system.TryPlacePiece(0, new GridPosition(3, 3));
 
             Assert.IsTrue(placed);
-            Assert.AreEqual(1, CountCellsOfKind(SpecialCellKind.ExplosiveCore));
+            Assert.AreEqual(1, CountCellsOfKind(SpecialCellKind.Vortex));
+            Assert.AreEqual(0, CountCellsOfKind(SpecialCellKind.ExplosiveCore), "Core is cross-clear's reward only.");
         }
 
         /// <summary>AC6/negative: a 1x1 piece whose one cell clears its row is still not the "shaped"
@@ -88,7 +95,7 @@ namespace MustyBlockBlast.Tests.EditMode
 
             _system.TryPlacePiece(0, gap);
 
-            Assert.AreEqual(0, CountCellsOfKind(SpecialCellKind.ExplosiveCore));
+            Assert.AreEqual(0, CountCellsOfKind(SpecialCellKind.Vortex));
         }
 
         /// <summary>AC7/negative: a straight line fully consumed by its own clear does not qualify,
@@ -101,7 +108,7 @@ namespace MustyBlockBlast.Tests.EditMode
 
             _system.TryPlacePiece(0, new GridPosition(0, 5));
 
-            Assert.AreEqual(0, CountCellsOfKind(SpecialCellKind.ExplosiveCore));
+            Assert.AreEqual(0, CountCellsOfKind(SpecialCellKind.Vortex));
         }
 
         /// <summary>AC8/negative: only one of the square's two rows clears, so only two of its four own
@@ -117,7 +124,7 @@ namespace MustyBlockBlast.Tests.EditMode
 
             _system.TryPlacePiece(0, new GridPosition(3, 3));
 
-            Assert.AreEqual(0, CountCellsOfKind(SpecialCellKind.ExplosiveCore));
+            Assert.AreEqual(0, CountCellsOfKind(SpecialCellKind.Vortex));
         }
 
         /// <summary>AC9/negative: a qualifying shape placed on an otherwise-empty board clears nothing at
@@ -129,17 +136,17 @@ namespace MustyBlockBlast.Tests.EditMode
 
             _system.TryPlacePiece(0, new GridPosition(0, 0));
 
-            Assert.AreEqual(0, CountCellsOfKind(SpecialCellKind.ExplosiveCore));
+            Assert.AreEqual(0, CountCellsOfKind(SpecialCellKind.Vortex));
         }
 
         /// <summary>
-        /// AC4/stacking: a placement that closes two rows and two columns at once earns both the
-        /// existing cross-clear core (at their intersection) and this placement's own Perfect Match core
-        /// (on a surviving occupied cell elsewhere) — two cores, on two different cells, never one
-        /// overwriting the other.
+        /// AC5 (#397)/stacking: a placement that closes two rows and two columns at once earns both the
+        /// existing cross-clear core (at their intersection) and this placement's own Perfect Match
+        /// vortex (on a surviving occupied cell elsewhere) — one of each kind, on two different cells,
+        /// never two of the same kind and never one overwriting the other.
         /// </summary>
         [Test]
-        public void TryPlacePiece_QualifyingForBothCrossClearAndPerfectMatch_SpawnsTwoCoresOnDifferentCells()
+        public void TryPlacePiece_QualifyingForBothCrossClearAndPerfectMatch_SpawnsOneCoreAndOneVortexOnDifferentCells()
         {
             FillAllThreeSlots(Square2X2);
 
@@ -160,7 +167,8 @@ namespace MustyBlockBlast.Tests.EditMode
             bool placed = _system.TryPlacePiece(0, new GridPosition(3, 3));
 
             Assert.IsTrue(placed);
-            Assert.AreEqual(2, CountCellsOfKind(SpecialCellKind.ExplosiveCore), "One per reward.");
+            Assert.AreEqual(1, CountCellsOfKind(SpecialCellKind.ExplosiveCore), "Cross-clear's reward.");
+            Assert.AreEqual(1, CountCellsOfKind(SpecialCellKind.Vortex), "Perfect Match's reward.");
 
             // The cross-clear reward always lands on the first cleared column/row's intersection.
             var crossClearCell = new GridPosition(3, 3);
@@ -169,15 +177,15 @@ namespace MustyBlockBlast.Tests.EditMode
             // The Perfect Match reward must have landed on one of the surviving cells, never on the
             // cross-clear reward's own cell.
             bool perfectMatchLandedOnASurvivor =
-                _boardModel.GetSpecialKind(survivorA) == SpecialCellKind.ExplosiveCore
-                || _boardModel.GetSpecialKind(survivorB) == SpecialCellKind.ExplosiveCore
-                || _boardModel.GetSpecialKind(survivorC) == SpecialCellKind.ExplosiveCore;
+                _boardModel.GetSpecialKind(survivorA) == SpecialCellKind.Vortex
+                || _boardModel.GetSpecialKind(survivorB) == SpecialCellKind.Vortex
+                || _boardModel.GetSpecialKind(survivorC) == SpecialCellKind.Vortex;
             Assert.IsTrue(perfectMatchLandedOnASurvivor);
         }
 
         /// <summary>AC3: a qualifying placement that leaves no occupied, not-yet-special cell once the
         /// cross-clear reward has claimed the only one available is silently skipped — no crash, no
-        /// second core squeezed in anywhere.</summary>
+        /// vortex squeezed in anywhere.</summary>
         [Test]
         public void TryPlacePiece_WithNoEligibleCellLeftAfterTheCrossClearReward_DoesNotThrowAndSpawnsOnlyOne()
         {
@@ -192,6 +200,7 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.DoesNotThrow(() => _system.TryPlacePiece(0, new GridPosition(3, 3)));
 
             Assert.AreEqual(1, CountCellsOfKind(SpecialCellKind.ExplosiveCore), "Only the cross-clear reward.");
+            Assert.AreEqual(0, CountCellsOfKind(SpecialCellKind.Vortex), "No cell left for Perfect Match.");
         }
 
         /// <summary>All three slots filled: these placements must not empty the dock, because the refill
