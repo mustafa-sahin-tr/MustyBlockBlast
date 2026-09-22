@@ -39,7 +39,7 @@ Piece set (each defined as a set of cell offsets):
 | Single | 1×1 |
 | Lines | 1×2, 1×3, 1×4, 1×5 and their vertical counterparts |
 | Squares | 2×2, 3×3 |
-| Corners (L) | 2×2 corner in 4 orientations, 3×3 corner in 4 orientations |
+| Corners (L) | 2×2 corner in 4 orientations, 3×3 corner in 4 orientations, 4-cell L tetromino in 4 orientations and its mirror J in 4 orientations |
 | T / S / Z | Standard 4-cell T, S and Z tetrominoes in their common orientations |
 
 Each distinct orientation is a **separate piece definition** — "L rotated 90°" is simply a

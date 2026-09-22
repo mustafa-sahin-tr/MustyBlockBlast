@@ -97,6 +97,42 @@ namespace MustyBlockBlast.Tests.EditMode
         }
 
         [Test]
+        public void AllPieces_ContainsEightDistinctLAndJOrientations()
+        {
+            string[] ids =
+            {
+                "l_up", "l_right", "l_down", "l_left",
+                "j_up", "j_right", "j_down", "j_left",
+            };
+            foreach (string id in ids)
+            {
+                Assert.AreEqual(4, Find(id).CellCount, $"{id} should be a 4-cell L/J tetromino.");
+            }
+        }
+
+        /// <summary>Pins the catalog's total size so an accidental removal (or an accidental duplicate
+        /// swallowed by a different check) doesn't slip through unnoticed.</summary>
+        [Test]
+        public void AllPieces_TotalCountMatchesTheAuthoredSet()
+        {
+            Assert.AreEqual(35, PieceCatalog.AllPieces.Count);
+        }
+
+        /// <summary>Adding the L/J tetrominoes must never disturb the existing symmetric corners.</summary>
+        [Test]
+        public void AllPieces_ExistingCornerPiecesAreUnchanged()
+        {
+            AssertOffsets("corner2_missing_tr", (0, 0), (1, 0), (0, 1));
+            AssertOffsets("corner2_missing_tl", (0, 0), (1, 0), (1, 1));
+            AssertOffsets("corner2_missing_bl", (1, 0), (0, 1), (1, 1));
+            AssertOffsets("corner2_missing_br", (0, 0), (0, 1), (1, 1));
+            AssertOffsets("corner3_bl", (0, 0), (1, 0), (2, 0), (0, 1), (0, 2));
+            AssertOffsets("corner3_br", (0, 0), (1, 0), (2, 0), (2, 1), (2, 2));
+            AssertOffsets("corner3_tl", (0, 0), (0, 1), (0, 2), (1, 2), (2, 2));
+            AssertOffsets("corner3_tr", (2, 0), (2, 1), (2, 2), (1, 2), (0, 2));
+        }
+
+        [Test]
         public void AllPieces_EveryPieceOffsetsAreConnectedAndNonNegative()
         {
             foreach (Piece piece in PieceCatalog.AllPieces)
@@ -107,6 +143,18 @@ namespace MustyBlockBlast.Tests.EditMode
                     Assert.GreaterOrEqual(offset.Y, 0, $"{piece.Id} has a negative Y offset.");
                 }
             }
+        }
+
+        private static void AssertOffsets(string id, params (int X, int Y)[] expected)
+        {
+            Piece piece = Find(id);
+            var expectedOffsets = new HashSet<GridPosition>();
+            foreach ((int x, int y) in expected)
+            {
+                expectedOffsets.Add(new GridPosition(x, y));
+            }
+
+            CollectionAssert.AreEquivalent(expectedOffsets, new HashSet<GridPosition>(piece.Offsets));
         }
 
         private static Piece Find(string id)

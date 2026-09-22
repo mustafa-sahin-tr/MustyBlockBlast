@@ -33,7 +33,9 @@ namespace MustyBlockBlast.Core
             }
 
             if (pieceId.StartsWith("corner2_", StringComparison.Ordinal)
-                || pieceId.StartsWith("corner3_", StringComparison.Ordinal))
+                || pieceId.StartsWith("corner3_", StringComparison.Ordinal)
+                || pieceId.StartsWith("l_", StringComparison.Ordinal)
+                || pieceId.StartsWith("j_", StringComparison.Ordinal))
             {
                 return PieceFamily.Corner;
             }
