@@ -611,7 +611,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300692
-    m_Localized: "Bu h\xFCcre bir sat\u0131r veya s\xFCtun temizlenerek yok edildi\u011Finde, hemen etraf\u0131ndaki h\xFCcreleri de patlatarak zincirleme bir temizlik ba\u015Flat\u0131r."
+    m_Localized: "Bu h\xFCcre bir sat\u0131r veya s\xFCtun temizli\u011Fiyle yok edildi\u011Finde, di\u011Fer y\xF6ndeki tam \xE7izgiyi de siler \u2014 sat\u0131rla temizlendiyse b\xFCt\xFCn s\xFCtununu, s\xFCtunla temizlendiyse b\xFCt\xFCn sat\u0131r\u0131n\u0131 \u2014 dolu olsun olmas\u0131n, u\xE7tan uca. Bomba gibi \xE7izgisi olmayan bir \u015Feyle yok edilirse ikisini de siler. Sildi\u011Fi her h\xFCcre bonus puan kazand\u0131r\u0131r."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300693

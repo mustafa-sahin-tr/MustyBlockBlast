@@ -7,15 +7,15 @@ using MustyBlockBlast.Gameplay.Models;
 namespace MustyBlockBlast.Gameplay.Systems
 {
     /// <summary>
-    /// Scores explosive-core detonations. Kept apart from <see cref="ScoreSystem"/> for the same reason
-    /// <see cref="PowerUpScoreSystem"/> is: the streak counters are a placement concept, and a
-    /// detonation is not a placement — the player lined up the row and column that spawned the core, not
-    /// the lines it went on to finish for them. It reads the streak, never writes it.
+    /// Scores explosive-core bonus wipes. Kept apart from <see cref="ScoreSystem"/> for the same reason
+    /// <see cref="PowerUpScoreSystem"/> is: the streak counters are a placement concept, and a wipe is
+    /// not a placement — the player lined up the row and column that spawned the core, not the line its
+    /// wipe went on to empty. It reads the streak, never writes it.
     /// <para>
-    /// A finished line pays the ordinary line-clear rate (<see cref="ScoreRules.ClearScore"/>), exactly
-    /// as a placement completing that same line the hard way would — the whole point of the mechanic is
-    /// that a near-complete line finished by the core is worth what finishing it normally would have
-    /// been, never a flat per-cell blast payout.
+    /// A wipe pays per cell (<see cref="ScoreRules.PlacementScore"/>), at exactly the rate a spent Row
+    /// Clear or Column Clear — and a <see cref="LaserScoreSystem">laser's wipe</see> — pays: all of them
+    /// destroy the same thing, every occupied cell of one line, so paying them differently would say the
+    /// same destruction is worth different amounts depending on what set it off (issue #398 AC5).
     /// </para>
     /// </summary>
     public sealed class ExplosiveCoreScoreSystem : IDisposable
@@ -41,14 +41,14 @@ namespace MustyBlockBlast.Gameplay.Systems
 
         private void OnDetonated(ExplosiveCoreDetonatedMessage message)
         {
-            // A hand-off finished no line — there is nothing to pay for, and a zero count would pay
-            // nothing anyway, so this is guarded rather than assumed.
-            if (message.FinishedLineCount <= 0)
+            // A wipe whose line was already empty is never published, but a zero count would pay nothing
+            // anyway — guarded rather than assumed, so nothing is published for a gain of 0.
+            if (message.WipedCellCount <= 0)
             {
                 return;
             }
 
-            int gained = ScoreRules.ClearScore(message.FinishedLineCount, _scoreModel.Streak.Value);
+            int gained = ScoreRules.PlacementScore(message.WipedCellCount);
             if (gained <= 0)
             {
                 return;

@@ -1,52 +1,29 @@
-using System.Collections.Generic;
-using MustyBlockBlast.Core;
-
 namespace MustyBlockBlast.Gameplay.Messages
 {
     /// <summary>
-    /// An <see cref="MustyBlockBlast.Core.SpecialCellKind.ExplosiveCore"/> cell detonated. Published by
-    /// whichever System resolved the destruction — a placement's cascade, today the only source — so a
-    /// detonation reads the same to every subscriber whatever set it off.
+    /// One or more <see cref="MustyBlockBlast.Core.SpecialCellKind.ExplosiveCore"/> cells detonated and
+    /// their bonus wipe emptied <see cref="WipedCellCount"/> cells. Published by whichever System
+    /// resolved the destruction — a placement's cascade, a spent power-up or a hammer — so a detonation
+    /// reads the same to every subscriber whatever set it off.
     /// <para>
-    /// Carries no score itself: the amount is decided by
-    /// <see cref="MustyBlockBlast.Gameplay.Systems.ExplosiveCoreScoreSystem"/> from
-    /// <see cref="FinishedLineCount"/> alone, using the same formula an ordinary completed line scores
-    /// with.
+    /// Carries no score, for the reason <see cref="LaserFiredMessage"/> carries none: the amount is
+    /// decided by <see cref="MustyBlockBlast.Gameplay.Systems.ExplosiveCoreScoreSystem"/>.
     /// </para>
     /// <para>
-    /// Published only when a detonation actually did something — finished at least one line, or handed
-    /// its kind off to another cell — so subscribers never have to handle a message that changed
-    /// nothing.
+    /// Published only when a wipe actually emptied something — a core whose whole opposite line was
+    /// already empty is not an event, so subscribers never have to handle a zero count.
     /// </para>
     /// </summary>
     public readonly struct ExplosiveCoreDetonatedMessage
     {
-        public ExplosiveCoreDetonatedMessage(
-            int finishedLineCount, int handOffCount, IReadOnlyList<ExplosiveCoreDetonation> detonations)
+        public ExplosiveCoreDetonatedMessage(int wipedCellCount)
         {
-            FinishedLineCount = finishedLineCount;
-            HandOffCount = handOffCount;
-            Detonations = detonations;
+            WipedCellCount = wipedCellCount;
         }
 
-        /// <summary>How many rows and columns this detonation (and any chained detonation) finished —
-        /// found missing exactly one occupied playable cell and completed. The "lines" term
-        /// <see cref="MustyBlockBlast.Core.ScoreRules.ClearScore"/> takes, exactly as a placement's own
-        /// completed-line count is.</summary>
-        public int FinishedLineCount { get; }
-
-        /// <summary>How many times this detonation (and any chained detonation) found nothing to finish
-        /// and transferred <see cref="MustyBlockBlast.Core.SpecialCellKind.ExplosiveCore"/> to another
-        /// cell instead. Usually 0 or 1; higher only when more than one core detonated in the same
-        /// resolution and more than one of them found nothing left to finish.</summary>
-        public int HandOffCount { get; }
-
-        /// <summary>Every detonation that finished at least one line, in the order it happened — the
-        /// origin cell each one flew its icon from and the gaps it landed on and filled, one flight per
-        /// entry. Never null, though it may be empty (a resolution that only handed off cores). A
-        /// caller-owned copy of <see cref="MustyBlockBlast.Core.ExplosiveCoreEffect.Detonations"/>, not
-        /// the live buffer: that buffer is cleared on the next resolution, and a subscriber flies through
-        /// this list across several frames.</summary>
-        public IReadOnlyList<ExplosiveCoreDetonation> Detonations { get; }
+        /// <summary>How many occupied cells the wipe (and any chained wipe) emptied. Never counts a cell
+        /// that was already empty, and never counts the detonating core's own cell — that was emptied by
+        /// whatever destroyed it, and is already reported by that clear.</summary>
+        public int WipedCellCount { get; }
     }
 }

@@ -7,9 +7,9 @@ using NUnit.Framework;
 namespace MustyBlockBlast.Tests.EditMode
 {
     /// <summary>
-    /// Covers what a detonation is worth: the ordinary line-clear rate for however many lines it
-    /// finished, doubled inside a frenzy, and never at the cost of the placement streak counters. A
-    /// hand-off with no finished line scores nothing.
+    /// Covers what a detonation's bonus wipe is worth (issue #398 AC5/AC6): the flat per-cell rate a
+    /// laser's wipe and a spent Row Clear pay, doubled inside a frenzy, and never at the cost of the
+    /// placement streak counters.
     /// </summary>
     public class ExplosiveCoreScoreSystemTests
     {
@@ -31,42 +31,35 @@ namespace MustyBlockBlast.Tests.EditMode
         }
 
         [Test]
-        public void OnDetonated_ScoresTheOrdinaryLineClearRate()
+        public void OnDetonated_ScoresOnePointPerWipedCell()
         {
-            _detonatedBroker.Publish(new ExplosiveCoreDetonatedMessage(finishedLineCount: 1, handOffCount: 0, detonations: null));
+            _detonatedBroker.Publish(new ExplosiveCoreDetonatedMessage(7));
 
-            Assert.AreEqual(ScoreRules.ClearScore(1, _scoreModel.Streak.Value), _scoreModel.Score.Value);
+            Assert.AreEqual(ScoreRules.PlacementScore(7), _scoreModel.Score.Value);
+            Assert.AreEqual(7, _scoreModel.Score.Value);
         }
 
-        /// <summary>Two lines finished in the same detonation score exactly as two lines completed by
-        /// one placement would.</summary>
+        /// <summary>AC5: the payout formula is the laser's, not the line-clear one — a wipe of the same
+        /// size is worth the same whatever kind of cell set it off, and the streak plays no part.</summary>
         [Test]
-        public void OnDetonated_WithTwoFinishedLines_ScoresTheTwoLineRate()
-        {
-            _detonatedBroker.Publish(new ExplosiveCoreDetonatedMessage(finishedLineCount: 2, handOffCount: 0, detonations: null));
-
-            Assert.AreEqual(ScoreRules.ClearScore(2, _scoreModel.Streak.Value), _scoreModel.Score.Value);
-        }
-
-        [Test]
-        public void OnDetonated_ScoresMoreWithAHigherStreak()
+        public void OnDetonated_PaysTheSameAsALaserWipeOfTheSameSize()
         {
             _scoreModel.Streak.Value = 4;
 
-            _detonatedBroker.Publish(new ExplosiveCoreDetonatedMessage(finishedLineCount: 1, handOffCount: 0, detonations: null));
+            _detonatedBroker.Publish(new ExplosiveCoreDetonatedMessage(5));
 
-            Assert.AreEqual(ScoreRules.ClearScore(1, 4), _scoreModel.Score.Value);
-            Assert.Greater(_scoreModel.Score.Value, ScoreRules.ClearScore(1, 0));
+            Assert.AreEqual(ScoreRules.PlacementScore(5), _scoreModel.Score.Value);
+            Assert.AreNotEqual(ScoreRules.ClearScore(1, 4), _scoreModel.Score.Value, "Not the line-clear rate.");
         }
 
         [Test]
         public void OnDetonated_PublishesTheGainForTheHud()
         {
-            _detonatedBroker.Publish(new ExplosiveCoreDetonatedMessage(finishedLineCount: 1, handOffCount: 0, detonations: null));
+            _detonatedBroker.Publish(new ExplosiveCoreDetonatedMessage(5));
 
             Assert.AreEqual(1, _scoreChangedBroker.Published.Count);
-            Assert.AreEqual(_scoreModel.Score.Value, _scoreChangedBroker.Published[0].Gained);
-            Assert.AreEqual(_scoreModel.Score.Value, _scoreChangedBroker.Published[0].Total);
+            Assert.AreEqual(5, _scoreChangedBroker.Published[0].Gained);
+            Assert.AreEqual(5, _scoreChangedBroker.Published[0].Total);
         }
 
         [Test]
@@ -74,9 +67,9 @@ namespace MustyBlockBlast.Tests.EditMode
         {
             _doubleMultiplierModel.RemainingSeconds.Value = DoubleMultiplierModel.WINDOW_SECONDS;
 
-            _detonatedBroker.Publish(new ExplosiveCoreDetonatedMessage(finishedLineCount: 1, handOffCount: 0, detonations: null));
+            _detonatedBroker.Publish(new ExplosiveCoreDetonatedMessage(6));
 
-            Assert.AreEqual(ScoreRules.ClearScore(1, 0) * 2, _scoreModel.Score.Value);
+            Assert.AreEqual(12, _scoreModel.Score.Value);
         }
 
         /// <summary>A detonation is not a placement: it may never extend, reset or otherwise touch the
@@ -88,18 +81,17 @@ namespace MustyBlockBlast.Tests.EditMode
             _scoreModel.MultiClearStreak.Value = 2;
             _scoreModel.CumulativeMultiClearCount.Value = 7;
 
-            _detonatedBroker.Publish(new ExplosiveCoreDetonatedMessage(finishedLineCount: 1, handOffCount: 0, detonations: null));
+            _detonatedBroker.Publish(new ExplosiveCoreDetonatedMessage(4));
 
             Assert.AreEqual(3, _scoreModel.Streak.Value);
             Assert.AreEqual(2, _scoreModel.MultiClearStreak.Value);
             Assert.AreEqual(7, _scoreModel.CumulativeMultiClearCount.Value);
         }
 
-        /// <summary>A hand-off finished no line — there is nothing to pay for.</summary>
         [Test]
-        public void OnDetonated_WithOnlyAHandOff_ScoresNothingAndPublishesNothing()
+        public void OnDetonated_WithNothingWiped_ScoresNothingAndPublishesNothing()
         {
-            _detonatedBroker.Publish(new ExplosiveCoreDetonatedMessage(finishedLineCount: 0, handOffCount: 1, detonations: null));
+            _detonatedBroker.Publish(new ExplosiveCoreDetonatedMessage(0));
 
             Assert.AreEqual(0, _scoreModel.Score.Value);
             Assert.AreEqual(0, _scoreChangedBroker.Published.Count);

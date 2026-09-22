@@ -121,19 +121,6 @@ namespace MustyBlockBlast.Presentation.Views
         [Tooltip("Icon scale the birth pop dips to just past 1 right before landing, for a soft settle rather than stopping dead at 1.")]
         [SerializeField] private float _specialSpawnLandingOvershootScale = 1.08f;
 
-        [Header("Explosive Core Detonation Flight")]
-        [Tooltip("Seconds one detonation's icon takes to fly from its origin cell to the gap it finishes. Played once per finished line, in order — see OnExplosiveCoreDetonated.")]
-        [SerializeField] private float _explosiveCoreFlightDuration = 0.6f;
-
-        [Tooltip("Icon size during the flight, as a multiple of the cell size, so it reads clearly while crossing several cells.")]
-        [SerializeField] private float _explosiveCoreFlightIconScale = 1.35f;
-
-        [Tooltip("Extra scale the flight icon swells to at the midpoint of its travel, on top of _explosiveCoreFlightIconScale, before shrinking back down to it by the time it lands — e.g. 0.4 grows it 40% bigger at the midpoint.")]
-        [SerializeField] private float _explosiveCoreFlightPulseScale = 0.4f;
-
-        [Tooltip("Seconds paused after one flight lands and its line's cells start fading, before the next flight in the sequence departs.")]
-        [SerializeField] private float _explosiveCoreLandingPause = 0.12f;
-
         [Header("Vortex Island Fill (issue #349)")]
         [Tooltip("Seconds a cell a vortex reclaimed takes to pop in from _islandFillStartScale to its resting size. At least 0.4s so filling many cells still reads clearly rather than looking instant.")]
         [SerializeField] private float _islandFillDuration = 0.5f;
@@ -592,8 +579,8 @@ namespace MustyBlockBlast.Presentation.Views
             _runStartedSubscriber.Subscribe(OnRunStarted).AddTo(_disposables);
             _powerUpAppliedSubscriber.Subscribe(OnPowerUpApplied).AddTo(_disposables);
 
-            // Same handler as a power-up's: a blast empties a region rather than whole lines, so its
-            // cells need claiming exactly the way a power-up's cleared region does.
+            // Same handler as a power-up's: a core's bonus wipe empties a line whether or not it was
+            // full, so its cells need claiming exactly the way a power-up's cleared region does.
             _explosiveCoreDetonatedSubscriber.Subscribe(OnExplosiveCoreDetonated).AddTo(_disposables);
 
             // Same again for a laser's wipe, which empties a line whether or not it was full — so no
@@ -1577,199 +1564,12 @@ namespace MustyBlockBlast.Presentation.Views
             iconTransform.localRotation = Quaternion.identity;
         }
 
-        /// <summary>
-        /// An explosive core detonated: it finished off every row/column that was one cell short and
-        /// filled in the gap, which the board's own cascade re-check then cleared the ordinary way — so
-        /// the finished lines' cells are already sitting pending (marked, never repainted, by the same
-        /// <c>NotifyCleared</c> path an ordinary <see cref="OnLinesCleared"/> claims) by the time this
-        /// runs.
-        /// <para>
-        /// AC (issue: "explosive core nereleri yok etti... hissetmeli"): rather than fading every pending
-        /// cell at once, this flies the core's own icon from <see cref="ExplosiveCoreDetonation.Origin"/>
-        /// to each gap it finished, landing on and sweeping only that gap's row and column before moving
-        /// to the next — one detonation, and within it one finished line, at a time — so the player can
-        /// actually watch the core travel to and finish each line rather than see the board change all
-        /// at once. <see cref="ExplosiveCoreDetonatedMessage.Detonations"/> is empty only in a build
-        /// where a caller predates this AC (there is none today, but the message keeps working without
-        /// it), which falls back to the original one-shot sweep by count.
-        /// </para>
-        /// <para>
-        /// A hand-off needs no visual of its own beyond this: the target cell's new icon arrives through
-        /// the ordinary <see cref="MustyBlockBlast.Gameplay.Models.BoardModel.SpecialKindChanged"/> event.
-        /// </para>
-        /// </summary>
+        /// <summary>An explosive core detonated and its bonus wipe emptied the line at right angles to
+        /// whatever destroyed it (issue #398). Claimed exactly as a laser's wipe is, and for the same
+        /// reason: a wipe does not need the line to be full, so no <see cref="LinesClearedMessage"/>
+        /// follows it — the same line-sweep VFX path <see cref="OnLaserFired"/> plays.</summary>
         private void OnExplosiveCoreDetonated(ExplosiveCoreDetonatedMessage message)
-        {
-            IReadOnlyList<ExplosiveCoreDetonation> detonations = message.Detonations;
-            if (detonations == null || detonations.Count == 0)
-            {
-                SweepPendingCells(message.FinishedLineCount);
-                return;
-            }
-
-            PlayExplosiveCoreDetonationsAsync(detonations).Forget();
-        }
-
-        /// <summary>
-        /// Plays every detonation's flights in order, and within one detonation every finished line in
-        /// the order <see cref="MustyBlockBlast.Core.ExplosiveCoreEffect"/> found it (rows, then
-        /// columns) — a single sequence covering the whole resolution, so a second core caught in the
-        /// first one's chain plays its own flights right after rather than concurrently with them.
-        /// </summary>
-        private async UniTaskVoid PlayExplosiveCoreDetonationsAsync(
-            IReadOnlyList<ExplosiveCoreDetonation> detonations)
-        {
-            try
-            {
-                for (int i = 0; i < detonations.Count; i++)
-                {
-                    ExplosiveCoreDetonation detonation = detonations[i];
-                    IReadOnlyList<GridPosition> targets = detonation.FinishedTargets;
-
-                    for (int j = 0; j < targets.Count; j++)
-                    {
-                        if (_isDestroyed)
-                        {
-                            return;
-                        }
-
-                        await PlayExplosiveCoreFlightAsync(detonation.Origin, targets[j]);
-                        SweepPendingCellsAt(targets[j]);
-
-                        float pauseDuration = Mathf.Max(0f, _explosiveCoreLandingPause);
-                        float pauseElapsed = 0f;
-                        while (pauseElapsed < pauseDuration)
-                        {
-                            await UniTask.Yield(PlayerLoopTiming.Update, _destroyToken);
-                            pauseElapsed += Time.unscaledDeltaTime;
-                        }
-                    }
-                }
-            }
-            catch (OperationCanceledException)
-            {
-                // The board view was destroyed mid-sequence — nothing left to fly to.
-            }
-        }
-
-        /// <summary>
-        /// One flight: a transient copy of the explosive core's own icon travels in a straight,
-        /// ease-out line from <paramref name="origin"/>'s cell to <paramref name="target"/>'s, swelling
-        /// to <see cref="_explosiveCoreFlightPulseScale"/> past its resting size at the midpoint of the
-        /// trip and shrinking back down by the time it lands, then is destroyed —
-        /// <paramref name="target"/>'s own gap fill is invisible on the board (it was written straight
-        /// to <c>Core.Board</c>, which raises no repaint of its own), so this icon is the only visual of
-        /// the core actually reaching it.
-        /// </summary>
-        private async UniTask PlayExplosiveCoreFlightAsync(GridPosition origin, GridPosition target)
-        {
-            if (_cellLayerRoot == null)
-            {
-                return;
-            }
-
-            RectTransform icon = CreateExplosiveCoreFlightIcon();
-            Vector2 start = CellAnchoredPosition(origin);
-            Vector2 end = CellAnchoredPosition(target);
-            icon.anchoredPosition = start;
-
-            float duration = Mathf.Max(0.01f, _explosiveCoreFlightDuration);
-            float pulseAmplitude = Mathf.Max(0f, _explosiveCoreFlightPulseScale);
-
-            try
-            {
-                float elapsed = 0f;
-                while (elapsed < duration)
-                {
-                    float linearT = elapsed / duration;
-                    float travelT = EaseOutCubic(linearT);
-                    icon.anchoredPosition = Vector2.LerpUnclamped(start, end, travelT);
-
-                    // A half sine over the raw (un-eased) t: 0 at both ends, its peak exactly at the
-                    // midpoint, so the swell reads as tied to distance travelled rather than to the
-                    // eased, front-loaded pace of the travel itself.
-                    float pulse = 1f + (pulseAmplitude * Mathf.Sin(linearT * Mathf.PI));
-                    icon.localScale = Vector3.one * pulse;
-
-                    await UniTask.Yield(PlayerLoopTiming.Update, _destroyToken);
-                    elapsed += Time.unscaledDeltaTime;
-                }
-            }
-            finally
-            {
-                if (!_isDestroyed && icon != null)
-                {
-                    Destroy(icon.gameObject);
-                }
-            }
-        }
-
-        /// <summary>The explosive core's own icon and tint, sized to
-        /// <see cref="_explosiveCoreFlightIconScale"/> so it reads clearly while crossing several cells,
-        /// parented to <see cref="_cellLayerRoot"/> and brought to the front of it — exactly the
-        /// reasoning <see cref="CreateEffectParticle"/> gives for its own particles — so the flight draws
-        /// over every cell it passes rather than behind whichever one happens to sit later in the sibling
-        /// order.</summary>
-        private RectTransform CreateExplosiveCoreFlightIcon()
-        {
-            var iconObject = new GameObject("ExplosiveCoreFlight", typeof(RectTransform), typeof(Image));
-            var rect = (RectTransform)iconObject.transform;
-            rect.SetParent(_cellLayerRoot, false);
-            rect.sizeDelta = Vector2.one * (_cellSize * Mathf.Max(0.01f, _explosiveCoreFlightIconScale));
-            rect.SetAsLastSibling();
-
-            Image image = iconObject.GetComponent<Image>();
-            image.sprite = IconSprite(SpecialCellKind.ExplosiveCore);
-            image.type = Image.Type.Simple;
-            image.raycastTarget = false;
-            image.color = IconTint(SpecialCellKind.ExplosiveCore);
-
-            return rect;
-        }
-
-        /// <summary>Sweeps only the pending cells in <paramref name="crossing"/>'s own row and column —
-        /// <see cref="SweepPendingCells"/> narrowed to one finished line, so a detonation's flights each
-        /// claim only the line they just landed on rather than every pending cell in the whole
-        /// resolution at once. Safe to call on a row-only or column-only finish: a cell the other axis
-        /// would have swept but was never pending is simply skipped, exactly as
-        /// <see cref="SweepPendingCells"/> already skips every non-pending cell.</summary>
-        private void SweepPendingCellsAt(GridPosition crossing)
-        {
-            if (_cells == null)
-            {
-                return;
-            }
-
-            for (int x = 0; x < _width; x++)
-            {
-                // Skipped here, not missed: the column sweep below covers (crossing.X, crossing.Y) once,
-                // which is the only way to sweep it exactly once rather than twice.
-                if (x == crossing.X)
-                {
-                    continue;
-                }
-
-                SweepPendingCellAt(new GridPosition(x, crossing.Y));
-            }
-
-            for (int y = 0; y < _height; y++)
-            {
-                SweepPendingCellAt(new GridPosition(crossing.X, y));
-            }
-        }
-
-        private void SweepPendingCellAt(GridPosition cell)
-        {
-            int index = CellIndex(cell);
-            if (!_cellPending[index])
-            {
-                return;
-            }
-
-            // See SweepPendingCells's own remark: bumped first so this fade is the cell's only owner.
-            _cellGenerations[index]++;
-            PlayClearAsync(cell, index, _cellGenerations[index], false, 0f, null).Forget();
-        }
+            => SweepPendingCells(message.WipedCellCount);
 
         /// <summary>A laser wiped a line. Claimed exactly as a blast's cells are, and for the same
         /// reason: a wipe does not need the line to be full, so no <see cref="LinesClearedMessage"/>

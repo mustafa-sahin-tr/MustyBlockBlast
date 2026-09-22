@@ -1,13 +1,14 @@
-using System;
 using MustyBlockBlast.Core;
 using NUnit.Framework;
 
 namespace MustyBlockBlast.Tests.EditMode
 {
     /// <summary>
-    /// Covers the new "finish the job" behaviour: filling every row/column missing exactly one occupied
-    /// playable cell, the hand-off when nothing qualifies, and the reporting counters' per-resolution
-    /// lifetime.
+    /// Covers the bonus wipe issue #398 gave the core: the opposite-axis rule for every
+    /// <see cref="ClearAxis"/> (AC1, and its AC9 negative — never both, never the line it died with),
+    /// the both-axes fallback for a destruction that had no line to it, the no-op when the opposite line
+    /// is already empty (AC2, no hand-off), the chain into a second core bounded by the cascade cap
+    /// (AC4), and the reporting buffer's per-resolution lifetime.
     /// </summary>
     public class ExplosiveCoreEffectTests
     {
@@ -16,194 +17,307 @@ namespace MustyBlockBlast.Tests.EditMode
         [SetUp]
         public void CreateEffect()
         {
-            _effect = new ExplosiveCoreEffect(new Random(1));
+            _effect = new ExplosiveCoreEffect();
             _effect.BeginResolution();
         }
 
-        /// <summary>AC1: a single near-complete row is finished off — occupied all the way and no
-        /// longer missing a cell.</summary>
+        /// <summary>AC1/AC9: destroyed by a row clear, so it wipes its column and only its column — the
+        /// row it died with is left exactly as it was.</summary>
         [Test]
-        public void Apply_WithOneRowOneCellFromFull_FinishesIt()
+        public void Apply_DestroyedByARowClear_WipesOnlyItsColumn()
         {
-            Board board = new Board();
-            var gap = new GridPosition(3, 5);
-            FillRowExcept(board, y: 5, gap);
-            var trigger = new GridPosition(7, 7);
-            board.Occupy(trigger, 1);
-            board.Clear(trigger);
+            Board board = FullBoard();
+            var origin = new GridPosition(3, 5);
+            board.Clear(origin);
 
-            _effect.Apply(board, new SpecialCellTrigger(trigger, SpecialCellKind.ExplosiveCore));
+            _effect.Apply(board, Trigger(origin, ClearAxis.Row));
 
-            Assert.IsTrue(board.IsRowFull(5));
-            Assert.AreEqual(1, _effect.FinishedLineCount);
-            Assert.AreEqual(0, _effect.HandOffTargets.Count);
-        }
-
-        /// <summary>AC2: a near-complete row AND a near-complete column both finish from the same
-        /// detonation, not just whichever is found first.</summary>
-        [Test]
-        public void Apply_WithARowAndAColumnBothOneCellFromFull_FinishesBoth()
-        {
-            Board board = new Board();
-            FillRowExcept(board, y: 2, new GridPosition(1, 2));
-            FillColumnExcept(board, x: 6, new GridPosition(6, 4));
-
-            _effect.Apply(board, new SpecialCellTrigger(new GridPosition(0, 0), SpecialCellKind.ExplosiveCore));
-
-            Assert.IsTrue(board.IsRowFull(2));
-            Assert.IsTrue(board.IsColumnFull(6));
-            Assert.AreEqual(2, _effect.FinishedLineCount);
-        }
-
-        /// <summary>A row and a column that share their one missing cell both finish from a single
-        /// fill — the shared gap is filled once, not twice.</summary>
-        [Test]
-        public void Apply_WithARowAndAColumnSharingTheirGap_FinishesBothFromOneFill()
-        {
-            Board board = new Board();
-            var gap = new GridPosition(3, 5);
-            FillRowExcept(board, y: 5, gap);
-            FillColumnExcept(board, x: 3, gap);
-
-            _effect.Apply(board, new SpecialCellTrigger(new GridPosition(0, 0), SpecialCellKind.ExplosiveCore));
-
-            Assert.IsTrue(board.IsRowFull(5));
-            Assert.IsTrue(board.IsColumnFull(3));
-            Assert.AreEqual(2, _effect.FinishedLineCount);
-        }
-
-        /// <summary>AC6 negative case: nothing full, nothing one cell short — no line finishes and the
-        /// core hands off instead, without crashing or looping.</summary>
-        [Test]
-        public void Apply_WithNothingOneCellFromFull_HandsOffInstead()
-        {
-            Board board = new Board();
-            board.Occupy(new GridPosition(2, 2), 1);
-
-            _effect.Apply(board, new SpecialCellTrigger(new GridPosition(0, 0), SpecialCellKind.ExplosiveCore));
-
-            Assert.AreEqual(0, _effect.FinishedLineCount);
-            Assert.AreEqual(1, _effect.HandOffTargets.Count);
-            Assert.AreEqual(new GridPosition(2, 2), _effect.HandOffTargets[0]);
-            Assert.AreEqual(SpecialCellKind.ExplosiveCore, board.GetSpecialKind(new GridPosition(2, 2)));
-        }
-
-        /// <summary>AC4's other half: a hand-off never lands on a cell that already carries a special
-        /// kind of its own.</summary>
-        [Test]
-        public void Apply_WithNothingToFinish_HandsOffOnlyToAnOrdinaryOccupiedCell()
-        {
-            Board board = new Board();
-            board.Occupy(new GridPosition(1, 1), 1);
-            board.SetSpecialKind(new GridPosition(1, 1), SpecialCellKind.Laser);
-            board.Occupy(new GridPosition(6, 6), 1);
-
-            _effect.Apply(board, new SpecialCellTrigger(new GridPosition(0, 0), SpecialCellKind.ExplosiveCore));
-
-            Assert.AreEqual(1, _effect.HandOffTargets.Count);
-            Assert.AreEqual(new GridPosition(6, 6), _effect.HandOffTargets[0]);
-        }
-
-        /// <summary>AC4: no eligible cell at all is a no-op, not a crash.</summary>
-        [Test]
-        public void Apply_WithNothingToFinishAndNoEligibleCell_IsANoOp()
-        {
-            Board board = new Board();
-
-            Assert.DoesNotThrow(() => _effect.Apply(
-                board, new SpecialCellTrigger(new GridPosition(0, 0), SpecialCellKind.ExplosiveCore)));
-
-            Assert.AreEqual(0, _effect.FinishedLineCount);
-            Assert.AreEqual(0, _effect.HandOffTargets.Count);
-        }
-
-        /// <summary>AC6: a board with only fully-full, fully-empty or 2+-short lines is untouched.</summary>
-        [Test]
-        public void Apply_OnABoardWithNoQualifyingLine_ChangesNothingOnTheBoardItself()
-        {
-            Board board = new Board();
-            board.Occupy(new GridPosition(0, 0), 1);
-            board.Occupy(new GridPosition(1, 0), 1);
-            board.Occupy(new GridPosition(2, 0), 1);
-
-            _effect.Apply(board, new SpecialCellTrigger(new GridPosition(7, 7), SpecialCellKind.ExplosiveCore));
-
-            Assert.AreEqual(0, _effect.FinishedLineCount);
-            for (int x = 3; x < Board.SIZE; x++)
+            for (int y = 0; y < Board.SIZE; y++)
             {
-                Assert.IsFalse(board.IsOccupied(new GridPosition(x, 0)), $"({x}, 0) must stay untouched.");
+                Assert.IsFalse(board.IsOccupied(new GridPosition(3, y)), $"Column cell (3, {y}).");
             }
+
+            for (int x = 0; x < Board.SIZE; x++)
+            {
+                if (x == origin.X)
+                {
+                    continue;
+                }
+
+                Assert.IsTrue(board.IsOccupied(new GridPosition(x, 5)), $"Row cell ({x}, 5) is not re-wiped.");
+            }
+
+            Assert.AreEqual(Board.SIZE - 1, _effect.WipedCells.Count, "The origin was already empty.");
+        }
+
+        /// <summary>AC1/AC9's other half: destroyed by a column clear, so it wipes its row and only its row.</summary>
+        [Test]
+        public void Apply_DestroyedByAColumnClear_WipesOnlyItsRow()
+        {
+            Board board = FullBoard();
+            var origin = new GridPosition(3, 5);
+            board.Clear(origin);
+
+            _effect.Apply(board, Trigger(origin, ClearAxis.Column));
+
+            for (int x = 0; x < Board.SIZE; x++)
+            {
+                Assert.IsFalse(board.IsOccupied(new GridPosition(x, 5)), $"Row cell ({x}, 5).");
+            }
+
+            for (int y = 0; y < Board.SIZE; y++)
+            {
+                if (y == origin.Y)
+                {
+                    continue;
+                }
+
+                Assert.IsTrue(board.IsOccupied(new GridPosition(3, y)), $"Column cell (3, {y}) is not re-wiped.");
+            }
+
+            Assert.AreEqual(Board.SIZE - 1, _effect.WipedCells.Count);
+        }
+
+        /// <summary>Sitting on the intersection of a cleared row and a cleared column, it was destroyed
+        /// by both — so there is no single opposite and it wipes both.</summary>
+        [Test]
+        public void Apply_DestroyedByARowAndAColumnAtOnce_WipesBothLines()
+        {
+            Board board = FullBoard();
+            var origin = new GridPosition(3, 5);
+            board.Clear(origin);
+
+            _effect.Apply(board, Trigger(origin, ClearAxis.Both));
+
+            AssertCrossIsEmpty(board, origin);
+            Assert.AreEqual((Board.SIZE - 1) * 2, _effect.WipedCells.Count);
+        }
+
+        /// <summary>AC1's axis-less case: a Bomb, a Colour Cleanser or a hammer destroyed it, so there
+        /// is no opposite to compute and both lines go.</summary>
+        [Test]
+        public void Apply_DestroyedWithNoAxis_WipesBothLines()
+        {
+            Board board = FullBoard();
+            var origin = new GridPosition(3, 5);
+            board.Clear(origin);
+
+            _effect.Apply(board, Trigger(origin, ClearAxis.None));
+
+            AssertCrossIsEmpty(board, origin);
+            Assert.AreEqual((Board.SIZE - 1) * 2, _effect.WipedCells.Count);
+        }
+
+        /// <summary>The two-argument trigger means "no axis", so it must behave exactly as an explicit
+        /// <see cref="ClearAxis.None"/> does.</summary>
+        [Test]
+        public void Apply_WithAnAxislessTrigger_BehavesAsClearAxisNone()
+        {
+            Board board = FullBoard();
+            var origin = new GridPosition(3, 5);
+            board.Clear(origin);
+
+            _effect.Apply(board, new SpecialCellTrigger(origin, SpecialCellKind.ExplosiveCore));
+
+            AssertCrossIsEmpty(board, origin);
+        }
+
+        /// <summary>AC4: the chain, and the turn it takes — a core caught in a column wipe was destroyed
+        /// by a column, so it fires down its own row.</summary>
+        [Test]
+        public void Apply_WithASecondCoreInTheWipe_FiresItAtRightAnglesInTurn()
+        {
+            Board board = FullBoard();
+            var origin = new GridPosition(3, 5);
+            board.Clear(origin);
+
+            var chained = new GridPosition(3, 2);
+            board.SetSpecialKind(chained, SpecialCellKind.ExplosiveCore);
+
+            _effect.Apply(board, Trigger(origin, ClearAxis.Row));
+
+            for (int x = 0; x < Board.SIZE; x++)
+            {
+                Assert.IsFalse(board.IsOccupied(new GridPosition(x, 2)), $"The chained row wipe should reach ({x}, 2).");
+            }
+
+            Assert.IsTrue(board.IsOccupied(new GridPosition(0, 0)), "Outside both lines.");
+
+            // Column 3 minus the already-empty origin (7), then row 2 minus the cell that column wipe
+            // already took (7).
+            Assert.AreEqual(14, _effect.WipedCells.Count);
+            Assert.IsFalse(_effect.StoppedAtWipeCap, "Two cores is not a pathological chain.");
+        }
+
+        /// <summary>AC4: a chained wipe is same-kind only — a laser caught in a core's wipe is destroyed
+        /// like any block but does not fire; that is <see cref="LaserEffect"/>'s job, not this one's.</summary>
+        [Test]
+        public void Apply_WithALaserInTheWipe_DestroysItWithoutFiringIt()
+        {
+            Board board = FullBoard();
+            var origin = new GridPosition(3, 5);
+            board.Clear(origin);
+            board.SetSpecialKind(new GridPosition(3, 2), SpecialCellKind.Laser);
+
+            _effect.Apply(board, Trigger(origin, ClearAxis.Row));
+
+            Assert.IsFalse(board.IsOccupied(new GridPosition(3, 2)), "Wiped like any other block.");
+            Assert.IsTrue(board.IsOccupied(new GridPosition(7, 2)), "Row 2 is untouched: no laser chain here.");
+            Assert.AreEqual(Board.SIZE - 1, _effect.WipedCells.Count);
+        }
+
+        /// <summary>The chain must not re-fire a core it already used, or two cores on the same line
+        /// would bounce between each other forever.</summary>
+        [Test]
+        public void Apply_WithTwoCoresOnTheSameLine_Terminates()
+        {
+            Board board = FullBoard();
+            var origin = new GridPosition(3, 5);
+            board.Clear(origin);
+            board.SetSpecialKind(new GridPosition(3, 1), SpecialCellKind.ExplosiveCore);
+            board.SetSpecialKind(new GridPosition(3, 6), SpecialCellKind.ExplosiveCore);
+
+            _effect.Apply(board, Trigger(origin, ClearAxis.Row));
+
+            Assert.IsFalse(_effect.StoppedAtWipeCap);
+            Assert.IsFalse(board.IsOccupied(new GridPosition(7, 1)), "Reached by the first chained wipe.");
+            Assert.IsFalse(board.IsOccupied(new GridPosition(7, 6)), "Reached by the second chained wipe.");
+        }
+
+        /// <summary>AC4's bound: a board that is nothing but cores must come back bounded by
+        /// <see cref="CascadeClearResolver.MAX_CASCADE_ITERATIONS"/> rather than hang, and leave the
+        /// board consistent.</summary>
+        [Test]
+        public void Apply_OnABoardOfNothingButCores_StopsAtTheWipeCap()
+        {
+            Board board = FullBoard();
+            for (int y = 0; y < Board.SIZE; y++)
+            {
+                for (int x = 0; x < Board.SIZE; x++)
+                {
+                    board.SetSpecialKind(new GridPosition(x, y), SpecialCellKind.ExplosiveCore);
+                }
+            }
+
+            var origin = new GridPosition(4, 4);
+            board.Clear(origin);
+
+            _effect.Apply(board, Trigger(origin, ClearAxis.Row));
+
+            Assert.IsTrue(_effect.StoppedAtWipeCap);
+            Assert.LessOrEqual(
+                _effect.WipedCells.Count,
+                CascadeClearResolver.MAX_CASCADE_ITERATIONS * Board.SIZE * 2,
+                "At most two lines per firing, and at most the cap's worth of firings.");
+        }
+
+        /// <summary>AC2: an opposite line that is already empty is a no-op — nothing wiped, and no
+        /// hand-off of the core's kind to some other cell.</summary>
+        [Test]
+        public void Apply_WithAnAlreadyEmptyOppositeLine_IsANoOpWithNoHandOff()
+        {
+            var board = new Board();
+            var bystander = new GridPosition(0, 0);
+            board.Occupy(bystander, 1);
+
+            _effect.Apply(board, Trigger(new GridPosition(4, 4), ClearAxis.Row));
+
+            Assert.AreEqual(0, _effect.WipedCells.Count);
+            Assert.IsTrue(board.IsOccupied(bystander), "Off the wiped column, untouched.");
+            Assert.AreEqual(
+                SpecialCellKind.None, board.GetSpecialKind(bystander), "No hand-off: the core is simply spent.");
+        }
+
+        /// <summary>Only occupied cells count as wiped: the buffer is what scoring and the repaint both
+        /// read, and neither may be handed a cell that was already empty.</summary>
+        [Test]
+        public void WipedCells_ListsExactlyTheCellsThatHeldABlock()
+        {
+            var board = new Board();
+            board.Occupy(new GridPosition(4, 1), 1);
+            board.Occupy(new GridPosition(4, 7), 1);
+            board.Occupy(new GridPosition(0, 0), 1);
+
+            _effect.Apply(board, Trigger(new GridPosition(4, 4), ClearAxis.Row));
+
+            Assert.AreEqual(2, _effect.WipedCells.Count);
+            CollectionAssert.Contains(_effect.WipedCells, new GridPosition(4, 1));
+            CollectionAssert.Contains(_effect.WipedCells, new GridPosition(4, 7));
+            CollectionAssert.DoesNotContain(_effect.WipedCells, new GridPosition(0, 0));
         }
 
         [Test]
-        public void BeginResolution_AfterADetonation_ForgetsThePreviousResolutionsCounts()
+        public void BeginResolution_AfterAWipe_ForgetsThePreviousResolutionsCells()
         {
-            Board board = new Board();
-            FillRowExcept(board, y: 0, new GridPosition(0, 0));
-            _effect.Apply(board, new SpecialCellTrigger(new GridPosition(7, 7), SpecialCellKind.ExplosiveCore));
-            Assert.Greater(_effect.FinishedLineCount, 0);
+            Board board = FullBoard();
+            board.Clear(new GridPosition(4, 4));
+            _effect.Apply(board, Trigger(new GridPosition(4, 4), ClearAxis.Row));
+            Assert.Greater(_effect.WipedCells.Count, 0);
 
             _effect.BeginResolution();
 
-            Assert.AreEqual(0, _effect.FinishedLineCount);
-            Assert.AreEqual(0, _effect.HandOffTargets.Count);
+            Assert.AreEqual(0, _effect.WipedCells.Count);
+            Assert.IsFalse(_effect.StoppedAtWipeCap);
         }
 
-        /// <summary>Two triggers in one resolution accumulate into the same totals — the caller reports
-        /// one detonation total per resolution, not one per trigger.</summary>
+        /// <summary>Two triggers in one resolution accumulate into the same buffer — the caller reports
+        /// one wipe total per resolution, not one per trigger.</summary>
         [Test]
-        public void Apply_TwiceWithinOneResolution_AccumulatesBothDetonations()
+        public void Apply_TwiceWithinOneResolution_AccumulatesBothWipes()
         {
-            Board board = new Board();
-            FillRowExcept(board, y: 0, new GridPosition(0, 0));
-            FillRowExcept(board, y: 1, new GridPosition(0, 1));
+            Board board = FullBoard();
+            board.Clear(new GridPosition(1, 1));
+            board.Clear(new GridPosition(6, 6));
 
-            _effect.Apply(board, new SpecialCellTrigger(new GridPosition(7, 7), SpecialCellKind.ExplosiveCore));
-            _effect.Apply(board, new SpecialCellTrigger(new GridPosition(7, 6), SpecialCellKind.ExplosiveCore));
+            _effect.Apply(board, Trigger(new GridPosition(1, 1), ClearAxis.Row));
+            _effect.Apply(board, Trigger(new GridPosition(6, 6), ClearAxis.Row));
 
-            Assert.AreEqual(2, _effect.FinishedLineCount);
+            // Column 1 minus its empty origin (7), then column 6 minus its own empty origin (7): the two
+            // columns are disjoint.
+            Assert.AreEqual(14, _effect.WipedCells.Count);
         }
 
         /// <summary>The effect is installed for one kind only; anything else must pass straight through
-        /// it, so the next kind of the epic can be added without this one reacting to it.</summary>
+        /// it, which is what lets several effects share the cascade loop without dispatching on kind.</summary>
         [Test]
         public void Apply_WithAnotherKind_DoesNothing()
         {
-            Board board = new Board();
-            FillRowExcept(board, y: 0, new GridPosition(0, 0));
+            Board board = FullBoard();
+            board.Clear(new GridPosition(4, 4));
 
-            _effect.Apply(board, new SpecialCellTrigger(new GridPosition(7, 7), (SpecialCellKind)99));
+            _effect.Apply(
+                board, new SpecialCellTrigger(new GridPosition(4, 4), SpecialCellKind.Laser, ClearAxis.Row));
 
-            Assert.AreEqual(0, _effect.FinishedLineCount);
-            Assert.IsFalse(board.IsRowFull(0));
+            Assert.AreEqual(0, _effect.WipedCells.Count);
+            Assert.IsTrue(board.IsOccupied(new GridPosition(4, 0)));
         }
 
-        private static void FillRowExcept(Board board, int y, GridPosition gap)
+        private static SpecialCellTrigger Trigger(GridPosition position, ClearAxis axis)
+            => new SpecialCellTrigger(position, SpecialCellKind.ExplosiveCore, axis);
+
+        private static void AssertCrossIsEmpty(Board board, GridPosition origin)
         {
-            for (int x = 0; x < Board.SIZE; x++)
+            for (int i = 0; i < Board.SIZE; i++)
             {
-                var position = new GridPosition(x, y);
-                if (position.X == gap.X && position.Y == gap.Y)
-                {
-                    continue;
-                }
-
-                board.Occupy(position, 1);
+                Assert.IsFalse(board.IsOccupied(new GridPosition(origin.X, i)), $"Column cell ({origin.X}, {i}).");
+                Assert.IsFalse(board.IsOccupied(new GridPosition(i, origin.Y)), $"Row cell ({i}, {origin.Y}).");
             }
+
+            Assert.IsTrue(board.IsOccupied(new GridPosition(0, 0)), "Off both lines, untouched.");
         }
 
-        private static void FillColumnExcept(Board board, int x, GridPosition gap)
+        private static Board FullBoard()
         {
+            var board = new Board();
             for (int y = 0; y < Board.SIZE; y++)
             {
-                var position = new GridPosition(x, y);
-                if (position.X == gap.X && position.Y == gap.Y)
+                for (int x = 0; x < Board.SIZE; x++)
                 {
-                    continue;
+                    board.Occupy(new GridPosition(x, y), 1);
                 }
-
-                board.Occupy(position, 1);
             }
+
+            return board;
         }
     }
 }
