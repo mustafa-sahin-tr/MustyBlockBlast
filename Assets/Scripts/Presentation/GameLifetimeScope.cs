@@ -493,7 +493,10 @@ namespace MustyBlockBlast.Presentation
             // bound next to the backend it guards.
             builder.Register<UnityConnectivityService>(Lifetime.Singleton).As<IConnectivityService>();
 
-            // Always-granting stub until a rewarded-ad SDK is wired up; swapping it is one line here.
+#if UNITY_EDITOR || !UNITY_ANDROID
+            // Always-granting stubs for the Editor, EditMode tests and every platform AdMob is not yet
+            // wired for (issue #380 is Android-only; iOS is tracked separately). Kept so in-editor
+            // iteration and the test suite never depend on an ad SDK — the real binding is the #else.
             builder.Register<DeterministicRewardSource>(Lifetime.Singleton).As<IRewardSource>().AsSelf();
 
             // The coin half of the same stub, on its own seam: an ad that pays coins and an ad that pays
@@ -506,6 +509,14 @@ namespace MustyBlockBlast.Presentation
             // item — and its presence is what makes BoardSystem mark a NoMovesLeft ending rescuable.
             builder.Register<DeterministicRescueRewardSource>(Lifetime.Singleton)
                 .As<IRescueRewardSource>().AsSelf();
+#else
+            // The real thing on Android devices (issue #380): Google AdMob behind all three seams. One
+            // class because the three are one mechanic underneath — load a rewarded ad, show it, pay
+            // only on the SDK's reward-earned callback — and the only type in the project that touches
+            // the ad SDK. Ships with Google's public TEST ids; see the class for the swap-out note.
+            builder.Register<AdMobRewardSource>(Lifetime.Singleton)
+                .As<IRewardSource>().As<ICoinRewardSource>().As<IRescueRewardSource>();
+#endif
 
             // The real-money half, and the one binding here that is not a stub: this is the actual
             // Unity IAP integration, and the only type in the project that touches that SDK.

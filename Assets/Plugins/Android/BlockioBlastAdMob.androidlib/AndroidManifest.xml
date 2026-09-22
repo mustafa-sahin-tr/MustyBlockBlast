@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Merge-only library manifest for the Google AdMob integration (issue #380).
+
+  Declares the advertising-id permission Android 13+ (API 33) requires before the Google Mobile Ads
+  SDK may read the device's advertising id. Gradle merges this into the application manifest at build
+  time; nothing here replaces Unity's own main manifest.
+
+  The AdMob Application ID meta-data is deliberately NOT declared here. The Google Mobile Ads SDK
+  writes it itself at build time (its ManifestProcessor) from the App ID entered under
+  Assets > Google Mobile Ads > Settings..., and stops the build if that field is empty — so that asset
+  is the single place the App ID lives.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.mtafasahin.blockioblast.admob">
+  <uses-permission android:name="com.google.android.gms.permission.AD_ID"/>
+</manifest>
