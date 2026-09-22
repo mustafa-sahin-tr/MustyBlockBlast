@@ -23,6 +23,14 @@ namespace MustyBlockBlast.Tests.EditMode
         [TestCase("line_v2", "line_h2")]
         [TestCase("corner2_missing_tr", "corner2_missing_br")]
         [TestCase("corner3_bl", "corner3_tl")]
+        [TestCase("l_up", "l_right")]
+        [TestCase("l_right", "l_down")]
+        [TestCase("l_down", "l_left")]
+        [TestCase("l_left", "l_up")]
+        [TestCase("j_up", "j_right")]
+        [TestCase("j_right", "j_down")]
+        [TestCase("j_down", "j_left")]
+        [TestCase("j_left", "j_up")]
         public void TryRotateClockwise_TurnsThePieceOntoTheExpectedCatalogEntry(string id, string expectedId)
         {
             Piece piece = Find(id);
@@ -63,6 +71,8 @@ namespace MustyBlockBlast.Tests.EditMode
         [TestCase("line_h4")]
         [TestCase("s_horizontal")]
         [TestCase("z_vertical")]
+        [TestCase("l_up")]
+        [TestCase("j_left")]
         public void TryRotateClockwise_FourTimes_ReturnsToTheOriginalPiece(string id)
         {
             Piece piece = Find(id);

@@ -137,7 +137,7 @@
   <div class="grid cols-3">
     <div class="card"><div class="chip accent">100</div><h3 style="margin-top:8px">Level</h3><p class="muted" style="margin:0">4 hedef tipi arasında dönen bir rotasyonla, hepsi standart 8×8 tahtada.</p></div>
     <div class="card"><div class="chip accent">27</div><h3 style="margin-top:8px">Parça şekli</h3><p class="muted" style="margin:0">1x1'den 3x3 kareye, tüm rotasyonlar dahil önceden tanımlı.</p></div>
-    <div class="card"><div class="chip accent">6+5</div><h3 style="margin-top:8px">Özel hücre / Power-up</h3><p class="muted" style="margin:0">6 özel hücre türü, 11 power-up/mağaza kalemi, 3 dock-injected özel parça.</p></div>
+    <div class="card"><div class="chip accent">7+5</div><h3 style="margin-top:8px">Özel hücre / Power-up</h3><p class="muted" style="margin:0">7 özel hücre türü, 11 power-up/mağaza kalemi, 3 dock-injected özel parça.</p></div>
   </div>
 </section>
 
@@ -222,7 +222,13 @@
       </ul>
       <p><strong>Etkisi:</strong> Board'a etkisi yok. Cüzdana <strong>5 coin</strong> öder (<code>CurrencyConfig.CoinCellPayout</code>), satır+sütunu aynı anda kapattıysa (<code>ClearAxis.Both</code>) <strong>10 coin</strong>'e çıkar. Run bitince ayakta kalan coin hücresi hiçbir şey ödemez.</p>
       <p class="muted">Kod: <code>CoinStreakTriggerSystem.cs</code> (SPAWN_STREAK=6), <code>LevelCoinCellSeedSystem.cs</code>, <code>CoinSpawnSelector.cs</code></p>
-      <p class="muted"><strong>Not:</strong> Coin, şu anda level içeriğiyle doğrudan besleyebildiğimiz <em>tek</em> özel hücre türü — diğer 5 tanesi sadece oyun içi tetikleyicilerle kazanılıyor.</p>
+      <p class="muted"><strong>Not:</strong> Coin ve Timer, level içeriğiyle doğrudan besleyebildiğimiz <em>tek iki</em> özel hücre türü — diğer 5 tanesi sadece oyun içi tetikleyicilerle kazanılıyor. Aralarındaki fark: Coin'in <em>hem</em> bir oyun içi tetikleyicisi (streak) <em>hem</em> level-authored kaynağı var, Timer ise <strong>sadece</strong> level-authored — hiçbir oyun içi tetikleyici Timer hücresi üretmiyor.</p>
+    </div>
+    <div class="card">
+      <h3>Timer Block (Zamanlayıcı Blok)</h3>
+      <p><strong>Nasıl oluşur:</strong> <strong>Sadece level-authored</strong> — <code>LevelObjectiveConfig._timerCells</code> (<code>TimerCellAuthoring</code>: konum + <strong>2-4</strong> arası başlangıç geri sayımı) run başında <code>LevelTimerCellSeeder</code> tarafından tahtaya yerleştirilir. Oyun içi hiçbir tetikleyici (streak, cross-clear, vb.) bu hücreyi üretmez — bugüne kadar hiçbir level bunu kullanmıyor (altyapı hazır, içerik henüz yazılmamış; bkz. Level'lar sekmesi).</p>
+      <p><strong>Etkisi:</strong> Saniyeye değil, tahtada <em>herhangi bir yerde</em> başarılı her parça yerleşimine bağlı: her yerleşimde geri sayımı 1 azalır (<code>TimerCellTick.Tick</code>). Sıfıra düşmeden sıradan yollarla (satır/sütun temizliği, power-up, başka bir özel hücrenin etkisi) yok edilirse hiçbir ekstra etkisi olmaz — sadece normal bir hücre gibi temizlenir. Geri sayım sıfıra <em>ulaşırken hâlâ ayaktaysa</em>, sessizce sıradan bir hücreye dönüşür (<code>SpecialCellKind.None</code>) — dolu/renkli blok kalır, sadece özelliğini kaybeder. <strong>Yol Modu'nda</strong> (<code>GameMode.Path</code>) bir sürenin dolmasına izin vermek run'ı <em>anında</em> kaybettirir (<code>GameOverReason.ObjectiveMissed</code>); <strong>Sonsuz/Süreli</strong> modlarda run devam eder, sadece o hücrenin <code>ObjectiveType.TimerCellsMeltedInTime</code> kredisi kaybedilir.</p>
+      <p class="muted">Kod: <code>TimerCellAuthoring.cs</code>, <code>LevelTimerCellSeeder.cs</code>, <code>TimerCellTick.cs</code>, <code>TimerCellClearEffect.cs</code>, <code>BoardSystem.TryPlacePiece</code></p>
     </div>
   </div>
 </section>

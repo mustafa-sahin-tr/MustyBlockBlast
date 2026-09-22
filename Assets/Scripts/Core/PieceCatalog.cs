@@ -37,6 +37,7 @@ namespace MustyBlockBlast.Core
             pieces.AddRange(Corners2X2());
             pieces.AddRange(Corners3X3());
             pieces.AddRange(Tetrominoes());
+            pieces.AddRange(LJTetrominoes());
             return pieces.ToArray();
         }
 
@@ -138,6 +139,48 @@ namespace MustyBlockBlast.Core
             yield return new Piece("z_vertical", new[]
             {
                 new GridPosition(0, 1), new GridPosition(0, 2), new GridPosition(1, 0), new GridPosition(1, 1),
+            });
+        }
+
+        /// <summary>4-cell L and its mirror J: a 3-long arm and a 1-long arm meeting at a corner
+        /// (unlike <see cref="Corners2X2"/>'s symmetric 1+1 and <see cref="Corners3X3"/>'s symmetric
+        /// 2+2). Named, like the T-tetrominoes, by the compass direction the short "foot" arm points —
+        /// which is also the order 90-degree rotation visits them in (up, right, down, left), keeping
+        /// the catalog closed under rotation the same way <see cref="Tetrominoes"/> is.</summary>
+        private static IEnumerable<Piece> LJTetrominoes()
+        {
+            yield return new Piece("l_up", new[]
+            {
+                new GridPosition(0, 0), new GridPosition(1, 0), new GridPosition(2, 0), new GridPosition(0, 1),
+            });
+            yield return new Piece("l_right", new[]
+            {
+                new GridPosition(0, 0), new GridPosition(0, 1), new GridPosition(0, 2), new GridPosition(1, 2),
+            });
+            yield return new Piece("l_down", new[]
+            {
+                new GridPosition(0, 1), new GridPosition(1, 1), new GridPosition(2, 1), new GridPosition(2, 0),
+            });
+            yield return new Piece("l_left", new[]
+            {
+                new GridPosition(0, 0), new GridPosition(1, 0), new GridPosition(1, 1), new GridPosition(1, 2),
+            });
+
+            yield return new Piece("j_up", new[]
+            {
+                new GridPosition(0, 0), new GridPosition(1, 0), new GridPosition(2, 0), new GridPosition(2, 1),
+            });
+            yield return new Piece("j_right", new[]
+            {
+                new GridPosition(0, 0), new GridPosition(0, 1), new GridPosition(0, 2), new GridPosition(1, 0),
+            });
+            yield return new Piece("j_down", new[]
+            {
+                new GridPosition(0, 0), new GridPosition(0, 1), new GridPosition(1, 1), new GridPosition(2, 1),
+            });
+            yield return new Piece("j_left", new[]
+            {
+                new GridPosition(1, 0), new GridPosition(1, 1), new GridPosition(1, 2), new GridPosition(0, 2),
             });
         }
 
