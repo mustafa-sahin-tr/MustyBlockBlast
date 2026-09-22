@@ -295,6 +295,18 @@ clearing and scoring are unchanged. Only the "run ends" condition gains a second
   draw), and runs down to zero. It does **not** reset on a tray refill and it does not reset when
   a piece is placed. The whole match shares one clock, so the length measures "how much can you
   score in five minutes", not "clear the tray in time".
+- **Clearing a line extends the clock.** Every row or column a placement clears adds **+5
+  seconds** to the remaining time, flat: a placement that clears N lines at once adds 5×N
+  seconds (two lines = +10 s, three = +15 s). The count is by line, not by cell — a cell at a
+  row/column intersection is part of two lines and the placement is credited for both. The rate
+  is the same for every round length (3 / 5 / 10 minutes) and there is **no cap**, per clear or
+  per run: a skilled run can keep extending itself indefinitely, which is intended. Only a
+  placement's own clears count; power-ups are disabled in this mode, so there is no other source
+  of clears to exclude. A placement that clears nothing leaves the clock exactly as it was. The
+  HUD acknowledges each extension with a brief "+5 sn"-style flash beside the clock, and a
+  clear that lifts the remaining time back above 10 seconds drops the low-time warning colour
+  immediately. Neither a tray refill nor a reroll ever touches the clock — line clears are the
+  only way to gain time.
 - Reaching 0 ends the run immediately with the score as it stands, through the same game-over
   path as running out of moves. There is exactly one end-of-run state; time is just another way
   to reach it. Running out of valid moves can still end the run earlier, unchanged.
@@ -418,9 +430,10 @@ is never an armed selection. Its other distinguishing rules:
   combo streak — exactly as Rotate.
 - Because it changes which shapes the player holds, the no-moves-left check is re-run after it,
   again exactly as Rotate.
-- It is **not** a tray refill. In Timed mode a refill restarts the countdown from full, which is
-  earned by playing the whole dock out; a reroll is a discard, and granting it the same reset
-  would make it a time power-up as well as a piece one.
+- It is **not** a tray refill, and in Timed mode it has no effect on the clock — but then neither
+  does a refill: the match clock never resets or gains time from the tray at all (see "Timed
+  mode"). The only way to gain time is to clear lines, and a reroll touches no cell, so it earns
+  none; granting it seconds would make it a time power-up as well as a piece one.
 - A drag in flight is cancelled the moment its slot is rewritten, so no drag can drop a piece the
   tray no longer offers.
 

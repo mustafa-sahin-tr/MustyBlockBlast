@@ -175,6 +175,10 @@ namespace MustyBlockBlast.Presentation
             // on an accepted rescue; TimerRunSystem releases the clock on it. The end-of-run card and
             // the strip will listen too once #371 wires the offer's UI.
             builder.RegisterMessageBroker<RunRescuedMessage>(options);
+
+            // Timed mode's "a line clear gave the clock seconds back" (issue #319): TimerRunSystem
+            // publishes it after extending the countdown; TimerHudView flashes the "+Ns" on it.
+            builder.RegisterMessageBroker<TimeExtendedMessage>(options);
             builder.RegisterMessageBroker<PlaySfxRequestedMessage>(options);
             builder.RegisterMessageBroker<PlayMusicRequestedMessage>(options);
             builder.RegisterMessageBroker<StopMusicRequestedMessage>(options);
