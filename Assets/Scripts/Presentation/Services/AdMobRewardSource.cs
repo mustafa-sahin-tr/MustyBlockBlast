@@ -55,22 +55,23 @@ namespace MustyBlockBlast.Presentation.Services
     public sealed class AdMobRewardSource : IRewardSource, ICoinRewardSource, IRescueRewardSource
     {
         // ------------------------------------------------------------------------------------------
-        // PLACEHOLDER: GOOGLE'S PUBLIC TEST AD UNIT ID.
-        //
-        // This is Google's documented, always-filling rewarded test unit for Android. Every ad it
-        // serves is stamped "Test Ad" and earns nothing. It MUST be replaced with the real rewarded ad
-        // unit id from the developer's own AdMob account before release, and the matching AdMob App ID
-        // MUST be entered in Assets > Google Mobile Ads > Settings... (Android field), which is where
-        // the SDK reads it from when it writes the Android manifest at build time. The App ID currently
-        // in that asset is likewise Google's public test App ID (ca-app-pub-3940256099942544~3347511713).
-        //
-        // Using a real unit id here with the test App ID there — or the reverse — is a policy violation
-        // on Google's side, so swap both together. Test ids: https://developers.google.com/admob/unity/test-ads
+        // Google's public test rewarded unit — always fills, every ad is stamped "Test Ad" and earns
+        // nothing. Kept only as a fallback for the Editor/EditMode-adjacent build configs this class
+        // never actually runs under (see GameLifetimeScope's #if) and as a quick manual revert if the
+        // real unit below ever needs pulling. Test ids: https://developers.google.com/admob/unity/test-ads
         // ------------------------------------------------------------------------------------------
         private const string TEST_ANDROID_REWARDED_AD_UNIT_ID = "ca-app-pub-3940256099942544/5224354917";
 
-        /// <summary>The unit every request loads. Points at the test id until a real one exists.</summary>
-        private const string REWARDED_AD_UNIT_ID = TEST_ANDROID_REWARDED_AD_UNIT_ID;
+        // ------------------------------------------------------------------------------------------
+        // Real rewarded unit from the developer's own AdMob account (app "Blockio Blast: Time Rush").
+        // Matches the AdMob App ID entered in Assets > Google Mobile Ads > Settings... (Android field:
+        // ca-app-pub-8909172296809126~5406503750) — the two must always be swapped together, since a
+        // real unit id paired with a test App ID (or the reverse) is a policy violation on Google's side.
+        // ------------------------------------------------------------------------------------------
+        private const string LIVE_ANDROID_REWARDED_AD_UNIT_ID = "ca-app-pub-8909172296809126/7402111707";
+
+        /// <summary>The unit every request loads.</summary>
+        private const string REWARDED_AD_UNIT_ID = LIVE_ANDROID_REWARDED_AD_UNIT_ID;
 
         /// <summary>
         /// How long consent lookup, SDK initialisation and an ad load are each allowed before they count
