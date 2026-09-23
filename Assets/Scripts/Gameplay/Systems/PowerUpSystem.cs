@@ -782,9 +782,23 @@ namespace MustyBlockBlast.Gameplay.Systems
             return true;
         }
 
-        /// <summary>Asks <see cref="IRewardSource"/> for one <paramref name="kind"/> and banks it if
-        /// granted. Returns whether it was granted; a refusal leaves the inventory untouched.</summary>
-        public async UniTask<bool> GrantRewardAsync(PowerUpKind kind, CancellationToken cancellationToken)
+        /// <summary>
+        /// Asks <see cref="IRewardSource"/> for <paramref name="kind"/> and banks <paramref name="quantity"/>
+        /// of it if granted. Returns whether it was granted; a refusal leaves the inventory untouched.
+        /// <para>
+        /// One ad, one ask, <paramref name="quantity"/> units: the source is consulted once however many
+        /// units the ad is worth, so a kind that pays two per ad (<see cref="PowerUpKind.CoinSower"/>,
+        /// issue #404) costs the player one watch, not two. Defaults to one so every existing caller keeps
+        /// earning exactly what it did.
+        /// </para>
+        /// <para>
+        /// Loops rather than adding in one step, for the reason <see cref="GrantPurchased"/> loops: a
+        /// grant of two publishes two <see cref="PowerUpGrantedMessage"/>s with the running count in each,
+        /// so anything counting grants sees two because two were granted.
+        /// </para>
+        /// </summary>
+        public async UniTask<bool> GrantRewardAsync(
+            PowerUpKind kind, CancellationToken cancellationToken, int quantity = 1)
         {
             RewardResult result = await _rewardSource.RequestRewardAsync(kind, cancellationToken);
             if (!result.Granted)
@@ -792,7 +806,11 @@ namespace MustyBlockBlast.Gameplay.Systems
                 return false;
             }
 
-            Grant(result.Kind);
+            for (int grantIndex = 0; grantIndex < quantity; grantIndex++)
+            {
+                Grant(result.Kind);
+            }
+
             return true;
         }
 
@@ -842,14 +860,20 @@ namespace MustyBlockBlast.Gameplay.Systems
         }
 
         /// <summary>
-        /// Spends <paramref name="quantity"/> Coin Sower units in one go — the whole interface of a kind
-        /// that has no armed-and-aimed lifecycle. Returns whether it was spent; a refusal leaves the
-        /// inventory exactly as it found it.
+        /// Spends <paramref name="quantity"/> banked Coin Sower charges in one go — the whole spending
+        /// interface of a kind that has no armed-and-aimed lifecycle. Returns whether it was spent; a
+        /// refusal leaves the inventory exactly as it found it.
+        /// <para>
+        /// The charges arrive through the same seam <see cref="PowerUpKind.Hold"/>'s do —
+        /// <see cref="GrantRewardAsync"/>, two per ad (issue #404) — and sit in the persisted inventory
+        /// until the level-start picker asks for several of them at once. The kind differs from Hold only
+        /// in how it leaves: in bulk here, rather than one at a time mid-run.
+        /// </para>
         /// <para>
         /// Checked in full before a single decrement, rather than decrementing until it runs dry. This is
         /// the one spend that asks for several at once, so "not enough held" is a real answer here where
         /// for every other kind it is a one-unit peek — and discovering the shortfall half way through
-        /// would leave the player having paid for cells that were never sown. Atomic or nothing.
+        /// would leave the player with cells sown for charges that were never there. Atomic or nothing.
         /// </para>
         /// <para>
         /// Then a loop over the same single-unit <see cref="TrySpend"/> the other kinds use, mirroring
@@ -859,10 +883,8 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// </para>
         /// <para>
         /// Does not check the level gate, for the reason <see cref="GrantPurchased"/> does not: the
-        /// caller has already been charged coins for these units through
-        /// <see cref="CurrencySystem.TryPurchasePowerUp"/>, which checks the gate at the public
-        /// <see cref="PowerUpUnlockLevels.IsUnlockedAt"/> seam before a single coin moves. A refusal here
-        /// could not be honoured anyway.
+        /// picker reads the gate at the public <see cref="PowerUpUnlockLevels.IsUnlockedAt"/> seam and
+        /// offers nothing below it. Checking again here would put the same gate in two places.
         /// </para>
         /// </summary>
         public bool TrySpendCoinSowerBulk(int quantity)

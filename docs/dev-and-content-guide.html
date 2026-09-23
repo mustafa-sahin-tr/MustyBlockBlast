@@ -245,7 +245,7 @@
 <section class="tab" id="tab-powerups">
   <div class="card">
     <h2>Power-Up'lar</h2>
-    <p>9 mağazadan satın alınabilir power-up + Coin Sower (level-başı ekranından) + Hold (sadece reklamla kazanılır, satılmaz) = <strong>11 kalem</strong>. Ayrıca 3 tane <em>satın alınamayan</em>, sadece oyun durumuyla dock'a enjekte edilen özel parça var (Demolition Hammer, Golden 1×1, Piercing Rocket) — aşağıda ayrıca anlatıldı.</p>
+    <p>9 mağazadan satın alınabilir power-up + Coin Sower (sadece reklamla kazanılır, reklam başına 2 şarj; level-başı ekranından toplu harcanır) + Hold (sadece reklamla kazanılır, satılmaz) = <strong>11 kalem</strong>. Ayrıca 3 tane <em>satın alınamayan</em>, sadece oyun durumuyla dock'a enjekte edilen özel parça var (Demolition Hammer, Golden 1×1, Piercing Rocket) — aşağıda ayrıca anlatıldı.</p>
   </div>
 
   <div class="card">
@@ -262,7 +262,7 @@
         <tr><td><strong>Reroll</strong></td><td>Dock'taki 3 parçayı atar, en az 1 geçerli yerleşimi garanti eden 3 yeni parça çeker</td><td>—</td><td>75</td><td>20</td><td>Şeritten dokunma = anında uygulanır</td></tr>
         <tr><td><strong>Double Multiplier</strong></td><td>Belirli bir süre boyunca tüm skor kazanımlarını ×2 yapar</td><td>—</td><td>200</td><td>25</td><td>Şeritten dokunma = anında uygulanır</td></tr>
         <tr><td><strong>Ghost Fit</strong></td><td>En iyi hamleyi siluet + dock vurgusuyla önerir; hiçbir şeyi değiştirmez</td><td>—</td><td>25</td><td>30</td><td>Şeritten dokunma = anında uygulanır/aç-kapa</td></tr>
-        <tr><td><strong>Coin Sower</strong></td><td>Run başlamadan önce board'a ekstra Coin hücresi boyar</td><td>N hücre (alıcı seçer, max 5)</td><td>60/adet</td><td>35</td><td>Sadece level-başı ekranı — asla şeritte değil</td></tr>
+        <tr><td><strong>Coin Sower</strong></td><td>Run başlamadan önce board'a ekstra Coin hücresi boyar</td><td>N hücre (oyuncu seçer, max 5)</td><td>Mağazada satılmıyor — sadece reklamla kazanılır (reklam başına 2 şarj)</td><td>35</td><td>Sadece level-başı ekranı — birikmiş şarjlar toplu harcanır; asla şeritte değil</td></tr>
         <tr><td><strong>Hold</strong></td><td>Dock parçasını cebe park eder (doluysa parçayı değiştirir)</td><td>— (sadece dock)</td><td>Mağazada satılmıyor — sadece reklamla kazanılır</td><td>0 (baştan açık)</td><td>Dock parçasını cebe sürükle</td></tr>
       </tbody>
     </table>
@@ -420,7 +420,7 @@
   <div class="grid cols-3">
     <div class="card">
       <h3 style="margin-top:0">1 · Power-Ups</h3>
-      <p>Her <code>PowerUpKind</code> için bir kart (Coin Sower hariç — o level-başı ekranından satılıyor): ikon, isim, açıklama, sahip olunan adet rozeti, BUY butonu. Satın alma sonucu: Başarılı / Kilitli (açılış level'ına ulaşılmamış) / Yetersiz coin. Fiyatlar Power-Up'lar sekmesindeki tabloyla aynı.</p>
+      <p>Her <code>PowerUpKind</code> için bir kart (Coin Sower ve Hold hariç — ikisi de sadece reklamla kazanılır; Coin Sower şarjları level-başı ekranından harcanır): ikon, isim, açıklama, sahip olunan adet rozeti, BUY butonu. Satın alma sonucu: Başarılı / Kilitli (açılış level'ına ulaşılmamış) / Yetersiz coin. Fiyatlar Power-Up'lar sekmesindeki tabloyla aynı.</p>
     </div>
     <div class="card">
       <h3 style="margin-top:0">2 · Coins</h3>

@@ -403,10 +403,10 @@ a late-unlocking kind can be the cheapest row in the shop:
 
 The price never opens the gate: a locked kind is refused by the shop at any price, and a
 promotion (see `PromotionConfig`) only ever discounts these figures — it cannot make a locked
-kind buyable either. Coin Sower is sold separately, by the coin cell, from the level-start
-picker rather than from this shop. **Hold is the existing example of a power-up that is not
-coin-purchasable at all:** it has no shop row and no price, and is earned only through
-rewarded ads (see "Hold slot (pocket)").
+kind buyable either. **Two power-ups are not coin-purchasable at all:** Hold and Coin Sower
+have no shop row and no price, and are earned only through rewarded ads. Hold's charges are
+spent mid-run, one at a time (see "Hold slot (pocket)"); Coin Sower's are earned the same way
+but spent in bulk at its own level-start picker (see "Coin Sower charges").
 
 The first three force-clear their region whether or not it is full. The joker is the
 exception: it adds a cell rather than removing any, and clears only on the condition a
@@ -527,7 +527,8 @@ board.
 
 Hold is also the one power-up with **no coin price**: it has no row in the Power-up Shop (see
 "Shop prices") and cannot be bought with coins at all. A rewarded ad is the only way to earn
-a charge. It is the standing example of an ad-only power-up.
+a charge. It is one of two ad-only power-ups — Coin Sower shares its earn seam but spends
+differently; see "Coin Sower charges" below.
 
 A single extra slot sits beside the tray. The player drags a tray piece onto it to **park**
 that piece. **Every park costs one charge**, whether the pocket was empty or not; with no
@@ -563,6 +564,19 @@ The parked piece counts for the game-over check **only while a charge is left to
 out with**. With one in hand, a board that only the parked piece fits is not a dead end. With
 none, the parked piece is stuck and is not a move the player can make, so the same board *is*
 a dead end — the run ends rather than sitting alive with nothing to do.
+
+## Coin Sower charges
+
+Coin Sower is the other ad-only power-up. Its charges are earned through the same rewarded-ad
+seam as Hold's (`IRewardSource` / `PowerUpSystem.GrantRewardAsync`), except that **one ad
+banks two charges** rather than one, and they are kept as a persisted charge count across runs
+exactly as Hold's are. Where Hold spends mid-run, one charge per park, Coin Sower charges are
+spent **in bulk at the level-start picker**: tapping a level node opens a card that lets the
+player choose how many banked charges to sow into the level about to start, one extra coin
+cell per charge, up to a configured ceiling (five). The card carries a "watch ad" button of its
+own, so a player short of charges can top up right there before committing. Sowing costs
+banked charges and nothing else — no coins ever move, and choosing zero simply starts the
+level.
 
 ## Earning undo and power-ups
 
