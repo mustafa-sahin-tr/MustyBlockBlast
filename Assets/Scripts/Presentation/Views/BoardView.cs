@@ -435,6 +435,17 @@ namespace MustyBlockBlast.Presentation.Views
         /// full redraw. Drives <see cref="CellView.SetIceOverlay"/>.</summary>
         private int[] _cellIceLevels;
 
+        /// <summary>Layers each locked cell (issue #434) still shows — its threshold minus the distinct
+        /// neighbours already counted — parallel to the bookkeeping above. 0 for every cell that is not
+        /// locked, which is every cell on a board no level locked. Written only from the model's own
+        /// <see cref="BoardModel.LockedCellChanged"/> or a full redraw; drives
+        /// <see cref="CellView.SetLockedOverlay"/> together with <see cref="_cellLockedSkins"/>.</summary>
+        private int[] _cellLockedStages;
+
+        /// <summary>Which skin each locked cell wears, parallel to <see cref="_cellLockedStages"/> and
+        /// meaningless where that reads 0.</summary>
+        private int[] _cellLockedSkins;
+
         /// <summary>Placements left before each <see cref="SpecialCellKind.Timer"/> cell converts to an
         /// ordinary one, parallel to the bookkeeping above. 0 for every cell that is not a timer cell —
         /// drives the countdown number in <see cref="ApplyTimerCountdown"/> (issue #307 AC6a).</summary>
@@ -641,6 +652,7 @@ namespace MustyBlockBlast.Presentation.Views
             _boardModel.TimerCountdownChanged += OnTimerCountdownChanged;
             _boardModel.TimerCellExpired += OnTimerCellExpired;
             _boardModel.TargetIceLevelChanged += OnTargetIceLevelChanged;
+            _boardModel.LockedCellChanged += OnLockedCellChanged;
             _linesClearedSubscriber.Subscribe(OnLinesCleared).AddTo(_disposables);
             _runStartedSubscriber.Subscribe(OnRunStarted).AddTo(_disposables);
             _powerUpAppliedSubscriber.Subscribe(OnPowerUpApplied).AddTo(_disposables);
@@ -722,6 +734,7 @@ namespace MustyBlockBlast.Presentation.Views
                 _boardModel.TimerCountdownChanged -= OnTimerCountdownChanged;
                 _boardModel.TimerCellExpired -= OnTimerCellExpired;
                 _boardModel.TargetIceLevelChanged -= OnTargetIceLevelChanged;
+                _boardModel.LockedCellChanged -= OnLockedCellChanged;
             }
         }
 
@@ -1105,6 +1118,8 @@ namespace MustyBlockBlast.Presentation.Views
             _cellSpecialKinds = new SpecialCellKind[cellCount];
             _cellHitCounts = new int[cellCount];
             _cellIceLevels = new int[cellCount];
+            _cellLockedStages = new int[cellCount];
+            _cellLockedSkins = new int[cellCount];
             _cellTimerCountdowns = new int[cellCount];
             _cellDiamondColourIds = new int[cellCount];
             _glowActiveMask = new bool[cellCount];
@@ -1197,9 +1212,30 @@ namespace MustyBlockBlast.Presentation.Views
                     _cellIceLevels[index] = _boardModel.GetIceLevel(cell);
                     _cells[index].SetIceOverlay(_cellIceLevels[index], MAX_ICE_LEVEL);
 
+                    // Re-derived from the model for the same reason: a level's locked cells are seeded
+                    // before the first repaint ever runs (issue #434).
+                    ReadLockedState(cell, out _cellLockedStages[index], out _cellLockedSkins[index]);
+                    _cells[index].SetLockedOverlay(_cellLockedSkins[index], _cellLockedStages[index]);
+
                     _cells[index].SetAlpha(1f);
                 }
             }
+        }
+
+        /// <summary>The View-relevant lock state of <paramref name="cell"/>, read back off the model:
+        /// how many layers its skin still shows (0 when not locked) and which skin.</summary>
+        private void ReadLockedState(GridPosition cell, out int stagesRemaining, out int skin)
+        {
+            if (!_boardModel.IsLocked(cell))
+            {
+                stagesRemaining = 0;
+                skin = 0;
+                return;
+            }
+
+            stagesRemaining = Mathf.Max(
+                1, _boardModel.GetLockedThreshold(cell) - _boardModel.GetLockedProgressCount(cell));
+            skin = _boardModel.GetLockedSkin(cell);
         }
 
         private void OnCellChanged(GridPosition cell, int colourId)
@@ -1293,6 +1329,54 @@ namespace MustyBlockBlast.Presentation.Views
 
             _cellIceLevels[index] = iceLevel;
             _cells[index].SetIceOverlay(iceLevel, MAX_ICE_LEVEL);
+        }
+
+        /// <summary>
+        /// A locked cell's state may have changed (issue #434): freshly seeded, one more distinct
+        /// neighbour counted (same block, one layer fewer on its skin), or unlocked. Idempotent — the
+        /// model re-announces every position after each resolution, so an unchanged cell returns early.
+        /// <para>
+        /// An unlock is the one case that repaints more than the overlay. The cell went EMPTY inside
+        /// <c>Board.TryDamage</c> as a neighbour of a destroyed cell, never as part of a cleared line, so
+        /// no <see cref="OnCellChanged"/> fade was ever started for it — and none should be: an unlock is
+        /// a pure state change, not a destruction (AC8), so the cell simply snaps to its ordinary empty
+        /// look, read back off the model. A cell that IS mid-fade (a lock a Bomb destroyed outright,
+        /// announced through <see cref="OnCellChanged"/> a moment earlier) keeps its fade; only the
+        /// overlay is dropped.
+        /// </para>
+        /// </summary>
+        private void OnLockedCellChanged(GridPosition cell)
+        {
+            int index = CellIndex(cell);
+            ReadLockedState(cell, out int stagesRemaining, out int skin);
+            if (_cellLockedStages[index] == stagesRemaining && _cellLockedSkins[index] == skin)
+            {
+                return;
+            }
+
+            bool unlocked = _cellLockedStages[index] > 0 && stagesRemaining == 0;
+            _cellLockedStages[index] = stagesRemaining;
+            _cellLockedSkins[index] = skin;
+            _cells[index].SetLockedOverlay(skin, stagesRemaining);
+
+            if (!unlocked || _cellPending[index])
+            {
+                return;
+            }
+
+            _cellGenerations[index]++;
+            _cellColourIds[index] = _boardModel.GetCell(cell);
+            _cellHitCounts[index] = _boardModel.GetHitCount(cell);
+            ApplyCellColour(cell, _cellColourIds[index]);
+
+            _cellSpecialKinds[index] = _boardModel.GetSpecialKind(cell);
+            _cellDiamondColourIds[index] = _boardModel.GetDiamondColourId(cell);
+            ApplyCellIcon(index, _cellSpecialKinds[index]);
+
+            _cellTimerCountdowns[index] = _boardModel.GetTimerCountdown(cell);
+            ApplyTimerCountdown(index, _cellSpecialKinds[index], _cellTimerCountdowns[index]);
+
+            _cells[index].SetAlpha(1f);
         }
 
         /// <summary>A timer cell survived a placement and ticked down by one (issue #307 AC6a). Only the
@@ -2850,7 +2934,10 @@ namespace MustyBlockBlast.Presentation.Views
         {
             CellView cell = _cells[index];
 
-            if (kind == SpecialCellKind.None)
+            // A locked cell (issue #434) wears its skin overlay and nothing else: no starburst, no glow
+            // pulse — its "special" look is the whole plate, driven by OnLockedCellChanged, not a mark
+            // on top of it. So it takes the no-icon path exactly as an ordinary cell does.
+            if (kind == SpecialCellKind.None || kind == SpecialCellKind.Locked)
             {
                 cell.ClearSpecialIcon();
                 cell.ClearSpecialGlow();

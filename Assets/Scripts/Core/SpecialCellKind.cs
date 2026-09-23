@@ -160,5 +160,37 @@ namespace MustyBlockBlast.Core
         /// </para>
         /// </summary>
         Diamond = 8,
+
+        /// <summary>
+        /// A "locked cell" ("Kilitli Hücre", issue #434): a level-authored obstacle that starts a run
+        /// pre-occupied and is unlocked <em>indirectly</em> — not by anything happening to it, but by a
+        /// required number of its DISTINCT 4-orthogonal neighbours each being destroyed at least once.
+        /// The one kind whose whole mechanic is about the cells around it rather than the cell itself.
+        /// <para>
+        /// While locked it is hole-like to the line-clear rule: <see cref="Board.IsRowFull"/>,
+        /// <see cref="Board.IsColumnFull"/>, their one-cell-from-full siblings and
+        /// <see cref="Board.CollectRowCells"/>/<see cref="Board.CollectColumnCells"/> all skip it (AC7),
+        /// so a row through it can still complete and the completed line never lists the lock among its
+        /// destroyed cells. It stays <em>occupied</em> to everything else — which is exactly what keeps
+        /// <see cref="PlacementRules.CanPlace"/> refusing it with no guard of its own (AC1).
+        /// </para>
+        /// <para>
+        /// Progress is a 4-bit mask (one bit per direction, see <see cref="Board.GetLockedProgressMask"/>),
+        /// never a counter: the same neighbour cleared five times counts once (AC4). Set in exactly one
+        /// place — the removal branch of <see cref="Board.TryDamage"/> fans out to the destroyed cell's
+        /// neighbours — so every destruction path (line, cascade, power-up, joker, hammer) counts alike.
+        /// On reaching the authored threshold (1-3, <c>LockedCellAuthoring</c>) the cell becomes an
+        /// ordinary EMPTY cell: no removal effect, no score, no coin (AC6/AC8). There is deliberately no
+        /// <see cref="ISpecialCellEffect"/> for it; a lock that a Bomb or hammer happens to destroy
+        /// outright is just a destroyed cell.
+        /// </para>
+        /// <para>
+        /// The mask, the threshold and the randomly assigned visual skin are stored in their own per-cell
+        /// arrays on <see cref="Board"/>, reset by <see cref="Board.Clear"/> (they belong to the block,
+        /// unlike ice) and copied by <see cref="Board.Clone"/>/<see cref="Board.CopyFrom"/> for Undo (AC10).
+        /// Level-authored only (<c>LockedCellAuthoring</c>/<c>LevelLockedCellSeeder</c>).
+        /// </para>
+        /// </summary>
+        Locked = 9,
     }
 }

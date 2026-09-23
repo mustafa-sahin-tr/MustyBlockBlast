@@ -27,8 +27,11 @@ namespace MustyBlockBlast.Core
     {
         /// <summary>
         /// Spends one hit on every candidate from <paramref name="startIndex"/> onwards that has more
-        /// than one left, drops it from <paramref name="candidates"/>, and leaves the list holding
-        /// exactly the cells <see cref="RemoveAll"/> will go on to remove.
+        /// than one left — or that is a <see cref="SpecialCellKind.Locked"/> cell this hit will only
+        /// open one level of, not all the way (issue #434) — drops it from <paramref name="candidates"/>,
+        /// and leaves the list holding exactly the cells <see cref="RemoveAll"/> will go on to remove.
+        /// The peek mirrors <see cref="Board.TryDamage"/>'s own decision exactly; the two must agree, or
+        /// a cell would be reported destroyed and then survive.
         /// <para>
         /// Returns how many of the surviving entries were reinforced cells taking their last hit, as
         /// opposed to ordinary cells that were never reinforced — the count issue #154's
@@ -52,6 +55,17 @@ namespace MustyBlockBlast.Core
                 {
                     // Spends the hit now, while the caller's "what did I destroy" list is still being
                     // settled — the cell stays occupied and is not a destroyed cell by any measure.
+                    board.TryDamage(position);
+                    continue;
+                }
+
+                if (board.IsLocked(position)
+                    && board.GetLockedProgressCount(position) + 1 < board.GetLockedThreshold(position))
+                {
+                    // The same rule for a lock hit directly (issue #434, product decision): a hit that
+                    // only opens one level is absorbed now and the lock stays standing, invisible to the
+                    // caller's score, count and trigger bookkeeping. A lock this hit WILL open is kept —
+                    // RemoveAll's TryDamage opens and removes it, a destroyed cell like any other.
                     board.TryDamage(position);
                     continue;
                 }
