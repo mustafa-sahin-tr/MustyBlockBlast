@@ -177,9 +177,16 @@ namespace MustyBlockBlast.Presentation.Views
         private static readonly Color ColorCleanserBeamTint = new Color(1f, 0.48f, 0.94f, 1f);
 
         /// <summary>Colour the special-cell icon is drawn in. Fixed rather than themed: it is a
-        /// readability mark, not decoration, and a warm near-white reads on every theme's block fills
-        /// without each theme having to author (and keep legible) a colour for it.</summary>
-        private static readonly Color SpecialIconTint = new Color(1f, 0.95f, 0.72f, 1f);
+        /// readability mark, not decoration.
+        /// <para>
+        /// Issue #421: the original (1, 0.95, 0.72) sat at ~86% HSL lightness — nearly white, which read
+        /// as pale/washed-out regardless of the block underneath (it was never undersaturated; HSL
+        /// already reported S=1). Vortex/Coin/Explosive Core, which read clearly, sit at 41–54%
+        /// lightness, so this value is the same hue pulled down into that band (target L=0.5, blended
+        /// 82% toward it) with a small saturation bump — "vivid tint" rather than "brighter".
+        /// </para>
+        /// </summary>
+        private static readonly Color SpecialIconTint = new Color(1f, 0.8446f, 0.1296f, 1f);
 
         /// <summary>
         /// Colour a <see cref="SpecialCellKind.ScoreGem"/>'s icon is drawn in. Fixed and unthemed for
@@ -192,8 +199,10 @@ namespace MustyBlockBlast.Presentation.Views
         /// every icon is what keeps an icon on any number of cells batching with the rest of the board,
         /// so the kinds are separated by tint rather than by a second texture.
         /// </para>
+        /// Retuned for issue #421 the same way as <see cref="SpecialIconTint"/> — pulled from ~72% HSL
+        /// lightness down to the ~50% band Vortex/Coin/Explosive Core already read clearly at.
         /// </summary>
-        private static readonly Color ScoreGemIconTint = new Color(0.44f, 1f, 0.72f, 1f);
+        private static readonly Color ScoreGemIconTint = new Color(0.0792f, 1f, 0.5396f, 1f);
 
         /// <summary>
         /// Colour a <see cref="SpecialCellKind.Vortex"/>'s glow halo is drawn in (see
@@ -219,8 +228,10 @@ namespace MustyBlockBlast.Presentation.Views
         /// sprite for every icon is what keeps an icon on any number of cells batching with the rest of
         /// the board, so the kinds are separated by tint rather than by a second texture.
         /// </para>
+        /// Retuned for issue #421 the same way as <see cref="SpecialIconTint"/> — pulled from ~64% HSL
+        /// lightness down to the ~50% band Vortex/Coin/Explosive Core already read clearly at.
         /// </summary>
-        private static readonly Color ChainLightningIconTint = new Color(1f, 0.85f, 0.29f, 1f);
+        private static readonly Color ChainLightningIconTint = new Color(1f, 0.7998f, 0.0522f, 1f);
 
         /// <summary>
         /// Colour a <see cref="SpecialCellKind.Coin"/>'s glow halo is drawn in (see
@@ -261,14 +272,21 @@ namespace MustyBlockBlast.Presentation.Views
         /// a separate near-white rim-light on the icon itself, neither of which a single luminance number
         /// captures.
         /// </para>
+        /// <para>
+        /// Issue #421 lowered this from 0.6 to 0.5 (and raised <see cref="GLOW_BASE_ALPHA"/>) as part of
+        /// "vivid tint, stronger glow": keeping more of the source hue and more alpha makes the halo read
+        /// as an emissive backing rather than a soft white smudge, closer to how Vortex/Coin/Explosive
+        /// Core's own saturated art already reads.
+        /// </para>
         /// </summary>
-        private const float GLOW_TINT_WHITEN = 0.6f;
+        private const float GLOW_TINT_WHITEN = 0.5f;
 
         /// <summary>The glow halo's resting alpha at rest (before the per-frame pulse in
         /// <see cref="Update"/> multiplies it) — bright enough to lift a special cell's contrast on every
         /// theme fill (AC3) while staying inside the halo's own soft falloff rather than reading as a
-        /// solid disc (AC4's "stays subtle").</summary>
-        private const float GLOW_BASE_ALPHA = 0.68f;
+        /// solid disc (AC4's "stays subtle"). Raised from 0.68 for issue #421 — see
+        /// <see cref="GLOW_TINT_WHITEN"/>'s remarks.</summary>
+        private const float GLOW_BASE_ALPHA = 0.8f;
 
         /// <summary>The glow pulse's alpha multiplier range (issue #365 AC4): never fully off, so the
         /// halo does not flicker out every cycle, and never brighter than its resting alpha, so the pulse
@@ -632,7 +650,9 @@ namespace MustyBlockBlast.Presentation.Views
         /// glowing cell, rather than polling all 64 cells: <see cref="_activeGlowCells"/> is maintained
         /// incrementally by <see cref="ApplyCellIcon"/> and holds nothing but cells whose kind is not
         /// <see cref="SpecialCellKind.None"/>. Allocates nothing — the list's <c>Count</c> and indexer
-        /// do not allocate, and <see cref="CellView.SetGlowPulse"/> only writes one float.
+        /// do not allocate, <see cref="CellView.SetGlowPulse"/> only writes one float, and so does
+        /// <see cref="CellView.SetIconShine"/> (issue #421's icon shine, added on the same wave rather
+        /// than a second timer, so it breathes in lockstep with the glow instead of drifting against it).
         /// </summary>
         private void Update()
         {
@@ -648,7 +668,9 @@ namespace MustyBlockBlast.Presentation.Views
 
             for (int glowIndex = 0; glowIndex < glowingCount; glowIndex++)
             {
-                _activeGlowCells[glowIndex].SetGlowPulse(multiplier);
+                CellView cell = _activeGlowCells[glowIndex];
+                cell.SetGlowPulse(multiplier);
+                cell.SetIconShine(wave);
             }
         }
 

@@ -69,6 +69,12 @@ namespace MustyBlockBlast.Presentation.Views
         /// outline.</summary>
         private static readonly Color SpecialIconRimColour = new Color(1f, 1f, 1f, SPECIAL_ICON_RIM_ALPHA);
 
+        /// <summary>How far <see cref="SetIconShine"/> blends the icon towards white at the brightest
+        /// point of the pulse (issue #421) — subtle enough that the icon's own hue (and the vivid‑tint
+        /// retune in <c>BoardView.IconTint</c>) still reads as that kind's identity, not a flash of
+        /// white.</summary>
+        private const float ICON_SHINE_MAX = 0.22f;
+
         /// <summary>Reference-pixel font size for the <see cref="MustyBlockBlast.Core.SpecialCellKind.Timer"/>
         /// countdown number (issue #307 AC6a) — legible at a glance without competing with the cell's
         /// own special-icon glyph.</summary>
@@ -91,6 +97,11 @@ namespace MustyBlockBlast.Presentation.Views
         /// <see cref="SetGlowPulse"/> multiplies against, since the halo's own colour alpha is
         /// overwritten every frame by the pulse rather than by <see cref="SetSpecialGlow"/>.</summary>
         private float _glowBaseAlpha;
+
+        /// <summary>The icon's own resting tint, last set by <see cref="SetSpecialIcon(Color, Sprite)"/> —
+        /// what <see cref="SetIconShine"/> blends towards white from every frame, since the icon's colour
+        /// is overwritten each pulse tick the same way the glow halo's alpha is (issue #421).</summary>
+        private Color _iconBaseColour;
 
         private void Awake() => CacheOuter();
 
@@ -247,6 +258,7 @@ namespace MustyBlockBlast.Presentation.Views
                 _specialIconImage.sprite = sprite;
             }
 
+            _iconBaseColour = colour;
             _specialIconImage.transform.localScale = Vector3.one;
             _specialIconImage.transform.localRotation = Quaternion.identity;
             ShowLayer(_specialIconImage, colour);
@@ -314,6 +326,25 @@ namespace MustyBlockBlast.Presentation.Views
             Color colour = _specialGlowImage.color;
             colour.a = _glowBaseAlpha * alphaMultiplier;
             _specialGlowImage.color = colour;
+        }
+
+        /// <summary>
+        /// Drives the special-cell icon's shine (issue #421) on the same wave <see cref="SetGlowPulse"/>
+        /// rides — <paramref name="wave"/> is 0 at the pulse's dimmest instant and 1 at its brightest, so
+        /// the icon breathes in lockstep with its own glow halo rather than on a second, independent
+        /// timer. Blends the icon's resting tint (<see cref="_iconBaseColour"/>) towards white by up to
+        /// <see cref="ICON_SHINE_MAX"/> — a highlight, not a colour change, so the vivid‑tint retune
+        /// (<c>BoardView.IconTint</c>) still reads as that kind's identity at every point in the cycle.
+        /// Writes one <see cref="Color"/> struct; allocates nothing.
+        /// </summary>
+        internal void SetIconShine(float wave)
+        {
+            if (_specialIconImage == null || !_specialIconImage.gameObject.activeSelf)
+            {
+                return;
+            }
+
+            _specialIconImage.color = Color.Lerp(_iconBaseColour, Color.white, wave * ICON_SHINE_MAX);
         }
 
         /// <summary>The special-cell icon's own transform, exposed only for
