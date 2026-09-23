@@ -7,7 +7,7 @@ namespace MustyBlockBlast.Gameplay
     /// switch cannot drift out of sync with the enum the way a hand-filled asset can.
     /// <para>
     /// The starter three (Bomb, Row Clear, Column Clear) and <see cref="PowerUpKind.Hold"/> are
-    /// available from a fresh install; the other seven arrive one every five levels. Hold is ungated
+    /// available from a fresh install; the other eight arrive one every five levels. Hold is ungated
     /// because it metered a slot that was always on screen before it became a power-up — what it
     /// rations is charges, never the pocket itself. Level 0 means "never gated" — a fresh install
     /// starts at level 1, so a gate of 0 is unlocked before the player has done anything at all.
@@ -43,6 +43,8 @@ namespace MustyBlockBlast.Gameplay
                     return 30;
                 case PowerUpKind.CoinSower:
                     return 35;
+                case PowerUpKind.PaintCross:
+                    return 40;
                 default:
                     // Bomb, RowClear and ColumnClear — the starter three, offered from the first run —
                     // and Hold, which meters a pocket that has been on screen since the first run.

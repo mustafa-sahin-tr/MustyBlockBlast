@@ -915,6 +915,30 @@ MonoBehaviour:
     m_Key: settings.remove_ads.confirm_cancel
     m_Metadata:
       m_Items: []
+  - m_Id: 3514168870166532
+    m_Key: powerup.name.paint_cross
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3514168870166533
+    m_Key: powerup.desc.paint_cross
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3514168870166534
+    m_Key: info_popup.powerup.paint_cross.header
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3514168870166535
+    m_Key: info_popup.powerup.paint_cross.body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3514168870166536
+    m_Key: paint_cross.picker.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3514168870166537
+    m_Key: paint_cross.picker.confirm
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

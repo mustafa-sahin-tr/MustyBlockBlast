@@ -922,6 +922,30 @@ MonoBehaviour:
     m_Localized: "Quiz\xE1s luego"
     m_Metadata:
       m_Items: []
+  - m_Id: 3514168870166532
+    m_Localized: Cruz de pintura
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3514168870166533
+    m_Localized: Recolorea toda la fila y columna de una celda
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3514168870166534
+    m_Localized: Cruz de pintura
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3514168870166535
+    m_Localized: "Toca una celda y elige un color: cada bloque de esa fila y columna lo tomar\xE1. No se limpia nada, \xFAsalo para preparar un objetivo de color."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3514168870166536
+    m_Localized: Elige un color
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3514168870166537
+    m_Localized: Pintar
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

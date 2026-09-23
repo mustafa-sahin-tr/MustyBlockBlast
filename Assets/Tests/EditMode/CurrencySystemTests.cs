@@ -1770,6 +1770,8 @@ namespace MustyBlockBlast.Tests.EditMode
                     return _powerUpModel.GhostFitCount.Value;
                 case PowerUpKind.CoinSower:
                     return _powerUpModel.CoinSowerCount.Value;
+                case PowerUpKind.PaintCross:
+                    return _powerUpModel.PaintCrossCount.Value;
                 default:
                     return _powerUpModel.BombCount.Value;
             }
@@ -1837,6 +1839,7 @@ namespace MustyBlockBlast.Tests.EditMode
             PlayerPrefs.DeleteKey(PowerUpInventoryKey.For(PowerUpKind.DoubleMultiplier));
             PlayerPrefs.DeleteKey(PowerUpInventoryKey.For(PowerUpKind.GhostFit));
             PlayerPrefs.DeleteKey(PowerUpInventoryKey.For(PowerUpKind.CoinSower));
+            PlayerPrefs.DeleteKey(PowerUpInventoryKey.For(PowerUpKind.PaintCross));
         }
 
         /// <summary>

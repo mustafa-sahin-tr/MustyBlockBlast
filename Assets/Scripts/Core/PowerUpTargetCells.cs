@@ -24,13 +24,16 @@ namespace MustyBlockBlast.Core
         /// <summary>Cells in an unclamped bomb footprint.</summary>
         private const int BOMB_CELL_COUNT = ((BOMB_RADIUS * 2) + 1) * ((BOMB_RADIUS * 2) + 1);
 
+        /// <summary>Cells in a standard-board cross: a full row and a full column sharing one cell.</summary>
+        private const int CROSS_CELL_COUNT = (Board.SIZE * 2) - 1;
+
         /// <summary>
-        /// The nominal capacity a target buffer should be created with — the larger of a standard-board
-        /// line and an unclamped bomb. A hint, not a bound: <see cref="List{T}"/> grows, so a board
-        /// wider than this costs one growth on the first aim frame of that level and nothing after.
-        /// Nothing is ever truncated to it.
+        /// The nominal capacity a target buffer should be created with — the largest of a standard-board
+        /// line, an unclamped bomb and a standard-board cross (<see cref="ForPaintCross"/>). A hint, not
+        /// a bound: <see cref="List{T}"/> grows, so a board wider than this costs one growth on the first
+        /// aim frame of that level and nothing after. Nothing is ever truncated to it.
         /// </summary>
-        public const int MAX_TARGET_CELLS = BOMB_CELL_COUNT > Board.SIZE ? BOMB_CELL_COUNT : Board.SIZE;
+        public const int MAX_TARGET_CELLS = CROSS_CELL_COUNT > BOMB_CELL_COUNT ? CROSS_CELL_COUNT : BOMB_CELL_COUNT;
 
         /// <summary>
         /// The 3x3 area centred on <paramref name="center"/>, clamped to the board and with hole cells
@@ -127,6 +130,42 @@ namespace MustyBlockBlast.Core
         {
             Prepare(shape, buffer);
             AddIfPlayable(shape, target, buffer);
+            return buffer;
+        }
+
+        /// <summary>
+        /// Every playable cell of <paramref name="target"/>'s row and of its column — the cross a
+        /// <c>PowerUpKind.PaintCross</c> recolours (issue #295), with the cell where the two lines meet
+        /// listed once. Pure geometry like every other kind here: occupancy is
+        /// <see cref="PowerUpPaintResolver"/>'s business, so the aim preview tints the whole cross and the
+        /// application then paints only what is standing on it. An off-board target yields nothing.
+        /// </summary>
+        public static IReadOnlyList<GridPosition> ForPaintCross(
+            BoardShape shape, GridPosition target, List<GridPosition> buffer)
+        {
+            Prepare(shape, buffer);
+
+            if (!shape.IsInside(target))
+            {
+                return buffer;
+            }
+
+            for (int x = 0; x < shape.Width; x++)
+            {
+                AddIfPlayable(shape, new GridPosition(x, target.Y), buffer);
+            }
+
+            for (int y = 0; y < shape.Height; y++)
+            {
+                // The intersection was already listed by the row pass above.
+                if (y == target.Y)
+                {
+                    continue;
+                }
+
+                AddIfPlayable(shape, new GridPosition(target.X, y), buffer);
+            }
+
             return buffer;
         }
 

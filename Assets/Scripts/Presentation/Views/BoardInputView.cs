@@ -107,6 +107,7 @@ namespace MustyBlockBlast.Presentation.Views
         private ObjectiveInfoPopupView _objectiveInfoPopupView;
         private InfoPopupView _infoPopupView;
         private InfoPopupSystem _infoPopupSystem;
+        private PaintCrossColourPickerView _paintCrossColourPickerView;
 
         private int _draggedSlot = -1;
 
@@ -200,7 +201,8 @@ namespace MustyBlockBlast.Presentation.Views
             ObjectiveIconContainerView objectiveIconContainerView,
             ObjectiveInfoPopupView objectiveInfoPopupView,
             InfoPopupView infoPopupView,
-            InfoPopupSystem infoPopupSystem)
+            InfoPopupSystem infoPopupSystem,
+            PaintCrossColourPickerView paintCrossColourPickerView)
         {
             _boardSystem = boardSystem;
             _boardModel = boardModel;
@@ -225,6 +227,7 @@ namespace MustyBlockBlast.Presentation.Views
             _objectiveInfoPopupView = objectiveInfoPopupView;
             _infoPopupView = infoPopupView;
             _infoPopupSystem = infoPopupSystem;
+            _paintCrossColourPickerView = paintCrossColourPickerView;
         }
 
         private void Awake()
@@ -427,6 +430,16 @@ namespace MustyBlockBlast.Presentation.Views
             if (_coinSowerPickerView.IsOpen)
             {
                 _coinSowerPickerView.HandleTap(screenPosition);
+                return;
+            }
+
+            // The Paint Cross colour picker (issue #295). Opened by a board tap while that kind is armed
+            // — see ReleasePowerUpAim — rather than by a HUD icon, so like the Coin Sower picker it has
+            // no opener gate below. Modal like the rest: the press either picks a swatch, confirms,
+            // or cancels, and never reaches the board or the strip underneath.
+            if (_paintCrossColourPickerView.IsOpen)
+            {
+                _paintCrossColourPickerView.HandleTap(screenPosition);
                 return;
             }
 
@@ -951,7 +964,42 @@ namespace MustyBlockBlast.Presentation.Views
                 return _boardModel.GetCell(cell) != Board.EMPTY;
             }
 
+            if (kind == PowerUpKind.PaintCross)
+            {
+                return HasOccupiedCellInCross(cell);
+            }
+
             return true;
+        }
+
+        /// <summary>
+        /// Whether anything stands on <paramref name="cell"/>'s row or column — the Paint Cross
+        /// legality rule (issue #295), read the way <see cref="IsLegalTarget"/> reads the joker's and
+        /// the cleanser's: off the model, per aim frame, so the reticle can show a dead cross before
+        /// the tap lands. The System re-checks on confirm; this is the preview's answer, not the rule.
+        /// One row and one column of reads, no allocation.
+        /// </summary>
+        private bool HasOccupiedCellInCross(GridPosition cell)
+        {
+            for (int x = 0; x < _boardModel.Width; x++)
+            {
+                var position = new GridPosition(x, cell.Y);
+                if (_boardModel.IsPlayable(position) && _boardModel.GetCell(position) != Board.EMPTY)
+                {
+                    return true;
+                }
+            }
+
+            for (int y = 0; y < _boardModel.Height; y++)
+            {
+                var position = new GridPosition(cell.X, y);
+                if (_boardModel.IsPlayable(position) && _boardModel.GetCell(position) != Board.EMPTY)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         /// <summary>Spends the armed power-up on the cell under the pointer, if there is one. The
@@ -1009,6 +1057,19 @@ namespace MustyBlockBlast.Presentation.Views
                     // Mirror image of Joker's refusal case: an empty target leaves this armed and
                     // unspent, and the player just aims again.
                     _powerUpSystem.TryApplyColorCleanser(target);
+                    break;
+                case PowerUpKind.PaintCross:
+                    // Not applied here: the tap names the cross, and the colour is picked next. The
+                    // sheet's confirm is what reaches the System, so the power-up stays armed — in the
+                    // model, untouched — for as long as the sheet is up. A cross with nothing standing
+                    // on it is the illegal target the System would refuse anyway (the same rule as
+                    // ColorCleanser's empty cell), so the sheet is not opened for one: the highlight
+                    // already showed it as a dead tap, and the player just aims again.
+                    if (IsLegalTarget(PowerUpKind.PaintCross, target))
+                    {
+                        _paintCrossColourPickerView.Open(target);
+                    }
+
                     break;
                 default:
                     _powerUpSystem.TryApplyBomb(target);
@@ -1145,6 +1206,8 @@ namespace MustyBlockBlast.Presentation.Views
                     return PowerUpTargetCells.ForJoker(_boardModel.Shape, cell, _powerUpTargetBuffer);
                 case PowerUpKind.ColorCleanser:
                     return PowerUpTargetCells.ForColorCleanser(_boardModel.Shape, cell, _powerUpTargetBuffer);
+                case PowerUpKind.PaintCross:
+                    return PowerUpTargetCells.ForPaintCross(_boardModel.Shape, cell, _powerUpTargetBuffer);
                 default:
                     return PowerUpTargetCells.ForBomb(_boardModel.Shape, cell, _powerUpTargetBuffer);
             }

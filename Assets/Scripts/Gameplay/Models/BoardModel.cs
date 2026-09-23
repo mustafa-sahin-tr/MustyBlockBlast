@@ -401,6 +401,29 @@ namespace MustyBlockBlast.Gameplay.Models
         }
 
         /// <summary>
+        /// Raises change notifications for the cells a Paint Cross recoloured (issue #295) — see
+        /// <see cref="Core.PowerUpPaintResult.PaintedCells"/>. The Core resolver has already painted
+        /// each cell when this is called, so the colour is read back off the board exactly as
+        /// <see cref="NotifyIslandFilled"/> reads a fill's. Announced through <see cref="CellChanged"/>
+        /// with a real colour, never <see cref="Core.Board.EMPTY"/>: nothing was destroyed, so there is
+        /// no cell to fade — the block simply changes coat, and a subscriber that re-reads the cell's
+        /// special kind and hit count on this notification finds both exactly as they were.
+        /// </summary>
+        internal void NotifyPainted(IReadOnlyList<GridPosition> paintedCells)
+        {
+            if (paintedCells == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < paintedCells.Count; i++)
+            {
+                GridPosition cell = paintedCells[i];
+                CellChanged?.Invoke(cell, _board[cell]);
+            }
+        }
+
+        /// <summary>
         /// Raises the special-kind notification for a vortex's tag hand-off (issue #349) — see
         /// <see cref="Core.VortexEffect.HandOffTargets"/>. Only the kind changes; the cell's own colour
         /// was already whatever it was standing on, so no <see cref="CellChanged"/> follows.

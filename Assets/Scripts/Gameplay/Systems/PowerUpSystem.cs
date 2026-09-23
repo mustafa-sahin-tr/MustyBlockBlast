@@ -32,10 +32,11 @@ namespace MustyBlockBlast.Gameplay.Systems
     /// <para>
     /// Spending is charged for a valid target even when the target turns out to be empty: the player
     /// made a deliberate, legal application. Only holding none of the power-up is a true no-op — except
-    /// for the three kinds that have illegal targets at all and charge nothing for one:
+    /// for the four kinds that have illegal targets at all and charge nothing for one:
     /// <see cref="PowerUpKind.Joker"/> (an already-occupied cell), <see cref="PowerUpKind.ColorCleanser"/>
-    /// (an empty one) and <see cref="PowerUpKind.Rotate"/> (an empty slot, or a piece too symmetrical
-    /// to have a distinct rotation).
+    /// (an empty one), <see cref="PowerUpKind.PaintCross"/> (a cross with nothing standing on it) and
+    /// <see cref="PowerUpKind.Rotate"/> (an empty slot, or a piece too symmetrical to have a distinct
+    /// rotation).
     /// </para>
     /// <para>
     /// <see cref="PowerUpKind.Reroll"/>, <see cref="PowerUpKind.DoubleMultiplier"/> and
@@ -249,6 +250,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             LoadPersistedCount(PowerUpKind.GhostFit);
             LoadPersistedCount(PowerUpKind.CoinSower);
             LoadPersistedCount(PowerUpKind.Hold);
+            LoadPersistedCount(PowerUpKind.PaintCross);
 
             // An armed selection belongs to the run it was made in: it must not survive either end of
             // a run boundary, or the next run would open with a power-up already aimed and its clock
@@ -443,6 +445,58 @@ namespace MustyBlockBlast.Gameplay.Systems
 
             TrySpend(PowerUpKind.ColorCleanser);
             Apply(PowerUpKind.ColorCleanser, result, target);
+            Disarm();
+            return true;
+        }
+
+        /// <summary>
+        /// Spends one Paint Cross on <paramref name="target"/> (issue #295): recolours every occupied
+        /// cell of that cell's row and column to <paramref name="colourId"/>, leaving empty cells empty
+        /// and clearing nothing. A cross with no occupied cell has nothing to paint and is refused
+        /// outright — the same "peek before spending" contract as <see cref="TryApplyJoker"/> and
+        /// <see cref="TryApplyColorCleanser"/>: nothing is spent, nothing is disarmed, the player simply
+        /// aims again. An out-of-range colour is refused the same way; the palette the picker offers is
+        /// <c>1..</c><see cref="Board.COLOUR_COUNT"/>, and anything else is a caller bug rather than a
+        /// board to paint.
+        /// <para>
+        /// The one board-mutating kind that does not go through <see cref="Apply"/>: a paint is not a
+        /// clear, so there are no cleared cells to announce, no triggers to detonate and no colour tally
+        /// to hand to the objectives — <see cref="PowerUpAppliedMessage"/> is published with zero
+        /// cleared cells and no tally, exactly as the tray-aimed kinds publish theirs, so the "power-ups
+        /// used" counter sees it while scoring, the clear animation and every colour objective ignore
+        /// it. A painted cell reaches a colour objective only when something later destroys it.
+        /// </para>
+        /// <para>
+        /// The colour is chosen by the player <em>after</em> the target tap, in a picker the Presentation
+        /// layer owns; this method is that picker's confirm. Cancelling the picker never reaches here,
+        /// which is what leaves the kind armed and unspent in that case.
+        /// </para>
+        /// </summary>
+        public bool TryApplyPaintCross(GridPosition target, int colourId)
+        {
+            // Peeked rather than spent, mirroring TryApplyColorCleanser: legality here is "does the
+            // resolver find anything standing on the cross", and that must be checked before a single
+            // count is touched.
+            if (!_boardModel.Board.IsPlayable(target) || colourId < 1 || colourId > Board.COLOUR_COUNT
+                || IsLocked(PowerUpKind.PaintCross) || IsBannedInActivePathLevel(PowerUpKind.PaintCross)
+                || CountOf(PowerUpKind.PaintCross).Value <= 0)
+            {
+                return false;
+            }
+
+            PowerUpPaintResult result = PowerUpPaintResolver.ResolvePaintCross(_boardModel.Board, target, colourId);
+            if (!result.AnyPainted)
+            {
+                return false;
+            }
+
+            TrySpend(PowerUpKind.PaintCross);
+
+            _boardModel.NotifyPainted(result.PaintedCells);
+
+            _appliedPublisher.Publish(new PowerUpAppliedMessage(
+                PowerUpKind.PaintCross, clearedCellCount: 0, clearedLineCount: 0));
+
             Disarm();
             return true;
         }
@@ -971,6 +1025,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             PublishNewlyUnlockedKind(PowerUpKind.DoubleMultiplier, previousLevelNumber, newLevelNumber);
             PublishNewlyUnlockedKind(PowerUpKind.GhostFit, previousLevelNumber, newLevelNumber);
             PublishNewlyUnlockedKind(PowerUpKind.CoinSower, previousLevelNumber, newLevelNumber);
+            PublishNewlyUnlockedKind(PowerUpKind.PaintCross, previousLevelNumber, newLevelNumber);
         }
 
         private void PublishNewlyUnlockedKind(PowerUpKind kind, int previousLevelNumber, int newLevelNumber)
@@ -1253,6 +1308,8 @@ namespace MustyBlockBlast.Gameplay.Systems
                     return _powerUpModel.CoinSowerCount;
                 case PowerUpKind.Hold:
                     return _powerUpModel.HoldCount;
+                case PowerUpKind.PaintCross:
+                    return _powerUpModel.PaintCrossCount;
                 default:
                     return _powerUpModel.BombCount;
             }

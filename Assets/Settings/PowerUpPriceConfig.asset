@@ -31,4 +31,6 @@ MonoBehaviour:
     _coinPrice: 200
   - _kind: 8
     _coinPrice: 25
+  - _kind: 11
+    _coinPrice: 75
   _coinSowerMaxQuantity: 5

@@ -13,7 +13,7 @@ namespace MustyBlockBlast.Gameplay.Settings
     /// shade would make the stall go pastel under the spring theme and muddy under the winter one.
     /// </para>
     /// <para>
-    /// The nine tile colours are keyed by <see cref="PowerUpKind"/> as the prices are, and for the same
+    /// The tile colours are keyed by <see cref="PowerUpKind"/> as the prices are, and for the same
     /// reason: the roster grows, and a table adds a row where named fields would add a field, a
     /// property and a branch. Every field carries the design's value as its default so a freshly
     /// created instance — the asset on first import, or the scope's fallback — already draws the
@@ -101,6 +101,10 @@ namespace MustyBlockBlast.Gameplay.Settings
             new TileColour(PowerUpKind.DoubleMultiplier, FromHex(0xF0A300)),
             new TileColour(PowerUpKind.GhostFit, FromHex(0x22B8D8)),
             new TileColour(PowerUpKind.CoinSower, FromHex(0xE0A72E)),
+
+            // Issue #295. One flat tint like every other row — the approved mockup's rainbow-gradient
+            // plate is a follow-up art pass, not something a single Color can carry.
+            new TileColour(PowerUpKind.PaintCross, FromHex(0xFF6B35)),
         };
 
         public Color CardFace => _cardFace;

@@ -694,6 +694,15 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterComponentInHierarchy<ObjectiveInfoPopupView>();
             builder.RegisterComponentInHierarchy<InfoPopupView>();
 
+            // The Paint Cross colour picker (issue #295). Spawned onto a new GameObject under the same
+            // parent the info popup lives on — the safe-area layer every overlay sits in — rather than
+            // authored in the scene, so adding it touched no scene file. Resolved (and therefore
+            // spawned) because BoardInputView takes it as a dependency; the parent finder runs at that
+            // resolve, by which time InfoPopupView has been found in the hierarchy.
+            builder.RegisterComponentOnNewGameObject<PaintCrossColourPickerView>(
+                    Lifetime.Singleton, nameof(PaintCrossColourPickerView))
+                .UnderTransform(resolver => resolver.Resolve<InfoPopupView>().transform.parent);
+
             // The one end-of-run card (issue #266): result, badges and the restart / change mode /
             // next level actions together. Opens on GameOverMessage; BoardInputView routes every tap
             // into it while it is up and carries out the action it resolves.
