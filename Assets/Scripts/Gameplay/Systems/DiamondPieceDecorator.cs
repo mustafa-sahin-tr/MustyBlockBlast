@@ -235,9 +235,11 @@ namespace MustyBlockBlast.Gameplay.Systems
             return value > max ? max : value;
         }
 
-        /// <summary>Fills <see cref="_colourPool"/> with the distinct colour ids the tracked
-        /// <see cref="ObjectiveType.DiamondsCleared"/> objectives name and returns how many there are;
-        /// 0 when no such objective is tracked.</summary>
+        /// <summary>Fills <see cref="_colourPool"/> with the distinct colour ids the tracked, still
+        /// incomplete <see cref="ObjectiveType.DiamondsCleared"/> objectives name and returns how many
+        /// there are; 0 when no such objective is tracked. A completed one is left out (issue #429):
+        /// once its colour's target is met, dealing more of it only wastes decorated cells the player
+        /// can no longer use, on levels that still track other colours.</summary>
         private int CollectColourPool()
         {
             int poolCount = 0;
@@ -245,8 +247,9 @@ namespace MustyBlockBlast.Gameplay.Systems
 
             for (int objectiveIndex = 0; objectiveIndex < tracked.Count; objectiveIndex++)
             {
-                ObjectiveDefinition definition = tracked[objectiveIndex].Definition;
-                if (definition.Type != ObjectiveType.DiamondsCleared)
+                ObjectiveProgress objective = tracked[objectiveIndex];
+                ObjectiveDefinition definition = objective.Definition;
+                if (definition.Type != ObjectiveType.DiamondsCleared || objective.IsComplete)
                 {
                     continue;
                 }
