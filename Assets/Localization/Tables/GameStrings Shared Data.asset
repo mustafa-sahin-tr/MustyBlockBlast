@@ -487,6 +487,10 @@ MonoBehaviour:
     m_Key: result.path_total_label
     m_Metadata:
       m_Items: []
+  - m_Id: 3259943359602689
+    m_Key: result.coin_label
+    m_Metadata:
+      m_Items: []
   - m_Id: 1720781938614278
     m_Key: result.new_record
     m_Metadata:

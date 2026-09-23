@@ -6,6 +6,7 @@ using MessagePipe;
 using MustyBlockBlast.Core;
 using MustyBlockBlast.Gameplay;
 using MustyBlockBlast.Gameplay.Messages;
+using MustyBlockBlast.Gameplay.Systems;
 using Mtafasahin.Reactive;
 using UnityEngine;
 using UnityEngine.UI;
@@ -84,6 +85,7 @@ namespace MustyBlockBlast.Presentation.Views
         private IPublisher<PowerUpGrantAnimationCompletedMessage> _grantAnimationCompletedPublisher;
         private PowerUpInventoryView _powerUpInventoryView;
         private BoardView _boardView;
+        private BoardSystem _boardSystem;
 
         /// <summary>One queued flight — either a granted power-up (flies to its inventory slot, and
         /// publishes <see cref="PowerUpGrantAnimationCompletedMessage"/> on arrival) or a newly spawned
@@ -138,7 +140,8 @@ namespace MustyBlockBlast.Presentation.Views
             ISubscriber<RunStartedMessage> runStartedSubscriber,
             IPublisher<PowerUpGrantAnimationCompletedMessage> grantAnimationCompletedPublisher,
             PowerUpInventoryView powerUpInventoryView,
-            BoardView boardView)
+            BoardView boardView,
+            BoardSystem boardSystem)
         {
             _powerUpGrantedSubscriber = powerUpGrantedSubscriber;
             _specialCellSpawnedSubscriber = specialCellSpawnedSubscriber;
@@ -146,6 +149,7 @@ namespace MustyBlockBlast.Presentation.Views
             _grantAnimationCompletedPublisher = grantAnimationCompletedPublisher;
             _powerUpInventoryView = powerUpInventoryView;
             _boardView = boardView;
+            _boardSystem = boardSystem;
         }
 
         private void Awake()
@@ -203,9 +207,22 @@ namespace MustyBlockBlast.Presentation.Views
         /// centre-screen-to-destination flight as a granted power-up, flying to its own board icon
         /// spot instead of an inventory slot. Unlike a power-up grant, nothing awaits this flight's
         /// completion, so a missing destination/icon simply takes no action (see
-        /// <see cref="PlayGrantAsync"/>).</summary>
+        /// <see cref="PlayGrantAsync"/>).
+        /// <para>
+        /// A spawn on the move that also ended the run gets no flight at all. <c>BoardSystem</c>
+        /// publishes <c>PiecePlacedMessage</c> synchronously, so the level-complete/game-over path has
+        /// already run — and <see cref="BoardSystem.IsGameOver"/> is already true — by the time the
+        /// spawn messages for that same placement are raised. The result card is coming up this very
+        /// frame, and a hero icon flying across it would simply collide with it. The cell itself is
+        /// still spawned and still granted exactly as before; only its animation is skipped.
+        /// </para></summary>
         private void OnSpecialCellSpawned(SpecialCellSpawnedMessage message)
         {
+            if (_boardSystem != null && _boardSystem.IsGameOver)
+            {
+                return;
+            }
+
             Enqueue(PendingFlight.ForSpecialCell(message.Kind, message.Position));
         }
 

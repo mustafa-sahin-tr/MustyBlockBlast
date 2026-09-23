@@ -490,6 +490,10 @@ MonoBehaviour:
     m_Localized: PATH TOTAL
     m_Metadata:
       m_Items: []
+  - m_Id: 3259943359602689
+    m_Localized: COINS
+    m_Metadata:
+      m_Items: []
   - m_Id: 1720781938614278
     m_Localized: NEW!
     m_Metadata:

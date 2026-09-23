@@ -172,6 +172,10 @@ namespace MustyBlockBlast.Gameplay.Localization
         /// <summary>Caption over the running total of the whole walk of the path.</summary>
         public const string RUN_RESULT_PATH_TOTAL_LABEL = "result.path_total_label";
 
+        /// <summary>Caption over the coin balance on a Path level-complete card, beside the "+N" the
+        /// level itself paid out.</summary>
+        public const string RUN_RESULT_COIN_LABEL = "result.coin_label";
+
         /// <summary>Tag on the record plate when this run set a new record.</summary>
         public const string RUN_RESULT_NEW_RECORD = "result.new_record";
 
