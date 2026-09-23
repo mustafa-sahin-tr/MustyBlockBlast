@@ -201,6 +201,8 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterMessageBroker<PowerUpAppliedMessage>(options);
             builder.RegisterMessageBroker<PowerUpGrantedMessage>(options);
             builder.RegisterMessageBroker<PowerUpGrantAnimationCompletedMessage>(options);
+            builder.RegisterMessageBroker<EmptyCellBonusCountingMessage>(options);
+            builder.RegisterMessageBroker<EmptyCellBonusCountingCompletedMessage>(options);
             builder.RegisterMessageBroker<BadgeUnlockedMessage>(options);
             builder.RegisterMessageBroker<ExplosiveCoreDetonatedMessage>(options);
             builder.RegisterMessageBroker<LaserFiredMessage>(options);

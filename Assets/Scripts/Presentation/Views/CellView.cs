@@ -80,6 +80,18 @@ namespace MustyBlockBlast.Presentation.Views
         /// own special-icon glyph.</summary>
         private const int TIMER_COUNTDOWN_FONT_SIZE = 34;
 
+        /// <summary>Reference-pixel font size for the level-completion empty-cell bonus number (issue
+        /// #424) — the same size as the timer countdown, so the two number layers read as one family.</summary>
+        private const int BONUS_NUMBER_FONT_SIZE = 34;
+
+        /// <summary>Fallback ink for the bonus number before <see cref="SetBonusNumberStyle"/> has ever
+        /// been called — dark enough to stay legible on the theme's light grey empty-cell fill
+        /// (<see cref="MustyBlockBlast.Gameplay.Settings.ThemeDefinition.EmptyCellFill"/>) even if a
+        /// theme paint is somehow missed. In practice <see cref="BoardView"/> always styles this to the
+        /// score card's own ink the moment the theme is known (issue #424), so the count reads as the
+        /// same digits the score counter is about to gain, not as an unrelated on-board number.</summary>
+        private static readonly Color BonusNumberColour = new Color(0.12f, 0.1f, 0.16f);
+
         private Image _outerImage;
         private Image _flatFaceImage;
         private GameObject _blockRoot;
@@ -92,6 +104,7 @@ namespace MustyBlockBlast.Presentation.Views
         private Image _highlightImage;
         private Image _ghostRingImage;
         private Text _timerCountdownText;
+        private Text _bonusNumberText;
 
         /// <summary>The resting alpha the glow halo was last shown at (issue #365) — the target
         /// <see cref="SetGlowPulse"/> multiplies against, since the halo's own colour alpha is
@@ -209,6 +222,12 @@ namespace MustyBlockBlast.Presentation.Views
             _timerCountdownText = UiTextFactory.Create(
                 countdownRect, "TimerCountdown", TIMER_COUNTDOWN_FONT_SIZE, FontStyle.Bold, Color.white);
             _timerCountdownText.gameObject.SetActive(false);
+
+            // Issue #424: the level-completion empty-cell count, written over the cell. Its own layer
+            // rather than a reuse of the timer countdown so the two can never fight over one Text.
+            _bonusNumberText = UiTextFactory.Create(
+                countdownRect, "BonusNumber", BONUS_NUMBER_FONT_SIZE, FontStyle.Bold, BonusNumberColour);
+            _bonusNumberText.gameObject.SetActive(false);
         }
 
         /// <summary>Shows the outline frame in <paramref name="colour"/>. Independent of both looks:
@@ -391,6 +410,58 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             _timerCountdownText.gameObject.SetActive(false);
+        }
+
+        /// <summary>Shows <paramref name="number"/> as this empty cell's place in the level-completion
+        /// bonus count (issue #424). Independent of every other layer, exactly as
+        /// <see cref="SetTimerCountdown"/> is: allocates nothing beyond the string conversion.</summary>
+        internal void SetBonusNumber(int number)
+        {
+            if (_bonusNumberText == null)
+            {
+                return;
+            }
+
+            _bonusNumberText.text = number.ToString();
+
+            if (!_bonusNumberText.gameObject.activeSelf)
+            {
+                _bonusNumberText.gameObject.SetActive(true);
+            }
+        }
+
+        /// <summary>Hides the bonus count number once the count-up has been shown (issue #424). Safe to
+        /// call on a cell that never showed one.</summary>
+        internal void ClearBonusNumber()
+        {
+            if (_bonusNumberText == null || !_bonusNumberText.gameObject.activeSelf)
+            {
+                return;
+            }
+
+            _bonusNumberText.gameObject.SetActive(false);
+        }
+
+        /// <summary>Repaints the bonus number to match the score card's own look (issue #424) — the same
+        /// chunky display face <see cref="ScoreView"/> draws its figures in, and the same
+        /// theme-accent-darkened ink <see cref="ScoreView"/> uses for the best/record value, so the count
+        /// on the board reads as the same digits the score counter is about to gain rather than as an
+        /// unrelated number painted onto the cell. Called by <see cref="BoardView"/> whenever the theme
+        /// is (re)painted; <paramref name="font"/> may be null (kept at whatever it already is) so a
+        /// theme repaint before the font is known never blanks it back to the builtin face.</summary>
+        internal void SetBonusNumberStyle(Font font, Color colour)
+        {
+            if (_bonusNumberText == null)
+            {
+                return;
+            }
+
+            if (font != null)
+            {
+                _bonusNumberText.font = font;
+            }
+
+            _bonusNumberText.color = colour;
         }
 
         /// <summary>Flat two-layer look: empty cells and the drag preview tint. <paramref name="shade"/>
