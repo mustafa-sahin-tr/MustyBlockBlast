@@ -39,20 +39,41 @@ read_console → monitor progress and catch errors
 
 Export to the project's existing iOS build output folder if one exists (check for a prior `Builds/iOS` or similar path before creating a new one); otherwise use a sensible default and report the exact path chosen.
 
+### Step 3.5: CocoaPods (`pod install`)
+
+Unity's iOS export regenerates the `Podfile` via EDM4U on every run whenever pod-based
+plugins are present (this project pulls in `Google-Mobile-Ads-SDK` and
+`GoogleUserMessagingPlatform` for AdMob/UMP). The exported `.xcodeproj` alone does **not**
+link those pods — opening it directly fails at link time with errors like
+`Undefined symbol: _CGSizeFromGADAdSize`.
+
+After a successful export, if `<output_path>/Podfile` exists:
+- Run `pod install` in the output folder.
+- If `pod` isn't installed on this machine, don't fail the build — report that CocoaPods
+  needs a one-time install (`brew install cocoapods`) and that `pod install` must then be
+  run manually in the output folder.
+- If no `Podfile` exists, skip this step silently — nothing to install.
+
+This step is explicitly allowed even though the command otherwise avoids `xcodebuild`/signing —
+`pod install` only resolves dependencies into the already-exported project, it does not
+build, archive, or sign anything.
+
 ### Step 4: Report
 
 - Build result: SUCCESS or FAILURE.
 - Exact path to the exported Xcode project.
 - Any warnings from the build log.
+- `pod install` outcome: ran successfully / skipped (no Podfile) / needs manual CocoaPods install.
 - If failed: error details and suggested fixes (see table below).
-- Explicit next step for the user: "Open `<path>/Unity-iPhone.xcworkspace` in Xcode, select your device, and press Run."
+- Explicit next step for the user: open `.xcworkspace` if `pod install` ran (or the project already has pods), otherwise `.xcodeproj` — "Open `<path>/Unity-iPhone.xcworkspace` in Xcode, select your device, and press Run."
 
 ## What NOT To Do
 
 - Never modify `ProjectSettings/` files directly — use MCP (`manage_build`) only.
-- Never attempt to invoke `xcodebuild`, archive, sign, or install to a device — that part is manual, in Xcode, by design (per the user's workflow).
+- Never attempt to invoke `xcodebuild`, archive, sign, or install to a device — that part is manual, in Xcode, by design (per the user's workflow). `pod install` is the one exception, see Step 3.5.
 - Never change the bundle identifier or signing configuration without being asked.
 - Never skip the pre-build console check.
+- Never let a `pod install` failure or missing CocoaPods install mask the underlying Xcode export result — report them separately.
 
 ## Common Build Fixes
 
@@ -61,4 +82,5 @@ Export to the project's existing iOS build output folder if one exists (check fo
 | `UnityEditor` namespace | Add `#if UNITY_EDITOR` guard |
 | Missing type/assembly | Check `.asmdef` references |
 | Stripping removes code | Add entries to `link.xml` |
+| `Undefined symbol: _CGSizeFromGADAdSize` (or other GAD/UMP symbols) | `Podfile` pods weren't installed — run `pod install` in the exported folder (see Step 3.5), then open `.xcworkspace` |
 | Xcode signing errors after export | Not this command's job — open Xcode, fix signing under Signing & Capabilities |

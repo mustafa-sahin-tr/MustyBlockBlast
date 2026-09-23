@@ -3,7 +3,7 @@ name: unity-build-runner
 description: "Configures and triggers Unity builds via MCP. Handles platform switching, player settings, build profiles, Addressables builds, and monitors build progress via console output."
 model: haiku
 color: gray
-tools: Read, Glob, Grep, mcp__unityMCP__*
+tools: Read, Glob, Grep, Bash, mcp__unityMCP__*
 ---
 
 # Unity Build Runner
@@ -59,10 +59,33 @@ manage_build action:"build" → trigger build with configured settings
 
 Monitor progress via `read_console`.
 
+### Step 5.5: CocoaPods (iOS only)
+
+If the build target is iOS and the export succeeded, check for a `Podfile` in the
+exported output folder (EDM4U regenerates it on every export when AdMob/UMP or other
+pod-based plugins are present — e.g. `Google-Mobile-Ads-SDK`, `GoogleUserMessagingPlatform`).
+Without this step the plain `.xcodeproj` fails to link with undefined symbols like
+`_CGSizeFromGADAdSize`.
+
+```
+Bash: test -f "<output_path>/Podfile" && echo exists
+```
+
+- No `Podfile` → skip, nothing to do.
+- `Podfile` exists:
+  - `Bash: which pod` — if not found, do NOT fail the build. Report that CocoaPods
+    isn't installed and tell the user to run `brew install cocoapods` once, then
+    `cd <output_path> && pod install`.
+  - If found: `Bash: cd "<output_path>" && pod install`. If it fails, report the pod
+    error alongside the build result — the Xcode export itself still succeeded, this
+    is a separate, reportable warning, not a build failure.
+  - If it succeeds, the user opens `.xcworkspace` (not `.xcodeproj`) next.
+
 ### Step 6: Post-Build
 - Report build result (success/failure)
 - Report build size
 - Report any warnings from the build log
+- iOS: report whether `pod install` ran successfully, was skipped (no Podfile), or needs manual CocoaPods setup — and point to `.xcworkspace` vs `.xcodeproj` accordingly
 - If Addressables: remind to build Addressables content separately
 
 ## Build Profiles (Unity 6+)
