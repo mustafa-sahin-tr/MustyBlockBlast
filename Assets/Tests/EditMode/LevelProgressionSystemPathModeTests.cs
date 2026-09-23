@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using MessagePipe;
 using MustyBlockBlast.Core;
 using MustyBlockBlast.Gameplay;
 using MustyBlockBlast.Gameplay.Messages;
@@ -49,6 +50,19 @@ namespace MustyBlockBlast.Tests.EditMode
         /// evidence that a level's reward was (or was not) paid.</summary>
         private TestMessageBroker<PowerUpGrantedMessage> _powerUpGrantedBroker;
 
+        /// <summary>The empty-cell bonus count-up request/completion pair (issue #424). By default
+        /// <see cref="CreateSystem"/> wires a stand-in for the board view that answers every request at
+        /// once, so a level completes synchronously as it did before the count-up existed; a test that
+        /// wants to observe the wait disposes <see cref="_countingAutoReply"/> and answers by hand.</summary>
+        private TestMessageBroker<EmptyCellBonusCountingMessage> _emptyCellBonusCountingBroker;
+        private TestMessageBroker<EmptyCellBonusCountingCompletedMessage> _emptyCellBonusCountingCompletedBroker;
+        private System.IDisposable _countingAutoReply;
+
+        /// <summary>The "+N flies to the score counter" feedback every bonus publishes (issue #329) —
+        /// kept as a field, unlike <see cref="ScoreSystem"/>'s own internal uses of the same message
+        /// type, so a test can assert the empty-cell bonus reaches it (issue #424).</summary>
+        private TestMessageBroker<BonusScoredMessage> _bonusScoredBroker;
+
         private LevelProgressionModel _progressionModel;
         private PathRunModel _pathRunModel;
         private ObjectiveModel _objectiveModel;
@@ -75,6 +89,9 @@ namespace MustyBlockBlast.Tests.EditMode
             _piecePlacedBroker = new TestMessageBroker<PiecePlacedMessage>();
             _scoreChangedBroker = new TestMessageBroker<ScoreChangedMessage>();
             _powerUpGrantedBroker = new TestMessageBroker<PowerUpGrantedMessage>();
+            _emptyCellBonusCountingBroker = new TestMessageBroker<EmptyCellBonusCountingMessage>();
+            _emptyCellBonusCountingCompletedBroker = new TestMessageBroker<EmptyCellBonusCountingCompletedMessage>();
+            _bonusScoredBroker = new TestMessageBroker<BonusScoredMessage>();
         }
 
         [TearDown]
@@ -146,23 +163,108 @@ namespace MustyBlockBlast.Tests.EditMode
             // Points the run had already earned, so the assertion is about the bonus being added to
             // the run's score rather than replacing it.
             _scoreSystem.AddLevelCompletionBonus(40);
+            int emptyCellBonus = EmptyCellBonus();
 
             CompleteCurrentObjective();
 
-            Assert.AreEqual(290, _scoreModel.Score.Value);
+            Assert.AreEqual(290 + emptyCellBonus, _scoreModel.Score.Value);
         }
 
         [Test]
-        public void ObjectiveCompleted_InPathMode_OnALevelWithNoAuthoredBonus_AddsNothing()
+        public void ObjectiveCompleted_InPathMode_OnALevelWithNoAuthoredBonus_AddsOnlyTheEmptyCellBonus()
         {
             LevelProgressionSystem system = CreateSystem(ACatalogOf(Level(1), Level(2)));
             Assert.IsNotNull(system);
             _gameModeSystem.SelectMode(GameMode.Path);
             _scoreSystem.AddLevelCompletionBonus(40);
+            int emptyCellBonus = EmptyCellBonus();
 
             CompleteCurrentObjective();
 
-            Assert.AreEqual(40, _scoreModel.Score.Value);
+            Assert.AreEqual(40 + emptyCellBonus, _scoreModel.Score.Value);
+        }
+
+        // --- Issue #424: one bonus point per empty cell, counted out on the board before the run ends ---
+
+        [Test]
+        public void ObjectiveCompleted_InPathMode_PaysOnePointPerEmptyCell()
+        {
+            LevelProgressionSystem system = CreateSystem(ACatalogOf(Level(1), Level(2)));
+            Assert.IsNotNull(system);
+            _gameModeSystem.SelectMode(GameMode.Path);
+
+            // Ten cells occupied on a full-size board leaves exactly PlayableCellCount - 10 empty.
+            for (int x = 0; x < Board.SIZE; x++)
+            {
+                _boardModel.Occupy(new GridPosition(x, 0), 1);
+            }
+
+            _boardModel.Occupy(new GridPosition(0, 1), 1);
+            _boardModel.Occupy(new GridPosition(1, 1), 1);
+            int expectedBonus = _boardModel.Board.PlayableCellCount - 10;
+
+            CompleteCurrentObjective();
+
+            Assert.AreEqual(1, _emptyCellBonusCountingBroker.Published.Count);
+            Assert.AreEqual(expectedBonus, _emptyCellBonusCountingBroker.Published[0].EmptyCellCount);
+            Assert.AreEqual(expectedBonus, _scoreModel.Score.Value);
+
+            // The "+N flies to the score counter" feedback (issue #329) fires for the empty-cell bonus
+            // exactly as it does for every other bonus, so the player sees it land in the score they
+            // just watched the board count up to (issue #424).
+            Assert.AreEqual(1, _bonusScoredBroker.Published.Count);
+            Assert.AreEqual(expectedBonus, _bonusScoredBroker.Published[0].BonusAmount);
+        }
+
+        [Test]
+        public void ObjectiveCompleted_InPathMode_OnAFullBoard_PaysNoEmptyCellBonusAndAsksForNoCount()
+        {
+            LevelProgressionSystem system = CreateSystem(ACatalogOf(Level(1, completionScoreBonus: 30), Level(2)));
+            Assert.IsNotNull(system);
+            _gameModeSystem.SelectMode(GameMode.Path);
+            FillBoard();
+
+            CompleteCurrentObjective();
+
+            Assert.AreEqual(0, _emptyCellBonusCountingBroker.Published.Count);
+            Assert.AreEqual(30, _scoreModel.Score.Value);
+            Assert.IsTrue(_boardSystem.IsGameOver);
+
+            // No empty-cell bonus means nothing for the "flies to the score counter" feedback to
+            // announce — the flat, unannounced per-level bonus stays exactly as quiet as it always was.
+            Assert.AreEqual(0, _bonusScoredBroker.Published.Count);
+        }
+
+        [Test]
+        public void ObjectiveCompleted_InPathMode_WaitsForTheCountUpBeforeEndingTheRun()
+        {
+            LevelProgressionSystem system = CreateSystem(ACatalogOf(Level(1, completionScoreBonus: 250), Level(2)));
+            Assert.IsNotNull(system);
+            _gameModeSystem.SelectMode(GameMode.Path);
+            int emptyCellBonus = EmptyCellBonus();
+
+            // Stand in for a board view that takes its time: the request goes out, nothing answers yet.
+            _countingAutoReply.Dispose();
+
+            CompleteCurrentObjective();
+
+            Assert.AreEqual(1, _emptyCellBonusCountingBroker.Published.Count);
+            Assert.IsFalse(_boardSystem.IsGameOver, "The run must not end until the count-up has been shown.");
+            Assert.AreEqual(0, _scoreModel.Score.Value, "No bonus is paid until the count-up has been shown.");
+            Assert.AreEqual(
+                0, _bonusScoredBroker.Published.Count,
+                "The score-counter flight must not fire before the bonus it announces has actually landed.");
+
+            _emptyCellBonusCountingCompletedBroker.Publish(new EmptyCellBonusCountingCompletedMessage());
+
+            Assert.IsTrue(_boardSystem.IsGameOver);
+            Assert.AreEqual(1, _bonusScoredBroker.Published.Count);
+            Assert.AreEqual(emptyCellBonus, _bonusScoredBroker.Published[0].BonusAmount);
+            Assert.AreEqual(
+                GameOverReason.LevelCompleted,
+                _gameOverBroker.Published[_gameOverBroker.Published.Count - 1].Reason);
+            Assert.AreEqual(250 + emptyCellBonus, _scoreModel.Score.Value);
+            Assert.AreEqual(250 + emptyCellBonus, _pathRunModel.PathTotalScore.Value);
         }
 
         [Test]
@@ -190,11 +292,12 @@ namespace MustyBlockBlast.Tests.EditMode
                 Level(3)));
             _gameModeSystem.SelectMode(GameMode.Path);
 
-            // Level 1: 20 played points plus its 100 bonus.
+            // Level 1: 20 played points plus its 100 bonus, plus a point per empty cell (issue #424).
             _scoreSystem.AddLevelCompletionBonus(20);
+            int firstEmptyCellBonus = EmptyCellBonus();
             CompleteCurrentObjective();
 
-            Assert.AreEqual(120, _pathRunModel.PathTotalScore.Value);
+            Assert.AreEqual(120 + firstEmptyCellBonus, _pathRunModel.PathTotalScore.Value);
 
             // Clearing level 1 moved the frontier, so level 2 is now startable.
             Assert.IsTrue(system.TryStartPathLevel(2));
@@ -204,10 +307,11 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.AreEqual(0, _scoreModel.Score.Value);
 
             _scoreSystem.AddLevelCompletionBonus(50);
+            int secondEmptyCellBonus = EmptyCellBonus();
             CompleteCurrentObjective();
 
-            Assert.AreEqual(350, _scoreModel.Score.Value);
-            Assert.AreEqual(470, _pathRunModel.PathTotalScore.Value);
+            Assert.AreEqual(350 + secondEmptyCellBonus, _scoreModel.Score.Value);
+            Assert.AreEqual(470 + firstEmptyCellBonus + secondEmptyCellBonus, _pathRunModel.PathTotalScore.Value);
         }
 
         [Test]
@@ -217,8 +321,9 @@ namespace MustyBlockBlast.Tests.EditMode
                 ACatalogOf(Level(1, completionScoreBonus: 100), Level(2)));
             Assert.IsNotNull(system);
             _gameModeSystem.SelectMode(GameMode.Path);
+            int emptyCellBonus = EmptyCellBonus();
             CompleteCurrentObjective();
-            Assert.AreEqual(100, _pathRunModel.PathTotalScore.Value);
+            Assert.AreEqual(100 + emptyCellBonus, _pathRunModel.PathTotalScore.Value);
 
             _gameModeSystem.SelectMode(GameMode.Endless);
 
@@ -233,8 +338,9 @@ namespace MustyBlockBlast.Tests.EditMode
             LevelProgressionSystem system = CreateSystem(ACatalogOf(
                 Level(1), Level(2), Level(3, completionScoreBonus: 500), Level(4)));
             _gameModeSystem.SelectMode(GameMode.Path);
+            int emptyCellBonus = EmptyCellBonus();
             CompleteCurrentObjective();
-            Assert.AreEqual(500, _pathRunModel.PathTotalScore.Value);
+            Assert.AreEqual(500 + emptyCellBonus, _pathRunModel.PathTotalScore.Value);
 
             Assert.IsTrue(system.TryStartPathLevel(1));
 
@@ -323,6 +429,7 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.IsTrue(system.TryStartPathLevel(2));
             int advancesBefore = _levelAdvancedBroker.Published.Count;
             int grantsBefore = _powerUpGrantedBroker.Published.Count;
+            int emptyCellBonus = EmptyCellBonus();
 
             CompleteCurrentObjective();
 
@@ -337,7 +444,7 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.AreEqual(
                 GameOverReason.LevelCompleted,
                 _gameOverBroker.Published[_gameOverBroker.Published.Count - 1].Reason);
-            Assert.AreEqual(70, _scoreModel.Score.Value);
+            Assert.AreEqual(70 + emptyCellBonus, _scoreModel.Score.Value);
         }
 
         /// <summary>
@@ -498,13 +605,13 @@ namespace MustyBlockBlast.Tests.EditMode
         /// <para>
         /// <see cref="ObjectiveSystem"/> publishes <see cref="ObjectiveCompletedMessage"/> synchronously
         /// from inside its own <see cref="PiecePlacedMessage"/> handler, so
-        /// <see cref="LevelProgressionSystem.CompletePathLevel"/>'s <c>AddLevelCompletionBonus</c> call
+        /// <see cref="LevelProgressionSystem.CompletePathLevelAsync"/>'s <c>AddLevelCompletionBonus</c> call
         /// runs nested inside the SAME <c>PiecePlacedMessage</c> publish loop that credits the placement
         /// its own score. If <see cref="ObjectiveSystem"/> were subscribed to <c>PiecePlacedMessage</c>
         /// before <see cref="ScoreSystem"/>, the bonus would be added to a score that does not yet
         /// include this placement's own points — <c>ScoreModel.Score</c> would still settle on the
         /// right total once <see cref="ScoreSystem"/>'s handler ran (addition is commutative), but the
-        /// snapshot <c>CompletePathLevel</c> takes for <see cref="PathRunModel.RecordLevelCompletion"/>
+        /// snapshot <c>CompletePathLevelAsync</c> takes for <see cref="PathRunModel.RecordLevelCompletion"/>
         /// would be captured too early and undercount by exactly the placement's own score — visible
         /// only in the path total, not in the run's own score. This test constructs
         /// <see cref="ScoreSystem"/> then <see cref="ObjectiveSystem"/>, matching
@@ -653,15 +760,19 @@ namespace MustyBlockBlast.Tests.EditMode
             _gameModeSystem.SelectMode(GameMode.Path);
             Assert.AreEqual(2, _pathRunModel.ActiveLevelNumber.Value);
 
+            // Every attempt below ends on the same untouched board, so the empty-cell bonus (issue
+            // #424) is one constant on top of each attempt's score and cancels out of the comparisons.
+            int emptyCellBonus = EmptyCellBonus();
+
             CompleteCurrentObjective();
-            Assert.AreEqual(100, _pathRunModel.PathTotalScore.Value);
+            Assert.AreEqual(100 + emptyCellBonus, _pathRunModel.PathTotalScore.Value);
 
             // The same level again, an identical result. The walk is NOT reset (level 2 is not the
             // first level), so this is a genuine repeat: the total must not move.
             Assert.IsTrue(system.TryStartPathLevel(2));
             CompleteCurrentObjective();
             Assert.AreEqual(
-                100,
+                100 + emptyCellBonus,
                 _pathRunModel.PathTotalScore.Value,
                 "A repeat that beats nothing must not be counted a second time.");
 
@@ -670,7 +781,7 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.IsTrue(system.TryStartPathLevel(2));
             _scoreSystem.AddLevelCompletionBonus(50);
             CompleteCurrentObjective();
-            Assert.AreEqual(150, _pathRunModel.PathTotalScore.Value);
+            Assert.AreEqual(150 + emptyCellBonus, _pathRunModel.PathTotalScore.Value);
 
             // A fourth attempt, better than the FIRST (100) but worse than the best so far (150). The
             // total must stay at the best, not creep up by the difference against some earlier figure.
@@ -678,7 +789,7 @@ namespace MustyBlockBlast.Tests.EditMode
             _scoreSystem.AddLevelCompletionBonus(20);
             CompleteCurrentObjective();
             Assert.AreEqual(
-                150,
+                150 + emptyCellBonus,
                 _pathRunModel.PathTotalScore.Value,
                 "Only the best score per level counts — a mid-range replay changes nothing.");
         }
@@ -836,6 +947,11 @@ namespace MustyBlockBlast.Tests.EditMode
             _objectiveCompletedBroker.Publish(new ObjectiveCompletedMessage(objective.Definition.Id));
         }
 
+        /// <summary>The empty-cell bonus (issue #424) the current board would pay if the level completed
+        /// right now: one point per playable cell that is not occupied.</summary>
+        private int EmptyCellBonus()
+            => _boardModel.Board.PlayableCellCount - _boardModel.Board.OccupiedCellCount();
+
         private void FillBoard()
         {
             for (int y = 0; y < Board.SIZE; y++)
@@ -913,12 +1029,18 @@ namespace MustyBlockBlast.Tests.EditMode
                 _runStartedBroker,
                 _scoreChangedBroker,
                 new TestMessageBroker<NewRecordMessage>(),
-                new TestMessageBroker<BonusScoredMessage>());
+                _bonusScoredBroker);
+
+            // Stands in for BoardView's count-up (issue #424): answers every request on the spot, so
+            // the completion flow stays synchronous for every test that is not about the wait itself.
+            _countingAutoReply = _emptyCellBonusCountingBroker.Subscribe(
+                _ => _emptyCellBonusCountingCompletedBroker.Publish(new EmptyCellBonusCountingCompletedMessage()));
 
             var system = new LevelProgressionSystem(
                 _progressionModel,
                 _pathRunModel,
                 _objectiveModel,
+                _boardModel,
                 catalog,
                 CreatePowerUpSystem(catalog),
                 _gameModeSystem,
@@ -926,7 +1048,10 @@ namespace MustyBlockBlast.Tests.EditMode
                 _scoreSystem,
                 _objectiveCompletedBroker,
                 _objectiveProgressBroker,
-                _levelAdvancedBroker);
+                _levelAdvancedBroker,
+                _emptyCellBonusCountingBroker,
+                _emptyCellBonusCountingCompletedBroker,
+                _bonusScoredBroker);
 
             // Starts the first run, as BoardSystem's IStartable entry point does in the scene, so the
             // tray holds pieces and IsGameOver is a real answer rather than its default.

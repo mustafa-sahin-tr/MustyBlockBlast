@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
+using Cysharp.Threading.Tasks;
 using MessagePipe;
 using MustyBlockBlast.Core;
 using MustyBlockBlast.Gameplay.Messages;
@@ -56,16 +58,29 @@ namespace MustyBlockBlast.Gameplay.Systems
 
         private const int FIRST_LEVEL_NUMBER = 1;
 
+        /// <summary>
+        /// Upper bound on how long <see cref="CompletePathLevelAsync"/> waits for the board view to
+        /// finish counting the empty cells (issue #424). The count-up's length scales with how many
+        /// cells there are, so this is generous for a whole empty board; it exists only so a missing or
+        /// misbehaving view can never leave a cleared level's run hanging without its result screen.
+        /// </summary>
+        private static readonly TimeSpan EmptyCellBonusCountingTimeout = TimeSpan.FromSeconds(6f);
+
         private readonly LevelProgressionModel _progressionModel;
         private readonly PathRunModel _pathRunModel;
         private readonly ObjectiveModel _objectiveModel;
+        private readonly BoardModel _boardModel;
         private readonly LevelCatalog _levelCatalog;
         private readonly PowerUpSystem _powerUpSystem;
         private readonly GameModeSystem _gameModeSystem;
         private readonly BoardSystem _boardSystem;
         private readonly ScoreSystem _scoreSystem;
         private readonly IPublisher<LevelAdvancedMessage> _levelAdvancedPublisher;
+        private readonly IPublisher<EmptyCellBonusCountingMessage> _emptyCellBonusCountingPublisher;
+        private readonly ISubscriber<EmptyCellBonusCountingCompletedMessage> _emptyCellBonusCountingCompletedSubscriber;
+        private readonly IPublisher<BonusScoredMessage> _bonusScoredPublisher;
         private readonly IDisposable _subscriptions;
+        private readonly CancellationTokenSource _disposeCts = new CancellationTokenSource();
         private readonly LevelProgressSaveData _saveData;
 
         /// <summary>
@@ -91,6 +106,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             LevelProgressionModel progressionModel,
             PathRunModel pathRunModel,
             ObjectiveModel objectiveModel,
+            BoardModel boardModel,
             LevelCatalog levelCatalog,
             PowerUpSystem powerUpSystem,
             GameModeSystem gameModeSystem,
@@ -98,17 +114,24 @@ namespace MustyBlockBlast.Gameplay.Systems
             ScoreSystem scoreSystem,
             ISubscriber<ObjectiveCompletedMessage> objectiveCompletedSubscriber,
             ISubscriber<ObjectiveProgressChangedMessage> objectiveProgressChangedSubscriber,
-            IPublisher<LevelAdvancedMessage> levelAdvancedPublisher)
+            IPublisher<LevelAdvancedMessage> levelAdvancedPublisher,
+            IPublisher<EmptyCellBonusCountingMessage> emptyCellBonusCountingPublisher,
+            ISubscriber<EmptyCellBonusCountingCompletedMessage> emptyCellBonusCountingCompletedSubscriber,
+            IPublisher<BonusScoredMessage> bonusScoredPublisher)
         {
             _progressionModel = progressionModel;
             _pathRunModel = pathRunModel;
             _objectiveModel = objectiveModel;
+            _boardModel = boardModel;
             _levelCatalog = levelCatalog;
             _powerUpSystem = powerUpSystem;
             _gameModeSystem = gameModeSystem;
             _boardSystem = boardSystem;
             _scoreSystem = scoreSystem;
             _levelAdvancedPublisher = levelAdvancedPublisher;
+            _emptyCellBonusCountingPublisher = emptyCellBonusCountingPublisher;
+            _emptyCellBonusCountingCompletedSubscriber = emptyCellBonusCountingCompletedSubscriber;
+            _bonusScoredPublisher = bonusScoredPublisher;
 
             _saveData = Load();
             _progressionModel.CurrentLevelNumber.Value = ClampToCatalog(_saveData.currentLevelNumber);
@@ -124,7 +147,12 @@ namespace MustyBlockBlast.Gameplay.Systems
             _subscriptions = bag.Build();
         }
 
-        public void Dispose() => _subscriptions.Dispose();
+        public void Dispose()
+        {
+            _subscriptions.Dispose();
+            _disposeCts.Cancel();
+            _disposeCts.Dispose();
+        }
 
         /// <summary>
         /// Starts a Path-mode run at <paramref name="levelNumber"/>, as the level path overlay's node
@@ -257,7 +285,7 @@ namespace MustyBlockBlast.Gameplay.Systems
 
             if (_gameModeSystem.CurrentMode.Value == GameMode.Path)
             {
-                CompletePathLevel();
+                CompletePathLevelAsync().Forget();
                 return;
             }
 
@@ -265,28 +293,90 @@ namespace MustyBlockBlast.Gameplay.Systems
         }
 
         /// <summary>
-        /// Ends a Path-mode run as a success: pays the level's score bonus into the run that earned it,
-        /// folds that run's finished score into the walk's running total, banks a first clear, and only
-        /// then declares the run over.
+        /// Ends a Path-mode run as a success: pays the level's score bonus plus one point per empty
+        /// cell left on the board (issue #424) into the run that earned them, folds that run's finished
+        /// score into the walk's running total, banks a first clear, and only then declares the run over.
         /// <para>
-        /// The order matters. The bonus has to be inside <c>ScoreModel.Score</c> before
+        /// The empty-cell bonus rewards finishing the objective with room to spare, so the board is
+        /// asked to count those cells out loud first — see <see cref="EmptyCellBonusCountingMessage"/> —
+        /// and this waits (bounded by <see cref="EmptyCellBonusCountingTimeout"/>) for that count-up to
+        /// finish before anything below runs. The result screen is what
+        /// <see cref="BoardSystem.ForceGameOver"/> brings up, so it cannot appear until the count has
+        /// been shown.
+        /// </para>
+        /// <para>
+        /// The order matters. Both bonuses have to be inside <c>ScoreModel.Score</c> before
         /// <see cref="BoardSystem.ForceGameOver"/> publishes, because that score is what the end-of-run
-        /// card reads and what the path tally sums — paying it afterwards would show the player a total
-        /// that is short by exactly the reward they just earned.
+        /// card reads and what the path tally sums — paying them afterwards would show the player a
+        /// total that is short by exactly the reward they just earned.
         /// </para>
         /// </summary>
-        private void CompletePathLevel()
+        private async UniTaskVoid CompletePathLevelAsync()
         {
             int completedLevelNumber = _pathRunModel.ActiveLevelNumber.Value;
             LevelObjectiveConfig completedLevel = _levelCatalog.Find(completedLevelNumber);
-            int bonus = completedLevel != null ? completedLevel.CompletionScoreBonus : 0;
+            int configBonus = completedLevel != null ? completedLevel.CompletionScoreBonus : 0;
 
-            int finalScore = _scoreSystem.AddLevelCompletionBonus(bonus);
+            Board board = _boardModel.Board;
+            int emptyCellBonus = Math.Max(0, board.PlayableCellCount - board.OccupiedCellCount());
+
+            if (emptyCellBonus > 0)
+            {
+                try
+                {
+                    await RequestEmptyCellBonusCountingAsync(emptyCellBonus, _disposeCts.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                    // Disposed (scene/scope tearing down) mid-count — there is no run left to end.
+                    return;
+                }
+            }
+
+            int finalScore = _scoreSystem.AddLevelCompletionBonus(configBonus + emptyCellBonus);
             _pathRunModel.RecordLevelCompletion(completedLevelNumber, finalScore);
+
+            // Reuses the same "+N flies to the score counter" feedback every other bonus already gets
+            // (BonusFeedbackView/BonusSfxView, issue #329) — the on-board count-up already told the
+            // player how many empty cells they earned; this is what tells them those points actually
+            // landed in the score they see at the top of the screen (issue #424). The flat, unannounced
+            // per-level CompletionScoreBonus is deliberately left out of this popup: it predates this
+            // feedback and changing its presentation is not this issue's concern.
+            if (emptyCellBonus > 0)
+            {
+                _bonusScoredPublisher.Publish(new BonusScoredMessage(emptyCellBonus));
+            }
 
             TryAdvanceFrontierAfterPathLevel(completedLevelNumber);
 
             _boardSystem.ForceGameOver(GameOverReason.LevelCompleted);
+        }
+
+        /// <summary>
+        /// Publishes <see cref="EmptyCellBonusCountingMessage"/> and awaits the next
+        /// <see cref="EmptyCellBonusCountingCompletedMessage"/>, or
+        /// <see cref="EmptyCellBonusCountingTimeout"/>, whichever comes first. The completion is
+        /// subscribed to <em>before</em> the request goes out, so a view that answers synchronously
+        /// (nothing to show) is not missed. Modelled on <c>InfoPopupSystem</c>'s grant-animation wait.
+        /// </summary>
+        private async UniTask RequestEmptyCellBonusCountingAsync(int emptyCellCount, CancellationToken cancellationToken)
+        {
+            UniTaskCompletionSource<bool> completionSource = new UniTaskCompletionSource<bool>();
+            IDisposable subscription = _emptyCellBonusCountingCompletedSubscriber.Subscribe(
+                _ => completionSource.TrySetResult(true));
+
+            try
+            {
+                _emptyCellBonusCountingPublisher.Publish(new EmptyCellBonusCountingMessage(emptyCellCount));
+
+                await UniTask.WhenAny(
+                    completionSource.Task.AttachExternalCancellation(cancellationToken),
+                    UniTask.Delay(EmptyCellBonusCountingTimeout, cancellationToken: cancellationToken));
+            }
+            finally
+            {
+                subscription.Dispose();
+            }
         }
 
         /// <summary>

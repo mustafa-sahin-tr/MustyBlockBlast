@@ -147,6 +147,15 @@ namespace MustyBlockBlast.Presentation.Views
         [Tooltip("White silhouette, tinted at runtime in the gem's own theme colour (issue #395). Also drawn on decorated tray, pocket and drag-ghost cells through DiamondVisuals.")]
         [SerializeField] private Sprite _diamondIconSprite;
 
+        [Header("Empty-Cell Bonus Count (issue #424)")]
+        [Tooltip("The chunky display face the level-completion empty-cell bonus count is drawn in — the same asset ScoreView draws the score and best figures in, so the on-board count reads as the same digits the score counter is about to gain. Falls back to the builtin font when unassigned.")]
+        [SerializeField] private Font _bonusNumberFont;
+
+        /// <summary>How far the bonus number's ink is pulled toward black from the theme's accent —
+        /// identical to <c>ScoreView.BEST_VALUE_SHADE</c>, so the count on the board and the record
+        /// figure on the score card share one ink formula (issue #424).</summary>
+        private const float BONUS_NUMBER_INK_SHADE = 0.35f;
+
         private static readonly Color FlashTint = Color.white;
 
         /// <summary>The colour a <see cref="SingleLineClearEffect.Burn"/> cell's fill blends towards as
@@ -448,6 +457,8 @@ namespace MustyBlockBlast.Presentation.Views
         private ISubscriber<VortexIslandFilledMessage> _vortexIslandFilledSubscriber;
         private ISubscriber<ChainLightningTriggeredMessage> _chainLightningTriggeredSubscriber;
         private ISubscriber<SpecialCellSpawnedMessage> _specialCellSpawnedSubscriber;
+        private ISubscriber<EmptyCellBonusCountingMessage> _emptyCellBonusCountingSubscriber;
+        private IPublisher<EmptyCellBonusCountingCompletedMessage> _emptyCellBonusCountingCompletedPublisher;
 
         /// <summary>The grid's layout origin and pitch, kept from <see cref="BuildCells"/> so the pull
         /// animation can work out where a cell one step away sits without re-deriving the layout.</summary>
@@ -476,8 +487,12 @@ namespace MustyBlockBlast.Presentation.Views
             ISubscriber<PiercingRocketFiredMessage> piercingRocketFiredSubscriber,
             ISubscriber<VortexIslandFilledMessage> vortexIslandFilledSubscriber,
             ISubscriber<ChainLightningTriggeredMessage> chainLightningTriggeredSubscriber,
-            ISubscriber<SpecialCellSpawnedMessage> specialCellSpawnedSubscriber)
+            ISubscriber<SpecialCellSpawnedMessage> specialCellSpawnedSubscriber,
+            ISubscriber<EmptyCellBonusCountingMessage> emptyCellBonusCountingSubscriber,
+            IPublisher<EmptyCellBonusCountingCompletedMessage> emptyCellBonusCountingCompletedPublisher)
         {
+            _emptyCellBonusCountingSubscriber = emptyCellBonusCountingSubscriber;
+            _emptyCellBonusCountingCompletedPublisher = emptyCellBonusCountingCompletedPublisher;
             _explosiveCoreDetonatedSubscriber = explosiveCoreDetonatedSubscriber;
             _laserFiredSubscriber = laserFiredSubscriber;
             _piercingRocketFiredSubscriber = piercingRocketFiredSubscriber;
@@ -640,6 +655,10 @@ namespace MustyBlockBlast.Presentation.Views
             // cell's seeding, not a vortex carrying an existing kind to a new position, both of which
             // also raise BoardModel.SpecialKindChanged but neither of which publish this message.
             _specialCellSpawnedSubscriber.Subscribe(OnSpecialCellSpawned).AddTo(_disposables);
+
+            // Issue #424: a cleared Path level pays one point per empty cell, and the system holds the
+            // result screen back until this view has counted those cells out over the board.
+            _emptyCellBonusCountingSubscriber.Subscribe(OnEmptyCellBonusCounting).AddTo(_disposables);
 
             RedrawAll();
         }
@@ -1549,6 +1568,76 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             return _cells[CellIndex(position)].SpecialIconTransform;
+        }
+
+        private void OnEmptyCellBonusCounting(EmptyCellBonusCountingMessage message)
+            => PlayEmptyCellBonusCountingAsync(message.EmptyCellCount).Forget();
+
+        /// <summary>
+        /// The level-completion empty-cell bonus reveal (issue #424): writes 1, 2, 3… over the board's
+        /// empty cells one after another, in board index order, holds the finished count for a beat,
+        /// clears the numbers and then publishes <see cref="EmptyCellBonusCountingCompletedMessage"/>
+        /// so <c>LevelProgressionSystem</c> can end the run and bring up the result screen.
+        /// <para>
+        /// Counts what this view actually shows as empty (<see cref="_cellColourIds"/>, minus holes)
+        /// rather than trusting <paramref name="totalCount"/> blindly, so the numbers on screen can
+        /// never disagree with the board they are written on. The per-cell delay shrinks with the count,
+        /// so a handful of cells still feels deliberate while a whole empty board finishes in about a
+        /// second and a half. The completion is published even if this view is destroyed mid-count —
+        /// the system has its own timeout, but there is no reason to make it wait for one.
+        /// </para>
+        /// </summary>
+        private async UniTaskVoid PlayEmptyCellBonusCountingAsync(int totalCount)
+        {
+            if (totalCount <= 0 || _cells == null)
+            {
+                _emptyCellBonusCountingCompletedPublisher.Publish(new EmptyCellBonusCountingCompletedMessage());
+                return;
+            }
+
+            var emptyIndices = new List<int>(totalCount);
+            for (int index = 0; index < _cells.Length; index++)
+            {
+                if (!_holeMask[index] && _cellColourIds[index] == Board.EMPTY)
+                {
+                    emptyIndices.Add(index);
+                }
+            }
+
+            int count = emptyIndices.Count;
+            float perCellDelay = Mathf.Clamp(1.6f / Mathf.Max(1, count), 0.03f, 0.12f);
+            TimeSpan perCellWait = TimeSpan.FromSeconds(perCellDelay);
+
+            try
+            {
+                for (int revealIndex = 0; revealIndex < count; revealIndex++)
+                {
+                    _cells[emptyIndices[revealIndex]].SetBonusNumber(revealIndex + 1);
+                    await UniTask.Delay(perCellWait, cancellationToken: _destroyToken);
+                }
+
+                // A short hold so the final total is readable before the numbers go.
+                if (count > 0)
+                {
+                    await UniTask.Delay(TimeSpan.FromSeconds(0.4f), cancellationToken: _destroyToken);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // The board view was destroyed mid-count — the numbers are going with it.
+            }
+            finally
+            {
+                if (!_isDestroyed)
+                {
+                    for (int revealIndex = 0; revealIndex < count; revealIndex++)
+                    {
+                        _cells[emptyIndices[revealIndex]].ClearBonusNumber();
+                    }
+                }
+
+                _emptyCellBonusCountingCompletedPublisher.Publish(new EmptyCellBonusCountingCompletedMessage());
+            }
         }
 
         /// <summary>
@@ -2616,6 +2705,24 @@ namespace MustyBlockBlast.Presentation.Views
 
             RepaintCells();
             RepaintHighlight();
+            RepaintBonusNumberStyle(theme);
+        }
+
+        /// <summary>Repaints every cell's (currently hidden) empty-cell bonus number to the score card's
+        /// own ink (issue #424) — see <see cref="CellView.SetBonusNumberStyle"/>. Done on every theme
+        /// switch, not just once, since the accent — and so this ink — changes per season.</summary>
+        private void RepaintBonusNumberStyle(ThemeDefinition theme)
+        {
+            if (_cells == null)
+            {
+                return;
+            }
+
+            Color bonusInk = HudChrome.Darken(theme.Accent, BONUS_NUMBER_INK_SHADE);
+            for (int i = 0; i < _cells.Length; i++)
+            {
+                _cells[i].SetBonusNumberStyle(_bonusNumberFont, bonusInk);
+            }
         }
 
         private void RepaintCells()
