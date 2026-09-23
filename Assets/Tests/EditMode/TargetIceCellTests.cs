@@ -140,7 +140,7 @@ namespace MustyBlockBlast.Tests.EditMode
             var board = new Board();
             var position = new GridPosition(4, 4);
             board.SetIceLevel(position, 2);
-            board.OccupyReinforced(position, COLOUR, 3);
+            board.OccupyReinforced(position, COLOUR, 3, 0);
 
             Assert.IsFalse(board.TryDamage(position));
 

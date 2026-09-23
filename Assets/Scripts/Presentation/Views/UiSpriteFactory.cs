@@ -253,9 +253,10 @@ namespace MustyBlockBlast.Presentation.Views
         /// All nine sprites come off one texture built on first use (see <see cref="BuildLockedSkinSheet"/>),
         /// for the reason the dock icons share theirs: every lock on the board batches into one draw call
         /// whatever mix of skins and stages it shows. Procedural rather than authored art, which is this
-        /// project's established house style for a special cell's look (the reinforced cell's damage art
-        /// is still a placeholder too), and drawn as a few large shapes per tile so each stays legible at
-        /// the size a board cell renders it.
+        /// project's established house style for a special cell's look, and drawn as a few large shapes
+        /// per tile so each stays legible at the size a board cell renders it. Since issue #438 the
+        /// reinforced cell wears these very sprites too — its hit count is the stage, its own rolled skin
+        /// the row — rather than the grey damage tint that stood in until then.
         /// </para>
         /// </summary>
         internal static Sprite LockedSkin(int skin, int stagesRemaining)

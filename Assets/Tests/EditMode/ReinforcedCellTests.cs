@@ -83,7 +83,7 @@ namespace MustyBlockBlast.Tests.EditMode
         {
             var board = new Board();
             var position = new GridPosition(4, 4);
-            board.OccupyReinforced(position, COLOUR, 3);
+            board.OccupyReinforced(position, COLOUR, 3, 0);
 
             bool removed = board.TryDamage(position);
 
@@ -98,7 +98,7 @@ namespace MustyBlockBlast.Tests.EditMode
         {
             var board = new Board();
             var position = new GridPosition(4, 4);
-            board.OccupyReinforced(position, COLOUR, 1);
+            board.OccupyReinforced(position, COLOUR, 1, 0);
 
             bool removed = board.TryDamage(position);
 
@@ -115,7 +115,7 @@ namespace MustyBlockBlast.Tests.EditMode
         {
             var board = new Board();
             var position = new GridPosition(1, 1);
-            board.OccupyReinforced(position, COLOUR, 4);
+            board.OccupyReinforced(position, COLOUR, 4, 0);
 
             Assert.IsFalse(board.TryDamage(position));
             Assert.IsFalse(board.TryDamage(position));
@@ -132,10 +132,107 @@ namespace MustyBlockBlast.Tests.EditMode
             var board = new Board();
             var position = new GridPosition(6, 2);
 
-            board.OccupyReinforced(position, COLOUR, 2);
+            board.OccupyReinforced(position, COLOUR, 2, 0);
 
             Assert.AreEqual(COLOUR, board[position]);
             Assert.AreEqual(2, board.GetHitCount(position));
+        }
+
+        // --- Skin (issue #438): the same three looks a locked cell wears, stored on the board ---
+
+        [TestCase(0)]
+        [TestCase(1)]
+        [TestCase(2)]
+        public void OccupyReinforced_StoresTheSkin(int skin)
+        {
+            var board = new Board();
+            var position = new GridPosition(6, 2);
+
+            board.OccupyReinforced(position, COLOUR, 2, skin);
+
+            Assert.AreEqual(skin, board.GetReinforcedSkin(position));
+        }
+
+        /// <summary>The roll's range is <see cref="Board.LOCKED_SKIN_COUNT"/>'s — the art is shared, so
+        /// a skin the locked cell could not wear is refused here for the same reason it is there.</summary>
+        [TestCase(-1)]
+        [TestCase(Board.LOCKED_SKIN_COUNT)]
+        public void OccupyReinforced_WithASkinOutsideTheRoll_Throws(int skin)
+        {
+            var board = new Board();
+
+            Assert.Throws<System.ArgumentOutOfRangeException>(
+                () => board.OccupyReinforced(new GridPosition(1, 1), COLOUR, 2, skin));
+        }
+
+        /// <summary>A hit peels a stage, never changes the look: the skin outlives every hit but the last.</summary>
+        [Test]
+        public void TryDamage_OnAReinforcedCellWithHitsToSpare_KeepsItsSkin()
+        {
+            var board = new Board();
+            var position = new GridPosition(4, 4);
+            board.OccupyReinforced(position, COLOUR, 3, 2);
+
+            board.TryDamage(position);
+
+            Assert.AreEqual(2, board.GetReinforcedSkin(position));
+        }
+
+        /// <summary>#438 AC6: once the cell is gone, nothing of its plate is left to read back.</summary>
+        [Test]
+        public void TryDamage_OnAReinforcedCellOnItsLastHit_DropsItsSkinWithTheBlock()
+        {
+            var board = new Board();
+            var position = new GridPosition(4, 4);
+            board.OccupyReinforced(position, COLOUR, 1, 2);
+
+            board.TryDamage(position);
+
+            Assert.AreEqual(0, board.GetReinforcedSkin(position));
+        }
+
+        [Test]
+        public void Clear_OnAReinforcedCell_WipesItsSkin()
+        {
+            var board = new Board();
+            var position = new GridPosition(3, 3);
+            board.OccupyReinforced(position, COLOUR, 3, 1);
+
+            board.Clear(position);
+
+            Assert.AreEqual(0, board.GetReinforcedSkin(position));
+        }
+
+        /// <summary>#438 AC5: the snapshot an undo restores from must carry the skin as well as the hit
+        /// count, or the cell would come back wearing a different plate than the one it lost.</summary>
+        [Test]
+        public void Clone_CopiesReinforcedSkins()
+        {
+            var board = new Board();
+            var position = new GridPosition(5, 1);
+            board.OccupyReinforced(position, COLOUR, 3, 2);
+
+            Board copy = board.Clone();
+
+            Assert.AreEqual(2, copy.GetReinforcedSkin(position));
+
+            // And it is a copy, not a view.
+            copy.Clear(position);
+            Assert.AreEqual(2, board.GetReinforcedSkin(position));
+        }
+
+        [Test]
+        public void CopyFrom_CopiesReinforcedSkins()
+        {
+            var source = new Board();
+            var position = new GridPosition(5, 1);
+            source.OccupyReinforced(position, COLOUR, 2, 1);
+
+            var destination = new Board();
+            destination.OccupyReinforced(position, COLOUR, 2, 2);
+            destination.CopyFrom(source);
+
+            Assert.AreEqual(1, destination.GetReinforcedSkin(position));
         }
 
         /// <summary>An ordinary placement never reinforces anything — the two lifecycles are
@@ -158,7 +255,7 @@ namespace MustyBlockBlast.Tests.EditMode
         {
             var board = new Board();
             var position = new GridPosition(3, 3);
-            board.OccupyReinforced(position, COLOUR, 4);
+            board.OccupyReinforced(position, COLOUR, 4, 0);
 
             board.Clear(position);
 
@@ -171,7 +268,7 @@ namespace MustyBlockBlast.Tests.EditMode
         {
             var board = new Board();
             var position = new GridPosition(5, 1);
-            board.OccupyReinforced(position, COLOUR, 3);
+            board.OccupyReinforced(position, COLOUR, 3, 0);
 
             Board copy = board.Clone();
 
@@ -188,7 +285,7 @@ namespace MustyBlockBlast.Tests.EditMode
         {
             var source = new Board();
             var position = new GridPosition(5, 1);
-            source.OccupyReinforced(position, COLOUR, 2);
+            source.OccupyReinforced(position, COLOUR, 2, 0);
 
             var destination = new Board();
             destination.Occupy(position, OTHER_COLOUR);
@@ -209,7 +306,7 @@ namespace MustyBlockBlast.Tests.EditMode
             source.Occupy(position, COLOUR);
 
             var destination = new Board();
-            destination.OccupyReinforced(position, COLOUR, 4);
+            destination.OccupyReinforced(position, COLOUR, 4, 0);
             destination.CopyFrom(source);
 
             Assert.AreEqual(0, destination.GetHitCount(position));
@@ -296,7 +393,7 @@ namespace MustyBlockBlast.Tests.EditMode
                 var position = new GridPosition(x, 3);
                 if (position.Equals(reinforced))
                 {
-                    board.OccupyReinforced(position, COLOUR, 2);
+                    board.OccupyReinforced(position, COLOUR, 2, 0);
                 }
                 else if (x != Board.SIZE - 1)
                 {
@@ -320,7 +417,7 @@ namespace MustyBlockBlast.Tests.EditMode
         {
             var board = new Board();
             var reinforced = new GridPosition(4, 4);
-            board.OccupyReinforced(reinforced, COLOUR, 3);
+            board.OccupyReinforced(reinforced, COLOUR, 3, 0);
 
             for (int i = 0; i < Board.SIZE; i++)
             {
@@ -372,7 +469,7 @@ namespace MustyBlockBlast.Tests.EditMode
         {
             var board = new Board();
             var reinforced = new GridPosition(3, 3);
-            board.OccupyReinforced(reinforced, COLOUR, 2);
+            board.OccupyReinforced(reinforced, COLOUR, 2, 0);
             board.Occupy(new GridPosition(4, 3), OTHER_COLOUR);
 
             PowerUpClearResult result = PowerUpClearResolver.ResolveBombClear(board, new GridPosition(4, 3));
@@ -389,7 +486,7 @@ namespace MustyBlockBlast.Tests.EditMode
         {
             var board = new Board();
             var reinforced = new GridPosition(3, 3);
-            board.OccupyReinforced(reinforced, COLOUR, 1);
+            board.OccupyReinforced(reinforced, COLOUR, 1, 0);
 
             PowerUpClearResult result = PowerUpClearResolver.ResolveBombClear(board, new GridPosition(3, 3));
 
@@ -409,7 +506,7 @@ namespace MustyBlockBlast.Tests.EditMode
         {
             var board = new Board();
             var reinforced = new GridPosition(3, 3);
-            board.OccupyReinforced(reinforced, COLOUR, 2);
+            board.OccupyReinforced(reinforced, COLOUR, 2, 0);
             board.SetSpecialKind(reinforced, SpecialCellKind.ExplosiveCore);
 
             PowerUpClearResult result = PowerUpClearResolver.ResolveBombClear(board, reinforced);
@@ -425,7 +522,7 @@ namespace MustyBlockBlast.Tests.EditMode
         {
             var board = new Board();
             var reinforced = new GridPosition(2, 5);
-            board.OccupyReinforced(reinforced, COLOUR, 3);
+            board.OccupyReinforced(reinforced, COLOUR, 3, 0);
             board.Occupy(new GridPosition(3, 5), OTHER_COLOUR);
 
             PowerUpClearResult result = PowerUpClearResolver.ResolveRowClear(board, 5);
@@ -445,7 +542,7 @@ namespace MustyBlockBlast.Tests.EditMode
         {
             var board = new Board();
             var reinforced = new GridPosition(2, 6);
-            board.OccupyReinforced(reinforced, COLOUR, 2);
+            board.OccupyReinforced(reinforced, COLOUR, 2, 0);
             board.Occupy(new GridPosition(5, 6), OTHER_COLOUR);
 
             var laser = new LaserEffect();
@@ -468,7 +565,7 @@ namespace MustyBlockBlast.Tests.EditMode
         {
             var board = new Board();
             var reinforced = new GridPosition(2, 6);
-            board.OccupyReinforced(reinforced, COLOUR, 2);
+            board.OccupyReinforced(reinforced, COLOUR, 2, 0);
             board.Occupy(new GridPosition(5, 6), OTHER_COLOUR);
 
             var core = new ExplosiveCoreEffect();
@@ -495,7 +592,7 @@ namespace MustyBlockBlast.Tests.EditMode
         {
             var board = new Board();
             var reinforced = new GridPosition(0, 0);
-            board.OccupyReinforced(reinforced, COLOUR, 2);
+            board.OccupyReinforced(reinforced, COLOUR, 2, 0);
 
             var vortex = new VortexEffect(new System.Random(1));
             vortex.BeginResolution();
@@ -521,7 +618,7 @@ namespace MustyBlockBlast.Tests.EditMode
             trayModel.SetSlot(0, Single, COLOUR);
 
             var reinforced = new GridPosition(6, 6);
-            boardModel.Board.OccupyReinforced(reinforced, COLOUR, 3);
+            boardModel.Board.OccupyReinforced(reinforced, COLOUR, 3, 0);
 
             Assert.IsTrue(system.TryPlacePiece(0, new GridPosition(0, 0)));
 
@@ -540,7 +637,7 @@ namespace MustyBlockBlast.Tests.EditMode
             trayModel.SetSlot(0, Single, COLOUR);
 
             var reinforced = new GridPosition(2, 3);
-            boardModel.Board.OccupyReinforced(reinforced, COLOUR, 1);
+            boardModel.Board.OccupyReinforced(reinforced, COLOUR, 1, 0);
             for (int x = 0; x < Board.SIZE - 1; x++)
             {
                 var position = new GridPosition(x, 3);
@@ -566,7 +663,7 @@ namespace MustyBlockBlast.Tests.EditMode
             trayModel.SetSlot(0, Single, COLOUR);
 
             var reinforced = new GridPosition(2, 3);
-            boardModel.Board.OccupyReinforced(reinforced, COLOUR, 2);
+            boardModel.Board.OccupyReinforced(reinforced, COLOUR, 2, 0);
             for (int x = 0; x < Board.SIZE - 1; x++)
             {
                 var position = new GridPosition(x, 3);
@@ -590,7 +687,7 @@ namespace MustyBlockBlast.Tests.EditMode
             BoardSystem system = CreateSystem(out BoardModel boardModel, out TrayModel trayModel, out _);
 
             var reinforced = new GridPosition(4, 4);
-            boardModel.Board.OccupyReinforced(reinforced, COLOUR, 3);
+            boardModel.Board.OccupyReinforced(reinforced, COLOUR, 3, 0);
 
             // Row 4 is short of (0,4) and column 4 is short of (4,0); the piece below covers exactly
             // those two cells, so both lines complete in the same placement and neither before it.
@@ -640,11 +737,14 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.AreEqual(4, config.ReinforcedCells[1].HitCount);
         }
 
+        /// <summary>The ceiling is 3 since issue #438 (one skin stage per hit); an authored 4 — legal
+        /// before that — is clamped down like any other out-of-range value (#438 AC7).</summary>
         [TestCase(0, 2)]
         [TestCase(1, 2)]
         [TestCase(2, 2)]
-        [TestCase(4, 4)]
-        [TestCase(9, 4)]
+        [TestCase(3, 3)]
+        [TestCase(4, 3)]
+        [TestCase(9, 3)]
         [TestCase(-3, 2)]
         public void ValidateInEditor_ClampsTheHitCountIntoRange(int authored, int expected)
         {
@@ -671,8 +771,9 @@ namespace MustyBlockBlast.Tests.EditMode
         }
 
         [TestCase(1)]
+        [TestCase(4)]
         [TestCase(5)]
-        public void IsValid_WithAHitCountOutsideTwoToFour_Fails(int hitCount)
+        public void IsValid_WithAHitCountOutsideTwoToThree_Fails(int hitCount)
         {
             LevelObjectiveConfig config = ARow(
                 "{\"_levelNumber\":1,\"_targetValue\":1,\"_requiredLineCount\":1,\"_reinforcedCells\":["
@@ -771,7 +872,7 @@ namespace MustyBlockBlast.Tests.EditMode
         {
             var catalog = ACatalogOf(
                 "{\"_levelNumber\":1,\"_targetValue\":1,\"_reinforcedCells\":["
-                + "{\"_x\":1,\"_y\":1,\"_hitCount\":2},{\"_x\":6,\"_y\":7,\"_hitCount\":4}]}");
+                + "{\"_x\":1,\"_y\":1,\"_hitCount\":2},{\"_x\":6,\"_y\":7,\"_hitCount\":3}]}");
             var progressionModel = new LevelProgressionModel();
             progressionModel.CurrentLevelNumber.Value = 1;
 
@@ -785,10 +886,74 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.IsTrue(boardModel.Board.IsOccupied(new GridPosition(1, 1)));
             Assert.AreEqual(2, boardModel.GetHitCount(new GridPosition(1, 1)));
             Assert.IsTrue(boardModel.Board.IsOccupied(new GridPosition(6, 7)));
-            Assert.AreEqual(4, boardModel.GetHitCount(new GridPosition(6, 7)));
+            Assert.AreEqual(3, boardModel.GetHitCount(new GridPosition(6, 7)));
             Assert.AreEqual(2, boardModel.Board.OccupiedCellCount(), "Nothing else is on the board.");
 
             Object.DestroyImmediate(catalog);
+        }
+
+        /// <summary>Issue #438: every seeded cell wears one of the locked cell's three skins, rolled per
+        /// instance from the seeder's own generator. The seed is pinned so the roll is repeatable; what
+        /// is asserted is the range, not one particular outcome, because the exact sequence is an
+        /// implementation detail of <see cref="System.Random"/>.</summary>
+        [Test]
+        public void StartNewRun_OnALevelAuthoringReinforcedCells_RollsEachCellASkinInRange()
+        {
+            var catalog = ACatalogOf(
+                "{\"_levelNumber\":1,\"_targetValue\":1,\"_reinforcedCells\":["
+                + "{\"_x\":1,\"_y\":1,\"_hitCount\":2},{\"_x\":2,\"_y\":2,\"_hitCount\":3},"
+                + "{\"_x\":3,\"_y\":3,\"_hitCount\":3},{\"_x\":4,\"_y\":4,\"_hitCount\":2}]}");
+            var progressionModel = new LevelProgressionModel();
+            progressionModel.CurrentLevelNumber.Value = 1;
+
+            BoardSystem system = CreateSystem(
+                out BoardModel boardModel, out _, out _,
+                new LevelReinforcedCellSeeder(
+                    catalog, progressionModel, new PathRunModel(), new WeightedPieceDraw(seed: 1), seed: 7));
+
+            system.StartNewRun();
+
+            for (int i = 1; i <= 4; i++)
+            {
+                int skin = boardModel.GetReinforcedSkin(new GridPosition(i, i));
+                Assert.That(skin, Is.InRange(0, Board.LOCKED_SKIN_COUNT - 1), $"Cell ({i},{i})");
+            }
+
+            Object.DestroyImmediate(catalog);
+        }
+
+        /// <summary>The same seed rolls the same skins — the whole point of the seeded constructor.</summary>
+        [Test]
+        public void StartNewRun_WithTheSameSeed_RollsTheSameSkins()
+        {
+            const string level = "{\"_levelNumber\":1,\"_targetValue\":1,\"_reinforcedCells\":["
+                + "{\"_x\":1,\"_y\":1,\"_hitCount\":2},{\"_x\":2,\"_y\":2,\"_hitCount\":3},"
+                + "{\"_x\":3,\"_y\":3,\"_hitCount\":3}]}";
+            var catalogA = ACatalogOf(level);
+            var catalogB = ACatalogOf(level);
+            var progressionModel = new LevelProgressionModel();
+            progressionModel.CurrentLevelNumber.Value = 1;
+
+            BoardSystem systemA = CreateSystem(
+                out BoardModel boardA, out _, out _,
+                new LevelReinforcedCellSeeder(
+                    catalogA, progressionModel, new PathRunModel(), new WeightedPieceDraw(seed: 1), seed: 42));
+            BoardSystem systemB = CreateSystem(
+                out BoardModel boardB, out _, out _,
+                new LevelReinforcedCellSeeder(
+                    catalogB, progressionModel, new PathRunModel(), new WeightedPieceDraw(seed: 1), seed: 42));
+
+            systemA.StartNewRun();
+            systemB.StartNewRun();
+
+            for (int i = 1; i <= 3; i++)
+            {
+                var position = new GridPosition(i, i);
+                Assert.AreEqual(boardA.GetReinforcedSkin(position), boardB.GetReinforcedSkin(position));
+            }
+
+            Object.DestroyImmediate(catalogA);
+            Object.DestroyImmediate(catalogB);
         }
 
         /// <summary>A run of a level that authors none opens on a bare board, exactly as every level
@@ -855,7 +1020,7 @@ namespace MustyBlockBlast.Tests.EditMode
                 var position = new GridPosition(x, y);
                 if (position.Equals(reinforced))
                 {
-                    board.OccupyReinforced(position, COLOUR, hitCount);
+                    board.OccupyReinforced(position, COLOUR, hitCount, 0);
                     continue;
                 }
 

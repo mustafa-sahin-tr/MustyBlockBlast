@@ -189,6 +189,11 @@ namespace MustyBlockBlast.Gameplay.Models
         /// the lock on <paramref name="position"/> wears. Meaningless unless <see cref="IsLocked"/>.</summary>
         public int GetLockedSkin(GridPosition position) => _board.GetLockedSkin(position);
 
+        /// <summary>Read-only access for Views: which visual skin (0..<see cref="Core.Board.LOCKED_SKIN_COUNT"/>-1)
+        /// the reinforced cell on <paramref name="position"/> wears (issue #438). Meaningless unless
+        /// <see cref="GetHitCount"/> is above 0.</summary>
+        public int GetReinforcedSkin(GridPosition position) => _board.GetReinforcedSkin(position);
+
         /// <summary>Core board handed to the stateless Core rule helpers. Systems only.</summary>
         internal Board Board => _board;
 
@@ -211,11 +216,13 @@ namespace MustyBlockBlast.Gameplay.Models
 
         /// <summary>Occupies a cell as a reinforced one and announces both halves of it — the block
         /// that appeared, then how much punishment it will take — in the order a View needs them, which
-        /// is the same order <see cref="SetSpecialKind"/> establishes for a special cell's icon.
+        /// is the same order <see cref="SetSpecialKind"/> establishes for a special cell's icon. The
+        /// skin (issue #438) is written before anything is announced and has no signal of its own: a
+        /// View reads it back off <see cref="GetReinforcedSkin"/> whenever either notification arrives.
         /// Level-start seeding only; see <see cref="Core.Board.OccupyReinforced"/>.</summary>
-        internal void OccupyReinforced(GridPosition position, int colourId, int hitCount)
+        internal void OccupyReinforced(GridPosition position, int colourId, int hitCount, int skin)
         {
-            _board.OccupyReinforced(position, colourId, hitCount);
+            _board.OccupyReinforced(position, colourId, hitCount, skin);
             CellChanged?.Invoke(position, colourId);
             HitCountChanged?.Invoke(position, hitCount);
         }

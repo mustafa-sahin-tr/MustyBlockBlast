@@ -1538,7 +1538,7 @@ namespace MustyBlockBlast.Tests.EditMode
             PersistCount(PowerUpKind.PaintCross, 1);
             var boardModel = new BoardModel();
             var core = new GridPosition(4, 4);
-            boardModel.OccupyReinforced(core, 1, hitCount: 2);
+            boardModel.OccupyReinforced(core, 1, hitCount: 2, skin: 0);
             boardModel.SetSpecialKind(core, SpecialCellKind.ExplosiveCore);
             PowerUpSystem system = CreateSystem(new PowerUpModel(), boardModel);
 

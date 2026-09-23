@@ -204,7 +204,7 @@ namespace MustyBlockBlast.Tests.EditMode
             var lockPosition = new GridPosition(4, 4);
             board.OccupyLocked(lockPosition, COLOUR, 1, SKIN);
             var neighbour = new GridPosition(3, 4);
-            board.OccupyReinforced(neighbour, COLOUR, 3);
+            board.OccupyReinforced(neighbour, COLOUR, 3, 0);
 
             Assert.IsFalse(board.TryDamage(neighbour));
 

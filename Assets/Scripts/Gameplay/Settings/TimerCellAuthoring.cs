@@ -22,8 +22,10 @@ namespace MustyBlockBlast.Gameplay.Settings
         /// deliberately the same figure as <see cref="ReinforcedCellAuthoring.MIN_HIT_COUNT"/>.</summary>
         public const int MIN_STARTING_COUNTDOWN = 2;
 
-        /// <summary>Most placements a timer cell may be authored to start with — deliberately the same
-        /// figure as <see cref="ReinforcedCellAuthoring.MAX_HIT_COUNT"/>.</summary>
+        /// <summary>Most placements a timer cell may be authored to start with — originally the same
+        /// figure as <see cref="ReinforcedCellAuthoring.MAX_HIT_COUNT"/>, which issue #438 then capped
+        /// at the three skin stages a reinforced cell wears. A countdown is a number, not art, so it
+        /// keeps the original ceiling.</summary>
         public const int MAX_STARTING_COUNTDOWN = 4;
 
         [Tooltip("Column, 0-based from the left.")]

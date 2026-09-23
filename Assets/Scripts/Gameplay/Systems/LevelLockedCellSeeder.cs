@@ -18,9 +18,10 @@ namespace MustyBlockBlast.Gameplay.Systems
     /// for being its own class rather than code inside <see cref="BoardSystem"/>, same "which level"
     /// read, and the same <see cref="WeightedPieceDraw"/> for the block's cosmetic colour.
     /// <para>
-    /// The one thing it does that no other seeder does: it rolls each lock's visual skin (AC9 — one of
-    /// <see cref="Board.LOCKED_SKIN_COUNT"/> approved looks, assigned at random per instance so a level
-    /// shows a visibly different lock from one cell to the next). The roll comes from this seeder's own
+    /// It also rolls each lock's visual skin (AC9 — one of <see cref="Board.LOCKED_SKIN_COUNT"/> approved
+    /// looks, assigned at random per instance so a level shows a visibly different lock from one cell to
+    /// the next); since issue #438 the reinforced seeder rolls from the same three looks the same way, the
+    /// two mechanics sharing one set of art. The roll comes from this seeder's own
     /// <see cref="Random"/>, seeded from the clock in play and from a fixed value in tests, exactly the
     /// pattern <see cref="WeightedPieceDraw"/> and <see cref="BoardSystem"/> keep for their own draws;
     /// <c>UnityEngine.Random</c> is deliberately not used, so a test can pin the outcome.

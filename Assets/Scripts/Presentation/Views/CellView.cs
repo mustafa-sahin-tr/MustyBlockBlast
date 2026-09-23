@@ -95,8 +95,9 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>The flat frost tint an ice socket's overlay is drawn in (issue #433, retuned in
         /// #436): near-white glass with only a whisper of blue, deliberately colour-independent — it
         /// tints whatever the cell shows underneath (an empty face or any block colour) the same way —
-        /// and deliberately NOT <c>BoardView.ReinforcedDamageTint</c>'s slate grey, so a socket never
-        /// reads as a damaged block. It was a pale blue before #436, which made the plate read as a blue
+        /// and deliberately NOT the slate grey the reinforced cell's since-retired damage tint used
+        /// (issue #438 gave it the locked skin instead), so a socket never reads as a damaged block. It
+        /// was a pale blue before #436, which made the plate read as a blue
         /// filter over the block; near-white lets the piece's own colour bleed through instead, and
         /// leaves the "this is ice" hue to the ring (<see cref="IceRingColour"/>). The alpha is
         /// supplied per call by <see cref="SetIceOverlay"/>.</summary>

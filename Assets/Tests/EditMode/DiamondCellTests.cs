@@ -306,7 +306,7 @@ namespace MustyBlockBlast.Tests.EditMode
         {
             var board = new Board();
             var diamond = new GridPosition(5, 6);
-            board.OccupyReinforced(diamond, BLOCK_COLOUR, hitCount: 2);
+            board.OccupyReinforced(diamond, BLOCK_COLOUR, hitCount: 2, skin: 0);
             board.SetSpecialKind(diamond, SpecialCellKind.Diamond);
             board.SetDiamondColourId(diamond, DIAMOND_COLOUR);
 
