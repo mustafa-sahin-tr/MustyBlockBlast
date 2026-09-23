@@ -1,5 +1,8 @@
+using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading;
+using Cysharp.Threading.Tasks;
 using MessagePipe;
 using MustyBlockBlast.Gameplay;
 using MustyBlockBlast.Gameplay.Localization;
@@ -80,6 +83,22 @@ namespace MustyBlockBlast.Presentation.Views
         private const float TROPHY_GAP = 8f;
         private const float NEW_TAG_WIDTH = 110f;
         private const float NEW_TAG_HEIGHT = 40f;
+        private const float COIN_BOX_TOP_GAP = 24f;
+        private const float COIN_BOX_HEIGHT = 110f;
+        private const float COIN_BOX_RADIUS = 39f;
+        private const float COIN_BOX_PAD = 22f;
+        private const float COIN_DISC_SIZE = 84f;
+        private const float COIN_GLYPH_SIZE = 50f;
+        private const float COIN_ICON_TEXT_GAP = 22f;
+        private const float COIN_CAPTION_TOP = 20f;
+        private const float COIN_VALUE_BOTTOM = 22f;
+        private const float COIN_PILL_WIDTH = 220f;
+        private const float COIN_PILL_HEIGHT = 84f;
+
+        /// <summary>Seconds the coin balance takes to count up to its post-level figure. The score
+        /// card's own count-up length (<see cref="ScoreView"/>), so the two read as the same gesture.</summary>
+        private const float COIN_COUNT_UP_DURATION = 0.4f;
+
         private const float BADGES_TOP_GAP = 24f;
         private const float BADGES_HEADING_HEIGHT = 30f;
         private const float BADGES_HEADING_GAP = 14f;
@@ -239,6 +258,16 @@ namespace MustyBlockBlast.Presentation.Views
         private Image _newTagPlate;
         private Text _newTagText;
 
+        private RectTransform _coinBoxRoot;
+        private Image _coinBoxShadow;
+        private Image _coinBoxPlate;
+        private Image _coinBoxDisc;
+        private Image _coinBoxGlyph;
+        private Text _coinBoxCaptionText;
+        private Text _coinBoxValueText;
+        private Image _coinBoxPillPlate;
+        private Text _coinBoxPillText;
+
         private Text _badgesHeadingText;
         private Text _claimHintText;
 
@@ -247,6 +276,21 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>The score of the run that just ended, captured on game over: the model's own value
         /// is reset by the next run, and a locale change must still be able to repaint this.</summary>
         private int _runScore;
+
+        /// <summary><see cref="ProfileModel.CoinBalance"/> as the run began, so the coins the level
+        /// itself paid out can be told from the balance the player walked in with. Captured on
+        /// <see cref="RunStartedMessage"/>, which every Path level start ends in.</summary>
+        private int _coinsAtRunStart;
+
+        /// <summary>What the run just ended added to the coin balance. Captured on game over for the
+        /// same reason as <see cref="_runScore"/>: the next run moves the balance on.</summary>
+        private int _coinsEarnedThisRun;
+
+        /// <summary>The figure the coin box is currently showing, mid count-up.</summary>
+        private int _displayedCoins;
+
+        private CancellationToken _destroyToken;
+        private CancellationTokenSource _coinCountUpCts;
 
         /// <summary>Why the last run ended. Kept so a language switch can re-word the card without
         /// waiting for the next game over — the wording is reason-specific.</summary>
@@ -420,6 +464,7 @@ namespace MustyBlockBlast.Presentation.Views
         private void Awake()
         {
             _canvas = GetComponentInParent<Canvas>();
+            _destroyToken = this.GetCancellationTokenOnDestroy();
             BuildPanel();
             _panel.SetActive(false);
         }
@@ -449,9 +494,17 @@ namespace MustyBlockBlast.Presentation.Views
             _runStartedSubscriber.Subscribe(OnRunStarted).AddTo(_disposables);
             _newRecordSubscriber.Subscribe(OnNewRecord).AddTo(_disposables);
             _runRescuedSubscriber.Subscribe(OnRunRescued).AddTo(_disposables);
+
+            // A defensive baseline: every real run start replaces this, but a card that somehow opens
+            // without one then reads "nothing earned" rather than crediting the whole balance.
+            _coinsAtRunStart = _profileModel.CoinBalance.Value;
         }
 
-        private void OnDestroy() => _disposables.Dispose();
+        private void OnDestroy()
+        {
+            _disposables.Dispose();
+            CancelCoinCountUp();
+        }
 
         /// <summary>True while the card is showing. Read by <see cref="BoardInputView"/>.</summary>
         internal bool IsOpen => _panel != null && _panel.activeSelf;
@@ -532,6 +585,11 @@ namespace MustyBlockBlast.Presentation.Views
         private void OnGameOver(GameOverMessage message)
         {
             _runScore = _scoreModel.Score.Value;
+
+            // Coin cells pay out during play, so the balance is already final here; nothing spends
+            // coins inside a level, but the clamp keeps a negative out of the "+N" all the same.
+            _coinsEarnedThisRun = Mathf.Max(0, _profileModel.CoinBalance.Value - _coinsAtRunStart);
+
             _lastReason = message.Reason;
             _isRescueAvailable = message.IsRescueAvailable;
             _lastMode = _gameModeSystem.CurrentMode.Value;
@@ -554,6 +612,8 @@ namespace MustyBlockBlast.Presentation.Views
         private void OnRunStarted(RunStartedMessage message)
         {
             _isNewRecordThisRun = false;
+            _coinsAtRunStart = _profileModel.CoinBalance.Value;
+            CancelCoinCountUp();
             _panel.SetActive(false);
         }
 
@@ -615,6 +675,8 @@ namespace MustyBlockBlast.Presentation.Views
             _newTagPlate.color = theme.Accent;
             _newTagText.color = Color.white;
 
+            PaintCoinBox();
+
             _badgesHeadingText.color = theme.SoftInk;
             _claimHintText.color = theme.Accent;
 
@@ -623,6 +685,26 @@ namespace MustyBlockBlast.Presentation.Views
             {
                 PaintButton(_buttons[buttonIndex]);
             }
+        }
+
+        /// <summary>The coin box in the card's own vocabulary: a badge row's plate and gold icon disc,
+        /// with the "+N" pill in the green the done-checks use — these coins are already credited, so
+        /// the pill must not read as something still to claim.</summary>
+        private void PaintCoinBox()
+        {
+            if (_coinBoxRoot == null || _currentTheme == null)
+            {
+                return;
+            }
+
+            _coinBoxShadow.color = _currentTheme.CardShadow;
+            _coinBoxPlate.color = _currentTheme.CardBackground;
+            _coinBoxDisc.color = _currentTheme.Accent;
+            _coinBoxGlyph.color = _coinSprite != null ? Color.white : Color.clear;
+            _coinBoxCaptionText.color = _currentTheme.SoftInk;
+            _coinBoxValueText.color = _currentTheme.Ink;
+            _coinBoxPillPlate.color = _currentTheme.GetFill(HudChrome.GREEN_KIND);
+            _coinBoxPillText.color = Color.white;
         }
 
         private void PaintStatPlate(StatPlate statPlate, Color valueColour)
@@ -659,6 +741,7 @@ namespace MustyBlockBlast.Presentation.Views
         {
             RefreshHeader();
             RefreshStats();
+            RefreshCoinBox();
             RefreshBadges();
             RefreshButtons();
             Layout();
@@ -806,6 +889,103 @@ namespace MustyBlockBlast.Presentation.Views
             float shift = (TROPHY_SIZE + TROPHY_GAP) * 0.5f;
             captionRect.anchoredPosition = new Vector2(shift, captionY);
             _trophyRect.anchoredPosition = new Vector2(shift - (captionWidth * 0.5f) - TROPHY_GAP - (TROPHY_SIZE * 0.5f), captionY);
+        }
+
+        /// <summary>
+        /// The coin box, shown only on a cleared Path level that actually paid coins out: the balance
+        /// counting up to where the level left it, and the "+N" the level itself added. Every other
+        /// card — Endless, Timed, a failed level, a level that paid nothing — leaves the row hidden,
+        /// and <see cref="Layout"/> then gives it no height at all.
+        /// </summary>
+        private void RefreshCoinBox()
+        {
+            if (_coinBoxRoot == null || _localizationSystem == null || _profileModel == null)
+            {
+                return;
+            }
+
+            bool show = _lastMode == GameMode.Path
+                && _lastReason == GameOverReason.LevelCompleted
+                && _coinsEarnedThisRun > 0;
+
+            bool wasShowing = _coinBoxRoot.gameObject.activeSelf;
+            _coinBoxRoot.gameObject.SetActive(show);
+
+            if (!show)
+            {
+                CancelCoinCountUp();
+                return;
+            }
+
+            _coinBoxCaptionText.text = _localizationSystem.Translate(LocalizationKeys.RUN_RESULT_COIN_LABEL);
+            _coinBoxPillText.text = FormatReward(_coinsEarnedThisRun);
+
+            // Only a freshly opened box counts up. A repaint while it is already on screen — a language
+            // switch, a badge claim — must not replay the climb from the start.
+            if (!wasShowing)
+            {
+                SetCoinFigure(_coinsAtRunStart);
+                AnimateCoinsToAsync(_profileModel.CoinBalance.Value).Forget();
+            }
+        }
+
+        /// <summary>
+        /// Counts the shown balance up to <paramref name="targetCoins"/> over
+        /// <see cref="COIN_COUNT_UP_DURATION"/>, as <see cref="ScoreView"/> counts the score.
+        /// </summary>
+        private async UniTaskVoid AnimateCoinsToAsync(int targetCoins)
+        {
+            CancelCoinCountUp();
+
+            if (_displayedCoins == targetCoins)
+            {
+                SetCoinFigure(targetCoins);
+                return;
+            }
+
+            _coinCountUpCts = CancellationTokenSource.CreateLinkedTokenSource(_destroyToken);
+            CancellationToken token = _coinCountUpCts.Token;
+
+            int startCoins = _displayedCoins;
+
+            try
+            {
+                float elapsed = 0f;
+                while (elapsed < COIN_COUNT_UP_DURATION)
+                {
+                    float t = Mathf.Clamp01(elapsed / COIN_COUNT_UP_DURATION);
+                    SetCoinFigure(startCoins + Mathf.RoundToInt((targetCoins - startCoins) * t));
+                    await UniTask.Yield(PlayerLoopTiming.Update, token);
+                    elapsed += Time.unscaledDeltaTime;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // Superseded by a run restart, a hidden box, or object destruction.
+                return;
+            }
+
+            SetCoinFigure(targetCoins);
+        }
+
+        private void CancelCoinCountUp()
+        {
+            if (_coinCountUpCts == null)
+            {
+                return;
+            }
+
+            _coinCountUpCts.Cancel();
+            _coinCountUpCts.Dispose();
+            _coinCountUpCts = null;
+        }
+
+        private void SetCoinFigure(int coins)
+        {
+            _displayedCoins = coins;
+            _stringBuilder.Clear();
+            _stringBuilder.Append(coins);
+            _coinBoxValueText.text = _stringBuilder.ToString();
         }
 
         /// <summary>
@@ -1021,6 +1201,15 @@ namespace MustyBlockBlast.Presentation.Views
             HangCentre(_wellRoot, 0f, y + (WELL_HEIGHT * 0.5f));
             y += WELL_HEIGHT;
 
+            // Between the well and the badges, and only on a Path level that paid coins out: hidden,
+            // it takes no height, so every other card is exactly as tall as it was.
+            if (_coinBoxRoot.gameObject.activeSelf)
+            {
+                y += COIN_BOX_TOP_GAP;
+                HangCentre(_coinBoxRoot, 0f, y + (COIN_BOX_HEIGHT * 0.5f));
+                y += COIN_BOX_HEIGHT;
+            }
+
             if (_badgesHeadingText.gameObject.activeSelf)
             {
                 y += BADGES_TOP_GAP;
@@ -1141,6 +1330,7 @@ namespace MustyBlockBlast.Presentation.Views
                 _cardRect, "Reason", _reasonFontSize, FontStyle.Bold, TextAnchor.MiddleCenter, Vector2.zero, _labelFont);
 
             BuildWell();
+            BuildCoinBox();
 
             _badgesHeadingText = HudChrome.CreateLabel(
                 _cardRect, "BadgesHeading", _captionFontSize, FontStyle.Bold, TextAnchor.MiddleLeft, Vector2.zero, _labelFont);
@@ -1247,6 +1437,47 @@ namespace MustyBlockBlast.Presentation.Views
             _newTagText = HudChrome.CreateLabel(
                 _newTagRoot, "Label", _captionFontSize, FontStyle.Normal, TextAnchor.MiddleCenter, new Vector2(0f, -1f), _displayFont);
             _newTagRoot.gameObject.SetActive(false);
+        }
+
+        /// <summary>
+        /// The coin box: a badge row's plate the width of the well, the gold coin disc on the left,
+        /// the "Coin" caption over the counting balance beside it, and the green "+N" pill on the
+        /// right. Built hidden — only a Path level that paid coins out ever shows it.
+        /// </summary>
+        private void BuildCoinBox()
+        {
+            float rowWidth = _cardWidth - (SIDE_INSET * 2f);
+            var rowSize = new Vector2(rowWidth, COIN_BOX_HEIGHT);
+            _coinBoxRoot = HudChrome.CreateRect(_cardRect, "CoinBox", rowSize, Vector2.zero);
+            HudChrome.BuildPlate(
+                _coinBoxRoot, "Body", rowSize, Vector2.zero, COIN_BOX_RADIUS, HudChrome.PLATE_SHADOW_DROP,
+                out _coinBoxShadow, out _coinBoxPlate);
+
+            float discX = (-rowWidth * 0.5f) + COIN_BOX_PAD + (COIN_DISC_SIZE * 0.5f);
+            _coinBoxDisc = HudChrome.BuildCircle(_coinBoxRoot, "IconDisc", COIN_DISC_SIZE, new Vector2(discX, 0f));
+            _coinBoxGlyph = HudChrome.BuildGlyph(
+                _coinBoxRoot, "IconGlyph", _coinSprite, new Vector2(COIN_GLYPH_SIZE, COIN_GLYPH_SIZE),
+                new Vector2(discX, 0f));
+
+            // Caption over figure, stacked as a stat plate stacks them but hung off the disc.
+            float textX = discX + (COIN_DISC_SIZE * 0.5f) + COIN_ICON_TEXT_GAP;
+            float half = COIN_BOX_HEIGHT * 0.5f;
+            _coinBoxCaptionText = HudChrome.CreateLabel(
+                _coinBoxRoot, "Caption", _captionFontSize, FontStyle.Bold, TextAnchor.MiddleLeft,
+                new Vector2(textX, half - COIN_CAPTION_TOP - (_captionFontSize * 0.5f)), _labelFont);
+            _coinBoxValueText = HudChrome.CreateLabel(
+                _coinBoxRoot, "Value", _statFontSize, FontStyle.Normal, TextAnchor.MiddleLeft,
+                new Vector2(textX, -half + COIN_VALUE_BOTTOM + (_statFontSize * 0.42f)), _displayFont);
+
+            float rightEdge = (rowWidth * 0.5f) - COIN_BOX_PAD;
+            var pillSize = new Vector2(COIN_PILL_WIDTH, COIN_PILL_HEIGHT);
+            _coinBoxPillPlate = HudChrome.BuildGlossyPill(
+                _coinBoxRoot, "Earned", pillSize, new Vector2(rightEdge - (COIN_PILL_WIDTH * 0.5f), 0f), _buttonSprite);
+            _coinBoxPillText = HudChrome.CreateLabel(
+                _coinBoxPillPlate.rectTransform, "Amount", _claimFontSize, FontStyle.Normal, TextAnchor.MiddleCenter,
+                new Vector2(0f, -2f), _displayFont);
+
+            _coinBoxRoot.gameObject.SetActive(false);
         }
 
         private StatPlate BuildStatPlate(string objectName, float width, Vector2 anchoredPosition)

@@ -490,6 +490,10 @@ MonoBehaviour:
     m_Localized: TOTAL DE LA RUTA
     m_Metadata:
       m_Items: []
+  - m_Id: 3259943359602689
+    m_Localized: MONEDAS
+    m_Metadata:
+      m_Items: []
   - m_Id: 1720781938614278
     m_Localized: "\xA1NUEVO!"
     m_Metadata:
