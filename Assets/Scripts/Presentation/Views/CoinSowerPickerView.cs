@@ -65,6 +65,13 @@ namespace MustyBlockBlast.Presentation.Views
     /// which is what keeps it mutually exclusive with the other overlays so that flag can never have two
     /// owners.
     /// </para>
+    /// <para>
+    /// Before Level unlock (issue #427): the picker is swapped for a dedicated locked panel rather than
+    /// left on screen showing a quantity of zero next to a still-live Watch Ad button — the two read as
+    /// contradictory ("locked" beside a working spend control). The panel explains that charges earned
+    /// now stay banked for when the gate opens; Watch Ad and Start Level stay exactly as capable as they
+    /// were, since only the sow itself is gated (see <see cref="IsLocked"/>).
+    /// </para>
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class CoinSowerPickerView : MonoBehaviour
@@ -96,6 +103,14 @@ namespace MustyBlockBlast.Presentation.Views
         private const float SIDE_INSET = 60f;
         private const float HEADER_INSET = 84f;
 
+        // Locked-panel layout: shares the vertical band between the Watch Ad and Start buttons that the
+        // picker occupies when unlocked (see the class summary's issue #427 paragraph).
+        private const float LOCK_BADGE_Y = 26f;
+        private const float LOCK_TITLE_Y = -30f;
+        private const float LOCK_SUB_Y = -82f;
+        private static readonly Vector2 LockBadgeSize = new Vector2(150f, 40f);
+        private static readonly Vector2 LockPanelWidth = new Vector2(720f, 1f);
+
         private static readonly Vector2 WideButtonSize = new Vector2(620f, 100f);
 
         // Plain strings, not String Table keys, for the reason PowerUpShopView states: LocalizationKeys
@@ -104,10 +119,14 @@ namespace MustyBlockBlast.Presentation.Views
         private const string HEADER_TEXT = "COIN SOWER";
         private const string LEVEL_PREFIX_TEXT = "Level ";
         private const string CHARGES_PREFIX_TEXT = "Charges: ";
+        private const string BANKED_PREFIX_TEXT = "Banked: ";
         private const string WATCH_AD_BUTTON_TEXT = "WATCH AD (+2)";
         private const string START_BUTTON_TEXT = "START LEVEL";
         private const string OPENING_MESSAGE = "Sow coin cells into this level, or start with none.";
-        private const string LOCKED_MESSAGE = "Coin Sower locked — reach Lv";
+        private const string LOCKED_BADGE_TEXT = "LOCKED";
+        private const string LOCKED_TITLE_PREFIX = "Unlocks at Level ";
+        private const string LOCKED_SUBTEXT = "Charges you earn now stay banked until then.";
+        private const string LOCKED_FOOTER_MESSAGE = "Starting now plays this level with no coin cells sown.";
         private const string NO_CHARGES_MESSAGE = "No Coin Sower charges yet — watch an ad to earn some.";
         private const string SOW_FAILED_MESSAGE =
             "Those coin cells could not be sown. Your charges are still banked.";
@@ -148,7 +167,10 @@ namespace MustyBlockBlast.Presentation.Views
 
         private Text _headerText;
         private Text _levelText;
+        private Image _levelPlate;
         private Text _chargesText;
+        private Image _chargesPlate;
+        private Image _chargesIcon;
         private Text _quantityText;
         private Text _messageText;
         private Text _minusText;
@@ -162,9 +184,23 @@ namespace MustyBlockBlast.Presentation.Views
         private RectTransform _watchAdButtonRect;
         private RectTransform _startButtonRect;
         private Image _minusPlate;
+        private Image _minusShadow;
         private Image _plusPlate;
+        private Image _plusShadow;
         private Image _watchAdPlate;
+        private Image _watchAdShadow;
         private Image _startButtonPlate;
+        private Image _startButtonShadow;
+
+        // The picker and the locked panel occupy the same slot on the card and are never shown together
+        // — see the class summary's issue #427 paragraph. Exactly one is active at a time, toggled from
+        // Refresh().
+        private GameObject _pickerGroup;
+        private GameObject _lockedGroup;
+        private Image _lockedBadgePlate;
+        private Text _lockedBadgeText;
+        private Text _lockedTitleText;
+        private Text _lockedSubText;
 
         private ThemeDefinition _currentTheme;
 
@@ -296,13 +332,19 @@ namespace MustyBlockBlast.Presentation.Views
                 return;
             }
 
-            if (RectTransformUtility.RectangleContainsScreenPoint(_minusRect, screenPosition, eventCamera))
+            // The picker is not on screen while locked (see Refresh) — its rects still exist offstage,
+            // so this guard keeps a tap from moving a quantity nobody can see.
+            bool locked = IsLocked();
+
+            if (!locked
+                && RectTransformUtility.RectangleContainsScreenPoint(_minusRect, screenPosition, eventCamera))
             {
                 SetPendingQuantity(_pendingQuantity - QUANTITY_STEP);
                 return;
             }
 
-            if (RectTransformUtility.RectangleContainsScreenPoint(_plusRect, screenPosition, eventCamera))
+            if (!locked
+                && RectTransformUtility.RectangleContainsScreenPoint(_plusRect, screenPosition, eventCamera))
             {
                 SetPendingQuantity(_pendingQuantity + QUANTITY_STEP);
                 return;
@@ -311,7 +353,8 @@ namespace MustyBlockBlast.Presentation.Views
             // Tapping the figure itself takes as many as the player holds, the same shortcut the
             // conversion card's figure is — and the same reason: the top of the range is a common answer
             // and stepping to it one at a time is a chore.
-            if (RectTransformUtility.RectangleContainsScreenPoint(_quantityRect, screenPosition, eventCamera))
+            if (!locked
+                && RectTransformUtility.RectangleContainsScreenPoint(_quantityRect, screenPosition, eventCamera))
             {
                 SetPendingQuantity(MaxSowableQuantity());
                 return;
@@ -474,20 +517,36 @@ namespace MustyBlockBlast.Presentation.Views
             _messageText.color = theme.SoftInk;
 
             Color neutralPlate = Color.Lerp(theme.CardBackground, theme.Ink, 0.16f);
+            Color softBand = Color.Lerp(theme.CardBackground, theme.SoftInk, 0.14f);
+            Color accentBand = Color.Lerp(theme.CardBackground, theme.Accent, 0.16f);
+
+            _levelPlate.color = softBand;
+            _chargesPlate.color = accentBand;
+            _chargesIcon.color = theme.Accent;
+
             _minusPlate.color = neutralPlate;
             _plusPlate.color = neutralPlate;
+            _minusShadow.color = theme.CardShadow;
+            _plusShadow.color = theme.CardShadow;
             _minusText.color = theme.Ink;
             _plusText.color = theme.Ink;
 
             // The ad button is a secondary action and gets the stepper's neutral plate: Start is the
             // one thing on this card the player came to do.
             _watchAdPlate.color = neutralPlate;
+            _watchAdShadow.color = theme.CardShadow;
             _watchAdText.color = theme.Ink;
 
             // Start is the call to action and gets the accent fill, the same primary treatment the
             // conversion card gives Convert.
             _startButtonPlate.color = theme.Accent;
+            _startButtonShadow.color = theme.CardShadow;
             _startButtonText.color = theme.CardBackground;
+
+            _lockedBadgePlate.color = neutralPlate;
+            _lockedBadgeText.color = theme.SoftInk;
+            _lockedTitleText.color = theme.Ink;
+            _lockedSubText.color = theme.SoftInk;
 
             _closeBarA.color = theme.Ink;
             _closeBarB.color = theme.Ink;
@@ -510,24 +569,21 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         /// <summary>The line the card opens on: the offer, or why there is no offer. Written on open
-        /// rather than every repaint, so a refusal message survives the repaint that follows it.</summary>
+        /// rather than every repaint, so a refusal message survives the repaint that follows it.
+        /// <para>
+        /// The lock itself is explained by the dedicated locked panel (see Refresh), so this footer only
+        /// adds what the panel does not say: that Start Level is still there and still free.
+        /// </para>
+        /// </summary>
         private void SetMessageForOpening()
         {
             if (IsLocked())
             {
-                _messageText.text = LockedMessage();
+                _messageText.text = LOCKED_FOOTER_MESSAGE;
                 return;
             }
 
             _messageText.text = MaxSowableQuantity() > 0 ? OPENING_MESSAGE : NO_CHARGES_MESSAGE;
-        }
-
-        private string LockedMessage()
-        {
-            _stringBuilder.Clear();
-            _stringBuilder.Append(LOCKED_MESSAGE);
-            _stringBuilder.Append(PowerUpUnlockLevels.LevelFor(PowerUpKind.CoinSower));
-            return _stringBuilder.ToString();
         }
 
         /// <summary>Repaints every figure from the models. Cheap enough to be the only repaint path: it
@@ -539,6 +595,7 @@ namespace MustyBlockBlast.Presentation.Views
                 return;
             }
 
+            bool locked = IsLocked();
             int maxQuantity = MaxSowableQuantity();
 
             // Re-clamped here as well as in SetPendingQuantity: a spend made from this card shrinks the
@@ -553,14 +610,29 @@ namespace MustyBlockBlast.Presentation.Views
             _stringBuilder.Append(_pendingLevelNumber);
             _levelText.text = _stringBuilder.ToString();
 
+            // "Banked" rather than "Charges" while locked: the same number, framed as saved-for-later
+            // rather than spendable-now, so it stops reading as contradicting the lock (issue #427).
             _stringBuilder.Clear();
-            _stringBuilder.Append(CHARGES_PREFIX_TEXT);
+            _stringBuilder.Append(locked ? BANKED_PREFIX_TEXT : CHARGES_PREFIX_TEXT);
             _stringBuilder.Append(_powerUpModel.CoinSowerCount.Value);
             _chargesText.text = _stringBuilder.ToString();
 
             _stringBuilder.Clear();
             _stringBuilder.Append(_pendingQuantity);
             _quantityText.text = _stringBuilder.ToString();
+
+            // The picker and the locked panel share one slot on the card — see the class summary's
+            // issue #427 paragraph — so exactly one of them is ever active.
+            _pickerGroup.SetActive(!locked);
+            _lockedGroup.SetActive(locked);
+
+            if (locked)
+            {
+                _stringBuilder.Clear();
+                _stringBuilder.Append(LOCKED_TITLE_PREFIX);
+                _stringBuilder.Append(PowerUpUnlockLevels.LevelFor(PowerUpKind.CoinSower));
+                _lockedTitleText.text = _stringBuilder.ToString();
+            }
         }
 
         private void BuildPanel()
@@ -593,30 +665,19 @@ namespace MustyBlockBlast.Presentation.Views
             ((RectTransform)_headerText.transform).anchoredPosition = new Vector2(0f, HEADER_Y);
             _headerText.text = HEADER_TEXT;
 
-            _levelText = UiTextFactory.Create(
-                _cardRect, "Level", _bodyFontSize, FontStyle.Normal, Color.clear);
-            ((RectTransform)_levelText.transform).anchoredPosition = new Vector2(0f, LEVEL_Y);
-
-            _chargesText = UiTextFactory.Create(
-                _cardRect, "Charges", _balanceFontSize, FontStyle.Bold, Color.clear);
-            ((RectTransform)_chargesText.transform).anchoredPosition = new Vector2(0f, CHARGES_Y);
+            BuildLevelPill();
+            BuildChargesPill();
 
             _watchAdButtonRect = BuildWideButton(
                 "WatchAdButton", WATCH_AD_BUTTON_Y, WATCH_AD_BUTTON_TEXT,
-                out _watchAdPlate, out _watchAdText);
+                out _watchAdPlate, out _watchAdShadow, out _watchAdText);
 
-            _minusRect = BuildStepper("MinusButton", -QUANTITY_STEPPER_X, "-", out _minusPlate, out _minusText);
-            _plusRect = BuildStepper("PlusButton", QUANTITY_STEPPER_X, "+", out _plusPlate, out _plusText);
-
-            _quantityText = UiTextFactory.Create(
-                _cardRect, "Quantity", _quantityFontSize, FontStyle.Bold, Color.clear);
-            _quantityRect = (RectTransform)_quantityText.transform;
-            _quantityRect.sizeDelta = new Vector2(320f, STEPPER_SIZE);
-            _quantityRect.anchoredPosition = new Vector2(0f, QUANTITY_ROW_Y);
+            BuildPickerGroup();
+            BuildLockedGroup();
 
             _startButtonRect = BuildWideButton(
                 "StartButton", START_BUTTON_Y, START_BUTTON_TEXT,
-                out _startButtonPlate, out _startButtonText);
+                out _startButtonPlate, out _startButtonShadow, out _startButtonText);
 
             _messageText = UiTextFactory.Create(
                 _cardRect, "Message", _bodyFontSize, FontStyle.Normal, Color.clear);
@@ -630,22 +691,151 @@ namespace MustyBlockBlast.Presentation.Views
             _panel = panelObject;
         }
 
-        /// <summary>One square stepper plate with a glyph on it. Returns the root the tap is hit-tested
-        /// against.</summary>
-        private RectTransform BuildStepper(
-            string name, float x, string glyph, out Image plateImage, out Text glyphText)
+        /// <summary>Level chip: a soft rounded pill behind the level number, instead of bare text
+        /// floating on the card — the same chip treatment the level path card gives a node number.</summary>
+        private void BuildLevelPill()
         {
-            var plateObject = new GameObject(name, typeof(RectTransform), typeof(Image));
+            var plateObject = new GameObject("LevelPlate", typeof(RectTransform), typeof(Image));
             var plateRect = (RectTransform)plateObject.transform;
             plateRect.SetParent(_cardRect, false);
-            Centre(plateRect, new Vector2(STEPPER_SIZE, STEPPER_SIZE));
-            plateRect.anchoredPosition = new Vector2(x, QUANTITY_ROW_Y);
+            Centre(plateRect, new Vector2(260f, 56f));
+            plateRect.anchoredPosition = new Vector2(0f, LEVEL_Y);
 
-            plateImage = plateObject.GetComponent<Image>();
-            plateImage.sprite = UiSpriteFactory.RoundedSquare;
-            plateImage.type = Image.Type.Sliced;
-            plateImage.pixelsPerUnitMultiplier = 1.4f;
-            plateImage.color = Color.clear;
+            _levelPlate = plateObject.GetComponent<Image>();
+            _levelPlate.sprite = UiSpriteFactory.RoundedSquare;
+            _levelPlate.type = Image.Type.Sliced;
+            _levelPlate.pixelsPerUnitMultiplier = 0.9f;
+            _levelPlate.color = Color.clear;
+            _levelPlate.raycastTarget = false;
+
+            _levelText = UiTextFactory.Create(
+                plateRect, "Level", _bodyFontSize, FontStyle.Bold, Color.clear);
+        }
+
+        /// <summary>Charges chip: a coin dot plus the figure on a warm plate, so a bank of charges reads
+        /// as currency rather than as a bare number — matching the coin badge every other earn seam in
+        /// the app wears (see <see cref="HoldSlotView"/>, the HUD coin total).</summary>
+        private void BuildChargesPill()
+        {
+            var plateObject = new GameObject("ChargesPlate", typeof(RectTransform), typeof(Image));
+            var plateRect = (RectTransform)plateObject.transform;
+            plateRect.SetParent(_cardRect, false);
+            Centre(plateRect, new Vector2(320f, 60f));
+            plateRect.anchoredPosition = new Vector2(0f, CHARGES_Y);
+
+            _chargesPlate = plateObject.GetComponent<Image>();
+            _chargesPlate.sprite = UiSpriteFactory.RoundedSquare;
+            _chargesPlate.type = Image.Type.Sliced;
+            _chargesPlate.pixelsPerUnitMultiplier = 0.9f;
+            _chargesPlate.color = Color.clear;
+            _chargesPlate.raycastTarget = false;
+
+            var iconObject = new GameObject("ChargesIcon", typeof(RectTransform), typeof(Image));
+            var iconRect = (RectTransform)iconObject.transform;
+            iconRect.SetParent(plateRect, false);
+            Centre(iconRect, new Vector2(32f, 32f));
+            iconRect.anchoredPosition = new Vector2(-110f, 0f);
+
+            _chargesIcon = iconObject.GetComponent<Image>();
+            _chargesIcon.sprite = UiSpriteFactory.Circle;
+            _chargesIcon.type = Image.Type.Simple;
+            _chargesIcon.color = Color.clear;
+            _chargesIcon.raycastTarget = false;
+
+            _chargesText = UiTextFactory.Create(
+                plateRect, "Charges", _balanceFontSize, FontStyle.Bold, Color.clear);
+            ((RectTransform)_chargesText.transform).anchoredPosition = new Vector2(30f, 0f);
+        }
+
+        /// <summary>The stepper and quantity figure, parented under one group so Refresh can show or
+        /// hide the whole picker in one call rather than toggling three rects individually.</summary>
+        private void BuildPickerGroup()
+        {
+            _pickerGroup = new GameObject("PickerGroup", typeof(RectTransform));
+            var groupRect = (RectTransform)_pickerGroup.transform;
+            groupRect.SetParent(_cardRect, false);
+            groupRect.anchorMin = new Vector2(0.5f, 0.5f);
+            groupRect.anchorMax = new Vector2(0.5f, 0.5f);
+            groupRect.pivot = new Vector2(0.5f, 0.5f);
+            groupRect.sizeDelta = Vector2.zero;
+            groupRect.anchoredPosition = Vector2.zero;
+
+            _minusRect = BuildStepper(
+                groupRect, "MinusButton", -QUANTITY_STEPPER_X, "-",
+                out _minusPlate, out _minusShadow, out _minusText);
+            _plusRect = BuildStepper(
+                groupRect, "PlusButton", QUANTITY_STEPPER_X, "+",
+                out _plusPlate, out _plusShadow, out _plusText);
+
+            _quantityText = UiTextFactory.Create(
+                groupRect, "Quantity", _quantityFontSize, FontStyle.Bold, Color.clear);
+            _quantityRect = (RectTransform)_quantityText.transform;
+            _quantityRect.sizeDelta = new Vector2(320f, STEPPER_SIZE);
+            _quantityRect.anchoredPosition = new Vector2(0f, QUANTITY_ROW_Y);
+        }
+
+        /// <summary>
+        /// The card's locked-state slot: a small "LOCKED" chip, the unlock level, and a one-line
+        /// reassurance that banked charges are not lost — replacing the picker entirely rather than
+        /// leaving it on screen offering a quantity of zero next to a still-active Watch Ad button (the
+        /// contradiction issue #427 reported). Built inactive; Refresh shows it opposite the picker.
+        /// </summary>
+        private void BuildLockedGroup()
+        {
+            _lockedGroup = new GameObject("LockedGroup", typeof(RectTransform));
+            var groupRect = (RectTransform)_lockedGroup.transform;
+            groupRect.SetParent(_cardRect, false);
+            groupRect.anchorMin = new Vector2(0.5f, 0.5f);
+            groupRect.anchorMax = new Vector2(0.5f, 0.5f);
+            groupRect.pivot = new Vector2(0.5f, 0.5f);
+            groupRect.sizeDelta = Vector2.zero;
+            groupRect.anchoredPosition = Vector2.zero;
+
+            var badgeObject = new GameObject("LockedBadge", typeof(RectTransform), typeof(Image));
+            var badgeRect = (RectTransform)badgeObject.transform;
+            badgeRect.SetParent(groupRect, false);
+            Centre(badgeRect, LockBadgeSize);
+            badgeRect.anchoredPosition = new Vector2(0f, LOCK_BADGE_Y);
+
+            _lockedBadgePlate = badgeObject.GetComponent<Image>();
+            _lockedBadgePlate.sprite = UiSpriteFactory.RoundedSquare;
+            _lockedBadgePlate.type = Image.Type.Sliced;
+            _lockedBadgePlate.pixelsPerUnitMultiplier = 0.9f;
+            _lockedBadgePlate.color = Color.clear;
+            _lockedBadgePlate.raycastTarget = false;
+
+            int badgeFontSize = Mathf.RoundToInt(_bodyFontSize * 0.6f);
+            _lockedBadgeText = UiTextFactory.Create(
+                badgeRect, "LockedBadgeText", badgeFontSize, FontStyle.Bold, Color.clear);
+            _lockedBadgeText.text = LOCKED_BADGE_TEXT;
+
+            _lockedTitleText = UiTextFactory.Create(
+                groupRect, "LockedTitle", _bodyFontSize, FontStyle.Bold, Color.clear);
+            var titleRect = (RectTransform)_lockedTitleText.transform;
+            titleRect.sizeDelta = LockPanelWidth;
+            titleRect.anchoredPosition = new Vector2(0f, LOCK_TITLE_Y);
+
+            int subFontSize = Mathf.RoundToInt(_bodyFontSize * 0.78f);
+            _lockedSubText = UiTextFactory.Create(
+                groupRect, "LockedSubtext", subFontSize, FontStyle.Normal, Color.clear);
+            var subRect = (RectTransform)_lockedSubText.transform;
+            subRect.sizeDelta = LockPanelWidth;
+            subRect.anchoredPosition = new Vector2(0f, LOCK_SUB_Y);
+            _lockedSubText.text = LOCKED_SUBTEXT;
+
+            _lockedGroup.SetActive(false);
+        }
+
+        /// <summary>One square stepper plate with a glyph on it, and the offset shadow behind it that
+        /// gives every card and button on this screen its tactile lift — see
+        /// <see cref="CellFactory.CreateCard"/>. Returns the root the tap is hit-tested against.</summary>
+        private RectTransform BuildStepper(
+            RectTransform parent, string name, float x, string glyph,
+            out Image plateImage, out Image shadowImage, out Text glyphText)
+        {
+            var plateRect = CellFactory.CreateCard(
+                parent, name, new Vector2(STEPPER_SIZE, STEPPER_SIZE), out plateImage, out shadowImage, 0.7f);
+            plateRect.anchoredPosition = new Vector2(x, QUANTITY_ROW_Y);
             plateImage.raycastTarget = false;
 
             glyphText = UiTextFactory.Create(plateRect, "Glyph", _quantityFontSize, FontStyle.Bold, Color.clear);
@@ -654,22 +844,15 @@ namespace MustyBlockBlast.Presentation.Views
             return plateRect;
         }
 
-        /// <summary>One full-width action plate with a caption. Returns the root the tap is hit-tested
-        /// against.</summary>
+        /// <summary>One full-width action plate with a caption, lifted off the card with the same offset
+        /// shadow every card here wears. Returns the root the tap is hit-tested against.</summary>
         private RectTransform BuildWideButton(
-            string name, float y, string caption, out Image plateImage, out Text captionText)
+            string name, float y, string caption,
+            out Image plateImage, out Image shadowImage, out Text captionText)
         {
-            var plateObject = new GameObject(name, typeof(RectTransform), typeof(Image));
-            var plateRect = (RectTransform)plateObject.transform;
-            plateRect.SetParent(_cardRect, false);
-            Centre(plateRect, WideButtonSize);
+            RectTransform plateRect = CellFactory.CreateCard(
+                _cardRect, name, WideButtonSize, out plateImage, out shadowImage, 0.7f);
             plateRect.anchoredPosition = new Vector2(0f, y);
-
-            plateImage = plateObject.GetComponent<Image>();
-            plateImage.sprite = UiSpriteFactory.RoundedSquare;
-            plateImage.type = Image.Type.Sliced;
-            plateImage.pixelsPerUnitMultiplier = 1.4f;
-            plateImage.color = Color.clear;
             plateImage.raycastTarget = false;
 
             captionText = UiTextFactory.Create(plateRect, "Caption", _buttonFontSize, FontStyle.Bold, Color.clear);
