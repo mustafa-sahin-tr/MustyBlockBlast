@@ -156,7 +156,7 @@ namespace MustyBlockBlast.Presentation.Views
                 ? _canvas.worldCamera
                 : null;
 
-            if (RectTransformUtility.RectangleContainsScreenPoint(_chrome.CloseButtonRect, screenPosition, eventCamera))
+            if (RectTransformUtility.RectangleContainsScreenPoint(_chrome.Close.HitRect, screenPosition, eventCamera))
             {
                 Close();
                 return;
@@ -213,12 +213,12 @@ namespace MustyBlockBlast.Presentation.Views
 
             _chrome.CardImage.color = _currentTheme.CardBackground;
             _chrome.CardShadowImage.color = _currentTheme.CardShadow;
-            _chrome.ClosePlateImage.color = _currentTheme.CardBackground;
-            _chrome.ClosePlateShadowImage.color = _currentTheme.CardShadow;
+            _chrome.Close.PlateImage.color = _currentTheme.CardBackground;
+            _chrome.Close.PlateShadowImage.color = _currentTheme.CardShadow;
 
-            for (int barIndex = 0; barIndex < _chrome.CloseBarImages.Count; barIndex++)
+            for (int barIndex = 0; barIndex < _chrome.Close.BarImages.Count; barIndex++)
             {
-                _chrome.CloseBarImages[barIndex].color = _currentTheme.Ink;
+                _chrome.Close.BarImages[barIndex].color = _currentTheme.Ink;
             }
 
             RebuildHeroGlyph(objective.Definition.Type);

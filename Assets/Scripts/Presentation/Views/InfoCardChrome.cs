@@ -60,6 +60,28 @@ namespace MustyBlockBlast.Presentation.Views
         /// onto a second line instead of overflowing past the card's rounded edge.</summary>
         private const float DESCRIPTION_SIDE_PADDING = 70f;
 
+        /// <summary>
+        /// The floating circular close button's pieces: the plate, its shadow, the two × bars and a
+        /// hit-test rect matching the plate's footprint. Handed back so the owning card can repaint all
+        /// of them from its theme and answer "was this tap on close?" itself.
+        /// </summary>
+        internal sealed class CloseButtonHandles
+        {
+            /// <summary>Hit-test rect for the close tap — the same footprint as the close plate.</summary>
+            internal RectTransform HitRect;
+
+            /// <summary>Transparent graphic filling <see cref="HitRect"/>. Only an EventSystem-driven
+            /// card needs it, so it starts disabled and is enabled (and made a raycast target) by such
+            /// a card.</summary>
+            internal Image HitImage;
+
+            internal Image PlateImage;
+            internal Image PlateShadowImage;
+
+            /// <summary>The two rotated bars making the × — theme Ink, same as every other card.</summary>
+            internal readonly List<Image> BarImages = new List<Image>(2);
+        }
+
         /// <summary>Every Image and Text this chrome builds, handed back so the caller can parent its
         /// own hero content and repaint everything from the current theme on <c>Refresh</c>.</summary>
         internal sealed class Handles
@@ -68,13 +90,8 @@ namespace MustyBlockBlast.Presentation.Views
             internal Image CardImage;
             internal Image CardShadowImage;
 
-            /// <summary>Hit-test rect for the close tap — the same footprint as the close plate.</summary>
-            internal RectTransform CloseButtonRect;
-            internal Image ClosePlateImage;
-            internal Image ClosePlateShadowImage;
-
-            /// <summary>The two rotated bars making the × — theme Ink, same as every other card.</summary>
-            internal readonly List<Image> CloseBarImages = new List<Image>(2);
+            /// <summary>The floating circular close button — see <see cref="CloseButtonHandles"/>.</summary>
+            internal CloseButtonHandles Close;
 
             /// <summary>Parent for the caller's own icon/glyph content, pre-sized and centred on the
             /// hero plate so content only has to size itself to <see cref="HERO_CONTENT_SIZE"/>.</summary>
@@ -105,7 +122,7 @@ namespace MustyBlockBlast.Presentation.Views
                 panelRoot, cardName, cardSize, out handles.CardImage, out handles.CardShadowImage,
                 CARD_CORNER_MULTIPLIER);
 
-            CreateCloseButton(handles);
+            handles.Close = CreateFloatingCloseButton(handles.CardRect);
             CreateHero(handles);
 
             handles.TitleText = CreateLabel(
@@ -162,7 +179,7 @@ namespace MustyBlockBlast.Presentation.Views
             float cardHalfWidth = cardSize.x * 0.5f;
             float cardHalfHeight = cardHeight * 0.5f;
 
-            PositionCloseButton(handles, new Vector2(cardHalfWidth, cardHalfHeight));
+            PositionFloatingCloseButton(handles.Close, new Vector2(cardHalfWidth, cardHalfHeight));
 
             float cursorY = cardHalfHeight - TOP_PADDING;
             float heroCenterY = cursorY - (HERO_SIZE * 0.5f);
@@ -182,43 +199,60 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         /// <summary>
-        /// Creates the close button's Images and hit-test rect, parented under the card but not yet
-        /// positioned — <see cref="PositionCloseButton"/> (called from <see cref="Reflow"/>) places them
-        /// once the card's final height for this repaint is known.
+        /// Creates the close button's Images and hit-test rect, parented under
+        /// <paramref name="cardRect"/> but not yet positioned —
+        /// <see cref="PositionFloatingCloseButton"/> places them once the card's final height for this
+        /// repaint is known.
+        /// <para>
+        /// Exposed (rather than kept private to <see cref="Build"/>) so a card outside this family that
+        /// wants the same floating close treatment — the level path overlay, per issue #416 — takes the
+        /// button itself instead of hand-rolling a second, square one that then drifts from this spec.
+        /// </para>
         /// </summary>
-        private static void CreateCloseButton(Handles handles)
+        internal static CloseButtonHandles CreateFloatingCloseButton(RectTransform cardRect)
         {
+            var close = new CloseButtonHandles();
+
             var shadowObject = new GameObject("CloseButtonShadow", typeof(RectTransform), typeof(Image));
             var shadowRect = (RectTransform)shadowObject.transform;
-            shadowRect.SetParent(handles.CardRect, false);
+            shadowRect.SetParent(cardRect, false);
             Centre(shadowRect, new Vector2(CLOSE_PLATE_SIZE, CLOSE_PLATE_SIZE) + new Vector2(10f, 10f));
-            handles.ClosePlateShadowImage = shadowObject.GetComponent<Image>();
-            ConfigureCircle(handles.ClosePlateShadowImage);
+            close.PlateShadowImage = shadowObject.GetComponent<Image>();
+            ConfigureCircle(close.PlateShadowImage);
 
             var plateObject = new GameObject("CloseButtonPlate", typeof(RectTransform), typeof(Image));
             var plateRect = (RectTransform)plateObject.transform;
-            plateRect.SetParent(handles.CardRect, false);
+            plateRect.SetParent(cardRect, false);
             Centre(plateRect, new Vector2(CLOSE_PLATE_SIZE, CLOSE_PLATE_SIZE));
-            handles.ClosePlateImage = plateObject.GetComponent<Image>();
-            ConfigureCircle(handles.ClosePlateImage);
+            close.PlateImage = plateObject.GetComponent<Image>();
+            ConfigureCircle(close.PlateImage);
 
-            var closeObject = new GameObject("CloseButton", typeof(RectTransform));
-            handles.CloseButtonRect = (RectTransform)closeObject.transform;
-            handles.CloseButtonRect.SetParent(handles.CardRect, false);
-            Centre(handles.CloseButtonRect, new Vector2(CLOSE_PLATE_SIZE, CLOSE_PLATE_SIZE));
+            // The hit rect carries a transparent circle of its own so an EventSystem-driven caller has
+            // a graphic to raycast against. It starts disabled — a card hit-tested by BoardInputView,
+            // which every card this chrome was written for is, needs no graphic there and should not
+            // pay for an invisible one.
+            var closeObject = new GameObject("CloseButton", typeof(RectTransform), typeof(Image));
+            close.HitRect = (RectTransform)closeObject.transform;
+            close.HitRect.SetParent(cardRect, false);
+            Centre(close.HitRect, new Vector2(CLOSE_PLATE_SIZE, CLOSE_PLATE_SIZE));
+            close.HitImage = closeObject.GetComponent<Image>();
+            ConfigureCircle(close.HitImage);
+            close.HitImage.enabled = false;
 
             for (int barIndex = 0; barIndex < 2; barIndex++)
             {
                 var barObject = new GameObject($"CloseBar_{barIndex}", typeof(RectTransform), typeof(Image));
                 var barRect = (RectTransform)barObject.transform;
-                barRect.SetParent(handles.CloseButtonRect, false);
+                barRect.SetParent(close.HitRect, false);
                 Centre(barRect, new Vector2(CLOSE_CROSS_LENGTH, CLOSE_CROSS_THICKNESS));
                 barRect.localRotation = Quaternion.Euler(0f, 0f, barIndex == 0 ? 45f : -45f);
 
                 Image barImage = barObject.GetComponent<Image>();
                 ConfigureRoundedBar(barImage);
-                handles.CloseBarImages.Add(barImage);
+                close.BarImages.Add(barImage);
             }
+
+            return close;
         }
 
         /// <summary>
@@ -228,15 +262,15 @@ namespace MustyBlockBlast.Presentation.Views
         /// floating partly outside the card. Callable repeatedly as <paramref name="cardCorner"/>
         /// changes with the card's measured height.
         /// </summary>
-        private static void PositionCloseButton(Handles handles, Vector2 cardCorner)
+        internal static void PositionFloatingCloseButton(CloseButtonHandles close, Vector2 cardCorner)
         {
             float plateRadius = CLOSE_PLATE_SIZE * 0.5f;
             float overhang = plateRadius * CLOSE_PLATE_CORNER_OVERHANG_FRACTION;
             var centre = new Vector2(cardCorner.x - overhang, cardCorner.y - overhang);
 
-            ((RectTransform)handles.ClosePlateShadowImage.transform).anchoredPosition = centre + new Vector2(0f, -8f);
-            ((RectTransform)handles.ClosePlateImage.transform).anchoredPosition = centre;
-            handles.CloseButtonRect.anchoredPosition = centre;
+            ((RectTransform)close.PlateShadowImage.transform).anchoredPosition = centre + new Vector2(0f, -8f);
+            ((RectTransform)close.PlateImage.transform).anchoredPosition = centre;
+            close.HitRect.anchoredPosition = centre;
         }
 
         /// <summary>Creates the ring (outer, lighter), the plate (inner, inset) and a content root the
