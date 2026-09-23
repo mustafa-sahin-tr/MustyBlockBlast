@@ -1402,6 +1402,217 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.AreEqual(1, reloadedModel.ColorCleanserCount.Value);
         }
 
+        // --- Paint Cross (issue #295) ---
+
+        private const int PAINT_COLOUR = 3;
+
+        [Test]
+        public void TryApplyPaintCross_WithNoneHeld_ChangesNothing()
+        {
+            var boardModel = new BoardModel();
+            boardModel.Occupy(new GridPosition(3, 3), 1);
+            PowerUpModel model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, boardModel);
+
+            bool applied = system.TryApplyPaintCross(new GridPosition(3, 3), PAINT_COLOUR);
+
+            Assert.IsFalse(applied);
+            Assert.AreEqual(0, model.PaintCrossCount.Value);
+            Assert.AreEqual(1, boardModel.GetCell(new GridPosition(3, 3)));
+            Assert.AreEqual(0, _appliedBroker.Published.Count);
+        }
+
+        [Test]
+        public void TryApplyPaintCross_OnAnOccupiedCross_PaintsTheCrossSpendsOneAndDisarms()
+        {
+            PersistCount(PowerUpKind.PaintCross, 2);
+            var boardModel = new BoardModel();
+            boardModel.Occupy(new GridPosition(0, 4), 1);
+            boardModel.Occupy(new GridPosition(4, 7), 2);
+            // Off the cross: must keep its colour.
+            boardModel.Occupy(new GridPosition(6, 6), 5);
+            PowerUpModel model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, boardModel);
+            system.Arm(PowerUpKind.PaintCross);
+
+            bool applied = system.TryApplyPaintCross(new GridPosition(4, 4), PAINT_COLOUR);
+
+            Assert.IsTrue(applied);
+            Assert.AreEqual(1, model.PaintCrossCount.Value);
+            Assert.AreEqual(1, PlayerPrefs.GetInt(PowerUpInventoryKey.For(PowerUpKind.PaintCross), -1));
+            Assert.AreEqual(PAINT_COLOUR, boardModel.GetCell(new GridPosition(0, 4)));
+            Assert.AreEqual(PAINT_COLOUR, boardModel.GetCell(new GridPosition(4, 7)));
+            Assert.AreEqual(Board.EMPTY, boardModel.GetCell(new GridPosition(4, 4)), "Empty cells stay empty.");
+            Assert.AreEqual(5, boardModel.GetCell(new GridPosition(6, 6)));
+            Assert.IsNull(model.Armed.Value, "A successful application disarms.");
+        }
+
+        /// <summary>A paint is announced as an application with nothing cleared and no colour tally: the
+        /// "power-ups used" counter sees it, while scoring and every colour objective — which read
+        /// <c>ClearedCellCount</c> and <c>DestroyedCellCountByColour</c> — ignore it.</summary>
+        [Test]
+        public void TryApplyPaintCross_PublishesAnApplicationWithNothingClearedAndNoColourTally()
+        {
+            PersistCount(PowerUpKind.PaintCross, 1);
+            var boardModel = new BoardModel();
+            boardModel.Occupy(new GridPosition(4, 4), 1);
+            PowerUpSystem system = CreateSystem(new PowerUpModel(), boardModel);
+
+            system.TryApplyPaintCross(new GridPosition(4, 4), PAINT_COLOUR);
+
+            Assert.AreEqual(1, _appliedBroker.Published.Count);
+            PowerUpAppliedMessage message = _appliedBroker.Published[0];
+            Assert.AreEqual(PowerUpKind.PaintCross, message.Kind);
+            Assert.AreEqual(0, message.ClearedCellCount);
+            Assert.AreEqual(0, message.ClearedLineCount);
+            Assert.AreEqual(0, message.EmptiedLineCount);
+            Assert.IsNull(message.DestroyedCellCountByColour);
+            Assert.IsNull(message.DestroyedDiamondCountByColour);
+            Assert.AreEqual(0, message.DestroyedScoreGemCount);
+        }
+
+        [Test]
+        public void TryApplyPaintCross_OnAnEmptyCross_IsRejected_KeepsInventoryAndArmedSelection()
+        {
+            // Mirrors ColorCleanser's "peek before spend" contract: a cross with nothing on it is the
+            // illegal target, and it must leave the inventory and the armed selection untouched.
+            PersistCount(PowerUpKind.PaintCross, 1);
+            var boardModel = new BoardModel();
+            boardModel.Occupy(new GridPosition(7, 7), 1);
+            PowerUpModel model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, boardModel);
+            system.Arm(PowerUpKind.PaintCross);
+
+            bool applied = system.TryApplyPaintCross(new GridPosition(2, 2), PAINT_COLOUR);
+
+            Assert.IsFalse(applied);
+            Assert.AreEqual(1, model.PaintCrossCount.Value);
+            Assert.AreEqual(1, boardModel.GetCell(new GridPosition(7, 7)));
+            Assert.AreEqual(0, _appliedBroker.Published.Count);
+            Assert.AreEqual(PowerUpKind.PaintCross, model.Armed.Value);
+        }
+
+        [TestCase(Board.EMPTY)]
+        [TestCase(Board.COLOUR_COUNT + 1)]
+        public void TryApplyPaintCross_WithAColourOutsideThePalette_IsRejectedAndSpendsNothing(int colourId)
+        {
+            PersistCount(PowerUpKind.PaintCross, 1);
+            var boardModel = new BoardModel();
+            boardModel.Occupy(new GridPosition(4, 4), 1);
+            PowerUpModel model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, boardModel);
+
+            bool applied = system.TryApplyPaintCross(new GridPosition(4, 4), colourId);
+
+            Assert.IsFalse(applied);
+            Assert.AreEqual(1, model.PaintCrossCount.Value);
+            Assert.AreEqual(1, boardModel.GetCell(new GridPosition(4, 4)));
+        }
+
+        /// <summary>Colour never affects clearing: painting a full row monochrome leaves it standing.</summary>
+        [Test]
+        public void TryApplyPaintCross_OnAFullRow_ClearsNothing()
+        {
+            PersistCount(PowerUpKind.PaintCross, 1);
+            var boardModel = new BoardModel();
+            for (int x = 0; x < Board.SIZE; x++)
+            {
+                boardModel.Occupy(new GridPosition(x, 2), (x % Board.COLOUR_COUNT) + 1);
+            }
+
+            PowerUpSystem system = CreateSystem(new PowerUpModel(), boardModel);
+
+            Assert.IsTrue(system.TryApplyPaintCross(new GridPosition(3, 2), PAINT_COLOUR));
+
+            for (int x = 0; x < Board.SIZE; x++)
+            {
+                Assert.AreEqual(PAINT_COLOUR, boardModel.GetCell(new GridPosition(x, 2)), $"({x},2) still standing, repainted.");
+            }
+        }
+
+        /// <summary>A painted special cell keeps its kind and hit count — the System changes nothing
+        /// the resolver does not, and the resolver changes only colour.</summary>
+        [Test]
+        public void TryApplyPaintCross_OverAReinforcedCoreCell_KeepsItsKindAndHits()
+        {
+            PersistCount(PowerUpKind.PaintCross, 1);
+            var boardModel = new BoardModel();
+            var core = new GridPosition(4, 4);
+            boardModel.OccupyReinforced(core, 1, hitCount: 2);
+            boardModel.SetSpecialKind(core, SpecialCellKind.ExplosiveCore);
+            PowerUpSystem system = CreateSystem(new PowerUpModel(), boardModel);
+
+            Assert.IsTrue(system.TryApplyPaintCross(core, PAINT_COLOUR));
+
+            Assert.AreEqual(PAINT_COLOUR, boardModel.GetCell(core));
+            Assert.AreEqual(SpecialCellKind.ExplosiveCore, boardModel.GetSpecialKind(core));
+            Assert.AreEqual(2, boardModel.GetHitCount(core));
+            Assert.AreEqual(0, _detonatedBroker.Published.Count, "Nothing was destroyed, so nothing detonates.");
+        }
+
+        [Test]
+        public void TryApplyPaintCross_BannedInActivePathLevel_ChangesNothing()
+        {
+            PersistCount(PowerUpKind.PaintCross, 3);
+            BanPowerUpOnLevel(PowerUpKind.PaintCross);
+            EnterPathRunAtBannedLevel();
+            var boardModel = new BoardModel();
+            boardModel.Occupy(new GridPosition(4, 4), 1);
+            var model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, boardModel);
+
+            bool applied = system.TryApplyPaintCross(new GridPosition(4, 4), PAINT_COLOUR);
+
+            Assert.IsFalse(applied);
+            Assert.AreEqual(3, model.PaintCrossCount.Value);
+            Assert.AreEqual(1, boardModel.GetCell(new GridPosition(4, 4)));
+        }
+
+        [Test]
+        public void TryApplyPaintCross_BelowItsUnlockLevel_ChangesNothing()
+        {
+            PersistCount(PowerUpKind.PaintCross, 3);
+            _levelProgressionModel.CurrentLevelNumber.Value = PowerUpUnlockLevels.LevelFor(PowerUpKind.PaintCross) - 1;
+            var boardModel = new BoardModel();
+            boardModel.Occupy(new GridPosition(4, 4), 1);
+            var model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, boardModel);
+
+            bool applied = system.TryApplyPaintCross(new GridPosition(4, 4), PAINT_COLOUR);
+
+            Assert.IsFalse(applied);
+            Assert.AreEqual(3, model.PaintCrossCount.Value);
+            Assert.AreEqual(1, boardModel.GetCell(new GridPosition(4, 4)));
+        }
+
+        [Test]
+        public void Arm_PaintCross_WhenHeld_Arms()
+        {
+            PersistCount(PowerUpKind.PaintCross, 1);
+            var model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, new BoardModel());
+
+            system.Arm(PowerUpKind.PaintCross);
+
+            Assert.AreEqual(PowerUpKind.PaintCross, model.Armed.Value);
+        }
+
+        [Test]
+        public void TryApplyPaintCross_AfterSpending_TheDecrementedCountIsLoadedByANewSystem()
+        {
+            PersistCount(PowerUpKind.PaintCross, 2);
+            var boardModel = new BoardModel();
+            boardModel.Occupy(new GridPosition(0, 0), 1);
+            PowerUpSystem system = CreateSystem(new PowerUpModel(), boardModel);
+            system.TryApplyPaintCross(new GridPosition(0, 0), PAINT_COLOUR);
+
+            PowerUpModel reloadedModel = new PowerUpModel();
+            PowerUpSystem unused = CreateSystem(reloadedModel, new BoardModel());
+
+            Assert.AreEqual(1, reloadedModel.PaintCrossCount.Value);
+            Assert.AreEqual("PowerUp.Inventory.PaintCross", PowerUpInventoryKey.For(PowerUpKind.PaintCross));
+        }
+
         // --- Rotate as a free preview, paid for on commit (issue #373) ---
 
         /// <summary>The tap itself is free: it swaps the piece and nothing else. The charge, the
@@ -3115,6 +3326,7 @@ namespace MustyBlockBlast.Tests.EditMode
             PlayerPrefs.DeleteKey(PowerUpInventoryKey.For(PowerUpKind.GhostFit));
             PlayerPrefs.DeleteKey(PowerUpInventoryKey.For(PowerUpKind.CoinSower));
             PlayerPrefs.DeleteKey(PowerUpInventoryKey.For(PowerUpKind.Hold));
+            PlayerPrefs.DeleteKey(PowerUpInventoryKey.For(PowerUpKind.PaintCross));
         }
 
         private static Piece FindPiece(string id)

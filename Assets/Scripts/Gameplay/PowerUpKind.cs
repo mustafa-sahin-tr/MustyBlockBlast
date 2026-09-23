@@ -2,9 +2,9 @@ namespace MustyBlockBlast.Gameplay
 {
     /// <summary>
     /// The power-ups. Each is earned separately and kept in its own inventory slot, so the kind is the
-    /// identity used by persistence, messaging and scoring alike. The first five mutate the board;
-    /// <see cref="Rotate"/> and <see cref="Reroll"/> act on the tray instead, and
-    /// <see cref="DoubleMultiplier"/> and <see cref="GhostFit"/> touch neither.
+    /// identity used by persistence, messaging and scoring alike. The first five and
+    /// <see cref="PaintCross"/> mutate the board; <see cref="Rotate"/> and <see cref="Reroll"/> act on
+    /// the tray instead, and <see cref="DoubleMultiplier"/> and <see cref="GhostFit"/> touch neither.
     /// <para>
     /// Values are persisted by name (see <c>PowerUpInventoryKey</c>), so members may be appended but
     /// never reordered or renamed.
@@ -113,5 +113,24 @@ namespace MustyBlockBlast.Gameplay
         /// </para>
         /// </summary>
         Hold,
+
+        /// <summary>
+        /// Recolours every occupied cell of the targeted cell's row <em>and</em> column — a cross — to a
+        /// colour the player picks from a palette after the tap (issue #295). The only kind that
+        /// changes what is on the board without adding or removing anything: cells stay in place with
+        /// every special property they carry, empty cells stay empty, and nothing clears — not even a
+        /// line the paint happens to make monochrome, because colour never affects clearing. That is
+        /// also why it grants no score and no direct objective progress: a painted cell counts towards
+        /// a colour objective only when something later destroys it.
+        /// <para>
+        /// Armed and aimed like Bomb, with one extra step: the tap on the board opens a colour picker,
+        /// and the picker's confirm is what applies it. Like Joker and ColorCleanser it has an illegal
+        /// target — a cross with no occupied cell at all, which has nothing to paint — and that, or
+        /// cancelling the picker, is rejected outright: nothing is spent, nothing is disarmed. The
+        /// palette is the game's full colour set, not only the colours currently on the board, so it is
+        /// the one way to bring a colour onto the board that no piece has put there.
+        /// </para>
+        /// </summary>
+        PaintCross,
     }
 }

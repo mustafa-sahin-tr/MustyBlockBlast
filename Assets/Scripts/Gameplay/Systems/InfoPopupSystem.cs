@@ -48,6 +48,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             PowerUpKind.Bomb, PowerUpKind.RowClear, PowerUpKind.ColumnClear, PowerUpKind.Joker,
             PowerUpKind.ColorCleanser, PowerUpKind.Rotate, PowerUpKind.Reroll,
             PowerUpKind.DoubleMultiplier, PowerUpKind.GhostFit, PowerUpKind.CoinSower, PowerUpKind.Hold,
+            PowerUpKind.PaintCross,
         };
 
         private const string HOLD_ID = "Hold";
@@ -341,6 +342,10 @@ namespace MustyBlockBlast.Gameplay.Systems
                     headerKey = LocalizationKeys.INFO_POPUP_POWERUP_COIN_SOWER_HEADER;
                     bodyKey = LocalizationKeys.INFO_POPUP_POWERUP_COIN_SOWER_BODY;
                     break;
+                case PowerUpKind.PaintCross:
+                    headerKey = LocalizationKeys.INFO_POPUP_POWERUP_PAINT_CROSS_HEADER;
+                    bodyKey = LocalizationKeys.INFO_POPUP_POWERUP_PAINT_CROSS_BODY;
+                    break;
                 default:
                     headerKey = LocalizationKeys.INFO_POPUP_HOLD_HEADER;
                     bodyKey = LocalizationKeys.INFO_POPUP_HOLD_BODY;
@@ -464,6 +469,8 @@ namespace MustyBlockBlast.Gameplay.Systems
                     return powerUpModel.CoinSowerCount.Value;
                 case PowerUpKind.Hold:
                     return powerUpModel.HoldCount.Value;
+                case PowerUpKind.PaintCross:
+                    return powerUpModel.PaintCrossCount.Value;
                 default:
                     return 0;
             }

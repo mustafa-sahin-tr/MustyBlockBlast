@@ -66,6 +66,7 @@ namespace MustyBlockBlast.Presentation.Views
             PowerUpKind.Reroll,
             PowerUpKind.DoubleMultiplier,
             PowerUpKind.GhostFit,
+            PowerUpKind.PaintCross,
         };
 
         /// <summary>Derived from <see cref="SlotKinds"/> rather than written out, so the two can never
@@ -147,8 +148,8 @@ namespace MustyBlockBlast.Presentation.Views
 
         [Header("Icons")]
         [Tooltip("White-on-transparent glyphs, one per slot in display order (Bomb, Row Clear, Column Clear, "
-            + "Joker, Colour Cleanser, Rotate, Reroll, Double Score, Ghost Fit) — the same sprites the shop "
-            + "rows draw, so a power-up looks the same wherever it is met. Tinted at runtime.")]
+            + "Joker, Colour Cleanser, Rotate, Reroll, Double Score, Ghost Fit, Paint Cross) — the same "
+            + "sprites the shop rows draw, so a power-up looks the same wherever it is met. Tinted at runtime.")]
         [SerializeField] private Sprite[] _slotIcons = new Sprite[SlotCount];
 
         [Header("Art")]
@@ -278,6 +279,7 @@ namespace MustyBlockBlast.Presentation.Views
             WatchCount(_powerUpModel.RerollCount, PowerUpKind.Reroll);
             WatchCount(_powerUpModel.DoubleMultiplierCount, PowerUpKind.DoubleMultiplier);
             WatchCount(_powerUpModel.GhostFitCount, PowerUpKind.GhostFit);
+            WatchCount(_powerUpModel.PaintCrossCount, PowerUpKind.PaintCross);
             _powerUpModel.Armed.Subscribe(OnArmedChanged).AddTo(_disposables);
 
             _runStartedSubscriber.Subscribe(OnRunStarted).AddTo(_disposables);

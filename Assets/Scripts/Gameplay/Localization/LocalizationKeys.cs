@@ -62,6 +62,8 @@ namespace MustyBlockBlast.Gameplay.Localization
         public const string INFO_POPUP_POWERUP_JOKER_BODY = "info_popup.powerup.joker.body";
         public const string INFO_POPUP_POWERUP_COLOR_CLEANSER_HEADER = "info_popup.powerup.color_cleanser.header";
         public const string INFO_POPUP_POWERUP_COLOR_CLEANSER_BODY = "info_popup.powerup.color_cleanser.body";
+        public const string INFO_POPUP_POWERUP_PAINT_CROSS_HEADER = "info_popup.powerup.paint_cross.header";
+        public const string INFO_POPUP_POWERUP_PAINT_CROSS_BODY = "info_popup.powerup.paint_cross.body";
         public const string INFO_POPUP_POWERUP_ROTATE_HEADER = "info_popup.powerup.rotate.header";
         public const string INFO_POPUP_POWERUP_ROTATE_BODY = "info_popup.powerup.rotate.body";
         public const string INFO_POPUP_POWERUP_REROLL_HEADER = "info_popup.powerup.reroll.header";
@@ -378,6 +380,7 @@ namespace MustyBlockBlast.Gameplay.Localization
         public const string POWERUP_NAME_REROLL = "powerup.name.reroll";
         public const string POWERUP_NAME_DOUBLE_MULTIPLIER = "powerup.name.double_multiplier";
         public const string POWERUP_NAME_GHOST_FIT = "powerup.name.ghost_fit";
+        public const string POWERUP_NAME_PAINT_CROSS = "powerup.name.paint_cross";
 
         public const string POWERUP_DESC_BOMB = "powerup.desc.bomb";
         public const string POWERUP_DESC_ROW_CLEAR = "powerup.desc.row_clear";
@@ -388,6 +391,15 @@ namespace MustyBlockBlast.Gameplay.Localization
         public const string POWERUP_DESC_REROLL = "powerup.desc.reroll";
         public const string POWERUP_DESC_DOUBLE_MULTIPLIER = "powerup.desc.double_multiplier";
         public const string POWERUP_DESC_GHOST_FIT = "powerup.desc.ghost_fit";
+        public const string POWERUP_DESC_PAINT_CROSS = "powerup.desc.paint_cross";
+
+        // --- Paint Cross colour picker (issue #295) ---
+        //
+        // The bottom sheet a Paint Cross tap opens: its title and its confirm button. Keyed here rather
+        // than in the View, like every other string.
+
+        public const string PAINT_CROSS_PICKER_TITLE = "paint_cross.picker.title";
+        public const string PAINT_CROSS_PICKER_CONFIRM = "paint_cross.picker.confirm";
 
         // --- Badges ---
         //

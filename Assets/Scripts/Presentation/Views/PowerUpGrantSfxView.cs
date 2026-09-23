@@ -40,6 +40,7 @@ namespace MustyBlockBlast.Presentation.Views
             PowerUpKind.GhostFit,
             PowerUpKind.CoinSower,
             PowerUpKind.Hold,
+            PowerUpKind.PaintCross,
         };
 
         /// <summary>Every special cell kind a reward can spawn on the board (see

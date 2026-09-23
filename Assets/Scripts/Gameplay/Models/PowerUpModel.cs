@@ -42,6 +42,10 @@ namespace MustyBlockBlast.Gameplay.Models
         /// </summary>
         public ReactiveProperty<int> HoldCount { get; } = new ReactiveProperty<int>(0);
 
+        /// <summary>Paint Cross charges (issue #295): one is spent per confirmed paint. An ordinary
+        /// inventory slot, persisted like the others.</summary>
+        public ReactiveProperty<int> PaintCrossCount { get; } = new ReactiveProperty<int>(0);
+
         /// <summary>
         /// The power-up the player has selected and is now aiming — at the board, or at the tray for
         /// <see cref="PowerUpKind.Rotate"/> — or null when none is.

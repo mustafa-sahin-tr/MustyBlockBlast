@@ -10,7 +10,7 @@ namespace MustyBlockBlast.Gameplay.Settings
     /// retuned.
     /// <para>
     /// A table keyed by kind rather than one named field per kind. The roster grows (it has grown from
-    /// three kinds to eleven), and a table adds a row where named fields would add a field, a property
+    /// three kinds to twelve), and a table adds a row where named fields would add a field, a property
     /// and a branch. It is also the shape the enum already persists in — see <c>PowerUpInventoryKey</c> —
     /// so the two read the same way.
     /// </para>
@@ -56,7 +56,7 @@ namespace MustyBlockBlast.Gameplay.Settings
             new PowerUpPrice(PowerUpKind.RowClear, 50),
             new PowerUpPrice(PowerUpKind.ColumnClear, 50),
 
-            // The gated six, priced by value rather than by gate (issue #402): a price does not climb
+            // The gated seven, priced by value rather than by gate (issue #402): a price does not climb
             // with the unlock level, so a late-unlocking kind can be the cheapest row in the shop.
             new PowerUpPrice(PowerUpKind.Joker, 10),
             new PowerUpPrice(PowerUpKind.ColorCleanser, 75),
@@ -64,6 +64,9 @@ namespace MustyBlockBlast.Gameplay.Settings
             new PowerUpPrice(PowerUpKind.Reroll, 75),
             new PowerUpPrice(PowerUpKind.DoubleMultiplier, 200),
             new PowerUpPrice(PowerUpKind.GhostFit, 25),
+
+            // Issue #295: a whole cross recoloured is worth what a whole colour cleared is.
+            new PowerUpPrice(PowerUpKind.PaintCross, 75),
         };
 
         /// <summary>

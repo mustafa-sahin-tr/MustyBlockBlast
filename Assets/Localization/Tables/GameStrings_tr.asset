@@ -922,6 +922,30 @@ MonoBehaviour:
     m_Localized: Belki Sonra
     m_Metadata:
       m_Items: []
+  - m_Id: 3514168870166532
+    m_Localized: "Boya Ha\xE7\u0131"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3514168870166533
+    m_Localized: "Bir h\xFCcrenin sat\u0131r\u0131n\u0131 ve s\xFCtununu yeniden boyar"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3514168870166534
+    m_Localized: "Boya Ha\xE7\u0131"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3514168870166535
+    m_Localized: "Bir h\xFCcreye dokun, sonra bir renk se\xE7: o sat\u0131r ve s\xFCtundaki her blok o rengi al\u0131r. Hi\xE7bir \u015Fey temizlenmez; bir renk hedefini haz\u0131rlamak i\xE7in kullan."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3514168870166536
+    m_Localized: "Bir renk se\xE7"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3514168870166537
+    m_Localized: Boya
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

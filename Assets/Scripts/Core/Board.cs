@@ -238,6 +238,30 @@ namespace MustyBlockBlast.Core
             _cells[Index(position)] = colourId;
         }
 
+        /// <summary>
+        /// Recolours an <em>occupied</em> cell in place. The one write to <see cref="_cells"/> that means
+        /// "the same block, in a different colour" rather than "a block arrived" (<see cref="Occupy"/>) or
+        /// "a block left" (<see cref="Clear"/>): everything else the cell carries — its
+        /// <see cref="SpecialCellKind"/>, hit count, timer countdown, coin value and diamond colour — is
+        /// left exactly as it was, because the block is still standing there. The primitive
+        /// <see cref="PowerUpPaintResolver"/> is built on (issue #295).
+        /// <para>
+        /// Refuses an empty cell, the inverse of the guard <see cref="Occupy"/> does not need: painting
+        /// nothing is not a placement, and a caller that meant to put a block down must say so with
+        /// <see cref="Occupy"/>. Refuses <see cref="EMPTY"/> as the colour and a hole as the position
+        /// exactly as <see cref="Occupy"/> does, by delegating the write to it.
+        /// </para>
+        /// </summary>
+        public void Paint(GridPosition position, int colourId)
+        {
+            if (!IsOccupied(position))
+            {
+                throw new ArgumentException("Cell is empty; use Occupy to fill it.", nameof(position));
+            }
+
+            Occupy(position, colourId);
+        }
+
         /// <summary>Empties a cell, whatever is on it. Also resets its <see cref="SpecialCellKind"/> and
         /// its hit count: all three belonged to the block that was standing there, so leaving either
         /// behind would hand it to whatever piece happens to land on the cell next. Any caller that

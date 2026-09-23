@@ -24,7 +24,7 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.AreEqual(PowerUpUnlockLevels.ALWAYS_UNLOCKED, PowerUpUnlockLevels.LevelFor(kind));
         }
 
-        /// <summary>The seven gated kinds, one every five levels, in the authored order.</summary>
+        /// <summary>The eight gated kinds, one every five levels, in the authored order.</summary>
         [TestCase(PowerUpKind.Joker, 5)]
         [TestCase(PowerUpKind.ColorCleanser, 10)]
         [TestCase(PowerUpKind.Rotate, 15)]
@@ -32,6 +32,7 @@ namespace MustyBlockBlast.Tests.EditMode
         [TestCase(PowerUpKind.DoubleMultiplier, 25)]
         [TestCase(PowerUpKind.GhostFit, 30)]
         [TestCase(PowerUpKind.CoinSower, 35)]
+        [TestCase(PowerUpKind.PaintCross, 40)]
         public void LevelFor_TheGatedKinds_MatchesTheAuthoredCadence(PowerUpKind kind, int expectedLevel)
         {
             Assert.AreEqual(expectedLevel, PowerUpUnlockLevels.LevelFor(kind));
@@ -60,6 +61,7 @@ namespace MustyBlockBlast.Tests.EditMode
                 PowerUpKind.GhostFit,
                 PowerUpKind.CoinSower,
                 PowerUpKind.Hold,
+                PowerUpKind.PaintCross,
             };
 
             CollectionAssert.AreEquivalent(
@@ -86,6 +88,16 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.IsFalse(PowerUpUnlockLevels.IsUnlockedAt(PowerUpKind.DoubleMultiplier, FRESH_INSTALL_LEVEL));
             Assert.IsFalse(PowerUpUnlockLevels.IsUnlockedAt(PowerUpKind.GhostFit, FRESH_INSTALL_LEVEL));
             Assert.IsFalse(PowerUpUnlockLevels.IsUnlockedAt(PowerUpKind.CoinSower, FRESH_INSTALL_LEVEL));
+            Assert.IsFalse(PowerUpUnlockLevels.IsUnlockedAt(PowerUpKind.PaintCross, FRESH_INSTALL_LEVEL));
+        }
+
+        /// <summary>Issue #295: the Paint Cross takes the next empty rung after the Coin Sower's 35.</summary>
+        [Test]
+        public void IsUnlockedAt_ForPaintCross_OpensAtForty()
+        {
+            Assert.IsFalse(PowerUpUnlockLevels.IsUnlockedAt(PowerUpKind.PaintCross, 39));
+            Assert.IsTrue(PowerUpUnlockLevels.IsUnlockedAt(PowerUpKind.PaintCross, 40));
+            Assert.IsTrue(PowerUpUnlockLevels.IsUnlockedAt(PowerUpKind.PaintCross, 41));
         }
 
         /// <summary>
@@ -118,7 +130,7 @@ namespace MustyBlockBlast.Tests.EditMode
         {
             foreach (PowerUpKind kind in (PowerUpKind[])Enum.GetValues(typeof(PowerUpKind)))
             {
-                Assert.IsTrue(PowerUpUnlockLevels.IsUnlockedAt(kind, 35), kind.ToString());
+                Assert.IsTrue(PowerUpUnlockLevels.IsUnlockedAt(kind, 40), kind.ToString());
             }
         }
     }

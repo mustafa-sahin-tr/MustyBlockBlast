@@ -56,6 +56,7 @@ namespace MustyBlockBlast.Presentation.Views
             PowerUpKind.Reroll,
             PowerUpKind.DoubleMultiplier,
             PowerUpKind.GhostFit,
+            PowerUpKind.PaintCross,
         };
 
         /// <summary>Lower bound on the flight's opening scale, as a multiple of the slot's resting
@@ -65,7 +66,7 @@ namespace MustyBlockBlast.Presentation.Views
 
         [Header("Icons")]
         [Tooltip("Hero-sized icon per kind, in the same order as the power-up strip (Bomb, Row Clear, "
-            + "Column Clear, Joker, Colour Cleanser, Rotate, Reroll, Double Score, Ghost Fit). A kind "
+            + "Column Clear, Joker, Colour Cleanser, Rotate, Reroll, Double Score, Ghost Fit, Paint Cross). A kind "
             + "granted with no entry here skips its flight and logs an editor warning.")]
         [SerializeField] private Sprite[] _icons = new Sprite[IconKinds.Length];
 

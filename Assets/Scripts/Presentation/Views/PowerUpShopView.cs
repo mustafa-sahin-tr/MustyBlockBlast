@@ -84,6 +84,7 @@ namespace MustyBlockBlast.Presentation.Views
             PowerUpKind.Reroll,
             PowerUpKind.DoubleMultiplier,
             PowerUpKind.GhostFit,
+            PowerUpKind.PaintCross,
         };
 
         private static readonly int ItemCount = ItemKinds.Length;
@@ -478,6 +479,7 @@ namespace MustyBlockBlast.Presentation.Views
             WatchCount(_powerUpModel.RerollCount, PowerUpKind.Reroll);
             WatchCount(_powerUpModel.DoubleMultiplierCount, PowerUpKind.DoubleMultiplier);
             WatchCount(_powerUpModel.GhostFitCount, PowerUpKind.GhostFit);
+            WatchCount(_powerUpModel.PaintCrossCount, PowerUpKind.PaintCross);
         }
 
         private void OnDestroy() => _disposables.Dispose();
@@ -1063,6 +1065,8 @@ namespace MustyBlockBlast.Presentation.Views
                     return LocalizationKeys.POWERUP_NAME_DOUBLE_MULTIPLIER;
                 case PowerUpKind.GhostFit:
                     return LocalizationKeys.POWERUP_NAME_GHOST_FIT;
+                case PowerUpKind.PaintCross:
+                    return LocalizationKeys.POWERUP_NAME_PAINT_CROSS;
                 default:
                     return LocalizationKeys.POWERUP_NAME_BOMB;
             }
@@ -1089,6 +1093,8 @@ namespace MustyBlockBlast.Presentation.Views
                     return LocalizationKeys.POWERUP_DESC_DOUBLE_MULTIPLIER;
                 case PowerUpKind.GhostFit:
                     return LocalizationKeys.POWERUP_DESC_GHOST_FIT;
+                case PowerUpKind.PaintCross:
+                    return LocalizationKeys.POWERUP_DESC_PAINT_CROSS;
                 default:
                     return LocalizationKeys.POWERUP_DESC_BOMB;
             }

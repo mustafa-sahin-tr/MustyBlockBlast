@@ -48,6 +48,7 @@ namespace MustyBlockBlast.Tests.EditMode
         [TestCase(PowerUpKind.Reroll, 75)]
         [TestCase(PowerUpKind.DoubleMultiplier, 200)]
         [TestCase(PowerUpKind.GhostFit, 25)]
+        [TestCase(PowerUpKind.PaintCross, 75)]
         public void GetPrice_OnAFreshInstance_ReturnsTheIssue402Price(PowerUpKind kind, int expected)
         {
             Assert.AreEqual(expected, _freshConfig.GetPrice(kind));
@@ -89,6 +90,7 @@ namespace MustyBlockBlast.Tests.EditMode
         [TestCase(PowerUpKind.Reroll, 75)]
         [TestCase(PowerUpKind.DoubleMultiplier, 200)]
         [TestCase(PowerUpKind.GhostFit, 25)]
+        [TestCase(PowerUpKind.PaintCross, 75)]
         public void GetPrice_OnTheShippedAsset_ReturnsTheIssue402Price(PowerUpKind kind, int expected)
         {
             PowerUpPriceConfig shipped = LoadShippedConfig();
