@@ -147,7 +147,8 @@ namespace MustyBlockBlast.Gameplay.Systems
                 message.ReinforcedCellsFullyClearedCount,
                 message.DestroyedCellCountByColour,
                 message.TimerCellsClearedInTimeCount,
-                message.DestroyedDiamondCountByColour);
+                message.DestroyedDiamondCountByColour,
+                message.IceCellsMeltedCount);
 
             ApplyToAllObjectives(objective => objective.ApplyPlacement(context));
         }
@@ -176,6 +177,14 @@ namespace MustyBlockBlast.Gameplay.Systems
             {
                 ApplyToAllObjectives(objective =>
                     objective.ApplyPowerUpTimerCellsClearedInTime(message.TimerCellsClearedInTimeCount));
+            }
+
+            // Same independent placement as the reinforced-cell branch, for the same reason: any kind
+            // that clears a region can melt an ice socket (issue #433).
+            if (message.IceCellsMeltedCount > 0)
+            {
+                ApplyToAllObjectives(objective =>
+                    objective.ApplyPowerUpIceCellsMelted(message.IceCellsMeltedCount));
             }
 
             // Before the kind-specific branches below, which return early: a colour-count objective

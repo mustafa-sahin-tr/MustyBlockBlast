@@ -73,6 +73,18 @@ namespace MustyBlockBlast.Gameplay.Systems
         private readonly LevelTimerCellSeeder _timerCellSeeder;
 
         /// <summary>
+        /// Marks the level's authored ice sockets on the board at the opening of a run (issue #433).
+        /// Called inline from <see cref="StartNewRun"/> immediately after <see cref="_timerCellSeeder"/>,
+        /// for exactly the same reason — see <see cref="LevelTargetIceCellSeeder"/>. Unlike the two
+        /// seeders above it occupies nothing: a socket starts the run empty.
+        /// <para>
+        /// Nullable, and null in most unit tests, for the same reason <see cref="_reinforcedCellSeeder"/>
+        /// is.
+        /// </para>
+        /// </summary>
+        private readonly LevelTargetIceCellSeeder _targetIceCellSeeder;
+
+        /// <summary>
         /// Which rule set the current run is played under. Read only by the per-placement timer tick
         /// (issue #307 AC4), to decide whether an expired <see cref="SpecialCellKind.Timer"/> cell ends
         /// the run outright (<see cref="GameMode.Path"/>) or merely loses its own objective credit
@@ -318,7 +330,8 @@ namespace MustyBlockBlast.Gameplay.Systems
             GameModeModel gameModeModel = null,
             IRescueRewardSource rescueRewardSource = null,
             IPublisher<RunRescuedMessage> runRescuedPublisher = null,
-            DiamondPieceDecorator diamondPieceDecorator = null)
+            DiamondPieceDecorator diamondPieceDecorator = null,
+            LevelTargetIceCellSeeder targetIceCellSeeder = null)
             : this(
                 boardModel, trayModel, scoreGemProgressModel, vortexProgressModel, pieceDraw,
                 runStartedPublisher, piecePlacedPublisher, linesClearedPublisher, gameOverPublisher,
@@ -327,7 +340,7 @@ namespace MustyBlockBlast.Gameplay.Systems
                 coinCellsClearedPublisher, currencyConfig, Environment.TickCount, reinforcedCellSeeder,
                 powerUpModel, specialCellSpawnedPublisher, specialPieceSpawnedPublisher,
                 timerCellSeeder, gameModeModel, rescueRewardSource, runRescuedPublisher,
-                diamondPieceDecorator)
+                diamondPieceDecorator, targetIceCellSeeder)
         {
         }
 
@@ -358,10 +371,12 @@ namespace MustyBlockBlast.Gameplay.Systems
             GameModeModel gameModeModel = null,
             IRescueRewardSource rescueRewardSource = null,
             IPublisher<RunRescuedMessage> runRescuedPublisher = null,
-            DiamondPieceDecorator diamondPieceDecorator = null)
+            DiamondPieceDecorator diamondPieceDecorator = null,
+            LevelTargetIceCellSeeder targetIceCellSeeder = null)
         {
             _reinforcedCellSeeder = reinforcedCellSeeder;
             _timerCellSeeder = timerCellSeeder;
+            _targetIceCellSeeder = targetIceCellSeeder;
             _diamondPieceDecorator = diamondPieceDecorator;
             _gameModeModel = gameModeModel;
             _powerUpModel = powerUpModel;
@@ -436,6 +451,16 @@ namespace MustyBlockBlast.Gameplay.Systems
             if (_timerCellSeeder != null)
             {
                 _timerCellSeeder.Seed(_boardModel);
+            }
+
+            // Last of the three seeders, same call stack, same reasoning (issue #433): the ice marker
+            // has to be on the board before the player's first placement can land on it. After the
+            // two pre-filling seeders so its "is this cell empty" check sees their blocks — the three
+            // mechanics are mutually exclusive per cell (LevelObjectiveConfig.IsValid refuses a cell
+            // authored as more than one), so in a valid level the order never matters.
+            if (_targetIceCellSeeder != null)
+            {
+                _targetIceCellSeeder.Seed(_boardModel);
             }
 
             // Dropped before the refill below, which is the thing that would otherwise pay them: a
@@ -590,6 +615,14 @@ namespace MustyBlockBlast.Gameplay.Systems
             // "how full was the board under this placement" can no longer be answered.
             int occupiedCellCountBeforeClear = _boardModel.Board.OccupiedCellCount();
 
+            // Same moment, same reason, for the ice sockets (issue #433): "how many were still icy
+            // before anything below destroyed a cell" is the half of the melted count that has to be
+            // read now. The melt itself happens inside Board.TryDamage on every destruction path —
+            // the rocket wipe, the primary clear, every cascaded phase and every effect's own
+            // blast/wipe/strike alike — so a before/after scan is what counts all of them without any
+            // of them having to report it.
+            int iceCellsBefore = _boardModel.Board.CountIceCells();
+
             // The cascading resolver, not the single-pass one: a cleared special cell may complete
             // further lines, and this is the one call site where that chaining is allowed to happen
             // (a drag preview still uses LineClearResolver directly, via GetWouldClearLines). It is
@@ -699,6 +732,15 @@ namespace MustyBlockBlast.Gameplay.Systems
             // "still here, but closer to breaking". Cheap and idempotent — see NotifyHitCountsRefreshed.
             _boardModel.NotifyHitCountsRefreshed();
 
+            // And the ice sockets, for the mirror-image reason (issue #433): a socket whose block was
+            // just destroyed is EMPTY now, and the "this cell emptied" notifications above say nothing
+            // about the thinner ice still sitting on it. Same scan, same cost class.
+            _boardModel.NotifyIceLevelsRefreshed();
+
+            // The other half of the melted count: sockets still icy now. Ice only ever goes down, so the
+            // difference is exactly the number of sockets this whole resolution melted to 0.
+            int iceCellsMelted = iceCellsBefore - _boardModel.Board.CountIceCells();
+
             bool anyCornerCleared = AnyCornerTouched(
                 _boardModel.Board, clearResult.ClearedRows, clearResult.ClearedColumns);
 
@@ -726,7 +768,8 @@ namespace MustyBlockBlast.Gameplay.Systems
                 clearResult.MonochromeLineCount, _boardModel.Board.IsEmpty(), occupiedCellCountBeforeClear,
                 anyCornerCleared, _boardModel.Board.IsCenterCoreEmpty(), _boardModel.Board.HasIsolatedEmptyCells(),
                 _scoreGemEffect.DestroyedCount, cascade.TotalReinforcedCellsFullyClearedCount,
-                cascade.TotalDestroyedCellCountByColour, timerCellsClearedInTime, destroyedDiamondCountByColour));
+                cascade.TotalDestroyedCellCountByColour, timerCellsClearedInTime, destroyedDiamondCountByColour,
+                iceCellsMelted));
 
             if (clearResult.AnyCleared)
             {
@@ -1208,6 +1251,12 @@ namespace MustyBlockBlast.Gameplay.Systems
             _boardModel.NotifyPowerUpCleared(_hammerClearedBuffer);
             _boardModel.NotifyHitCountsRefreshed();
 
+            // A hammered block on an ice socket melted one level on its way out (Board.TryDamage), and
+            // the socket is empty now — repainted for the reason the placement path repaints its own.
+            // The objective credit for a socket a hammer melts to 0 is dropped along with the
+            // reinforced count above: a hammer publishes no message that could carry it.
+            _boardModel.NotifyIceLevelsRefreshed();
+
             // Consumed before the effects below can end the run, so AC7 holds whatever they go on to do:
             // the hammer is spent exactly once, at the moment it was used.
             _trayModel.ConsumeSlot(slotIndex);
@@ -1631,6 +1680,10 @@ namespace MustyBlockBlast.Gameplay.Systems
                 _vortexIslandFilledPublisher.Publish(new VortexIslandFilledMessage(
                     new List<GridPosition>(islandFilledCells), new List<GridPosition>(vortexHandOffTargets)));
             }
+
+            // A hammered special's blast/wipe/strike can melt a socket too, and nothing above repaints
+            // an empty cell's ice (issue #433).
+            _boardModel.NotifyIceLevelsRefreshed();
 
             PublishCoinsAwarded();
         }

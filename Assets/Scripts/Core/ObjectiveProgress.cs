@@ -253,6 +253,19 @@ namespace MustyBlockBlast.Core
                     }
 
                     break;
+
+                case ObjectiveType.IceCellsCleared:
+                    // Same "things destroyed, not events" shape as ReinforcedCellsCleared above: one
+                    // placement's resolution can take the last level off several ice sockets at once,
+                    // and every one of them is credited. The count already spans every destruction
+                    // path of the resolution (see ObjectiveType.IceCellsCleared), so nothing is summed
+                    // here.
+                    if (context.IceCellsMelted > 0)
+                    {
+                        CurrentValue = Math.Min(CurrentValue + context.IceCellsMelted, Definition.TargetValue);
+                    }
+
+                    break;
             }
 
             if (CurrentValue == previousValue)
@@ -370,6 +383,33 @@ namespace MustyBlockBlast.Core
         public bool ApplyPowerUpTimerCellsClearedInTime(int count)
         {
             if (IsComplete || Definition.Type != ObjectiveType.TimerCellsMeltedInTime || count <= 0)
+            {
+                return false;
+            }
+
+            int previousValue = CurrentValue;
+            CurrentValue = Math.Min(CurrentValue + count, Definition.TargetValue);
+            if (CurrentValue == previousValue)
+            {
+                return false;
+            }
+
+            IsComplete = CurrentValue >= Definition.TargetValue;
+            return true;
+        }
+
+        /// <summary>
+        /// Folds the ice sockets a spent power-up fully melted into this objective's progress (issue
+        /// #433). Deliberately a separate method from <see cref="ApplyPlacement"/>, mirroring
+        /// <see cref="ApplyPowerUpReinforcedCellsCleared"/> exactly: a power-up application is not a
+        /// placement, and the two event sources are disjoint by construction (a placement publishes
+        /// <c>PiecePlacedMessage</c>, a spent power-up <c>PowerUpAppliedMessage</c>, never both for one
+        /// destruction), so nothing is ever counted twice. Takes a count because one power-up clear can
+        /// finish off several sockets at once.
+        /// </summary>
+        public bool ApplyPowerUpIceCellsMelted(int count)
+        {
+            if (IsComplete || Definition.Type != ObjectiveType.IceCellsCleared || count <= 0)
             {
                 return false;
             }

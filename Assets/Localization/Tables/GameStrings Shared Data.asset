@@ -939,6 +939,14 @@ MonoBehaviour:
     m_Key: paint_cross.picker.confirm
     m_Metadata:
       m_Items: []
+  - m_Id: 3631194057990144
+    m_Key: objective.ice_cells_cleared
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3631194104127488
+    m_Key: objective.name.ice_cells_cleared
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

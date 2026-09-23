@@ -101,6 +101,34 @@ namespace MustyBlockBlast.Core
             IReadOnlyList<int> destroyedCellCountByColour,
             int timerCellsClearedInTime,
             IReadOnlyList<int> destroyedDiamondCountByColour)
+            : this(
+                linesCleared, rowsCleared, columnsCleared, pieceFamily, pieceId, currentRunScore,
+                boardEmptyAfterPlacement, currentStreak, occupiedCellCountBeforeClear, anyCornerCleared,
+                centerCoreEmptyAfterPlacement, hasIsolatedHolesAfterPlacement, elapsedRunSeconds,
+                reinforcedCellsFullyCleared, destroyedCellCountByColour, timerCellsClearedInTime,
+                destroyedDiamondCountByColour, iceCellsMelted: 0)
+        {
+        }
+
+        public ObjectivePlacementContext(
+            int linesCleared,
+            int rowsCleared,
+            int columnsCleared,
+            PieceFamily pieceFamily,
+            string pieceId,
+            int currentRunScore,
+            bool boardEmptyAfterPlacement,
+            int currentStreak,
+            int occupiedCellCountBeforeClear,
+            bool anyCornerCleared,
+            bool centerCoreEmptyAfterPlacement,
+            bool hasIsolatedHolesAfterPlacement,
+            float elapsedRunSeconds,
+            int reinforcedCellsFullyCleared,
+            IReadOnlyList<int> destroyedCellCountByColour,
+            int timerCellsClearedInTime,
+            IReadOnlyList<int> destroyedDiamondCountByColour,
+            int iceCellsMelted)
         {
             LinesCleared = linesCleared;
             RowsCleared = rowsCleared;
@@ -119,6 +147,7 @@ namespace MustyBlockBlast.Core
             DestroyedCellCountByColour = destroyedCellCountByColour;
             TimerCellsClearedInTime = timerCellsClearedInTime;
             DestroyedDiamondCountByColour = destroyedDiamondCountByColour;
+            IceCellsMelted = iceCellsMelted;
         }
 
         /// <summary>Rows plus columns cleared by this placement; zero when nothing cleared.</summary>
@@ -208,5 +237,12 @@ namespace MustyBlockBlast.Core
         /// when none were tallied or the id is outside the tally.</summary>
         public int DestroyedDiamondCountOf(int colourId)
             => ColourTally.CountOf(DestroyedDiamondCountByColour, colourId);
+
+        /// <summary>How many ice sockets this placement's whole resolution melted to level 0 — every
+        /// destruction path included, because the melt lives in <see cref="Board.TryDamage"/> and the
+        /// count is a before/after scan of <see cref="Board.CountIceCells"/>. Zero for an ordinary
+        /// placement, and zero for a socket that merely lost a level and is still icy. See
+        /// <see cref="ObjectiveType.IceCellsCleared"/>.</summary>
+        public int IceCellsMelted { get; }
     }
 }

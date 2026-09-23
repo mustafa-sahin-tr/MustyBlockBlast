@@ -168,5 +168,41 @@ namespace MustyBlockBlast.Core
         /// </para>
         /// </summary>
         DiamondsCleared = 20,
+
+        /// <summary>
+        /// Melt every ice socket the level authors (issue #433 — "Buz hücrelerini eritme"): count the
+        /// authored ice positions whose ice level reached 0. A position starts a run EMPTY and playable
+        /// with an authored ice level of 1-3 (<see cref="Board.GetIceLevel"/>); each time the block the
+        /// player put on it is destroyed, the ice melts by one level and the position is empty again. A
+        /// socket that merely lost a level counts for nothing — only reaching 0 does, which is what makes
+        /// "melt all of them" a finite goal rather than a melt tally.
+        /// <para>
+        /// The target is not authored: <see cref="MustyBlockBlast.Gameplay.Settings.LevelObjectiveConfig.ToObjectiveDefinition"/>
+        /// always forces it to the count of ice sockets the level authored, exactly as it does for
+        /// <see cref="ReinforcedCellsCleared"/>, so the objective is always "all of them" and never a
+        /// subset. A level with every occupied cell emptied but one authored socket still above level 0
+        /// is therefore not complete (AC7).
+        /// </para>
+        /// <para>
+        /// Counts THINGS MELTED, like <see cref="ReinforcedCellsCleared"/>, not events: one placement
+        /// whose resolution takes the last level off two sockets at once credits both. And it counts
+        /// them across EVERY destruction path — a direct completed line, a cascaded phase, a power-up
+        /// clear, a joker's completed line, and a special cell's own blast/wipe/strike mid-cascade —
+        /// because the melt itself happens inside <see cref="Board.TryDamage"/>, the one removal primitive
+        /// every path shares, and the count is read as "sockets still icy before minus sockets still icy
+        /// after" (<see cref="Board.CountIceCells"/>) over the whole resolution. This is the
+        /// <see cref="TimerCellsMeltedInTime"/> "any destruction path counts" framing, and it is
+        /// explicitly NOT vulnerable to the Reinforced-Cell cascade-reporting gap referenced in #249: no
+        /// resolver or effect has to remember to report an ice melt for it to be counted.
+        /// </para>
+        /// <para>
+        /// Advanced by BOTH <see cref="ObjectiveProgress.ApplyPlacement"/> (a placement's whole
+        /// resolution, arriving as <c>PiecePlacedMessage.IceCellsMeltedCount</c>) AND a dedicated
+        /// <see cref="ObjectiveProgress.ApplyPowerUpIceCellsMelted"/> (a spent power-up can melt a socket
+        /// too, arriving as <c>PowerUpAppliedMessage.IceCellsMeltedCount</c>), the two-source shape
+        /// <see cref="ReinforcedCellsCleared"/> established.
+        /// </para>
+        /// </summary>
+        IceCellsCleared = 21,
     }
 }

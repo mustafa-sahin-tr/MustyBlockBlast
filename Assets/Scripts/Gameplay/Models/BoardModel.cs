@@ -83,6 +83,22 @@ namespace MustyBlockBlast.Gameplay.Models
         /// </summary>
         public event Action<GridPosition> TimerCellExpired;
 
+        /// <summary>
+        /// Raised for a position whose ice level (issue #433) may have changed. Args: position, ice
+        /// levels remaining — 0 when the socket has fully melted and is an ordinary cell again.
+        /// <para>
+        /// Its own signal, and deliberately the opposite shape from <see cref="SpecialKindChanged"/>
+        /// and <see cref="HitCountChanged"/>: those two can rely on "the cell emptied, so the special
+        /// look goes with it", because everything they announce belongs to the block. Ice belongs to
+        /// the POSITION and persists across the cell emptying — the whole mechanic is that the block
+        /// is destroyed and the ice underneath is still there, one level thinner — so a View must be
+        /// told about a level change that coincides with the cell going empty, and told about the
+        /// level reaching 0 explicitly, since no other event describes "this empty cell is no longer
+        /// icy".
+        /// </para>
+        /// </summary>
+        public event Action<GridPosition, int> TargetIceLevelChanged;
+
         /// <summary>The board's outline. Read-only and immutable — a View reads width, height and hole
         /// cells off it to lay itself out and to render the holes.</summary>
         public BoardShape Shape => _board.Shape;
@@ -126,6 +142,11 @@ namespace MustyBlockBlast.Gameplay.Models
         /// rather than trusting bookkeeping it accumulated from events. 0 for a cell carrying no
         /// diamond (issue #395).</summary>
         public int GetDiamondColourId(GridPosition position) => _board.GetDiamondColourId(position);
+
+        /// <summary>Read-only access for Views, for the reason <see cref="GetHitCount"/> is: a full
+        /// repaint re-derives every position's ice overlay from the model rather than trusting
+        /// bookkeeping it accumulated from events. 0 for a position carrying no ice (issue #433).</summary>
+        public int GetIceLevel(GridPosition position) => _board.GetIceLevel(position);
 
         /// <summary>Core board handed to the stateless Core rule helpers. Systems only.</summary>
         internal Board Board => _board;
@@ -182,6 +203,17 @@ namespace MustyBlockBlast.Gameplay.Models
             _board.OccupyDiamond(position, colourId, diamondColourId);
             CellChanged?.Invoke(position, colourId);
             SpecialKindChanged?.Invoke(position, SpecialCellKind.Diamond);
+        }
+
+        /// <summary>Marks an empty position with <paramref name="level"/> levels of ice and announces it
+        /// (issue #433). Level-start seeding only (<see cref="Systems.LevelTargetIceCellSeeder"/>) —
+        /// and, unlike <see cref="OccupyReinforced"/>/<see cref="OccupyTimer"/>, it occupies nothing: an
+        /// ice socket starts a run empty, so no <see cref="CellChanged"/> is raised, only the ice
+        /// level's own signal. See <see cref="Core.Board.SetIceLevel"/>.</summary>
+        internal void SetIceLevel(GridPosition position, int level)
+        {
+            _board.SetIceLevel(position, level);
+            TargetIceLevelChanged?.Invoke(position, level);
         }
 
         /// <summary>Tags a cell with a special behaviour and announces it. Separate from
@@ -318,6 +350,40 @@ namespace MustyBlockBlast.Gameplay.Models
             }
         }
 
+        /// <summary>
+        /// Re-announces the ice level of every playable position, so a View repaints the sockets a
+        /// resolution just melted (issue #433). Mirrors <see cref="NotifyHitCountsRefreshed"/>'s "a
+        /// scan, not a change list" reasoning exactly — the melt happens inside
+        /// <see cref="Core.Board.TryDamage"/>, which reports nothing, and threading a melted-position
+        /// list out of every resolver and effect would be far more moving parts than one scan — with
+        /// one deliberate difference: positions at level 0 are announced too, not skipped. A socket
+        /// that just reached 0 has to be told to drop its overlay, and unlike a hit count there is no
+        /// "the cell emptied" event that implies it, because the cell was going to be empty either way.
+        /// Same cost class: once per placement or power-up over the board's cells, never per frame,
+        /// allocation-free and idempotent (the View skips a position whose level did not change).
+        /// </summary>
+        internal void NotifyIceLevelsRefreshed()
+        {
+            if (TargetIceLevelChanged == null)
+            {
+                return;
+            }
+
+            for (int y = 0; y < _board.Height; y++)
+            {
+                for (int x = 0; x < _board.Width; x++)
+                {
+                    var position = new GridPosition(x, y);
+                    if (_board.IsHole(position))
+                    {
+                        continue;
+                    }
+
+                    TargetIceLevelChanged.Invoke(position, _board.GetIceLevel(position));
+                }
+            }
+        }
+
         /// <summary>Announces every cell <see cref="Core.TimerCellTick"/> just converted from
         /// <see cref="SpecialCellKind.Timer"/> to an ordinary cell this placement (issue #307 AC4/AC6a).
         /// The Core tick has already mutated the board when this is called.</summary>
@@ -450,6 +516,13 @@ namespace MustyBlockBlast.Gameplay.Models
         /// given the chance to survive into a run that never authored it. The run's own reinforced cells
         /// are seeded afterwards, from the level, by <see cref="Systems.BoardSystem.StartNewRun"/>.
         /// </para>
+        /// <para>
+        /// Ice levels are dropped explicitly as well (issue #433): <see cref="Core.Board.Clear"/> leaves
+        /// a position's ice alone by design (it belongs to the position, not the block), so a reset built
+        /// only on it would carry last run's half-melted sockets into a run that never authored them.
+        /// Announced through <see cref="TargetIceLevelChanged"/> at 0, so a View drops every overlay
+        /// before the new run's own sockets are seeded.
+        /// </para>
         /// </summary>
         internal void ClearAll()
         {
@@ -466,6 +539,13 @@ namespace MustyBlockBlast.Gameplay.Models
                     _board.Clear(position);
                     CellChanged?.Invoke(position, Board.EMPTY);
                 }
+            }
+
+            bool anyIce = _board.CountIceCells() > 0;
+            _board.ClearAllIceLevels();
+            if (anyIce)
+            {
+                NotifyIceLevelsRefreshed();
             }
         }
     }

@@ -158,6 +158,37 @@ namespace MustyBlockBlast.Gameplay.Messages
             IReadOnlyList<int> destroyedCellCountByColour,
             int timerCellsClearedInTimeCount,
             IReadOnlyList<int> destroyedDiamondCountByColour)
+            : this(
+                pieceId, anchor, pieceFamily, cellCount, colourId, linesCleared, rowsCleared,
+                columnsCleared, monochromeLineCount, boardEmptyAfterPlacement,
+                occupiedCellCountBeforeClear, anyCornerCleared, centerCoreEmptyAfterPlacement,
+                hasIsolatedHolesAfterPlacement, destroyedScoreGemCount,
+                reinforcedCellsFullyClearedCount, destroyedCellCountByColour,
+                timerCellsClearedInTimeCount, destroyedDiamondCountByColour, iceCellsMeltedCount: 0)
+        {
+        }
+
+        public PiecePlacedMessage(
+            string pieceId,
+            GridPosition anchor,
+            PieceFamily pieceFamily,
+            int cellCount,
+            int colourId,
+            int linesCleared,
+            int rowsCleared,
+            int columnsCleared,
+            int monochromeLineCount,
+            bool boardEmptyAfterPlacement,
+            int occupiedCellCountBeforeClear,
+            bool anyCornerCleared,
+            bool centerCoreEmptyAfterPlacement,
+            bool hasIsolatedHolesAfterPlacement,
+            int destroyedScoreGemCount,
+            int reinforcedCellsFullyClearedCount,
+            IReadOnlyList<int> destroyedCellCountByColour,
+            int timerCellsClearedInTimeCount,
+            IReadOnlyList<int> destroyedDiamondCountByColour,
+            int iceCellsMeltedCount)
         {
             PieceId = pieceId;
             Anchor = anchor;
@@ -178,6 +209,7 @@ namespace MustyBlockBlast.Gameplay.Messages
             DestroyedCellCountByColour = destroyedCellCountByColour;
             TimerCellsClearedInTimeCount = timerCellsClearedInTimeCount;
             DestroyedDiamondCountByColour = destroyedDiamondCountByColour;
+            IceCellsMeltedCount = iceCellsMeltedCount;
         }
 
         public string PieceId { get; }
@@ -282,5 +314,18 @@ namespace MustyBlockBlast.Gameplay.Messages
         /// </para>
         /// </summary>
         public IReadOnlyList<int> DestroyedDiamondCountByColour { get; }
+
+        /// <summary>
+        /// How many ice sockets (issue #433) this placement's whole resolution melted to level 0 — the
+        /// primary clear, every cascaded phase, the rocket's wipe AND a special cell's own
+        /// blast/wipe/strike mid-cascade, all of them, because the melt happens inside
+        /// <see cref="Board.TryDamage"/> and this figure is the difference of
+        /// <see cref="Board.CountIceCells"/> taken before and after the resolution. Unlike
+        /// <see cref="ReinforcedCellsFullyClearedCount"/> it therefore inherits no blast/wipe/strike gap.
+        /// <para>
+        /// Data plumbing for <see cref="ObjectiveType.IceCellsCleared"/>, the only thing that reads it.
+        /// </para>
+        /// </summary>
+        public int IceCellsMeltedCount { get; }
     }
 }

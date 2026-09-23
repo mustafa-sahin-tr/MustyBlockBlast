@@ -120,6 +120,20 @@ namespace MustyBlockBlast.Gameplay.Messages
             IReadOnlyList<int> destroyedCellCountByColour, int timerCellsClearedInTimeCount,
             GridPosition? targetCell, IReadOnlyList<GridPosition> clearedCellPositions,
             IReadOnlyList<int> destroyedDiamondCountByColour)
+            : this(
+                kind, clearedCellCount, clearedLineCount, emptiedLineCount, wasClutchSave,
+                destroyedScoreGemCount, reinforcedCellsFullyClearedCount, destroyedCellCountByColour,
+                timerCellsClearedInTimeCount, targetCell, clearedCellPositions,
+                destroyedDiamondCountByColour, iceCellsMeltedCount: 0)
+        {
+        }
+
+        public PowerUpAppliedMessage(
+            PowerUpKind kind, int clearedCellCount, int clearedLineCount, int emptiedLineCount,
+            bool wasClutchSave, int destroyedScoreGemCount, int reinforcedCellsFullyClearedCount,
+            IReadOnlyList<int> destroyedCellCountByColour, int timerCellsClearedInTimeCount,
+            GridPosition? targetCell, IReadOnlyList<GridPosition> clearedCellPositions,
+            IReadOnlyList<int> destroyedDiamondCountByColour, int iceCellsMeltedCount)
         {
             Kind = kind;
             ClearedCellCount = clearedCellCount;
@@ -133,6 +147,7 @@ namespace MustyBlockBlast.Gameplay.Messages
             TargetCell = targetCell;
             ClearedCellPositions = clearedCellPositions;
             DestroyedDiamondCountByColour = destroyedDiamondCountByColour;
+            IceCellsMeltedCount = iceCellsMeltedCount;
         }
 
         public PowerUpKind Kind { get; }
@@ -240,5 +255,24 @@ namespace MustyBlockBlast.Gameplay.Messages
         /// </para>
         /// </summary>
         public IReadOnlyList<int> DestroyedDiamondCountByColour { get; }
+
+        /// <summary>
+        /// How many ice sockets (issue #433) this application's direct clear melted to level 0 — the
+        /// difference of <see cref="MustyBlockBlast.Core.Board.CountIceCells"/> taken before the
+        /// resolver ran and at publish time. Data plumbing for
+        /// <see cref="MustyBlockBlast.Core.ObjectiveType.IceCellsCleared"/>, the only thing that reads
+        /// it. The melt itself is never missed on any path (it lives in
+        /// <see cref="MustyBlockBlast.Core.Board.TryDamage"/>); this is only about which message credits
+        /// the objective.
+        /// <para>
+        /// Does NOT include a socket a triggered blast/wipe/strike melts afterward in
+        /// <c>ApplyTriggeredSpecials</c> — that loop runs after this message is published, the same
+        /// pre-existing gap <see cref="TimerCellsClearedInTimeCount"/> and
+        /// <see cref="DestroyedDiamondCountByColour"/> document for this secondary power-up-triggered
+        /// chain. The socket's ice still melts on the board; only the objective credit for that one
+        /// secondary destruction is not carried by this message.
+        /// </para>
+        /// </summary>
+        public int IceCellsMeltedCount { get; }
     }
 }
