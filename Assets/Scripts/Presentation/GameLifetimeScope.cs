@@ -125,6 +125,21 @@ namespace MustyBlockBlast.Presentation
                 // be listening before the first run opens — nothing else resolves it either.
                 container.Resolve<LevelCoinCellSeedSystem>();
 
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                // Subscribes to RunStartedMessage and friends in its constructor, so it must be
+                // listening before the first run opens — nothing else resolves it either.
+                //
+                // Resolved here, deliberately before ObjectiveSystem: that System publishes
+                // GameOverMessage synchronously from inside its own PiecePlacedMessage handler when a
+                // placement completes a Path level, and MessagePipe calls subscribers in subscription
+                // order. Subscribing after ObjectiveSystem would make this system's own "GAME OVER"
+                // line land in the log before the "PLACE" line for the very placement that caused it —
+                // still correct gameplay, but a confusing read. Subscribing first means this system's
+                // PLACE line is always written before any GameOverMessage a later subscriber raises
+                // out of that same placement.
+                container.Resolve<SessionRecorderSystem>();
+#endif
+
                 // Subscribes in its constructor, like the systems above.
                 //
                 // DO NOT MOVE THIS ABOVE ScoreSystem. Both subscribe to PiecePlacedMessage, and
@@ -622,6 +637,12 @@ namespace MustyBlockBlast.Presentation
             // Development-only manual test scenarios (F9: row+column cross-clear setup). Compiled out
             // of release builds entirely — see DebugCheatSystem.
             builder.Register<DebugCheatSystem>(Lifetime.Singleton);
+
+            // Writes a plain-text log of the run in progress to persistentDataPath, overwritten at
+            // every RunStartedMessage, so a tester can attach the file behind the most recently
+            // played run to a bug report. Subscribes in its constructor, so it must be resolved
+            // eagerly below rather than waiting for a lazy resolve — see the build callback.
+            builder.Register<SessionRecorderSystem>(Lifetime.Singleton);
 #endif
         }
 
