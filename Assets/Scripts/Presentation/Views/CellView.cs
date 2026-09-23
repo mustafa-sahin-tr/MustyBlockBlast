@@ -92,12 +92,31 @@ namespace MustyBlockBlast.Presentation.Views
         /// same digits the score counter is about to gain, not as an unrelated on-board number.</summary>
         private static readonly Color BonusNumberColour = new Color(0.12f, 0.1f, 0.16f);
 
-        /// <summary>The flat frost tint an ice socket's overlay is drawn in (issue #433): a pale ice
-        /// blue, deliberately colour-independent — it tints whatever the cell shows underneath (an
-        /// empty face or any block colour) the same way — and deliberately NOT
-        /// <c>BoardView.ReinforcedDamageTint</c>'s slate grey, so a socket never reads as a damaged
-        /// block. The alpha is supplied per call by <see cref="SetIceOverlay"/>.</summary>
-        private static readonly Color IceOverlayTint = new Color(0.80f, 0.92f, 0.96f, 1f);
+        /// <summary>The flat frost tint an ice socket's overlay is drawn in (issue #433, retuned in
+        /// #436): near-white glass with only a whisper of blue, deliberately colour-independent — it
+        /// tints whatever the cell shows underneath (an empty face or any block colour) the same way —
+        /// and deliberately NOT <c>BoardView.ReinforcedDamageTint</c>'s slate grey, so a socket never
+        /// reads as a damaged block. It was a pale blue before #436, which made the plate read as a blue
+        /// filter over the block; near-white lets the piece's own colour bleed through instead, and
+        /// leaves the "this is ice" hue to the ring (<see cref="IceRingColour"/>). The alpha is
+        /// supplied per call by <see cref="SetIceOverlay"/>.</summary>
+        private static readonly Color IceOverlayTint = new Color(0.96f, 0.98f, 1f, 1f);
+
+        /// <summary>The persistent ice-socket ring's colour (issue #436): a saturated ice blue
+        /// (<c>#3FA9D6</c>) that is the one thing marking an unfilled socket apart from a plain empty
+        /// cell, since the glass plate alone is near-invisible over the theme's light empty-cell fill.
+        /// Deliberately its own hue rather than any of the special-cell glow/icon tints in
+        /// <c>BoardView.IconTint</c>, so a special block that lands on a socket still reads as both —
+        /// the icon's kind and the ring's ice — rather than one being mistaken for the other.</summary>
+        private static readonly Color IceRingColour = new Color(0.247f, 0.663f, 0.839f, 1f);
+
+        /// <summary>Thickness of the ice-socket ring at every level but the last, in reference pixels
+        /// — the same weight as the would-clear outline, so it sits as a real frame around the cell.</summary>
+        private const float ICE_RING_THICKNESS = 8f;
+
+        /// <summary>Thickness of the ice-socket ring at the last remaining level: half weight, so the
+        /// ring itself carries an "about to melt" cue on top of the overlay's own fade (#436 AC4).</summary>
+        private const float ICE_RING_THIN_THICKNESS = 4f;
 
         /// <summary>Overlay alpha at the highest ice level: thick enough to read as ice at a glance,
         /// thin enough that the block colour (and the empty-cell face) underneath still shows through.
@@ -113,6 +132,7 @@ namespace MustyBlockBlast.Presentation.Views
         private Image _blockGlossImage;
         private Image _specialGlowImage;
         private Image _iceOverlayImage;
+        private Image _iceRingImage;
         private Image _lockedOverlayImage;
         private Image _specialIconRimImage;
         private Image _specialIconImage;
@@ -131,6 +151,15 @@ namespace MustyBlockBlast.Presentation.Views
         /// is overwritten each pulse tick the same way the glow halo's alpha is (issue #421).</summary>
         private Color _iconBaseColour;
 
+        /// <summary>The corner radius every rounded layer was sliced at in <see cref="Build"/>, kept so
+        /// <see cref="SetIceOverlay"/> can re-slice the ice ring to a different wall thickness later
+        /// without being handed the radius again.</summary>
+        private float _cornerRadius;
+
+        /// <summary>The wall thickness the ice ring is currently sliced at, so a repaint at an unchanged
+        /// level skips the re-slice rather than re-assigning the same sprite on every redraw.</summary>
+        private float _iceRingThickness;
+
         private void Awake() => CacheOuter();
 
         /// <summary>Creates both layer sets. Called by the builder right after AddComponent.
@@ -138,6 +167,7 @@ namespace MustyBlockBlast.Presentation.Views
         internal void Build(Sprite roundedSprite, float inset, float bevelThickness, float cornerRadius)
         {
             CacheOuter();
+            _cornerRadius = cornerRadius;
             HudChrome.ConfigureRounded(_outerImage, cornerRadius);
 
             _flatFaceImage = CreateStretchedImage(transform, "Face");
@@ -185,6 +215,16 @@ namespace MustyBlockBlast.Presentation.Views
             _iceOverlayImage.raycastTarget = false;
             _iceOverlayImage.color = Color.clear;
             _iceOverlayImage.gameObject.SetActive(false);
+
+            // The ice-socket ring (issue #436): a hollow outline in the same sprite family as the two
+            // transient rings below, built directly over the plate so the pair read as one frosted
+            // frame, and before the glow/icon so a special block on a socket still shows its mark over
+            // the ring. Parented to the cell, not the block root, for the same reason the plate is —
+            // and, like the plate, it is deliberately left out of SetAlpha (see SetIceOverlay).
+            _iceRingImage = CreateStretchedImage(transform, "IceRing");
+            HudChrome.ConfigureOutline(_iceRingImage, cornerRadius, ICE_RING_THICKNESS);
+            _iceRingThickness = ICE_RING_THICKNESS;
+            _iceRingImage.gameObject.SetActive(false);
 
             // The locked-cell skin (issue #434): one full-colour pixel-art plate (planks, nails or a
             // padlock cage) over the block. Built after the block look and the ice plate so it draws
@@ -342,12 +382,18 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>
         /// Shows the ice-socket overlay (issue #433) at an opacity proportional to
         /// <paramref name="iceLevel"/> over <paramref name="maxIceLevel"/> — a linear ramp from
-        /// <see cref="ICE_OVERLAY_MAX_ALPHA"/> at the top level down towards clear — or hides it when
-        /// <paramref name="iceLevel"/> is 0, at which point the cell is indistinguishable from one that
-        /// was never icy. Independent of every other layer: it neither reads nor writes the face, block
-        /// or icon layers, and deliberately is NOT touched by <see cref="SetAlpha"/>, because the ice
-        /// belongs to the position and must stay on screen while the block above it fades out.
-        /// Allocates nothing, so it is safe on any repaint path.
+        /// <see cref="ICE_OVERLAY_MAX_ALPHA"/> at the top level down towards clear — together with the
+        /// persistent ice ring (issue #436), or hides both when <paramref name="iceLevel"/> is 0, at
+        /// which point the cell is indistinguishable from one that was never icy. The two are driven
+        /// from this one call on purpose, so a stale repaint can never leave a ring on a cell whose
+        /// plate is gone or vice versa (#436 AC5/AC8). The ring is sliced at
+        /// <see cref="ICE_RING_THICKNESS"/> at every level but the last and re-sliced to
+        /// <see cref="ICE_RING_THIN_THICKNESS"/> at level 1 — the "about to melt" cue — re-slicing only
+        /// when the thickness actually changes, since the outline sprites are cached per thickness.
+        /// Independent of every other layer: it neither reads nor writes the face, block or icon
+        /// layers, and both the plate and the ring are deliberately NOT touched by <see cref="SetAlpha"/>,
+        /// because the ice belongs to the position and must stay on screen while the block above it
+        /// fades out. Allocates nothing, so it is safe on any repaint path.
         /// </summary>
         internal void SetIceOverlay(int iceLevel, int maxIceLevel)
         {
@@ -359,6 +405,7 @@ namespace MustyBlockBlast.Presentation.Views
             if (iceLevel <= 0)
             {
                 HideLayer(_iceOverlayImage);
+                HideLayer(_iceRingImage);
                 return;
             }
 
@@ -366,6 +413,23 @@ namespace MustyBlockBlast.Presentation.Views
             ShowLayer(
                 _iceOverlayImage,
                 new Color(IceOverlayTint.r, IceOverlayTint.g, IceOverlayTint.b, ICE_OVERLAY_MAX_ALPHA * fraction));
+
+            if (_iceRingImage == null)
+            {
+                return;
+            }
+
+            // The last level is the one thin exception; every other level, including any level above
+            // the current maximum, wears the full ring. ConfigureOutline resets the colour to clear,
+            // so it must run before ShowLayer paints the ring.
+            float ringThickness = iceLevel == 1 ? ICE_RING_THIN_THICKNESS : ICE_RING_THICKNESS;
+            if (!Mathf.Approximately(ringThickness, _iceRingThickness))
+            {
+                HudChrome.ConfigureOutline(_iceRingImage, _cornerRadius, ringThickness);
+                _iceRingThickness = ringThickness;
+            }
+
+            ShowLayer(_iceRingImage, IceRingColour);
         }
 
         /// <summary>
@@ -624,7 +688,9 @@ namespace MustyBlockBlast.Presentation.Views
             ApplyAlpha(_blockGlossImage, alpha * GLOSS_ALPHA);
 
             // The rings fade with the rest so a highlighted cell cannot stay solid mid-fade. Their own
-            // alpha is restored in full by the next SetHighlight / SetGhostRing call.
+            // alpha is restored in full by the next SetHighlight / SetGhostRing call. The ice ring is
+            // deliberately absent here, exactly like the ice plate: both belong to the position, not
+            // to the fading block (see SetIceOverlay).
             ApplyAlpha(_highlightImage, alpha);
             ApplyAlpha(_ghostRingImage, alpha);
 
