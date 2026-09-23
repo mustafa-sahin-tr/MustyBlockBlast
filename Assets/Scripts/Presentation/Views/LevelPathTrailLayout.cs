@@ -12,9 +12,13 @@ namespace MustyBlockBlast.Presentation.Views
     /// table between the designer and the shape.
     /// </para>
     /// <para>
-    /// Coordinates are content-local with y growing downward from the first node's row: level 1 is at
-    /// the top and the walk descends, which is the reading order of every other list in this game and
-    /// keeps <see cref="ContentHeight"/> a straight multiplication rather than an inversion.
+    /// Coordinates are content-local with y growing downward from the first node's row, so a
+    /// waypoint's y is simply "how far along the walk this level is", negated. Which end of the scroll
+    /// content that maps to is the card's business, not this layout's:
+    /// <see cref="LevelPathPanelView"/> pins level 1 to the content's <i>bottom</i> and climbs from
+    /// there (issue #416), so the player walks up from the ground towards the sky as they scroll.
+    /// Keeping the sweep in one direction here keeps <see cref="ContentHeight"/> a straight
+    /// multiplication rather than an inversion.
     /// </para>
     /// </summary>
     internal static class LevelPathTrailLayout

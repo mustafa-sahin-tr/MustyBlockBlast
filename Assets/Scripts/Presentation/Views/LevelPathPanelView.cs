@@ -57,8 +57,8 @@ namespace MustyBlockBlast.Presentation.Views
     /// the two panels can never be open at once.
     /// </para>
     /// <para>
-    /// Two more things are drawn onto this same built-once trail (issue #278): a per-level objective
-    /// glyph and milestone-reward badge on every node (see <see cref="RefreshNode"/>), and a decorative
+    /// Two more things are drawn onto this same built-once trail (issue #278): a milestone-reward badge
+    /// on the nodes that grant one (see <see cref="RefreshNode"/>), and a decorative
     /// scenery backdrop that cycles through four zones every ten levels regardless of the active
     /// theme's season (see <see cref="LevelPathZones"/>, <see cref="BuildScenery"/>). Both reuse
     /// <see cref="LevelPathTrailLayout"/>'s content-local Y so neither can ever drift out of sync with
@@ -72,7 +72,6 @@ namespace MustyBlockBlast.Presentation.Views
         // header/side insets so the two overlays read as one family.
         private const float HEADER_INSET = 92f;
         private const float SIDE_INSET = 60f;
-        private const float ICON_BUTTON_SIZE = 92f;
 
         /// <summary>Card top edge to the Path-mode running-total line — the band between the header
         /// and the top of the trail.</summary>
@@ -88,8 +87,26 @@ namespace MustyBlockBlast.Presentation.Views
         private const float TRAIL_BOTTOM_INSET = 150f;
         private const float TRAIL_SIDE_INSET = 44f;
 
-        /// <summary>Card bottom edge to the current level's description.</summary>
-        private const float DESCRIPTION_INSET = 96f;
+        /// <summary>Card bottom edge to the current level's objective name — the bold upper of the two
+        /// description lines.</summary>
+        private const float DESCRIPTION_INSET = 118f;
+
+        /// <summary>Card bottom edge to the smaller detail line under it.</summary>
+        private const float DESCRIPTION_DETAIL_INSET = 66f;
+
+        /// <summary>How much smaller the detail line is than the objective name above it.</summary>
+        private const float DESCRIPTION_DETAIL_FONT_SCALE = 0.8f;
+
+        /// <summary>
+        /// Width each description line is truncated to, as a margin either side of the card. The two
+        /// lines were one sentence that ran off the card (issue #416); split, each is short enough to
+        /// fit, and this is the budget that guarantees it for a locale where one still is not.
+        /// </summary>
+        private const float DESCRIPTION_SIDE_PADDING = 70f;
+
+        /// <summary>Tail of a truncated description line. Legacy uGUI <see cref="Text"/> has no
+        /// ellipsis overflow mode, so the character is appended by hand.</summary>
+        private const string ELLIPSIS = "…";
 
         /// <summary>
         /// Distance the trail's sweep keeps from either edge of the scroll content. A node is centred
@@ -114,23 +131,6 @@ namespace MustyBlockBlast.Presentation.Views
 
         private const float NODE_SIZE = 124f;
         private const float NODE_DOT_SIZE = 22f;
-
-        /// <summary>The per-level objective glyph. Sized to dominate the plate — big icon, small
-        /// number, per the approved path redesign — while still leaving the plate's rounded edge
-        /// visible all round.</summary>
-        private const float NODE_ICON_SIZE = 72f;
-
-        /// <summary>Nudged up from dead-centre so the icon does not crowd the number badge beneath it.</summary>
-        private const float NODE_ICON_OFFSET_Y = 10f;
-
-        /// <summary>Fraction of <see cref="_nodeFontSize"/> the number shrinks to once the icon takes
-        /// the centre of the plate.</summary>
-        private const float NODE_NUMBER_FONT_SCALE = 0.55f;
-
-        private const int NODE_NUMBER_MIN_FONT_SIZE = 18;
-
-        /// <summary>How close to the plate's bottom edge the shrunken number sits.</summary>
-        private const float NODE_NUMBER_OFFSET_Y = -46f;
 
         /// <summary>Milestone level-up reward plate, mirroring the corner treatment of
         /// <see cref="NODE_DOT_SIZE"/>'s done dot but in the opposite corner so the two never collide.</summary>
@@ -214,11 +214,6 @@ namespace MustyBlockBlast.Presentation.Views
         private GameModeSystem _gameModeSystem;
         private TimerRunSystem _timerRunSystem;
 
-        /// <summary>The authored per-objective-type glyph, shared with the objective HUD and its info
-        /// popup (see <see cref="ObjectiveIconCatalog"/>'s own doc). Reused rather than re-registered:
-        /// it is already bound once in <c>GameLifetimeScope</c>.</summary>
-        private ObjectiveIconCatalog _objectiveIconCatalog;
-
         /// <summary>Source of a power-up's glyph for a milestone node's reward badge — the same
         /// authored art <see cref="InfoPopupView"/> borrows for its own PowerUp subject.</summary>
         private PowerUpInventoryView _powerUpInventoryView;
@@ -239,9 +234,19 @@ namespace MustyBlockBlast.Presentation.Views
         private RectTransform _trailContentRect;
 
         private Text _headerText;
+
+        /// <summary>The bold upper description line: the current level's objective name.</summary>
         private Text _descriptionText;
+
+        /// <summary>The smaller lower description line: the objective's sentence and its target count.</summary>
+        private Text _descriptionDetailText;
+
         private Text _pathTotalText;
         private Text _tapHintText;
+
+        /// <summary>The floating circular close button, borrowed whole from the info card family so
+        /// this overlay's close reads exactly like theirs (issue #416).</summary>
+        private InfoCardChrome.CloseButtonHandles _closeButton;
 
         private ThemeDefinition _currentTheme;
 
@@ -256,7 +261,6 @@ namespace MustyBlockBlast.Presentation.Views
                 RectTransform root,
                 Image plateImage,
                 Image shadowImage,
-                Image iconImage,
                 Image doneDot,
                 Text numberText,
                 Image rewardBadgeImage,
@@ -265,7 +269,6 @@ namespace MustyBlockBlast.Presentation.Views
                 Root = root;
                 PlateImage = plateImage;
                 ShadowImage = shadowImage;
-                IconImage = iconImage;
                 DoneDot = doneDot;
                 NumberText = numberText;
                 RewardBadgeImage = rewardBadgeImage;
@@ -277,10 +280,6 @@ namespace MustyBlockBlast.Presentation.Views
             internal Image PlateImage { get; }
 
             internal Image ShadowImage { get; }
-
-            /// <summary>The level's objective glyph. Sprite assigned once in <see cref="BuildNode"/> —
-            /// it never changes — only its alpha is repainted, alongside the rest of the node.</summary>
-            internal Image IconImage { get; }
 
             internal Image DoneDot { get; }
 
@@ -325,7 +324,6 @@ namespace MustyBlockBlast.Presentation.Views
             GameModeSystem gameModeSystem,
             TimerRunSystem timerRunSystem,
             CoinSowerPickerView coinSowerPickerView,
-            ObjectiveIconCatalog objectiveIconCatalog,
             PowerUpInventoryView powerUpInventoryView)
         {
             _coinSowerPickerView = coinSowerPickerView;
@@ -338,7 +336,6 @@ namespace MustyBlockBlast.Presentation.Views
             _levelProgressionSystem = levelProgressionSystem;
             _gameModeSystem = gameModeSystem;
             _timerRunSystem = timerRunSystem;
-            _objectiveIconCatalog = objectiveIconCatalog;
             _powerUpInventoryView = powerUpInventoryView;
         }
 
@@ -347,7 +344,7 @@ namespace MustyBlockBlast.Presentation.Views
             if (_levelProgressionModel == null || _pathRunModel == null || _levelCatalog == null
                 || _settingsModel == null || _localizationModel == null || _localizationSystem == null
                 || _levelProgressionSystem == null || _gameModeSystem == null || _timerRunSystem == null
-                || _coinSowerPickerView == null || _objectiveIconCatalog == null || _powerUpInventoryView == null)
+                || _coinSowerPickerView == null || _powerUpInventoryView == null)
             {
                 Debug.LogError(
                     $"{nameof(LevelPathPanelView)} was not injected. Is it registered in the LifetimeScope?", this);
@@ -429,7 +426,12 @@ namespace MustyBlockBlast.Presentation.Views
         /// The content position is written directly rather than through
         /// <c>verticalNormalizedPosition</c>: the normalized form divides by the scrollable span, which
         /// is zero for a catalog short enough to fit the viewport, and this way that case simply
-        /// resolves to the top.
+        /// resolves to the foot of the walk.
+        /// </para>
+        /// <para>
+        /// The content is pinned by its bottom edge (issue #416), so a node's own offset is measured up
+        /// from the foot of the walk and the scroll that centres it runs from zero — level 1, the
+        /// ground — down to minus the scrollable span, which is the sky at the far end.
         /// </para>
         /// </summary>
         private void ScrollTo(int levelNumber)
@@ -447,9 +449,9 @@ namespace MustyBlockBlast.Presentation.Views
             float scrollableHeight = Mathf.Max(0f, _trailContentRect.rect.height - viewportHeight);
 
             int levelIndex = Mathf.Max(0, levelNumber - 1);
-            float nodeDepth = TRAIL_VERTICAL_PADDING + (levelIndex * LevelPathTrailLayout.ROW_SPACING);
+            float nodeHeight = ContentY(levelIndex);
 
-            float scroll = Mathf.Clamp(nodeDepth - (viewportHeight * 0.5f), 0f, scrollableHeight);
+            float scroll = Mathf.Clamp((viewportHeight * 0.5f) - nodeHeight, -scrollableHeight, 0f);
             _trailContentRect.anchoredPosition = new Vector2(0f, scroll);
         }
 
@@ -526,8 +528,10 @@ namespace MustyBlockBlast.Presentation.Views
             _headerText.color = _currentTheme.Ink;
             _headerText.text = FormatCounter(currentLevel, maxLevel);
 
-            _descriptionText.color = _currentTheme.SoftInk;
-            _descriptionText.text = DescribeLevel(currentLevel);
+            _closeButton.PlateImage.color = _currentTheme.CardBackground;
+            _closeButton.PlateShadowImage.color = _currentTheme.CardShadow;
+
+            RefreshDescription(currentLevel);
 
             // Both lines are Path-mode-only facts: a total across levels, and a nudge that the nodes
             // are tappable. Hidden rather than blanked in the other modes, so the card keeps the exact
@@ -575,9 +579,15 @@ namespace MustyBlockBlast.Presentation.Views
         /// level here, so what the card draws as reachable and what it will actually let the player
         /// start are the same rule.
         /// <para>
-        /// The objective icon and the milestone reward badge dim by the exact same alpha as the plate
-        /// around them — a locked node has to read as one locked thing, not as a bright icon sitting on
-        /// a dimmed plate.
+        /// The milestone reward badge dims by the exact same alpha as the plate around it — a locked
+        /// node has to read as one locked thing, not as a bright badge sitting on a dimmed plate.
+        /// </para>
+        /// <para>
+        /// A node's fill cycles through the game's five piece kinds by level number (issue #416), so
+        /// the walk reads as a string of coloured beads rather than as one repeated plate. The palette
+        /// is the theme's own <see cref="ThemeDefinition.GetFill"/> — the very colours the blocks and
+        /// the Path pill's disc are painted with — so a season switch recolours the trail with
+        /// everything else instead of needing a palette of its own.
         /// </para>
         /// </summary>
         private void RefreshNode(LevelNode node, int levelNumber, int currentLevel)
@@ -586,17 +596,19 @@ namespace MustyBlockBlast.Presentation.Views
             bool isLocked = !_levelProgressionSystem.IsUnlocked(levelNumber);
             float alpha = isLocked ? LOCKED_NODE_ALPHA : 1f;
 
-            // The current node inverts — accent plate, number punched out of it — the same way
-            // PowerUpInventoryView marks the armed slot.
-            Color plateColour = isCurrent ? _currentTheme.Accent : _currentTheme.TrailNodePlateColor;
-            Color numberColour = isCurrent
-                ? _currentTheme.CardBackground
-                : (isLocked ? _currentTheme.SoftInk : _currentTheme.Ink);
+            // The current node still inverts to the accent — the same way PowerUpInventoryView marks
+            // the armed slot — which is what keeps "you are here" legible against the cycling colours.
+            Color plateColour = isCurrent
+                ? _currentTheme.Accent
+                : _currentTheme.GetFill(KindOf(levelNumber));
+
+            // Punched out of the plate whatever colour the plate is: every node is now a saturated
+            // fill, so the card's own background is the one number colour that reads on all of them.
+            Color numberColour = _currentTheme.CardBackground;
 
             node.PlateImage.color = WithAlpha(plateColour, alpha);
             node.ShadowImage.color = WithAlpha(_currentTheme.CardShadow, alpha);
             node.NumberText.color = WithAlpha(numberColour, alpha);
-            node.IconImage.color = WithAlpha(Color.white, alpha);
 
             if (node.RewardBadgeImage != null)
             {
@@ -613,20 +625,78 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         /// <summary>
-        /// The current level's goal, worded by the same formatter the objective HUD uses, so the card
-        /// and the HUD can never describe the same level differently. An unauthored or invalid entry
-        /// shows nothing rather than throwing out of <c>ToObjectiveDefinition</c>.
+        /// The colour id a level's node plate takes: the five piece kinds, cycled by level number.
+        /// Kinds are 1-based, hence the shift either side of the modulo.
         /// </summary>
-        private string DescribeLevel(int levelNumber)
+        private static int KindOf(int levelNumber)
+            => ((Mathf.Max(1, levelNumber) - 1) % ThemeDefinition.KIND_COUNT) + 1;
+
+        /// <summary>
+        /// The current level's goal on the two lines at the foot of the card: its objective's short
+        /// name in bold, then the sentence and target beneath. Worded by the same formatter the
+        /// objective HUD uses, so the card and the HUD can never describe the same level differently.
+        /// An unauthored or invalid entry shows nothing rather than throwing out of
+        /// <c>ToObjectiveDefinition</c>.
+        /// </summary>
+        private void RefreshDescription(int levelNumber)
         {
+            string headline = string.Empty;
+            string detail = string.Empty;
+
             LevelObjectiveConfig config = _levelCatalog.Find(levelNumber);
-            if (config == null || !config.IsValid(out _))
+            if (config != null && config.IsValid(out _))
             {
-                return string.Empty;
+                ObjectiveDefinition definition = config.ToObjectiveDefinition();
+                ObjectiveDescriptionFormatter.DescribeSplit(
+                    definition, _localizationSystem, _currentTheme, out headline, out detail);
             }
 
-            ObjectiveDefinition definition = config.ToObjectiveDefinition();
-            return ObjectiveDescriptionFormatter.Describe(definition, _localizationSystem, _currentTheme);
+            float maxWidth = _cardSize.x - (DESCRIPTION_SIDE_PADDING * 2f);
+
+            _descriptionText.color = _currentTheme.Ink;
+            SetTruncated(_descriptionText, headline, maxWidth);
+
+            _descriptionDetailText.color = _currentTheme.SoftInk;
+            SetTruncated(_descriptionDetailText, detail, maxWidth);
+        }
+
+        /// <summary>
+        /// Writes <paramref name="value"/> into <paramref name="label"/>, cut short with an ellipsis if
+        /// it measures wider than <paramref name="maxWidth"/>. Binary-searched on the label's own
+        /// measurement rather than on a character budget, because the built-in font is proportional and
+        /// a budget that fits Turkish would still overflow in a wider locale.
+        /// <para>
+        /// A string carrying rich text — the objective colour swatch's <c>&lt;color&gt;</c> tag — is
+        /// left whole: cutting one mid-tag would print the markup. Those fall back to the label's own
+        /// wrapping, which is why both description labels keep <see cref="HorizontalWrapMode.Wrap"/>.
+        /// </para>
+        /// </summary>
+        private static void SetTruncated(Text label, string value, float maxWidth)
+        {
+            label.text = value;
+
+            if (string.IsNullOrEmpty(value) || value.IndexOf('<') >= 0 || label.preferredWidth <= maxWidth)
+            {
+                return;
+            }
+
+            int fits = 0;
+            int tooLong = value.Length;
+            while (fits < tooLong)
+            {
+                int candidate = (fits + tooLong + 1) / 2;
+                label.text = value.Substring(0, candidate) + ELLIPSIS;
+                if (label.preferredWidth <= maxWidth)
+                {
+                    fits = candidate;
+                }
+                else
+                {
+                    tooLong = candidate - 1;
+                }
+            }
+
+            label.text = value.Substring(0, fits) + ELLIPSIS;
         }
 
         private string FormatCounter(int value, int total)
@@ -679,9 +749,6 @@ namespace MustyBlockBlast.Presentation.Views
                 _cardRect, "Header", _headerFontSize, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(-cardHalfWidth + SIDE_INSET, headerY));
 
-            BuildCloseButton(
-                _cardRect, new Vector2(cardHalfWidth - SIDE_INSET - (ICON_BUTTON_SIZE * 0.5f), headerY));
-
             // Both sit in the band between the header line and the top of the trail — the one strip of
             // the card that is otherwise empty. The foot of the card is not an option: the level
             // description already has it, and a third line there would crowd the trail's clip edge.
@@ -695,9 +762,17 @@ namespace MustyBlockBlast.Presentation.Views
 
             BuildTrail(cardHalfHeight);
 
-            _descriptionText = CreateLabel(
-                _cardRect, "Description", _descriptionFontSize, FontStyle.Normal, TextAnchor.MiddleCenter,
-                new Vector2(0f, -cardHalfHeight + DESCRIPTION_INSET));
+            _descriptionText = CreateDescriptionLabel(
+                "Description", _descriptionFontSize, FontStyle.Bold, -cardHalfHeight + DESCRIPTION_INSET);
+
+            int detailFontSize = Mathf.RoundToInt(_descriptionFontSize * DESCRIPTION_DETAIL_FONT_SCALE);
+            _descriptionDetailText = CreateDescriptionLabel(
+                "DescriptionDetail", detailFontSize, FontStyle.Normal,
+                -cardHalfHeight + DESCRIPTION_DETAIL_INSET);
+
+            // Last, so the plate that floats past the card's corner is drawn over the trail rather than
+            // under it, whatever the scroll band's own sibling order.
+            BuildCloseButton(new Vector2(cardHalfWidth, cardHalfHeight));
 
             _panel = panelObject;
         }
@@ -739,11 +814,12 @@ namespace MustyBlockBlast.Presentation.Views
             _trailContentRect = (RectTransform)contentObject.transform;
             _trailContentRect.SetParent(_trailViewportRect, false);
 
-            // Anchored and pivoted at the top so anchoredPosition.y is simply "how far down the walk
-            // we are", which is the form ScrollTo clamps against the content height.
-            _trailContentRect.anchorMin = new Vector2(0.5f, 1f);
-            _trailContentRect.anchorMax = new Vector2(0.5f, 1f);
-            _trailContentRect.pivot = new Vector2(0.5f, 1f);
+            // Anchored and pivoted at the bottom (issue #416): level 1 sits on the content's bottom
+            // edge and the walk climbs from there, so scrolling reads as walking up out of the ground
+            // towards the sky rather than as running a list downwards.
+            _trailContentRect.anchorMin = new Vector2(0.5f, 0f);
+            _trailContentRect.anchorMax = new Vector2(0.5f, 0f);
+            _trailContentRect.pivot = new Vector2(0.5f, 0f);
             _trailContentRect.sizeDelta = new Vector2(viewportWidth, contentHeight);
             _trailContentRect.anchoredPosition = Vector2.zero;
 
@@ -783,25 +859,26 @@ namespace MustyBlockBlast.Presentation.Views
                 LevelPathZoneKind zone = LevelPathZones.ZoneFor(startIndex + 1);
 
                 // The seam between two bands sits halfway between the last node of one and the first of
-                // the next, so neither node reads as belonging to the "wrong" band's colour. The very
-                // top and bottom instead run to the content edges, so there is no gap of bare backdrop
-                // above level 1 or below the last level.
-                float topY = bandIndex == 0
+                // the next, so neither node reads as belonging to the "wrong" band's colour. The first
+                // and last instead run to the content edges, so there is no gap of bare backdrop below
+                // level 1 or above the last level. Heights are measured up from the content's bottom,
+                // where the walk now starts.
+                float bottomY = bandIndex == 0
                     ? 0f
                     : (ContentY(startIndex - 1) + ContentY(startIndex)) * 0.5f;
-                float bottomY = endIndexExclusive >= levelCount
-                    ? -contentHeight
+                float topY = endIndexExclusive >= levelCount
+                    ? contentHeight
                     : (ContentY(endIndexExclusive - 1) + ContentY(endIndexExclusive)) * 0.5f;
 
                 BuildZoneBand(bandIndex, zone, viewportWidth, topY, bottomY);
             }
         }
 
-        /// <summary>Content-local Y of a node's row, independent of sweep amplitude — the same value
-        /// <see cref="AnchorToContentTop"/> offsets a node to, so a scenery band lines up exactly with
-        /// the nodes it surrounds.</summary>
+        /// <summary>How far up the scroll content a node's row sits, measured from the content's bottom
+        /// edge and independent of sweep amplitude — the same value <see cref="AnchorToContent"/>
+        /// offsets a node to, so a scenery band lines up exactly with the nodes it surrounds.</summary>
         private static float ContentY(int levelIndex)
-            => LevelPathTrailLayout.WaypointOf(levelIndex, 0f).y - TRAIL_VERTICAL_PADDING;
+            => TRAIL_VERTICAL_PADDING - LevelPathTrailLayout.WaypointOf(levelIndex, 0f).y;
 
         /// <summary>One zone's flat backdrop band plus its scattered scenery, all parented to the
         /// scroll content so they pan with it.</summary>
@@ -812,11 +889,11 @@ namespace MustyBlockBlast.Presentation.Views
             var bandObject = new GameObject($"ZoneBand_{bandIndex}_{zone}", typeof(RectTransform), typeof(Image));
             var bandRect = (RectTransform)bandObject.transform;
             bandRect.SetParent(_trailContentRect, false);
-            bandRect.anchorMin = new Vector2(0.5f, 1f);
-            bandRect.anchorMax = new Vector2(0.5f, 1f);
-            bandRect.pivot = new Vector2(0.5f, 1f);
+            bandRect.anchorMin = new Vector2(0.5f, 0f);
+            bandRect.anchorMax = new Vector2(0.5f, 0f);
+            bandRect.pivot = new Vector2(0.5f, 0f);
             bandRect.sizeDelta = new Vector2(viewportWidth, bandHeight);
-            bandRect.anchoredPosition = new Vector2(0f, topY);
+            bandRect.anchoredPosition = new Vector2(0f, bottomY);
 
             var bandImage = bandObject.GetComponent<Image>();
             bandImage.type = Image.Type.Simple;
@@ -889,8 +966,8 @@ namespace MustyBlockBlast.Presentation.Views
             var pieceObject = new GameObject(sprite.name, typeof(RectTransform), typeof(Image));
             var pieceRect = (RectTransform)pieceObject.transform;
             pieceRect.SetParent(_trailContentRect, false);
-            pieceRect.anchorMin = new Vector2(0.5f, 1f);
-            pieceRect.anchorMax = new Vector2(0.5f, 1f);
+            pieceRect.anchorMin = new Vector2(0.5f, 0f);
+            pieceRect.anchorMax = new Vector2(0.5f, 0f);
             pieceRect.pivot = new Vector2(0.5f, 0.5f);
             pieceRect.sizeDelta = size;
             pieceRect.anchoredPosition = anchoredPosition;
@@ -917,7 +994,9 @@ namespace MustyBlockBlast.Presentation.Views
                 Vector2 to = LevelPathTrailLayout.WaypointOf(gapIndex + 1, amplitude);
                 Vector2 delta = to - from;
                 float length = delta.magnitude;
-                float angle = Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg;
+                // Negated y: the layout's walk descends while the content is pinned bottom-up
+                // (see AnchorToContent), so a bar must lean the way it will actually be drawn.
+                float angle = Mathf.Atan2(-delta.y, delta.x) * Mathf.Rad2Deg;
 
                 // Overlapped by its own thickness so consecutive bars meet without a notch at the
                 // corner where the sweep turns.
@@ -963,7 +1042,7 @@ namespace MustyBlockBlast.Presentation.Views
             var pieceObject = new GameObject(objectName, typeof(RectTransform), typeof(Image));
             var pieceRect = (RectTransform)pieceObject.transform;
             pieceRect.SetParent(_trailContentRect, false);
-            AnchorToContentTop(pieceRect, size, waypoint);
+            AnchorToContent(pieceRect, size, waypoint);
             pieceRect.localRotation = Quaternion.Euler(0f, 0f, angle);
 
             var pieceImage = pieceObject.GetComponent<Image>();
@@ -995,7 +1074,7 @@ namespace MustyBlockBlast.Presentation.Views
                 $"LevelNode_{levelNumber}", typeof(RectTransform), typeof(LevelPathNodeButton));
             var nodeRect = (RectTransform)nodeObject.transform;
             nodeRect.SetParent(_trailContentRect, false);
-            AnchorToContentTop(nodeRect, new Vector2(NODE_SIZE, NODE_SIZE), waypoint);
+            AnchorToContent(nodeRect, new Vector2(NODE_SIZE, NODE_SIZE), waypoint);
 
             // Closes over the level rather than deriving it from an index, because unlike the old paged
             // grid this widget is this level for the panel's whole life.
@@ -1007,47 +1086,29 @@ namespace MustyBlockBlast.Presentation.Views
             Centre(shadowRect, new Vector2(NODE_SIZE + 10f, NODE_SIZE + 10f));
             shadowRect.anchoredPosition = new Vector2(0f, -6f);
             var shadowImage = shadowObject.GetComponent<Image>();
-            ConfigureRounded(shadowImage);
+            ConfigureCircle(shadowImage);
 
+            // Round rather than round-cornered (issue #416): a node is a bead on the trail, and the
+            // circle is what stops the walk reading as a column of tiles.
             var plateObject = new GameObject("Plate", typeof(RectTransform), typeof(Image));
             var plateRect = (RectTransform)plateObject.transform;
             plateRect.SetParent(nodeRect, false);
             Centre(plateRect, new Vector2(NODE_SIZE, NODE_SIZE));
             var plateImage = plateObject.GetComponent<Image>();
-            ConfigureRounded(plateImage);
+            ConfigureCircle(plateImage);
 
             // The plate is the node's hit area: the node root carries the click handler but no graphic
             // of its own, and uGUI dispatches a click up the hierarchy from whatever graphic it hit.
             plateImage.raycastTarget = true;
 
-            // The per-level objective glyph (issue #278) — the dominant visual on the plate, per the
-            // approved "big icon, small number" balance. Sprite assigned once here from the catalog:
-            // a level's objective cannot change at runtime, so there is nothing for Refresh to update
-            // beyond the alpha it already repaints every node with.
-            var iconObject = new GameObject("Icon", typeof(RectTransform), typeof(Image));
-            var iconRect = (RectTransform)iconObject.transform;
-            iconRect.SetParent(nodeRect, false);
-            iconRect.anchorMin = new Vector2(0.5f, 0.5f);
-            iconRect.anchorMax = new Vector2(0.5f, 0.5f);
-            iconRect.pivot = new Vector2(0.5f, 0.5f);
-            iconRect.sizeDelta = new Vector2(NODE_ICON_SIZE, NODE_ICON_SIZE);
-            iconRect.anchoredPosition = new Vector2(0f, NODE_ICON_OFFSET_Y);
-            var iconImage = iconObject.GetComponent<Image>();
-            iconImage.type = Image.Type.Simple;
-            iconImage.preserveAspect = true;
-            iconImage.color = Color.clear;
-            iconImage.raycastTarget = false;
-
             LevelObjectiveConfig config = _levelCatalog.Find(levelNumber);
-            iconImage.sprite = config != null ? _objectiveIconCatalog.Find(config.ObjectiveType) : null;
 
-            // Shrunk and moved to the foot of the plate now that the icon owns the centre — the number
-            // is still legible, it is simply no longer the dominant glyph on the node.
-            int numberFontSize = Mathf.Max(
-                NODE_NUMBER_MIN_FONT_SIZE, Mathf.RoundToInt(_nodeFontSize * NODE_NUMBER_FONT_SCALE));
+            // The level number is the whole content of the plate now that the objective glyph is gone
+            // (issue #416): one large bold number, centred. Several objectives on one node never read
+            // as anything but clutter at this size, and the goal is spelled out in words at the foot of
+            // the card for the level the player is actually on.
             Text numberText = UiTextFactory.Create(
-                nodeRect, "Number", numberFontSize, FontStyle.Bold, Color.clear);
-            ((RectTransform)numberText.transform).anchoredPosition = new Vector2(0f, NODE_NUMBER_OFFSET_Y);
+                nodeRect, "Number", _nodeFontSize, FontStyle.Bold, Color.clear);
 
             // Same filled accent dot the objective HUD uses for "done", in the corner so it never
             // crowds the number.
@@ -1097,43 +1158,47 @@ namespace MustyBlockBlast.Presentation.Views
             numberText.text = _stringBuilder.ToString();
 
             return new LevelNode(
-                nodeRect, plateImage, shadowImage, iconImage, dotImage, numberText, rewardBadgeImage, rewardIconImage);
+                nodeRect, plateImage, shadowImage, dotImage, numberText, rewardBadgeImage, rewardIconImage);
         }
 
-        /// <summary>Two bars crossed at right angles — the close glyph, as on the settings card — over
-        /// an invisible plate that gives it something for the EventSystem to hit.</summary>
-        private void BuildCloseButton(RectTransform root, Vector2 anchoredPosition)
+        /// <summary>
+        /// The floating circular close button, taken whole from <see cref="InfoCardChrome"/> — the same
+        /// plate, shadow and × the power-up, cell and objective info cards close with (issue #416),
+        /// rather than a square one of this card's own that could drift from theirs.
+        /// <para>
+        /// The one thing this card adds is the tap: its chrome is drawn for the info cards, which are
+        /// hit-tested by <see cref="BoardInputView"/>, while this overlay runs on the EventSystem — so
+        /// the hit rect's graphic is made a raycast target here and given the same
+        /// <see cref="LevelPathNodeButton"/> every other tappable thing on this card carries.
+        /// </para>
+        /// </summary>
+        private void BuildCloseButton(Vector2 cardCorner)
         {
-            const float CROSS_LENGTH = 46f;
-            const float CROSS_THICKNESS = 8f;
+            _closeButton = InfoCardChrome.CreateFloatingCloseButton(_cardRect);
+            InfoCardChrome.PositionFloatingCloseButton(_closeButton, cardCorner);
 
-            var closeObject = new GameObject(
-                "CloseButton", typeof(RectTransform), typeof(Image), typeof(LevelPathNodeButton));
-            var closeRect = (RectTransform)closeObject.transform;
-            closeRect.SetParent(root, false);
-            Centre(closeRect, new Vector2(ICON_BUTTON_SIZE, ICON_BUTTON_SIZE));
-            closeRect.anchoredPosition = anchoredPosition;
+            _closeButton.HitImage.enabled = true;
+            _closeButton.HitImage.raycastTarget = true;
+            _closeButton.HitRect.gameObject.AddComponent<LevelPathNodeButton>().SetClicked(Close);
 
-            // Transparent but raycasting: the tap area is the whole button-sized square, not the two
-            // thin bars drawn in it.
-            var closeImage = closeObject.GetComponent<Image>();
-            ConfigureRounded(closeImage);
-            closeImage.raycastTarget = true;
-
-            closeObject.GetComponent<LevelPathNodeButton>().SetClicked(Close);
-
-            for (int barIndex = 0; barIndex < 2; barIndex++)
+            for (int barIndex = 0; barIndex < _closeButton.BarImages.Count; barIndex++)
             {
-                var barObject = new GameObject($"CloseBar_{barIndex}", typeof(RectTransform), typeof(Image));
-                var barRect = (RectTransform)barObject.transform;
-                barRect.SetParent(closeRect, false);
-                Centre(barRect, new Vector2(CROSS_LENGTH, CROSS_THICKNESS));
-                barRect.localRotation = Quaternion.Euler(0f, 0f, barIndex == 0 ? 45f : -45f);
-
-                var barImage = barObject.GetComponent<Image>();
-                ConfigureRounded(barImage);
-                _inkImages.Add(barImage);
+                _inkImages.Add(_closeButton.BarImages[barIndex]);
             }
+        }
+
+        /// <summary>One of the two centred lines at the foot of the card. Wrapping is the fallback for
+        /// the rich-text strings <see cref="SetTruncated"/> refuses to cut, so the rect is given the
+        /// same width that truncation measures against.</summary>
+        private Text CreateDescriptionLabel(string objectName, int fontSize, FontStyle fontStyle, float y)
+        {
+            Text label = CreateLabel(
+                _cardRect, objectName, fontSize, fontStyle, TextAnchor.MiddleCenter, new Vector2(0f, y));
+            label.horizontalOverflow = HorizontalWrapMode.Wrap;
+
+            var rect = (RectTransform)label.transform;
+            rect.sizeDelta = new Vector2(_cardSize.x - (DESCRIPTION_SIDE_PADDING * 2f), fontSize * 1.6f);
+            return label;
         }
 
         /// <summary>
@@ -1163,18 +1228,19 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         /// <summary>
-        /// Pins a trail widget to the top-centre of the scroll content, where
-        /// <see cref="LevelPathTrailLayout"/>'s origin is, offset down by the content's own padding.
-        /// Anchoring to the top rather than the centre is what keeps a waypoint's position independent
+        /// Pins a trail widget to the bottom-centre of the scroll content, where the walk now starts,
+        /// offset up by the content's own padding and by how far along the walk its waypoint is —
+        /// <see cref="LevelPathTrailLayout"/>'s y descends, so it is negated here (issue #416).
+        /// Anchoring to an edge rather than the centre is what keeps a waypoint's position independent
         /// of how tall the content happens to be.
         /// </summary>
-        private static void AnchorToContentTop(RectTransform rect, Vector2 size, Vector2 waypoint)
+        private static void AnchorToContent(RectTransform rect, Vector2 size, Vector2 waypoint)
         {
-            rect.anchorMin = new Vector2(0.5f, 1f);
-            rect.anchorMax = new Vector2(0.5f, 1f);
+            rect.anchorMin = new Vector2(0.5f, 0f);
+            rect.anchorMax = new Vector2(0.5f, 0f);
             rect.pivot = new Vector2(0.5f, 0.5f);
             rect.sizeDelta = size;
-            rect.anchoredPosition = new Vector2(waypoint.x, waypoint.y - TRAIL_VERTICAL_PADDING);
+            rect.anchoredPosition = new Vector2(waypoint.x, TRAIL_VERTICAL_PADDING - waypoint.y);
         }
 
         private static void Centre(RectTransform rect, Vector2 size)

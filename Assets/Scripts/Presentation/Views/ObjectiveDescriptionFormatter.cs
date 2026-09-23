@@ -18,6 +18,10 @@ namespace MustyBlockBlast.Presentation.Views
         /// tag rather than a colour name, so no theme ever has to name its colours (issue #147).</summary>
         private const string SWATCH_GLYPH = "\u25A0";
 
+        /// <summary>Prefix for the target count on <see cref="DescribeSplit"/>'s detail line: the
+        /// multiplication sign, so "this goal five times" reads without a word to translate.</summary>
+        private const string TARGET_MULTIPLIER = "\u00D7";
+
         /// <summary>
         /// Describes <paramref name="definition"/> in the active language. The target value is left
         /// out — the HUD renders it as the "2/3" progress, so repeating it here could only disagree
@@ -120,6 +124,45 @@ namespace MustyBlockBlast.Presentation.Views
                 default:
                     return string.Empty;
             }
+        }
+
+        /// <summary>
+        /// Splits the same wording into the two independently-sized lines the level path card shows at
+        /// its foot (issue #416): <paramref name="headline"/> is the objective's short bold name — the
+        /// one <see cref="TitleKey"/> already names for the info card — and <paramref name="detail"/> is
+        /// the full <see cref="Describe"/> sentence, with the target count appended when the goal asks
+        /// for more than one of something.
+        /// <para>
+        /// One sentence on one line is what overflowed the card; two shorter lines each fit, and each
+        /// can be truncated on its own without the other losing the level's name.
+        /// </para>
+        /// <para>
+        /// The count is appended as <see cref="TARGET_MULTIPLIER"/> plus a number rather than a worded
+        /// phrase: a symbol has nothing for a translator to translate, so it needs no String Table row
+        /// and reads the same in every locale.
+        /// </para>
+        /// </summary>
+        internal static void DescribeSplit(
+            ObjectiveDefinition definition,
+            LocalizationSystem localization,
+            ThemeDefinition theme,
+            out string headline,
+            out string detail)
+        {
+            if (definition == null || localization == null)
+            {
+                headline = string.Empty;
+                detail = string.Empty;
+                return;
+            }
+
+            headline = localization.Translate(TitleKey(definition.Type));
+
+            string sentence = Describe(definition, localization, theme);
+            detail = definition.TargetValue > 1
+                ? sentence + " " + TARGET_MULTIPLIER + definition.TargetValue.ToString(
+                    System.Globalization.CultureInfo.InvariantCulture)
+                : sentence;
         }
 
         /// <summary>
