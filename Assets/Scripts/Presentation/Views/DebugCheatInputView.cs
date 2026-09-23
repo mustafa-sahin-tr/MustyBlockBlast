@@ -19,9 +19,11 @@ namespace MustyBlockBlast.Presentation.Views
     /// <item><b>P</b> toggles freeform paint mode: <b>1</b>-<b>5</b> pick the active colour, <b>0</b>
     /// picks erase, dragging the pointer across the board toggles each cell it crosses — an empty cell
     /// is filled with the active colour, an already-filled one (any colour) is cleared, so painting and
-    /// erasing are the one gesture — and <b>A</b>/<b>S</b>/<b>D</b> step dock slots 1-3 through every
-    /// piece shape in <see cref="PieceCatalog.AllPieces"/> (add Shift to step backwards) — so any board
-    /// state and any offered shape, for any level or objective, is reachable by hand.</item>
+    /// erasing are the one gesture — <b>A</b>/<b>S</b>/<b>D</b> step dock slots 1-3 through every
+    /// piece shape in <see cref="PieceCatalog.AllPieces"/> (add Shift to step backwards) — and <b>G</b>
+    /// steps the tracked objective through every <see cref="ObjectiveType"/> (add Shift to step
+    /// backwards) via <see cref="DebugCheatSystem.CycleObjective"/> — so any board state, any offered
+    /// shape and any objective, for any level, is reachable by hand.</item>
     /// </list>
     /// </para>
     /// </summary>
@@ -33,6 +35,7 @@ namespace MustyBlockBlast.Presentation.Views
         private InputAction _pointerPressAction;
         private InputAction _pointerPositionAction;
         private InputAction _shiftAction;
+        private InputAction _objectiveCycleAction;
         private readonly InputAction[] _colourKeyActions = new InputAction[Board.COLOUR_COUNT + 1];
         private readonly InputAction[] _slotCycleActions = new InputAction[TrayModel.SLOT_COUNT];
 
@@ -63,6 +66,7 @@ namespace MustyBlockBlast.Presentation.Views
             _pointerPositionAction =
                 new InputAction("DebugPaintPointerPosition", InputActionType.Value, "<Pointer>/position");
             _shiftAction = new InputAction("DebugPaintShift", InputActionType.Button, "<Keyboard>/shift");
+            _objectiveCycleAction = new InputAction("DebugObjectiveCycle", InputActionType.Button, "<Keyboard>/g");
 
             // Colour keys 0-5: 0 is erase, 1..Board.COLOUR_COUNT select a paint colour.
             for (int colourId = 0; colourId <= Board.COLOUR_COUNT; colourId++)
@@ -94,6 +98,9 @@ namespace MustyBlockBlast.Presentation.Views
 
             _shiftAction.Enable();
 
+            _objectiveCycleAction.performed += OnObjectiveCyclePerformed;
+            _objectiveCycleAction.Enable();
+
             for (int colourId = 0; colourId <= Board.COLOUR_COUNT; colourId++)
             {
                 int capturedColourId = colourId;
@@ -122,6 +129,9 @@ namespace MustyBlockBlast.Presentation.Views
 
             _shiftAction.Disable();
 
+            _objectiveCycleAction.performed -= OnObjectiveCyclePerformed;
+            _objectiveCycleAction.Disable();
+
             for (int colourId = 0; colourId <= Board.COLOUR_COUNT; colourId++)
             {
                 _colourKeyActions[colourId].Disable();
@@ -140,6 +150,7 @@ namespace MustyBlockBlast.Presentation.Views
             _pointerPressAction?.Dispose();
             _pointerPositionAction?.Dispose();
             _shiftAction?.Dispose();
+            _objectiveCycleAction?.Dispose();
 
             for (int colourId = 0; colourId <= Board.COLOUR_COUNT; colourId++)
             {
@@ -229,6 +240,17 @@ namespace MustyBlockBlast.Presentation.Views
 
             bool forward = !_shiftAction.IsPressed();
             _debugCheatSystem.CycleTraySlotPiece(slotIndex, _activePaintColourId, forward);
+        }
+
+        private void OnObjectiveCyclePerformed(InputAction.CallbackContext context)
+        {
+            if (!_isPaintModeActive || !EnsureInjected())
+            {
+                return;
+            }
+
+            bool forward = !_shiftAction.IsPressed();
+            _debugCheatSystem.CycleObjective(forward);
         }
 
         private bool EnsureInjected()
