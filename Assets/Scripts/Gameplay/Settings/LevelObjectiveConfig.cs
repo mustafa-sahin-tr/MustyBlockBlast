@@ -34,6 +34,10 @@ namespace MustyBlockBlast.Gameplay.Settings
         /// — the same never-existed-yet case <see cref="EmptyReinforcedCells"/> covers.</summary>
         private static readonly TimerCellAuthoring[] EmptyTimerCells = new TimerCellAuthoring[0];
 
+        /// <summary>Shared, never-mutated empty for a row whose <see cref="_targetIceCells"/> field is
+        /// null — the same never-existed-yet case <see cref="EmptyReinforcedCells"/> covers.</summary>
+        private static readonly TargetIceCellAuthoring[] EmptyTargetIceCells = new TargetIceCellAuthoring[0];
+
         /// <summary>Shared, never-mutated empty for a row whose <see cref="_bannedPowerUps"/> field is
         /// null — the same never-existed-yet case <see cref="EmptyReinforcedCells"/> covers.</summary>
         private static readonly PowerUpKind[] EmptyBannedPowerUps = new PowerUpKind[0];
@@ -132,6 +136,13 @@ namespace MustyBlockBlast.Gameplay.Settings
             "is what every level authored before timer cells existed does.")]
         [SerializeField] private List<TimerCellAuthoring> _timerCells = new List<TimerCellAuthoring>();
 
+        [Tooltip("Empty, playable positions marked with 1-3 levels of ice. The player fills one with " +
+            "any piece and clears the line through it to melt one level; at 0 it is an ordinary cell. " +
+            "Empty (the default) means the level authors none. Do not combine with a DiamondsCleared " +
+            "objective — a diamond never lands on ice.")]
+        [SerializeField] private List<TargetIceCellAuthoring> _targetIceCells =
+            new List<TargetIceCellAuthoring>();
+
         [Tooltip("Power-up kinds this level's Path-mode run refuses to arm or spend. Empty (the " +
             "default) bans nothing, which is what every level authored before this field existed " +
             "does. Ignored entirely outside Path mode.")]
@@ -228,6 +239,17 @@ namespace MustyBlockBlast.Gameplay.Settings
             _timerCells ?? (IReadOnlyList<TimerCellAuthoring>)EmptyTimerCells;
 
         /// <summary>
+        /// The ice sockets this level marks on its board (issue #433), in authored order — positions
+        /// that start EMPTY, not pre-filled, unlike the two lists above. Empty for a level that authors
+        /// none, which is every level authored before the mechanic existed.
+        /// <para>
+        /// Never null, mirroring <see cref="ReinforcedCells"/>.
+        /// </para>
+        /// </summary>
+        public IReadOnlyList<TargetIceCellAuthoring> TargetIceCells =>
+            _targetIceCells ?? (IReadOnlyList<TargetIceCellAuthoring>)EmptyTargetIceCells;
+
+        /// <summary>
         /// Power-up kinds this level's Path-mode run refuses to arm or spend (see
         /// <see cref="PowerUpSystem"/>). Empty for a level that bans none, which is every level
         /// authored before this mechanic existed.
@@ -313,7 +335,9 @@ namespace MustyBlockBlast.Gameplay.Settings
         /// deliberately IGNORED in favour of the number of reinforced cells this level authors: that
         /// objective is "clear all of them" by definition, and a designer must not be able to author a
         /// target that disagrees with the board — a subset target would complete the level with
-        /// reinforced blocks still standing, and an over-large one could never complete at all.
+        /// reinforced blocks still standing, and an over-large one could never complete at all. The
+        /// same override applies to <see cref="ObjectiveType.IceCellsCleared"/>, against the count of
+        /// ice sockets authored (issue #433 AC7).
         /// </para>
         /// </summary>
         public ObjectiveDefinition ToObjectiveDefinition(int objectiveIndexInLevel = 0)
@@ -339,9 +363,10 @@ namespace MustyBlockBlast.Gameplay.Settings
 
         /// <summary>
         /// The target <see cref="ToObjectiveDefinition"/> actually builds with: the authored
-        /// <c>_targetValue</c> for every type except <see cref="ObjectiveType.ReinforcedCellsCleared"/>,
-        /// which is always the count of reinforced cells this level authors — see that method for why
-        /// the authored value cannot be trusted for it.
+        /// <c>_targetValue</c> for every type except <see cref="ObjectiveType.ReinforcedCellsCleared"/>
+        /// (always the count of reinforced cells this level authors) and
+        /// <see cref="ObjectiveType.IceCellsCleared"/> (always the count of ice sockets it authors) —
+        /// see that method for why the authored value cannot be trusted for either.
         /// <para>
         /// Overridden here rather than hidden in the Inspector: nothing in this class shows or hides a
         /// field based on <see cref="_objectiveType"/> today (every type-specific field is simply
@@ -354,6 +379,11 @@ namespace MustyBlockBlast.Gameplay.Settings
             if (_objectiveType == ObjectiveType.ReinforcedCellsCleared)
             {
                 return ReinforcedCells.Count;
+            }
+
+            if (_objectiveType == ObjectiveType.IceCellsCleared)
+            {
+                return TargetIceCells.Count;
             }
 
             return _targetValue;
@@ -510,6 +540,76 @@ namespace MustyBlockBlast.Gameplay.Settings
                 }
             }
 
+            IReadOnlyList<TargetIceCellAuthoring> targetIceCells = TargetIceCells;
+            for (int i = 0; i < targetIceCells.Count; i++)
+            {
+                TargetIceCellAuthoring iceCell = targetIceCells[i];
+                if (iceCell == null)
+                {
+                    error = "An ice socket entry is empty — remove the row or fill it in.";
+                    return false;
+                }
+
+                GridPosition position = iceCell.ToGridPosition();
+                if (position.X < 0 || position.X >= _boardWidth
+                    || position.Y < 0 || position.Y >= _boardHeight)
+                {
+                    error = $"Ice socket {position} is outside this level's {_boardWidth}x{_boardHeight} board.";
+                    return false;
+                }
+
+                if (iceCell.IceLevel < TargetIceCellAuthoring.MIN_ICE_LEVEL
+                    || iceCell.IceLevel > TargetIceCellAuthoring.MAX_ICE_LEVEL)
+                {
+                    error = $"Ice socket {position} needs an ice level between "
+                        + $"{TargetIceCellAuthoring.MIN_ICE_LEVEL} and {TargetIceCellAuthoring.MAX_ICE_LEVEL}.";
+                    return false;
+                }
+
+                // A socket must be a cell the player can fill: nothing can ever stand on a hole, so
+                // its ice could never melt and the objective could never complete.
+                if (IsAuthoredHole(position))
+                {
+                    error = $"Ice socket {position} is also authored as a hole — a cell cannot be both.";
+                    return false;
+                }
+
+                // Nor may it sit under a pre-filled block: a socket starts EMPTY by definition, and a
+                // reinforced or timer block seeded on the same cell would contradict that (and the
+                // seeder would skip the socket).
+                for (int reinforcedIndex = 0; reinforcedIndex < reinforcedCells.Count; reinforcedIndex++)
+                {
+                    ReinforcedCellAuthoring reinforced = reinforcedCells[reinforcedIndex];
+                    if (reinforced != null && reinforced.ToGridPosition().Equals(position))
+                    {
+                        error = $"Ice socket {position} is also authored as a reinforced cell — a cell cannot be both.";
+                        return false;
+                    }
+                }
+
+                for (int timerIndex = 0; timerIndex < timerCells.Count; timerIndex++)
+                {
+                    TimerCellAuthoring timerCell = timerCells[timerIndex];
+                    if (timerCell != null && timerCell.ToGridPosition().Equals(position))
+                    {
+                        error = $"Ice socket {position} is also authored as a timer cell — a cell cannot be both.";
+                        return false;
+                    }
+                }
+
+                // Two entries for one position would count as two sockets towards the objective's
+                // forced target while only one could ever melt, so the level could never complete.
+                for (int earlier = 0; earlier < i; earlier++)
+                {
+                    TargetIceCellAuthoring earlierCell = targetIceCells[earlier];
+                    if (earlierCell != null && earlierCell.ToGridPosition().Equals(position))
+                    {
+                        error = $"Ice socket {position} is authored more than once — remove the duplicate entry.";
+                        return false;
+                    }
+                }
+            }
+
             // The target for this type is the reinforced-cell count (see EffectiveTargetValue), so a
             // level authoring none would build an ObjectiveDefinition with target 0 — which throws.
             // Caught here, where every other type-specific precondition is, rather than at construction.
@@ -517,6 +617,14 @@ namespace MustyBlockBlast.Gameplay.Settings
             {
                 error = "ReinforcedCellsCleared needs at least one authored reinforced cell — its target "
                     + "is always \"all of them\", and there is nothing to clear.";
+                return false;
+            }
+
+            // Same reasoning for the ice-socket objective (issue #433 AC7).
+            if (_objectiveType == ObjectiveType.IceCellsCleared && targetIceCells.Count == 0)
+            {
+                error = "IceCellsCleared needs at least one authored ice socket — its target is always "
+                    + "\"all of them\", and there is nothing to melt.";
                 return false;
             }
 
@@ -719,6 +827,17 @@ namespace MustyBlockBlast.Gameplay.Settings
                     if (_timerCells[i] != null)
                     {
                         _timerCells[i].ValidateInEditor();
+                    }
+                }
+            }
+
+            if (_targetIceCells != null)
+            {
+                for (int i = 0; i < _targetIceCells.Count; i++)
+                {
+                    if (_targetIceCells[i] != null)
+                    {
+                        _targetIceCells[i].ValidateInEditor();
                     }
                 }
             }

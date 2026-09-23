@@ -946,6 +946,14 @@ MonoBehaviour:
     m_Localized: Pintar
     m_Metadata:
       m_Items: []
+  - m_Id: 3631194057990144
+    m_Localized: "Derrite todas las celdas de hielo llen\xE1ndolas y despejando la l\xEDnea que las cruza, capa por capa."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3631194104127488
+    m_Localized: Celdas de Hielo
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

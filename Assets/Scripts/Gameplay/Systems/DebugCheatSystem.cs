@@ -45,6 +45,16 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// designer testing "how many hits does this survive" wants the hardest case by default.</summary>
         private const int DEBUG_REINFORCED_HIT_COUNT = 4;
 
+        /// <summary>How many ice sockets <see cref="CycleObjective"/> marks when it lands on
+        /// <see cref="ObjectiveType.IceCellsCleared"/> (issue #433), for the reason
+        /// <see cref="DEBUG_REINFORCED_CELL_COUNT"/> exists: that objective cannot progress without real
+        /// sockets to melt.</summary>
+        private const int DEBUG_ICE_CELL_COUNT = 2;
+
+        /// <summary>Ice level each debug-marked socket gets — the top of the shipped range (see
+        /// <see cref="TargetIceCellAuthoring"/>), the hardest case by default.</summary>
+        private const int DEBUG_ICE_LEVEL = 3;
+
         private readonly BoardModel _boardModel;
         private readonly TrayModel _trayModel;
         private readonly ObjectiveModel _objectiveModel;
@@ -196,6 +206,7 @@ namespace MustyBlockBlast.Gameplay.Systems
                 ObjectiveType.ScoreInRun => SCORE_TARGET,
                 ObjectiveType.EarlyScoreRush => SCORE_TARGET,
                 ObjectiveType.ReinforcedCellsCleared => SeedDebugReinforcedCells(),
+                ObjectiveType.IceCellsCleared => SeedDebugIceCells(),
                 _ => DEFAULT_TARGET,
             };
 
@@ -250,6 +261,43 @@ namespace MustyBlockBlast.Gameplay.Systems
             }
 
             return Mathf.Max(seededCount, 1);
+        }
+
+        /// <summary>The ice-socket counterpart of <see cref="SeedDebugReinforcedCells"/> (issue #433):
+        /// marks up to <see cref="DEBUG_ICE_CELL_COUNT"/> random empty playable cells with
+        /// <see cref="DEBUG_ICE_LEVEL"/> levels of ice, leaving them empty, and returns how many it
+        /// marked so the debug objective's target is "all of them" exactly as a level's would be.</summary>
+        private int SeedDebugIceCells()
+        {
+            var candidates = new List<GridPosition>();
+            for (int y = 0; y < _boardModel.Height; y++)
+            {
+                for (int x = 0; x < _boardModel.Width; x++)
+                {
+                    var position = new GridPosition(x, y);
+                    if (_boardModel.IsPlayable(position) && _boardModel.GetCell(position) == Board.EMPTY
+                        && _boardModel.GetIceLevel(position) == 0)
+                    {
+                        candidates.Add(position);
+                    }
+                }
+            }
+
+            int markedCount = Mathf.Min(DEBUG_ICE_CELL_COUNT, candidates.Count);
+            for (int i = 0; i < markedCount; i++)
+            {
+                int pick = Random.Range(0, candidates.Count);
+                _boardModel.SetIceLevel(candidates[pick], DEBUG_ICE_LEVEL);
+                candidates.RemoveAt(pick);
+            }
+
+            if (markedCount == 0)
+            {
+                Debug.LogWarning($"{nameof(DebugCheatSystem)}: no empty playable cell to mark an ice "
+                    + "socket on — objective set with an unreachable target of 1.");
+            }
+
+            return Mathf.Max(markedCount, 1);
         }
 
         private static int IndexOf(IReadOnlyList<Piece> pieces, Piece piece)

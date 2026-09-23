@@ -612,6 +612,12 @@ namespace MustyBlockBlast.Presentation
             // tray is dealt (issue #307 AC7/AC8).
             builder.Register<LevelTimerCellSeeder>(Lifetime.Singleton).AsSelf();
 
+            // Same shape and same reason as the two seeders above, with one difference: it marks a
+            // level's ice sockets on the board without occupying anything (issue #433 AC2 — a socket
+            // starts a run empty and playable), so it needs no piece draw. BoardSystem calls it inline,
+            // right after the timer-cell seeder, so a socket is marked before the tray is dealt.
+            builder.Register<LevelTargetIceCellSeeder>(Lifetime.Singleton).AsSelf();
+
             // Rolls the diamond decoration of every dealt piece (issue #394). BoardSystem asks it per
             // dealt slot; it reads ObjectiveModel and GameModeModel live to gate itself to a Path run
             // with an active DiamondsCleared objective, so it needs no subscription of its own. The

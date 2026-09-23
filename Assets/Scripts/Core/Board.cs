@@ -142,6 +142,48 @@ namespace MustyBlockBlast.Core
         /// </summary>
         private readonly int[] _diamondColourIds;
 
+        /// <summary>
+        /// Ice still to melt at each <em>position</em> before it becomes an ordinary cell (issue #433
+        /// — the "Buzlu Hedef Hücre" ice-socket target), indexed exactly like <see cref="_cells"/>.
+        /// <c>0</c> — every cell of every board authored before ice sockets existed, and every position
+        /// no level marked — means "not icy": such a position is indistinguishable from one that never
+        /// carried ice.
+        /// <para>
+        /// <b>The first per-cell array that belongs to the POSITION, not to the block standing on it —
+        /// and therefore the first one <see cref="Clear"/> deliberately does NOT reset.</b> Every other
+        /// array above (<see cref="_specialKinds"/>, <see cref="_hitCounts"/>,
+        /// <see cref="_timerCountdowns"/>, <see cref="_coinValues"/>, <see cref="_diamondColourIds"/>)
+        /// describes the block that was standing there, so wiping it along with the colour is exactly
+        /// right: the block is gone and the next block must not inherit its properties. Ice is the
+        /// opposite shape. It is part of the level's authored board layout, it is present while the
+        /// position is <em>empty</em> (an ice socket starts a run empty and playable), and the whole
+        /// mechanic is "fill it, clear it, and the ice underneath melts by one" — so the block above it
+        /// being destroyed is precisely the event the ice must survive. A <see cref="Clear"/> that reset
+        /// it would melt the whole socket on its first clear and silently break the objective.
+        /// </para>
+        /// <para>
+        /// It is decremented in exactly one place: the removal branch of <see cref="TryDamage"/>, the
+        /// single primitive every destruction path in the game goes through (a completed line, a cascaded
+        /// phase, a Bomb/Row/Column/Colour-Cleanser clear, a joker's completed line, a hammer, and a
+        /// laser's/core's/rocket's/chain-lightning's own wipe alike). Hooking the seam every path already
+        /// shares is what makes the melt cascade-safe by construction, rather than by each resolver and
+        /// effect remembering to report it — the known Reinforced Cell cascade-reporting gap referenced in
+        /// issue #249 is not repeated here.
+        /// </para>
+        /// <para>
+        /// Never read by any occupancy, fullness or flood-fill query: an icy empty cell is an empty cell
+        /// to <see cref="IsRowFull"/>, <see cref="PlacementRules.CanPlace"/> and everything else, which is
+        /// what keeps placement onto an ice socket exactly the ordinary placement it must be (AC3).
+        /// </para>
+        /// <para>
+        /// Copied by <see cref="Clone"/>/<see cref="CopyFrom"/> exactly as the other five arrays are, so
+        /// Undo's full-snapshot restore rewinds a socket's ice level to its pre-placement value along with
+        /// everything else (AC8). Reset for a new run by <see cref="ClearAllIceLevels"/>, because
+        /// <see cref="Clear"/> — the primitive a whole-board reset is built on — leaves it alone by design.
+        /// </para>
+        /// </summary>
+        private readonly int[] _targetIceLevels;
+
         /// <summary>The standard <see cref="SIZE"/> x <see cref="SIZE"/> hole-free board. Delegates to
         /// <see cref="BoardShape.Standard"/> so every level authored before board shapes existed keeps
         /// the exact geometry it was authored against.</summary>
@@ -159,11 +201,12 @@ namespace MustyBlockBlast.Core
             _timerCountdowns = new int[shape.CellCount];
             _coinValues = new int[shape.CellCount];
             _diamondColourIds = new int[shape.CellCount];
+            _targetIceLevels = new int[shape.CellCount];
         }
 
         private Board(
             BoardShape shape, int[] cells, SpecialCellKind[] specialKinds, int[] hitCounts,
-            int[] timerCountdowns, int[] coinValues, int[] diamondColourIds)
+            int[] timerCountdowns, int[] coinValues, int[] diamondColourIds, int[] targetIceLevels)
         {
             _shape = shape;
             _cells = cells;
@@ -172,6 +215,7 @@ namespace MustyBlockBlast.Core
             _timerCountdowns = timerCountdowns;
             _coinValues = coinValues;
             _diamondColourIds = diamondColourIds;
+            _targetIceLevels = targetIceLevels;
         }
 
         /// <summary>The outline this board was built with. Shared, immutable and safe to hand out — a
@@ -273,6 +317,12 @@ namespace MustyBlockBlast.Core
         /// a clear</em> must go through <see cref="TryDamage"/> instead; this stays the force-clear
         /// primitive that <see cref="TryDamage"/> itself and a whole-board reset are built on.
         /// </para>
+        /// <para>
+        /// Deliberately leaves the position's ice level alone — the one per-cell value that belongs to
+        /// the position rather than to the block; see <see cref="_targetIceLevels"/> for why. Melting is
+        /// <see cref="TryDamage"/>'s job, and a whole-board reset that must drop ice too calls
+        /// <see cref="ClearAllIceLevels"/> explicitly.
+        /// </para>
         /// </summary>
         public void Clear(GridPosition position)
         {
@@ -283,6 +333,8 @@ namespace MustyBlockBlast.Core
             _timerCountdowns[index] = 0;
             _coinValues[index] = 0;
             _diamondColourIds[index] = 0;
+
+            // _targetIceLevels[index] is intentionally NOT reset here — see that field's doc comment.
         }
 
         /// <summary>
@@ -297,6 +349,14 @@ namespace MustyBlockBlast.Core
         /// to the unconditional <see cref="Clear"/> this replaced at those call sites, which is what
         /// keeps every mechanic that does not involve a reinforced cell exactly as it was.
         /// </para>
+        /// <para>
+        /// The removal branch is also the one place a position's ice level melts (issue #433 AC4/AC5):
+        /// a block destroyed on an ice socket takes one level of ice with it, whatever destroyed it —
+        /// this being the seam every destruction path shares is exactly what makes the melt
+        /// cascade-safe. A hit that is merely spent melts nothing: the block is still standing, so the
+        /// socket has not been cleared. A position with no ice is untouched, so every board that never
+        /// authored ice behaves exactly as before.
+        /// </para>
         /// </summary>
         public bool TryDamage(GridPosition position)
         {
@@ -305,12 +365,72 @@ namespace MustyBlockBlast.Core
             if (_hitCounts[index] <= 1)
             {
                 Clear(position);
+
+                if (_targetIceLevels[index] > 0)
+                {
+                    _targetIceLevels[index]--;
+                }
+
                 return true;
             }
 
             _hitCounts[index]--;
             return false;
         }
+
+        /// <summary>Ice still to melt at <paramref name="position"/> before it is an ordinary cell —
+        /// see <see cref="_targetIceLevels"/>. 0 for every position no level marked, which is every
+        /// position of a board nothing iced. Independent of occupancy: an ice socket reads its level
+        /// whether a block is standing on it or not.</summary>
+        public int GetIceLevel(GridPosition position) => _targetIceLevels[Index(position)];
+
+        /// <summary>
+        /// Marks <paramref name="position"/> with <paramref name="level"/> levels of ice, for level-start
+        /// authoring only. Unlike <see cref="OccupyReinforced"/> and <see cref="OccupyTimer"/> this does
+        /// NOT occupy the cell — an ice socket starts a run empty and playable (issue #433 AC2), and only
+        /// the marker is authored. Refuses a hole exactly as <see cref="Occupy"/> does, because ice on a
+        /// cell nothing can ever stand on could never melt; refuses a negative level because ice cannot
+        /// be owed.
+        /// </summary>
+        public void SetIceLevel(GridPosition position, int level)
+        {
+            if (level < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(level), level, "An ice level cannot be negative.");
+            }
+
+            if (_shape.IsHole(position))
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(position), position, "Cell is a hole and can never carry ice.");
+            }
+
+            _targetIceLevels[Index(position)] = level;
+        }
+
+        /// <summary>How many positions still carry ice (level above 0). A once-per-resolution scan of the
+        /// board, never a per-frame call: a System takes the count before and after a resolution, and
+        /// the difference is exactly how many sockets fully melted during it — ice only ever goes down,
+        /// so no position can be counted twice or missed.</summary>
+        public int CountIceCells()
+        {
+            int count = 0;
+            for (int i = 0; i < _targetIceLevels.Length; i++)
+            {
+                if (_targetIceLevels[i] > 0)
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+
+        /// <summary>Drops every position's ice for the start of a run. Its own call because
+        /// <see cref="Clear"/> — the primitive a whole-board reset is built on — deliberately leaves ice
+        /// alone (see <see cref="_targetIceLevels"/>), so a reset that only cleared cells would carry
+        /// last run's sockets into a run that never authored them.</summary>
+        public void ClearAllIceLevels() => Array.Clear(_targetIceLevels, 0, _targetIceLevels.Length);
 
         /// <summary>Hits <paramref name="position"/> must still absorb before it can be destroyed. 0 for
         /// an ordinary or empty cell, which is every cell of a board nothing reinforced.</summary>
@@ -1003,9 +1123,12 @@ namespace MustyBlockBlast.Core
             int[] diamondColourIdCopy = new int[_diamondColourIds.Length];
             Array.Copy(_diamondColourIds, diamondColourIdCopy, _diamondColourIds.Length);
 
+            int[] targetIceLevelCopy = new int[_targetIceLevels.Length];
+            Array.Copy(_targetIceLevels, targetIceLevelCopy, _targetIceLevels.Length);
+
             return new Board(
                 _shape, copy, specialCopy, hitCountCopy, timerCountdownCopy, coinValueCopy,
-                diamondColourIdCopy);
+                diamondColourIdCopy, targetIceLevelCopy);
         }
 
         /// <summary>Overwrites this board's cells with <paramref name="source"/>'s. Used to reuse a scratch
@@ -1039,6 +1162,7 @@ namespace MustyBlockBlast.Core
             Array.Copy(source._timerCountdowns, _timerCountdowns, _timerCountdowns.Length);
             Array.Copy(source._coinValues, _coinValues, _coinValues.Length);
             Array.Copy(source._diamondColourIds, _diamondColourIds, _diamondColourIds.Length);
+            Array.Copy(source._targetIceLevels, _targetIceLevels, _targetIceLevels.Length);
         }
 
         /// <summary>Flat index of <paramref name="position"/> — also the index a caller's own per-cell

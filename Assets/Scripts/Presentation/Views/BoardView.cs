@@ -334,6 +334,14 @@ namespace MustyBlockBlast.Presentation.Views
         /// </summary>
         private const int MAX_HIT_COUNT = 4;
 
+        /// <summary>
+        /// The reference ceiling an ice socket's overlay opacity is spread across (issue #433) — the
+        /// highest ice level a level may author. Defined the way <see cref="MAX_HIT_COUNT"/> is, for
+        /// the same reading: a socket authored with fewer levels simply starts partway down the same
+        /// ramp, so every socket with one level left looks equally thin whatever it started at.
+        /// </summary>
+        private const int MAX_ICE_LEVEL = TargetIceCellAuthoring.MAX_ICE_LEVEL;
+
         /// <summary>How far an undamaged reinforced cell is already blended towards
         /// <see cref="ReinforcedDamageTint"/>, so it reads as reinforced before anything has hit it.</summary>
         private const float UNDAMAGED_BLEND = 0.4f;
@@ -419,6 +427,13 @@ namespace MustyBlockBlast.Presentation.Views
         /// <see cref="ApplyCellColour"/>, so every repaint path picks it up without knowing about
         /// it.</summary>
         private int[] _cellHitCounts;
+
+        /// <summary>Ice levels left at each position (issue #433), parallel to the bookkeeping above.
+        /// 0 for every position no level marked. Unlike <see cref="_cellHitCounts"/> it is NOT zeroed
+        /// when a cell empties — the ice belongs to the position and survives the block above it — and
+        /// is only ever written from the model's own <see cref="BoardModel.TargetIceLevelChanged"/> or a
+        /// full redraw. Drives <see cref="CellView.SetIceOverlay"/>.</summary>
+        private int[] _cellIceLevels;
 
         /// <summary>Placements left before each <see cref="SpecialCellKind.Timer"/> cell converts to an
         /// ordinary one, parallel to the bookkeeping above. 0 for every cell that is not a timer cell —
@@ -625,6 +640,7 @@ namespace MustyBlockBlast.Presentation.Views
             _boardModel.HitCountChanged += OnHitCountChanged;
             _boardModel.TimerCountdownChanged += OnTimerCountdownChanged;
             _boardModel.TimerCellExpired += OnTimerCellExpired;
+            _boardModel.TargetIceLevelChanged += OnTargetIceLevelChanged;
             _linesClearedSubscriber.Subscribe(OnLinesCleared).AddTo(_disposables);
             _runStartedSubscriber.Subscribe(OnRunStarted).AddTo(_disposables);
             _powerUpAppliedSubscriber.Subscribe(OnPowerUpApplied).AddTo(_disposables);
@@ -705,6 +721,7 @@ namespace MustyBlockBlast.Presentation.Views
                 _boardModel.HitCountChanged -= OnHitCountChanged;
                 _boardModel.TimerCountdownChanged -= OnTimerCountdownChanged;
                 _boardModel.TimerCellExpired -= OnTimerCellExpired;
+                _boardModel.TargetIceLevelChanged -= OnTargetIceLevelChanged;
             }
         }
 
@@ -1087,6 +1104,7 @@ namespace MustyBlockBlast.Presentation.Views
             _cellPending = new bool[cellCount];
             _cellSpecialKinds = new SpecialCellKind[cellCount];
             _cellHitCounts = new int[cellCount];
+            _cellIceLevels = new int[cellCount];
             _cellTimerCountdowns = new int[cellCount];
             _cellDiamondColourIds = new int[cellCount];
             _glowActiveMask = new bool[cellCount];
@@ -1173,6 +1191,12 @@ namespace MustyBlockBlast.Presentation.Views
                     _cellTimerCountdowns[index] = _boardModel.GetTimerCountdown(cell);
                     ApplyTimerCountdown(index, _cellSpecialKinds[index], _cellTimerCountdowns[index]);
 
+                    // Re-derived from the model for the same reason: a level's ice sockets are marked
+                    // before the first repaint ever runs, and a socket is empty, so no cell-change
+                    // notification would ever carry its level (issue #433).
+                    _cellIceLevels[index] = _boardModel.GetIceLevel(cell);
+                    _cells[index].SetIceOverlay(_cellIceLevels[index], MAX_ICE_LEVEL);
+
                     _cells[index].SetAlpha(1f);
                 }
             }
@@ -1253,6 +1277,22 @@ namespace MustyBlockBlast.Presentation.Views
 
             _cellHitCounts[index] = hitCount;
             ApplyCellColour(cell, _cellColourIds[index]);
+        }
+
+        /// <summary>An ice socket's level may have changed (issue #433) — thinner after the block on it
+        /// was destroyed, 0 once fully melted, or freshly marked at run start. Only the overlay changes:
+        /// the cell's occupancy, colour and fade are all somebody else's, and the overlay is deliberately
+        /// left alone by every other path so the ice survives the block above it emptying.</summary>
+        private void OnTargetIceLevelChanged(GridPosition cell, int iceLevel)
+        {
+            int index = CellIndex(cell);
+            if (_cellIceLevels[index] == iceLevel)
+            {
+                return;
+            }
+
+            _cellIceLevels[index] = iceLevel;
+            _cells[index].SetIceOverlay(iceLevel, MAX_ICE_LEVEL);
         }
 
         /// <summary>A timer cell survived a placement and ticked down by one (issue #307 AC6a). Only the

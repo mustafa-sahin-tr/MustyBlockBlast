@@ -946,6 +946,14 @@ MonoBehaviour:
     m_Localized: Boya
     m_Metadata:
       m_Items: []
+  - m_Id: 3631194057990144
+    m_Localized: "Her buzlu h\xFCcreyi doldurup \xFCzerinden ge\xE7en sat\u0131r\u0131 temizleyerek katman katman erit."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3631194104127488
+    m_Localized: "Buzlu H\xFCcreler"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

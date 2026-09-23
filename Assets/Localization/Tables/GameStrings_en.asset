@@ -935,7 +935,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 3514168870166535
-    m_Localized: "Tap a cell, then pick a colour: every block in that row and column takes it. Nothing is cleared, so use it to line up a colour goal."
+    m_Localized: 'Tap a cell, then pick a colour: every block in that row and column takes it. Nothing is cleared, so use it to line up a colour goal.'
     m_Metadata:
       m_Items: []
   - m_Id: 3514168870166536
@@ -944,6 +944,14 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 3514168870166537
     m_Localized: Paint
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3631194057990144
+    m_Localized: Melt every ice cell by filling it and clearing the line through it, one layer at a time.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3631194104127488
+    m_Localized: Ice Cells
     m_Metadata:
       m_Items: []
   references:

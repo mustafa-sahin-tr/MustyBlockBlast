@@ -310,6 +310,11 @@ namespace MustyBlockBlast.Gameplay.Localization
         /// fell through to an empty string for this type with no template to format.</summary>
         public const string OBJECTIVE_REINFORCED_CELLS_CLEARED = "objective.reinforced_cells_cleared";
 
+        /// <summary>IceCellsCleared's description (issue #433) — "melt every ice cell". No template
+        /// argument: the target is always "all of them", which the HUD renders as the progress
+        /// fraction.</summary>
+        public const string OBJECTIVE_ICE_CELLS_CLEARED = "objective.ice_cells_cleared";
+
         // --- Objective titles ---
         // One short, bold name per ObjectiveType, shown as the header of the objective info card
         // (ObjectiveInfoPopupView) — distinct from the OBJECTIVE_* description templates above, which
@@ -343,6 +348,9 @@ namespace MustyBlockBlast.Gameplay.Localization
 
         /// <summary>DiamondsCleared's title (issue #395).</summary>
         public const string OBJECTIVE_NAME_DIAMONDS_CLEARED = "objective.name.diamonds_cleared";
+
+        /// <summary>IceCellsCleared's title (issue #433).</summary>
+        public const string OBJECTIVE_NAME_ICE_CELLS_CLEARED = "objective.name.ice_cells_cleared";
 
         /// <summary>DiamondsCleared's description. <c>{0}</c> is the gem colour's inline swatch, the
         /// same rich-text glyph <see cref="OBJECTIVE_COLOUR_CLEARED"/> uses, since the objective is

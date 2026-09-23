@@ -92,6 +92,19 @@ namespace MustyBlockBlast.Presentation.Views
         /// same digits the score counter is about to gain, not as an unrelated on-board number.</summary>
         private static readonly Color BonusNumberColour = new Color(0.12f, 0.1f, 0.16f);
 
+        /// <summary>The flat frost tint an ice socket's overlay is drawn in (issue #433): a pale ice
+        /// blue, deliberately colour-independent — it tints whatever the cell shows underneath (an
+        /// empty face or any block colour) the same way — and deliberately NOT
+        /// <c>BoardView.ReinforcedDamageTint</c>'s slate grey, so a socket never reads as a damaged
+        /// block. The alpha is supplied per call by <see cref="SetIceOverlay"/>.</summary>
+        private static readonly Color IceOverlayTint = new Color(0.80f, 0.92f, 0.96f, 1f);
+
+        /// <summary>Overlay alpha at the highest ice level: thick enough to read as ice at a glance,
+        /// thin enough that the block colour (and the empty-cell face) underneath still shows through.
+        /// Lower levels scale linearly down from it, so the fade is a simple uniform ramp — not the
+        /// organic melts-from-a-corner pattern the reinforced-cell damage tint uses.</summary>
+        private const float ICE_OVERLAY_MAX_ALPHA = 0.72f;
+
         private Image _outerImage;
         private Image _flatFaceImage;
         private GameObject _blockRoot;
@@ -99,6 +112,7 @@ namespace MustyBlockBlast.Presentation.Views
         private Image _blockFaceImage;
         private Image _blockGlossImage;
         private Image _specialGlowImage;
+        private Image _iceOverlayImage;
         private Image _specialIconRimImage;
         private Image _specialIconImage;
         private Image _highlightImage;
@@ -157,6 +171,19 @@ namespace MustyBlockBlast.Presentation.Views
             glossRect.offsetMax = Vector2.zero;
 
             _blockRoot.SetActive(false);
+
+            // The ice-socket overlay (issue #433): one flat, rounded, semi-transparent plate over the
+            // whole cell. Built right after both looks so it draws over whichever is showing (an ice
+            // socket is empty most of the time and occupied the rest), and before the glow/icon/rings
+            // so a special block that lands on a socket still shows its mark on top of the frost.
+            // Parented to the cell rather than the block root because the ice belongs to the position
+            // and must stay put when the block's look is toggled off. Same rounded outline as the cell
+            // itself, so it reads as the cell frosted over rather than a sticker on it.
+            _iceOverlayImage = CreateStretchedImage(transform, "IceOverlay");
+            HudChrome.ConfigureRounded(_iceOverlayImage, cornerRadius);
+            _iceOverlayImage.raycastTarget = false;
+            _iceOverlayImage.color = Color.clear;
+            _iceOverlayImage.gameObject.SetActive(false);
 
             float iconInset = inset + (bevelThickness * SPECIAL_ICON_BEVEL_INSET_MULTIPLIER);
 
@@ -295,6 +322,35 @@ namespace MustyBlockBlast.Presentation.Views
                 _specialIconRimImage.transform.localScale = Vector3.one * SPECIAL_ICON_RIM_SCALE;
                 ShowLayer(_specialIconRimImage, SpecialIconRimColour);
             }
+        }
+
+        /// <summary>
+        /// Shows the ice-socket overlay (issue #433) at an opacity proportional to
+        /// <paramref name="iceLevel"/> over <paramref name="maxIceLevel"/> — a linear ramp from
+        /// <see cref="ICE_OVERLAY_MAX_ALPHA"/> at the top level down towards clear — or hides it when
+        /// <paramref name="iceLevel"/> is 0, at which point the cell is indistinguishable from one that
+        /// was never icy. Independent of every other layer: it neither reads nor writes the face, block
+        /// or icon layers, and deliberately is NOT touched by <see cref="SetAlpha"/>, because the ice
+        /// belongs to the position and must stay on screen while the block above it fades out.
+        /// Allocates nothing, so it is safe on any repaint path.
+        /// </summary>
+        internal void SetIceOverlay(int iceLevel, int maxIceLevel)
+        {
+            if (_iceOverlayImage == null)
+            {
+                return;
+            }
+
+            if (iceLevel <= 0)
+            {
+                HideLayer(_iceOverlayImage);
+                return;
+            }
+
+            float fraction = Mathf.Clamp01(iceLevel / (float)Mathf.Max(1, maxIceLevel));
+            ShowLayer(
+                _iceOverlayImage,
+                new Color(IceOverlayTint.r, IceOverlayTint.g, IceOverlayTint.b, ICE_OVERLAY_MAX_ALPHA * fraction));
         }
 
         /// <summary>Hides the special-cell icon and its rim-light. Safe to call on a cell that never had

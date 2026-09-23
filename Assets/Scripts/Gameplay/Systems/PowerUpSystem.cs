@@ -325,7 +325,9 @@ namespace MustyBlockBlast.Gameplay.Systems
                 return false;
             }
 
-            Apply(PowerUpKind.Bomb, PowerUpClearResolver.ResolveBombClear(_boardModel.Board, center));
+            // Read before the resolver runs — see Apply for what the before-count is for.
+            int iceCellsBefore = _boardModel.Board.CountIceCells();
+            Apply(PowerUpKind.Bomb, PowerUpClearResolver.ResolveBombClear(_boardModel.Board, center), iceCellsBefore);
             Disarm();
             return true;
         }
@@ -339,7 +341,8 @@ namespace MustyBlockBlast.Gameplay.Systems
                 return false;
             }
 
-            Apply(PowerUpKind.RowClear, PowerUpClearResolver.ResolveRowClear(_boardModel.Board, row));
+            int iceCellsBefore = _boardModel.Board.CountIceCells();
+            Apply(PowerUpKind.RowClear, PowerUpClearResolver.ResolveRowClear(_boardModel.Board, row), iceCellsBefore);
             Disarm();
             return true;
         }
@@ -353,7 +356,10 @@ namespace MustyBlockBlast.Gameplay.Systems
                 return false;
             }
 
-            Apply(PowerUpKind.ColumnClear, PowerUpClearResolver.ResolveColumnClear(_boardModel.Board, column));
+            int iceCellsBefore = _boardModel.Board.CountIceCells();
+            Apply(
+                PowerUpKind.ColumnClear, PowerUpClearResolver.ResolveColumnClear(_boardModel.Board, column),
+                iceCellsBefore);
             Disarm();
             return true;
         }
@@ -377,6 +383,10 @@ namespace MustyBlockBlast.Gameplay.Systems
             {
                 return false;
             }
+
+            // Read before the resolver runs, as every region-clearing kind reads it before its own —
+            // see Apply for what the before-count is for.
+            int iceCellsBefore = _boardModel.Board.CountIceCells();
 
             // Legality lives in the resolver, not here: a rejected result is the single, authoritative
             // statement that the board was not touched.
@@ -402,6 +412,11 @@ namespace MustyBlockBlast.Gameplay.Systems
             // damaged is still standing and needs repainting.
             _boardModel.NotifyHitCountsRefreshed();
 
+            // And an ice socket the completed line just emptied is thinner now (issue #433) — the same
+            // repaint and the same before/after count the region-clearing path takes.
+            _boardModel.NotifyIceLevelsRefreshed();
+            int iceCellsMelted = iceCellsBefore - _boardModel.Board.CountIceCells();
+
             _appliedPublisher.Publish(new PowerUpAppliedMessage(
                 PowerUpKind.Joker, result.ClearedCellCount, result.LineCount, emptiedLineCount: 0,
                 wasClutchSave: false,
@@ -409,7 +424,10 @@ namespace MustyBlockBlast.Gameplay.Systems
                 reinforcedCellsFullyClearedCount: result.ReinforcedCellsFullyClearedCount,
                 destroyedCellCountByColour: result.DestroyedCellCountByColour,
                 timerCellsClearedInTimeCount: TimerCellClearEffect.CountDestroyed(result.TriggeredSpecials),
-                destroyedDiamondCountByColour: DiamondClearEffect.CountDestroyedByColour(result.TriggeredSpecials)));
+                targetCell: null,
+                clearedCellPositions: null,
+                destroyedDiamondCountByColour: DiamondClearEffect.CountDestroyedByColour(result.TriggeredSpecials),
+                iceCellsMeltedCount: iceCellsMelted));
 
             // A joker completes lines rather than clearing a region, but a core standing in one of
             // those lines is destroyed just the same — and a destroyed core blasts whatever destroyed
@@ -437,6 +455,7 @@ namespace MustyBlockBlast.Gameplay.Systems
                 return false;
             }
 
+            int iceCellsBefore = _boardModel.Board.CountIceCells();
             PowerUpClearResult result = PowerUpClearResolver.ResolveColorCleanser(_boardModel.Board, target);
             if (!result.AnyCleared)
             {
@@ -444,7 +463,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             }
 
             TrySpend(PowerUpKind.ColorCleanser);
-            Apply(PowerUpKind.ColorCleanser, result, target);
+            Apply(PowerUpKind.ColorCleanser, result, iceCellsBefore, target);
             Disarm();
             return true;
         }
@@ -1134,8 +1153,17 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// present, <see cref="PowerUpClearResult.ClearedCells"/> is also handed to the message as
         /// <c>ClearedCellPositions</c> so the Presentation layer's beam visual has both ends of every
         /// beam to draw without changing anything about what this clear actually destroys.
+        /// <para>
+        /// <paramref name="iceCellsBefore"/> is <see cref="Board.CountIceCells"/> as the caller read it
+        /// BEFORE running the resolver that produced <paramref name="result"/> (issue #433). The melt
+        /// itself already happened inside <see cref="Board.TryDamage"/> as the resolver removed cells;
+        /// the difference between that count and the count now is how many sockets this clear melted
+        /// to 0, which the message below credits to the objective. Taken by the caller rather than here
+        /// because by the time this runs the resolver is done.
+        /// </para>
         /// </summary>
-        private void Apply(PowerUpKind kind, PowerUpClearResult result, GridPosition? targetCell = null)
+        private void Apply(
+            PowerUpKind kind, PowerUpClearResult result, int iceCellsBefore, GridPosition? targetCell = null)
         {
             if (result.AnyCleared)
             {
@@ -1148,6 +1176,11 @@ namespace MustyBlockBlast.Gameplay.Systems
             // A reinforced cell this clear only damaged is still standing, so nothing above repaints it.
             _boardModel.NotifyHitCountsRefreshed();
 
+            // An ice socket this clear just emptied is thinner now and nothing above repaints an empty
+            // cell's ice (issue #433); and the other half of the melted count is read here.
+            _boardModel.NotifyIceLevelsRefreshed();
+            int iceCellsMelted = iceCellsBefore - _boardModel.Board.CountIceCells();
+
             _appliedPublisher.Publish(new PowerUpAppliedMessage(
                 kind, result.ClearedCellCount, clearedLineCount: 0,
                 emptiedLineCount: result.EmptiedLineCount, wasClutchSave: false,
@@ -1157,7 +1190,8 @@ namespace MustyBlockBlast.Gameplay.Systems
                 timerCellsClearedInTimeCount: TimerCellClearEffect.CountDestroyed(result.TriggeredSpecials),
                 targetCell: targetCell,
                 clearedCellPositions: targetCell.HasValue ? result.ClearedCells : null,
-                destroyedDiamondCountByColour: DiamondClearEffect.CountDestroyedByColour(result.TriggeredSpecials)));
+                destroyedDiamondCountByColour: DiamondClearEffect.CountDestroyedByColour(result.TriggeredSpecials),
+                iceCellsMeltedCount: iceCellsMelted));
 
             ApplyTriggeredSpecials(result.TriggeredSpecials);
         }
@@ -1282,6 +1316,12 @@ namespace MustyBlockBlast.Gameplay.Systems
             // A blast or a wipe can damage a reinforced cell without destroying it, and a cell that is
             // still standing is repainted by none of the sweeps above.
             _boardModel.NotifyHitCountsRefreshed();
+
+            // And a blast or a wipe can melt an ice socket (issue #433) — the socket is empty now and
+            // none of the sweeps above repaints an empty cell's ice. The melt happened on the board
+            // regardless; only the objective credit for this secondary chain is not carried by the
+            // message already published (see PowerUpAppliedMessage.IceCellsMeltedCount).
+            _boardModel.NotifyIceLevelsRefreshed();
         }
 
         private ReactiveProperty<int> CountOf(PowerUpKind kind)
