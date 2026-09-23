@@ -71,6 +71,27 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>Which theme kind the tick disc takes: the fifth kind — every season's green.</summary>
         private const int CHECK_KIND = 5;
 
+        /// <summary>
+        /// How far the row may shrink its chips to keep them all on screen (issue #429). A chip grows
+        /// by its tick the moment its objective completes, and on a three-goal level that growth was
+        /// enough to push the last chip past the trailing group and hide it — so completing one goal
+        /// made another disappear. Shrinking the whole row to fit keeps every goal visible; below this
+        /// floor the counters stop being readable, so past it the old clip still applies.
+        /// </summary>
+        private const float MIN_CHIP_SCALE = 0.55f;
+
+        /// <summary>
+        /// Safety margin subtracted from the available band before dividing out
+        /// <see cref="MeasureChipScale"/>'s fit scale. Without it, a row that fits exactly (scale would
+        /// land the last chip's right edge precisely on <c>limit</c>) still got clipped in practice:
+        /// each chip's width is measured twice — once here, once in <see cref="RefreshChip"/> — and the
+        /// x position accumulates across up to <see cref="MAX_SLOT_COUNT"/> chips, so float rounding
+        /// routinely pushed that edge a hair past the boundary the "clip" check in
+        /// <see cref="RefreshChip"/> tests against. A few px of slack absorbs that drift; it is far
+        /// below what's visible as extra shrink.
+        /// </summary>
+        private const float CHIP_FIT_MARGIN = 2f;
+
         /// <summary>How far in from the row's left edge the first chip starts: where the "goal" caption
         /// used to begin before it was dropped (issue #415), so the row still lines up with the card
         /// above it.</summary>
@@ -404,12 +425,14 @@ namespace MustyBlockBlast.Presentation.Views
                 limit -= _trailingInset + _trailingWidth + _chipSpacing;
             }
 
+            float chipScale = MeasureChipScale(tracked, objectiveCount, x, limit);
+
             bool isClipped = false;
             for (int slotIndex = 0; slotIndex < MAX_SLOT_COUNT; slotIndex++)
             {
                 ObjectiveProgress objective = !isClipped && slotIndex < objectiveCount ? tracked[slotIndex] : null;
 
-                x = RefreshChip(slotIndex, objective, x, limit, out bool isShown);
+                x = RefreshChip(slotIndex, objective, x, limit, chipScale, out bool isShown);
                 if (isShown)
                 {
                     _visibleSlotCount++;
@@ -445,11 +468,62 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         /// <summary>
-        /// Repaints and re-measures one chip, laid out from <paramref name="x"/>; returns the x the
-        /// next chip starts at. A chip whose right edge would pass <paramref name="limit"/> is hidden
-        /// instead, and <paramref name="isShown"/> says which happened.
+        /// How much the row has to shrink its chips for all of them to fit between <paramref name="x"/>
+        /// and <paramref name="limit"/>; 1 when they already do (issue #429).
+        /// <para>
+        /// A whole-row scale rather than a per-chip one: chips that are suddenly different sizes read as
+        /// a glitch, and it is the row as a whole that has run out of band. Measured before anything is
+        /// laid out because the widths are what decide the scale — the counter's text is set here for
+        /// that measurement and set again, identically, by <see cref="RefreshChip"/>.
+        /// </para>
         /// </summary>
-        private float RefreshChip(int slotIndex, ObjectiveProgress objective, float x, float limit, out bool isShown)
+        private float MeasureChipScale(
+            IReadOnlyList<ObjectiveProgress> tracked, int objectiveCount, float x, float limit)
+        {
+            if (objectiveCount <= 0)
+            {
+                return 1f;
+            }
+
+            float totalWidth = 0f;
+            for (int slotIndex = 0; slotIndex < objectiveCount; slotIndex++)
+            {
+                ObjectiveProgress objective = tracked[slotIndex];
+                Chip chip = _chips[slotIndex];
+
+                chip.ProgressText.text =
+                    FormatProgress(objective.CurrentValue, objective.Definition.TargetValue);
+                totalWidth += ChipWidth(chip, objective.IsComplete);
+            }
+
+            totalWidth += _chipSpacing * (objectiveCount - 1);
+
+            float available = limit - x;
+            if (totalWidth <= available || totalWidth <= 0f)
+            {
+                return 1f;
+            }
+
+            return Mathf.Max((available - CHIP_FIT_MARGIN) / totalWidth, MIN_CHIP_SCALE);
+        }
+
+        /// <summary>The natural (unscaled) width of a chip whose counter text is already set: icon,
+        /// counter, and the tick only when earned.</summary>
+        private float ChipWidth(Chip chip, bool isComplete)
+        {
+            float checkWidth = isComplete ? _chipGap + _checkSize : 0f;
+            return _chipPaddingLeft + _iconSize + _chipGap + chip.ProgressText.preferredWidth
+                + checkWidth + _chipPaddingRight;
+        }
+
+        /// <summary>
+        /// Repaints and re-measures one chip, laid out from <paramref name="x"/> at
+        /// <paramref name="chipScale"/>; returns the x the next chip starts at. A chip whose right edge
+        /// would pass <paramref name="limit"/> even so is hidden instead, and <paramref name="isShown"/>
+        /// says which happened.
+        /// </summary>
+        private float RefreshChip(
+            int slotIndex, ObjectiveProgress objective, float x, float limit, float chipScale, out bool isShown)
         {
             Chip chip = _chips[slotIndex];
             isShown = false;
@@ -502,12 +576,12 @@ namespace MustyBlockBlast.Presentation.Views
 
             // Left to right: icon, counter, and the tick only when earned — the chip grows to fit it.
             float progressWidth = chip.ProgressText.preferredWidth;
-            float checkWidth = isComplete ? _chipGap + _checkSize : 0f;
-            float chipWidth = _chipPaddingLeft + _iconSize + _chipGap + progressWidth + checkWidth + _chipPaddingRight;
+            float chipWidth = ChipWidth(chip, isComplete);
+            float laidOutWidth = chipWidth * chipScale;
 
             // Measured after the counter is set, since the text is what decides the width; a chip
             // that would run into the trailing group is cleared again rather than drawn under it.
-            if (x + chipWidth > limit)
+            if (x + laidOutWidth > limit)
             {
                 HideChip(chip);
                 return x;
@@ -519,7 +593,11 @@ namespace MustyBlockBlast.Presentation.Views
             chip.Root.sizeDelta = chipSize;
             chip.ShadowImage.rectTransform.sizeDelta = chipSize;
             chip.PlateImage.rectTransform.sizeDelta = chipSize;
-            chip.Root.anchoredPosition = new Vector2(x + (chipWidth * 0.5f), 0f);
+
+            // The chip is built at its natural size and scaled as a whole, so every inner position
+            // below stays in unscaled chip space and the row shrinks without any of it being re-laid.
+            chip.Root.localScale = new Vector3(chipScale, chipScale, 1f);
+            chip.Root.anchoredPosition = new Vector2(x + (laidOutWidth * 0.5f), 0f);
 
             float innerX = (-chipWidth * 0.5f) + _chipPaddingLeft;
             chip.IconSlotRect.anchoredPosition = new Vector2(innerX + (_iconSize * 0.5f), 0f);
@@ -528,7 +606,7 @@ namespace MustyBlockBlast.Presentation.Views
             innerX += progressWidth + _chipGap;
             chip.CheckRect.anchoredPosition = new Vector2(innerX + (_checkSize * 0.5f), 0f);
 
-            return x + chipWidth + _chipSpacing;
+            return x + laidOutWidth + (_chipSpacing * chipScale);
         }
 
         private static void HideChip(Chip chip)
