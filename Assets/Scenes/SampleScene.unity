@@ -2367,18 +2367,15 @@ MonoBehaviour:
   _anchoredPosition: {x: 0, y: 627}
   _rowSize: {x: 960, y: 80}
   _chipHeight: 80
-  _iconPlateSize: 66
-  _iconSize: 36
+  _iconSize: 70
   _checkSize: 40
   _chipPaddingLeft: 11
   _chipPaddingRight: 22
   _chipGap: 13
   _chipSpacing: 18
   _trailingInset: 30
-  _progressFontSize: 38
-  _captionFontSize: 28
+  _progressFontSize: 34
   _displayFont: {fileID: 12800000, guid: 0879445ee55bb4fc5bfdc99e4b94f899, type: 3}
-  _labelFont: {fileID: 12800000, guid: 6537f3bea187e4d82b1d0969d9d00fa6, type: 3}
 --- !u!1 &1552735300
 GameObject:
   m_ObjectHideFlags: 0

@@ -1,0 +1,770 @@
+<title>Path Trail Redesign</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;700;800&display=swap');
+
+  :root{
+    --page-bg:#F6F1E4;
+    --page-bg-soft:#EFE7D3;
+    --page-ink:#2B2620;
+    --page-ink-soft:#786F5E;
+    --page-card:#FFFFFF;
+    --page-line:#E3D9C2;
+    --page-accent:#C9762B;
+    --mono:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --page-bg:#1C1912;
+      --page-bg-soft:#242019;
+      --page-ink:#F0EAD9;
+      --page-ink-soft:#B4A98F;
+      --page-card:#252017;
+      --page-line:#3A3325;
+      --page-accent:#E3A25C;
+    }
+  }
+  :root[data-theme="dark"]{
+    --page-bg:#1C1912;
+    --page-bg-soft:#242019;
+    --page-ink:#F0EAD9;
+    --page-ink-soft:#B4A98F;
+    --page-card:#252017;
+    --page-line:#3A3325;
+    --page-accent:#E3A25C;
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    background:var(--page-bg);
+    color:var(--page-ink);
+    font-family:'Nunito',-apple-system,BlinkMacSystemFont,sans-serif;
+    padding:0 20px 96px;
+    line-height:1.5;
+  }
+
+  .masthead{
+    max-width:920px;
+    margin:0 auto;
+    padding-top:56px;
+    padding-bottom:36px;
+  }
+  .eyebrow{
+    font-family:var(--mono);
+    font-size:12.5px;
+    letter-spacing:.09em;
+    text-transform:uppercase;
+    color:var(--page-accent);
+    font-weight:700;
+    margin:0 0 14px;
+  }
+  h1{
+    font-family:'Fredoka',sans-serif;
+    font-weight:600;
+    font-size:clamp(30px,5vw,44px);
+    letter-spacing:-0.01em;
+    text-wrap:balance;
+    margin:0 0 14px;
+  }
+  .masthead p{
+    max-width:62ch;
+    color:var(--page-ink-soft);
+    font-size:16.5px;
+    margin:0 0 8px;
+  }
+  .masthead code, .note code{
+    font-family:var(--mono);
+    font-size:.92em;
+    background:var(--page-bg-soft);
+    border:1px solid var(--page-line);
+    border-radius:5px;
+    padding:1px 6px;
+  }
+
+  .issue-list{
+    max-width:920px;
+    margin:28px auto 0;
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+    gap:10px;
+  }
+  .issue-list li{
+    list-style:none;
+    background:var(--page-card);
+    border:1px solid var(--page-line);
+    border-radius:12px;
+    padding:14px 16px;
+    font-size:14px;
+    color:var(--page-ink-soft);
+  }
+  .issue-list b{
+    display:block;
+    color:var(--page-ink);
+    font-family:'Fredoka',sans-serif;
+    font-weight:600;
+    font-size:14px;
+    margin-bottom:3px;
+  }
+
+  section.board{
+    max-width:1180px;
+    margin:76px auto 0;
+  }
+  .board-head{
+    display:flex;
+    align-items:baseline;
+    gap:14px;
+    flex-wrap:wrap;
+    margin-bottom:22px;
+    padding-bottom:14px;
+    border-bottom:1px solid var(--page-line);
+  }
+  .board-tag{
+    font-family:var(--mono);
+    font-size:12px;
+    color:var(--page-card);
+    background:var(--page-ink);
+    padding:3px 9px;
+    border-radius:5px;
+    font-weight:700;
+    letter-spacing:.03em;
+  }
+  .board-head h2{
+    font-family:'Fredoka',sans-serif;
+    font-weight:600;
+    font-size:23px;
+    margin:0;
+  }
+  .board-head .sub{
+    color:var(--page-ink-soft);
+    font-size:14.5px;
+  }
+
+  .board-body{
+    display:grid;
+    grid-template-columns:min-content 1fr;
+    gap:36px;
+    align-items:start;
+  }
+  @media (max-width:760px){
+    .board-body{grid-template-columns:1fr;}
+  }
+
+  /* ---------- phone frame ---------- */
+  .phone{
+    width:300px;
+    border-radius:38px;
+    padding:12px;
+    background:linear-gradient(160deg,#2a2620,#141210);
+    box-shadow:0 18px 40px rgba(20,15,5,.28), 0 2px 8px rgba(20,15,5,.18);
+    flex:none;
+  }
+  .screen{
+    position:relative;
+    width:100%;
+    aspect-ratio:9/19.5;
+    border-radius:28px;
+    overflow:hidden;
+    background:#EADFC2;
+  }
+  .notch{
+    position:absolute;
+    top:8px; left:50%;
+    transform:translateX(-50%);
+    width:80px; height:18px;
+    background:#141210;
+    border-radius:10px;
+    z-index:30;
+  }
+
+  /* ---------- game card chrome ---------- */
+  .path-card{
+    position:absolute;
+    inset:7% 5%;
+    border-radius:34px;
+    background:#FDFCFB;
+    box-shadow:0 14px 0 rgba(23,15,25,.08);
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+  }
+  .path-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:16px 20px 8px;
+  }
+  .path-header .counter{
+    font-family:'Fredoka',sans-serif;
+    font-weight:600;
+    font-size:15px;
+    color:#336B1E;
+  }
+  .path-header .total{
+    font-family:'Fredoka',sans-serif;
+    font-weight:600;
+    font-size:11.5px;
+    color:#336B1E;
+    background:#EFEAE0;
+    padding:3px 9px;
+    border-radius:20px;
+  }
+
+  /* floating circular close button, matching InfoCardChrome */
+  .close-fab{
+    position:absolute;
+    top:-6px; right:-6px;
+    width:38px; height:38px;
+    border-radius:50%;
+    background:#FDFCFB;
+    box-shadow:0 5px 0 rgba(23,15,25,.10), 0 2px 6px rgba(23,15,25,.14);
+    z-index:20;
+  }
+  .close-fab::before, .close-fab::after{
+    content:'';
+    position:absolute;
+    top:50%; left:50%;
+    width:15px; height:2.6px;
+    background:#336B1E;
+    border-radius:2px;
+  }
+  .close-fab::before{transform:translate(-50%,-50%) rotate(45deg);}
+  .close-fab::after{transform:translate(-50%,-50%) rotate(-45deg);}
+
+  .trail-viewport{
+    position:relative;
+    flex:1;
+    margin:0 3.5% 3.5%;
+    border-radius:24px;
+    overflow:hidden;
+  }
+  /* Exactly today's flat per-zone band colour (LevelPathPanelView.MeadowZoneColour) — kept as-is,
+     not reinterpreted. Only the scroll order and what sits on top of it changes. */
+  .trail-viewport.meadow{
+    background:#EDDE9E;
+  }
+  .trail-viewport svg{position:absolute; inset:0; width:100%; height:100%; z-index:2;}
+
+  /* ---------- zone scenery (issue #278 sprites, kept — just re-tinted onto the continuous
+     ground->sky gradient instead of sitting on a flat zone band) ---------- */
+  .scenery{position:absolute; inset:0; z-index:1; pointer-events:none; overflow:hidden;}
+  .hill{
+    position:absolute;
+    border-radius:50% 50% 0 0 / 60% 60% 0 0;
+    background:rgba(160,196,120,.55);
+  }
+  .tree{position:absolute; width:26px; height:34px;}
+  .tree .canopy{
+    position:absolute; top:0; left:50%; transform:translateX(-50%);
+    width:24px; height:24px; border-radius:50%;
+    background:rgba(102,187,106,.65);
+    box-shadow:-7px 6px 0 -3px rgba(102,187,106,.5), 7px 6px 0 -3px rgba(102,187,106,.5);
+  }
+  .tree .trunk{
+    position:absolute; bottom:0; left:50%; transform:translateX(-50%);
+    width:5px; height:14px; border-radius:2px;
+    background:rgba(120,80,30,.45);
+  }
+  .river{
+    position:absolute;
+    height:22px;
+    background:rgba(63,143,214,.45);
+    border-radius:14px;
+    transform:rotate(-7deg);
+  }
+  .bridge{
+    position:absolute;
+    width:30px; height:11px;
+    border-radius:3px;
+    background:rgba(120,80,30,.4);
+    box-shadow:0 -3px 0 -1px rgba(120,80,30,.4), 0 3px 0 -1px rgba(120,80,30,.4);
+  }
+
+  .node{
+    position:absolute;
+    z-index:3;
+    width:15.5%;
+    aspect-ratio:1;
+    transform:translate(-50%,-50%);
+    display:flex; align-items:center; justify-content:center;
+    border-radius:50%;
+  }
+  .node .plate{
+    position:absolute; inset:0;
+    border-radius:50%;
+    box-shadow:0 5px 0 rgba(23,15,25,.16), 0 1px 4px rgba(23,15,25,.12);
+  }
+  .node .num{
+    position:relative;
+    font-family:'Fredoka',sans-serif;
+    font-weight:700;
+    font-size:15px;
+    color:#fff;
+    text-shadow:0 1.5px 0 rgba(0,0,0,.14);
+  }
+  .node.locked{opacity:.4;}
+  .node.locked .num{color:#5c5342;}
+  .node.locked .plate{background:#EFEAE0 !important; box-shadow:0 4px 0 rgba(23,15,25,.10);}
+  .node.current{width:19%;}
+  .node.current .plate{
+    background:#E0A72E !important;
+    box-shadow:0 0 0 4px #FDFCFB, 0 6px 0 rgba(23,15,25,.18), 0 0 0 8px rgba(224,167,46,.28);
+  }
+  .node.current .num{font-size:17px;}
+  .node .done-dot{
+    position:absolute;
+    width:22%; height:22%;
+    top:6%; right:6%;
+    border-radius:50%;
+    background:#E0A72E;
+    box-shadow:0 0 0 2.5px #fff;
+  }
+  .node .reward{
+    position:absolute;
+    width:26%; height:26%;
+    bottom:2%; left:-2%;
+    border-radius:50%;
+    background:#7A4FBF;
+    box-shadow:0 0 0 2.5px #fff;
+    display:flex; align-items:center; justify-content:center;
+    font-size:9px;
+  }
+
+  .desc-strip{
+    padding:12px 22px 18px;
+    text-align:center;
+  }
+  .desc-strip .label{
+    font-family:'Fredoka',sans-serif;
+    font-weight:600;
+    font-size:12.5px;
+    color:#336B1E;
+    margin-bottom:2px;
+  }
+  .desc-strip .sub{
+    font-size:10.5px;
+    color:#8a8272;
+  }
+  .desc-strip.hint{
+    display:flex; align-items:center; justify-content:center; gap:6px;
+    padding:11px 22px 16px;
+  }
+  .desc-strip.hint .dot{
+    width:5px;height:5px;border-radius:50%;background:#E0A72E;
+  }
+  .desc-strip.hint span{
+    font-family:'Fredoka',sans-serif;
+    font-weight:600;
+    font-size:11.5px;
+    color:#8a8272;
+  }
+
+  .caption{
+    max-width:340px;
+    font-size:12.5px;
+    color:var(--page-ink-soft);
+    text-align:center;
+    margin-top:12px;
+  }
+
+  /* ---------- notes column ---------- */
+  .notes{display:flex; flex-direction:column; gap:14px;}
+  .note{
+    background:var(--page-card);
+    border:1px solid var(--page-line);
+    border-radius:14px;
+    padding:16px 18px;
+  }
+  .note h3{
+    font-family:'Fredoka',sans-serif;
+    font-weight:600;
+    font-size:14.5px;
+    margin:0 0 6px;
+    display:flex; align-items:center; gap:7px;
+  }
+  .note h3 .chip{
+    font-family:var(--mono);
+    font-size:10.5px;
+    background:var(--page-bg-soft);
+    border:1px solid var(--page-line);
+    color:var(--page-ink-soft);
+    padding:1px 7px;
+    border-radius:20px;
+    font-weight:700;
+  }
+  .note p{margin:0 0 6px; font-size:13.5px; color:var(--page-ink-soft);}
+  .note p:last-child{margin-bottom:0;}
+  .note .impl{
+    font-size:12.5px;
+    color:var(--page-ink-soft);
+    border-top:1px dashed var(--page-line);
+    margin-top:10px;
+    padding-top:9px;
+  }
+  .note .impl b{color:var(--page-ink); font-weight:700;}
+
+  .swatch-row{display:flex; gap:6px; margin:8px 0 4px; flex-wrap:wrap;}
+  .swatch{
+    width:22px;height:22px;border-radius:7px;
+    box-shadow:inset 0 0 0 1px rgba(0,0,0,.08);
+  }
+
+  /* ---------- reference board (current state) ---------- */
+  .ref-wrap{
+    display:flex; gap:22px; align-items:flex-start; flex-wrap:wrap;
+  }
+  .ref-shot{
+    width:230px;
+  }
+  .ref-shot .screen{background:#EADFC2;}
+  .ref-card{
+    position:absolute; inset:7% 5%;
+    border-radius:22px;
+    background:#FDFCFB;
+    box-shadow:0 14px 0 rgba(23,15,25,.08);
+    padding:14px 16px;
+  }
+  .ref-close{
+    position:absolute; top:10px; right:10px;
+    width:30px; height:30px;
+    border-radius:9px;
+    background:#F1ECE1;
+  }
+  .ref-close::before, .ref-close::after{
+    content:''; position:absolute; top:50%; left:50%;
+    width:13px; height:2.4px; background:#336B1E; border-radius:2px;
+  }
+  .ref-close::before{transform:translate(-50%,-50%) rotate(45deg);}
+  .ref-close::after{transform:translate(-50%,-50%) rotate(-45deg);}
+  .ref-nodes{
+    margin-top:44px;
+    display:flex; flex-direction:column; gap:14px; align-items:center;
+  }
+  .ref-node{
+    width:46px; height:46px; border-radius:10px;
+    background:#F4EFE4;
+    box-shadow:0 4px 0 rgba(23,15,25,.10);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:1px;
+  }
+  .ref-node .icon{width:16px;height:16px;border-radius:4px;background:#C9762B;}
+  .ref-node .n{font-family:'Fredoka',sans-serif; font-size:9px; font-weight:700; color:#6b6252;}
+  .ref-node:nth-child(1){align-self:flex-start; margin-left:20px;}
+  .ref-node:nth-child(2){align-self:flex-end; margin-right:20px;}
+  .ref-node:nth-child(3){align-self:flex-start; margin-left:20px;}
+  .ref-desc{
+    position:absolute; bottom:6px; left:8px; right:8px;
+    font-size:8px; color:#8a8272; text-align:center;
+    border-top:1px dashed #E3D9C2; padding-top:5px;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .callouts{
+    flex:1;
+    min-width:260px;
+    display:flex; flex-direction:column; gap:10px;
+  }
+  .callout{
+    display:flex; gap:10px;
+    font-size:13.5px;
+    color:var(--page-ink-soft);
+  }
+  .callout .num{
+    flex:none;
+    width:22px;height:22px;border-radius:50%;
+    background:var(--page-ink);
+    color:var(--page-card);
+    font-family:var(--mono);
+    font-size:11.5px; font-weight:700;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .callout b{color:var(--page-ink);}
+
+  /* detail board node states */
+  .detail-row{
+    display:flex; gap:26px; flex-wrap:wrap; justify-content:center;
+    padding:34px 20px;
+    border-radius:24px;
+    background:#EDDE9E;
+  }
+  .detail-node{
+    display:flex; flex-direction:column; align-items:center; gap:10px;
+  }
+  .detail-node .plate-wrap{
+    position:relative;
+    width:88px; height:88px;
+  }
+  .detail-node .plate{
+    position:absolute; inset:0; border-radius:50%;
+    box-shadow:0 6px 0 rgba(23,15,25,.16), 0 1px 5px rgba(23,15,25,.12);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .detail-node .num{
+    font-family:'Fredoka',sans-serif; font-weight:700; font-size:26px; color:#fff;
+    text-shadow:0 2px 0 rgba(0,0,0,.14);
+  }
+  .detail-node .lbl{
+    font-family:'Fredoka',sans-serif; font-weight:600; font-size:12.5px; color:#3a3222;
+    background:rgba(255,255,255,.72);
+    padding:2px 10px; border-radius:20px;
+  }
+  .detail-node .done-dot{
+    position:absolute; width:24px; height:24px; top:-2px; right:-2px;
+    border-radius:50%; background:#E0A72E; box-shadow:0 0 0 3px #fff;
+  }
+  .detail-node .reward{
+    position:absolute; width:28px; height:28px; bottom:-4px; left:-6px;
+    border-radius:50%; background:#7A4FBF; box-shadow:0 0 0 3px #fff;
+    display:flex; align-items:center; justify-content:center; color:#fff; font-size:13px;
+  }
+  .detail-node.locked .plate{background:#DCD4BE !important; box-shadow:0 5px 0 rgba(23,15,25,.10);}
+  .detail-node.locked .num{color:#8a8272; text-shadow:none;}
+  .detail-node.current .plate-wrap{width:98px; height:98px;}
+  .detail-node.current .plate{background:#E0A72E !important; box-shadow:0 0 0 5px #FDFCFB, 0 7px 0 rgba(23,15,25,.18);}
+
+  footer{
+    max-width:920px;
+    margin:80px auto 0;
+    padding-top:22px;
+    border-top:1px solid var(--page-line);
+    font-size:13px;
+    color:var(--page-ink-soft);
+  }
+</style>
+
+<div class="masthead">
+  <p class="eyebrow">Mockup · Issue #416 · Level Path</p>
+  <h1>Fixing the trail so it reads as a walk, not a checklist</h1>
+  <p>
+    Four targeted fixes to the Path screen shipped in #143: match the info-popup close button,
+    swap the square objective-icon nodes for round number badges in cycling theme colours,
+    resolve the overflowing description at the card's foot, and reverse the scroll so level 1
+    starts at the ground and the walk climbs toward the sky.
+  </p>
+  <p>Grounded in <code>LevelPathPanelView.cs</code>, <code>InfoCardChrome.cs</code> and the
+    İlkbahar <code>ThemeDefinition</code> asset — no new colours, no new font asset assumed
+    beyond what <code>LevelPathButtonView</code> already declares slots for.</p>
+
+  <ul class="issue-list">
+    <li><b>1 · Close button</b>Match the floating circular info-popup close plate</li>
+    <li><b>2 · Nodes</b>Round, bold number, no objective icon, colour cycles per level</li>
+    <li><b>3 · Description</b>Fix the overflow — shown both kept and dropped</li>
+    <li><b>4 · Scroll</b>Bottom-to-top, ground-to-sky feeling</li>
+  </ul>
+</div>
+
+<section class="board">
+  <div class="board-head">
+    <span class="board-tag">REF</span>
+    <h2>What's on screen today</h2>
+    <span class="sub">for comparison only — not to scale</span>
+  </div>
+  <div class="ref-wrap">
+    <div class="phone ref-shot">
+      <div class="screen">
+        <div class="notch"></div>
+        <div class="ref-card">
+          <div class="ref-close"></div>
+          <div class="ref-nodes">
+            <div class="ref-node"><div class="icon"></div><div class="n">6</div></div>
+            <div class="ref-node"><div class="icon"></div><div class="n">7</div></div>
+            <div class="ref-node"><div class="icon"></div><div class="n">8</div></div>
+          </div>
+          <div class="ref-desc">"Clear 3 rows and 2 columns before you run out of moves…"</div>
+        </div>
+      </div>
+    </div>
+    <div class="callouts">
+      <div class="callout"><span class="num">1</span><span><b>Close button</b> is a flush square plate in the corner — the rest of the game's overlays (power-up, cell, objective info) use a floating circular plate instead, so this card reads as a different family.</span></div>
+      <div class="callout"><span class="num">2</span><span><b>Nodes</b> are square plates dominated by the objective-type icon; the level number is squeezed small underneath. Every node in view carries a different icon shape, which reads as clutter rather than a path.</span></div>
+      <div class="callout"><span class="num">3</span><span><b>Description</b> sits pinned to the card's bottom edge as a single line — a full objective sentence routinely runs past the card width on a real device.</span></div>
+      <div class="callout"><span class="num">4</span><span><b>Scroll</b> starts at level 1 at the top and descends — visually flat, no sense of distance or of the player advancing "forward".</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="board">
+  <div class="board-head">
+    <span class="board-tag">A</span>
+    <h2>Main proposal — description kept</h2>
+    <span class="sub">round nodes · ground→sky trail · floating close button</span>
+  </div>
+  <div class="board-body">
+    <div>
+      <div class="phone">
+        <div class="screen">
+          <div class="notch"></div>
+          <div class="path-card">
+            <div class="close-fab"></div>
+            <div class="path-header">
+              <span class="counter">Bölüm 24 / 60</span>
+              <span class="total">★ 18.420</span>
+            </div>
+            <div class="trail-viewport meadow">
+              <div class="scenery">
+                <div class="hill" style="width:180px; height:60px; left:-30px; bottom:-10px;"></div>
+                <div class="hill" style="width:140px; height:44px; right:-24px; bottom:2px;"></div>
+                <div class="river" style="width:120px; left:-10px; top:60%;"></div>
+                <div class="bridge" style="left:46%; top:57%; transform:rotate(-7deg);"></div>
+                <div class="tree" style="left:12%; top:82%;"><div class="canopy"></div><div class="trunk"></div></div>
+                <div class="tree" style="right:10%; top:30%;"><div class="canopy"></div><div class="trunk"></div></div>
+                <div class="tree" style="left:8%; top:14%;"><div class="canopy"></div><div class="trunk"></div></div>
+              </div>
+              <svg viewBox="0 0 300 460" preserveAspectRatio="none">
+                <path d="M 150 440 C 90 400, 90 380, 150 350 C 210 320, 210 300, 150 270 C 90 240, 90 220, 150 190 C 210 160, 210 140, 150 110 C 100 84, 100 60, 150 30"
+                  fill="none" stroke="#FFFFFF" stroke-opacity=".55" stroke-width="14" stroke-linecap="round"/>
+              </svg>
+              <div class="node locked" style="left:50%; top:95.5%;"><div class="plate" style="background:#3F8FD6;"></div><div class="num">21</div></div>
+              <div class="node locked" style="left:30%; top:76%;"><div class="plate" style="background:#F0629B;"></div><div class="num">22</div><div class="reward">🎁</div></div>
+              <div class="node locked" style="left:70%; top:58.5%;"><div class="plate" style="background:#F2B03C;"></div><div class="num">23</div></div>
+              <div class="node current" style="left:50%; top:41%;"><div class="plate"></div><div class="num">24</div></div>
+              <div class="node locked" style="left:33%; top:23%;"><div class="plate" style="background:#BA68C8;"></div><div class="num">25</div></div>
+              <div class="node locked" style="left:50%; top:6.5%;"><div class="plate" style="background:#66BB6A;"></div><div class="num">26</div></div>
+            </div>
+            <div class="desc-strip">
+              <div class="label">3×3 kırma alanı temizle</div>
+              <div class="sub">18 hamle içinde tamamla</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="caption">Background is exactly today's flat per-zone band colour and scenery (Meadow shown here) — untouched. Only the trail on top of it changes: round nodes, the info-popup close button, and level 1 starting at the bottom instead of the top.</p>
+    </div>
+    <div class="notes">
+      <div class="note">
+        <h3>Close button <span class="chip">fix 1</span></h3>
+        <p>Swapped the flush square plate for the same floating circular plate + drop shadow + theme-ink × used across every other overlay.</p>
+        <p class="impl"><b>Unity:</b> stop hand-rolling <code>BuildCloseButton</code> in <code>LevelPathPanelView</code>; call <code>InfoCardChrome.CreateCloseButton</code> / <code>PositionCloseButton</code> against this card's own <code>_cardRect</code> instead, same as <code>InfoPopupView</code> already does.</p>
+      </div>
+      <div class="note">
+        <h3>Nodes <span class="chip">fix 2</span></h3>
+        <p>Circle plate, no objective glyph. Level number in Fredoka Bold, large and centred — the one thing every node needs to communicate at a glance while scrolling fast.</p>
+        <div class="swatch-row">
+          <div class="swatch" style="background:#F0629B"></div>
+          <div class="swatch" style="background:#66BB6A"></div>
+          <div class="swatch" style="background:#BA68C8"></div>
+          <div class="swatch" style="background:#F2B03C"></div>
+          <div class="swatch" style="background:#3F8FD6"></div>
+        </div>
+        <p>Colour cycles through the game's own 5-slot kind palette — the same set the block pieces and the Path pill's disc already use — so no new hue enters the game.</p>
+        <p class="impl"><b>Unity:</b> <code>ConfigureCircle</code> instead of <code>ConfigureRounded</code> for the plate; drop the objective <code>Image</code> build entirely; <code>node.PlateImage.color = theme.GetFill((levelNumber - 1) % 5)</code>, current node still overrides to <code>theme.Accent</code>. Done-dot and reward badge keep their existing corner logic.</p>
+      </div>
+      <div class="note">
+        <h3>Description <span class="chip">fix 3, kept</span></h3>
+        <p>Split into a bold one-line objective label plus a smaller move/target line beneath, both centred and each independently truncated with an ellipsis rather than one long sentence that can overflow.</p>
+        <p class="impl"><b>Unity:</b> reuse <code>ObjectiveDescriptionFormatter</code> but request two shorter strings (or split the existing one on its first clause) instead of one <code>Text</code>; keep <code>horizontalOverflow = Wrap</code> as the true fallback if a locale still runs long.</p>
+      </div>
+      <div class="note">
+        <h3>Scroll direction <span class="chip">fix 4</span></h3>
+        <p>Level 1 anchored at the content's bottom; <code>ScrollTo</code> now measures depth from the bottom edge. Opening the card still centres on the player's current node — jumping "up" the walk instead of "down" it.</p>
+        <p class="impl"><b>Unity:</b> <code>LevelPathTrailLayout.WaypointOf</code> keeps the same sine sweep but content is anchored bottom (<code>anchorMin/Max = (0.5, 0)</code>, <code>pivot = (0.5, 0)</code>) instead of top; <code>ScrollTo</code>'s depth becomes <code>content height − node depth</code>.</p>
+      </div>
+      <div class="note">
+        <h3>Zone scenery <span class="chip">unchanged</span></h3>
+        <p>Confirmed after the first pass overcorrected this: the flat per-zone band colour and every scenery sprite (hills, river+bridge, trees for Meadow; mountains/pine/cloud for Winter; skyline/stadium/streetlamp for City; bakery/school/tree for Neighborhood) stay exactly as implemented — <code>BuildScenery</code>, <code>BuildZoneBand</code>, <code>ZoneColour</code> and <code>LevelPathZones</code> are untouched by this issue.</p>
+        <p class="impl"><b>Unity:</b> no changes here. Only <code>ContentY</code>'s sense of direction flips with fix 4 (bottom-anchored content), which <code>BuildScenery</code> already computes from — the band boundaries and sprite offsets fall out of that unchanged.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="board">
+  <div class="board-head">
+    <span class="board-tag">B</span>
+    <h2>Variant — description dropped</h2>
+    <span class="sub">compact hint line, trail gets the reclaimed height</span>
+  </div>
+  <div class="board-body">
+    <div>
+      <div class="phone">
+        <div class="screen">
+          <div class="notch"></div>
+          <div class="path-card">
+            <div class="close-fab"></div>
+            <div class="path-header">
+              <span class="counter">Bölüm 24 / 60</span>
+              <span class="total">★ 18.420</span>
+            </div>
+            <div class="trail-viewport meadow" style="margin-bottom:2.5%;">
+              <div class="scenery">
+                <div class="hill" style="width:170px; height:56px; left:-26px; bottom:-8px;"></div>
+                <div class="hill" style="width:130px; height:40px; right:-20px; bottom:4px;"></div>
+                <div class="river" style="width:110px; left:-8px; top:64%;"></div>
+                <div class="bridge" style="left:44%; top:61%; transform:rotate(-7deg);"></div>
+                <div class="tree" style="left:10%; top:86%;"><div class="canopy"></div><div class="trunk"></div></div>
+                <div class="tree" style="right:8%; top:36%;"><div class="canopy"></div><div class="trunk"></div></div>
+                <div class="tree" style="left:6%; top:18%;"><div class="canopy"></div><div class="trunk"></div></div>
+                <div class="tree" style="right:14%; top:4%;"><div class="canopy"></div><div class="trunk"></div></div>
+              </div>
+              <svg viewBox="0 0 300 500" preserveAspectRatio="none">
+                <path d="M 150 480 C 90 440, 90 420, 150 390 C 210 360, 210 335, 150 305 C 90 275, 90 250, 150 220 C 210 190, 210 165, 150 135 C 100 108, 100 80, 150 50 C 195 26, 195 12, 150 4"
+                  fill="none" stroke="#FFFFFF" stroke-opacity=".55" stroke-width="14" stroke-linecap="round"/>
+              </svg>
+              <div class="node locked" style="left:50%; top:96.5%;"><div class="plate" style="background:#3F8FD6;"></div><div class="num">21</div></div>
+              <div class="node locked" style="left:30%; top:80%;"><div class="plate" style="background:#F0629B;"></div><div class="num">22</div><div class="reward">🎁</div></div>
+              <div class="node locked" style="left:70%; top:64%;"><div class="plate" style="background:#F2B03C;"></div><div class="num">23</div></div>
+              <div class="node current" style="left:50%; top:48%;"><div class="plate"></div><div class="num">24</div></div>
+              <div class="node locked" style="left:33%; top:32%;"><div class="plate" style="background:#BA68C8;"></div><div class="num">25</div></div>
+              <div class="node locked" style="left:50%; top:16%;"><div class="plate" style="background:#66BB6A;"></div><div class="num">26</div></div>
+              <div class="node locked" style="left:70%; top:3%;"><div class="plate" style="background:#3F8FD6;"></div><div class="num">27</div></div>
+            </div>
+            <div class="desc-strip hint"><div class="dot"></div><span>Devam etmek için bir bölüme dokun</span></div>
+          </div>
+        </div>
+      </div>
+      <p class="caption">Same background as today (flat per-zone band + scenery, untouched). Same card height, one more row of trail visible than board A. The per-level goal moves entirely onto the in-run HUD chip, which already shows it once a run starts.</p>
+    </div>
+    <div class="notes">
+      <div class="note">
+        <h3>Trade-off</h3>
+        <p>Drops the only place a player can preview a level's goal <i>before</i> committing to it — they'd learn the objective only after tapping a node and reaching <code>CoinSowerPickerView</code> or the run itself.</p>
+        <p>Simpler to build and guaranteed never to overflow, since it's a short fixed phrase from the String Table rather than a formatted objective sentence.</p>
+      </div>
+      <div class="note">
+        <h3>Recommendation</h3>
+        <p>Keep board A's two-line split unless the goal preview genuinely isn't valued — it's the smaller change from what exists, and it keeps information the current screen already promises the player.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="board">
+  <div class="board-head">
+    <span class="board-tag">C</span>
+    <h2>Node states, up close</h2>
+    <span class="sub">locked · current · cleared · milestone reward</span>
+  </div>
+  <div class="detail-row">
+    <div class="detail-node locked">
+      <div class="plate-wrap"><div class="plate"><div class="num">31</div></div></div>
+      <div class="lbl">Locked</div>
+    </div>
+    <div class="detail-node">
+      <div class="plate-wrap">
+        <div class="plate" style="background:#66BB6A;"><div class="num">29</div></div>
+        <div class="done-dot"></div>
+      </div>
+      <div class="lbl">Cleared</div>
+    </div>
+    <div class="detail-node current">
+      <div class="plate-wrap"><div class="plate"><div class="num">30</div></div></div>
+      <div class="lbl">Current</div>
+    </div>
+    <div class="detail-node">
+      <div class="plate-wrap">
+        <div class="plate" style="background:#F0629B;"><div class="num">32</div></div>
+        <div class="reward">🎁</div>
+      </div>
+      <div class="lbl">Milestone reward</div>
+    </div>
+  </div>
+  <div class="notes" style="margin-top:18px;">
+    <div class="note">
+      <h3>Contrast rule</h3>
+      <p>Locked stays the existing 0.35 alpha dim — same rule <code>PowerUpInventoryView</code> uses for an empty slot, unchanged by this issue. Cleared and upcoming nodes at full alpha read clearly against every zone's ground→sky range because the kind-fill palette is already tuned against the pastel card background, not against a specific zone colour.</p>
+      <p class="impl"><b>Unity:</b> current node keeps its existing 1.08× scale and accent-plate override from <code>RefreshNode</code>; only the plate shape, icon removal and colour-cycling logic change.</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  Mockup only — no code or Unity assets changed. Fonts shown: <b>Fredoka</b> (numbers, headers, labels) paired with <b>Nunito</b> (body copy on this page); in-engine, either maps to the existing <code>_displayFont</code>/<code>_labelFont</code> slots already declared on <code>LevelPathButtonView</code>, or ships as new TMP/Font assets if those stay unset.
+</footer>

@@ -3,7 +3,6 @@ using System.Text;
 using MessagePipe;
 using MustyBlockBlast.Core;
 using MustyBlockBlast.Gameplay;
-using MustyBlockBlast.Gameplay.Localization;
 using MustyBlockBlast.Gameplay.Messages;
 using MustyBlockBlast.Gameplay.Models;
 using Mtafasahin.Reactive;
@@ -16,10 +15,17 @@ using VContainer;
 namespace MustyBlockBlast.Presentation.Views
 {
     /// <summary>
-    /// The run's objectives as the goal row under the score card (issue #265): a "goal" caption,
-    /// then one chip per objective the current level asks for — a
-    /// card-coloured pill holding a kind-tinted plate with the objective's silhouette, a "2/5" counter
-    /// in the display face, and a green tick disc once that objective is done.
+    /// The run's objectives as the goal row under the score card (issue #265): one chip per objective
+    /// the current level asks for — a card-coloured pill holding the objective's icon at full size, a
+    /// "2/5" counter in the display face, and a green tick disc once that objective is done.
+    /// <para>
+    /// The icon sits straight on the chip's own pill, with no tinted plate behind it (issue #415): the
+    /// authored art is full-colour illustration rather than a flat silhouette, so shrinking it onto a
+    /// second coloured plate made it unreadable, and the plate's colour — assigned by slot order —
+    /// carried no meaning to read in the first place. The one case where colour did mean something,
+    /// a diamond goal's gem colour, now tints the icon itself, exactly as
+    /// <see cref="ObjectiveInfoPopupView"/> tints its hero icon.
+    /// </para>
     /// <para>
     /// A level may carry several objectives at once (<see cref="ObjectiveModel.TrackedObjectives"/>),
     /// and a sentence per objective would not fit the HUD — a chip does, and the full wording is one
@@ -62,15 +68,13 @@ namespace MustyBlockBlast.Presentation.Views
         /// </summary>
         private const int MAX_SLOT_COUNT = 5;
 
-        /// <summary>Which theme kind each chip's plate takes, by slot: the mockup's teal, purple, gold
-        /// order first, so three chips on the spring theme match the design exactly.</summary>
-        private static readonly int[] KindBySlot = { 2, 4, 3, 1, 5 };
-
         /// <summary>Which theme kind the tick disc takes: the fifth kind — every season's green.</summary>
         private const int CHECK_KIND = 5;
 
-        /// <summary>Corner radius of a chip's inner kind-tinted plate: the mockup's 9px on a 30px plate.</summary>
-        private const float ICON_PLATE_RADIUS = 20f;
+        /// <summary>How far in from the row's left edge the first chip starts: where the "goal" caption
+        /// used to begin before it was dropped (issue #415), so the row still lines up with the card
+        /// above it.</summary>
+        private const float LEADING_INSET = 4f;
 
         [Header("Layout")]
         [Tooltip("Centre of the row, in reference pixels from the canvas centre. The band under the score card.")]
@@ -78,14 +82,15 @@ namespace MustyBlockBlast.Presentation.Views
 
         [SerializeField] private Vector2 _rowSize = new Vector2(960f, 80f);
         [SerializeField] private float _chipHeight = 80f;
-        [SerializeField] private float _iconPlateSize = 66f;
-        [SerializeField] private float _iconSize = 36f;
+        [Tooltip("Side of the objective icon, in reference pixels. The chip's dominant element now that " +
+            "nothing sits behind it (issue #415).")]
+        [SerializeField] private float _iconSize = 70f;
         [SerializeField] private float _checkSize = 40f;
         [SerializeField] private float _chipPaddingLeft = 11f;
         [SerializeField] private float _chipPaddingRight = 22f;
         [SerializeField] private float _chipGap = 13f;
 
-        [Tooltip("Gap between the caption and the first chip, and between chips.")]
+        [Tooltip("Gap between chips, and between the last chip and the trailing group.")]
         [SerializeField] private float _chipSpacing = 18f;
 
         [Tooltip("How far in from the row's right edge the trailing group ends, in reference pixels: " +
@@ -93,15 +98,11 @@ namespace MustyBlockBlast.Presentation.Views
             "half its diameter, to stay inside the score card's edge (issue #269).")]
         [SerializeField] private float _trailingInset = 30f;
 
-        [SerializeField] private int _progressFontSize = 38;
-        [SerializeField] private int _captionFontSize = 28;
+        [SerializeField] private int _progressFontSize = 34;
 
         [Header("Art")]
         [Tooltip("The chunky display face for the counters. Falls back to the builtin font when unassigned.")]
         [SerializeField] private Font _displayFont;
-
-        [Tooltip("The heavy label face for the small uppercase caption. Falls back to the builtin font when unassigned.")]
-        [SerializeField] private Font _labelFont;
 
         private readonly CompositeDisposable _disposables = new CompositeDisposable();
         private readonly StringBuilder _stringBuilder = new StringBuilder(8);
@@ -111,8 +112,6 @@ namespace MustyBlockBlast.Presentation.Views
         private SettingsModel _settingsModel;
         private ObjectiveIconCatalog _iconCatalog;
         private DoubleMultiplierModel _doubleMultiplierModel;
-        private LocalizationModel _localizationModel;
-        private LocalizationSystem _localizationSystem;
         private GameModeSystem _gameModeSystem;
         private ISubscriber<ObjectiveProgressChangedMessage> _progressChangedSubscriber;
         private ISubscriber<ObjectiveCompletedMessage> _completedSubscriber;
@@ -123,8 +122,6 @@ namespace MustyBlockBlast.Presentation.Views
         private RectTransform _rowRect;
         private RectTransform _trailingSlot;
         private RectTransform _centreSlot;
-        private Text _captionText;
-        private RectTransform _captionRect;
         private ThemeDefinition _currentTheme;
 
         /// <summary>How many chips are currently showing an objective. Read by the hit test so a tap on
@@ -145,8 +142,7 @@ namespace MustyBlockBlast.Presentation.Views
                 RectTransform root,
                 Image shadowImage,
                 Image plateImage,
-                RectTransform iconPlateRect,
-                Image iconPlateImage,
+                RectTransform iconSlotRect,
                 RectTransform glyphRoot,
                 Image iconImage,
                 Text progressText,
@@ -157,8 +153,7 @@ namespace MustyBlockBlast.Presentation.Views
                 Root = root;
                 ShadowImage = shadowImage;
                 PlateImage = plateImage;
-                IconPlateRect = iconPlateRect;
-                IconPlateImage = iconPlateImage;
+                IconSlotRect = iconSlotRect;
                 GlyphRoot = glyphRoot;
                 IconImage = iconImage;
                 ProgressText = progressText;
@@ -177,14 +172,15 @@ namespace MustyBlockBlast.Presentation.Views
 
             internal Image PlateImage { get; }
 
-            internal RectTransform IconPlateRect { get; }
-
-            internal Image IconPlateImage { get; }
+            /// <summary>Where the icon sits inside the chip. A bare positioning rect — it draws
+            /// nothing, since the icon has no plate behind it any more (issue #415).</summary>
+            internal RectTransform IconSlotRect { get; }
 
             internal RectTransform GlyphRoot { get; }
 
-            /// <summary>The authored silhouette, when the catalog has one for the chip's type. Listed
-            /// among <see cref="GlyphInkImages"/> while in use so it is tinted like any other ink.</summary>
+            /// <summary>The authored icon, when the catalog has one for the chip's type. Full-colour
+            /// art rendered as-is, so it is NOT listed among <see cref="GlyphInkImages"/> — only the
+            /// diamond goal's white gem silhouette is tinted, and in its own colour.</summary>
             internal Image IconImage { get; }
 
             internal Text ProgressText { get; }
@@ -240,8 +236,6 @@ namespace MustyBlockBlast.Presentation.Views
             SettingsModel settingsModel,
             ObjectiveIconCatalog iconCatalog,
             DoubleMultiplierModel doubleMultiplierModel,
-            LocalizationModel localizationModel,
-            LocalizationSystem localizationSystem,
             GameModeSystem gameModeSystem,
             ISubscriber<ObjectiveProgressChangedMessage> progressChangedSubscriber,
             ISubscriber<ObjectiveCompletedMessage> completedSubscriber,
@@ -251,8 +245,6 @@ namespace MustyBlockBlast.Presentation.Views
             _settingsModel = settingsModel;
             _iconCatalog = iconCatalog;
             _doubleMultiplierModel = doubleMultiplierModel;
-            _localizationModel = localizationModel;
-            _localizationSystem = localizationSystem;
             _gameModeSystem = gameModeSystem;
             _progressChangedSubscriber = progressChangedSubscriber;
             _completedSubscriber = completedSubscriber;
@@ -278,7 +270,7 @@ namespace MustyBlockBlast.Presentation.Views
         {
             if (_objectiveModel == null || _settingsModel == null || _iconCatalog == null
                 || _doubleMultiplierModel == null
-                || _localizationModel == null || _localizationSystem == null || _gameModeSystem == null
+                || _gameModeSystem == null
                 || _progressChangedSubscriber == null || _completedSubscriber == null
                 || _runStartedSubscriber == null)
             {
@@ -291,7 +283,6 @@ namespace MustyBlockBlast.Presentation.Views
             // Subscribed first so _currentTheme is set before the first Refresh paints anything.
             _settingsModel.CurrentTheme.Subscribe(OnThemeChanged).AddTo(_disposables);
 
-            _localizationModel.CurrentLocale.Subscribe(_ => Refresh()).AddTo(_disposables);
             _gameModeSystem.CurrentMode.Subscribe(_ => Refresh()).AddTo(_disposables);
             _doubleMultiplierModel.RemainingSeconds.Subscribe(OnMultiplierRemainingChanged).AddTo(_disposables);
             _progressChangedSubscriber.Subscribe(OnObjectiveProgressChanged).AddTo(_disposables);
@@ -402,8 +393,7 @@ namespace MustyBlockBlast.Presentation.Views
             SetVisible(true);
             _visibleSlotCount = 0;
 
-            float x = -_rowSize.x * 0.5f;
-            x = RefreshLeading(x);
+            float x = (-_rowSize.x * 0.5f) + LEADING_INSET;
 
             // The chips flow from the left and stop short of the trailing group: one that would run
             // into it is hidden rather than drawn underneath, and so are those after it, so the row
@@ -455,20 +445,6 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         /// <summary>
-        /// The row's head: the "goal" caption. Always the plain caption — the level a Path run is on
-        /// is named once, on the level pill at the row's trailing end, and nowhere else. Returns the x the first chip
-        /// starts at.
-        /// </summary>
-        private float RefreshLeading(float x)
-        {
-            _captionText.text = _localizationSystem.Translate(LocalizationKeys.HUD_GOAL_LABEL);
-            _captionText.color = _currentTheme.Ink;
-            _captionRect.anchoredPosition = new Vector2(x + 4f, 0f);
-
-            return x + 4f + _captionText.preferredWidth + _chipSpacing;
-        }
-
-        /// <summary>
         /// Repaints and re-measures one chip, laid out from <paramref name="x"/>; returns the x the
         /// next chip starts at. A chip whose right edge would pass <paramref name="limit"/> is hidden
         /// instead, and <paramref name="isShown"/> says which happened.
@@ -487,31 +463,35 @@ namespace MustyBlockBlast.Presentation.Views
             EnsureGlyph(chip, objective.Definition.Type);
 
             bool isComplete = objective.IsComplete;
-            int kind = KindBySlot[slotIndex % KindBySlot.Length];
-
-            // A diamond goal's plate is the gem's own colour rather than the slot's (issue #395): the
-            // chip's white diamond glyph on a red plate is the same red gem the tray and board show,
-            // so "collect three of these" needs no words. Every other type keeps the slot order that
-            // matches the mockup's teal / purple / gold row.
-            Color plateColour = objective.Definition.Type == ObjectiveType.DiamondsCleared
-                ? DiamondVisuals.Tint(_currentTheme, objective.Definition.RequiredColourId)
-                : _currentTheme.GetFill(kind);
 
             chip.ShadowImage.color = _currentTheme.CardShadow;
             chip.PlateImage.color = _currentTheme.CardBackground;
-            chip.IconPlateImage.color = plateColour;
 
-            // White on the kind plate, as every power-up and objective glyph is on its tile.
-            for (int inkIndex = 0; inkIndex < chip.GlyphInkImages.Count; inkIndex++)
+            if (chip.IconImage.sprite != null)
             {
-                chip.GlyphInkImages[inkIndex].color = Color.white;
+                // The authored art is full-colour illustration, so white — an identity multiply —
+                // leaves it exactly as drawn. The one exception is the diamond goal, whose authored
+                // glyph is a white gem silhouette: it takes the gem's own theme colour (issue #395),
+                // the colour the board and tray already show it in, as it does on the info card.
+                chip.IconImage.color =
+                    objective.Definition.Type == ObjectiveType.DiamondsCleared
+                        ? DiamondVisuals.Tint(_currentTheme, objective.Definition.RequiredColourId)
+                        : Color.white;
             }
 
-            // The punched-out parts follow the plate, not the ink — that is what makes them read as
-            // holes rather than as another stroke of the glyph.
+            // The procedural fallback glyph now sits on the chip's own card-coloured pill rather than
+            // on a saturated plate (issue #415), so it is drawn in the theme's ink — the same colour
+            // as the counter beside it — instead of the white it wore against a coloured plate.
+            for (int inkIndex = 0; inkIndex < chip.GlyphInkImages.Count; inkIndex++)
+            {
+                chip.GlyphInkImages[inkIndex].color = _currentTheme.Ink;
+            }
+
+            // The punched-out parts follow whatever is behind the glyph — now the chip's own pill —
+            // not the ink: that is what makes them read as holes rather than as another stroke.
             for (int coreIndex = 0; coreIndex < chip.GlyphCoreImages.Count; coreIndex++)
             {
-                chip.GlyphCoreImages[coreIndex].color = plateColour;
+                chip.GlyphCoreImages[coreIndex].color = _currentTheme.CardBackground;
             }
 
             chip.ProgressText.color = _currentTheme.Ink;
@@ -520,10 +500,10 @@ namespace MustyBlockBlast.Presentation.Views
             chip.CheckDisc.color = isComplete ? _currentTheme.GetFill(CHECK_KIND) : Color.clear;
             chip.CheckMark.color = isComplete ? Color.white : Color.clear;
 
-            // Left to right: plate, counter, and the tick only when earned — the chip grows to fit it.
+            // Left to right: icon, counter, and the tick only when earned — the chip grows to fit it.
             float progressWidth = chip.ProgressText.preferredWidth;
             float checkWidth = isComplete ? _chipGap + _checkSize : 0f;
-            float chipWidth = _chipPaddingLeft + _iconPlateSize + _chipGap + progressWidth + checkWidth + _chipPaddingRight;
+            float chipWidth = _chipPaddingLeft + _iconSize + _chipGap + progressWidth + checkWidth + _chipPaddingRight;
 
             // Measured after the counter is set, since the text is what decides the width; a chip
             // that would run into the trailing group is cleared again rather than drawn under it.
@@ -542,8 +522,8 @@ namespace MustyBlockBlast.Presentation.Views
             chip.Root.anchoredPosition = new Vector2(x + (chipWidth * 0.5f), 0f);
 
             float innerX = (-chipWidth * 0.5f) + _chipPaddingLeft;
-            chip.IconPlateRect.anchoredPosition = new Vector2(innerX + (_iconPlateSize * 0.5f), 0f);
-            innerX += _iconPlateSize + _chipGap;
+            chip.IconSlotRect.anchoredPosition = new Vector2(innerX + (_iconSize * 0.5f), 0f);
+            innerX += _iconSize + _chipGap;
             chip.ProgressRect.anchoredPosition = new Vector2(innerX, 0f);
             innerX += progressWidth + _chipGap;
             chip.CheckRect.anchoredPosition = new Vector2(innerX + (_checkSize * 0.5f), 0f);
@@ -555,7 +535,7 @@ namespace MustyBlockBlast.Presentation.Views
         {
             chip.ShadowImage.color = Color.clear;
             chip.PlateImage.color = Color.clear;
-            chip.IconPlateImage.color = Color.clear;
+            chip.IconImage.color = Color.clear;
             chip.CheckDisc.color = Color.clear;
             chip.CheckMark.color = Color.clear;
             chip.ProgressText.color = Color.clear;
@@ -601,13 +581,15 @@ namespace MustyBlockBlast.Presentation.Views
             Sprite authoredIcon = _iconCatalog.Find(type);
             if (authoredIcon != null)
             {
+                // Full-colour illustrated art (issue #322) shown as-is, exactly as the info card's
+                // hero icon does — NOT added to GlyphInkImages, so the repaint never flattens it into
+                // one ink colour. Refresh gives it its colour (white, or the gem's for a diamond goal).
                 chip.IconImage.sprite = authoredIcon;
-                chip.GlyphInkImages.Add(chip.IconImage);
             }
             else
             {
                 ObjectiveIconFactory.Build(
-                    chip.GlyphRoot, type, _iconSize * 1.15f, chip.GlyphInkImages, chip.GlyphCoreImages);
+                    chip.GlyphRoot, type, _iconSize, chip.GlyphInkImages, chip.GlyphCoreImages);
             }
 
             chip.GlyphType = type;
@@ -634,18 +616,14 @@ namespace MustyBlockBlast.Presentation.Views
             _canvasGroup.blocksRaycasts = isVisible;
         }
 
-        /// <summary>The row, its head (caption and level tag, one of which is always clear), the five
-        /// chips and the trailing slot. Built before the theme is known; Refresh paints it.</summary>
+        /// <summary>The row, its five chips and the trailing slot. Built before the theme is known;
+        /// Refresh paints it.</summary>
         private void BuildRow()
         {
             _rowRect = (RectTransform)transform;
             HudChrome.Centre(_rowRect, _rowSize);
             _rowRect.anchoredPosition = _anchoredPosition;
             _rowRect.localScale = Vector3.one;
-
-            _captionText = HudChrome.CreateLabel(
-                _rowRect, "Caption", _captionFontSize, FontStyle.Bold, TextAnchor.MiddleLeft, Vector2.zero, _labelFont);
-            _captionRect = (RectTransform)_captionText.transform;
 
             for (int slotIndex = 0; slotIndex < MAX_SLOT_COUNT; slotIndex++)
             {
@@ -673,19 +651,19 @@ namespace MustyBlockBlast.Presentation.Views
                 chipRect, "Shadow", chipSize, new Vector2(0f, -HudChrome.PILL_SHADOW_DROP), _chipHeight * 0.5f);
             Image plateImage = HudChrome.BuildRounded(chipRect, "Plate", chipSize, Vector2.zero, _chipHeight * 0.5f);
 
-            RectTransform iconPlateRect = HudChrome.CreateRect(
-                chipRect, "IconPlate", new Vector2(_iconPlateSize, _iconPlateSize), Vector2.zero);
-            Image iconPlateImage = HudChrome.BuildRounded(
-                iconPlateRect, "Plate", iconPlateRect.sizeDelta, Vector2.zero, ICON_PLATE_RADIUS);
+            // A bare positioning rect, drawing nothing: the icon sits on the chip's own pill now, with
+            // no plate behind it (issue #415). Keeping the slot means one anchored position places
+            // whichever of the two glyphs is in use.
+            var iconSlotSize = new Vector2(_iconSize, _iconSize);
+            RectTransform iconSlotRect = HudChrome.CreateRect(chipRect, "IconSlot", iconSlotSize, Vector2.zero);
 
             // An empty container: the glyph itself depends on the objective type, so it is filled in on
             // the first repaint and rebuilt only when that type changes.
-            RectTransform glyphRoot = HudChrome.CreateRect(
-                iconPlateRect, "Glyph", new Vector2(_iconPlateSize, _iconPlateSize), Vector2.zero);
+            RectTransform glyphRoot = HudChrome.CreateRect(iconSlotRect, "Glyph", iconSlotSize, Vector2.zero);
 
-            // The authored silhouette lives beside the procedural glyph root so either can stand in
+            // The authored icon lives beside the procedural glyph root so either can stand in
             // for the other without moving anything else in the chip.
-            Image iconImage = HudChrome.BuildGlyph(iconPlateRect, "Icon", null, new Vector2(_iconSize, _iconSize), Vector2.zero);
+            Image iconImage = HudChrome.BuildGlyph(iconSlotRect, "Icon", null, iconSlotSize, Vector2.zero);
 
             Text progressText = HudChrome.CreateLabel(
                 chipRect, "Progress", _progressFontSize, FontStyle.Normal, TextAnchor.MiddleLeft, Vector2.zero, _displayFont);
@@ -696,7 +674,7 @@ namespace MustyBlockBlast.Presentation.Views
                 checkRect, "Mark", UiSpriteFactory.CheckMark, new Vector2(_checkSize * 0.6f, _checkSize * 0.6f), Vector2.zero);
 
             return new Chip(
-                chipRect, shadowImage, plateImage, iconPlateRect, iconPlateImage, glyphRoot, iconImage,
+                chipRect, shadowImage, plateImage, iconSlotRect, glyphRoot, iconImage,
                 progressText, checkRect, checkDisc, checkMark);
         }
     }
