@@ -902,6 +902,26 @@ MonoBehaviour:
     m_Localized: "Bu renkteki \u2014 {0} \u2014 elmas ta\u015F\u0131yan bloklar\u0131 temizleyerek elmaslar\u0131 topla. Bu hedef aktifken elmasl\u0131 bloklar tepsine gelir."
     m_Metadata:
       m_Items: []
+  - m_Id: 3514168819834880
+    m_Localized: "Reklamlar Kald\u0131r\u0131ls\u0131n m\u0131?"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3514168870166528
+    m_Localized: "Art\u0131k banner ya da ge\xE7i\u015F reklam\u0131 yok. Sonsuza kadar kesintisiz oyna."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3514168870166529
+    m_Localized: "Tek seferlik sat\u0131n alma"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3514168870166530
+    m_Localized: "\u015Eimdi Sat\u0131n Al"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3514168870166531
+    m_Localized: Belki Sonra
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []
