@@ -184,6 +184,70 @@ namespace MustyBlockBlast.Core
         /// </summary>
         private readonly int[] _targetIceLevels;
 
+        /// <summary>
+        /// Which of a <see cref="SpecialCellKind.Locked"/> cell's four orthogonal neighbours have already
+        /// been destroyed at least once (issue #434), indexed exactly like <see cref="_cells"/>: a 4-bit
+        /// mask of <see cref="LOCKED_NEIGHBOUR_UP"/>/<see cref="LOCKED_NEIGHBOUR_DOWN"/>/
+        /// <see cref="LOCKED_NEIGHBOUR_LEFT"/>/<see cref="LOCKED_NEIGHBOUR_RIGHT"/>. <c>0</c> — every cell
+        /// of every board authored before locked cells existed, and every cell whose kind is not Locked
+        /// — means "no neighbour has counted yet".
+        /// <para>
+        /// A mask rather than a counter, deliberately (AC4): the same neighbour position cleared five
+        /// times must count once, not five, so what is stored is <em>which</em> neighbours have counted,
+        /// and "how many" is the mask's popcount (<see cref="GetLockedProgressCount"/>). A plain integer
+        /// would let a player unlock a cell by farming one adjacent square.
+        /// </para>
+        /// <para>
+        /// Belongs to the BLOCK, not the position — the lock <em>is</em> the block standing there — so,
+        /// unlike <see cref="_targetIceLevels"/>, it is reset by <see cref="Clear"/> along with the kind and
+        /// every other per-block array, and copied by <see cref="Clone"/>/<see cref="CopyFrom"/> so Undo
+        /// rewinds a lock's progress with everything else (AC10). Written from <see cref="TryDamage"/>
+        /// only, by two hands sharing the one budget of four bits: the removal branch, which fans out to
+        /// the destroyed cell's neighbours (the same seam the ice melt hooks, for the same cascade-safety
+        /// reason), and a hit aimed directly at the lock, which sets one bit still unset — "opens one
+        /// level" — rather than destroying it (see <see cref="AdvanceLockedByDirectHit"/>).
+        /// </para>
+        /// </summary>
+        private readonly int[] _lockedProgressMasks;
+
+        /// <summary>
+        /// Distinct neighbours a <see cref="SpecialCellKind.Locked"/> cell needs destroyed before it
+        /// unlocks (issue #434 AC2: 1-3, authored per cell), indexed exactly like <see cref="_cells"/>.
+        /// <c>0</c> means "not a locked cell". Its own array rather than <see cref="_hitCounts"/> for the
+        /// reason the timer countdown is: "hits still to absorb" and "distinct neighbours still needed"
+        /// are different quantities that would collide the moment a level authored both mechanics. Reset
+        /// by <see cref="Clear"/> and copied by <see cref="Clone"/>/<see cref="CopyFrom"/> exactly as
+        /// <see cref="_lockedProgressMasks"/> is.
+        /// </summary>
+        private readonly int[] _lockedThresholds;
+
+        /// <summary>
+        /// Which of the visual skins a <see cref="SpecialCellKind.Locked"/> cell wears (issue #434 AC9:
+        /// 0..<see cref="LOCKED_SKIN_COUNT"/>-1, rolled at seed time), indexed exactly like
+        /// <see cref="_cells"/>. Purely cosmetic — no rule reads it — but stored on the board rather than in
+        /// a View because Undo must bring a lock back looking exactly as it did (AC10), which only a value
+        /// <see cref="Clone"/>/<see cref="CopyFrom"/> copy can guarantee. Reset by <see cref="Clear"/>.
+        /// </summary>
+        private readonly int[] _lockedSkins;
+
+        /// <summary>Bit of <see cref="_lockedProgressMasks"/> set once the neighbour ABOVE a locked cell
+        /// (y + 1) has been destroyed at least once.</summary>
+        public const int LOCKED_NEIGHBOUR_UP = 1;
+
+        /// <summary>Bit set once the neighbour BELOW a locked cell (y - 1) has been destroyed.</summary>
+        public const int LOCKED_NEIGHBOUR_DOWN = 2;
+
+        /// <summary>Bit set once the neighbour LEFT of a locked cell (x - 1) has been destroyed.</summary>
+        public const int LOCKED_NEIGHBOUR_LEFT = 4;
+
+        /// <summary>Bit set once the neighbour RIGHT of a locked cell (x + 1) has been destroyed.</summary>
+        public const int LOCKED_NEIGHBOUR_RIGHT = 8;
+
+        /// <summary>How many distinct visual skins a locked cell can be assigned — the three approved
+        /// looks (planks, nails, padlock cage). A seeder rolls in <c>0..LOCKED_SKIN_COUNT-1</c>; the
+        /// View maps each index to a look. The single source of truth for the roll's range.</summary>
+        public const int LOCKED_SKIN_COUNT = 3;
+
         /// <summary>The standard <see cref="SIZE"/> x <see cref="SIZE"/> hole-free board. Delegates to
         /// <see cref="BoardShape.Standard"/> so every level authored before board shapes existed keeps
         /// the exact geometry it was authored against.</summary>
@@ -202,11 +266,15 @@ namespace MustyBlockBlast.Core
             _coinValues = new int[shape.CellCount];
             _diamondColourIds = new int[shape.CellCount];
             _targetIceLevels = new int[shape.CellCount];
+            _lockedProgressMasks = new int[shape.CellCount];
+            _lockedThresholds = new int[shape.CellCount];
+            _lockedSkins = new int[shape.CellCount];
         }
 
         private Board(
             BoardShape shape, int[] cells, SpecialCellKind[] specialKinds, int[] hitCounts,
-            int[] timerCountdowns, int[] coinValues, int[] diamondColourIds, int[] targetIceLevels)
+            int[] timerCountdowns, int[] coinValues, int[] diamondColourIds, int[] targetIceLevels,
+            int[] lockedProgressMasks, int[] lockedThresholds, int[] lockedSkins)
         {
             _shape = shape;
             _cells = cells;
@@ -216,6 +284,9 @@ namespace MustyBlockBlast.Core
             _coinValues = coinValues;
             _diamondColourIds = diamondColourIds;
             _targetIceLevels = targetIceLevels;
+            _lockedProgressMasks = lockedProgressMasks;
+            _lockedThresholds = lockedThresholds;
+            _lockedSkins = lockedSkins;
         }
 
         /// <summary>The outline this board was built with. Shared, immutable and safe to hand out — a
@@ -334,6 +405,12 @@ namespace MustyBlockBlast.Core
             _coinValues[index] = 0;
             _diamondColourIds[index] = 0;
 
+            // A lock is the block standing there (issue #434), so it goes with the block — the opposite
+            // of the ice below, and also how an unlock itself is implemented (see TryDamage).
+            _lockedProgressMasks[index] = 0;
+            _lockedThresholds[index] = 0;
+            _lockedSkins[index] = 0;
+
             // _targetIceLevels[index] is intentionally NOT reset here — see that field's doc comment.
         }
 
@@ -357,13 +434,40 @@ namespace MustyBlockBlast.Core
         /// socket has not been cleared. A position with no ice is untouched, so every board that never
         /// authored ice behaves exactly as before.
         /// </para>
+        /// <para>
+        /// And, for the same seam-sharing reason, the one place a <see cref="SpecialCellKind.Locked"/>
+        /// neighbour's progress advances (issue #434 AC3/AC4): a destroyed cell fans out to its up-to-four
+        /// orthogonal neighbours, and any of them that is a lock marks the direction the destroyed cell
+        /// lies in as counted — once, however many times that same neighbour is destroyed. A lock whose
+        /// distinct count reaches its threshold is unlocked right here, into an ordinary empty cell. The
+        /// fan-out inspects the NEIGHBOURS' lock status, not the destroyed cell's own, and runs for any
+        /// destroyed cell whatever it was; a board with no lock on it pays four kind reads per removal
+        /// and nothing else.
+        /// </para>
+        /// <para>
+        /// A hit aimed AT a lock (a Bomb, hammer, strike or laser targeting the lock's own position —
+        /// the one way a still-locked cell reaches this method, since the line-clear rule never collects
+        /// it, AC7) does not destroy it. It opens one level: the lock's progress advances by exactly 1,
+        /// as if one more distinct neighbour had been destroyed, and the lock is removed only if that
+        /// brings it to its threshold — product decision on the open question flagged in the #434 notes.
+        /// A lock that survives is still standing, so it is NOT a destroyed cell: it melts no ice and,
+        /// crucially, fans out nothing to ITS neighbours. A lock that opens here is removed exactly as
+        /// the neighbour-triggered unlock removes it, and returns true — from this method's caller's
+        /// point of view the position is cleared.
+        /// </para>
         /// </summary>
         public bool TryDamage(GridPosition position)
         {
             int index = Index(position);
 
+            if (_specialKinds[index] == SpecialCellKind.Locked && !AdvanceLockedByDirectHit(index))
+            {
+                return false;
+            }
+
             if (_hitCounts[index] <= 1)
             {
+                bool wasOccupied = _cells[index] != EMPTY;
                 Clear(position);
 
                 if (_targetIceLevels[index] > 0)
@@ -371,11 +475,174 @@ namespace MustyBlockBlast.Core
                     _targetIceLevels[index]--;
                 }
 
+                // Only a cell that was actually standing was destroyed. A resolver's removal pass can
+                // reach a lock that an earlier removal in the SAME pass already opened from beside it,
+                // and an empty cell must credit nothing to its neighbours.
+                if (wasOccupied)
+                {
+                    // From each neighbour's own point of view the destroyed cell lies in the OPPOSITE
+                    // direction to the offset that reached it: the cell above the lock is the lock's "up".
+                    CountDestroyedNeighbour(new GridPosition(position.X, position.Y - 1), LOCKED_NEIGHBOUR_UP);
+                    CountDestroyedNeighbour(new GridPosition(position.X, position.Y + 1), LOCKED_NEIGHBOUR_DOWN);
+                    CountDestroyedNeighbour(new GridPosition(position.X + 1, position.Y), LOCKED_NEIGHBOUR_LEFT);
+                    CountDestroyedNeighbour(new GridPosition(position.X - 1, position.Y), LOCKED_NEIGHBOUR_RIGHT);
+                }
+
                 return true;
             }
 
             _hitCounts[index]--;
             return false;
+        }
+
+        /// <summary>
+        /// Marks <paramref name="directionBit"/> as counted on the lock at <paramref name="lockPosition"/>,
+        /// if there is one, and unlocks it once its distinct count reaches its threshold. Idempotent per
+        /// bit by construction — a bit already set is left set and counts nothing more (AC4). Off-board
+        /// and non-lock positions are ignored, so the caller can fan out unconditionally.
+        /// <para>
+        /// The unlock is <see cref="Clear"/>, exactly: the lock was the block, so removing it leaves the
+        /// ordinary empty cell AC6 asks for with no field left behind for the next block to inherit — and
+        /// no return value, no effect, no score, because nothing was <em>destroyed</em> (AC8).
+        /// </para>
+        /// </summary>
+        private void CountDestroyedNeighbour(GridPosition lockPosition, int directionBit)
+        {
+            if (!IsInside(lockPosition))
+            {
+                return;
+            }
+
+            int lockIndex = Index(lockPosition);
+            if (_specialKinds[lockIndex] != SpecialCellKind.Locked)
+            {
+                return;
+            }
+
+            int mask = _lockedProgressMasks[lockIndex];
+            if ((mask & directionBit) != 0)
+            {
+                return;
+            }
+
+            mask |= directionBit;
+            _lockedProgressMasks[lockIndex] = mask;
+
+            if (PopCount(mask) >= _lockedThresholds[lockIndex])
+            {
+                Clear(lockPosition);
+            }
+        }
+
+        /// <summary>
+        /// Opens one level of the lock at <paramref name="lockIndex"/> for a hit aimed directly at it, and
+        /// returns whether that brought it to its threshold — i.e. whether <see cref="TryDamage"/> may now
+        /// go on to remove it. A direct hit has no direction of its own, so it sets the LOWEST bit still
+        /// unset in the same 4-bit mask the neighbour fan-out writes: the popcount rises by exactly 1, a
+        /// later destruction of the neighbour that bit stands for counts nothing more (the two sources
+        /// share one budget of four, so neither can double-count the other), and a mask already full
+        /// cannot over-count — but a full mask is already at or past any legal threshold (1..4), so this
+        /// method never sees one; the guard is only for safety.
+        /// <para>
+        /// Deliberately does NOT clear the cell on reaching the threshold, unlike
+        /// <see cref="CountDestroyedNeighbour"/>: the caller's removal branch does that, so that a lock
+        /// opened by a direct hit is destroyed exactly as any other cell the hit removed — counted,
+        /// returned as true, and fanned out to ITS neighbours.
+        /// </para>
+        /// </summary>
+        private bool AdvanceLockedByDirectHit(int lockIndex)
+        {
+            int mask = _lockedProgressMasks[lockIndex];
+            int unsetBit = LOCKED_NEIGHBOUR_UP;
+            while (unsetBit <= LOCKED_NEIGHBOUR_RIGHT && (mask & unsetBit) != 0)
+            {
+                unsetBit <<= 1;
+            }
+
+            if (unsetBit <= LOCKED_NEIGHBOUR_RIGHT)
+            {
+                mask |= unsetBit;
+                _lockedProgressMasks[lockIndex] = mask;
+            }
+
+            return PopCount(mask) >= _lockedThresholds[lockIndex];
+        }
+
+        /// <summary>Set bits of a 4-bit neighbour mask — the "how many distinct neighbours have counted"
+        /// a lock's threshold is compared against.</summary>
+        private static int PopCount(int mask)
+        {
+            int count = 0;
+            while (mask != 0)
+            {
+                mask &= mask - 1;
+                count++;
+            }
+
+            return count;
+        }
+
+        /// <summary>True when the block on <paramref name="position"/> is a still-locked
+        /// <see cref="SpecialCellKind.Locked"/> cell. False for every other cell, including one that
+        /// has since unlocked — an unlocked cell is an ordinary empty cell with no trace (AC6).</summary>
+        public bool IsLocked(GridPosition position) => _specialKinds[Index(position)] == SpecialCellKind.Locked;
+
+        /// <summary>Distinct neighbours the lock on <paramref name="position"/> needs destroyed before it
+        /// unlocks. 0 for a cell that is not locked, which is every cell of a board nothing locked.</summary>
+        public int GetLockedThreshold(GridPosition position) => _lockedThresholds[Index(position)];
+
+        /// <summary>The raw neighbour mask of the lock on <paramref name="position"/> — which of
+        /// <see cref="LOCKED_NEIGHBOUR_UP"/>/<see cref="LOCKED_NEIGHBOUR_DOWN"/>/
+        /// <see cref="LOCKED_NEIGHBOUR_LEFT"/>/<see cref="LOCKED_NEIGHBOUR_RIGHT"/> have counted. 0 for a
+        /// cell that is not locked. Prefer <see cref="GetLockedProgressCount"/> for "how many".</summary>
+        public int GetLockedProgressMask(GridPosition position) => _lockedProgressMasks[Index(position)];
+
+        /// <summary>How many DISTINCT neighbours of the lock on <paramref name="position"/> have been
+        /// destroyed at least once — the popcount of <see cref="GetLockedProgressMask"/>, and the number
+        /// the threshold is measured against. 0 for a cell that is not locked.</summary>
+        public int GetLockedProgressCount(GridPosition position) => PopCount(_lockedProgressMasks[Index(position)]);
+
+        /// <summary>Which visual skin (0..<see cref="LOCKED_SKIN_COUNT"/>-1) the lock on
+        /// <paramref name="position"/> wears. 0 for a cell that is not locked — meaningless there, and
+        /// no caller reads it without checking <see cref="IsLocked"/> first.</summary>
+        public int GetLockedSkin(GridPosition position) => _lockedSkins[Index(position)];
+
+        /// <summary>
+        /// Occupies an empty cell as a <see cref="SpecialCellKind.Locked"/> cell needing
+        /// <paramref name="threshold"/> distinct neighbours destroyed and wearing <paramref name="skin"/>,
+        /// for level-start authoring only — the mechanic is level-authored exclusively (issue #434), so
+        /// nothing else ever calls this. Sets the block, the kind, the threshold and the skin together
+        /// and starts the progress mask at 0, in the one call a seeder needs — exactly as
+        /// <see cref="OccupyTimer"/> does for a timer cell. The block colour is cosmetic, as everywhere:
+        /// the skin overlay is what marks the cell as locked.
+        /// <para>
+        /// Refuses a threshold outside 1..4 — a lock has at most four neighbours, and one needing none
+        /// would already be open — and a skin outside the roll's range, rather than storing either. The
+        /// authoring-time rule that the threshold must not exceed the position's REAL neighbour count
+        /// (AC5) is <c>LevelObjectiveConfig.IsValid</c>'s, which knows the level's holes; this primitive
+        /// only knows the board.
+        /// </para>
+        /// </summary>
+        public void OccupyLocked(GridPosition position, int colourId, int threshold, int skin)
+        {
+            if (threshold < 1 || threshold > 4)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(threshold), threshold, "A locked cell needs a threshold between 1 and 4.");
+            }
+
+            if (skin < 0 || skin >= LOCKED_SKIN_COUNT)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(skin), skin, $"A locked cell's skin must be between 0 and {LOCKED_SKIN_COUNT - 1}.");
+            }
+
+            Occupy(position, colourId);
+            int index = Index(position);
+            _specialKinds[index] = SpecialCellKind.Locked;
+            _lockedThresholds[index] = threshold;
+            _lockedProgressMasks[index] = 0;
+            _lockedSkins[index] = skin;
         }
 
         /// <summary>Ice still to melt at <paramref name="position"/> before it is an ordinary cell —
@@ -579,8 +846,10 @@ namespace MustyBlockBlast.Core
             for (int x = 0; x < Width; x++)
             {
                 var position = new GridPosition(x, y);
-                if (_shape.IsHole(position))
+                if (_shape.IsHole(position) || _specialKinds[Index(position)] == SpecialCellKind.Locked)
                 {
+                    // A still-locked cell is hole-like here (issue #434 AC7): it neither keeps the line
+                    // from completing nor is listed among the line's cells. See IsRowFull.
                     continue;
                 }
 
@@ -601,8 +870,10 @@ namespace MustyBlockBlast.Core
             for (int y = 0; y < Height; y++)
             {
                 var position = new GridPosition(x, y);
-                if (_shape.IsHole(position))
+                if (_shape.IsHole(position) || _specialKinds[Index(position)] == SpecialCellKind.Locked)
                 {
+                    // A still-locked cell is hole-like here (issue #434 AC7): it neither keeps the line
+                    // from completing nor is listed among the line's cells. See IsRowFull.
                     continue;
                 }
 
@@ -618,6 +889,16 @@ namespace MustyBlockBlast.Core
         /// all is never full: nothing could ever complete it, so reporting it full would clear it on
         /// every single pass forever.
         /// </para>
+        /// <para>
+        /// A still-locked <see cref="SpecialCellKind.Locked"/> cell is treated exactly like a hole (issue
+        /// #434 AC7): skipped here, so the row can complete through it, and skipped by
+        /// <see cref="CollectRowCells"/>, so the completed line never destroys it — only its neighbours'
+        /// destruction can ever change a lock (see <see cref="TryDamage"/>). Without this a lock would
+        /// make its row impossible to ever complete while being immune to the clear, a silent soft-lock.
+        /// It is NOT skipped by <see cref="IsOccupied"/>, which is what keeps placement refusing it. And
+        /// a row whose every playable cell is locked is never full, for the reason an all-holes row is
+        /// not: there is nothing in it a clear could take.
+        /// </para>
         /// </summary>
         public bool IsRowFull(int y)
         {
@@ -626,11 +907,14 @@ namespace MustyBlockBlast.Core
                 return false;
             }
 
+            bool anyCountable = false;
             for (int x = 0; x < Width; x++)
             {
                 var position = new GridPosition(x, y);
-                if (_shape.IsHole(position))
+                if (_shape.IsHole(position) || _specialKinds[Index(position)] == SpecialCellKind.Locked)
                 {
+                    // A still-locked cell is hole-like here (issue #434 AC7): it neither keeps the line
+                    // from completing nor is listed among the line's cells. See IsRowFull.
                     continue;
                 }
 
@@ -638,9 +922,11 @@ namespace MustyBlockBlast.Core
                 {
                     return false;
                 }
+
+                anyCountable = true;
             }
 
-            return true;
+            return anyCountable;
         }
 
         /// <summary>
@@ -664,8 +950,10 @@ namespace MustyBlockBlast.Core
             for (int x = 0; x < Width; x++)
             {
                 var position = new GridPosition(x, y);
-                if (_shape.IsHole(position))
+                if (_shape.IsHole(position) || _specialKinds[Index(position)] == SpecialCellKind.Locked)
                 {
+                    // A still-locked cell is hole-like here (issue #434 AC7): it neither keeps the line
+                    // from completing nor is listed among the line's cells. See IsRowFull.
                     continue;
                 }
 
@@ -696,8 +984,10 @@ namespace MustyBlockBlast.Core
             for (int y = 0; y < Height; y++)
             {
                 var position = new GridPosition(x, y);
-                if (_shape.IsHole(position))
+                if (_shape.IsHole(position) || _specialKinds[Index(position)] == SpecialCellKind.Locked)
                 {
+                    // A still-locked cell is hole-like here (issue #434 AC7): it neither keeps the line
+                    // from completing nor is listed among the line's cells. See IsRowFull.
                     continue;
                 }
 
@@ -715,7 +1005,7 @@ namespace MustyBlockBlast.Core
         }
 
         /// <summary>True when every playable cell of column <paramref name="x"/> is filled. Same rule
-        /// as <see cref="IsRowFull"/>, including the all-holes case.</summary>
+        /// as <see cref="IsRowFull"/>, including the all-holes, all-locked and locked-cell cases.</summary>
         public bool IsColumnFull(int x)
         {
             if (_shape.PlayableCountInColumn(x) == 0)
@@ -723,11 +1013,14 @@ namespace MustyBlockBlast.Core
                 return false;
             }
 
+            bool anyCountable = false;
             for (int y = 0; y < Height; y++)
             {
                 var position = new GridPosition(x, y);
-                if (_shape.IsHole(position))
+                if (_shape.IsHole(position) || _specialKinds[Index(position)] == SpecialCellKind.Locked)
                 {
+                    // A still-locked cell is hole-like here (issue #434 AC7): it neither keeps the line
+                    // from completing nor is listed among the line's cells. See IsRowFull.
                     continue;
                 }
 
@@ -735,9 +1028,11 @@ namespace MustyBlockBlast.Core
                 {
                     return false;
                 }
+
+                anyCountable = true;
             }
 
-            return true;
+            return anyCountable;
         }
 
         /// <summary>True when every cell of row <paramref name="y"/> is <see cref="EMPTY"/> — used to
@@ -1126,9 +1421,19 @@ namespace MustyBlockBlast.Core
             int[] targetIceLevelCopy = new int[_targetIceLevels.Length];
             Array.Copy(_targetIceLevels, targetIceLevelCopy, _targetIceLevels.Length);
 
+            int[] lockedProgressMaskCopy = new int[_lockedProgressMasks.Length];
+            Array.Copy(_lockedProgressMasks, lockedProgressMaskCopy, _lockedProgressMasks.Length);
+
+            int[] lockedThresholdCopy = new int[_lockedThresholds.Length];
+            Array.Copy(_lockedThresholds, lockedThresholdCopy, _lockedThresholds.Length);
+
+            int[] lockedSkinCopy = new int[_lockedSkins.Length];
+            Array.Copy(_lockedSkins, lockedSkinCopy, _lockedSkins.Length);
+
             return new Board(
                 _shape, copy, specialCopy, hitCountCopy, timerCountdownCopy, coinValueCopy,
-                diamondColourIdCopy, targetIceLevelCopy);
+                diamondColourIdCopy, targetIceLevelCopy, lockedProgressMaskCopy, lockedThresholdCopy,
+                lockedSkinCopy);
         }
 
         /// <summary>Overwrites this board's cells with <paramref name="source"/>'s. Used to reuse a scratch
@@ -1163,6 +1468,9 @@ namespace MustyBlockBlast.Core
             Array.Copy(source._coinValues, _coinValues, _coinValues.Length);
             Array.Copy(source._diamondColourIds, _diamondColourIds, _diamondColourIds.Length);
             Array.Copy(source._targetIceLevels, _targetIceLevels, _targetIceLevels.Length);
+            Array.Copy(source._lockedProgressMasks, _lockedProgressMasks, _lockedProgressMasks.Length);
+            Array.Copy(source._lockedThresholds, _lockedThresholds, _lockedThresholds.Length);
+            Array.Copy(source._lockedSkins, _lockedSkins, _lockedSkins.Length);
         }
 
         /// <summary>Flat index of <paramref name="position"/> — also the index a caller's own per-cell

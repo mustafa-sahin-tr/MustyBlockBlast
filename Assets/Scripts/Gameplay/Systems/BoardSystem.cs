@@ -85,6 +85,18 @@ namespace MustyBlockBlast.Gameplay.Systems
         private readonly LevelTargetIceCellSeeder _targetIceCellSeeder;
 
         /// <summary>
+        /// Puts the level's authored locked cells on the board at the opening of a run (issue #434).
+        /// Called inline from <see cref="StartNewRun"/> immediately after <see cref="_targetIceCellSeeder"/>,
+        /// for exactly the same reason — see <see cref="LevelLockedCellSeeder"/>. Like the reinforced and
+        /// timer seeders (and unlike ice) it occupies its cells: a lock is pre-filled from board creation.
+        /// <para>
+        /// Nullable, and null in most unit tests, for the same reason <see cref="_reinforcedCellSeeder"/>
+        /// is.
+        /// </para>
+        /// </summary>
+        private readonly LevelLockedCellSeeder _lockedCellSeeder;
+
+        /// <summary>
         /// Which rule set the current run is played under. Read only by the per-placement timer tick
         /// (issue #307 AC4), to decide whether an expired <see cref="SpecialCellKind.Timer"/> cell ends
         /// the run outright (<see cref="GameMode.Path"/>) or merely loses its own objective credit
@@ -331,7 +343,8 @@ namespace MustyBlockBlast.Gameplay.Systems
             IRescueRewardSource rescueRewardSource = null,
             IPublisher<RunRescuedMessage> runRescuedPublisher = null,
             DiamondPieceDecorator diamondPieceDecorator = null,
-            LevelTargetIceCellSeeder targetIceCellSeeder = null)
+            LevelTargetIceCellSeeder targetIceCellSeeder = null,
+            LevelLockedCellSeeder lockedCellSeeder = null)
             : this(
                 boardModel, trayModel, scoreGemProgressModel, vortexProgressModel, pieceDraw,
                 runStartedPublisher, piecePlacedPublisher, linesClearedPublisher, gameOverPublisher,
@@ -340,7 +353,7 @@ namespace MustyBlockBlast.Gameplay.Systems
                 coinCellsClearedPublisher, currencyConfig, Environment.TickCount, reinforcedCellSeeder,
                 powerUpModel, specialCellSpawnedPublisher, specialPieceSpawnedPublisher,
                 timerCellSeeder, gameModeModel, rescueRewardSource, runRescuedPublisher,
-                diamondPieceDecorator, targetIceCellSeeder)
+                diamondPieceDecorator, targetIceCellSeeder, lockedCellSeeder)
         {
         }
 
@@ -372,11 +385,13 @@ namespace MustyBlockBlast.Gameplay.Systems
             IRescueRewardSource rescueRewardSource = null,
             IPublisher<RunRescuedMessage> runRescuedPublisher = null,
             DiamondPieceDecorator diamondPieceDecorator = null,
-            LevelTargetIceCellSeeder targetIceCellSeeder = null)
+            LevelTargetIceCellSeeder targetIceCellSeeder = null,
+            LevelLockedCellSeeder lockedCellSeeder = null)
         {
             _reinforcedCellSeeder = reinforcedCellSeeder;
             _timerCellSeeder = timerCellSeeder;
             _targetIceCellSeeder = targetIceCellSeeder;
+            _lockedCellSeeder = lockedCellSeeder;
             _diamondPieceDecorator = diamondPieceDecorator;
             _gameModeModel = gameModeModel;
             _powerUpModel = powerUpModel;
@@ -461,6 +476,16 @@ namespace MustyBlockBlast.Gameplay.Systems
             if (_targetIceCellSeeder != null)
             {
                 _targetIceCellSeeder.Seed(_boardModel);
+            }
+
+            // Fourth seeder, same call stack, same reasoning (issue #434): a locked cell brings its own
+            // pre-filled block and must be standing before the player's first placement — its being
+            // occupied is the whole placement guard (AC1). Mutually exclusive per cell with the three
+            // above (LevelObjectiveConfig.IsValid refuses a cell authored as more than one), so in a
+            // valid level the order never matters.
+            if (_lockedCellSeeder != null)
+            {
+                _lockedCellSeeder.Seed(_boardModel);
             }
 
             // Dropped before the refill below, which is the thing that would otherwise pay them: a
@@ -736,6 +761,11 @@ namespace MustyBlockBlast.Gameplay.Systems
             // just destroyed is EMPTY now, and the "this cell emptied" notifications above say nothing
             // about the thinner ice still sitting on it. Same scan, same cost class.
             _boardModel.NotifyIceLevelsRefreshed();
+
+            // And the locked cells (issue #434), for the same reason again: a lock a neighbour's
+            // destruction just advanced is the same block in the same place, and a lock that just
+            // opened was never in any cleared line, so nothing above announces either. Same scan.
+            _boardModel.NotifyLockedCellsRefreshed();
 
             // The other half of the melted count: sockets still icy now. Ice only ever goes down, so the
             // difference is exactly the number of sockets this whole resolution melted to 0.
@@ -1257,6 +1287,10 @@ namespace MustyBlockBlast.Gameplay.Systems
             // reinforced count above: a hammer publishes no message that could carry it.
             _boardModel.NotifyIceLevelsRefreshed();
 
+            // A hammered block beside a lock counted as one of its distinct neighbours (Board.TryDamage),
+            // and may have opened it — repainted for the reason the placement path repaints its own.
+            _boardModel.NotifyLockedCellsRefreshed();
+
             // Consumed before the effects below can end the run, so AC7 holds whatever they go on to do:
             // the hammer is spent exactly once, at the moment it was used.
             _trayModel.ConsumeSlot(slotIndex);
@@ -1684,6 +1718,9 @@ namespace MustyBlockBlast.Gameplay.Systems
             // A hammered special's blast/wipe/strike can melt a socket too, and nothing above repaints
             // an empty cell's ice (issue #433).
             _boardModel.NotifyIceLevelsRefreshed();
+
+            // Nor a lock the blast/wipe/strike advanced or opened from beside it (issue #434).
+            _boardModel.NotifyLockedCellsRefreshed();
 
             PublishCoinsAwarded();
         }

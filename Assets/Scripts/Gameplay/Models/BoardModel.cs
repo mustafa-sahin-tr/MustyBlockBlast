@@ -99,6 +99,26 @@ namespace MustyBlockBlast.Gameplay.Models
         /// </summary>
         public event Action<GridPosition, int> TargetIceLevelChanged;
 
+        /// <summary>
+        /// Raised for a position whose <see cref="SpecialCellKind.Locked"/> state (issue #434) may have
+        /// changed: freshly seeded, one more distinct neighbour counted, or unlocked. Args: the position
+        /// only — a lock's View-relevant state is four values (locked or not, skin, distinct count,
+        /// threshold), so rather than a four-argument event the View reads them back through
+        /// <see cref="IsLocked"/>, <see cref="GetLockedSkin"/>, <see cref="GetLockedProgressCount"/> and
+        /// <see cref="GetLockedThreshold"/>, exactly as a <see cref="SpecialKindChanged"/> subscriber reads
+        /// a diamond's colour back rather than being handed it.
+        /// <para>
+        /// Its own signal for the reason <see cref="TargetIceLevelChanged"/> is one: an unlock happens
+        /// inside <see cref="Core.Board.TryDamage"/> to a cell that was NOT in any cleared line — it is a
+        /// neighbour of one — so no <see cref="CellChanged"/> ever announces it going empty, and a
+        /// still-locked cell whose progress advanced is the same block in the same place, which
+        /// <see cref="CellChanged"/> would not describe either. Announced for the unlocked/never-locked
+        /// state too (see <see cref="NotifyLockedCellsRefreshed"/>), so a View can strip an overlay and
+        /// repaint the cell empty.
+        /// </para>
+        /// </summary>
+        public event Action<GridPosition> LockedCellChanged;
+
         /// <summary>The board's outline. Read-only and immutable — a View reads width, height and hole
         /// cells off it to lay itself out and to render the holes.</summary>
         public BoardShape Shape => _board.Shape;
@@ -147,6 +167,27 @@ namespace MustyBlockBlast.Gameplay.Models
         /// repaint re-derives every position's ice overlay from the model rather than trusting
         /// bookkeeping it accumulated from events. 0 for a position carrying no ice (issue #433).</summary>
         public int GetIceLevel(GridPosition position) => _board.GetIceLevel(position);
+
+        /// <summary>Read-only access for Views (issue #434): true while the block on
+        /// <paramref name="position"/> is a still-locked cell. See <see cref="Core.Board.IsLocked"/>.</summary>
+        public bool IsLocked(GridPosition position) => _board.IsLocked(position);
+
+        /// <summary>Read-only access for Views, for the reason <see cref="GetHitCount"/> is: distinct
+        /// neighbour clears the lock on <paramref name="position"/> needs. 0 for a cell that is not
+        /// locked.</summary>
+        public int GetLockedThreshold(GridPosition position) => _board.GetLockedThreshold(position);
+
+        /// <summary>Read-only access for Views: how many DISTINCT neighbours of the lock on
+        /// <paramref name="position"/> have counted so far. 0 for a cell that is not locked.</summary>
+        public int GetLockedProgressCount(GridPosition position) => _board.GetLockedProgressCount(position);
+
+        /// <summary>Read-only access for Views: the raw direction mask behind
+        /// <see cref="GetLockedProgressCount"/>. See <see cref="Core.Board.GetLockedProgressMask"/>.</summary>
+        public int GetLockedProgressMask(GridPosition position) => _board.GetLockedProgressMask(position);
+
+        /// <summary>Read-only access for Views: which visual skin (0..<see cref="Core.Board.LOCKED_SKIN_COUNT"/>-1)
+        /// the lock on <paramref name="position"/> wears. Meaningless unless <see cref="IsLocked"/>.</summary>
+        public int GetLockedSkin(GridPosition position) => _board.GetLockedSkin(position);
 
         /// <summary>Core board handed to the stateless Core rule helpers. Systems only.</summary>
         internal Board Board => _board;
@@ -214,6 +255,20 @@ namespace MustyBlockBlast.Gameplay.Models
         {
             _board.SetIceLevel(position, level);
             TargetIceLevelChanged?.Invoke(position, level);
+        }
+
+        /// <summary>Occupies a cell as a <see cref="SpecialCellKind.Locked"/> cell (issue #434) and
+        /// announces all of it — the block, its kind, then its lock state — in the order
+        /// <see cref="OccupyTimer"/> establishes: the threshold and skin are written before anything is
+        /// announced, so a View reacting to either notification by reading the model back sees a fully
+        /// described lock. Level-start seeding only (<see cref="Systems.LevelLockedCellSeeder"/>); see
+        /// <see cref="Core.Board.OccupyLocked"/>.</summary>
+        internal void OccupyLocked(GridPosition position, int colourId, int threshold, int skin)
+        {
+            _board.OccupyLocked(position, colourId, threshold, skin);
+            CellChanged?.Invoke(position, colourId);
+            SpecialKindChanged?.Invoke(position, SpecialCellKind.Locked);
+            LockedCellChanged?.Invoke(position);
         }
 
         /// <summary>Tags a cell with a special behaviour and announces it. Separate from
@@ -380,6 +435,40 @@ namespace MustyBlockBlast.Gameplay.Models
                     }
 
                     TargetIceLevelChanged.Invoke(position, _board.GetIceLevel(position));
+                }
+            }
+        }
+
+        /// <summary>
+        /// Re-announces the lock state of every playable position (issue #434), so a View repaints the
+        /// locks a resolution just advanced or opened. Mirrors <see cref="NotifyIceLevelsRefreshed"/>
+        /// exactly, including its one deliberate difference from <see cref="NotifyHitCountsRefreshed"/>:
+        /// positions that are NOT locked are announced too, not skipped. A lock that just opened is an
+        /// ordinary empty cell now, and it was never in any cleared line — it is a neighbour of one — so
+        /// nothing else tells a View to strip its overlay and paint it empty. The progress itself
+        /// advances inside <see cref="Core.Board.TryDamage"/>, which reports nothing; the "a scan, not a
+        /// change list" reasoning is <see cref="NotifyHitCountsRefreshed"/>'s. Same cost class: once per
+        /// placement or power-up over the board's cells, never per frame, allocation-free and idempotent
+        /// (the View skips a position whose state did not change).
+        /// </summary>
+        internal void NotifyLockedCellsRefreshed()
+        {
+            if (LockedCellChanged == null)
+            {
+                return;
+            }
+
+            for (int y = 0; y < _board.Height; y++)
+            {
+                for (int x = 0; x < _board.Width; x++)
+                {
+                    var position = new GridPosition(x, y);
+                    if (_board.IsHole(position))
+                    {
+                        continue;
+                    }
+
+                    LockedCellChanged.Invoke(position);
                 }
             }
         }

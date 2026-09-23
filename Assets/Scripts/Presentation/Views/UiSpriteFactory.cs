@@ -47,6 +47,20 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>Glyphs on the dock-icon sheet: rocket, then hammer.</summary>
         private const int DOCK_ICON_COUNT = 2;
 
+        /// <summary>Side of one tile on the locked-cell skin sheet (see <see cref="LockedSkin"/>).</summary>
+        private const int LOCKED_SKIN_SIZE = 128;
+
+        /// <summary>Skins on the locked-cell sheet, one row each: planks, nails, padlock cage — the three
+        /// approved looks of issue #434, in the order <c>Board.LOCKED_SKIN_COUNT</c> indexes them.</summary>
+        private const int LOCKED_SKIN_COUNT = 3;
+
+        /// <summary>Stages per skin, one column each: "3 layers left", "2 left", "1 left". Equals
+        /// <c>LockedCellAuthoring.MAX_UNLOCK_THRESHOLD</c>; kept as a local constant so this class stays
+        /// free of a Gameplay reference, and asserted against nothing because a caller asking for a stage
+        /// above it is clamped (a threshold-3 lock at full progress and a threshold-1 lock both read as
+        /// "1 layer left").</summary>
+        private const int LOCKED_SKIN_STAGES = 3;
+
         /// <summary>Spikes on <see cref="Starburst"/>. Six reads as a spark rather than as a snowflake
         /// (eight) or an arrow cluster (four) at the size a board cell draws it.</summary>
         private const int STARBURST_POINTS = 6;
@@ -83,6 +97,12 @@ namespace MustyBlockBlast.Presentation.Views
         private static Sprite _hammerIcon;
         private static Sprite _refreshIcon;
         private static Sprite _checkMark;
+
+        /// <summary>The nine locked-cell skin sprites, indexed <c>skin * LOCKED_SKIN_STAGES + (stage - 1)</c>,
+        /// all cut from one texture. Null until the first <see cref="LockedSkin"/> call builds the sheet;
+        /// never rebuilt per call after that (a lock is repainted once per placement, never per frame,
+        /// but even that must not touch pixels).</summary>
+        private static Sprite[] _lockedSkins;
 
         /// <summary>9-sliced rounded square, white. Tint via <see cref="UnityEngine.UI.Image.color"/>.</summary>
         internal static Sprite RoundedSquare
@@ -219,6 +239,35 @@ namespace MustyBlockBlast.Presentation.Views
                 EnsureDockIcons();
                 return _hammerIcon;
             }
+        }
+
+        /// <summary>
+        /// The overlay a locked cell (issue #434) wears: <paramref name="skin"/> picks one of the three
+        /// approved looks (0 "Çivili Tahtalar" — nailed planks, 1 "Çiviler" — a lid studded with nails,
+        /// 2 "Asma Kilitli Kafes" — a barred cage with a padlock), and <paramref name="stagesRemaining"/>
+        /// (1..3, clamped) is how many distinct neighbour clears the lock still needs: each skin peels one
+        /// layer per stage — one plank, one nail, one padlock ring — so a lock reads as "N to go" at a
+        /// glance whatever its skin. Full-colour pixel art, so use <c>Color.white</c> on the Image and
+        /// <c>Image.Type.Simple</c>.
+        /// <para>
+        /// All nine sprites come off one texture built on first use (see <see cref="BuildLockedSkinSheet"/>),
+        /// for the reason the dock icons share theirs: every lock on the board batches into one draw call
+        /// whatever mix of skins and stages it shows. Procedural rather than authored art, which is this
+        /// project's established house style for a special cell's look (the reinforced cell's damage art
+        /// is still a placeholder too), and drawn as a few large shapes per tile so each stays legible at
+        /// the size a board cell renders it.
+        /// </para>
+        /// </summary>
+        internal static Sprite LockedSkin(int skin, int stagesRemaining)
+        {
+            if (_lockedSkins == null)
+            {
+                BuildLockedSkinSheet();
+            }
+
+            int clampedSkin = Mathf.Clamp(skin, 0, LOCKED_SKIN_COUNT - 1);
+            int clampedStage = Mathf.Clamp(stagesRemaining, 1, LOCKED_SKIN_STAGES);
+            return _lockedSkins[(clampedSkin * LOCKED_SKIN_STAGES) + (clampedStage - 1)];
         }
 
         /// <summary>
@@ -781,6 +830,289 @@ namespace MustyBlockBlast.Presentation.Views
                     WritePixel(pixels, stride, originX + x, y, Mathf.Max(head, handle));
                 }
             }
+        }
+
+        // --- Locked-cell skins (issue #434) ---
+
+        /// <summary>
+        /// Draws the three locked-cell skins at their three stages into one 3x3 tile sheet and cuts
+        /// nine sprites out of it. One texture rather than nine, for the reason
+        /// <see cref="BuildDockIconSheet"/> gives: every lock on the board must stay in one batch.
+        /// Column = stages remaining (1..3, left to right), row = skin (planks, nails, cage, bottom to
+        /// top, the order <c>Board.LOCKED_SKIN_COUNT</c> indexes them).
+        /// </summary>
+        private static void BuildLockedSkinSheet()
+        {
+            int width = LOCKED_SKIN_SIZE * LOCKED_SKIN_STAGES;
+            int height = LOCKED_SKIN_SIZE * LOCKED_SKIN_COUNT;
+
+            var texture = new Texture2D(width, height, TextureFormat.RGBA32, false)
+            {
+                name = "MustyBlockBlast_LockedCellSkins",
+                wrapMode = TextureWrapMode.Clamp,
+                filterMode = FilterMode.Bilinear,
+                hideFlags = HideFlags.HideAndDontSave,
+            };
+
+            // Color32's default is fully transparent, so only what each skin draws is written and the
+            // block colour underneath shows through the gaps between planks and cage bars.
+            var pixels = new Color32[width * height];
+            for (int stage = 1; stage <= LOCKED_SKIN_STAGES; stage++)
+            {
+                int originX = (stage - 1) * LOCKED_SKIN_SIZE;
+                DrawLockedPlanks(pixels, width, originX, 0, stage);
+                DrawLockedNails(pixels, width, originX, LOCKED_SKIN_SIZE, stage);
+                DrawLockedCage(pixels, width, originX, LOCKED_SKIN_SIZE * 2, stage);
+            }
+
+            texture.SetPixels32(pixels);
+            texture.Apply(false, true);
+
+            var sprites = new Sprite[LOCKED_SKIN_COUNT * LOCKED_SKIN_STAGES];
+            for (int skin = 0; skin < LOCKED_SKIN_COUNT; skin++)
+            {
+                for (int stage = 1; stage <= LOCKED_SKIN_STAGES; stage++)
+                {
+                    Sprite sprite = Sprite.Create(
+                        texture,
+                        new Rect((stage - 1) * LOCKED_SKIN_SIZE, skin * LOCKED_SKIN_SIZE, LOCKED_SKIN_SIZE, LOCKED_SKIN_SIZE),
+                        new Vector2(0.5f, 0.5f),
+                        100f,
+                        0,
+                        SpriteMeshType.FullRect);
+                    sprite.name = $"MustyBlockBlast_LockedSkin{skin}_Stage{stage}";
+                    sprite.hideFlags = HideFlags.HideAndDontSave;
+                    sprites[(skin * LOCKED_SKIN_STAGES) + (stage - 1)] = sprite;
+                }
+            }
+
+            _lockedSkins = sprites;
+        }
+
+        /// <summary>
+        /// "Çivili Tahtalar": <paramref name="stagesRemaining"/> horizontal wooden planks nailed across
+        /// the cell, spread evenly so three, two and one plank each read as their own count. Each plank
+        /// is a wood-toned bar with a lighter top edge, a darker bottom edge and a nail head at either
+        /// end; the block colour shows between them.
+        /// </summary>
+        private static void DrawLockedPlanks(Color32[] pixels, int stride, int originX, int originY, int stagesRemaining)
+        {
+            const float SIZE = LOCKED_SKIN_SIZE;
+            const float PLANK_HALF_HEIGHT = 0.10f * SIZE;
+            const float EDGE = 0.035f * SIZE;
+            const float NAIL_RADIUS = 0.035f * SIZE;
+
+            var wood = new Color32(168, 118, 64, 255);
+            var woodLight = new Color32(200, 150, 90, 255);
+            var woodDark = new Color32(118, 78, 38, 255);
+            var nail = new Color32(220, 222, 230, 255);
+
+            for (int y = 0; y < LOCKED_SKIN_SIZE; y++)
+            {
+                for (int x = 0; x < LOCKED_SKIN_SIZE; x++)
+                {
+                    float pixelX = x + 0.5f;
+                    float pixelY = y + 0.5f;
+
+                    for (int plank = 0; plank < stagesRemaining; plank++)
+                    {
+                        float centreY = LayerCentre(plank, stagesRemaining) * SIZE;
+                        float minY = centreY - PLANK_HALF_HEIGHT;
+                        float maxY = centreY + PLANK_HALF_HEIGHT;
+
+                        float body = RectCoverage(pixelX, pixelY, 0.05f * SIZE, minY, 0.95f * SIZE, maxY);
+                        BlendPixel(pixels, stride, originX + x, originY + y, wood, body);
+
+                        float top = RectCoverage(pixelX, pixelY, 0.05f * SIZE, maxY - EDGE, 0.95f * SIZE, maxY);
+                        BlendPixel(pixels, stride, originX + x, originY + y, woodLight, top);
+
+                        float bottom = RectCoverage(pixelX, pixelY, 0.05f * SIZE, minY, 0.95f * SIZE, minY + EDGE);
+                        BlendPixel(pixels, stride, originX + x, originY + y, woodDark, bottom);
+
+                        float nailLeft = CircleCoverage(pixelX, pixelY, 0.15f * SIZE, centreY, NAIL_RADIUS);
+                        float nailRight = CircleCoverage(pixelX, pixelY, 0.85f * SIZE, centreY, NAIL_RADIUS);
+                        BlendPixel(pixels, stride, originX + x, originY + y, nail, Mathf.Max(nailLeft, nailRight));
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// "Çiviler": a flat steel lid covering the whole cell, studded with
+        /// <paramref name="stagesRemaining"/> nail heads — three in a triangle, two side by side, one
+        /// in the middle. Opaque, so the block colour is hidden; the lid IS the block's face here.
+        /// </summary>
+        private static void DrawLockedNails(Color32[] pixels, int stride, int originX, int originY, int stagesRemaining)
+        {
+            const float SIZE = LOCKED_SKIN_SIZE;
+            const float NAIL_RADIUS = 0.085f * SIZE;
+            const float NAIL_SHINE_RADIUS = 0.035f * SIZE;
+
+            var lid = new Color32(128, 136, 152, 255);
+            var lidFace = new Color32(152, 160, 178, 255);
+            var nail = new Color32(66, 68, 80, 255);
+            var nailShine = new Color32(196, 198, 210, 255);
+
+            for (int y = 0; y < LOCKED_SKIN_SIZE; y++)
+            {
+                for (int x = 0; x < LOCKED_SKIN_SIZE; x++)
+                {
+                    float pixelX = x + 0.5f;
+                    float pixelY = y + 0.5f;
+
+                    float rim = RectCoverage(pixelX, pixelY, 0.04f * SIZE, 0.04f * SIZE, 0.96f * SIZE, 0.96f * SIZE);
+                    BlendPixel(pixels, stride, originX + x, originY + y, lid, rim);
+
+                    float face = RectCoverage(pixelX, pixelY, 0.12f * SIZE, 0.12f * SIZE, 0.88f * SIZE, 0.88f * SIZE);
+                    BlendPixel(pixels, stride, originX + x, originY + y, lidFace, face);
+
+                    for (int nailIndex = 0; nailIndex < stagesRemaining; nailIndex++)
+                    {
+                        NailPosition(nailIndex, stagesRemaining, out float centreX, out float centreY);
+                        centreX *= SIZE;
+                        centreY *= SIZE;
+
+                        float head = CircleCoverage(pixelX, pixelY, centreX, centreY, NAIL_RADIUS);
+                        BlendPixel(pixels, stride, originX + x, originY + y, nail, head);
+
+                        float shine = CircleCoverage(
+                            pixelX, pixelY, centreX - (0.025f * SIZE), centreY + (0.025f * SIZE), NAIL_SHINE_RADIUS);
+                        BlendPixel(pixels, stride, originX + x, originY + y, nailShine, shine);
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// "Asma Kilitli Kafes": an iron frame with three vertical and two horizontal bars (the block
+        /// colour shows through the gaps) and a gold padlock hanging in the lower half, its body
+        /// carrying <paramref name="stagesRemaining"/> dark rings — one per neighbour clear still owed.
+        /// </summary>
+        private static void DrawLockedCage(Color32[] pixels, int stride, int originX, int originY, int stagesRemaining)
+        {
+            const float SIZE = LOCKED_SKIN_SIZE;
+            const float BAR_HALF = 0.035f * SIZE;
+            const float RING_OUTER = 0.05f * SIZE;
+            const float RING_INNER = 0.025f * SIZE;
+
+            var iron = new Color32(74, 76, 88, 255);
+            var gold = new Color32(226, 178, 58, 255);
+            var goldDark = new Color32(190, 140, 36, 255);
+            var ring = new Color32(60, 44, 20, 255);
+
+            float shackleCentreX = 0.5f * SIZE;
+            float shackleCentreY = 0.44f * SIZE;
+
+            for (int y = 0; y < LOCKED_SKIN_SIZE; y++)
+            {
+                for (int x = 0; x < LOCKED_SKIN_SIZE; x++)
+                {
+                    float pixelX = x + 0.5f;
+                    float pixelY = y + 0.5f;
+
+                    // Frame: the outer rectangle minus the inner one.
+                    float outer = RectCoverage(pixelX, pixelY, 0.03f * SIZE, 0.03f * SIZE, 0.97f * SIZE, 0.97f * SIZE);
+                    float inner = RectCoverage(pixelX, pixelY, 0.11f * SIZE, 0.11f * SIZE, 0.89f * SIZE, 0.89f * SIZE);
+                    float frame = Mathf.Clamp01(outer - inner);
+
+                    float bars = 0f;
+                    bars = Mathf.Max(bars, RectCoverage(pixelX, pixelY, (0.30f * SIZE) - BAR_HALF, 0.11f * SIZE, (0.30f * SIZE) + BAR_HALF, 0.89f * SIZE));
+                    bars = Mathf.Max(bars, RectCoverage(pixelX, pixelY, (0.50f * SIZE) - BAR_HALF, 0.11f * SIZE, (0.50f * SIZE) + BAR_HALF, 0.89f * SIZE));
+                    bars = Mathf.Max(bars, RectCoverage(pixelX, pixelY, (0.70f * SIZE) - BAR_HALF, 0.11f * SIZE, (0.70f * SIZE) + BAR_HALF, 0.89f * SIZE));
+                    bars = Mathf.Max(bars, RectCoverage(pixelX, pixelY, 0.11f * SIZE, (0.37f * SIZE) - BAR_HALF, 0.89f * SIZE, (0.37f * SIZE) + BAR_HALF));
+                    bars = Mathf.Max(bars, RectCoverage(pixelX, pixelY, 0.11f * SIZE, (0.63f * SIZE) - BAR_HALF, 0.89f * SIZE, (0.63f * SIZE) + BAR_HALF));
+                    BlendPixel(pixels, stride, originX + x, originY + y, iron, Mathf.Max(frame, bars));
+
+                    // Padlock: shackle (the upper half of an annulus) over the body, body drawn after so
+                    // its top edge covers the shackle's open ends.
+                    float shackle = AnnulusCoverage(pixelX, pixelY, shackleCentreX, shackleCentreY, 0.15f * SIZE, 0.09f * SIZE)
+                        * RectCoverage(pixelX, pixelY, 0f, shackleCentreY, SIZE, SIZE);
+                    BlendPixel(pixels, stride, originX + x, originY + y, goldDark, shackle);
+
+                    float body = RectCoverage(pixelX, pixelY, 0.32f * SIZE, 0.12f * SIZE, 0.68f * SIZE, 0.46f * SIZE);
+                    BlendPixel(pixels, stride, originX + x, originY + y, gold, body);
+
+                    for (int ringIndex = 0; ringIndex < stagesRemaining; ringIndex++)
+                    {
+                        float centreX = (0.5f + ((ringIndex - ((stagesRemaining - 1) * 0.5f)) * 0.12f)) * SIZE;
+                        float coverage = AnnulusCoverage(pixelX, pixelY, centreX, 0.28f * SIZE, RING_OUTER, RING_INNER);
+                        BlendPixel(pixels, stride, originX + x, originY + y, ring, coverage);
+                    }
+                }
+            }
+        }
+
+        /// <summary>Normalised (0..1) centre of layer <paramref name="index"/> when
+        /// <paramref name="count"/> layers are spread evenly across the tile — three at 0.22/0.5/0.78,
+        /// two at 0.33/0.67, one at 0.5 — so each count reads as its own picture.</summary>
+        private static float LayerCentre(int index, int count) => (index + 1) / (float)(count + 1);
+
+        /// <summary>Normalised centre of nail <paramref name="index"/> on the nails lid: three in a
+        /// triangle, two side by side, one dead centre.</summary>
+        private static void NailPosition(int index, int count, out float x, out float y)
+        {
+            if (count >= 3)
+            {
+                if (index == 0)
+                {
+                    x = 0.5f;
+                    y = 0.70f;
+                    return;
+                }
+
+                x = index == 1 ? 0.28f : 0.72f;
+                y = 0.32f;
+                return;
+            }
+
+            if (count == 2)
+            {
+                x = index == 0 ? 0.30f : 0.70f;
+                y = 0.5f;
+                return;
+            }
+
+            x = 0.5f;
+            y = 0.5f;
+        }
+
+        /// <summary>Anti-aliased coverage of one pixel by the ring between <paramref name="innerRadius"/>
+        /// and <paramref name="outerRadius"/>.</summary>
+        private static float AnnulusCoverage(
+            float pixelX, float pixelY, float centreX, float centreY, float outerRadius, float innerRadius)
+        {
+            return Mathf.Clamp01(
+                CircleCoverage(pixelX, pixelY, centreX, centreY, outerRadius)
+                - CircleCoverage(pixelX, pixelY, centreX, centreY, innerRadius));
+        }
+
+        /// <summary>Composites <paramref name="colour"/> at <paramref name="coverage"/> over whatever is
+        /// already in the pixel ("over" blending), so a coloured shape drawn on top of another keeps a
+        /// clean anti-aliased edge. The full-colour counterpart of <see cref="WritePixel"/>, which only
+        /// ever writes a white silhouette.</summary>
+        private static void BlendPixel(Color32[] pixels, int stride, int x, int y, Color32 colour, float coverage)
+        {
+            if (coverage <= 0f)
+            {
+                return;
+            }
+
+            float alpha = Mathf.Clamp01(coverage);
+            int index = (y * stride) + x;
+            Color32 existing = pixels[index];
+            float existingAlpha = existing.a / 255f;
+            float outAlpha = alpha + (existingAlpha * (1f - alpha));
+            if (outAlpha <= 0f)
+            {
+                return;
+            }
+
+            float blend = alpha / outAlpha;
+            pixels[index] = new Color32(
+                (byte)Mathf.RoundToInt(Mathf.Lerp(existing.r, colour.r, blend)),
+                (byte)Mathf.RoundToInt(Mathf.Lerp(existing.g, colour.g, blend)),
+                (byte)Mathf.RoundToInt(Mathf.Lerp(existing.b, colour.b, blend)),
+                (byte)Mathf.RoundToInt(outAlpha * 255f));
         }
 
         private static void WritePixel(Color32[] pixels, int stride, int x, int y, float alpha)

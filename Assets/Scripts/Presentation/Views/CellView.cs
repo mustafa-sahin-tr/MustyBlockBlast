@@ -113,6 +113,7 @@ namespace MustyBlockBlast.Presentation.Views
         private Image _blockGlossImage;
         private Image _specialGlowImage;
         private Image _iceOverlayImage;
+        private Image _lockedOverlayImage;
         private Image _specialIconRimImage;
         private Image _specialIconImage;
         private Image _highlightImage;
@@ -184,6 +185,20 @@ namespace MustyBlockBlast.Presentation.Views
             _iceOverlayImage.raycastTarget = false;
             _iceOverlayImage.color = Color.clear;
             _iceOverlayImage.gameObject.SetActive(false);
+
+            // The locked-cell skin (issue #434): one full-colour pixel-art plate (planks, nails or a
+            // padlock cage) over the block. Built after the block look and the ice plate so it draws
+            // over both — a lock is a pre-filled block, and its skin is what marks it — and before the
+            // glow/icon/rings, which a lock never wears (BoardView paints no icon for it). Parented to
+            // the cell rather than the block root for the reason the ice plate is, and inset by the
+            // cell's own inset so it sits on the block's face rather than over the outline.
+            _lockedOverlayImage = CreateStretchedImage(transform, "LockedOverlay");
+            _lockedOverlayImage.type = Image.Type.Simple;
+            _lockedOverlayImage.preserveAspect = true;
+            _lockedOverlayImage.raycastTarget = false;
+            _lockedOverlayImage.color = Color.white;
+            SetStretchInsets((RectTransform)_lockedOverlayImage.transform, inset, inset, inset, inset);
+            _lockedOverlayImage.gameObject.SetActive(false);
 
             float iconInset = inset + (bevelThickness * SPECIAL_ICON_BEVEL_INSET_MULTIPLIER);
 
@@ -351,6 +366,37 @@ namespace MustyBlockBlast.Presentation.Views
             ShowLayer(
                 _iceOverlayImage,
                 new Color(IceOverlayTint.r, IceOverlayTint.g, IceOverlayTint.b, ICE_OVERLAY_MAX_ALPHA * fraction));
+        }
+
+        /// <summary>
+        /// Shows the locked-cell skin (issue #434) — <paramref name="skin"/> picks one of the three
+        /// approved looks, <paramref name="stagesRemaining"/> how many layers it still shows — or hides it
+        /// when <paramref name="stagesRemaining"/> is 0, at which point the cell is indistinguishable from
+        /// one that was never locked (AC6). The sprite comes from <see cref="UiSpriteFactory.LockedSkin"/>'s
+        /// cache, so this touches no pixels and allocates nothing: safe on any repaint path. Independent of
+        /// every other layer, and — unlike the ice plate — it IS faded by <see cref="SetAlpha"/>, because
+        /// the lock is the block: a lock a Bomb destroys outright fades out as one piece.
+        /// </summary>
+        internal void SetLockedOverlay(int skin, int stagesRemaining)
+        {
+            if (_lockedOverlayImage == null)
+            {
+                return;
+            }
+
+            if (stagesRemaining <= 0)
+            {
+                HideLayer(_lockedOverlayImage);
+                return;
+            }
+
+            Sprite sprite = UiSpriteFactory.LockedSkin(skin, stagesRemaining);
+            if (_lockedOverlayImage.sprite != sprite)
+            {
+                _lockedOverlayImage.sprite = sprite;
+            }
+
+            ShowLayer(_lockedOverlayImage, Color.white);
         }
 
         /// <summary>Hides the special-cell icon and its rim-light. Safe to call on a cell that never had
@@ -592,6 +638,10 @@ namespace MustyBlockBlast.Presentation.Views
             // SetSpecialGlow call.
             ApplyAlpha(_specialIconRimImage, alpha * SPECIAL_ICON_RIM_ALPHA);
             ApplyAlpha(_specialGlowImage, alpha * _glowBaseAlpha);
+
+            // And the lock skin (issue #434): the lock IS the block, so a lock destroyed outright fades
+            // with it rather than floating over an emptying cell. Restored by the next SetLockedOverlay.
+            ApplyAlpha(_lockedOverlayImage, alpha);
 
             // And the countdown number, for the same reason: a timer cell that is fading out (cleared
             // in time) must not leave its number floating over an emptying cell.

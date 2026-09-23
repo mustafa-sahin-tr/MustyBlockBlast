@@ -618,6 +618,12 @@ namespace MustyBlockBlast.Presentation
             // right after the timer-cell seeder, so a socket is marked before the tray is dealt.
             builder.Register<LevelTargetIceCellSeeder>(Lifetime.Singleton).AsSelf();
 
+            // Same shape and same reason as the reinforced-cell seeder: a locked cell (issue #434) also
+            // brings its own pre-filled block, which is the whole placement guard, so it must be standing
+            // before the tray is dealt. BoardSystem calls it inline, right after the ice-socket seeder.
+            // It also rolls each lock's visual skin from its own seeded Random (AC9).
+            builder.Register<LevelLockedCellSeeder>(Lifetime.Singleton).AsSelf();
+
             // Rolls the diamond decoration of every dealt piece (issue #394). BoardSystem asks it per
             // dealt slot; it reads ObjectiveModel and GameModeModel live to gate itself to a Path run
             // with an active DiamondsCleared objective, so it needs no subscription of its own. The

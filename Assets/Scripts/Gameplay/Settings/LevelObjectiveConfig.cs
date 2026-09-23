@@ -38,6 +38,10 @@ namespace MustyBlockBlast.Gameplay.Settings
         /// null — the same never-existed-yet case <see cref="EmptyReinforcedCells"/> covers.</summary>
         private static readonly TargetIceCellAuthoring[] EmptyTargetIceCells = new TargetIceCellAuthoring[0];
 
+        /// <summary>Shared, never-mutated empty for a row whose <see cref="_lockedCells"/> field is
+        /// null — the same never-existed-yet case <see cref="EmptyReinforcedCells"/> covers.</summary>
+        private static readonly LockedCellAuthoring[] EmptyLockedCells = new LockedCellAuthoring[0];
+
         /// <summary>Shared, never-mutated empty for a row whose <see cref="_bannedPowerUps"/> field is
         /// null — the same never-existed-yet case <see cref="EmptyReinforcedCells"/> covers.</summary>
         private static readonly PowerUpKind[] EmptyBannedPowerUps = new PowerUpKind[0];
@@ -142,6 +146,12 @@ namespace MustyBlockBlast.Gameplay.Settings
             "objective — a diamond never lands on ice.")]
         [SerializeField] private List<TargetIceCellAuthoring> _targetIceCells =
             new List<TargetIceCellAuthoring>();
+
+        [Tooltip("Cells pre-filled with a locked block no piece can be placed on. It unlocks into an "
+            + "ordinary EMPTY cell once 1-3 DIFFERENT orthogonal neighbours have each been cleared at "
+            + "least once. Its visual skin is rolled at random per cell at run start. Empty (the "
+            + "default) means the level authors none.")]
+        [SerializeField] private List<LockedCellAuthoring> _lockedCells = new List<LockedCellAuthoring>();
 
         [Tooltip("Power-up kinds this level's Path-mode run refuses to arm or spend. Empty (the " +
             "default) bans nothing, which is what every level authored before this field existed " +
@@ -248,6 +258,16 @@ namespace MustyBlockBlast.Gameplay.Settings
         /// </summary>
         public IReadOnlyList<TargetIceCellAuthoring> TargetIceCells =>
             _targetIceCells ?? (IReadOnlyList<TargetIceCellAuthoring>)EmptyTargetIceCells;
+
+        /// <summary>
+        /// The locked cells this level pre-fills its board with (issue #434), in authored order. Empty
+        /// for a level that authors none, which is every level authored before the mechanic existed.
+        /// <para>
+        /// Never null, mirroring <see cref="ReinforcedCells"/>.
+        /// </para>
+        /// </summary>
+        public IReadOnlyList<LockedCellAuthoring> LockedCells =>
+            _lockedCells ?? (IReadOnlyList<LockedCellAuthoring>)EmptyLockedCells;
 
         /// <summary>
         /// Power-up kinds this level's Path-mode run refuses to arm or spend (see
@@ -610,6 +630,96 @@ namespace MustyBlockBlast.Gameplay.Settings
                 }
             }
 
+            IReadOnlyList<LockedCellAuthoring> lockedCells = LockedCells;
+            for (int i = 0; i < lockedCells.Count; i++)
+            {
+                LockedCellAuthoring lockedCell = lockedCells[i];
+                if (lockedCell == null)
+                {
+                    error = "A locked cell entry is empty — remove the row or fill it in.";
+                    return false;
+                }
+
+                GridPosition position = lockedCell.ToGridPosition();
+                if (position.X < 0 || position.X >= _boardWidth
+                    || position.Y < 0 || position.Y >= _boardHeight)
+                {
+                    error = $"Locked cell {position} is outside this level's {_boardWidth}x{_boardHeight} board.";
+                    return false;
+                }
+
+                if (lockedCell.UnlockThreshold < LockedCellAuthoring.MIN_UNLOCK_THRESHOLD
+                    || lockedCell.UnlockThreshold > LockedCellAuthoring.MAX_UNLOCK_THRESHOLD)
+                {
+                    error = $"Locked cell {position} needs an unlock threshold between "
+                        + $"{LockedCellAuthoring.MIN_UNLOCK_THRESHOLD} and {LockedCellAuthoring.MAX_UNLOCK_THRESHOLD}.";
+                    return false;
+                }
+
+                // A cell cannot be both: a hole can never hold a block, so a lock authored on one could
+                // never be placed, and the level would silently open without it.
+                if (IsAuthoredHole(position))
+                {
+                    error = $"Locked cell {position} is also authored as a hole — a cell cannot be both.";
+                    return false;
+                }
+
+                // Nor can it share a cell with any other authored mechanic: the two pre-filling ones
+                // each bring their own block (a cell cannot be pre-filled twice), and an ice socket
+                // starts EMPTY by definition, which a lock standing on it would contradict.
+                for (int reinforcedIndex = 0; reinforcedIndex < reinforcedCells.Count; reinforcedIndex++)
+                {
+                    ReinforcedCellAuthoring reinforced = reinforcedCells[reinforcedIndex];
+                    if (reinforced != null && reinforced.ToGridPosition().Equals(position))
+                    {
+                        error = $"Locked cell {position} is also authored as a reinforced cell — a cell cannot be both.";
+                        return false;
+                    }
+                }
+
+                for (int timerIndex = 0; timerIndex < timerCells.Count; timerIndex++)
+                {
+                    TimerCellAuthoring timerCell = timerCells[timerIndex];
+                    if (timerCell != null && timerCell.ToGridPosition().Equals(position))
+                    {
+                        error = $"Locked cell {position} is also authored as a timer cell — a cell cannot be both.";
+                        return false;
+                    }
+                }
+
+                for (int iceIndex = 0; iceIndex < targetIceCells.Count; iceIndex++)
+                {
+                    TargetIceCellAuthoring iceCell = targetIceCells[iceIndex];
+                    if (iceCell != null && iceCell.ToGridPosition().Equals(position))
+                    {
+                        error = $"Locked cell {position} is also authored as an ice socket — a cell cannot be both.";
+                        return false;
+                    }
+                }
+
+                for (int earlier = 0; earlier < i; earlier++)
+                {
+                    LockedCellAuthoring earlierCell = lockedCells[earlier];
+                    if (earlierCell != null && earlierCell.ToGridPosition().Equals(position))
+                    {
+                        error = $"Locked cell {position} is authored more than once — remove the duplicate entry.";
+                        return false;
+                    }
+                }
+
+                // AC5: the threshold counts DISTINCT neighbours, and a cell on an edge, in a corner or
+                // beside a hole has fewer than four. A threshold above what the position really has
+                // could never be met, leaving the cell locked forever — named here, at authoring time,
+                // rather than discovered by a player.
+                int neighbourCount = CountPlayableOrthogonalNeighbours(position);
+                if (lockedCell.UnlockThreshold > neighbourCount)
+                {
+                    error = $"Locked cell {position} needs {lockedCell.UnlockThreshold} distinct neighbours cleared "
+                        + $"but only has {neighbourCount} playable orthogonal neighbour(s) — it could never unlock.";
+                    return false;
+                }
+            }
+
             // The target for this type is the reinforced-cell count (see EffectiveTargetValue), so a
             // level authoring none would build an ObjectiveDefinition with target 0 — which throws.
             // Caught here, where every other type-specific precondition is, rather than at construction.
@@ -749,6 +859,30 @@ namespace MustyBlockBlast.Gameplay.Settings
             return Mathf.Max(1, (_boardWidth * _boardHeight) - holeCount);
         }
 
+        /// <summary>How many of <paramref name="position"/>'s four orthogonal neighbours are inside this
+        /// level's board rectangle and not authored holes — the most distinct neighbour clears a lock
+        /// there could ever accumulate, and so the ceiling on its threshold (issue #434 AC5). Counted
+        /// from the authored fields without building a <see cref="BoardShape"/>, for the reason
+        /// <see cref="MaxPlayableCellCount"/> is.</summary>
+        private int CountPlayableOrthogonalNeighbours(GridPosition position)
+        {
+            int count = 0;
+            count += IsPlayableAuthoredCell(new GridPosition(position.X, position.Y + 1)) ? 1 : 0;
+            count += IsPlayableAuthoredCell(new GridPosition(position.X, position.Y - 1)) ? 1 : 0;
+            count += IsPlayableAuthoredCell(new GridPosition(position.X - 1, position.Y)) ? 1 : 0;
+            count += IsPlayableAuthoredCell(new GridPosition(position.X + 1, position.Y)) ? 1 : 0;
+            return count;
+        }
+
+        /// <summary>True when <paramref name="position"/> is inside the authored rectangle and not an
+        /// authored hole — a cell a block could stand on and be destroyed from.</summary>
+        private bool IsPlayableAuthoredCell(GridPosition position)
+        {
+            return position.X >= 0 && position.X < _boardWidth
+                && position.Y >= 0 && position.Y < _boardHeight
+                && !IsAuthoredHole(position);
+        }
+
         /// <summary>True when <paramref name="position"/> is one of this level's authored hole cells.</summary>
         private bool IsAuthoredHole(GridPosition position)
         {
@@ -838,6 +972,17 @@ namespace MustyBlockBlast.Gameplay.Settings
                     if (_targetIceCells[i] != null)
                     {
                         _targetIceCells[i].ValidateInEditor();
+                    }
+                }
+            }
+
+            if (_lockedCells != null)
+            {
+                for (int i = 0; i < _lockedCells.Count; i++)
+                {
+                    if (_lockedCells[i] != null)
+                    {
+                        _lockedCells[i].ValidateInEditor();
                     }
                 }
             }
