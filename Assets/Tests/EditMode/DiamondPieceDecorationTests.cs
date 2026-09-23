@@ -334,7 +334,7 @@ namespace MustyBlockBlast.Tests.EditMode
             BoardSystem system = CreateSystem(out BoardModel boardModel, out TrayModel trayModel);
             var reinforced = new GridPosition(2, 0);
             var timer = new GridPosition(0, 1);
-            boardModel.OccupyReinforced(reinforced, BLOCK_COLOUR, hitCount: 2);
+            boardModel.OccupyReinforced(reinforced, BLOCK_COLOUR, hitCount: 2, skin: 0);
             boardModel.OccupyTimer(timer, BLOCK_COLOUR, startingCountdown: 5);
             trayModel.SetSlot(0, Domino, BLOCK_COLOUR, SpecialPieceKind.None, new[] { RED, RED });
 
@@ -358,7 +358,7 @@ namespace MustyBlockBlast.Tests.EditMode
             var reinforced = new GridPosition(1, 1);
             var timer = new GridPosition(2, 2);
             var empty = new GridPosition(3, 3);
-            board.OccupyReinforced(reinforced, BLOCK_COLOUR, hitCount: 2);
+            board.OccupyReinforced(reinforced, BLOCK_COLOUR, hitCount: 2, skin: 0);
             board.OccupyTimer(timer, BLOCK_COLOUR, startingCountdown: 3);
 
             Assert.IsFalse(DiamondCellRules.CanCarryDiamond(board, reinforced));

@@ -25,9 +25,12 @@ namespace MustyBlockBlast.Gameplay.Settings
         /// ordinary block that happens to start on the board, which needs none of this machinery.</summary>
         public const int MIN_HIT_COUNT = 2;
 
-        /// <summary>Most hits a reinforced cell may be authored with (issue #153 AC1). Also the
-        /// reference ceiling the View's damage stages are spread across.</summary>
-        public const int MAX_HIT_COUNT = 4;
+        /// <summary>Most hits a reinforced cell may be authored with. Was 4 (issue #153 AC1); dropped to
+        /// 3 by issue #438, when the reinforced cell took over the locked cell's skin art: that art has
+        /// exactly <c>UiSpriteFactory.LOCKED_SKIN_STAGES</c> (3) "layers remaining" stages, and a hit
+        /// count that maps 1:1 onto them means every hit visibly peels one layer with no fourth stage
+        /// to draw. No level had authored 4 when the ceiling moved, so nothing was re-clamped.</summary>
+        public const int MAX_HIT_COUNT = 3;
 
         [Tooltip("Column, 0-based from the left.")]
         [SerializeField] private int _x;
@@ -35,7 +38,7 @@ namespace MustyBlockBlast.Gameplay.Settings
         [Tooltip("Row, 0-based from the bottom.")]
         [SerializeField] private int _y;
 
-        [Tooltip("Hits this cell absorbs before a clear can remove it. 2-4.")]
+        [Tooltip("Hits this cell absorbs before a clear can remove it. 2-3.")]
         [SerializeField] private int _hitCount = MIN_HIT_COUNT;
 
         /// <summary>Hits this cell starts the level with.</summary>

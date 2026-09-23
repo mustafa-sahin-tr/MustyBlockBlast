@@ -3,6 +3,7 @@ using MessagePipe;
 using MustyBlockBlast.Core;
 using MustyBlockBlast.Gameplay.Messages;
 using MustyBlockBlast.Gameplay.Models;
+using MustyBlockBlast.Gameplay.Settings;
 using UnityEngine;
 using VContainer;
 
@@ -43,7 +44,7 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// <summary>Hit count each debug-seeded reinforced cell gets — the top of the shipped
         /// <c>MIN_HIT_COUNT..MAX_HIT_COUNT</c> range (see <see cref="ReinforcedCellAuthoring"/>), since a
         /// designer testing "how many hits does this survive" wants the hardest case by default.</summary>
-        private const int DEBUG_REINFORCED_HIT_COUNT = 4;
+        private const int DEBUG_REINFORCED_HIT_COUNT = ReinforcedCellAuthoring.MAX_HIT_COUNT;
 
         /// <summary>How many ice sockets <see cref="CycleObjective"/> marks when it lands on
         /// <see cref="ObjectiveType.IceCellsCleared"/> (issue #433), for the reason
@@ -250,7 +251,11 @@ namespace MustyBlockBlast.Gameplay.Systems
             for (int i = 0; i < seededCount; i++)
             {
                 int pick = Random.Range(0, candidates.Count);
-                _boardModel.OccupyReinforced(candidates[pick], TEST_COLOUR_ID, DEBUG_REINFORCED_HIT_COUNT);
+
+                // Skin rolled the way the level seeder rolls it (issue #438), from the same draw this
+                // cheat already uses for the position: a designer testing the look wants all three.
+                int skin = Random.Range(0, Board.LOCKED_SKIN_COUNT);
+                _boardModel.OccupyReinforced(candidates[pick], TEST_COLOUR_ID, DEBUG_REINFORCED_HIT_COUNT, skin);
                 candidates.RemoveAt(pick);
             }
 

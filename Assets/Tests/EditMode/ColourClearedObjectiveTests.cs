@@ -76,7 +76,7 @@ namespace MustyBlockBlast.Tests.EditMode
                 board.Occupy(new GridPosition(x, 1), WANTED);
             }
 
-            board.OccupyReinforced(new GridPosition(0, 1), WANTED, hitCount: 2);
+            board.OccupyReinforced(new GridPosition(0, 1), WANTED, hitCount: 2, skin: 0);
 
             LineClearResult result = LineClearResolver.ResolveClears(board);
 

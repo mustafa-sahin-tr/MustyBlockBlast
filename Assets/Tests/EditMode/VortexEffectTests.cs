@@ -138,7 +138,7 @@ namespace MustyBlockBlast.Tests.EditMode
             board.Clear(island);
 
             GridPosition reinforced = new GridPosition(0, 0);
-            board.OccupyReinforced(reinforced, 2, hitCount: 3);
+            board.OccupyReinforced(reinforced, 2, hitCount: 3, skin: 0);
 
             _effect.Apply(board, new SpecialCellTrigger(new GridPosition(0, 1), SpecialCellKind.Vortex));
 

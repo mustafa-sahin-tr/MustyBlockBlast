@@ -326,39 +326,12 @@ namespace MustyBlockBlast.Presentation.Views
         private const float HOLE_ALPHA = 0.55f;
 
         /// <summary>
-        /// The reference ceiling the reinforced-cell damage stages are spread across — the highest hit
-        /// count a level may author (issue #153 AC1). A cell authored with fewer simply starts partway
-        /// along the same ramp, so every reinforced cell with one hit left looks equally battered
-        /// whatever it started at, which is the reading that matters to the player: "one more and it
-        /// goes".
-        /// </summary>
-        private const int MAX_HIT_COUNT = 4;
-
-        /// <summary>
         /// The reference ceiling an ice socket's overlay opacity is spread across (issue #433) — the
-        /// highest ice level a level may author. Defined the way <see cref="MAX_HIT_COUNT"/> is, for
-        /// the same reading: a socket authored with fewer levels simply starts partway down the same
-        /// ramp, so every socket with one level left looks equally thin whatever it started at.
+        /// highest ice level a level may author. A socket authored with fewer levels simply starts
+        /// partway down the same ramp, so every socket with one level left looks equally thin whatever
+        /// it started at, which is the reading that matters to the player: "one more and it goes".
         /// </summary>
         private const int MAX_ICE_LEVEL = TargetIceCellAuthoring.MAX_ICE_LEVEL;
-
-        /// <summary>How far an undamaged reinforced cell is already blended towards
-        /// <see cref="ReinforcedDamageTint"/>, so it reads as reinforced before anything has hit it.</summary>
-        private const float UNDAMAGED_BLEND = 0.4f;
-
-        /// <summary>
-        /// Colour a reinforced cell's fill is blended towards as its hits run out — a cold, desaturated
-        /// slate, so a reinforced block reads as something harder than the themed blocks around it
-        /// without any theme having to author a colour for it.
-        /// <para>
-        /// A placeholder tint rather than a sprite per damage stage, which the issue explicitly allows
-        /// (AC2). It borrows the <see cref="Color.Lerp"/>-towards-a-fixed-tint idiom the clear flash and
-        /// the ghost-fit silhouette already use, so it costs no extra draw call, no atlas entry and no
-        /// art. See the Developer Action Required note in this issue's report: real cracked-block art is
-        /// an Editor asset job, and this keeps the code path complete and testable until it is done.
-        /// </para>
-        /// </summary>
-        private static readonly Color ReinforcedDamageTint = new Color(0.36f, 0.4f, 0.45f, 1f);
 
         private readonly GridPosition[] _previewCells = new GridPosition[16];
 
@@ -423,9 +396,10 @@ namespace MustyBlockBlast.Presentation.Views
         private SpecialCellKind[] _cellSpecialKinds;
 
         /// <summary>Hits each cell has left, parallel to the bookkeeping above. 0 for every ordinary
-        /// cell, which is every cell on a board no level reinforced. Drives the damage blend in
-        /// <see cref="ApplyCellColour"/>, so every repaint path picks it up without knowing about
-        /// it.</summary>
+        /// cell, which is every cell on a board no level reinforced. Kept in step with the model's own
+        /// <see cref="BoardModel.HitCountChanged"/> so that notification can be told from a re-announce
+        /// of an unchanged count; the look it drives is the skin overlay, read through
+        /// <see cref="ReadOverlayState"/> rather than from this array (issue #438).</summary>
         private int[] _cellHitCounts;
 
         /// <summary>Ice levels left at each position (issue #433), parallel to the bookkeeping above.
@@ -435,15 +409,17 @@ namespace MustyBlockBlast.Presentation.Views
         /// full redraw. Drives <see cref="CellView.SetIceOverlay"/>.</summary>
         private int[] _cellIceLevels;
 
-        /// <summary>Layers each locked cell (issue #434) still shows — its threshold minus the distinct
-        /// neighbours already counted — parallel to the bookkeeping above. 0 for every cell that is not
-        /// locked, which is every cell on a board no level locked. Written only from the model's own
-        /// <see cref="BoardModel.LockedCellChanged"/> or a full redraw; drives
-        /// <see cref="CellView.SetLockedOverlay"/> together with <see cref="_cellLockedSkins"/>.</summary>
+        /// <summary>Layers each cell's skin overlay still shows, parallel to the bookkeeping above: a
+        /// locked cell's threshold minus the distinct neighbours already counted (issue #434), or a
+        /// reinforced cell's hits left (issue #438 — the two wear the same art and a cell is never both).
+        /// 0 for every other cell, which is every cell on a board no level locked or reinforced. Mirrors
+        /// what <see cref="CellView.SetLockedOverlay"/> was last given, so a re-announce of an unchanged
+        /// state can be skipped; always derived through <see cref="ReadOverlayState"/>, never written
+        /// from a notification's payload directly.</summary>
         private int[] _cellLockedStages;
 
-        /// <summary>Which skin each locked cell wears, parallel to <see cref="_cellLockedStages"/> and
-        /// meaningless where that reads 0.</summary>
+        /// <summary>Which skin each overlay-wearing cell shows, parallel to <see cref="_cellLockedStages"/>
+        /// and meaningless where that reads 0.</summary>
         private int[] _cellLockedSkins;
 
         /// <summary>Placements left before each <see cref="SpecialCellKind.Timer"/> cell converts to an
@@ -1188,9 +1164,9 @@ namespace MustyBlockBlast.Presentation.Views
                     int colourId = _boardModel.GetCell(cell);
                     _cellColourIds[index] = colourId;
 
-                    // Before the paint, because the paint reads it: a level's reinforced cells are on
-                    // the board before the first repaint ever runs, so a full redraw has to pick their
-                    // damage stage up from the model rather than wait for a change event.
+                    // Re-derived from the model: a level's reinforced cells are on the board before the
+                    // first repaint ever runs, so a full redraw has to pick their hit count up from the
+                    // model rather than wait for a change event. Their look is the overlay below.
                     _cellHitCounts[index] = _boardModel.GetHitCount(cell);
                     ApplyCellColour(cell, colourId);
 
@@ -1212,30 +1188,55 @@ namespace MustyBlockBlast.Presentation.Views
                     _cellIceLevels[index] = _boardModel.GetIceLevel(cell);
                     _cells[index].SetIceOverlay(_cellIceLevels[index], MAX_ICE_LEVEL);
 
-                    // Re-derived from the model for the same reason: a level's locked cells are seeded
-                    // before the first repaint ever runs (issue #434).
-                    ReadLockedState(cell, out _cellLockedStages[index], out _cellLockedSkins[index]);
-                    _cells[index].SetLockedOverlay(_cellLockedSkins[index], _cellLockedStages[index]);
+                    // Re-derived from the model for the same reason: a level's locked and reinforced
+                    // cells are seeded before the first repaint ever runs (issues #434, #438).
+                    ApplyOverlay(cell, index);
 
                     _cells[index].SetAlpha(1f);
                 }
             }
         }
 
-        /// <summary>The View-relevant lock state of <paramref name="cell"/>, read back off the model:
-        /// how many layers its skin still shows (0 when not locked) and which skin.</summary>
-        private void ReadLockedState(GridPosition cell, out int stagesRemaining, out int skin)
+        /// <summary>
+        /// The skin overlay state of <paramref name="cell"/>, read back off the model: how many layers
+        /// its skin still shows (0 when it wears none) and which skin. The ONE place that decides what
+        /// <see cref="CellView.SetLockedOverlay"/> shows, for both mechanics that use that layer: a
+        /// locked cell's layers are its threshold minus the neighbours counted (issue #434); a reinforced
+        /// cell's are its hits left (issue #438), which map 1:1 onto the art's stages because
+        /// <c>ReinforcedCellAuthoring.MAX_HIT_COUNT</c> is the stage count. A cell is never both, so the
+        /// order of the two checks is a formality — but a single reader is not: two independent paths
+        /// each calling <see cref="CellView.SetLockedOverlay"/> for the same cell would stomp each other,
+        /// whichever ran last hiding an overlay the other had legitimately set.
+        /// </summary>
+        private void ReadOverlayState(GridPosition cell, out int stagesRemaining, out int skin)
         {
-            if (!_boardModel.IsLocked(cell))
+            if (_boardModel.IsLocked(cell))
             {
-                stagesRemaining = 0;
-                skin = 0;
+                stagesRemaining = Mathf.Max(
+                    1, _boardModel.GetLockedThreshold(cell) - _boardModel.GetLockedProgressCount(cell));
+                skin = _boardModel.GetLockedSkin(cell);
                 return;
             }
 
-            stagesRemaining = Mathf.Max(
-                1, _boardModel.GetLockedThreshold(cell) - _boardModel.GetLockedProgressCount(cell));
-            skin = _boardModel.GetLockedSkin(cell);
+            int hitCount = _boardModel.GetHitCount(cell);
+            if (hitCount > 0)
+            {
+                stagesRemaining = hitCount;
+                skin = _boardModel.GetReinforcedSkin(cell);
+                return;
+            }
+
+            stagesRemaining = 0;
+            skin = 0;
+        }
+
+        /// <summary>Reads <paramref name="cell"/>'s overlay state off the model, records it and shows it.
+        /// Unconditional — <see cref="CellView.SetLockedOverlay"/> is idempotent — so every path that
+        /// may have changed what the cell wears can call it without first working out whether it did.</summary>
+        private void ApplyOverlay(GridPosition cell, int index)
+        {
+            ReadOverlayState(cell, out _cellLockedStages[index], out _cellLockedSkins[index]);
+            _cells[index].SetLockedOverlay(_cellLockedSkins[index], _cellLockedStages[index]);
         }
 
         private void OnCellChanged(GridPosition cell, int colourId)
@@ -1253,6 +1254,13 @@ namespace MustyBlockBlast.Presentation.Views
                 // raised when a reinforced cell is seeded, and the hit count's own notification follows.
                 _cellHitCounts[index] = _boardModel.GetHitCount(cell);
                 ApplyCellColour(cell, colourId);
+
+                // And its skin overlay is applied here, not left to that following notification: the
+                // hit count was just recorded, so OnHitCountChanged will see nothing new and return
+                // early, and a freshly seeded reinforced cell would stand bare until its first real
+                // hit (issue #438). A locked cell never needed this — its LockedCellChanged is not
+                // gated on a payload — but the one reader serves both, so it costs nothing to share.
+                ApplyOverlay(cell, index);
 
                 // Read back rather than assumed empty: this is also the notification a spawner raises
                 // when it occupies the cell it is about to tag, and the tag's own notification follows.
@@ -1295,14 +1303,26 @@ namespace MustyBlockBlast.Presentation.Views
             // destroyed one does not.
             _cellHitCounts[index] = 0;
 
+            // And so is its skin overlay, dropped now rather than faded with the block: Board.Clear
+            // reset the reinforcement and the lock with the colour, and no later signal is guaranteed
+            // to say so — NotifyHitCountsRefreshed skips a cell at 0, and not every resolution path
+            // re-announces lock state — while the fade's closing SetAlpha(1) would bring a still-shown
+            // plate back over an empty cell (issue #438 AC6). A lock a Bomb destroyed outright loses
+            // its plate the same instant, which is exactly when OnLockedCellChanged dropped it before.
+            _cellLockedStages[index] = 0;
+            _cellLockedSkins[index] = 0;
+            _cells[index].SetLockedOverlay(0, 0);
+
             // A cleared timer cell stops counting down immediately (issue #307 AC3/AC6a) — unlike the
             // icon, the number does not fade with the block; it simply has nothing left to count for.
             _cellTimerCountdowns[index] = 0;
             _cells[index].ClearTimerCountdown();
         }
 
-        /// <summary>A reinforced cell survived a clear and is closer to breaking. Only its fill changes
-        /// — it is the same block in the same place — so this repaints it and nothing else.</summary>
+        /// <summary>A reinforced cell survived a clear and is closer to breaking. Only its skin overlay
+        /// changes — one layer fewer, the same block in the same place (issue #438) — so this refreshes
+        /// that and nothing else. Idempotent: the model re-announces every standing count after each
+        /// resolution, so an unchanged cell returns early.</summary>
         private void OnHitCountChanged(GridPosition cell, int hitCount)
         {
             int index = CellIndex(cell);
@@ -1312,7 +1332,7 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             _cellHitCounts[index] = hitCount;
-            ApplyCellColour(cell, _cellColourIds[index]);
+            ApplyOverlay(cell, index);
         }
 
         /// <summary>An ice socket's level may have changed (issue #433) — thinner after the block on it
@@ -1341,14 +1361,19 @@ namespace MustyBlockBlast.Presentation.Views
         /// no <see cref="OnCellChanged"/> fade was ever started for it — and none should be: an unlock is
         /// a pure state change, not a destruction (AC8), so the cell simply snaps to its ordinary empty
         /// look, read back off the model. A cell that IS mid-fade (a lock a Bomb destroyed outright,
-        /// announced through <see cref="OnCellChanged"/> a moment earlier) keeps its fade; only the
-        /// overlay is dropped.
+        /// announced through <see cref="OnCellChanged"/> a moment earlier) keeps its fade; that path
+        /// already dropped the overlay with the block, so this sees nothing left to change.
+        /// </para>
+        /// <para>
+        /// Since issue #438 the state read here covers a reinforced cell's overlay too (see
+        /// <see cref="ReadOverlayState"/>), so the post-resolution re-announce also refreshes those —
+        /// harmlessly, as <see cref="OnHitCountChanged"/> will normally have done it already.
         /// </para>
         /// </summary>
         private void OnLockedCellChanged(GridPosition cell)
         {
             int index = CellIndex(cell);
-            ReadLockedState(cell, out int stagesRemaining, out int skin);
+            ReadOverlayState(cell, out int stagesRemaining, out int skin);
             if (_cellLockedStages[index] == stagesRemaining && _cellLockedSkins[index] == skin)
             {
                 return;
@@ -2899,33 +2924,13 @@ namespace MustyBlockBlast.Presentation.Views
                 return;
             }
 
-            int hitCount = _cellHitCounts[index];
-            if (hitCount > 0)
-            {
-                float damage = DamageBlend(hitCount);
-                view.SetEmbossedColours(
-                    Color.Lerp(_currentTheme.GetFill(colourId), ReinforcedDamageTint, damage),
-                    Color.Lerp(_currentTheme.GetHighlight(colourId), ReinforcedDamageTint, damage),
-                    Color.Lerp(_currentTheme.GetShade(colourId), ReinforcedDamageTint, damage));
-                return;
-            }
-
+            // A reinforced cell takes this same plain paint (issue #438): its "reinforced" look is the
+            // skin overlay ApplyOverlay lays over the block, not a tint of the block itself, exactly as
+            // a locked cell's is.
             view.SetEmbossedColours(
                 _currentTheme.GetFill(colourId),
                 _currentTheme.GetHighlight(colourId),
                 _currentTheme.GetShade(colourId));
-        }
-
-        /// <summary>How far a reinforced cell's fill is blended towards
-        /// <see cref="ReinforcedDamageTint"/>: least at a full <see cref="MAX_HIT_COUNT"/> hits, fully
-        /// with one hit left, so the ramp runs the way the damage does. It starts at
-        /// <see cref="UNDAMAGED_BLEND"/> rather than at zero because an intact reinforced cell still has
-        /// to be told apart from the ordinary block beside it (AC2) — every hit count then gets its own
-        /// step along the ramp.</summary>
-        private static float DamageBlend(int hitCount)
-        {
-            float damaged = Mathf.Clamp01((MAX_HIT_COUNT - hitCount) / (float)(MAX_HIT_COUNT - 1));
-            return UNDAMAGED_BLEND + ((1f - UNDAMAGED_BLEND) * damaged);
         }
 
         /// <summary>Shows or hides one cell's special-cell icon. Allocation-free and idempotent, like

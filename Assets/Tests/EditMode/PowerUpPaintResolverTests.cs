@@ -116,7 +116,7 @@ namespace MustyBlockBlast.Tests.EditMode
             var timer = new GridPosition(4, 1);
             var diamond = new GridPosition(6, 4);
             var coin = new GridPosition(4, 6);
-            board.OccupyReinforced(reinforced, 1, hitCount: 3);
+            board.OccupyReinforced(reinforced, 1, hitCount: 3, skin: 0);
             board.OccupyTimer(timer, 2, startingCountdown: 5);
             board.OccupyDiamond(diamond, 1, diamondColourId: 2);
             board.Occupy(coin, 1);

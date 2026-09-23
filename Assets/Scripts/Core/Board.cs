@@ -230,6 +230,20 @@ namespace MustyBlockBlast.Core
         /// </summary>
         private readonly int[] _lockedSkins;
 
+        /// <summary>
+        /// Which of the visual skins a reinforced cell wears (issue #438: 0..<see cref="LOCKED_SKIN_COUNT"/>-1,
+        /// rolled at seed time), indexed exactly like <see cref="_cells"/>. The same three looks a locked
+        /// cell wears, deliberately — the reinforced cell reuses that art rather than owning any — so the
+        /// range is <see cref="LOCKED_SKIN_COUNT"/>'s and no second constant exists. Its own array rather
+        /// than <see cref="_lockedSkins"/> for the reason every other per-mechanic array is: the two
+        /// mechanics never share a cell, but a cell that stopped being one and became the other must not
+        /// inherit a stale value. Purely cosmetic and stored on the board for the reason
+        /// <see cref="_lockedSkins"/> is: a snapshot restore must bring the cell back looking exactly as it
+        /// did, which only a value <see cref="Clone"/>/<see cref="CopyFrom"/> copy can guarantee. Reset by
+        /// <see cref="Clear"/>.
+        /// </summary>
+        private readonly int[] _reinforcedSkins;
+
         /// <summary>Bit of <see cref="_lockedProgressMasks"/> set once the neighbour ABOVE a locked cell
         /// (y + 1) has been destroyed at least once.</summary>
         public const int LOCKED_NEIGHBOUR_UP = 1;
@@ -243,9 +257,10 @@ namespace MustyBlockBlast.Core
         /// <summary>Bit set once the neighbour RIGHT of a locked cell (x + 1) has been destroyed.</summary>
         public const int LOCKED_NEIGHBOUR_RIGHT = 8;
 
-        /// <summary>How many distinct visual skins a locked cell can be assigned — the three approved
-        /// looks (planks, nails, padlock cage). A seeder rolls in <c>0..LOCKED_SKIN_COUNT-1</c>; the
-        /// View maps each index to a look. The single source of truth for the roll's range.</summary>
+        /// <summary>How many distinct visual skins a locked cell — and, since issue #438, a reinforced
+        /// cell, which wears the very same art — can be assigned: the three approved looks (planks,
+        /// nails, padlock cage). A seeder rolls in <c>0..LOCKED_SKIN_COUNT-1</c>; the View maps each
+        /// index to a look. The single source of truth for both rolls' range.</summary>
         public const int LOCKED_SKIN_COUNT = 3;
 
         /// <summary>The standard <see cref="SIZE"/> x <see cref="SIZE"/> hole-free board. Delegates to
@@ -269,12 +284,13 @@ namespace MustyBlockBlast.Core
             _lockedProgressMasks = new int[shape.CellCount];
             _lockedThresholds = new int[shape.CellCount];
             _lockedSkins = new int[shape.CellCount];
+            _reinforcedSkins = new int[shape.CellCount];
         }
 
         private Board(
             BoardShape shape, int[] cells, SpecialCellKind[] specialKinds, int[] hitCounts,
             int[] timerCountdowns, int[] coinValues, int[] diamondColourIds, int[] targetIceLevels,
-            int[] lockedProgressMasks, int[] lockedThresholds, int[] lockedSkins)
+            int[] lockedProgressMasks, int[] lockedThresholds, int[] lockedSkins, int[] reinforcedSkins)
         {
             _shape = shape;
             _cells = cells;
@@ -287,6 +303,7 @@ namespace MustyBlockBlast.Core
             _lockedProgressMasks = lockedProgressMasks;
             _lockedThresholds = lockedThresholds;
             _lockedSkins = lockedSkins;
+            _reinforcedSkins = reinforcedSkins;
         }
 
         /// <summary>The outline this board was built with. Shared, immutable and safe to hand out — a
@@ -410,6 +427,9 @@ namespace MustyBlockBlast.Core
             _lockedProgressMasks[index] = 0;
             _lockedThresholds[index] = 0;
             _lockedSkins[index] = 0;
+
+            // As is a reinforced cell's skin (issue #438): it goes with the hit count it decorates.
+            _reinforcedSkins[index] = 0;
 
             // _targetIceLevels[index] is intentionally NOT reset here — see that field's doc comment.
         }
@@ -703,19 +723,34 @@ namespace MustyBlockBlast.Core
         /// an ordinary or empty cell, which is every cell of a board nothing reinforced.</summary>
         public int GetHitCount(GridPosition position) => _hitCounts[Index(position)];
 
+        /// <summary>Which visual skin (0..<see cref="LOCKED_SKIN_COUNT"/>-1) the reinforced cell on
+        /// <paramref name="position"/> wears (issue #438). 0 for a cell that is not reinforced —
+        /// meaningless there, and no caller reads it without checking <see cref="GetHitCount"/> first.</summary>
+        public int GetReinforcedSkin(GridPosition position) => _reinforcedSkins[Index(position)];
+
         /// <summary>
-        /// Occupies an empty cell as a reinforced one, for level-start authoring only. Ordinary piece
-        /// placement (<see cref="Occupy"/>) never sets a hit count — only this does, because a
-        /// reinforced cell is pre-filled by the level rather than put down by the player.
+        /// Occupies an empty cell as a reinforced one wearing <paramref name="skin"/>, for level-start
+        /// authoring only. Ordinary piece placement (<see cref="Occupy"/>) never sets a hit count — only
+        /// this does, because a reinforced cell is pre-filled by the level rather than put down by the
+        /// player.
         /// <para>
         /// Reuses <see cref="Occupy"/>, so a hole and the <see cref="EMPTY"/> colour are refused here
-        /// exactly as they are for an ordinary block.
+        /// exactly as they are for an ordinary block. Refuses a skin outside the roll's range rather
+        /// than storing it, exactly as <see cref="OccupyLocked"/> does — it is the same three-skin art.
         /// </para>
         /// </summary>
-        public void OccupyReinforced(GridPosition position, int colourId, int hitCount)
+        public void OccupyReinforced(GridPosition position, int colourId, int hitCount, int skin)
         {
+            if (skin < 0 || skin >= LOCKED_SKIN_COUNT)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(skin), skin, $"A reinforced cell's skin must be between 0 and {LOCKED_SKIN_COUNT - 1}.");
+            }
+
             Occupy(position, colourId);
-            _hitCounts[Index(position)] = hitCount;
+            int index = Index(position);
+            _hitCounts[index] = hitCount;
+            _reinforcedSkins[index] = skin;
         }
 
         /// <summary>The special behaviour the block on <paramref name="position"/> carries.
@@ -1430,10 +1465,13 @@ namespace MustyBlockBlast.Core
             int[] lockedSkinCopy = new int[_lockedSkins.Length];
             Array.Copy(_lockedSkins, lockedSkinCopy, _lockedSkins.Length);
 
+            int[] reinforcedSkinCopy = new int[_reinforcedSkins.Length];
+            Array.Copy(_reinforcedSkins, reinforcedSkinCopy, _reinforcedSkins.Length);
+
             return new Board(
                 _shape, copy, specialCopy, hitCountCopy, timerCountdownCopy, coinValueCopy,
                 diamondColourIdCopy, targetIceLevelCopy, lockedProgressMaskCopy, lockedThresholdCopy,
-                lockedSkinCopy);
+                lockedSkinCopy, reinforcedSkinCopy);
         }
 
         /// <summary>Overwrites this board's cells with <paramref name="source"/>'s. Used to reuse a scratch
@@ -1471,6 +1509,7 @@ namespace MustyBlockBlast.Core
             Array.Copy(source._lockedProgressMasks, _lockedProgressMasks, _lockedProgressMasks.Length);
             Array.Copy(source._lockedThresholds, _lockedThresholds, _lockedThresholds.Length);
             Array.Copy(source._lockedSkins, _lockedSkins, _lockedSkins.Length);
+            Array.Copy(source._reinforcedSkins, _reinforcedSkins, _reinforcedSkins.Length);
         }
 
         /// <summary>Flat index of <paramref name="position"/> — also the index a caller's own per-cell

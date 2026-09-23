@@ -1,9 +1,11 @@
+using System;
 using System.Collections.Generic;
 using MustyBlockBlast.Core;
 using MustyBlockBlast.Gameplay.Models;
 using MustyBlockBlast.Gameplay.Settings;
 using UnityEngine;
 using VContainer;
+using Random = System.Random;
 
 namespace MustyBlockBlast.Gameplay.Systems
 {
@@ -33,6 +35,15 @@ namespace MustyBlockBlast.Gameplay.Systems
     /// there is one, otherwise the linear frontier. A level the catalog does not author, or one
     /// authoring no reinforced cells, seeds nothing.
     /// </para>
+    /// <para>
+    /// Since issue #438 it also rolls each cell's visual skin, exactly as <see cref="LevelLockedCellSeeder"/>
+    /// rolls a lock's: one of <see cref="Board.LOCKED_SKIN_COUNT"/> approved looks — the same three the
+    /// locked cell wears, reused rather than redrawn — assigned at random per instance so a level shows a
+    /// visibly different plate from one reinforced cell to the next. The roll comes from this seeder's own
+    /// <see cref="Random"/>, seeded from the clock in play and from a fixed value in tests, the pattern
+    /// <see cref="WeightedPieceDraw"/> and <see cref="BoardSystem"/> keep for their own draws;
+    /// <c>UnityEngine.Random</c> is deliberately not used, so a test can pin the outcome.
+    /// </para>
     /// </summary>
     public sealed class LevelReinforcedCellSeeder
     {
@@ -40,23 +51,36 @@ namespace MustyBlockBlast.Gameplay.Systems
         private readonly LevelProgressionModel _progressionModel;
         private readonly PathRunModel _pathRunModel;
         private readonly WeightedPieceDraw _pieceDraw;
+        private readonly Random _random;
 
+        /// <summary>DI entry point — VContainer must not pick the seeded constructor.</summary>
         [Inject]
         public LevelReinforcedCellSeeder(
             LevelCatalog levelCatalog,
             LevelProgressionModel progressionModel,
             PathRunModel pathRunModel,
             WeightedPieceDraw pieceDraw)
+            : this(levelCatalog, progressionModel, pathRunModel, pieceDraw, Environment.TickCount)
+        {
+        }
+
+        internal LevelReinforcedCellSeeder(
+            LevelCatalog levelCatalog,
+            LevelProgressionModel progressionModel,
+            PathRunModel pathRunModel,
+            WeightedPieceDraw pieceDraw,
+            int seed)
         {
             _levelCatalog = levelCatalog;
             _progressionModel = progressionModel;
             _pathRunModel = pathRunModel;
             _pieceDraw = pieceDraw;
+            _random = new Random(seed);
         }
 
         /// <summary>
         /// Occupies the current level's authored reinforced cells on <paramref name="boardModel"/>,
-        /// which the caller has just emptied.
+        /// which the caller has just emptied, each with its authored hit count and a freshly rolled skin.
         /// <para>
         /// An authored cell that cannot be occupied — off the board, a hole, or already taken by an
         /// earlier entry that named the same position twice — is skipped rather than fatal.
@@ -94,8 +118,10 @@ namespace MustyBlockBlast.Gameplay.Systems
 
                 // The colour comes from the same draw ordinary dock pieces take theirs from, rather
                 // than a bespoke id no theme defines: colour is cosmetic everywhere in this game, and
-                // the damage tint is what marks the cell as reinforced.
-                boardModel.OccupyReinforced(position, _pieceDraw.DrawColourId(), entry.HitCount);
+                // mostly hidden under the skin overlay anyway — the skin is what marks the cell as
+                // reinforced. The skin is the seeder's own roll: nothing about it is authored.
+                int skin = _random.Next(0, Board.LOCKED_SKIN_COUNT);
+                boardModel.OccupyReinforced(position, _pieceDraw.DrawColourId(), entry.HitCount, skin);
             }
         }
 
