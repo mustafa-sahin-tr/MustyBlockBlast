@@ -267,6 +267,31 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.AreEqual(1, _grantedBroker.Published[0].NewInventoryCount);
         }
 
+        /// <summary>
+        /// Issue #404: one ad can be worth more than one unit. The source is asked once and the quantity
+        /// is banked as that many single grants, so the count, the persisted value and the message
+        /// stream all agree — two messages carrying the running count, exactly as
+        /// <c>GrantPurchased</c> publishes a purchase of two.
+        /// </summary>
+        [Test]
+        public void GrantRewardAsync_WithAQuantityGreaterThanOne_GrantsThatManyUnits()
+        {
+            var model = new PowerUpModel();
+            PowerUpSystem system = CreateSystem(model, new BoardModel(), new StubRewardSource(granted: true));
+
+            bool granted = system.GrantRewardAsync(PowerUpKind.CoinSower, CancellationToken.None, quantity: 2)
+                .GetAwaiter().GetResult();
+
+            Assert.IsTrue(granted);
+            Assert.AreEqual(2, model.CoinSowerCount.Value);
+            Assert.AreEqual(2, PlayerPrefs.GetInt(PowerUpInventoryKey.For(PowerUpKind.CoinSower), 0));
+            Assert.AreEqual(2, _grantedBroker.Published.Count);
+            Assert.AreEqual(PowerUpKind.CoinSower, _grantedBroker.Published[0].Kind);
+            Assert.AreEqual(1, _grantedBroker.Published[0].NewInventoryCount);
+            Assert.AreEqual(PowerUpKind.CoinSower, _grantedBroker.Published[1].Kind);
+            Assert.AreEqual(2, _grantedBroker.Published[1].NewInventoryCount);
+        }
+
         /// <summary>A declined ad leaves the pocket exactly as it was: nothing banked, nothing announced.</summary>
         [Test]
         public void GrantRewardAsync_ForHoldWhenTheSourceRefuses_ChangesNothing()

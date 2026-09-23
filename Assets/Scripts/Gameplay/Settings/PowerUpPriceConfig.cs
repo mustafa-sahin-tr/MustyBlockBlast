@@ -10,8 +10,8 @@ namespace MustyBlockBlast.Gameplay.Settings
     /// retuned.
     /// <para>
     /// A table keyed by kind rather than one named field per kind. The roster grows (it has grown from
-    /// three kinds to ten), and a table adds a row where named fields would add a field, a property and
-    /// a branch. It is also the shape the enum already persists in — see <c>PowerUpInventoryKey</c> —
+    /// three kinds to eleven), and a table adds a row where named fields would add a field, a property
+    /// and a branch. It is also the shape the enum already persists in — see <c>PowerUpInventoryKey</c> —
     /// so the two read the same way.
     /// </para>
     /// <para>
@@ -21,6 +21,11 @@ namespace MustyBlockBlast.Gameplay.Settings
     /// a step above, and DoubleMultiplier — a whole window of doubled score — is the dear one. The
     /// table below and <c>Assets/Settings/PowerUpPriceConfig.asset</c> must agree; the shipped asset
     /// is what the player sees, and <c>PowerUpPriceConfigTests</c> pins both.
+    /// </para>
+    /// <para>
+    /// Two kinds have no row on purpose: <see cref="PowerUpKind.Hold"/> and
+    /// <see cref="PowerUpKind.CoinSower"/> (issue #404) are earned through rewarded ads only, and an
+    /// absent row is how this table says "not for sale" — see <see cref="UNPRICED"/>.
     /// </para>
     /// </summary>
     [CreateAssetMenu(menuName = "MustyBlockBlast/Power-Up Price Config", fileName = "PowerUpPriceConfig")]
@@ -59,27 +64,21 @@ namespace MustyBlockBlast.Gameplay.Settings
             new PowerUpPrice(PowerUpKind.Reroll, 75),
             new PowerUpPrice(PowerUpKind.DoubleMultiplier, 200),
             new PowerUpPrice(PowerUpKind.GhostFit, 25),
-
-            // Priced per coin cell sown, not per level: the level-start picker charges
-            // quantity * this, so the figure here is what one extra coin cell costs. Deliberately
-            // cheap relative to the kinds above — a single coin cell is a small nudge, and the player
-            // is expected to buy several at once.
-            new PowerUpPrice(PowerUpKind.CoinSower, 60),
         };
 
         /// <summary>
-        /// Most coin cells one level-start purchase may sow, whatever the player can afford. A ceiling on
-        /// the offer rather than on the wallet: a board holds sixty-four cells and a level dressed with
-        /// dozens of coins stops being a level with coins in it, so the picker is bounded here even for
-        /// a player rich enough to buy past it.
+        /// Most coin cells one level-start sow may place from the player's banked charges, however many
+        /// they have banked. A ceiling on the offer rather than on the bank: a board holds sixty-four
+        /// cells and a level dressed with dozens of coins stops being a level with coins in it, so the
+        /// picker is bounded here even for a player who has watched enough ads to sow past it.
         /// <para>
-        /// A placeholder, like the prices above, and in the same asset for the same reason: the picker's
-        /// ceiling and the price it charges are one tuning decision, and splitting them across two assets
-        /// would invite one to be retuned without the other.
+        /// A placeholder, like the prices above, and in the same asset for the same reason: it is the one
+        /// tuning knob the Coin Sower has now that it carries no price, and the power-up economy is tuned
+        /// from a single asset rather than two.
         /// </para>
         /// </summary>
         [Header("Coin Sower")]
-        [Tooltip("Most coin cells one level-start Coin Sower purchase may sow.")]
+        [Tooltip("Most coin cells one level-start Coin Sower sow may place from banked charges.")]
         [SerializeField] private int _coinSowerMaxQuantity = 5;
 
         /// <summary>

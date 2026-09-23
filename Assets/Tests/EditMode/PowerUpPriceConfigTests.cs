@@ -20,9 +20,6 @@ namespace MustyBlockBlast.Tests.EditMode
     {
         private const string SHIPPED_ASSET_PATH = "Assets/Settings/PowerUpPriceConfig.asset";
 
-        /// <summary>The Coin Sower unit price this issue explicitly leaves alone (AC3).</summary>
-        private const int COIN_SOWER_UNIT_PRICE = 60;
-
         private PowerUpPriceConfig _freshConfig;
 
         [SetUp]
@@ -56,11 +53,15 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.AreEqual(expected, _freshConfig.GetPrice(kind));
         }
 
-        /// <summary>AC3: Coin Sower's unit price is untouched by the pass.</summary>
+        /// <summary>
+        /// Issue #404: Coin Sower has no coin row either. Its charges are earned through rewarded ads,
+        /// like Hold's, so <see cref="PowerUpPriceConfig.GetPrice"/> answers it with <c>int.MaxValue</c>
+        /// and the shop refuses to sell it.
+        /// </summary>
         [Test]
-        public void GetPrice_OnAFreshInstance_LeavesCoinSowerAlone()
+        public void GetPrice_OnAFreshInstance_StillDoesNotPriceCoinSower()
         {
-            Assert.AreEqual(COIN_SOWER_UNIT_PRICE, _freshConfig.GetPrice(PowerUpKind.CoinSower));
+            Assert.AreEqual(int.MaxValue, _freshConfig.GetPrice(PowerUpKind.CoinSower));
         }
 
         /// <summary>
@@ -95,11 +96,11 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.AreEqual(expected, shipped.GetPrice(kind));
         }
 
-        /// <summary>AC3 on the shipped asset.</summary>
+        /// <summary>Issue #404 on the shipped asset: the serialized row is gone too.</summary>
         [Test]
-        public void GetPrice_OnTheShippedAsset_LeavesCoinSowerAlone()
+        public void GetPrice_OnTheShippedAsset_StillDoesNotPriceCoinSower()
         {
-            Assert.AreEqual(COIN_SOWER_UNIT_PRICE, LoadShippedConfig().GetPrice(PowerUpKind.CoinSower));
+            Assert.AreEqual(int.MaxValue, LoadShippedConfig().GetPrice(PowerUpKind.CoinSower));
         }
 
         /// <summary>AC5 on the shipped asset.</summary>

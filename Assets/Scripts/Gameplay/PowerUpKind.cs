@@ -73,16 +73,23 @@ namespace MustyBlockBlast.Gameplay
         GhostFit,
 
         /// <summary>
-        /// Sows extra <see cref="MustyBlockBlast.Core.SpecialCellKind.Coin"/> cells into a level, bought
-        /// by the unit before that level starts: one purchased unit is one coin cell painted onto an
-        /// occupied cell at the opening of the run (see <c>LevelCoinCellSeedSystem</c>, which places the
-        /// level's own authored cells through the same seam).
+        /// Sows extra <see cref="MustyBlockBlast.Core.SpecialCellKind.Coin"/> cells into a level: one
+        /// charge is one coin cell painted onto an occupied cell at the opening of the run (see
+        /// <c>LevelCoinCellSeedSystem</c>, which places the level's own authored cells through the same
+        /// seam).
+        /// <para>
+        /// Earned the way <see cref="Hold"/> is — a rewarded ad, through the same <c>IRewardSource</c>
+        /// and <c>PowerUpSystem.GrantRewardAsync</c> seam — except that one ad banks two charges rather
+        /// than one. The charges are a persisted count like every other slot in the inventory, and
+        /// nothing else puts them there: the kind has no coin price and no shop row.
+        /// </para>
         /// <para>
         /// The only kind with no in-run lifecycle whatsoever. Every other kind — even the three
-        /// targetless ones — is selected and applied from the HUD during a run; this one is bought and
-        /// committed at a level-start screen and has nothing to select, aim or apply, so it is never
-        /// armed and appears in neither the power-up strip nor the general shop. Its whole interface is
-        /// <c>PowerUpSystem.TrySpendCoinSowerBulk</c>, which pays for a quantity in one go.
+        /// targetless ones — is selected and applied from the HUD during a run; this one is committed
+        /// at a level-start screen, where the player chooses how many banked charges to sow, and has
+        /// nothing to select, aim or apply, so it is never armed and appears in neither the power-up
+        /// strip nor the general shop. Its whole spending interface is
+        /// <c>PowerUpSystem.TrySpendCoinSowerBulk</c>, which takes a quantity of charges in one go.
         /// </para>
         /// </summary>
         CoinSower,

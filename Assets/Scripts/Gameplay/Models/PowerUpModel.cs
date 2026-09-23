@@ -25,10 +25,11 @@ namespace MustyBlockBlast.Gameplay.Models
         public ReactiveProperty<int> GhostFitCount { get; } = new ReactiveProperty<int>(0);
 
         /// <summary>
-        /// Coin Sower units bought but not yet sown. An ordinary inventory slot, persisted like the
-        /// others — the kind is bought at a level-start screen and spent there in the same breath, but it
-        /// still passes through the inventory rather than around it, because that is the one place a
-        /// power-up is ever earned or spent (see <c>PowerUpSystem</c>).
+        /// Coin Sower charges earned but not yet sown: two are banked per rewarded ad, and any number of
+        /// them are spent together at the level-start picker. An ordinary inventory slot, persisted like
+        /// the others and read by that picker to bound its offer — the charges pass through the inventory
+        /// rather than around it, because that is the one place a power-up is ever earned or spent (see
+        /// <c>PowerUpSystem</c>).
         /// </summary>
         public ReactiveProperty<int> CoinSowerCount { get; } = new ReactiveProperty<int>(0);
 

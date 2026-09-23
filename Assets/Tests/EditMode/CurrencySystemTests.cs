@@ -767,8 +767,10 @@ namespace MustyBlockBlast.Tests.EditMode
             {
                 // Hold is deliberately unpriced: it is earned through rewarded ads only and appears in
                 // no shop (issue #202); putting it on sale is a coin-economy decision for #160, not a
-                // row this test may demand into existence.
-                if (allKinds[kindIndex] == PowerUpKind.Hold)
+                // row this test may demand into existence. Coin Sower joined it in issue #404: its
+                // charges are banked two per rewarded ad and spent at the level-start picker, never
+                // bought.
+                if (allKinds[kindIndex] == PowerUpKind.Hold || allKinds[kindIndex] == PowerUpKind.CoinSower)
                 {
                     continue;
                 }
@@ -1483,128 +1485,50 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.AreEqual(_config.CoinCellPayout, PlayerPrefs.GetInt(COIN_BALANCE_KEY, 0));
         }
 
-        // --- Issue #167: the Coin Sower, bought per coin cell at a level start ---
+        // --- Issue #404: the Coin Sower is ad-only, earned two charges at a time and sown in bulk ---
 
         /// <summary>
-        /// AC2: priced per unit, so buying several costs several times one. The whole point of the kind
-        /// having a quantity picker at all, and the one thing a flat per-purchase price would break.
+        /// Coin Sower has no price row (issue #404), so the shop answers it the way it answers Hold: an
+        /// unpriced kind fails the balance check however rich the player is, and nothing moves. This is
+        /// what keeps the general shop and any stray purchase path from selling it for coins.
         /// </summary>
         [Test]
-        public void QuotePriceFor_CoinSower_ScalesWithTheQuantity()
-        {
-            CurrencySystem system = CreateSystem(new ProfileModel(), new ScoreModel());
-            long unitPrice = system.QuotePriceFor(PowerUpKind.CoinSower, 1);
-
-            Assert.Greater(unitPrice, 0L);
-            Assert.AreEqual(unitPrice * 4, system.QuotePriceFor(PowerUpKind.CoinSower, 4));
-        }
-
-        /// <summary>
-        /// AC2/AC3: a quantity of Coin Sower units debits the exact total and arrives in the inventory in
-        /// full, through the very same generic purchase path every other kind uses. More than one on
-        /// purpose, so a purchase that granted a flat "+1" would fail here rather than pass by accident.
-        /// </summary>
-        [Test]
-        public void TryPurchasePowerUp_CoinSower_DebitsThePerUnitTotalAndGrantsTheQuantity()
+        public void TryPurchasePowerUp_CoinSower_IsAlwaysRefused_NowUnpriced()
         {
             var profileModel = new ProfileModel();
-            CurrencySystem system = CreateSystemWithCoins(profileModel, coins: 1000);
-            long expectedPrice = system.QuotePriceFor(PowerUpKind.CoinSower, 3);
-
-            PowerUpPurchaseResult result = system.TryPurchasePowerUp(PowerUpKind.CoinSower, 3);
-
-            Assert.AreEqual(PowerUpPurchaseResult.Success, result);
-            Assert.AreEqual(1000 - expectedPrice, profileModel.CoinBalance.Value);
-            Assert.AreEqual(3, CountOf(PowerUpKind.CoinSower));
-        }
-
-        /// <summary>
-        /// AC5: too few coins for even one is the same clean refusal every other kind gets — no partial
-        /// purchase, no quantity quietly reduced to what the balance covers, nothing granted. The
-        /// level-start picker clamps its own offer so this is unreachable from the screen; it is the
-        /// System's answer that has to be right either way.
-        /// </summary>
-        [Test]
-        public void TryPurchasePowerUp_CoinSower_WithTooFewCoinsForOne_ChangesNothing()
-        {
-            var profileModel = new ProfileModel();
-            CurrencySystem system = CreateSystem(profileModel, new ScoreModel());
-            int unitPrice = (int)system.QuotePriceFor(PowerUpKind.CoinSower, 1);
-            GrantCoins(system, profileModel, unitPrice - 1);
+            CurrencySystem system = CreateSystemWithCoins(profileModel, coins: 100000);
 
             PowerUpPurchaseResult result = system.TryPurchasePowerUp(PowerUpKind.CoinSower, 1);
 
             Assert.AreEqual(PowerUpPurchaseResult.InsufficientCoins, result);
-            Assert.AreEqual(unitPrice - 1, profileModel.CoinBalance.Value);
+            Assert.AreEqual(100000, profileModel.CoinBalance.Value);
             Assert.AreEqual(0, CountOf(PowerUpKind.CoinSower));
             Assert.AreEqual(0, _grantedBroker.Published.Count);
         }
 
-        /// <summary>AC5 again, one step up: a quantity the balance nearly covers buys none of them rather
-        /// than as many as it could. The picker's integer division is built to agree with exactly
-        /// this.</summary>
-        [Test]
-        public void TryPurchasePowerUp_CoinSower_AskingForOneMoreThanAffordable_BuysNoneOfThem()
-        {
-            var profileModel = new ProfileModel();
-            CurrencySystem system = CreateSystem(profileModel, new ScoreModel());
-            int unitPrice = (int)system.QuotePriceFor(PowerUpKind.CoinSower, 1);
-            GrantCoins(system, profileModel, (unitPrice * 3) - 1);
-
-            PowerUpPurchaseResult result = system.TryPurchasePowerUp(PowerUpKind.CoinSower, 3);
-
-            Assert.AreEqual(PowerUpPurchaseResult.InsufficientCoins, result);
-            Assert.AreEqual((unitPrice * 3) - 1, profileModel.CoinBalance.Value);
-            Assert.AreEqual(0, CountOf(PowerUpKind.CoinSower));
-        }
-
-        /// <summary>The level gate applies to this kind like any other, and coins do not open it: the
-        /// picker below the gate can therefore offer nothing, and would be refused if it did.</summary>
-        [Test]
-        public void TryPurchasePowerUp_CoinSower_BelowItsGate_IsRefusedEvenWithAmpleCoins()
-        {
-            var profileModel = new ProfileModel();
-            CurrencySystem system = CreateSystemWithCoins(profileModel, coins: 100000);
-            _levelProgressionModel.CurrentLevelNumber.Value =
-                PowerUpUnlockLevels.LevelFor(PowerUpKind.CoinSower) - 1;
-
-            PowerUpPurchaseResult result = system.TryPurchasePowerUp(PowerUpKind.CoinSower, 2);
-
-            Assert.AreEqual(PowerUpPurchaseResult.Locked, result);
-            Assert.AreEqual(100000, profileModel.CoinBalance.Value);
-            Assert.AreEqual(0, CountOf(PowerUpKind.CoinSower));
-        }
-
         /// <summary>
-        /// AC4: zero costs nothing and grants nothing — reported as the nonsense ask it is, which is why
-        /// the picker branches around the call entirely rather than passing a zero through it.
+        /// The earned charges are the ones sown: two rewarded ads bank four charges through the same
+        /// grant seam Hold uses, and the level-start picker's bulk spend takes exactly that many back
+        /// out again, leaving nothing behind — and no coins moved at any point.
         /// </summary>
         [Test]
-        public void TryPurchasePowerUp_CoinSower_WithZeroQuantity_ChangesNothing()
+        public void TrySpendCoinSowerBulk_AfterAnAdGrant_EmptiesTheBankedCharges()
         {
             var profileModel = new ProfileModel();
-            CurrencySystem system = CreateSystemWithCoins(profileModel, coins: 1000);
+            CurrencySystem unused = CreateSystemWithCoins(profileModel, coins: 1000);
 
-            PowerUpPurchaseResult result = system.TryPurchasePowerUp(PowerUpKind.CoinSower, 0);
+            Assert.IsTrue(_powerUpSystem
+                .GrantRewardAsync(PowerUpKind.CoinSower, CancellationToken.None, quantity: 2)
+                .GetAwaiter().GetResult());
+            Assert.IsTrue(_powerUpSystem
+                .GrantRewardAsync(PowerUpKind.CoinSower, CancellationToken.None, quantity: 2)
+                .GetAwaiter().GetResult());
+            Assert.AreEqual(4, CountOf(PowerUpKind.CoinSower));
 
-            Assert.AreEqual(PowerUpPurchaseResult.InvalidQuantity, result);
+            Assert.IsTrue(_powerUpSystem.TrySpendCoinSowerBulk(4));
+
+            Assert.AreEqual(0, CountOf(PowerUpKind.CoinSower));
             Assert.AreEqual(1000, profileModel.CoinBalance.Value);
-            Assert.AreEqual(0, CountOf(PowerUpKind.CoinSower));
-        }
-
-        /// <summary>The bought units are the ones sown: the purchase grants them and the level-start
-        /// screen's bulk spend takes exactly that many back out again, leaving nothing behind.</summary>
-        [Test]
-        public void TryPurchasePowerUp_CoinSower_ThenTheBulkSpend_EmptiesTheSlotAgain()
-        {
-            var profileModel = new ProfileModel();
-            CurrencySystem system = CreateSystemWithCoins(profileModel, coins: 1000);
-
-            Assert.AreEqual(
-                PowerUpPurchaseResult.Success, system.TryPurchasePowerUp(PowerUpKind.CoinSower, 2));
-            Assert.IsTrue(_powerUpSystem.TrySpendCoinSowerBulk(2));
-
-            Assert.AreEqual(0, CountOf(PowerUpKind.CoinSower));
         }
 
         /// <summary>
