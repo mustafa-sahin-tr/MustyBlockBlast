@@ -895,6 +895,26 @@ MonoBehaviour:
     m_Key: objective.diamonds_cleared
     m_Metadata:
       m_Items: []
+  - m_Id: 3514168819834880
+    m_Key: settings.remove_ads.confirm_title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3514168870166528
+    m_Key: settings.remove_ads.confirm_body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3514168870166529
+    m_Key: settings.remove_ads.confirm_price_caption
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3514168870166530
+    m_Key: settings.remove_ads.confirm_buy
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3514168870166531
+    m_Key: settings.remove_ads.confirm_cancel
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

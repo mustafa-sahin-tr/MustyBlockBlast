@@ -244,6 +244,15 @@ namespace MustyBlockBlast.Gameplay.Localization
         /// <summary>The strip that replaces the Remove Ads button once the product is owned. A state,
         /// not an offer — a non-consumable cannot be bought twice, so the button stops existing.</summary>
         public const string SETTINGS_REMOVE_ADS_OWNED = "settings.remove_ads.owned";
+
+        /// <summary>The game's own confirmation before the store is asked to sell ad removal (issue
+        /// #423): its title, its one line of body, the caption under the store's price, and its two
+        /// buttons. The price itself is the store's localized string, never a table entry.</summary>
+        public const string SETTINGS_REMOVE_ADS_CONFIRM_TITLE = "settings.remove_ads.confirm_title";
+        public const string SETTINGS_REMOVE_ADS_CONFIRM_BODY = "settings.remove_ads.confirm_body";
+        public const string SETTINGS_REMOVE_ADS_CONFIRM_PRICE_CAPTION = "settings.remove_ads.confirm_price_caption";
+        public const string SETTINGS_REMOVE_ADS_CONFIRM_BUY = "settings.remove_ads.confirm_buy";
+        public const string SETTINGS_REMOVE_ADS_CONFIRM_CANCEL = "settings.remove_ads.confirm_cancel";
         public const string SETTINGS_THEME_SCREEN_TITLE = "settings.theme_screen.title";
 
         /// <summary>The hint on the right of the theme picker's header row (issue #260).</summary>

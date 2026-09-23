@@ -43,6 +43,10 @@ namespace MustyBlockBlast.Presentation.Views
     /// <item>Language — one plate per shipped language, each labelled in its own language. Picking one
     /// calls <see cref="LocalizationSystem.SetLocale"/>; the re-wording is handled by the reactive
     /// locale subscriptions in every View, this one included.</item>
+    /// <item>RemoveAdsConfirm — the Settings screen with the game's own purchase confirmation over it
+    /// (issue #423): what the purchase buys, the store's price once it is known, and MAYBE LATER /
+    /// BUY NOW. Only BUY NOW reaches <see cref="AdRemovalSystem.PurchaseRemoveAdsAsync"/>, so the
+    /// store's own prompt is never the first thing the player sees.</item>
     /// </list>
     /// Every screen is built once in <see cref="Start"/> and toggled with SetActive — the same "build
     /// once, never rebuild" approach <see cref="CellView"/> uses for its two looks — and every screen
@@ -190,6 +194,23 @@ namespace MustyBlockBlast.Presentation.Views
         private const float CONFIRM_BUTTON_HEIGHT = 84f;
         private const float CONFIRM_BUTTON_GAP = 24f;
 
+        /// <summary>The Remove Ads confirmation (issue #423): a floating plate over a scrim covering
+        /// the whole card, with a kind-tinted badge, a title, a wrapped body, the store's price and the
+        /// same two-button row the restart confirmation has.</summary>
+        private const float REMOVE_ADS_DIALOG_HEIGHT = 640f;
+        private const float REMOVE_ADS_DIALOG_PADDING = 40f;
+        private const float REMOVE_ADS_BADGE_SIZE = 132f;
+        private const float REMOVE_ADS_BADGE_BAR_LENGTH = 66f;
+        private const float REMOVE_ADS_BADGE_BAR_THICKNESS = 12f;
+        private const float REMOVE_ADS_TITLE_DROP = 218f;
+        private const float REMOVE_ADS_BODY_DROP = 300f;
+        private const float REMOVE_ADS_PRICE_DROP = 402f;
+        private const float REMOVE_ADS_PRICE_CAPTION_DROP = 446f;
+
+        /// <summary>How dark the scrim behind the Remove Ads dialog is: Ink at this alpha, so it dims
+        /// the settings rows in the theme's own dark rather than a fixed black.</summary>
+        private const float REMOVE_ADS_SCRIM_ALPHA = 0.45f;
+
         // Type sizes. The display face is Bowlby One SC where the mock-up uses it (values, names,
         // buttons); everything else is the built-in face in bold, as on the profile card.
         private const int TITLE_FONT_SIZE = 48;
@@ -282,6 +303,8 @@ namespace MustyBlockBlast.Presentation.Views
         private TimerRunSystem _timerRunSystem;
         private ProfileModel _profileModel;
         private AdRemovalSystem _adRemovalSystem;
+        private CurrencySystem _currencySystem;
+        private RemoveAdsProductConfig _removeAdsProductConfig;
         private Canvas _canvas;
 
         /// <summary>Builds and repaints the mode plates and duration chips. Created in <see cref="Start"/>,
@@ -356,6 +379,19 @@ namespace MustyBlockBlast.Presentation.Views
         private Image _ownedCheck;
         private Text _ownedText;
 
+        // The Remove Ads confirmation (issue #423): its root covers the whole card, the scrim dims what
+        // is under it, and the plate is a BuildPlate so it repaints with every other plate.
+        private GameObject _removeAdsConfirmRoot;
+        private Image _removeAdsConfirmScrim;
+        private RectTransform _removeAdsBuyRect;
+        private RectTransform _removeAdsLaterRect;
+        private Image _removeAdsBuyPlate;
+        private Image _removeAdsLaterFace;
+        private Image _removeAdsLaterLip;
+        private Text _removeAdsBuyText;
+        private Text _removeAdsLaterText;
+        private Text _removeAdsPriceText;
+
         /// <summary>Which of the screens inside the card is showing.</summary>
         private enum PanelScreen
         {
@@ -364,6 +400,9 @@ namespace MustyBlockBlast.Presentation.Views
             Mode,
             ModeConfirm,
             Language,
+
+            /// <summary>The Settings screen with the Remove Ads confirmation over it (issue #423).</summary>
+            RemoveAdsConfirm,
         }
 
         /// <summary>A built label together with the String Table key it renders.</summary>
@@ -411,7 +450,9 @@ namespace MustyBlockBlast.Presentation.Views
             TimedModeSystem timedModeSystem,
             TimerRunSystem timerRunSystem,
             ProfileModel profileModel,
-            AdRemovalSystem adRemovalSystem)
+            AdRemovalSystem adRemovalSystem,
+            CurrencySystem currencySystem,
+            RemoveAdsProductConfig removeAdsProductConfig)
         {
             _settingsModel = settingsModel;
             _settingsSystem = settingsSystem;
@@ -424,6 +465,8 @@ namespace MustyBlockBlast.Presentation.Views
             _timerRunSystem = timerRunSystem;
             _profileModel = profileModel;
             _adRemovalSystem = adRemovalSystem;
+            _currencySystem = currencySystem;
+            _removeAdsProductConfig = removeAdsProductConfig;
         }
 
         private void Awake()
@@ -436,7 +479,8 @@ namespace MustyBlockBlast.Presentation.Views
             if (_settingsModel == null || _settingsSystem == null || _sfxModel == null || _sfxService == null
                 || _localizationModel == null || _localizationSystem == null
                 || _gameModeSystem == null || _timedModeSystem == null || _timerRunSystem == null
-                || _profileModel == null || _adRemovalSystem == null)
+                || _profileModel == null || _adRemovalSystem == null
+                || _currencySystem == null || _removeAdsProductConfig == null)
             {
                 Debug.LogError(
                     $"{nameof(SettingsPanelView)} was not injected. Is it registered in the LifetimeScope?", this);
@@ -462,6 +506,10 @@ namespace MustyBlockBlast.Presentation.Views
             // the write rather than only on the next open.
             _profileModel.AdsRemoved.Subscribe(OnAdsRemovedChanged).AddTo(_disposables);
             _timedModeSystem.SelectedDuration.Subscribe(OnSelectedDurationChanged).AddTo(_disposables);
+
+            // The store's price for the ad-removal product arrives whenever the catalog does, which
+            // may be while the confirmation is already up — so it is observed rather than read once.
+            _currencySystem.CoinBundlePrices.Subscribe(OnStorePricesChanged).AddTo(_disposables);
 
             // Last, because its handler repaints the round-length row, which needs the ones above to
             // have published their first value.
@@ -501,6 +549,11 @@ namespace MustyBlockBlast.Presentation.Views
             _panel.SetActive(true);
             transform.SetAsLastSibling();
             _timerRunSystem.SetMenuPaused(true);
+
+            // Asks the store for its catalog so the Remove Ads confirmation can quote a real price
+            // (issue #423). Idempotent, so every open may ask; the price lands through the
+            // CoinBundlePrices subscription, never here.
+            _currencySystem.WarmUpCoinCatalog(this.GetCancellationTokenOnDestroy());
         }
 
         /// <summary>
@@ -524,6 +577,7 @@ namespace MustyBlockBlast.Presentation.Views
                 PanelScreen.Mode => HandleModeScreenTap(screenPosition, eventCamera),
                 PanelScreen.ModeConfirm => HandleConfirmScreenTap(screenPosition, eventCamera),
                 PanelScreen.Language => HandleLanguageScreenTap(screenPosition, eventCamera),
+                PanelScreen.RemoveAdsConfirm => HandleRemoveAdsConfirmTap(screenPosition, eventCamera),
                 _ => HandleSettingsScreenTap(screenPosition, eventCamera),
             };
 
@@ -589,18 +643,42 @@ namespace MustyBlockBlast.Presentation.Views
 
             // The button and the owned strip share one rect, so one test covers both. Swallowed even
             // when owned: the strip stays in place so the player can see the purchase went through, and
-            // a tap that fell through to the scrim would dismiss the card instead.
+            // a tap that fell through to the scrim would dismiss the card instead. A tap on the button
+            // opens the game's own confirmation (issue #423) rather than the store's prompt straight
+            // away; only that dialog's BUY NOW reaches the store.
             if (RectTransformUtility.RectangleContainsScreenPoint(_removeAdsButtonRect, screenPosition, eventCamera))
             {
                 if (!_profileModel.AdsRemoved.Value)
                 {
-                    PurchaseRemoveAds().Forget();
+                    SetScreen(PanelScreen.RemoveAdsConfirm);
                 }
 
                 return true;
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// The Remove Ads confirmation is a true modal, unlike <see cref="HandleConfirmScreenTap"/>:
+        /// nothing under it is reachable, so a tap that misses both buttons is swallowed rather than
+        /// handed on to the settings rows or the scrim's dismiss.
+        /// </summary>
+        private bool HandleRemoveAdsConfirmTap(Vector2 screenPosition, Camera eventCamera)
+        {
+            if (RectTransformUtility.RectangleContainsScreenPoint(_removeAdsBuyRect, screenPosition, eventCamera))
+            {
+                PurchaseRemoveAds().Forget();
+                return true;
+            }
+
+            if (RectTransformUtility.RectangleContainsScreenPoint(_removeAdsLaterRect, screenPosition, eventCamera))
+            {
+                SetScreen(PanelScreen.Settings);
+                return true;
+            }
+
+            return true;
         }
 
         private bool HandleThemeScreenTap(Vector2 screenPosition, Camera eventCamera)
@@ -780,6 +858,14 @@ namespace MustyBlockBlast.Presentation.Views
             {
                 _isPurchasingRemoveAds = false;
                 RefreshRemoveAdsAction();
+
+                // Whatever the store answered, the confirmation has done its job: on success the foot
+                // of the well already shows the owned strip, on a cancel or failure the settings rows
+                // are the right place to be, and a dialog left up would ask the question twice.
+                if (_screen == PanelScreen.RemoveAdsConfirm)
+                {
+                    SetScreen(PanelScreen.Settings);
+                }
             }
         }
 
@@ -790,17 +876,27 @@ namespace MustyBlockBlast.Presentation.Views
             _screen = screen;
 
             bool isModeScreen = screen == PanelScreen.Mode || screen == PanelScreen.ModeConfirm;
-            _settingsScreenRoot.SetActive(screen == PanelScreen.Settings);
+            bool isRemoveAdsConfirm = screen == PanelScreen.RemoveAdsConfirm;
+
+            // The settings rows stay up under the Remove Ads confirmation, dimmed by its scrim, so the
+            // dialog reads as a question over the screen it came from rather than a screen of its own.
+            _settingsScreenRoot.SetActive(screen == PanelScreen.Settings || isRemoveAdsConfirm);
             _themeScreenRoot.SetActive(screen == PanelScreen.Theme);
             _modeScreenRoot.SetActive(isModeScreen);
             _confirmCardRect.gameObject.SetActive(screen == PanelScreen.ModeConfirm);
             _languageScreenRoot.SetActive(screen == PanelScreen.Language);
+            _removeAdsConfirmRoot.SetActive(isRemoveAdsConfirm);
 
             if (isModeScreen)
             {
                 // The pending ring and the confirmation's wording both depend on which mode was tapped.
                 RefreshModeSelection();
                 RefreshConfirmTitle();
+            }
+
+            if (isRemoveAdsConfirm)
+            {
+                RefreshRemoveAdsPrice();
             }
         }
 
@@ -882,6 +978,15 @@ namespace MustyBlockBlast.Presentation.Views
             _confirmYesPlate.color = theme.GetFill(PRIMARY_KIND);
             _confirmYesText.color = theme.CardBackground;
 
+            // The Remove Ads confirmation makes the same split; its scrim is the theme's own Ink so the
+            // dimmed rows under it keep the theme's cast. The BUY NOW plate is painted by
+            // RefreshRemoveAdsAction below, which also knows whether it is busy.
+            _removeAdsConfirmScrim.color = WithAlpha(theme.Ink, REMOVE_ADS_SCRIM_ALPHA);
+            _removeAdsLaterFace.color = theme.EmptyCellFill;
+            _removeAdsLaterLip.color = theme.EmptyCellOutline;
+            _removeAdsLaterText.color = theme.Ink;
+            _removeAdsBuyText.color = theme.CardBackground;
+
             RefreshThemeNames();
             RefreshThemeSelection();
             RefreshModeSelection();
@@ -943,6 +1048,8 @@ namespace MustyBlockBlast.Presentation.Views
 
         private void OnAdsRemovedChanged(bool adsRemoved) => RefreshRemoveAdsAction();
 
+        private void OnStorePricesChanged(IReadOnlyDictionary<string, string> prices) => RefreshRemoveAdsPrice();
+
         private void OnModeChanged(GameMode mode)
         {
             if (_modeValueText == null)
@@ -983,9 +1090,11 @@ namespace MustyBlockBlast.Presentation.Views
             if (!adsRemoved)
             {
                 Color buttonColour = _currentTheme.GetFill(PRIMARY_KIND);
-                _removeAdsButtonPlate.color = _isPurchasingRemoveAds
+                Color busyAwareColour = _isPurchasingRemoveAds
                     ? Color.Lerp(buttonColour, _currentTheme.SoftInk, BUSY_FADE)
                     : buttonColour;
+                _removeAdsButtonPlate.color = busyAwareColour;
+                _removeAdsBuyPlate.color = busyAwareColour;
                 _removeAdsButtonText.color = _currentTheme.CardBackground;
                 _removeAdsButtonText.text = Uppercase(_localizationSystem.Translate(LocalizationKeys.SETTINGS_REMOVE_ADS_BUY));
                 return;
@@ -996,6 +1105,33 @@ namespace MustyBlockBlast.Presentation.Views
             _ownedCheck.color = _currentTheme.GetShade(OWNED_KIND);
             _ownedText.color = _currentTheme.GetShade(OWNED_KIND);
             _ownedText.text = _localizationSystem.Translate(LocalizationKeys.SETTINGS_REMOVE_ADS_OWNED);
+        }
+
+        /// <summary>
+        /// The confirmation's price line: the store's own localized price for the ad-removal SKU when
+        /// <see cref="CurrencySystem.CoinBundlePrices"/> has one, hidden otherwise — never a made-up
+        /// figure. The same "real price if known" rule the shop's bundle rows follow (issue #256), with
+        /// an absent line rather than a fallback word, since the caption under it already names the
+        /// purchase.
+        /// </summary>
+        private void RefreshRemoveAdsPrice()
+        {
+            if (_removeAdsPriceText == null)
+            {
+                return;
+            }
+
+            IReadOnlyDictionary<string, string> prices = _currencySystem.CoinBundlePrices.Value;
+            string localizedPrice = null;
+            bool hasPrice = prices != null
+                && prices.TryGetValue(_removeAdsProductConfig.Sku, out localizedPrice)
+                && !string.IsNullOrEmpty(localizedPrice);
+
+            _removeAdsPriceText.text = hasPrice ? localizedPrice : string.Empty;
+            if (_removeAdsPriceText.gameObject.activeSelf != hasPrice)
+            {
+                _removeAdsPriceText.gameObject.SetActive(hasPrice);
+            }
         }
 
         /// <summary>
@@ -1289,6 +1425,10 @@ namespace MustyBlockBlast.Presentation.Views
             BuildThemeScreen((RectTransform)_themeScreenRoot.transform);
             BuildModeScreen((RectTransform)_modeScreenRoot.transform);
             BuildLanguageScreen((RectTransform)_languageScreenRoot.transform);
+
+            // Last, so it draws over whichever screen it is asked from.
+            _removeAdsConfirmRoot = CreateScreenRoot("RemoveAdsConfirm");
+            BuildRemoveAdsConfirm((RectTransform)_removeAdsConfirmRoot.transform);
 
             _panel = panelObject;
         }
@@ -1884,6 +2024,103 @@ namespace MustyBlockBlast.Presentation.Views
                 _confirmYesRect, "Label", CONFIRM_BUTTON_FONT_SIZE, FontStyle.Normal, TextAnchor.MiddleCenter,
                 new Vector2(0f, BUTTON_LABEL_RISE), _displayFont);
             RegisterLocalized(_confirmYesText, LocalizationKeys.SETTINGS_CONFIRM_YES, uppercase: true);
+        }
+
+        /// <summary>
+        /// The Remove Ads confirmation (issue #423): a scrim over the whole card and, centred on it, a
+        /// plate with a badge in the call-to-action kind wearing a white "blocked" cross, "Remove
+        /// Ads?", a line saying what the purchase buys, the store's price when it is known, and
+        /// MAYBE LATER / BUY NOW. Built once and shown by <see cref="SetScreen"/>; only its BUY NOW
+        /// ever reaches the store.
+        /// </summary>
+        private void BuildRemoveAdsConfirm(RectTransform root)
+        {
+            var scrimObject = new GameObject("Scrim", typeof(RectTransform), typeof(Image));
+            var scrimRect = (RectTransform)scrimObject.transform;
+            scrimRect.SetParent(root, false);
+            scrimRect.anchorMin = Vector2.zero;
+            scrimRect.anchorMax = Vector2.one;
+            scrimRect.offsetMin = Vector2.zero;
+            scrimRect.offsetMax = Vector2.zero;
+            _removeAdsConfirmScrim = ConfigureRounded(scrimObject.GetComponent<Image>(), WELL_CORNER_RADIUS);
+
+            float plateWidth = ContentWidth;
+            RectTransform plateRect = BuildPlate(
+                root, "Dialog", new Vector2(plateWidth, REMOVE_ADS_DIALOG_HEIGHT), Vector2.zero);
+
+            float halfHeight = REMOVE_ADS_DIALOG_HEIGHT * 0.5f;
+            float badgeCentreY = halfHeight - REMOVE_ADS_DIALOG_PADDING - (REMOVE_ADS_BADGE_SIZE * 0.5f);
+
+            // The badge: a disc in the call-to-action kind — the same kind as BUY NOW, so the eye goes
+            // from one to the other — with the close cross's two bars on it, larger and in white.
+            _kindFills.Add(new KindImage(
+                BuildCircle(plateRect, "Badge", REMOVE_ADS_BADGE_SIZE, new Vector2(0f, badgeCentreY)), PRIMARY_KIND));
+            for (int barIndex = 0; barIndex < 2; barIndex++)
+            {
+                Image barImage = BuildRounded(
+                    plateRect, $"BadgeBar_{barIndex}", new Vector2(REMOVE_ADS_BADGE_BAR_LENGTH, REMOVE_ADS_BADGE_BAR_THICKNESS),
+                    new Vector2(0f, badgeCentreY), REMOVE_ADS_BADGE_BAR_THICKNESS * 0.5f);
+                barImage.rectTransform.localRotation = Quaternion.Euler(0f, 0f, barIndex == 0 ? 45f : -45f);
+                barImage.color = Color.white;
+            }
+
+            Text title = CreateLabel(
+                plateRect, "Title", CONFIRM_TITLE_FONT_SIZE, FontStyle.Normal, TextAnchor.MiddleCenter,
+                new Vector2(0f, halfHeight - REMOVE_ADS_TITLE_DROP), _displayFont);
+            _inkTexts.Add(title);
+            RegisterLocalized(title, LocalizationKeys.SETTINGS_REMOVE_ADS_CONFIRM_TITLE);
+
+            // Wrapped rather than left to overflow: a full sentence at this size runs wider than the
+            // plate, and an overflow would draw straight past its rounded edge.
+            Text body = CreateLabel(
+                plateRect, "Body", DESCRIPTION_FONT_SIZE, FontStyle.Bold, TextAnchor.MiddleCenter,
+                new Vector2(0f, halfHeight - REMOVE_ADS_BODY_DROP));
+            body.horizontalOverflow = HorizontalWrapMode.Wrap;
+            ((RectTransform)body.transform).sizeDelta = new Vector2(
+                plateWidth - (REMOVE_ADS_DIALOG_PADDING * 2f), DESCRIPTION_FONT_SIZE * 3.2f);
+            _softInkTexts.Add(body);
+            RegisterLocalized(body, LocalizationKeys.SETTINGS_REMOVE_ADS_CONFIRM_BODY);
+
+            // The price, in the display face, worded by RefreshRemoveAdsPrice and hidden until the
+            // store has quoted one; the caption under it is permanent, so the line never reads empty.
+            _removeAdsPriceText = CreateLabel(
+                plateRect, "Price", VALUE_FONT_SIZE, FontStyle.Normal, TextAnchor.MiddleCenter,
+                new Vector2(0f, halfHeight - REMOVE_ADS_PRICE_DROP), _displayFont);
+            _inkTexts.Add(_removeAdsPriceText);
+            _removeAdsPriceText.gameObject.SetActive(false);
+
+            Text priceCaption = CreateLabel(
+                plateRect, "PriceCaption", LABEL_FONT_SIZE, FontStyle.Bold, TextAnchor.MiddleCenter,
+                new Vector2(0f, halfHeight - REMOVE_ADS_PRICE_CAPTION_DROP));
+            _softInkTexts.Add(priceCaption);
+            RegisterLocalized(priceCaption, LocalizationKeys.SETTINGS_REMOVE_ADS_CONFIRM_PRICE_CAPTION, uppercase: true);
+
+            float buttonWidth = (plateWidth - (REMOVE_ADS_DIALOG_PADDING * 2f) - CONFIRM_BUTTON_GAP) * 0.5f;
+            var buttonSize = new Vector2(buttonWidth, CONFIRM_BUTTON_HEIGHT);
+            float buttonY = -halfHeight + REMOVE_ADS_DIALOG_PADDING + (CONFIRM_BUTTON_HEIGHT * 0.5f);
+            float buttonOffsetX = (buttonWidth + CONFIRM_BUTTON_GAP) * 0.5f;
+
+            // MAYBE LATER: the empty-cell pair with the tiles' lip — the quiet choice, on the left.
+            var laterObject = new GameObject("MaybeLater", typeof(RectTransform));
+            _removeAdsLaterRect = (RectTransform)laterObject.transform;
+            _removeAdsLaterRect.SetParent(plateRect, false);
+            Centre(_removeAdsLaterRect, buttonSize);
+            _removeAdsLaterRect.anchoredPosition = new Vector2(-buttonOffsetX, buttonY);
+            _removeAdsLaterLip = BuildRounded(_removeAdsLaterRect, "Lip", buttonSize, Vector2.zero, PLATE_CORNER_RADIUS);
+            _removeAdsLaterFace = BuildRounded(
+                _removeAdsLaterRect, "Face", new Vector2(buttonWidth, CONFIRM_BUTTON_HEIGHT - TILE_LIP), new Vector2(0f, TILE_LIP * 0.5f), PLATE_CORNER_RADIUS);
+            _removeAdsLaterText = CreateLabel(
+                _removeAdsLaterRect, "Label", CONFIRM_BUTTON_FONT_SIZE, FontStyle.Normal, TextAnchor.MiddleCenter,
+                new Vector2(0f, BUTTON_LABEL_RISE), _displayFont);
+            RegisterLocalized(_removeAdsLaterText, LocalizationKeys.SETTINGS_REMOVE_ADS_CONFIRM_CANCEL, uppercase: true);
+
+            // BUY NOW: the glossy call-to-action, on the right — the one control that reaches the store.
+            _removeAdsBuyRect = BuildGlossyButton(plateRect, "BuyNow", buttonSize, out _removeAdsBuyPlate);
+            _removeAdsBuyRect.anchoredPosition = new Vector2(buttonOffsetX, buttonY);
+            _removeAdsBuyText = CreateLabel(
+                _removeAdsBuyRect, "Label", CONFIRM_BUTTON_FONT_SIZE, FontStyle.Normal, TextAnchor.MiddleCenter,
+                new Vector2(0f, BUTTON_LABEL_RISE), _displayFont);
+            RegisterLocalized(_removeAdsBuyText, LocalizationKeys.SETTINGS_REMOVE_ADS_CONFIRM_BUY, uppercase: true);
         }
 
         /// <summary>

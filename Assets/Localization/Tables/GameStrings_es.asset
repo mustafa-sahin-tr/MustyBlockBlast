@@ -902,6 +902,26 @@ MonoBehaviour:
     m_Localized: "Despeja los bloques que llevan un diamante de este color \u2014 {0} \u2014 para recogerlo. Los bloques con diamante llegan a tu bandeja mientras este objetivo est\xE9 activo."
     m_Metadata:
       m_Items: []
+  - m_Id: 3514168819834880
+    m_Localized: "\xBFQuitar anuncios?"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3514168870166528
+    m_Localized: "Sin banners ni anuncios intersticiales, nunca m\xE1s. Juega sin interrupciones, para siempre."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3514168870166529
+    m_Localized: "Compra \xFAnica"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3514168870166530
+    m_Localized: Comprar ahora
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3514168870166531
+    m_Localized: "Quiz\xE1s luego"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

@@ -902,6 +902,26 @@ MonoBehaviour:
     m_Localized: "Clear blocks carrying a diamond of this colour \u2014 {0} \u2014 to collect it. Diamond blocks arrive in your tray while this goal is active."
     m_Metadata:
       m_Items: []
+  - m_Id: 3514168819834880
+    m_Localized: Remove Ads?
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3514168870166528
+    m_Localized: "No more banners or interstitials \u2014 ever. Play uninterrupted, forever."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3514168870166529
+    m_Localized: One-time purchase
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3514168870166530
+    m_Localized: Buy Now
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3514168870166531
+    m_Localized: Maybe Later
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []
