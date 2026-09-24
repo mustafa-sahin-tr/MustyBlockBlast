@@ -148,6 +148,15 @@ namespace MustyBlockBlast.Presentation.Views
         /// </summary>
         private const float LOCKED_NODE_ALPHA = 0.35f;
 
+        /// <summary>The 3D bead: how far the darker lip shows below the plate, how dark it is, how far
+        /// the soft drop shadow falls, and how bright the top sheen is.</summary>
+        private const float NODE_LIP_DEPTH = 10f;
+        private const float NODE_LIP_SHADE = 0.3f;
+        private const float NODE_SHADOW_DROP = 18f;
+        private const float NODE_SHEEN_ALPHA = 0.38f;
+
+        private static readonly Color NodeNumberShadow = new Color(0f, 0f, 0f, 0.28f);
+
         /// <summary>How much of the trail's own colour is mixed into the card behind it, so the
         /// scrolling band reads as this theme's ground rather than as bare card.</summary>
         private const float TRAIL_BACKDROP_MIX = 0.38f;
@@ -261,6 +270,8 @@ namespace MustyBlockBlast.Presentation.Views
                 RectTransform root,
                 Image plateImage,
                 Image shadowImage,
+                Image lipImage,
+                Image highlightImage,
                 Image doneDot,
                 Text numberText,
                 Image rewardBadgeImage,
@@ -269,6 +280,8 @@ namespace MustyBlockBlast.Presentation.Views
                 Root = root;
                 PlateImage = plateImage;
                 ShadowImage = shadowImage;
+                LipImage = lipImage;
+                HighlightImage = highlightImage;
                 DoneDot = doneDot;
                 NumberText = numberText;
                 RewardBadgeImage = rewardBadgeImage;
@@ -280,6 +293,12 @@ namespace MustyBlockBlast.Presentation.Views
             internal Image PlateImage { get; }
 
             internal Image ShadowImage { get; }
+
+            /// <summary>The bead's darker underside, peeking out below the plate.</summary>
+            internal Image LipImage { get; }
+
+            /// <summary>The glossy sheen across the top of the plate.</summary>
+            internal Image HighlightImage { get; }
 
             internal Image DoneDot { get; }
 
@@ -461,12 +480,12 @@ namespace MustyBlockBlast.Presentation.Views
         /// <see cref="LevelProgressionSystem.TryStartPathLevel"/> once the player has committed (see
         /// issue #167).
         /// <para>
-        /// The tap is still not gated on the mode or the unlock here, exactly as it was not when it
-        /// started the run directly: the System already has to refuse a locked or unauthored level, and
-        /// letting it also own "and only in Path mode" keeps one answer to "may this level be started"
-        /// instead of two that can drift. The picker simply asks later and reports a refusal on its own
-        /// card, so the read-only no-op Endless and Timed have always had costs one extra tap to dismiss
-        /// and still starts nothing.
+        /// A locked node is a disabled button: its tap does nothing at all — no picker, no card closing.
+        /// Opening the picker for it only led to a "cannot be started" refusal one tap later. The lock is
+        /// asked of <see cref="LevelProgressionSystem.IsUnlocked"/>, the same rule
+        /// <see cref="RefreshNode"/> draws the node with, so what looks disabled is exactly what is.
+        /// The mode is still not gated here: the System keeps owning "only in Path mode", and the picker
+        /// reports that refusal on its own card.
         /// </para>
         /// <para>
         /// This card is closed before the picker opens because the two are mutually exclusive overlays
@@ -477,6 +496,11 @@ namespace MustyBlockBlast.Presentation.Views
         /// </summary>
         private void OnNodeClicked(int levelNumber)
         {
+            if (!_levelProgressionSystem.IsUnlocked(levelNumber))
+            {
+                return;
+            }
+
             Close();
             _coinSowerPickerView.Open(levelNumber);
         }
@@ -594,7 +618,6 @@ namespace MustyBlockBlast.Presentation.Views
         {
             bool isCurrent = levelNumber == currentLevel;
             bool isLocked = !_levelProgressionSystem.IsUnlocked(levelNumber);
-            float alpha = isLocked ? LOCKED_NODE_ALPHA : 1f;
 
             // The current node still inverts to the accent — the same way PowerUpInventoryView marks
             // the armed slot — which is what keeps "you are here" legible against the cycling colours.
@@ -606,14 +629,18 @@ namespace MustyBlockBlast.Presentation.Views
             // fill, so the card's own background is the one number colour that reads on all of them.
             Color numberColour = _currentTheme.CardBackground;
 
-            node.PlateImage.color = WithAlpha(plateColour, alpha);
-            node.ShadowImage.color = WithAlpha(_currentTheme.CardShadow, alpha);
-            node.NumberText.color = WithAlpha(numberColour, alpha);
+            // A locked node is faded toward the card rather than made translucent: the bead is stacked
+            // layers (shadow, lip, plate, sheen), and translucent layers would show through each other.
+            node.PlateImage.color = FadeIfLocked(plateColour, isLocked);
+            node.LipImage.color = FadeIfLocked(Darken(plateColour, NODE_LIP_SHADE), isLocked);
+            node.ShadowImage.color = WithAlpha(_currentTheme.CardShadow, isLocked ? LOCKED_NODE_ALPHA : 1f);
+            node.HighlightImage.color = WithAlpha(Color.white, isLocked ? NODE_SHEEN_ALPHA * LOCKED_NODE_ALPHA : NODE_SHEEN_ALPHA);
+            node.NumberText.color = FadeIfLocked(numberColour, isLocked);
 
             if (node.RewardBadgeImage != null)
             {
-                node.RewardBadgeImage.color = WithAlpha(_currentTheme.Accent, alpha);
-                node.RewardIconImage.color = WithAlpha(Color.white, alpha);
+                node.RewardBadgeImage.color = FadeIfLocked(_currentTheme.Accent, isLocked);
+                node.RewardIconImage.color = WithAlpha(Color.white, isLocked ? LOCKED_NODE_ALPHA : 1f);
             }
 
             // Only a cleared node carries the accent dot: the current node is already accent-filled,
@@ -710,6 +737,23 @@ namespace MustyBlockBlast.Presentation.Views
 
         private static Color WithAlpha(Color colour, float alphaScale)
             => new Color(colour.r, colour.g, colour.b, colour.a * alphaScale);
+
+        /// <summary>What <paramref name="colour"/> at <see cref="LOCKED_NODE_ALPHA"/> would look like
+        /// over the card, but opaque — see <see cref="RefreshNode"/>.</summary>
+        private Color FadeIfLocked(Color colour, bool isLocked)
+        {
+            if (!isLocked)
+            {
+                return colour;
+            }
+
+            Color faded = Color.Lerp(_currentTheme.CardBackground, colour, LOCKED_NODE_ALPHA);
+            faded.a = 1f;
+            return faded;
+        }
+
+        private static Color Darken(Color colour, float amount)
+            => new Color(colour.r * (1f - amount), colour.g * (1f - amount), colour.b * (1f - amount), colour.a);
 
         private void BuildPanel()
         {
@@ -1083,10 +1127,20 @@ namespace MustyBlockBlast.Presentation.Views
             var shadowObject = new GameObject("Shadow", typeof(RectTransform), typeof(Image));
             var shadowRect = (RectTransform)shadowObject.transform;
             shadowRect.SetParent(nodeRect, false);
-            Centre(shadowRect, new Vector2(NODE_SIZE + 10f, NODE_SIZE + 10f));
-            shadowRect.anchoredPosition = new Vector2(0f, -6f);
+            Centre(shadowRect, new Vector2(NODE_SIZE + 6f, NODE_SIZE + 6f));
+            shadowRect.anchoredPosition = new Vector2(0f, -NODE_SHADOW_DROP);
             var shadowImage = shadowObject.GetComponent<Image>();
             ConfigureCircle(shadowImage);
+
+            // The bead's depth: a darker copy of the plate dropped below it, so the node reads as a
+            // pressable button with a side rather than a flat disc (the shop's chunky-button look).
+            var lipObject = new GameObject("Lip", typeof(RectTransform), typeof(Image));
+            var lipRect = (RectTransform)lipObject.transform;
+            lipRect.SetParent(nodeRect, false);
+            Centre(lipRect, new Vector2(NODE_SIZE, NODE_SIZE));
+            lipRect.anchoredPosition = new Vector2(0f, -NODE_LIP_DEPTH);
+            var lipImage = lipObject.GetComponent<Image>();
+            ConfigureCircle(lipImage);
 
             // Round rather than round-cornered (issue #416): a node is a bead on the trail, and the
             // circle is what stops the walk reading as a column of tiles.
@@ -1101,6 +1155,10 @@ namespace MustyBlockBlast.Presentation.Views
             // of its own, and uGUI dispatches a click up the hierarchy from whatever graphic it hit.
             plateImage.raycastTarget = true;
 
+            Image highlightImage = HudChrome.BuildRounded(
+                nodeRect, "Sheen", new Vector2(NODE_SIZE * 0.56f, NODE_SIZE * 0.2f),
+                new Vector2(0f, NODE_SIZE * 0.27f), NODE_SIZE * 0.1f);
+
             LevelObjectiveConfig config = _levelCatalog.Find(levelNumber);
 
             // The level number is the whole content of the plate now that the objective glyph is gone
@@ -1109,6 +1167,9 @@ namespace MustyBlockBlast.Presentation.Views
             // the card for the level the player is actually on.
             Text numberText = UiTextFactory.Create(
                 nodeRect, "Number", _nodeFontSize, FontStyle.Bold, Color.clear);
+            var numberShadow = numberText.gameObject.AddComponent<Shadow>();
+            numberShadow.effectColor = NodeNumberShadow;
+            numberShadow.effectDistance = new Vector2(0f, -3f);
 
             // Same filled accent dot the objective HUD uses for "done", in the corner so it never
             // crowds the number.
@@ -1158,7 +1219,8 @@ namespace MustyBlockBlast.Presentation.Views
             numberText.text = _stringBuilder.ToString();
 
             return new LevelNode(
-                nodeRect, plateImage, shadowImage, dotImage, numberText, rewardBadgeImage, rewardIconImage);
+                nodeRect, plateImage, shadowImage, lipImage, highlightImage, dotImage, numberText,
+                rewardBadgeImage, rewardIconImage);
         }
 
         /// <summary>
