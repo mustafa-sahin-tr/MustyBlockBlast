@@ -615,7 +615,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300692
-    m_Localized: "Bu h\xFCcre bir sat\u0131r veya s\xFCtun temizli\u011Fiyle yok edildi\u011Finde, di\u011Fer y\xF6ndeki tam \xE7izgiyi de siler \u2014 sat\u0131rla temizlendiyse b\xFCt\xFCn s\xFCtununu, s\xFCtunla temizlendiyse b\xFCt\xFCn sat\u0131r\u0131n\u0131 \u2014 dolu olsun olmas\u0131n, u\xE7tan uca. Bomba gibi \xE7izgisi olmayan bir \u015Feyle yok edilirse ikisini de siler. Sildi\u011Fi her h\xFCcre bonus puan kazand\u0131r\u0131r."
+    m_Localized: "Sat\u0131r ve s\xFCtunu ayn\u0131 anda temizleyince do\u011Far. Patlay\u0131nca dik \xE7izgiyi de siler."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300693
@@ -623,7 +623,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300694
-    m_Localized: "Bu h\xFCcre yok edildi\u011Fi anda, bulundu\u011Fu sat\u0131r\u0131n ve s\xFCtunun tamam\u0131n\u0131 u\xE7tan uca temizler \u2014 dolu olsalar da olmasalar da."
+    m_Localized: "Temizlendi\u011Fi \xE7izgiye dik \xE7izgiyi ba\u015Ftan uca siler. Bombayla giderse ikisini de."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300695
@@ -631,7 +631,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300696
-    m_Localized: "Her 5 \xE7izgi temizli\u011Finde do\u011Far. Yok edildi\u011Finde tahtadaki kapal\u0131 bo\u015Fluklar\u0131 doldurur."
+    m_Localized: "Her 5 \xE7izgi temizli\u011Finde do\u011Far. Yok olunca kapal\u0131 bo\u015Fluklar\u0131 doldurur."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300697
@@ -639,7 +639,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300698
-    m_Localized: "Yok edildi\u011Finde, hemen yak\u0131n\u0131ndaki di\u011Fer \xF6zel h\xFCcrelere atlayarak onlar\u0131 da erkenden tetikler \u2014 bir \xF6zel h\xFCcre zinciri ba\u015Flatabilir."
+    m_Localized: "Temizlenince tahtan\u0131n herhangi bir yerinden 5 rastgele blo\u011Fu vurur."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300699
@@ -647,7 +647,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300700
-    m_Localized: "Bu h\xFCcre bir sat\u0131r veya s\xFCtun temizlenerek yok edildi\u011Finde, normal puan\u0131na ek olarak bonus puan kazand\u0131r\u0131r."
+    m_Localized: "Her 2. sat\u0131r+s\xFCtun temizli\u011Finde do\u011Far. Temizlendi\u011Fi hamlenin puan\u0131 \xD73."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300701
@@ -655,7 +655,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300702
-    m_Localized: "Bu h\xFCcre bir sat\u0131r veya s\xFCtun temizlenerek yok edildi\u011Finde otomatik olarak bir coin kazan\u0131rs\u0131n."
+    m_Localized: "Temizlendi\u011Finde coin kazand\u0131r\u0131r. Sat\u0131r ve s\xFCtun kesi\u015Fiminde temizlenirse iki kat\u0131."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300703
@@ -775,7 +775,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 2136016130400258
-    m_Localized: "Saniyede de\u011Fil, her par\xE7a yerle\u015Ftirdi\u011Finde bir azal\u0131r. S\u0131f\u0131ra ula\u015Fmadan \xF6nce temizle. Yol modunda s\xFCresinin dolmas\u0131na izin vermek oyunu hemen bitirir. Sonsuz ve S\xFCreli modlarda ise sadece normal bir h\xFCcreye d\xF6n\xFC\u015F\xFCr ve bonusunu kaybedersin."
+    m_Localized: "Her hamlede 1 azal\u0131r; 0'dan \xF6nce temizle. Yol modunda s\xFCresi dolarsa oyun biter."
     m_Metadata:
       m_Items: []
   - m_Id: 2136016131400258
@@ -1004,6 +1004,22 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 4060774346514436
     m_Localized: "Yer de\u011Fi\u015Ftirdi"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4067957490573312
+    m_Localized: "Bonus \xE7izgi!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4067957532516352
+    m_Localized: "Dik \xE7izgi!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4067957532516353
+    m_Localized: '{0} rastgele blok!'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4067957532516354
+    m_Localized: "Zaman\u0131nda!"
     m_Metadata:
       m_Items: []
   references:

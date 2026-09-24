@@ -22,14 +22,14 @@ namespace MustyBlockBlast.Core
         None = 0,
 
         /// <summary>
-        /// An "explosive core": destroying it finishes off every row and column on the board that is
-        /// missing exactly one occupied playable cell, mirroring how <see cref="Board.IsRowFull"/> and
-        /// <see cref="Board.IsColumnFull"/> already treat holes. When nothing qualifies, the kind is
-        /// handed off instead of wasted — transferred to a uniformly random occupied cell carrying no
-        /// special kind of its own, or lost outright when no such cell exists. A second explosive core
-        /// caught in a line this one finishes detonates in turn, through
-        /// <see cref="CascadeClearResolver"/>'s ordinary "every special cell a phase destroys fires its
-        /// effect" mechanism; see <see cref="ExplosiveCoreEffect"/>, which owns the scan and the hand-off.
+        /// An "explosive core": destroying it wipes the full line running at right angles to whatever
+        /// destroyed it — taken out by a row clear it wipes its column, taken out by a column clear it
+        /// wipes its row, full or not, edge to edge — and something with no line to it at all (a Bomb, a
+        /// Colour Cleanser) wipes both, exactly as <see cref="Laser"/> does since issue #398; every wiped
+        /// cell scores a bonus point. A second explosive core caught in a wipe this one causes detonates
+        /// in turn; see <see cref="ExplosiveCoreEffect"/>, which owns the scan and the chain. Earned by a
+        /// placement that clears a row and a column at once (see
+        /// <see cref="ExplosiveCoreSpawnSelector"/>).
         /// </summary>
         ExplosiveCore = 1,
 

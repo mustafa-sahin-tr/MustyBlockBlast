@@ -38,8 +38,8 @@ namespace MustyBlockBlast.Presentation.Views
     /// <see cref="ResolveIcon"/>).
     /// </para>
     /// <para>
-    /// A subject with an authored animated demo (<see cref="InfoDemoCatalog"/>, issue #446 — the
-    /// Vortex special cell so far) swaps the hero icon for the chrome's demo slot and loops the demo on
+    /// A subject with an authored animated demo (<see cref="InfoDemoCatalog"/>, issues #446–#450 —
+    /// every power-up, the Hold pocket and the special cells but Diamond and Locked) swaps the hero icon for the chrome's demo slot and loops the demo on
     /// an <see cref="InfoDemoStage"/> while the card is open; closing the card stops it on the spot.
     /// Every other subject keeps its hero icon exactly as before.
     /// </para>

@@ -3030,9 +3030,11 @@ namespace MustyBlockBlast.Presentation.Views
         /// than reusing <see cref="IconTint"/> now that Vortex, Coin, and ExplosiveCore tint their icon
         /// with plain white (their sprite already carries full colour): without this split, their glow
         /// would go white too and stop reading as their own kind. Every kind not in that trio still maps
-        /// 1:1 with its <see cref="IconTint"/> entry, so nothing else changes.
+        /// 1:1 with its <see cref="IconTint"/> entry, so nothing else changes. Internal so the info-card
+        /// demos (<c>InfoDemoStage</c>, issue #450) paint a special cell's halo, burst and beam in its own
+        /// identity hue rather than duplicating this table.
         /// </summary>
-        private static Color GlowIdentityColor(SpecialCellKind kind)
+        internal static Color GlowIdentityColor(SpecialCellKind kind)
         {
             switch (kind)
             {
