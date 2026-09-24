@@ -12,8 +12,8 @@ namespace MustyBlockBlast.Presentation.Services
     /// with everything else <see cref="IAsyncStartable"/> rather than blocking any of it.
     /// <para>
     /// Registered only on the platforms <see cref="AdMobRewardSource"/> itself is bound on (see
-    /// <c>GameLifetimeScope</c>'s <c>#if UNITY_EDITOR || !UNITY_ANDROID</c> split) — nowhere else does
-    /// this type even exist, so there is no stub or no-op version of it to reason about.
+    /// <c>GameLifetimeScope</c>'s <c>#if UNITY_EDITOR || (!UNITY_ANDROID &amp;&amp; !UNITY_IOS)</c> split)
+    /// — nowhere else does this type even exist, so there is no stub or no-op version of it to reason about.
     /// </para>
     /// <para>
     /// Purely a latency win, never a correctness dependency: every one of <see cref="AdMobRewardSource"/>'s

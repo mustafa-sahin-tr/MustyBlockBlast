@@ -55,23 +55,31 @@ namespace MustyBlockBlast.Presentation.Services
     public sealed class AdMobRewardSource : IRewardSource, ICoinRewardSource, IRescueRewardSource
     {
         // ------------------------------------------------------------------------------------------
-        // Google's public test rewarded unit — always fills, every ad is stamped "Test Ad" and earns
+        // Google's public test rewarded units — always fill, every ad is stamped "Test Ad" and earns
         // nothing. Kept only as a fallback for the Editor/EditMode-adjacent build configs this class
-        // never actually runs under (see GameLifetimeScope's #if) and as a quick manual revert if the
+        // never actually runs under (see GameLifetimeScope's #if) and as a quick manual revert if a
         // real unit below ever needs pulling. Test ids: https://developers.google.com/admob/unity/test-ads
         // ------------------------------------------------------------------------------------------
         private const string TEST_ANDROID_REWARDED_AD_UNIT_ID = "ca-app-pub-3940256099942544/5224354917";
+        private const string TEST_IOS_REWARDED_AD_UNIT_ID = "ca-app-pub-3940256099942544/1712485313";
 
         // ------------------------------------------------------------------------------------------
-        // Real rewarded unit from the developer's own AdMob account (app "Blockio Blast: Time Rush").
-        // Matches the AdMob App ID entered in Assets > Google Mobile Ads > Settings... (Android field:
-        // ca-app-pub-8909172296809126~5406503750) — the two must always be swapped together, since a
-        // real unit id paired with a test App ID (or the reverse) is a policy violation on Google's side.
+        // Real rewarded units from the developer's own AdMob account (app "Blockio Blast: Time Rush").
+        // Each must match the AdMob App ID entered for its platform in Assets > Google Mobile Ads >
+        // Settings... (Android: ca-app-pub-8909172296809126~5406503750, iOS:
+        // ca-app-pub-8909172296809126~5705870749) — App ID and unit id must always be swapped together
+        // per platform, since a real unit id paired with a test App ID (or the reverse) is a policy
+        // violation on Google's side.
         // ------------------------------------------------------------------------------------------
         private const string LIVE_ANDROID_REWARDED_AD_UNIT_ID = "ca-app-pub-8909172296809126/7402111707";
+        private const string LIVE_IOS_REWARDED_AD_UNIT_ID = "ca-app-pub-8909172296809126/2022610757";
 
         /// <summary>The unit every request loads.</summary>
+#if UNITY_IOS
+        private const string REWARDED_AD_UNIT_ID = LIVE_IOS_REWARDED_AD_UNIT_ID;
+#else
         private const string REWARDED_AD_UNIT_ID = LIVE_ANDROID_REWARDED_AD_UNIT_ID;
+#endif
 
         /// <summary>
         /// How long consent lookup, SDK initialisation and an ad load are each allowed before they count
@@ -234,6 +242,16 @@ namespace MustyBlockBlast.Presentation.Services
                 Debug.LogWarning($"{nameof(AdMobRewardSource)}: consent does not allow ad requests; no ad will be shown.");
                 return false;
             }
+
+            // Play Console declares this app's target audience as 5+ (Everyone) with no neutral age
+            // screen, so every ad request must be tagged child-directed per Google's policy.
+            var requestConfiguration = new RequestConfiguration
+            {
+                TagForChildDirectedTreatment = TagForChildDirectedTreatment.True,
+                TagForUnderAgeOfConsent = TagForUnderAgeOfConsent.True,
+                MaxAdContentRating = MaxAdContentRating.G
+            };
+            MobileAds.SetRequestConfiguration(requestConfiguration);
 
             var initializeSource = new UniTaskCompletionSource<bool>();
             MobileAds.Initialize(status => initializeSource.TrySetResult(status != null));

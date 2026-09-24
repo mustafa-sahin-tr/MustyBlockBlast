@@ -1100,6 +1100,7 @@ MonoBehaviour:
   - {fileID: 21300000, guid: 3ed537dccdd5e431bb0d9db764852859, type: 3}
   - {fileID: 21300000, guid: b1457f48ecdf546ad82e33b5da56435f, type: 3}
   - {fileID: 21300000, guid: df082345de6c341249b4b446e357c822, type: 3}
+  - {fileID: 21300000, guid: 61497f245c3ca4455ab2414f3797984c, type: 3}
   _labelFont: {fileID: 12800000, guid: 6537f3bea187e4d82b1d0969d9d00fa6, type: 3}
 --- !u!1 &941606219
 GameObject:
@@ -1190,6 +1191,7 @@ MonoBehaviour:
   - {fileID: 21300000, guid: 3ed537dccdd5e431bb0d9db764852859, type: 3}
   - {fileID: 21300000, guid: b1457f48ecdf546ad82e33b5da56435f, type: 3}
   - {fileID: 21300000, guid: df082345de6c341249b4b446e357c822, type: 3}
+  - {fileID: 21300000, guid: 61497f245c3ca4455ab2414f3797984c, type: 3}
   _scrimColour: {r: 0.17, g: 0.15, b: 0.2, a: 0.55}
 --- !u!1 &979778622
 GameObject:
