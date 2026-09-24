@@ -947,6 +947,10 @@ MonoBehaviour:
     m_Key: objective.name.ice_cells_cleared
     m_Metadata:
       m_Items: []
+  - m_Id: 4038190586388480
+    m_Key: info_popup.demo.vortex.filled
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

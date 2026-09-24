@@ -9,7 +9,7 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>A cell's corner radius as a fraction of its side: the mockup's 6px on a 38px
         /// board cell and 4px on a 17px tray cell, which agree on about a sixth. Derived rather than
         /// serialized so a cell at any size — board, tray, pocket, drag ghost — has the same corner.</summary>
-        private const float CORNER_RADIUS_FRACTION = 0.17f;
+        internal const float CORNER_RADIUS_FRACTION = 0.17f;
 
         internal static CellView CreateCell(
             Transform parent, string cellName, float size, float inset, float bevelThickness)

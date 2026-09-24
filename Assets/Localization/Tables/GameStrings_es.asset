@@ -631,7 +631,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300696
-    m_Localized: Atrae lentamente hacia su centro las celdas ocupadas a su alrededor. Coloca una pieza directamente sobre ella para destruirla.
+    m_Localized: "Aparece cada 5 l\xEDneas despejadas. Al destruirse, rellena los huecos cerrados del tablero."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300697
@@ -952,6 +952,10 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 3631194104127488
     m_Localized: Celdas de Hielo
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4038190586388480
+    m_Localized: "\xA1Huecos rellenados!"
     m_Metadata:
       m_Items: []
   references:

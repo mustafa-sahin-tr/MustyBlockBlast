@@ -105,6 +105,21 @@ namespace MustyBlockBlast.Presentation.Views
 
             internal Text TitleText;
             internal Text DescriptionText;
+
+            /// <summary>
+            /// The optional animated-demo slot (issue #446): an empty, centred rect that takes the hero
+            /// icon's place while <see cref="ShowDemo"/> is in effect. Its owner parents a demo stage
+            /// into it (see <see cref="InfoDemoStage"/>). Inactive — and the card laid out exactly as
+            /// before the slot existed — until a caller opts in, so a card that never shows a demo is
+            /// unchanged (issue #445 AC9).
+            /// </summary>
+            internal RectTransform DemoRootRect;
+
+            /// <summary>The footprint <see cref="Reflow"/> reserves for <see cref="DemoRootRect"/> in
+            /// place of <see cref="HERO_SIZE"/>; zero while the card shows its hero icon.</summary>
+            internal Vector2 DemoSize;
+
+            internal bool IsDemoMode => DemoSize.y > 0f;
         }
 
         /// <summary>
@@ -124,6 +139,7 @@ namespace MustyBlockBlast.Presentation.Views
 
             handles.Close = CreateFloatingCloseButton(handles.CardRect);
             CreateHero(handles);
+            CreateDemoSlot(handles);
 
             handles.TitleText = CreateLabel(
                 handles.CardRect, "Title", titleFontSize, FontStyle.Bold, TextAnchor.MiddleCenter);
@@ -168,7 +184,9 @@ namespace MustyBlockBlast.Presentation.Views
             float descriptionHeight = Mathf.Max(
                 handles.DescriptionText.preferredHeight, handles.DescriptionText.fontSize * 1.2f);
 
-            float contentHeight = TOP_PADDING + HERO_SIZE + HERO_TO_TITLE_GAP + titleHeight
+            // The hero block is either the icon (HERO_SIZE) or the demo stage in its place.
+            float heroHeight = handles.IsDemoMode ? handles.DemoSize.y : HERO_SIZE;
+            float contentHeight = TOP_PADDING + heroHeight + HERO_TO_TITLE_GAP + titleHeight
                 + TITLE_TO_DESCRIPTION_GAP + descriptionHeight + BOTTOM_PADDING;
             float cardHeight = Mathf.Max(baseCardSize.y, contentHeight);
             var cardSize = new Vector2(baseCardSize.x, cardHeight);
@@ -182,9 +200,10 @@ namespace MustyBlockBlast.Presentation.Views
             PositionFloatingCloseButton(handles.Close, new Vector2(cardHalfWidth, cardHalfHeight));
 
             float cursorY = cardHalfHeight - TOP_PADDING;
-            float heroCenterY = cursorY - (HERO_SIZE * 0.5f);
+            float heroCenterY = cursorY - (heroHeight * 0.5f);
             handles.HeroRootRect.anchoredPosition = new Vector2(0f, heroCenterY);
-            cursorY = heroCenterY - (HERO_SIZE * 0.5f) - HERO_TO_TITLE_GAP;
+            handles.DemoRootRect.anchoredPosition = new Vector2(0f, heroCenterY);
+            cursorY = heroCenterY - (heroHeight * 0.5f) - HERO_TO_TITLE_GAP;
 
             float titleHalfHeight = titleHeight * 0.5f;
             float titleCenterY = cursorY - titleHalfHeight;
@@ -196,6 +215,29 @@ namespace MustyBlockBlast.Presentation.Views
             var descriptionRect = (RectTransform)handles.DescriptionText.transform;
             descriptionRect.anchoredPosition = new Vector2(0f, descriptionCenterY);
             descriptionRect.sizeDelta = new Vector2(descriptionRect.sizeDelta.x, descriptionHeight);
+        }
+
+        /// <summary>
+        /// Swaps the hero icon (ring, plate and content) for the animated-demo slot, reserving
+        /// <paramref name="demoSize"/> for it. Takes effect on the caller's next <see cref="Reflow"/>,
+        /// which it should run straight after, in the same frame, so the card is never shown at the
+        /// wrong height.
+        /// </summary>
+        internal static void ShowDemo(Handles handles, Vector2 demoSize)
+        {
+            handles.DemoSize = demoSize;
+            handles.DemoRootRect.sizeDelta = demoSize;
+            SetActiveIfChanged(handles.DemoRootRect.gameObject, true);
+            SetActiveIfChanged(handles.HeroRootRect.gameObject, false);
+        }
+
+        /// <summary>Returns the card to its hero icon — the default, and every non-demo subject's look.
+        /// Like <see cref="ShowDemo"/>, takes effect on the next <see cref="Reflow"/>.</summary>
+        internal static void ShowHeroIcon(Handles handles)
+        {
+            handles.DemoSize = Vector2.zero;
+            SetActiveIfChanged(handles.DemoRootRect.gameObject, false);
+            SetActiveIfChanged(handles.HeroRootRect.gameObject, true);
         }
 
         /// <summary>
@@ -302,6 +344,26 @@ namespace MustyBlockBlast.Presentation.Views
             handles.HeroContentRect = (RectTransform)contentObject.transform;
             handles.HeroContentRect.SetParent(handles.HeroRootRect, false);
             Centre(handles.HeroContentRect, new Vector2(HERO_PLATE_SIZE, HERO_PLATE_SIZE));
+        }
+
+        /// <summary>Creates the (inactive, empty) animated-demo slot — see
+        /// <see cref="Handles.DemoRootRect"/>. Built right after the hero so it draws in the hero's
+        /// place in the card's sibling order, under the title and description.</summary>
+        private static void CreateDemoSlot(Handles handles)
+        {
+            GameObject demoObject = new GameObject("DemoSlot", typeof(RectTransform));
+            handles.DemoRootRect = (RectTransform)demoObject.transform;
+            handles.DemoRootRect.SetParent(handles.CardRect, false);
+            Centre(handles.DemoRootRect, Vector2.zero);
+            demoObject.SetActive(false);
+        }
+
+        private static void SetActiveIfChanged(GameObject target, bool active)
+        {
+            if (target.activeSelf != active)
+            {
+                target.SetActive(active);
+            }
         }
 
         /// <summary>Builds a wordless label at the origin; the caller's <c>Refresh</c> fills it in from

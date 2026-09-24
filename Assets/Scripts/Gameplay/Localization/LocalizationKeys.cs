@@ -81,6 +81,10 @@ namespace MustyBlockBlast.Gameplay.Localization
         public const string INFO_POPUP_SPECIAL_CELL_LASER_BODY = "info_popup.special_cell.laser.body";
         public const string INFO_POPUP_SPECIAL_CELL_VORTEX_HEADER = "info_popup.special_cell.vortex.header";
         public const string INFO_POPUP_SPECIAL_CELL_VORTEX_BODY = "info_popup.special_cell.vortex.body";
+
+        /// <summary>The floating label the Vortex info demo shows as its islands fill (issue #446).</summary>
+        public const string INFO_POPUP_DEMO_VORTEX_FILLED = "info_popup.demo.vortex.filled";
+
         public const string INFO_POPUP_SPECIAL_CELL_CHAIN_LIGHTNING_HEADER = "info_popup.special_cell.chain_lightning.header";
         public const string INFO_POPUP_SPECIAL_CELL_CHAIN_LIGHTNING_BODY = "info_popup.special_cell.chain_lightning.body";
         public const string INFO_POPUP_SPECIAL_CELL_SCORE_GEM_HEADER = "info_popup.special_cell.score_gem.header";

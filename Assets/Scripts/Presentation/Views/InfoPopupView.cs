@@ -1,3 +1,4 @@
+using Cysharp.Threading.Tasks;
 using MustyBlockBlast.Core;
 using MustyBlockBlast.Gameplay;
 using MustyBlockBlast.Gameplay.Localization;
@@ -36,9 +37,15 @@ namespace MustyBlockBlast.Presentation.Views
     /// white-silhouette-plus-runtime-tint way <see cref="BoardView"/>'s special cell icons are (see
     /// <see cref="ResolveIcon"/>).
     /// </para>
+    /// <para>
+    /// A subject with an authored animated demo (<see cref="InfoDemoCatalog"/>, issue #446 — the
+    /// Vortex special cell so far) swaps the hero icon for the chrome's demo slot and loops the demo on
+    /// an <see cref="InfoDemoStage"/> while the card is open; closing the card stops it on the spot.
+    /// Every other subject keeps its hero icon exactly as before.
+    /// </para>
     /// </summary>
     [DisallowMultipleComponent]
-    public sealed class InfoPopupView : MonoBehaviour
+    public sealed class InfoPopupView : MonoBehaviour, IInfoDemoResources
     {
         private readonly CompositeDisposable _disposables = new CompositeDisposable();
 
@@ -81,6 +88,9 @@ namespace MustyBlockBlast.Presentation.Views
         private GameObject _panel;
         private InfoCardChrome.Handles _chrome;
         private Image _heroIconImage;
+
+        private readonly InfoDemoCatalog _demoCatalog = new InfoDemoCatalog();
+        private InfoDemoStage _demoStage;
 
         private ThemeDefinition _currentTheme;
         private InfoPopupContent? _currentContent;
@@ -153,7 +163,15 @@ namespace MustyBlockBlast.Presentation.Views
             _infoPopupModel.OpenContent.Subscribe(OnContentChanged).AddTo(_disposables);
         }
 
-        private void OnDestroy() => _disposables.Dispose();
+        private void OnDestroy()
+        {
+            _disposables.Dispose();
+
+            if (_demoStage != null)
+            {
+                _demoStage.Dispose();
+            }
+        }
 
         /// <summary>True while the card is showing. Read by <see cref="BoardInputView"/>.</summary>
         internal bool IsOpen => _panel != null && _panel.activeSelf;
@@ -198,6 +216,9 @@ namespace MustyBlockBlast.Presentation.Views
 
             if (content == null)
             {
+                // Stopped first and unconditionally: a closed card must never keep a demo loop alive.
+                _demoStage.Stop();
+
                 if (_panel.activeSelf)
                 {
                     _panel.SetActive(false);
@@ -267,9 +288,22 @@ namespace MustyBlockBlast.Presentation.Views
             _chrome.HeroPlateImage.color = _currentTheme.Accent;
             _chrome.HeroRingImage.color = Color.Lerp(_currentTheme.Accent, _currentTheme.CardBackground, 0.55f);
 
-            ResolveIcon(content, out Sprite icon, out Color iconTint);
-            _heroIconImage.sprite = icon;
-            _heroIconImage.color = icon != null ? iconTint : Color.clear;
+            InfoDemoTimeline demo = _demoCatalog.Find(content.SubjectKind, content.KindValue);
+            if (demo != null)
+            {
+                InfoCardChrome.ShowDemo(_chrome, InfoDemoStage.Size);
+                _demoStage.SetTheme(_currentTheme);
+                _demoStage.Play(demo);
+            }
+            else
+            {
+                _demoStage.Stop();
+                InfoCardChrome.ShowHeroIcon(_chrome);
+
+                ResolveIcon(content, out Sprite icon, out Color iconTint);
+                _heroIconImage.sprite = icon;
+                _heroIconImage.color = icon != null ? iconTint : Color.clear;
+            }
 
             _chrome.TitleText.color = _currentTheme.Ink;
             _chrome.TitleText.text = _localizationSystem.Translate(content.HeaderLocalizationKey);
@@ -350,6 +384,31 @@ namespace MustyBlockBlast.Presentation.Views
             }
         }
 
+        bool IInfoDemoResources.TryGetSprite(InfoDemoSprite sprite, int parameter, out Sprite resolved, out Color tint)
+        {
+            switch (sprite)
+            {
+                case InfoDemoSprite.SpecialCellIcon:
+                    SpecialCellKind cellKind = (SpecialCellKind)parameter;
+                    resolved = _boardView.IconSprite(cellKind);
+                    tint = BoardView.IconTint(cellKind);
+                    return resolved != null;
+                default:
+                    resolved = null;
+                    tint = Color.clear;
+                    return false;
+            }
+        }
+
+        string IInfoDemoResources.Translate(string localizationKey) => _localizationSystem.Translate(localizationKey);
+
+        void IInfoDemoResources.GetBoardCellMetrics(out float cellSize, out float inset, out float bevelThickness)
+        {
+            cellSize = _boardView.CellSize;
+            inset = _boardView.CellInset;
+            bevelThickness = _boardView.CellBevelThickness;
+        }
+
         private void BuildPanel()
         {
             var rect = (RectTransform)transform;
@@ -373,6 +432,7 @@ namespace MustyBlockBlast.Presentation.Views
             _chrome = InfoCardChrome.Build(panelRect, "InfoCard", _cardSize, _headerFontSize, _bodyFontSize);
 
             BuildHero();
+            _demoStage = new InfoDemoStage(_chrome.DemoRootRect, this, this.GetCancellationTokenOnDestroy());
 
             _panel = panelObject;
         }

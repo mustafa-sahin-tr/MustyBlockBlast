@@ -97,6 +97,14 @@ namespace MustyBlockBlast.Presentation.Views
         private static Sprite _hammerIcon;
         private static Sprite _refreshIcon;
         private static Sprite _checkMark;
+        private static Sprite _dashedRoundedOutline;
+
+        /// <summary>Wall thickness, dash length and dash period of <see cref="DashedRoundedOutline"/>, in
+        /// sprite pixels. The period divides the sprite's straight edge span (size - 2 * radius) evenly,
+        /// so a tiled edge repeats seamlessly.</summary>
+        private const int DASHED_OUTLINE_THICKNESS = 6;
+        private const int DASH_LENGTH = 9;
+        private const int DASH_PERIOD = 16;
 
         /// <summary>The nine locked-cell skin sprites, indexed <c>skin * LOCKED_SKIN_STAGES + (stage - 1)</c>,
         /// all cut from one texture. Null until the first <see cref="LockedSkin"/> call builds the sheet;
@@ -134,6 +142,26 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             return _roundedOutlines[clamped];
+        }
+
+        /// <summary>
+        /// A hollow rounded frame, white, whose four straight edges are dashed — the info demos'
+        /// "these cells" callout (issue #446). Solid rounded corners in the nine-slice border, dashes in
+        /// the edge spans: draw it as <c>Image.Type.Tiled</c> with <c>fillCenter</c> off so the edges
+        /// repeat their dashes at any length instead of stretching them.
+        /// </summary>
+        internal static Sprite DashedRoundedOutline
+        {
+            get
+            {
+                if (_dashedRoundedOutline == null)
+                {
+                    _dashedRoundedOutline = CreateDashedRoundedOutline(
+                        ROUNDED_SIZE, ROUNDED_RADIUS, DASHED_OUTLINE_THICKNESS);
+                }
+
+                return _dashedRoundedOutline;
+            }
         }
 
         /// <summary>Soft radial falloff, white. One shared instance so every glow batches together.</summary>
@@ -1251,6 +1279,62 @@ namespace MustyBlockBlast.Presentation.Views
                 SpriteMeshType.FullRect,
                 new Vector4(radius, radius, radius, radius));
             sprite.name = "MustyBlockBlast_RoundedOutlineSprite_" + thickness;
+            sprite.hideFlags = HideFlags.HideAndDontSave;
+            return sprite;
+        }
+
+        /// <summary>As <see cref="CreateRoundedOutline"/>, with every straight-edge pixel outside a dash
+        /// cleared — see <see cref="DashedRoundedOutline"/>.</summary>
+        private static Sprite CreateDashedRoundedOutline(int size, int radius, int thickness)
+        {
+            Texture2D texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
+            {
+                name = "MustyBlockBlast_DashedRoundedOutline",
+                wrapMode = TextureWrapMode.Clamp,
+                filterMode = FilterMode.Bilinear,
+                hideFlags = HideFlags.HideAndDontSave,
+            };
+
+            int innerSize = size - (thickness * 2);
+            int innerRadius = Mathf.Max(0, radius - thickness);
+
+            Color32[] pixels = new Color32[size * size];
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float outer = CornerCoverage(x, y, size, radius);
+                    int innerX = x - thickness;
+                    int innerY = y - thickness;
+                    float inner = innerX >= 0 && innerY >= 0 && innerX < innerSize && innerY < innerSize
+                        ? CornerCoverage(innerX, innerY, innerSize, innerRadius)
+                        : 0f;
+                    float alpha = Mathf.Clamp01(outer - inner);
+
+                    bool onHorizontalEdgeSpan = x >= radius && x < size - radius;
+                    bool onVerticalEdgeSpan = y >= radius && y < size - radius;
+                    if ((onHorizontalEdgeSpan && ((x - radius) % DASH_PERIOD) >= DASH_LENGTH)
+                        || (onVerticalEdgeSpan && ((y - radius) % DASH_PERIOD) >= DASH_LENGTH))
+                    {
+                        alpha = 0f;
+                    }
+
+                    pixels[(y * size) + x] = new Color32(255, 255, 255, (byte)Mathf.RoundToInt(alpha * 255f));
+                }
+            }
+
+            texture.SetPixels32(pixels);
+            texture.Apply(false, true);
+
+            Sprite sprite = Sprite.Create(
+                texture,
+                new Rect(0f, 0f, size, size),
+                new Vector2(0.5f, 0.5f),
+                100f,
+                0,
+                SpriteMeshType.FullRect,
+                new Vector4(radius, radius, radius, radius));
+            sprite.name = "MustyBlockBlast_DashedRoundedOutlineSprite";
             sprite.hideFlags = HideFlags.HideAndDontSave;
             return sprite;
         }
