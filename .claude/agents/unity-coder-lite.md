@@ -1,7 +1,7 @@
 ---
 name: unity-coder-lite
 description: "Lightweight feature implementation — for simple additions like new fields, methods, or straightforward components. Uses sonnet for faster, cheaper execution."
-model: fable
+model: opus
 color: green
 tools: Read, Write, Edit, Glob, Grep, Bash, mcp__unityMCP__*
 ---
