@@ -28,5 +28,14 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>A soft white radial falloff (<c>UiSpriteFactory.RadialGlow</c>), tinted by the
         /// element's paint — a soft drop shadow drawn in the icon layer. The sprite parameter is unused.</summary>
         SoftDisc,
+
+        /// <summary>The coin face the HUD's coin total pill draws (<c>CoinTotalHudView.GetCoinFace</c>),
+        /// untinted — a wallet pill, a flying coin, Coin Sower's button (issue #449). The sprite
+        /// parameter is unused.</summary>
+        Coin,
+
+        /// <summary>The Hold pocket's own empty-slot glyph (<c>HoldSlotView.PocketSprite</c>), issue #449.
+        /// The sprite parameter is unused.</summary>
+        HoldPocket,
     }
 }

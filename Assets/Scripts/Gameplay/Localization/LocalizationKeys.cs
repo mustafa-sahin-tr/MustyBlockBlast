@@ -107,6 +107,24 @@ namespace MustyBlockBlast.Gameplay.Localization
         /// <summary>The floating label the Paint Cross demo shows after the repaint (issue #448).</summary>
         public const string INFO_POPUP_DEMO_NOTHING_CLEARED = "info_popup.demo.nothing_cleared";
 
+        /// <summary>The floating label the Rotate demo shows as the turned piece clears two lines (issue #449).</summary>
+        public const string INFO_POPUP_DEMO_NOW_FITS = "info_popup.demo.now_fits";
+
+        /// <summary>The pill the Reroll demo shows over a dock where no piece fits (issue #449).</summary>
+        public const string INFO_POPUP_DEMO_NOTHING_FITS = "info_popup.demo.nothing_fits";
+
+        /// <summary>The floating label the Ghost Fit demo shows over its silhouette (issue #449).</summary>
+        public const string INFO_POPUP_DEMO_BEST_MOVE = "info_popup.demo.best_move";
+
+        /// <summary>The floating label the Coin Sower demo shows as a cleared coin cell pays out (issue #449).</summary>
+        public const string INFO_POPUP_DEMO_PLUS_COIN = "info_popup.demo.plus_coin";
+
+        /// <summary>The floating label the Hold demo shows as a piece is parked in the pocket (issue #449).</summary>
+        public const string INFO_POPUP_DEMO_HELD = "info_popup.demo.held";
+
+        /// <summary>The floating label the Hold demo shows as a park swaps the pocket's piece out (issue #449).</summary>
+        public const string INFO_POPUP_DEMO_SWAPPED = "info_popup.demo.swapped";
+
         public const string INFO_POPUP_SPECIAL_CELL_CHAIN_LIGHTNING_HEADER = "info_popup.special_cell.chain_lightning.header";
         public const string INFO_POPUP_SPECIAL_CELL_CHAIN_LIGHTNING_BODY = "info_popup.special_cell.chain_lightning.body";
         public const string INFO_POPUP_SPECIAL_CELL_SCORE_GEM_HEADER = "info_popup.special_cell.score_gem.header";

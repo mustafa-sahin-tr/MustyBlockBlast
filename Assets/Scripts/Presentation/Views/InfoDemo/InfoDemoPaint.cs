@@ -62,6 +62,26 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>The red (#E53935) of a power-up button's count badge.</summary>
         internal const int BADGE_RED = 48;
 
+        /// <summary>Power-up button plates of the tray / targetless demos (issue #449): Rotate and Coin
+        /// Sower gold (#E0A72E), Reroll teal (#26A69A), Double Multiplier orange (#F57C00 — also its "2x"
+        /// window pill), Ghost Fit violet (#7E57C2).</summary>
+        internal const int PLATE_GOLD = 49;
+        internal const int PLATE_REROLL = 50;
+        internal const int PLATE_DOUBLE = 51;
+        internal const int PLATE_GHOST = 52;
+
+        /// <summary>The pink (<c>HudChrome.OfferPink</c>) the real Hold pocket's charge badge turns when
+        /// no charge is left.</summary>
+        internal const int OFFER_PINK = 53;
+
+        /// <summary>The theme block colour the real Ghost Fit silhouette and tray hint ring are drawn in
+        /// (<c>BoardView.GHOST_KIND</c>) — a block colour id, resolved against the current theme.</summary>
+        internal const int GHOST_FIT = BLOCK_2;
+
+        /// <summary>The theme block colour the real Hold pocket's charge badge is drawn in while a charge
+        /// is held (<c>HudChrome.GREEN_KIND</c>) — a block colour id, resolved against the current theme.</summary>
+        internal const int HOLD_BADGE = BLOCK_5;
+
         /// <summary>Maps a board-pattern character to a paint: '.' empty, then the first letter of each
         /// Ilkbahar block colour — 'p' pink (1), 'g' green (2), 'u' purple (3), 'm' magenta (4),
         /// 'b' blue (5), 'v' vortex indigo. Anything else is <see cref="NONE"/>.</summary>

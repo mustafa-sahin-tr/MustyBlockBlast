@@ -975,6 +975,30 @@ MonoBehaviour:
     m_Key: info_popup.demo.nothing_cleared
     m_Metadata:
       m_Items: []
+  - m_Id: 4060774321348608
+    m_Key: info_popup.demo.now_fits
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4060774346514432
+    m_Key: info_popup.demo.nothing_fits
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4060774346514433
+    m_Key: info_popup.demo.best_move
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4060774346514434
+    m_Key: info_popup.demo.plus_coin
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4060774346514435
+    m_Key: info_popup.demo.held
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4060774346514436
+    m_Key: info_popup.demo.swapped
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

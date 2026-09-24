@@ -20,16 +20,19 @@ namespace MustyBlockBlast.Tests.EditMode
         /// <summary>Well after every demo's effect has settled and before any loop fade-out starts.</summary>
         private const float AFTER_EFFECT = 4.4f;
 
+        /// <summary>Every power-up kind has a demo since issue #449 (the tray / targetless six are covered
+        /// in detail by <c>InfoDemoTrayPowerUpTests</c>).</summary>
         private static readonly PowerUpKind[] DemoKinds =
         {
             PowerUpKind.Bomb, PowerUpKind.RowClear, PowerUpKind.ColumnClear, PowerUpKind.Joker,
-            PowerUpKind.ColorCleanser, PowerUpKind.PaintCross,
+            PowerUpKind.ColorCleanser, PowerUpKind.PaintCross, PowerUpKind.Rotate, PowerUpKind.Reroll,
+            PowerUpKind.DoubleMultiplier, PowerUpKind.GhostFit, PowerUpKind.CoinSower, PowerUpKind.Hold,
         };
 
         // ---------------------------------------------------------------- catalog
 
         [Test]
-        public void TheSixBoardTargetedPowerUps_HaveADemo_EachCached()
+        public void EveryPowerUp_HasADemo_EachCached()
         {
             InfoDemoCatalog catalog = new InfoDemoCatalog();
 

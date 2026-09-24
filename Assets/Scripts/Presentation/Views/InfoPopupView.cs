@@ -72,6 +72,7 @@ namespace MustyBlockBlast.Presentation.Views
         private BoardView _boardView;
         private PowerUpInventoryView _powerUpInventoryView;
         private HoldSlotView _holdSlotView;
+        private CoinTotalHudView _coinTotalHudView;
 
         /// <summary>
         /// Whether THIS popup is the one holding <see cref="TimerRunSystem"/>'s menu-pause flag. This
@@ -124,7 +125,8 @@ namespace MustyBlockBlast.Presentation.Views
             RunPauseModel runPauseModel,
             BoardView boardView,
             PowerUpInventoryView powerUpInventoryView,
-            HoldSlotView holdSlotView)
+            HoldSlotView holdSlotView,
+            CoinTotalHudView coinTotalHudView)
         {
             _infoPopupModel = infoPopupModel;
             _infoPopupSystem = infoPopupSystem;
@@ -136,6 +138,7 @@ namespace MustyBlockBlast.Presentation.Views
             _boardView = boardView;
             _powerUpInventoryView = powerUpInventoryView;
             _holdSlotView = holdSlotView;
+            _coinTotalHudView = coinTotalHudView;
         }
 
         private void Awake()
@@ -148,7 +151,8 @@ namespace MustyBlockBlast.Presentation.Views
             if (_infoPopupModel == null || _infoPopupSystem == null || _localizationModel == null
                 || _localizationSystem == null || _settingsModel == null || _timerRunSystem == null
                 || _runPauseModel == null
-                || _boardView == null || _powerUpInventoryView == null || _holdSlotView == null)
+                || _boardView == null || _powerUpInventoryView == null || _holdSlotView == null
+                || _coinTotalHudView == null)
             {
                 Debug.LogError(
                     $"{nameof(InfoPopupView)} was not injected. Is it registered in the LifetimeScope?", this);
@@ -409,7 +413,8 @@ namespace MustyBlockBlast.Presentation.Views
             BuildHero();
             _demoStage = new InfoDemoStage(
                 _chrome.DemoRootRect,
-                new InfoDemoResources(_boardView, _powerUpInventoryView, _localizationSystem),
+                new InfoDemoResources(
+                    _boardView, _powerUpInventoryView, _localizationSystem, _holdSlotView, _coinTotalHudView),
                 this.GetCancellationTokenOnDestroy());
 
             _panel = panelObject;

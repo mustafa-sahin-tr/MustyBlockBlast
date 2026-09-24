@@ -543,7 +543,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1869058130567172
-    m_Localized: "If you don't want to place a dock piece right now, drag it here to hold it for later. When you need it, drag it back out onto the board \u2014 the pocket holds only one piece at a time."
+    m_Localized: Drag a piece into the pocket to keep it. Drop it on a full pocket and the two swap.
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300672
@@ -575,7 +575,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300682
-    m_Localized: Choose one of your dock pieces and rotate it 90 degrees before placing it, so it fits the board better.
+    m_Localized: "Tap a dock piece to turn it 90\xB0. Each tap turns it another quarter."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300683
@@ -583,7 +583,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300684
-    m_Localized: If none of your current dock pieces are useful, this swaps all three for a fresh, random set in one go.
+    m_Localized: "Swaps all three dock pieces for new ones \u2014 at least one is sure to fit."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300685
@@ -591,7 +591,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300686
-    m_Localized: "Once activated, every point you score is doubled for a limited window \u2014 time it for your biggest scoring moves."
+    m_Localized: For 15 seconds, every point you score is doubled.
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300687
@@ -599,7 +599,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300688
-    m_Localized: "Pick one of your dock pieces and it highlights the best spot for it on the board as a ghostly outline \u2014 just drag the piece there."
+    m_Localized: Shows the best move on the board as a glowing silhouette.
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300689
@@ -607,7 +607,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300690
-    m_Localized: Scatters coin icons across random cells on the board. Clear those cells by completing their row or column to collect the coins.
+    m_Localized: Sows coin cells onto the board at level start; clear them to earn coins.
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300691
@@ -980,6 +980,30 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 4052349499727874
     m_Localized: Nothing is cleared
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4060774321348608
+    m_Localized: Now it fits!
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4060774346514432
+    m_Localized: Nothing fits
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4060774346514433
+    m_Localized: Best move
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4060774346514434
+    m_Localized: +coin
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4060774346514435
+    m_Localized: Held
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4060774346514436
+    m_Localized: Swapped
     m_Metadata:
       m_Items: []
   references:

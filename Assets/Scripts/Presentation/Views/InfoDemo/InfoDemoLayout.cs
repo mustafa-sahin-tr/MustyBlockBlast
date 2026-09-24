@@ -99,6 +99,10 @@ namespace MustyBlockBlast.Presentation.Views
             return FromMockPoint(new Vector2(slotCentreX, MOCK_STRIP_CENTRE_Y));
         }
 
+        /// <summary>A point on the tray strip's vertical centre line at mockup x <paramref name="mockX"/>,
+        /// in board units — for a strip laid out by hand (issue #449's Hold demo: three pieces and a pocket).</summary>
+        internal static Vector2 StripPoint(float mockX) => FromMockPoint(new Vector2(mockX, MOCK_STRIP_CENTRE_Y));
+
         /// <summary>A length in mockup units in board units (one unit = one cell pitch).</summary>
         internal static float FromMockLength(float mockLength) => mockLength / MOCK_PITCH;
 

@@ -126,6 +126,15 @@ namespace MustyBlockBlast.Presentation.Views
 
         private void OnDestroy() => _disposables.Dispose();
 
+        /// <summary>The pill's coin face and the tint it is drawn in — the authored sprite untinted, or the
+        /// plain gold disc fallback — so <see cref="InfoPopupView"/>'s info demos (issue #449) draw the very
+        /// coin the HUD does rather than a second copy of it.</summary>
+        internal void GetCoinFace(out Sprite sprite, out Color tint)
+        {
+            sprite = _coinSprite != null ? _coinSprite : UiSpriteFactory.Circle;
+            tint = _coinSprite != null ? Color.white : CoinTint;
+        }
+
         /// <summary>Whether <paramref name="screenPosition"/> lands on the "+" disc — and only the
         /// disc, not the coin icon or the balance number either side of it — so
         /// <see cref="BoardInputView"/> can resolve a tap on it exactly as it does
