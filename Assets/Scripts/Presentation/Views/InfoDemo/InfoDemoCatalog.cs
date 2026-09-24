@@ -4,7 +4,8 @@ using MustyBlockBlast.Gameplay;
 namespace MustyBlockBlast.Presentation.Views
 {
     /// <summary>
-    /// Which info-popup subjects have an animated demo, and the demo for each. A subject with none
+    /// Which info-popup subjects have an animated demo, and the demo for each (the Vortex special cell,
+    /// #446; the six board-targeted power-ups, #448; objective cards via <see cref="FindObjective"/>, #447). A subject with none
     /// returns null and its card keeps today's static hero icon (issue #445 AC9). Each demo is built
     /// once, the first time it is asked for, and cached — a timeline is immutable, so replaying it
     /// every time the card opens costs nothing.
@@ -19,6 +20,10 @@ namespace MustyBlockBlast.Presentation.Views
     internal sealed class InfoDemoCatalog
     {
         private InfoDemoTimeline _vortex;
+
+        /// <summary>Power-up demos (issue #448), indexed by <see cref="PowerUpKind"/> value; a kind with
+        /// no demo stays null.</summary>
+        private readonly InfoDemoTimeline[] _powerUps = new InfoDemoTimeline[(int)PowerUpKind.PaintCross + 1];
 
         /// <summary>Simultaneous Line Clear demos, one per required line count, indexed by that count.</summary>
         private readonly InfoDemoTimeline[] _simultaneousLineClear =
@@ -38,7 +43,50 @@ namespace MustyBlockBlast.Presentation.Views
                 return _vortex;
             }
 
+            if (subjectKind == InfoPopupSubjectKind.PowerUp)
+            {
+                return FindPowerUp(kindValue);
+            }
+
             return null;
+        }
+
+        /// <summary>The board-targeted power-ups' demos (issue #448) — Bomb, Row/Column Clear, Joker,
+        /// Color Cleanser and Paint Cross; every other kind keeps its static icon.</summary>
+        private InfoDemoTimeline FindPowerUp(int kindValue)
+        {
+            if (kindValue < 0 || kindValue >= _powerUps.Length)
+            {
+                return null;
+            }
+
+            if (_powerUps[kindValue] == null)
+            {
+                _powerUps[kindValue] = BuildPowerUp((PowerUpKind)kindValue);
+            }
+
+            return _powerUps[kindValue];
+        }
+
+        private static InfoDemoTimeline BuildPowerUp(PowerUpKind kind)
+        {
+            switch (kind)
+            {
+                case PowerUpKind.Bomb:
+                    return BombInfoDemo.Build();
+                case PowerUpKind.RowClear:
+                    return LineClearPowerUpInfoDemo.Build(true);
+                case PowerUpKind.ColumnClear:
+                    return LineClearPowerUpInfoDemo.Build(false);
+                case PowerUpKind.Joker:
+                    return JokerInfoDemo.Build();
+                case PowerUpKind.ColorCleanser:
+                    return ColorCleanserInfoDemo.Build();
+                case PowerUpKind.PaintCross:
+                    return PaintCrossInfoDemo.Build();
+                default:
+                    return null;
+            }
         }
 
         /// <summary>The demo for the objective card of <paramref name="definition"/>, or null when that

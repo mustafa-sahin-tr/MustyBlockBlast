@@ -523,7 +523,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300676
-    m_Localized: "Despeja al instante todos los bloques de la columna que elijas, est\xE9 completa o no. Act\xEDvala tocando su icono y luego toca la columna que quieres despejar."
+    m_Localized: "Despeja de punta a punta la columna que toques, est\xE9 llena o no."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300675
@@ -531,7 +531,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300674
-    m_Localized: "Despeja al instante todos los bloques de la fila que elijas, est\xE9 completa o no. Act\xEDvala tocando su icono y luego toca la fila que quieres despejar."
+    m_Localized: "Despeja de punta a punta la fila que toques, est\xE9 llena o no."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300673
@@ -547,7 +547,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300672
-    m_Localized: "Destruye todos los bloques del \xE1rea de 3x3 centrada en la celda que elijas. Toca su icono para armarla y luego toca el tablero donde quieras detonarla."
+    m_Localized: "Toca el icono y luego una celda: el \xE1rea de 3x3 a su alrededor se despeja al instante."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479841329152
@@ -559,7 +559,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300678
-    m_Localized: "Te da un bloque especial de una sola celda que cuenta como cualquier color. Arr\xE1stralo y col\xF3calo como una pieza normal: cualquier fila o columna que complete se despeja al instante."
+    m_Localized: "Toca una celda vac\xEDa: se rellena y se despeja la fila o columna que complete."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300679
@@ -567,7 +567,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300680
-    m_Localized: "Te permite elegir uno de los colores que hay en el tablero; todos los bloques de ese color desaparecen al instante, est\xE9n donde est\xE9n."
+    m_Localized: 'Toca una celda ocupada: desaparecen todos los bloques de ese color del tablero.'
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300681
@@ -935,7 +935,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 3514168870166535
-    m_Localized: "Toca una celda y elige un color: cada bloque de esa fila y columna lo tomar\xE1. No se limpia nada, \xFAsalo para preparar un objetivo de color."
+    m_Localized: 'Toca una celda y elige un color: su fila y su columna se pintan de ese color. No se borra nada.'
     m_Metadata:
       m_Items: []
   - m_Id: 3514168870166536
@@ -964,6 +964,22 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 4044960612474880
     m_Localized: "\xA1{0} l\xEDneas!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4052349470367744
+    m_Localized: "\xA1Aunque no est\xE9 llena!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4052349499727872
+    m_Localized: "\xA1Fila completa!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4052349499727873
+    m_Localized: "\xA1Mismo color!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4052349499727874
+    m_Localized: No se borra nada
     m_Metadata:
       m_Items: []
   references:

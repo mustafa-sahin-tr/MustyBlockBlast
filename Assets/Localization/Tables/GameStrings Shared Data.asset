@@ -959,6 +959,22 @@ MonoBehaviour:
     m_Key: info_popup.demo.lines_cleared
     m_Metadata:
       m_Items: []
+  - m_Id: 4052349470367744
+    m_Key: info_popup.demo.even_if_not_full
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4052349499727872
+    m_Key: info_popup.demo.row_complete
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4052349499727873
+    m_Key: info_popup.demo.same_colour
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4052349499727874
+    m_Key: info_popup.demo.nothing_cleared
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

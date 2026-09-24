@@ -15,6 +15,10 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>Uniform scale, in <c>From.x</c>/<c>To.x</c>.</summary>
         Scale,
 
+        /// <summary>Per-axis scale multiplier on top of <see cref="Scale"/>, in <c>From.xy</c>/<c>To.xy</c>
+        /// — (1, 1) at rest. Lets a bar grow along one axis only (a power-up beam, issue #448).</summary>
+        Stretch,
+
         /// <summary>Position in board units (x = column, y = row, row 0 at the top), in
         /// <c>From.xy</c>/<c>To.xy</c> — see <see cref="InfoDemoLayout"/>.</summary>
         Position,

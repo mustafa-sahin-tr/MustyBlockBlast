@@ -7,8 +7,9 @@ using NUnit.Framework;
 namespace MustyBlockBlast.Tests.EditMode
 {
     /// <summary>
-    /// Which info-popup subjects get an animated demo (issue #446): only the Vortex special cell so
-    /// far. Every other subject must fall back to the static hero icon (issue #445 AC9), which the View
+    /// Which info-popup subjects get an animated demo (issue #446): of the special cells only the
+    /// Vortex, plus the objective cards (#447); the power-ups are covered by InfoDemoPowerUpTests (#448).
+    /// Every other subject must fall back to the static hero icon (issue #445 AC9), which the View
     /// does whenever the catalog returns null.
     /// </summary>
     public class InfoDemoCatalogTests
@@ -44,14 +45,14 @@ namespace MustyBlockBlast.Tests.EditMode
         }
 
         [Test]
-        public void PowerUpsSpecialPiecesAndHold_HaveNoDemo_EvenWithTheVortexKindValue()
+        public void SpecialPiecesAndHold_HaveNoDemo_EvenWithTheVortexKindValue()
         {
+            // Power-ups are covered by InfoDemoPowerUpTests (issue #448 gave six of them a demo — one of
+            // which, ColorCleanser, shares the Vortex's kind value 4).
             InfoDemoCatalog catalog = new InfoDemoCatalog();
 
-            AssertNoneFor(catalog, InfoPopupSubjectKind.PowerUp, typeof(PowerUpKind));
             AssertNoneFor(catalog, InfoPopupSubjectKind.SpecialPiece, typeof(SpecialPieceKind));
             Assert.IsNull(catalog.Find(InfoPopupSubjectKind.Hold, 0));
-            Assert.IsNull(catalog.Find(InfoPopupSubjectKind.PowerUp, (int)SpecialCellKind.Vortex));
             Assert.IsNull(catalog.Find(InfoPopupSubjectKind.SpecialPiece, (int)SpecialCellKind.Vortex));
         }
 

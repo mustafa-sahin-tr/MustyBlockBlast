@@ -93,6 +93,20 @@ namespace MustyBlockBlast.Gameplay.Localization
         /// count (issue #447, e.g. "2 lines!").</summary>
         public const string INFO_POPUP_DEMO_LINES_CLEARED = "info_popup.demo.lines_cleared";
 
+        /// <summary>The floating label the Row/Column Clear demos show as a not-full line clears
+        /// (issue #448, "Even if not full!").</summary>
+        public const string INFO_POPUP_DEMO_EVEN_IF_NOT_FULL = "info_popup.demo.even_if_not_full";
+
+        /// <summary>The floating label the Joker demo shows as its fill completes a row (issue #448).</summary>
+        public const string INFO_POPUP_DEMO_ROW_COMPLETE = "info_popup.demo.row_complete";
+
+        /// <summary>The floating label the Color Cleanser demo shows as one colour clears — worded without
+        /// naming the colour, so it survives a theme change (issue #448).</summary>
+        public const string INFO_POPUP_DEMO_SAME_COLOUR = "info_popup.demo.same_colour";
+
+        /// <summary>The floating label the Paint Cross demo shows after the repaint (issue #448).</summary>
+        public const string INFO_POPUP_DEMO_NOTHING_CLEARED = "info_popup.demo.nothing_cleared";
+
         public const string INFO_POPUP_SPECIAL_CELL_CHAIN_LIGHTNING_HEADER = "info_popup.special_cell.chain_lightning.header";
         public const string INFO_POPUP_SPECIAL_CELL_CHAIN_LIGHTNING_BODY = "info_popup.special_cell.chain_lightning.body";
         public const string INFO_POPUP_SPECIAL_CELL_SCORE_GEM_HEADER = "info_popup.special_cell.score_gem.header";
