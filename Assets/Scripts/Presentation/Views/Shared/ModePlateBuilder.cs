@@ -44,7 +44,7 @@ namespace MustyBlockBlast.Presentation.Views.Shared
 
         /// <summary>The icon tile: a rounded square in the row's kind fill over a slightly taller one
         /// in its shade, so the shade shows as a lip along the bottom.</summary>
-        private const float TILE_SIZE = 96f;
+        internal const float TILE_SIZE = 96f;
         private const float TILE_LIP = 7f;
         private const float TILE_CORNER_RADIUS = 28f;
 
@@ -235,8 +235,9 @@ namespace MustyBlockBlast.Presentation.Views.Shared
             };
         }
 
-        /// <summary>Which kind's bevel triplet a mode's tile takes, on the settings row and in the pickers.</summary>
-        private static int ModeKind(GameMode mode)
+        /// <summary>Which kind's bevel triplet a mode's tile takes, on the settings row and in the pickers.
+        /// Internal so <see cref="LoadingCurtainView"/> can build the very same tile for the chosen mode.</summary>
+        internal static int ModeKind(GameMode mode)
         {
             return mode switch
             {

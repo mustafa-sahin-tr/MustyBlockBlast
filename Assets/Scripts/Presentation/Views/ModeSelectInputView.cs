@@ -15,7 +15,6 @@ namespace MustyBlockBlast.Presentation.Views
     public sealed class ModeSelectInputView : MonoBehaviour
     {
         private InputAction _pointerPressAction;
-        private InputAction _pointerPositionAction;
 
         private ModeSelectPanelView _panelView;
 
@@ -27,30 +26,26 @@ namespace MustyBlockBlast.Presentation.Views
 
         private void Awake()
         {
-            // Raw pointer state, read directly from the actions: no GraphicRaycaster or EventSystem is
+            // Raw pointer state, read directly from the action: no GraphicRaycaster or EventSystem is
             // involved, so the scene needs neither and nothing drawn can swallow a press.
             _pointerPressAction = new InputAction("ModeSelectPress", InputActionType.Button, "<Pointer>/press");
-            _pointerPositionAction = new InputAction("ModeSelectPosition", InputActionType.Value, "<Pointer>/position");
         }
 
         private void OnEnable()
         {
             _pointerPressAction.started += OnPressStarted;
             _pointerPressAction.Enable();
-            _pointerPositionAction.Enable();
         }
 
         private void OnDisable()
         {
             _pointerPressAction.started -= OnPressStarted;
             _pointerPressAction.Disable();
-            _pointerPositionAction.Disable();
         }
 
         private void OnDestroy()
         {
             _pointerPressAction?.Dispose();
-            _pointerPositionAction?.Dispose();
         }
 
         private void OnPressStarted(InputAction.CallbackContext context)
@@ -62,7 +57,15 @@ namespace MustyBlockBlast.Presentation.Views
                 return;
             }
 
-            _panelView.HandleTap(_pointerPositionAction.ReadValue<Vector2>());
+            // Read position straight off the pointer that generated this press, not a second, independently
+            // enabled action: on Android a cross-action read of a same-event position could momentarily lag
+            // a frame behind (e.g. a still-default (0,0) if this was the very first pointer event this
+            // scene has seen), landing the hit-test outside the tapped button and dropping the first tap.
+            Vector2 screenPosition = context.control.device is Pointer pointer
+                ? pointer.position.ReadValue()
+                : Vector2.zero;
+
+            _panelView.HandleTap(screenPosition);
         }
     }
 }
