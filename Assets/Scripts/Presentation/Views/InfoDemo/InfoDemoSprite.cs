@@ -37,5 +37,10 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>The Hold pocket's own empty-slot glyph (<c>HoldSlotView.PocketSprite</c>), issue #449.
         /// The sprite parameter is unused.</summary>
         HoldPocket,
+
+        /// <summary>The HUD streak pill's white flame (<c>StreakPillView.FlameSprite</c>), tinted by the
+        /// element's paint — the Golden piece demo's combo pill (issue #451). The sprite parameter is
+        /// unused.</summary>
+        StreakFlame,
     }
 }

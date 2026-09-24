@@ -379,6 +379,13 @@ namespace MustyBlockBlast.Presentation.Views
                 return;
             }
 
+            // A golden dock plate (issue #451) is embossed in the dock's own gold, not a theme colour.
+            if (paint == InfoDemoPaint.GOLDEN_PIECE
+                && SpecialPieceVisuals.TryGetFill(SpecialPieceKind.Golden, out fill, out highlight, out shade))
+            {
+                return;
+            }
+
             fill = _theme.GetFill(paint);
             highlight = _theme.GetHighlight(paint);
             shade = _theme.GetShade(paint);
@@ -391,10 +398,19 @@ namespace MustyBlockBlast.Presentation.Views
                 return BoardView.GlowIdentityColor(glowKind);
             }
 
+            if (InfoDemoPaint.TryGetSpecialPieceIdentity(paint, out SpecialPieceKind pieceKind))
+            {
+                return SpecialPieceVisuals.IdentityColour(pieceKind);
+            }
+
             switch (paint)
             {
                 case InfoDemoPaint.VORTEX_BLOCK:
                     return VortexBlockFill;
+                case InfoDemoPaint.GOLDEN_PIECE:
+                    return SpecialPieceVisuals.IdentityColour(SpecialPieceKind.Golden);
+                case InfoDemoPaint.VALID_PREVIEW:
+                    return _theme.ValidPreview;
                 case InfoDemoPaint.VORTEX_GLOW:
                     return BoardView.VortexIconTint;
                 case InfoDemoPaint.WHITE:
@@ -572,6 +588,15 @@ namespace MustyBlockBlast.Presentation.Views
                     {
                         PieceVisual piece = TakePiece(piecesUsed++, element.Shape);
                         _elementPieces[elementIndex] = piece;
+
+                        // A special dock piece (issue #451) wears the dock's own mark on every cell; an
+                        // ordinary one clears whatever mark a previous demo left on this pooled visual.
+                        SpecialPieceKind specialKind = (SpecialPieceKind)element.SpriteParameter;
+                        for (int cellIndex = 0; cellIndex < piece.ActiveCellCount; cellIndex++)
+                        {
+                            SpecialPieceVisuals.ApplyGlyph(piece.Cells[cellIndex], specialKind);
+                        }
+
                         _elementRects[elementIndex] = piece.Root;
                         break;
                     }

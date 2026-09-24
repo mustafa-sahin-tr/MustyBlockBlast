@@ -7,7 +7,8 @@ namespace MustyBlockBlast.Presentation.Views
     /// Which info-popup subjects have an animated demo, and the demo for each (the Vortex special cell,
     /// #446; the Explosive Core, Laser, Score Gem, Chain Lightning, Coin and Timer special cells, #450;
     /// the six board-targeted power-ups, #448; the tray / targetless power-ups and the Hold pocket,
-    /// #449; objective cards via <see cref="FindObjective"/>, #447). A subject with none
+    /// #449; the Golden, Piercing Rocket and Demolition Hammer special pieces, #451; objective cards via
+    /// <see cref="FindObjective"/>, #447). A subject with none
     /// returns null and its card keeps today's static hero icon (issue #445 AC9). Each demo is built
     /// once, the first time it is asked for, and cached — a timeline is immutable, so replaying it
     /// every time the card opens costs nothing.
@@ -24,6 +25,10 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>Special-cell demos (issues #446, #450), indexed by <see cref="SpecialCellKind"/> value;
         /// a kind with no demo stays null.</summary>
         private readonly InfoDemoTimeline[] _specialCells = new InfoDemoTimeline[(int)SpecialCellKind.Locked + 1];
+
+        /// <summary>Special dock piece demos (issue #451), indexed by <see cref="SpecialPieceKind"/> value;
+        /// <see cref="SpecialPieceKind.None"/> stays null.</summary>
+        private readonly InfoDemoTimeline[] _specialPieces = new InfoDemoTimeline[(int)SpecialPieceKind.DemolitionHammer + 1];
 
         /// <summary>The Hold demo (issue #449), shared by both subjects that open the Hold card.</summary>
         private InfoDemoTimeline _hold;
@@ -48,6 +53,11 @@ namespace MustyBlockBlast.Presentation.Views
             if (subjectKind == InfoPopupSubjectKind.PowerUp)
             {
                 return FindPowerUp(kindValue);
+            }
+
+            if (subjectKind == InfoPopupSubjectKind.SpecialPiece)
+            {
+                return FindSpecialPiece(kindValue);
             }
 
             // The Hold card opens as its own subject (first park, a tap on the pocket) and also as the
@@ -95,6 +105,38 @@ namespace MustyBlockBlast.Presentation.Views
                     return CoinCellInfoDemo.Build();
                 case SpecialCellKind.Timer:
                     return TimerInfoDemo.Build();
+                default:
+                    return null;
+            }
+        }
+
+        /// <summary>The special dock piece demos (issue #451) — Golden, Piercing Rocket and Demolition
+        /// Hammer. <see cref="SpecialPieceKind.None"/> is not a special piece and has none.</summary>
+        private InfoDemoTimeline FindSpecialPiece(int kindValue)
+        {
+            if (kindValue < 0 || kindValue >= _specialPieces.Length)
+            {
+                return null;
+            }
+
+            if (_specialPieces[kindValue] == null)
+            {
+                _specialPieces[kindValue] = BuildSpecialPiece((SpecialPieceKind)kindValue);
+            }
+
+            return _specialPieces[kindValue];
+        }
+
+        private static InfoDemoTimeline BuildSpecialPiece(SpecialPieceKind kind)
+        {
+            switch (kind)
+            {
+                case SpecialPieceKind.Golden:
+                    return GoldenPieceInfoDemo.Build();
+                case SpecialPieceKind.PiercingRocket:
+                    return PiercingRocketInfoDemo.Build();
+                case SpecialPieceKind.DemolitionHammer:
+                    return DemolitionHammerInfoDemo.Build();
                 default:
                     return null;
             }

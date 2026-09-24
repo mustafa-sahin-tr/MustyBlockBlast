@@ -138,6 +138,12 @@ namespace MustyBlockBlast.Gameplay.Localization
         /// <summary>The floating label the Timer demo shows as the timer cell clears before it runs out (issue #450).</summary>
         public const string INFO_POPUP_DEMO_JUST_IN_TIME = "info_popup.demo.just_in_time";
 
+        /// <summary>The floating label the Piercing Rocket demo shows as it wipes both of its lines (issue #451).</summary>
+        public const string INFO_POPUP_DEMO_ROW_AND_COLUMN = "info_popup.demo.row_and_column";
+
+        /// <summary>The pill the Demolition Hammer demo shows as the hammer is handed over (issue #451).</summary>
+        public const string INFO_POPUP_DEMO_LAST_RESORT = "info_popup.demo.last_resort";
+
         public const string INFO_POPUP_SPECIAL_CELL_CHAIN_LIGHTNING_HEADER = "info_popup.special_cell.chain_lightning.header";
         public const string INFO_POPUP_SPECIAL_CELL_CHAIN_LIGHTNING_BODY = "info_popup.special_cell.chain_lightning.body";
         public const string INFO_POPUP_SPECIAL_CELL_SCORE_GEM_HEADER = "info_popup.special_cell.score_gem.header";

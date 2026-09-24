@@ -141,5 +141,32 @@ namespace MustyBlockBlast.Presentation.Views
                 max = Vector2Int.Max(max, offset);
             }
         }
+
+        /// <summary>A <paramref name="columns"/> x <paramref name="rows"/> rectangle as (column, row) offsets —
+        /// a 3x3, or a 1x5 bar laid flat (<c>Rectangle(5, 1)</c>).</summary>
+        internal static Vector2Int[] Rectangle(int columns, int rows)
+        {
+            Vector2Int[] cells = new Vector2Int[columns * rows];
+            for (int row = 0; row < rows; row++)
+            {
+                for (int column = 0; column < columns; column++)
+                {
+                    cells[(row * columns) + column] = new Vector2Int(column, row);
+                }
+            }
+
+            return cells;
+        }
+
+        /// <summary>The top-right corner of <paramref name="shape"/>'s bounding box drawn centred on
+        /// <paramref name="centre"/> at <paramref name="scale"/> — where a "doesn't fit" mark hangs on a
+        /// tray piece.</summary>
+        internal static Vector2 TopRightCorner(Vector2Int[] shape, Vector2 centre, float scale)
+        {
+            ShapeBounds(shape, out Vector2Int min, out Vector2Int max);
+            float halfWidth = (max.x - min.x + 1) * scale * 0.5f;
+            float halfHeight = (max.y - min.y + 1) * scale * 0.5f;
+            return centre + new Vector2(halfWidth, -halfHeight);
+        }
     }
 }

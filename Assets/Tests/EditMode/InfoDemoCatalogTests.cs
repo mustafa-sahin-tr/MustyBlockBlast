@@ -9,7 +9,8 @@ namespace MustyBlockBlast.Tests.EditMode
     /// <summary>
     /// Which info-popup subjects get an animated demo (issue #446): the Vortex special cell, plus the
     /// objective cards (#447); the power-ups are covered by InfoDemoPowerUpTests (#448) and
-    /// InfoDemoTrayPowerUpTests (#449), the other special cells by InfoDemoSpecialCellTests (#450).
+    /// InfoDemoTrayPowerUpTests (#449), the other special cells by InfoDemoSpecialCellTests (#450), the
+    /// special pieces by InfoDemoSpecialPieceTests (#451).
     /// Every other subject must fall back to the static hero icon (issue #445 AC9), which the View
     /// does whenever the catalog returns null.
     /// </summary>
@@ -31,15 +32,22 @@ namespace MustyBlockBlast.Tests.EditMode
         // InfoDemoSpecialCellTests (issue #450).
 
         [Test]
-        public void SpecialPieces_HaveNoDemo_EvenWithTheVortexKindValue()
+        public void SpecialPieces_HaveADemo_ButNoneAndOtherKindValuesDoNot()
         {
             // Power-ups are covered by InfoDemoPowerUpTests (#448) and InfoDemoTrayPowerUpTests (#449) —
-            // every power-up has a demo now, ColorCleanser among them with the Vortex's kind value 4. The
-            // Hold subject has one too (issue #449; see InfoDemoTrayPowerUpTests).
+            // every power-up has a demo now. The Hold subject has one too (issue #449). Every special piece
+            // has one since issue #451 (see InfoDemoSpecialPieceTests); a special-cell kind value handed to
+            // the SpecialPiece subject must not borrow a special cell's demo.
             InfoDemoCatalog catalog = new InfoDemoCatalog();
 
-            AssertNoneFor(catalog, InfoPopupSubjectKind.SpecialPiece, typeof(SpecialPieceKind));
+            Assert.IsNotNull(catalog.Find(InfoPopupSubjectKind.SpecialPiece, (int)SpecialPieceKind.Golden));
+            Assert.IsNotNull(catalog.Find(InfoPopupSubjectKind.SpecialPiece, (int)SpecialPieceKind.PiercingRocket));
+            Assert.IsNotNull(catalog.Find(InfoPopupSubjectKind.SpecialPiece, (int)SpecialPieceKind.DemolitionHammer));
+            Assert.IsNull(catalog.Find(InfoPopupSubjectKind.SpecialPiece, (int)SpecialPieceKind.None));
             Assert.IsNull(catalog.Find(InfoPopupSubjectKind.SpecialPiece, (int)SpecialCellKind.Vortex));
+            Assert.AreNotSame(
+                catalog.Find(InfoPopupSubjectKind.SpecialCell, (int)SpecialCellKind.Laser),
+                catalog.Find(InfoPopupSubjectKind.SpecialPiece, (int)SpecialPieceKind.PiercingRocket));
         }
 
         [Test]
@@ -190,16 +198,6 @@ namespace MustyBlockBlast.Tests.EditMode
             }
 
             return filled;
-        }
-
-        private static void AssertNoneFor(InfoDemoCatalog catalog, InfoPopupSubjectKind subjectKind, Type enumType)
-        {
-            Array kinds = Enum.GetValues(enumType);
-            for (int kindIndex = 0; kindIndex < kinds.Length; kindIndex++)
-            {
-                int kindValue = Convert.ToInt32(kinds.GetValue(kindIndex));
-                Assert.IsNull(catalog.Find(subjectKind, kindValue), $"{subjectKind} {kinds.GetValue(kindIndex)}");
-            }
         }
     }
 }

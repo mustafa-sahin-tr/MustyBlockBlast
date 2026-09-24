@@ -35,6 +35,16 @@ namespace MustyBlockBlast.Presentation.Views
         private static readonly Color IconTint = new Color(1f, 0.95f, 0.72f, 1f);
 
         /// <summary>
+        /// Each kind's identity hue — the colour its info-card hero icon is drawn in, and the colour an
+        /// info demo (issue #451) paints its effects in. Golden is <see cref="GoldFill"/> itself, so "this
+        /// one is golden" reads as one hue everywhere it appears; the rocket is fire, not gold; the hammer
+        /// a cool steel, deliberately the furthest from gold of the three (issue #283: Golden and
+        /// Demolition Hammer must never again share one undistinguished placeholder).
+        /// </summary>
+        private static readonly Color PiercingRocketIdentity = new Color(1f, 0.47f, 0.24f, 1f);
+        private static readonly Color DemolitionHammerIdentity = new Color(0.72f, 0.76f, 0.84f, 1f);
+
+        /// <summary>
         /// Paints one cell of a dock plate. <paramref name="kind"/> decides the fill and whether a glyph
         /// is drawn on top; <paramref name="colourId"/> is the piece's ordinary colour, used for every
         /// kind that does not override it.
@@ -50,14 +60,52 @@ namespace MustyBlockBlast.Presentation.Views
                 return;
             }
 
-            if (kind == SpecialPieceKind.Golden)
+            if (TryGetFill(kind, out Color fill, out Color highlight, out Color shade))
             {
-                cell.SetEmbossedColours(GoldFill, GoldHighlight, GoldShade);
+                cell.SetEmbossedColours(fill, highlight, shade);
             }
             else if (theme != null)
             {
                 cell.SetEmbossedColours(
                     theme.GetFill(colourId), theme.GetHighlight(colourId), theme.GetShade(colourId));
+            }
+
+            ApplyGlyph(cell, kind);
+        }
+
+        /// <summary>
+        /// The emboss triple <paramref name="kind"/> overrides a plate's ordinary colour with — only
+        /// <see cref="SpecialPieceKind.Golden"/> has one. False for every other kind, whose plate keeps
+        /// the piece's own theme colour. Shared with the info demos (issue #451), which paint a golden
+        /// piece exactly as the dock does.
+        /// </summary>
+        internal static bool TryGetFill(SpecialPieceKind kind, out Color fill, out Color highlight, out Color shade)
+        {
+            if (kind == SpecialPieceKind.Golden)
+            {
+                fill = GoldFill;
+                highlight = GoldHighlight;
+                shade = GoldShade;
+                return true;
+            }
+
+            fill = Color.clear;
+            highlight = Color.clear;
+            shade = Color.clear;
+            return false;
+        }
+
+        /// <summary>
+        /// Draws <paramref name="kind"/>'s dock glyph on <paramref name="cell"/>, or clears any glyph when
+        /// the kind wears none — so a cell reused for an ordinary piece never keeps a previous special
+        /// piece's mark. Allocates nothing. Shared with the info demos (issue #451), whose tray pieces
+        /// wear the dock's own marks.
+        /// </summary>
+        internal static void ApplyGlyph(CellView cell, SpecialPieceKind kind)
+        {
+            if (cell == null)
+            {
+                return;
             }
 
             Sprite glyph = GlyphFor(kind);
@@ -68,6 +116,26 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             cell.SetSpecialIcon(IconTint, glyph);
+        }
+
+        /// <summary>
+        /// <paramref name="kind"/>'s identity hue (see <see cref="PiercingRocketIdentity"/>): the info
+        /// card's hero-icon tint, and the colour an info demo draws the kind's effects in. White for
+        /// <see cref="SpecialPieceKind.None"/>.
+        /// </summary>
+        internal static Color IdentityColour(SpecialPieceKind kind)
+        {
+            switch (kind)
+            {
+                case SpecialPieceKind.Golden:
+                    return GoldFill;
+                case SpecialPieceKind.PiercingRocket:
+                    return PiercingRocketIdentity;
+                case SpecialPieceKind.DemolitionHammer:
+                    return DemolitionHammerIdentity;
+                default:
+                    return Color.white;
+            }
         }
 
         /// <summary>The mark <paramref name="kind"/> wears, or null for a kind that wears none —

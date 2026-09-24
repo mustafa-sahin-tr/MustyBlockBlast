@@ -663,7 +663,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300704
-    m_Localized: "Added to your dock when you land a five-move combo streak of line clears. It plays exactly like an ordinary single block \u2014 it's purely a visual reward for the streak."
+    m_Localized: 'Earned at a 5x combo. Plays like a plain single block: a reward for the streak.'
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300705
@@ -671,7 +671,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300706
-    m_Localized: Added to your dock when a single placement clears three or more lines at once. When you place this piece, it wipes the entire row and column of the cell it lands on.
+    m_Localized: Earned by clearing 3+ lines in one move. Wipes the row and column it lands on.
     m_Metadata:
       m_Items: []
   - m_Id: 1892479866494976
@@ -679,7 +679,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479866494977
-    m_Localized: "Given to you as a last resort when the board is nearly full and nothing fits. It isn't dragged \u2014 tap its icon to arm it, then tap the single cell you want to destroy."
+    m_Localized: Once per game on a full board with no moves. Tap it, then tap a block to destroy.
     m_Metadata:
       m_Items: []
   - m_Id: 2010649772154880
@@ -1020,6 +1020,14 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 4067957532516354
     m_Localized: Just in time!
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4074928885194752
+    m_Localized: Row + column!
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4074928906166272
+    m_Localized: Last resort!
     m_Metadata:
       m_Items: []
   references:

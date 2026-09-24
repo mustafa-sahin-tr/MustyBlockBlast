@@ -79,6 +79,10 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>The decimal separator of the current language, for the "2,5" in the multiplier.</summary>
         private char _decimalSeparator = ',';
 
+        /// <summary>The white flame this pill wears, or null when unassigned — borrowed by the Golden
+        /// piece's info demo (issue #451) so its streak pill shows the HUD's own flame.</summary>
+        internal Sprite FlameSprite => _flameSprite;
+
         [Inject]
         public void Construct(
             ScoreModel scoreModel,
