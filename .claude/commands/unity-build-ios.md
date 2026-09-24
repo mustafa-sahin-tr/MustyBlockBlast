@@ -48,6 +48,27 @@ link those pods — opening it directly fails at link time with errors like
 `Undefined symbol: _CGSizeFromGADAdSize`.
 
 After a successful export, if `<output_path>/Podfile` exists:
+- Before running `pod install`, ensure the Podfile has a `post_install` hook that forces
+  every pod's `IPHONEOS_DEPLOYMENT_TARGET` up to the project's minimum (read from the
+  `platform :ios, 'X.Y'` line, default 15.0). EDM4U regenerates the Podfile from scratch
+  on every export with no such hook, and pods like `Google-Mobile-Ads-SDK` /
+  `GoogleUserMessagingPlatform` ship a lower deployment target (commonly 12.0) than Xcode
+  now accepts — without the hook, Xcode reports "The iOS deployment target
+  'IPHONEOS_DEPLOYMENT_TARGET' is set to 12.0, but the range of supported deployment
+  target versions is 15.0 to ...". Append (don't replace) something like:
+  ```ruby
+  post_install do |installer|
+    installer.pods_project.targets.each do |target|
+      target.build_configurations.each do |config|
+        deployment_target = config.build_settings['IPHONEOS_DEPLOYMENT_TARGET']
+        if deployment_target.nil? || deployment_target.to_f < 15.0
+          config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
+        end
+      end
+    end
+  end
+  ```
+  Skip this if the hook is already present (don't duplicate it).
 - Run `pod install` in the output folder.
 - If `pod` isn't installed on this machine, don't fail the build — report that CocoaPods
   needs a one-time install (`brew install cocoapods`) and that `pod install` must then be
@@ -83,4 +104,5 @@ build, archive, or sign anything.
 | Missing type/assembly | Check `.asmdef` references |
 | Stripping removes code | Add entries to `link.xml` |
 | `Undefined symbol: _CGSizeFromGADAdSize` (or other GAD/UMP symbols) | `Podfile` pods weren't installed — run `pod install` in the exported folder (see Step 3.5), then open `.xcworkspace` |
+| `IPHONEOS_DEPLOYMENT_TARGET is set to 12.0, but the range of supported deployment target versions is 15.0 to ...` | A pod's build settings weren't raised to the project minimum — add the `post_install` hook from Step 3.5 to the Podfile and re-run `pod install` |
 | Xcode signing errors after export | Not this command's job — open Xcode, fix signing under Signing & Capabilities |

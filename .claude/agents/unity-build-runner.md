@@ -73,6 +73,25 @@ Bash: test -f "<output_path>/Podfile" && echo exists
 
 - No `Podfile` → skip, nothing to do.
 - `Podfile` exists:
+  - Check whether it already contains a `post_install do |installer|` block. EDM4U
+    regenerates the Podfile from scratch on every export with no such hook, and some
+    pods (`Google-Mobile-Ads-SDK`, `GoogleUserMessagingPlatform`) ship a lower
+    `IPHONEOS_DEPLOYMENT_TARGET` than the project's minimum, which Xcode now rejects
+    outright ("range of supported deployment target versions is 15.0 to ..."). If the
+    hook is missing, append one before running `pod install` (read the `platform :ios,
+    'X.Y'` line for the version to enforce, default 15.0 if absent):
+    ```ruby
+    post_install do |installer|
+      installer.pods_project.targets.each do |target|
+        target.build_configurations.each do |config|
+          deployment_target = config.build_settings['IPHONEOS_DEPLOYMENT_TARGET']
+          if deployment_target.nil? || deployment_target.to_f < 15.0
+            config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
+          end
+        end
+      end
+    end
+    ```
   - `Bash: which pod` — if not found, do NOT fail the build. Report that CocoaPods
     isn't installed and tell the user to run `brew install cocoapods` once, then
     `cd <output_path> && pod install`.
