@@ -175,11 +175,11 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 217997032546304
-    m_Localized: "Bomba power-up'\u0131n\u0131, patlamas\u0131 bir sat\u0131r\u0131 veya s\xFCtunu tamamlay\u0131p temizleyecek \u015Fekilde kullan."
+    m_Localized: "Bombay\u0131, patlamas\u0131 bir sat\u0131r\u0131 veya s\xFCtunu tamamen bo\u015Faltacak \u015Fekilde kullan."
     m_Metadata:
       m_Items: []
   - m_Id: 225277056638976
-    m_Localized: "Tek bir par\xE7a yerle\u015Ftirmesiyle ayn\u0131 anda hem bir sat\u0131r\u0131 hem bir s\xFCtunu tamamla."
+    m_Localized: "Tek bir par\xE7ayla ayn\u0131 anda hem bir sat\u0131r hem bir s\xFCtun temizle."
     m_Metadata:
       m_Items: []
   - m_Id: 227150882922496
@@ -187,7 +187,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 228634777346048
-    m_Localized: "Tek bir par\xE7a yerle\u015Ftirmesiyle {0} veya daha fazla sat\u0131r/s\xFCtunu birden tamamla."
+    m_Localized: "Tek bir par\xE7ayla ayn\u0131 anda en az {0} sat\u0131r veya s\xFCtun temizle. Fazlas\u0131 da say\u0131l\u0131r."
     m_Metadata:
       m_Items: []
   - m_Id: 230162711961600
@@ -195,7 +195,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 230162825207808
-    m_Localized: "Bir sat\u0131r\u0131 veya s\xFCtunu tamamlay\u0131p temizlemek i\xE7in bir {0} par\xE7as\u0131 kullan."
+    m_Localized: "Bir {0} par\xE7as\u0131yla sat\u0131r veya s\xFCtun temizle."
     m_Metadata:
       m_Items: []
   - m_Id: 234786474942464
@@ -219,7 +219,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 240837526020096
-    m_Localized: "Art arda birden fazla sat\u0131r/s\xFCtunu, her birini bir \xF6ncekinden en fazla {0} saniye sonra olacak \u015Fekilde temizle."
+    m_Localized: "H\u0131zl\u0131 temizle: son {0} saniyede temizlenen sat\u0131r ve s\xFCtunlar toplan\u0131r."
     m_Metadata:
       m_Items: []
   - m_Id: 240837534408704
@@ -1028,6 +1028,26 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 4074928906166272
     m_Localized: "Son \xE7are!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4087913041092608
+    m_Localized: EN AZ {0}
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4087913062064128
+    m_Localized: "\xC7APRAZ"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4087913062064129
+    m_Localized: "BO\u015E \xC7\u0130ZG\u0130"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4087913062064130
+    m_Localized: '{0} SN'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4087913062064131
+    m_Localized: "Sat\u0131r bombo\u015F!"
     m_Metadata:
       m_Items: []
   references:

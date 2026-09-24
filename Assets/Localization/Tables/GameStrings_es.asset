@@ -175,11 +175,11 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 217997032546304
-    m_Localized: "Usa el power-up Bomba de forma que su explosi\xF3n complete y despeje una fila o columna."
+    m_Localized: "Usa la Bomba para que su explosi\xF3n deje una fila o columna totalmente vac\xEDa."
     m_Metadata:
       m_Items: []
   - m_Id: 225277056638976
-    m_Localized: Coloca una sola pieza que complete una fila y una columna en el mismo movimiento.
+    m_Localized: Limpia una fila y una columna a la vez con una sola pieza.
     m_Metadata:
       m_Items: []
   - m_Id: 227150882922496
@@ -187,7 +187,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 228634777346048
-    m_Localized: "Completa {0} o m\xE1s filas y columnas con una sola colocaci\xF3n de pieza."
+    m_Localized: "Limpia al menos {0} filas o columnas a la vez con una pieza. M\xE1s tambi\xE9n vale."
     m_Metadata:
       m_Items: []
   - m_Id: 230162711961600
@@ -195,7 +195,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 230162825207808
-    m_Localized: Usa una pieza {0} para completar y despejar una fila o columna.
+    m_Localized: 'Limpia una fila o columna con esta pieza: {0}.'
     m_Metadata:
       m_Items: []
   - m_Id: 234786474942464
@@ -219,7 +219,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 240837526020096
-    m_Localized: Despeja varias filas o columnas seguidas, cada una dentro de los {0} segundos posteriores a la anterior.
+    m_Localized: "Limpia r\xE1pido: se suman las l\xEDneas limpiadas en los \xFAltimos {0} segundos."
     m_Metadata:
       m_Items: []
   - m_Id: 240837534408704
@@ -1028,6 +1028,26 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 4074928906166272
     m_Localized: "\xA1\xDAltimo recurso!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4087913041092608
+    m_Localized: AL MENOS {0}
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4087913062064128
+    m_Localized: CRUZ
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4087913062064129
+    m_Localized: "L\xCDNEA VAC\xCDA"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4087913062064130
+    m_Localized: '{0} S'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4087913062064131
+    m_Localized: "\xA1Fila vac\xEDa!"
     m_Metadata:
       m_Items: []
   references:

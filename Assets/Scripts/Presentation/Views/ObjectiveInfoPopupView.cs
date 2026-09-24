@@ -36,7 +36,8 @@ namespace MustyBlockBlast.Presentation.Views
     /// </para>
     /// <para>
     /// An objective with an authored animated demo (<see cref="InfoDemoCatalog.FindObjective"/>,
-    /// issue #447 — Simultaneous Line Clear so far) swaps the hero glyph for the chrome's demo slot and
+    /// issue #447 — Simultaneous Line Clear; the line-clear objectives of #452, one of which draws the
+    /// real Bomb icon from <see cref="PowerUpInventoryView"/>) swaps the hero glyph for the chrome's demo slot and
     /// loops the demo on an <see cref="InfoDemoStage"/> while the card is open, exactly as
     /// <see cref="InfoPopupView"/> does; closing the card stops it on the spot. Every other objective
     /// keeps its static hero glyph exactly as before.
@@ -66,6 +67,7 @@ namespace MustyBlockBlast.Presentation.Views
         private SettingsModel _settingsModel;
         private TimerRunSystem _timerRunSystem;
         private BoardView _boardView;
+        private PowerUpInventoryView _powerUpInventoryView;
 
         private Canvas _canvas;
         private GameObject _panel;
@@ -94,7 +96,8 @@ namespace MustyBlockBlast.Presentation.Views
             SettingsModel settingsModel,
             ObjectiveIconCatalog iconCatalog,
             TimerRunSystem timerRunSystem,
-            BoardView boardView)
+            BoardView boardView,
+            PowerUpInventoryView powerUpInventoryView)
         {
             _objectiveModel = objectiveModel;
             _localizationModel = localizationModel;
@@ -103,6 +106,7 @@ namespace MustyBlockBlast.Presentation.Views
             _iconCatalog = iconCatalog;
             _timerRunSystem = timerRunSystem;
             _boardView = boardView;
+            _powerUpInventoryView = powerUpInventoryView;
         }
 
         private void Awake()
@@ -113,7 +117,8 @@ namespace MustyBlockBlast.Presentation.Views
         private void Start()
         {
             if (_objectiveModel == null || _localizationModel == null || _localizationSystem == null
-                || _settingsModel == null || _timerRunSystem == null || _boardView == null)
+                || _settingsModel == null || _timerRunSystem == null || _boardView == null
+                || _powerUpInventoryView == null)
             {
                 Debug.LogError(
                     $"{nameof(ObjectiveInfoPopupView)} was not injected. Is it registered in the LifetimeScope?",
@@ -377,7 +382,7 @@ namespace MustyBlockBlast.Presentation.Views
             BuildHero();
             _demoStage = new InfoDemoStage(
                 _chrome.DemoRootRect,
-                new InfoDemoResources(_boardView, null, _localizationSystem),
+                new InfoDemoResources(_boardView, _powerUpInventoryView, _localizationSystem),
                 this.GetCancellationTokenOnDestroy());
 
             _panel = panelObject;

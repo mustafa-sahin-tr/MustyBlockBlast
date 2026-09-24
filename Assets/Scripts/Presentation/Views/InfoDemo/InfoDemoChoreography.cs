@@ -52,6 +52,20 @@ namespace MustyBlockBlast.Presentation.Views
         private const float MOCK_CHIP_CHECK_SIZE = 12f;
         private const float CHIP_SHADOW_ALPHA = 0.1f;
 
+        /// <summary>Mockup-unit geometry of a chip's piece glyph (issue #452): its centre relative to the
+        /// chip centre (a little above the caption baseline, so a tall glyph clears the counter), the band
+        /// it must fit in, and the largest cell pitch it is drawn at.</summary>
+        private const float MOCK_CHIP_GLYPH_OFFSET_Y = -12f;
+        private const float MOCK_CHIP_GLYPH_MAX_WIDTH = 48f;
+        private const float MOCK_CHIP_GLYPH_MAX_HEIGHT = 17f;
+        private const float MOCK_CHIP_GLYPH_CELL = 6f;
+
+        /// <summary>A progress chip's size in board units (it sits at <see cref="InfoDemoLayout.ChipCentre"/>),
+        /// for beats that decorate it — a countdown bar along its foot (issue #452).</summary>
+        internal static Vector2 ChipSize => new Vector2(
+            InfoDemoLayout.FromMockLength(InfoDemoLayout.MOCK_CHIP_WIDTH),
+            InfoDemoLayout.FromMockLength(InfoDemoLayout.MOCK_CHIP_HEIGHT));
+
         /// <summary>Peak opacity of a clearing line's highlight band — a glow behind the line, never a
         /// slab over the board.</summary>
         private const float CLEAR_BAND_ALPHA = 0.5f;
@@ -651,6 +665,26 @@ namespace MustyBlockBlast.Presentation.Views
 
         private static float ClearLine(InfoDemoTimelineBuilder builder, bool isRow, int lineIndex, float startTime)
         {
+            int bandId = AddClearBand(builder, isRow, lineIndex, startTime);
+
+            float lastCellGone = startTime;
+            for (int indexAlongLine = 0; indexAlongLine < InfoDemoLayout.BOARD_SIZE; indexAlongLine++)
+            {
+                lastCellGone = isRow
+                    ? ClearLineCell(builder, lineIndex, indexAlongLine, startTime, indexAlongLine)
+                    : ClearLineCell(builder, indexAlongLine, lineIndex, startTime, indexAlongLine);
+            }
+
+            // Starts fading as the last cell starts to go, so the band is gone with the line.
+            float bandFadeStart = ClearCellShrinkStart(startTime, InfoDemoLayout.BOARD_SIZE - 1);
+            builder.Fade(bandId, bandFadeStart, lastCellGone - bandFadeStart, CLEAR_BAND_ALPHA, 0f, InfoDemoEasing.EaseOutCubic);
+            return lastCellGone;
+        }
+
+        /// <summary>A clearing line's highlight band: a soft glow behind the whole line, fading in over the
+        /// flash from <paramref name="startTime"/>. The caller fades it out. Returns its element id.</summary>
+        private static int AddClearBand(InfoDemoTimelineBuilder builder, bool isRow, int lineIndex, float startTime)
+        {
             const float bandLength = InfoDemoLayout.BOARD_SIZE + 0.3f;
             const float bandThickness = 1.3f;
             float centre = (InfoDemoLayout.BOARD_SIZE - 1) * 0.5f;
@@ -659,30 +693,61 @@ namespace MustyBlockBlast.Presentation.Views
             Vector2 bandSize = isRow ? new Vector2(bandLength, bandThickness) : new Vector2(bandThickness, bandLength);
             int bandId = builder.AddBand(bandPosition, bandSize, InfoDemoPaint.LINE_HIGHLIGHT);
             builder.Fade(bandId, startTime, CLEAR_FLASH_DURATION, 0f, CLEAR_BAND_ALPHA, InfoDemoEasing.EaseOutCubic);
+            return bandId;
+        }
+
+        /// <summary>
+        /// Clears row <paramref name="row"/> and column <paramref name="column"/> in one go — one placement
+        /// completing both at once (issue #452, the Row and Column Cross Clear objective): both lines'
+        /// bands glow and every cell flashes, then the cells go outward from the crossing cell, the two
+        /// arms in step (the cell <c>k</c> steps from the crossing on either line goes at the same time),
+        /// so the shared cell is cleared exactly once. Returns the time the last cell is gone.
+        /// </summary>
+        internal static float ClearCross(InfoDemoTimelineBuilder builder, int row, int column, float startTime)
+        {
+            int rowBand = AddClearBand(builder, true, row, startTime);
+            int columnBand = AddClearBand(builder, false, column, startTime);
 
             float lastCellGone = startTime;
-            for (int indexAlongLine = 0; indexAlongLine < InfoDemoLayout.BOARD_SIZE; indexAlongLine++)
+            for (int otherColumn = 0; otherColumn < InfoDemoLayout.BOARD_SIZE; otherColumn++)
             {
-                int blockId = isRow
-                    ? InfoDemoLayout.BoardBlockId(lineIndex, indexAlongLine)
-                    : InfoDemoLayout.BoardBlockId(indexAlongLine, lineIndex);
-
-                builder.Flash(blockId, startTime, CLEAR_FLASH_DURATION, 0f, 0.75f, InfoDemoEasing.EaseOutCubic);
-
-                float shrinkStart = ClearCellShrinkStart(startTime, indexAlongLine);
-                builder.Scale(blockId, shrinkStart, CLEAR_SHRINK_DURATION, 1f, 0.25f, InfoDemoEasing.EaseInCubic);
-                builder.Fade(blockId, shrinkStart, CLEAR_SHRINK_DURATION, 1f, 0f, InfoDemoEasing.EaseInCubic);
-
-                float cellGone = shrinkStart + CLEAR_SHRINK_DURATION;
-                builder.Paint(blockId, cellGone, InfoDemoPaint.NONE);
-                builder.ResetLook(blockId, cellGone);
-                lastCellGone = cellGone;
+                int steps = Mathf.Abs(otherColumn - column);
+                lastCellGone = Mathf.Max(lastCellGone, ClearLineCell(builder, row, otherColumn, startTime, steps));
             }
 
-            // Starts fading as the last cell starts to go, so the band is gone with the line.
+            for (int otherRow = 0; otherRow < InfoDemoLayout.BOARD_SIZE; otherRow++)
+            {
+                if (otherRow == row)
+                {
+                    continue;
+                }
+
+                int steps = Mathf.Abs(otherRow - row);
+                lastCellGone = Mathf.Max(lastCellGone, ClearLineCell(builder, otherRow, column, startTime, steps));
+            }
+
             float bandFadeStart = ClearCellShrinkStart(startTime, InfoDemoLayout.BOARD_SIZE - 1);
-            builder.Fade(bandId, bandFadeStart, lastCellGone - bandFadeStart, CLEAR_BAND_ALPHA, 0f, InfoDemoEasing.EaseOutCubic);
+            float bandFadeDuration = Mathf.Max(0.01f, lastCellGone - bandFadeStart);
+            builder.Fade(rowBand, bandFadeStart, bandFadeDuration, CLEAR_BAND_ALPHA, 0f, InfoDemoEasing.EaseOutCubic);
+            builder.Fade(columnBand, bandFadeStart, bandFadeDuration, CLEAR_BAND_ALPHA, 0f, InfoDemoEasing.EaseOutCubic);
             return lastCellGone;
+        }
+
+        /// <summary>One cell of a clearing line: flashes with the whole line at <paramref name="startTime"/>,
+        /// then shrinks and fades <paramref name="indexAlongLine"/> staggers later. Returns the time it is gone.</summary>
+        private static float ClearLineCell(InfoDemoTimelineBuilder builder, int row, int column, float startTime, int indexAlongLine)
+        {
+            int blockId = InfoDemoLayout.BoardBlockId(row, column);
+            builder.Flash(blockId, startTime, CLEAR_FLASH_DURATION, 0f, 0.75f, InfoDemoEasing.EaseOutCubic);
+
+            float shrinkStart = ClearCellShrinkStart(startTime, indexAlongLine);
+            builder.Scale(blockId, shrinkStart, CLEAR_SHRINK_DURATION, 1f, 0.25f, InfoDemoEasing.EaseInCubic);
+            builder.Fade(blockId, shrinkStart, CLEAR_SHRINK_DURATION, 1f, 0f, InfoDemoEasing.EaseInCubic);
+
+            float cellGone = shrinkStart + CLEAR_SHRINK_DURATION;
+            builder.Paint(blockId, cellGone, InfoDemoPaint.NONE);
+            builder.ResetLook(blockId, cellGone);
+            return cellGone;
         }
 
         /// <summary>
@@ -696,11 +761,43 @@ namespace MustyBlockBlast.Presentation.Views
         /// </summary>
         internal static InfoDemoProgressChip ProgressChip(
             InfoDemoTimelineBuilder builder, string captionKey, string captionArgument, int startValue, int target)
+            => AddProgressChip(builder, captionKey, captionArgument, null, InfoDemoPaint.NONE, startValue, target);
+
+        /// <summary>
+        /// As <see cref="ProgressChip(InfoDemoTimelineBuilder, string, string, int, int)"/>, with a miniature
+        /// of <paramref name="glyphShape"/> (demo (column, row) offsets) in <paramref name="glyphPaint"/> on
+        /// the chip's top line instead of a caption (issue #452 — "clear a line with <i>this</i> piece"):
+        /// scaled to fit the caption band, so a 1x5 and a 3x3 both read at a glance. Its element id is
+        /// <see cref="InfoDemoProgressChip.CaptionId"/>.
+        /// </summary>
+        internal static InfoDemoProgressChip ProgressChip(
+            InfoDemoTimelineBuilder builder, Vector2Int[] glyphShape, int glyphPaint, int startValue, int target)
+            => AddProgressChip(builder, null, null, glyphShape, glyphPaint, startValue, target);
+
+        /// <summary>The scale (relative to a board cell) a chip's piece glyph of <paramref name="glyphShape"/>
+        /// is drawn at: as large as <see cref="MOCK_CHIP_GLYPH_CELL"/> allows, shrunk so the whole shape fits
+        /// the chip's caption band.</summary>
+        internal static float ChipGlyphScale(Vector2Int[] glyphShape)
+        {
+            InfoDemoLayout.ShapeBounds(glyphShape, out Vector2Int min, out Vector2Int max);
+            float columns = max.x - min.x + 1;
+            float rows = max.y - min.y + 1;
+            float widestScale = InfoDemoLayout.FromMockLength(MOCK_CHIP_GLYPH_MAX_WIDTH) / columns;
+            float tallestScale = InfoDemoLayout.FromMockLength(MOCK_CHIP_GLYPH_MAX_HEIGHT) / rows;
+            return Mathf.Min(InfoDemoLayout.FromMockLength(MOCK_CHIP_GLYPH_CELL), Mathf.Min(widestScale, tallestScale));
+        }
+
+        private static InfoDemoProgressChip AddProgressChip(
+            InfoDemoTimelineBuilder builder,
+            string captionKey,
+            string captionArgument,
+            Vector2Int[] glyphShape,
+            int glyphPaint,
+            int startValue,
+            int target)
         {
             Vector2 centre = InfoDemoLayout.ChipCentre;
-            Vector2 chipSize = new Vector2(
-                InfoDemoLayout.FromMockLength(InfoDemoLayout.MOCK_CHIP_WIDTH),
-                InfoDemoLayout.FromMockLength(InfoDemoLayout.MOCK_CHIP_HEIGHT));
+            Vector2 chipSize = ChipSize;
             float corner = InfoDemoLayout.FromMockLength(MOCK_CHIP_CORNER);
             float textWidth = chipSize.x * 0.9f;
 
@@ -709,14 +806,26 @@ namespace MustyBlockBlast.Presentation.Views
                 chipSize, corner, InfoDemoPaint.INK, CHIP_SHADOW_ALPHA);
             int panelId = builder.AddPanel(centre, chipSize, corner, InfoDemoPaint.WHITE);
 
-            int captionId = builder.AddLabel(
-                captionKey,
-                centre + new Vector2(0f, InfoDemoLayout.FromMockLength(MOCK_CHIP_CAPTION_OFFSET_Y)),
-                textWidth,
-                InfoDemoLayout.FromMockLength(MOCK_CHIP_CAPTION_FONT),
-                InfoDemoPaint.SOFT_INK,
-                1f,
-                captionArgument);
+            int captionId;
+            if (glyphShape != null)
+            {
+                captionId = builder.AddPiece(
+                    glyphShape,
+                    glyphPaint,
+                    centre + new Vector2(0f, InfoDemoLayout.FromMockLength(MOCK_CHIP_GLYPH_OFFSET_Y)),
+                    ChipGlyphScale(glyphShape));
+            }
+            else
+            {
+                captionId = builder.AddLabel(
+                    captionKey,
+                    centre + new Vector2(0f, InfoDemoLayout.FromMockLength(MOCK_CHIP_CAPTION_OFFSET_Y)),
+                    textWidth,
+                    InfoDemoLayout.FromMockLength(MOCK_CHIP_CAPTION_FONT),
+                    InfoDemoPaint.SOFT_INK,
+                    1f,
+                    captionArgument);
+            }
 
             Vector2 counterPosition = centre + new Vector2(0f, InfoDemoLayout.FromMockLength(MOCK_CHIP_COUNTER_OFFSET_Y));
             float counterFont = InfoDemoLayout.FromMockLength(MOCK_CHIP_COUNTER_FONT);

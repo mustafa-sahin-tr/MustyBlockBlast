@@ -36,6 +36,11 @@ namespace MustyBlockBlast.Presentation.Views
         internal const int MIN_LINE_COUNT = 2;
         internal const int MAX_LINE_COUNT = 4;
 
+        /// <summary>The most lines the shared board can drop a vertical line into at once — a 1x5, the
+        /// longest catalog line. Beyond <see cref="MAX_LINE_COUNT"/> only the At-Least demo (issue #452)
+        /// builds this far.</summary>
+        internal const int MAX_BUILDABLE_LINE_COUNT = 5;
+
         /// <summary>The column the vertical piece fills — the one gap in each of the bottom rows.</summary>
         internal const int GAP_COLUMN = 4;
 
@@ -44,11 +49,14 @@ namespace MustyBlockBlast.Presentation.Views
         internal const float LABEL_START = 1.7f;
         internal const float CHIP_ADVANCE_TIME = 1.75f;
 
+        /// <summary>The tallest a resting tray piece may be, in mockup units, inside the 60-tall strip.</summary>
+        private const float MOCK_TRAY_MAX_PIECE_HEIGHT = 54f;
+
         private static readonly Vector2Int[] CornerShape = { new Vector2Int(0, 0), new Vector2Int(0, 1), new Vector2Int(1, 1) };
         private static readonly Vector2Int[] DominoShape = { new Vector2Int(0, 0), new Vector2Int(1, 0) };
 
         /// <summary>The full rows, bottom (row 7) upward; only the bottom N are used.</summary>
-        private static readonly string[] FullRowsBottomUp = { "uubb.ggp", "ppgg.bbu", "bbpu.ggu", "ggbb.upp" };
+        private static readonly string[] FullRowsBottomUp = { "uubb.ggp", "ppgg.bbu", "bbpu.ggu", "ggbb.upp", "pubg.bgu" };
 
         /// <summary>Loose decoration above the full rows, nearest row first — never completing a line.</summary>
         private static readonly string[] DecorRowsBottomUp = { "g.......", "...uu...", "....uu.." };
@@ -60,8 +68,17 @@ namespace MustyBlockBlast.Presentation.Views
         internal static int FirstClearedRow(int lineCount) => InfoDemoLayout.BOARD_SIZE - lineCount;
 
         internal static InfoDemoTimeline Build(int lineCount)
+            => Build(lineCount, LocalizationKeys.INFO_POPUP_DEMO_CHIP_EXACTLY);
+
+        /// <summary>
+        /// The same N-lines-at-once choreography with <paramref name="chipCaptionKey"/> (its <c>{0}</c> the
+        /// line count) on the chip — shared with the At Least Line Clear demo (issue #452), whose rule differs
+        /// only in what else would count, never in what one qualifying placement looks like. Builds up to
+        /// <see cref="MAX_BUILDABLE_LINE_COUNT"/> lines.
+        /// </summary>
+        internal static InfoDemoTimeline Build(int lineCount, string chipCaptionKey)
         {
-            int lines = Mathf.Clamp(lineCount, MIN_LINE_COUNT, MAX_LINE_COUNT);
+            int lines = Mathf.Clamp(lineCount, MIN_LINE_COUNT, MAX_BUILDABLE_LINE_COUNT);
             string lineCountText = lines.ToString(CultureInfo.InvariantCulture);
             int firstClearedRow = FirstClearedRow(lines);
 
@@ -78,16 +95,16 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             // Strip: the goal chip on the left, the tray packed to the right of it.
-            InfoDemoProgressChip chip = InfoDemoChoreography.ProgressChip(
-                builder, LocalizationKeys.INFO_POPUP_DEMO_CHIP_EXACTLY, lineCountText, 0, 1);
+            InfoDemoProgressChip chip = InfoDemoChoreography.ProgressChip(builder, chipCaptionKey, lineCountText, 0, 1);
 
             Vector2Int[] verticalShape = VerticalShape(lines);
+            float verticalTrayScale = TrayScale(lines);
             builder.AddPiece(
                 CornerShape, InfoDemoPaint.BLOCK_2,
                 InfoDemoLayout.TraySlot(0, InfoDemoTrayLayout.ChipLeft), InfoDemoLayout.TRAY_PIECE_SCALE);
             Vector2 verticalTrayPosition = InfoDemoLayout.TraySlot(1, InfoDemoTrayLayout.ChipLeft);
             int verticalPiece = builder.AddPiece(
-                verticalShape, InfoDemoPaint.BLOCK_4, verticalTrayPosition, InfoDemoLayout.TRAY_PIECE_SCALE);
+                verticalShape, InfoDemoPaint.BLOCK_4, verticalTrayPosition, verticalTrayScale);
             builder.AddPiece(
                 DominoShape, InfoDemoPaint.BLOCK_5,
                 InfoDemoLayout.TraySlot(2, InfoDemoTrayLayout.ChipLeft), InfoDemoLayout.TRAY_PIECE_SCALE);
@@ -95,7 +112,7 @@ namespace MustyBlockBlast.Presentation.Views
             // 1. The 1xN drops into the gap column, completing the bottom N rows at once.
             InfoDemoChoreography.PlacePiece(
                 builder, verticalPiece, verticalShape, InfoDemoPaint.BLOCK_4, verticalTrayPosition,
-                firstClearedRow, GAP_COLUMN, PLACE_START);
+                firstClearedRow, GAP_COLUMN, PLACE_START, verticalTrayScale);
 
             // 2. All N rows clear together — one placement, N lines.
             for (int row = firstClearedRow; row < InfoDemoLayout.BOARD_SIZE; row++)
@@ -118,6 +135,11 @@ namespace MustyBlockBlast.Presentation.Views
 
             return builder.Build();
         }
+
+        /// <summary>The vertical piece's resting tray scale: the usual one, shrunk only for a 1x5 so it
+        /// stays inside the strip's height.</summary>
+        private static float TrayScale(int length)
+            => Mathf.Min(InfoDemoLayout.TRAY_PIECE_SCALE, InfoDemoLayout.FromMockLength(MOCK_TRAY_MAX_PIECE_HEIGHT) / length);
 
         private static Vector2Int[] VerticalShape(int length)
         {

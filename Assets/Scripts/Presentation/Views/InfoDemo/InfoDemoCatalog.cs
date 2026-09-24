@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using MustyBlockBlast.Core;
 using MustyBlockBlast.Gameplay;
 
@@ -8,7 +9,8 @@ namespace MustyBlockBlast.Presentation.Views
     /// #446; the Explosive Core, Laser, Score Gem, Chain Lightning, Coin and Timer special cells, #450;
     /// the six board-targeted power-ups, #448; the tray / targetless power-ups and the Hold pocket,
     /// #449; the Golden, Piercing Rocket and Demolition Hammer special pieces, #451; objective cards via
-    /// <see cref="FindObjective"/>, #447). A subject with none
+    /// <see cref="FindObjective"/> — Simultaneous Line Clear, #447; At Least, Row and Column Cross, Bomb-induced,
+    /// Piece Id and Rolling Window line clears, #452). A subject with none
     /// returns null and its card keeps today's static hero icon (issue #445 AC9). Each demo is built
     /// once, the first time it is asked for, and cached — a timeline is immutable, so replaying it
     /// every time the card opens costs nothing.
@@ -40,6 +42,20 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>Simultaneous Line Clear demos, one per required line count, indexed by that count.</summary>
         private readonly InfoDemoTimeline[] _simultaneousLineClear =
             new InfoDemoTimeline[SimultaneousLineClearInfoDemo.MAX_LINE_COUNT + 1];
+
+        /// <summary>At Least Line Clear demos (issue #452), one per required line count, indexed by that count.</summary>
+        private readonly InfoDemoTimeline[] _atLeastLineClear = new InfoDemoTimeline[AtLeastLineClearInfoDemo.MAX_LINE_COUNT + 1];
+
+        /// <summary>The Row and Column Cross Clear and Bomb-induced line clear demos (issue #452) — neither
+        /// objective has a parameter.</summary>
+        private InfoDemoTimeline _rowAndColumnCrossClear;
+        private InfoDemoTimeline _bombInducedLineClear;
+
+        /// <summary>Piece Id Line Clear demos (issue #452), one per required catalog piece id.</summary>
+        private readonly Dictionary<string, InfoDemoTimeline> _pieceIdLineClear = new Dictionary<string, InfoDemoTimeline>();
+
+        /// <summary>Rolling line-clear window demos (issue #452), one per window in whole seconds.</summary>
+        private readonly Dictionary<int, InfoDemoTimeline> _rollingLineClearWindow = new Dictionary<int, InfoDemoTimeline>();
 
         /// <summary>The demo for (<paramref name="subjectKind"/>, <paramref name="kindValue"/>), or null
         /// when that subject has none.</summary>
@@ -207,8 +223,10 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         /// <summary>The demo for the objective card of <paramref name="definition"/>, or null when that
-        /// objective has none (its card keeps its static glyph). A Simultaneous Line Clear demo shows the
-        /// objective's own required line count; a count the demo cannot draw gets null.</summary>
+        /// objective has none (its card keeps its static glyph). A parameterised demo shows the objective's
+        /// own parameter — the required line count (Simultaneous, #447; At Least, #452), the required
+        /// piece (Piece Id Line Clear, #452), the window (Rolling Line Clear Window, #452) — and a value the
+        /// demo cannot draw gets null rather than a demo showing a different one.</summary>
         internal InfoDemoTimeline FindObjective(ObjectiveDefinition definition)
         {
             if (definition == null)
@@ -232,6 +250,72 @@ namespace MustyBlockBlast.Presentation.Views
                     }
 
                     return _simultaneousLineClear[lineCount];
+                }
+
+                case ObjectiveType.AtLeastLineClear:
+                {
+                    int lineCount = definition.RequiredLineCount;
+                    if (!AtLeastLineClearInfoDemo.Supports(lineCount))
+                    {
+                        return null;
+                    }
+
+                    if (_atLeastLineClear[lineCount] == null)
+                    {
+                        _atLeastLineClear[lineCount] = AtLeastLineClearInfoDemo.Build(lineCount);
+                    }
+
+                    return _atLeastLineClear[lineCount];
+                }
+
+                case ObjectiveType.RowAndColumnCrossClear:
+                    if (_rowAndColumnCrossClear == null)
+                    {
+                        _rowAndColumnCrossClear = RowAndColumnCrossClearInfoDemo.Build();
+                    }
+
+                    return _rowAndColumnCrossClear;
+
+                case ObjectiveType.BombInducedLineClear:
+                    if (_bombInducedLineClear == null)
+                    {
+                        _bombInducedLineClear = BombInducedLineClearInfoDemo.Build();
+                    }
+
+                    return _bombInducedLineClear;
+
+                case ObjectiveType.PieceIdLineClear:
+                {
+                    string pieceId = definition.RequiredPieceId;
+                    if (!PieceIdLineClearInfoDemo.Supports(pieceId))
+                    {
+                        return null;
+                    }
+
+                    if (!_pieceIdLineClear.TryGetValue(pieceId, out InfoDemoTimeline demo))
+                    {
+                        demo = PieceIdLineClearInfoDemo.Build(pieceId);
+                        _pieceIdLineClear.Add(pieceId, demo);
+                    }
+
+                    return demo;
+                }
+
+                case ObjectiveType.RollingLineClearWindow:
+                {
+                    if (!RollingLineClearWindowInfoDemo.Supports(definition.WindowSeconds))
+                    {
+                        return null;
+                    }
+
+                    int seconds = RollingLineClearWindowInfoDemo.WholeSeconds(definition.WindowSeconds);
+                    if (!_rollingLineClearWindow.TryGetValue(seconds, out InfoDemoTimeline demo))
+                    {
+                        demo = RollingLineClearWindowInfoDemo.Build(seconds);
+                        _rollingLineClearWindow.Add(seconds, demo);
+                    }
+
+                    return demo;
                 }
 
                 default:
