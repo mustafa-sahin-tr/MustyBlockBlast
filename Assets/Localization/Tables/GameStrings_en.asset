@@ -127,7 +127,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 149663784099840
-    m_Localized: Place a single piece that completes {0} rows or columns at the same time.
+    m_Localized: Clear exactly {0} rows or columns at once with a single piece. More doesn't count.
     m_Metadata:
       m_Items: []
   - m_Id: 149663859597312
@@ -956,6 +956,14 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 4038190586388480
     m_Localized: Holes filled!
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4044960587309056
+    m_Localized: EXACTLY {0}
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4044960612474880
+    m_Localized: '{0} lines!'
     m_Metadata:
       m_Items: []
   references:

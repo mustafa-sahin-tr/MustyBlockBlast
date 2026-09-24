@@ -85,6 +85,14 @@ namespace MustyBlockBlast.Gameplay.Localization
         /// <summary>The floating label the Vortex info demo shows as its islands fill (issue #446).</summary>
         public const string INFO_POPUP_DEMO_VORTEX_FILLED = "info_popup.demo.vortex.filled";
 
+        /// <summary>An objective demo's progress-chip caption for an exact line count, "{0}" the count
+        /// (issue #447, e.g. "EXACTLY 2").</summary>
+        public const string INFO_POPUP_DEMO_CHIP_EXACTLY = "info_popup.demo.chip.exactly";
+
+        /// <summary>The floating label a demo shows as several lines clear at once, "{0}" the line
+        /// count (issue #447, e.g. "2 lines!").</summary>
+        public const string INFO_POPUP_DEMO_LINES_CLEARED = "info_popup.demo.lines_cleared";
+
         public const string INFO_POPUP_SPECIAL_CELL_CHAIN_LIGHTNING_HEADER = "info_popup.special_cell.chain_lightning.header";
         public const string INFO_POPUP_SPECIAL_CELL_CHAIN_LIGHTNING_BODY = "info_popup.special_cell.chain_lightning.body";
         public const string INFO_POPUP_SPECIAL_CELL_SCORE_GEM_HEADER = "info_popup.special_cell.score_gem.header";

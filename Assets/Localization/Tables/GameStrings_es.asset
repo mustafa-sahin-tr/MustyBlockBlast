@@ -127,7 +127,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 149663784099840
-    m_Localized: Coloca una sola pieza que complete {0} filas o columnas al mismo tiempo.
+    m_Localized: "Limpia exactamente {0} filas o columnas a la vez con una sola pieza. M\xE1s no cuenta."
     m_Metadata:
       m_Items: []
   - m_Id: 149663859597312
@@ -956,6 +956,14 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 4038190586388480
     m_Localized: "\xA1Huecos rellenados!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4044960587309056
+    m_Localized: EXACTO {0}
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4044960612474880
+    m_Localized: "\xA1{0} l\xEDneas!"
     m_Metadata:
       m_Items: []
   references:

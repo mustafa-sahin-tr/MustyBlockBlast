@@ -16,6 +16,9 @@ namespace MustyBlockBlast.Presentation.Views
 
         string Translate(string localizationKey);
 
+        /// <summary>Resolves a one-placeholder entry (<c>{0}</c>) — a label like "EXACTLY {0}".</summary>
+        string Format(string localizationKey, string argument);
+
         /// <summary>The real board's cell size, face inset and bevel thickness, in reference pixels.</summary>
         void GetBoardCellMetrics(out float cellSize, out float inset, out float bevelThickness);
     }

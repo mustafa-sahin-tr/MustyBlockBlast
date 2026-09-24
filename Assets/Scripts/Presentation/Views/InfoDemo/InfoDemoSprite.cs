@@ -11,5 +11,9 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>A special cell's board icon — <c>BoardView.IconSprite</c>/<c>BoardView.IconTint</c>
         /// for the <c>SpecialCellKind</c> in the element's sprite parameter.</summary>
         SpecialCellIcon,
+
+        /// <summary>The shared tick (<c>UiSpriteFactory.CheckMark</c>), white — a progress chip's
+        /// "done" badge. The sprite parameter is unused.</summary>
+        CheckMark,
     }
 }

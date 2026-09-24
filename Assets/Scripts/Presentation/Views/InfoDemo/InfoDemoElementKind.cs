@@ -20,6 +20,10 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>A soft radial glow — a burst, or the halo behind a special cell's icon.</summary>
         Glow,
 
+        /// <summary>A solid rounded rectangle (a progress chip, a badge disc) — strip furniture.
+        /// In front of the glows, behind the icons, so a sprite can sit on a panel.</summary>
+        Panel,
+
         /// <summary>A sprite — a special cell's icon, a power-up icon, a finger.</summary>
         Icon,
 

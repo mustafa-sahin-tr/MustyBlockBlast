@@ -34,6 +34,23 @@ namespace MustyBlockBlast.Presentation.Views
 
         internal const int TRAY_SLOT_COUNT = 3;
 
+        /// <summary>Progress chip in the strip's left zone (objective demos): its centre x and its size,
+        /// in mockup units.</summary>
+        internal const float MOCK_CHIP_CENTRE_X = 36f;
+        internal const float MOCK_CHIP_WIDTH = 62f;
+        internal const float MOCK_CHIP_HEIGHT = 48f;
+
+        /// <summary>Tray slot centres (mockup x) when a progress chip holds the strip's left zone.</summary>
+        private const float MOCK_CHIP_TRAY_SLOT_0_X = 124f;
+        private const float MOCK_CHIP_TRAY_SLOT_1_X = 176f;
+        private const float MOCK_CHIP_TRAY_SLOT_2_X = 226f;
+
+        /// <summary>Vertical centre of the tray strip, in mockup units.</summary>
+        internal const float MOCK_STRIP_CENTRE_Y = MOCK_BOARD_EXTENT + (MOCK_STRIP_HEIGHT * 0.5f);
+
+        /// <summary>Centre of the progress chip, in board units.</summary>
+        internal static Vector2 ChipCentre => FromMockPoint(new Vector2(MOCK_CHIP_CENTRE_X, MOCK_STRIP_CENTRE_Y));
+
         /// <summary>Element id of the board block at (<paramref name="row"/>, <paramref name="column"/>).
         /// Board blocks are always the first 64 elements of every timeline.</summary>
         internal static int BoardBlockId(int row, int column) => (row * BOARD_SIZE) + column;
@@ -54,6 +71,36 @@ namespace MustyBlockBlast.Presentation.Views
             float stripCentreY = MOCK_BOARD_EXTENT + (MOCK_STRIP_HEIGHT * 0.5f);
             return FromMockPoint(new Vector2(slotCentreX, stripCentreY));
         }
+
+        /// <summary>Centre of tray slot <paramref name="slotIndex"/> (0..2) in board units under
+        /// <paramref name="layout"/>: the plain three-across tray, or the right-zone slots beside a
+        /// progress chip.</summary>
+        internal static Vector2 TraySlot(int slotIndex, InfoDemoTrayLayout layout)
+        {
+            if (layout == InfoDemoTrayLayout.ThreeSlots)
+            {
+                return TraySlot(slotIndex);
+            }
+
+            float slotCentreX;
+            if (slotIndex <= 0)
+            {
+                slotCentreX = MOCK_CHIP_TRAY_SLOT_0_X;
+            }
+            else if (slotIndex == 1)
+            {
+                slotCentreX = MOCK_CHIP_TRAY_SLOT_1_X;
+            }
+            else
+            {
+                slotCentreX = MOCK_CHIP_TRAY_SLOT_2_X;
+            }
+
+            return FromMockPoint(new Vector2(slotCentreX, MOCK_STRIP_CENTRE_Y));
+        }
+
+        /// <summary>A length in mockup units in board units (one unit = one cell pitch).</summary>
+        internal static float FromMockLength(float mockLength) => mockLength / MOCK_PITCH;
 
         /// <summary>A point in mockup units (origin at the stage's top-left, y down) in board units.</summary>
         internal static Vector2 FromMockPoint(Vector2 mockPoint)

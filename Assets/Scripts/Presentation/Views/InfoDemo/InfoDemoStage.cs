@@ -53,6 +53,13 @@ namespace MustyBlockBlast.Presentation.Views
         private static readonly Color VortexBlockHighlight = new Color(0.600f, 0.620f, 0.900f, 1f);
         private static readonly Color VortexBlockShade = new Color(0.200f, 0.210f, 0.470f, 1f);
 
+        /// <summary>A progress chip's "goal done" badge green (#34C27A).</summary>
+        private static readonly Color SuccessGreen = new Color(0.204f, 0.761f, 0.478f, 1f);
+
+        /// <summary>Smallest a label's font may shrink to (as a fraction of its authored height) to fit
+        /// a long translation on one line.</summary>
+        private const float LABEL_MIN_FONT_FRACTION = 0.55f;
+
         private readonly RectTransform _slot;
         private readonly IInfoDemoResources _resources;
         private readonly CancellationToken _destroyToken;
@@ -64,6 +71,7 @@ namespace MustyBlockBlast.Presentation.Views
         private readonly List<Image> _bandPool = new List<Image>(4);
         private readonly List<Image> _outlinePool = new List<Image>(4);
         private readonly List<Image> _glowPool = new List<Image>(4);
+        private readonly List<Image> _panelPool = new List<Image>(4);
         private readonly List<Image> _iconPool = new List<Image>(4);
         private readonly List<Text> _labelPool = new List<Text>(2);
         private readonly List<Outline> _labelOutlinePool = new List<Outline>(2);
@@ -79,6 +87,7 @@ namespace MustyBlockBlast.Presentation.Views
         private RectTransform _blockLayer;
         private RectTransform _outlineLayer;
         private RectTransform _glowLayer;
+        private RectTransform _panelLayer;
         private RectTransform _iconLayer;
         private RectTransform _pieceLayer;
         private RectTransform _labelLayer;
@@ -362,6 +371,10 @@ namespace MustyBlockBlast.Presentation.Views
                     return _theme.Ink;
                 case InfoDemoPaint.LINE_HIGHLIGHT:
                     return _theme.WouldClearHighlight;
+                case InfoDemoPaint.SOFT_INK:
+                    return _theme.SoftInk;
+                case InfoDemoPaint.SUCCESS:
+                    return SuccessGreen;
                 default:
                     return _theme.GetFill(paint);
             }
@@ -400,7 +413,7 @@ namespace MustyBlockBlast.Presentation.Views
                 InfoDemoElement element = _timeline.GetElement(elementIndex);
                 if (element.Kind == InfoDemoElementKind.Label)
                 {
-                    _elementTexts[elementIndex].text = _resources.Translate(element.LabelKey);
+                    _elementTexts[elementIndex].text = ResolveLabelText(element);
                 }
             }
         }
@@ -417,6 +430,7 @@ namespace MustyBlockBlast.Presentation.Views
             int bandsUsed = 0;
             int outlinesUsed = 0;
             int glowsUsed = 0;
+            int panelsUsed = 0;
             int iconsUsed = 0;
             int labelsUsed = 0;
             int piecesUsed = 0;
@@ -455,6 +469,14 @@ namespace MustyBlockBlast.Presentation.Views
                         BindImage(elementIndex, glow, element.Size * (InfoDemoLayout.MOCK_CELL * SCALE));
                         break;
                     }
+                    case InfoDemoElementKind.Panel:
+                    {
+                        Image panel = TakeImage(_panelPool, panelsUsed++, _panelLayer, "Panel");
+                        float pitchPixels = InfoDemoLayout.MOCK_PITCH * SCALE;
+                        HudChrome.ConfigureRounded(panel, element.CornerRadius * pitchPixels);
+                        BindImage(elementIndex, panel, element.Size * pitchPixels);
+                        break;
+                    }
                     case InfoDemoElementKind.Icon:
                     {
                         Image icon = TakeImage(_iconPool, iconsUsed++, _iconLayer, "Icon");
@@ -471,7 +493,7 @@ namespace MustyBlockBlast.Presentation.Views
                         labelsUsed++;
                         _elementTexts[elementIndex] = label;
                         _elementTextOutlines[elementIndex] = labelOutline;
-                        label.text = _resources.Translate(element.LabelKey);
+                        label.text = ResolveLabelText(element);
                         _elementRects[elementIndex] = (RectTransform)label.transform;
                         break;
                     }
@@ -494,6 +516,7 @@ namespace MustyBlockBlast.Presentation.Views
             ParkUnused(_bandPool, bandsUsed);
             ParkUnused(_outlinePool, outlinesUsed);
             ParkUnused(_glowPool, glowsUsed);
+            ParkUnused(_panelPool, panelsUsed);
             ParkUnused(_iconPool, iconsUsed);
 
             for (int labelIndex = labelsUsed; labelIndex < _labelPool.Count; labelIndex++)
@@ -505,6 +528,21 @@ namespace MustyBlockBlast.Presentation.Views
             {
                 _piecePool[pieceIndex].Root.gameObject.SetActive(false);
             }
+        }
+
+        /// <summary>A label's text: its translation, its translation formatted with its argument, or —
+        /// with no key — its literal text (see <see cref="InfoDemoElement.LabelArgument"/>). Allocates,
+        /// so only ever called on bind and on a locale change, never per frame.</summary>
+        private string ResolveLabelText(InfoDemoElement element)
+        {
+            if (element.LabelKey == null)
+            {
+                return element.LabelArgument ?? string.Empty;
+            }
+
+            return element.LabelArgument == null
+                ? _resources.Translate(element.LabelKey)
+                : _resources.Format(element.LabelKey, element.LabelArgument);
         }
 
         private void BindImage(int elementIndex, Image image, Vector2 size)
@@ -583,6 +621,8 @@ namespace MustyBlockBlast.Presentation.Views
             {
                 label = UiTextFactory.Create(_labelLayer, $"Label_{index}", 10, FontStyle.Bold, Color.clear);
                 label.horizontalOverflow = HorizontalWrapMode.Wrap;
+                label.verticalOverflow = VerticalWrapMode.Truncate;
+                label.resizeTextForBestFit = true;
                 outline = label.gameObject.AddComponent<Outline>();
                 outline.effectDistance = new Vector2(3f, -3f);
                 _labelPool.Add(label);
@@ -591,6 +631,11 @@ namespace MustyBlockBlast.Presentation.Views
 
             float pitchPixels = InfoDemoLayout.MOCK_PITCH * SCALE;
             label.fontSize = Mathf.RoundToInt(element.Size.y * pitchPixels);
+
+            // Best fit shrinks a translation too wide for one line instead of wrapping it into a second
+            // line the label's rect has no room for; one that fits keeps its authored size.
+            label.resizeTextMaxSize = label.fontSize;
+            label.resizeTextMinSize = Mathf.Max(1, Mathf.RoundToInt(label.fontSize * LABEL_MIN_FONT_FRACTION));
             ((RectTransform)label.transform).sizeDelta = new Vector2(element.Size.x * pitchPixels, element.Size.y * pitchPixels * 1.6f);
             return label;
         }
@@ -711,6 +756,7 @@ namespace MustyBlockBlast.Presentation.Views
             _blockLayer = CreateLayer(contentRect, "Blocks", contentRect.anchoredPosition);
             _outlineLayer = CreateLayer(contentRect, "Outlines", contentRect.anchoredPosition);
             _glowLayer = CreateLayer(contentRect, "Glows", contentRect.anchoredPosition);
+            _panelLayer = CreateLayer(contentRect, "Panels", contentRect.anchoredPosition);
             _iconLayer = CreateLayer(contentRect, "Icons", contentRect.anchoredPosition);
             _pieceLayer = CreateLayer(contentRect, "Pieces", contentRect.anchoredPosition);
             _labelLayer = CreateLayer(contentRect, "Labels", contentRect.anchoredPosition);

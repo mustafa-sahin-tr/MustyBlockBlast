@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Cysharp.Threading.Tasks;
 using MustyBlockBlast.Core;
 using MustyBlockBlast.Gameplay.Localization;
 using MustyBlockBlast.Gameplay.Models;
@@ -33,6 +34,13 @@ namespace MustyBlockBlast.Presentation.Views
     /// Repainted on <see cref="Open"/> rather than subscribed to progress: while it is up the run is
     /// paused and no placement can land, so there is nothing for it to miss.
     /// </para>
+    /// <para>
+    /// An objective with an authored animated demo (<see cref="InfoDemoCatalog.FindObjective"/>,
+    /// issue #447 — Simultaneous Line Clear so far) swaps the hero glyph for the chrome's demo slot and
+    /// loops the demo on an <see cref="InfoDemoStage"/> while the card is open, exactly as
+    /// <see cref="InfoPopupView"/> does; closing the card stops it on the spot. Every other objective
+    /// keeps its static hero glyph exactly as before.
+    /// </para>
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class ObjectiveInfoPopupView : MonoBehaviour
@@ -57,6 +65,7 @@ namespace MustyBlockBlast.Presentation.Views
         private LocalizationSystem _localizationSystem;
         private SettingsModel _settingsModel;
         private TimerRunSystem _timerRunSystem;
+        private BoardView _boardView;
 
         private Canvas _canvas;
         private GameObject _panel;
@@ -65,6 +74,9 @@ namespace MustyBlockBlast.Presentation.Views
         private Image _heroIconImage;
         private ObjectiveIconCatalog _iconCatalog;
         private Image _heroCheckMark;
+
+        private readonly InfoDemoCatalog _demoCatalog = new InfoDemoCatalog();
+        private InfoDemoStage _demoStage;
 
         private ThemeDefinition _currentTheme;
 
@@ -81,7 +93,8 @@ namespace MustyBlockBlast.Presentation.Views
             LocalizationSystem localizationSystem,
             SettingsModel settingsModel,
             ObjectiveIconCatalog iconCatalog,
-            TimerRunSystem timerRunSystem)
+            TimerRunSystem timerRunSystem,
+            BoardView boardView)
         {
             _objectiveModel = objectiveModel;
             _localizationModel = localizationModel;
@@ -89,6 +102,7 @@ namespace MustyBlockBlast.Presentation.Views
             _settingsModel = settingsModel;
             _iconCatalog = iconCatalog;
             _timerRunSystem = timerRunSystem;
+            _boardView = boardView;
         }
 
         private void Awake()
@@ -99,7 +113,7 @@ namespace MustyBlockBlast.Presentation.Views
         private void Start()
         {
             if (_objectiveModel == null || _localizationModel == null || _localizationSystem == null
-                || _settingsModel == null || _timerRunSystem == null)
+                || _settingsModel == null || _timerRunSystem == null || _boardView == null)
             {
                 Debug.LogError(
                     $"{nameof(ObjectiveInfoPopupView)} was not injected. Is it registered in the LifetimeScope?",
@@ -114,7 +128,15 @@ namespace MustyBlockBlast.Presentation.Views
             _localizationModel.CurrentLocale.Subscribe(OnLocaleChanged).AddTo(_disposables);
         }
 
-        private void OnDestroy() => _disposables.Dispose();
+        private void OnDestroy()
+        {
+            _disposables.Dispose();
+
+            if (_demoStage != null)
+            {
+                _demoStage.Dispose();
+            }
+        }
 
         /// <summary>True while the card is showing. Read by <see cref="BoardInputView"/>.</summary>
         internal bool IsOpen => _panel != null && _panel.activeSelf;
@@ -172,6 +194,8 @@ namespace MustyBlockBlast.Presentation.Views
 
         private void Close()
         {
+            // Stopped first and unconditionally: a closed card must never keep a demo loop alive.
+            _demoStage.Stop();
             _panel.SetActive(false);
             _openObjectiveIndex = -1;
             _timerRunSystem.SetMenuPaused(false);
@@ -221,9 +245,41 @@ namespace MustyBlockBlast.Presentation.Views
                 _chrome.Close.BarImages[barIndex].color = _currentTheme.Ink;
             }
 
+            bool isComplete = objective.IsComplete;
+
+            InfoDemoTimeline demo = _demoCatalog.FindObjective(objective.Definition);
+            if (demo != null)
+            {
+                InfoCardChrome.ShowDemo(_chrome, InfoDemoStage.Size);
+                _demoStage.SetTheme(_currentTheme);
+                _demoStage.Play(demo);
+            }
+            else
+            {
+                _demoStage.Stop();
+                InfoCardChrome.ShowHeroIcon(_chrome);
+                PaintHero(objective, isComplete);
+            }
+
+            _chrome.TitleText.color = isComplete ? _currentTheme.Accent : _currentTheme.Ink;
+            _chrome.TitleText.text = _localizationSystem.Translate(
+                ObjectiveDescriptionFormatter.TitleKey(objective.Definition.Type));
+
+            _chrome.DescriptionText.color = isComplete ? _currentTheme.Accent : _currentTheme.SoftInk;
+            _chrome.DescriptionText.text = ObjectiveDescriptionFormatter.Describe(
+                objective.Definition, _localizationSystem, _currentTheme);
+
+            // Title and description text just changed length — reflow so a long, multi-line
+            // description grows the card downward instead of overlapping the title above it.
+            InfoCardChrome.Reflow(_chrome, _cardSize);
+        }
+
+        /// <summary>The static hero: the objective's glyph on its plate, painted done or not done.
+        /// Every objective without a demo.</summary>
+        private void PaintHero(ObjectiveProgress objective, bool isComplete)
+        {
             RebuildHeroGlyph(objective.Definition.Type);
 
-            bool isComplete = objective.IsComplete;
             Color plateColour = isComplete
                 ? _currentTheme.Accent
                 : Color.Lerp(_currentTheme.CardBackground, _currentTheme.Ink, 0.1f);
@@ -252,18 +308,6 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             _heroCheckMark.color = isComplete ? _currentTheme.CardBackground : Color.clear;
-
-            _chrome.TitleText.color = isComplete ? _currentTheme.Accent : _currentTheme.Ink;
-            _chrome.TitleText.text = _localizationSystem.Translate(
-                ObjectiveDescriptionFormatter.TitleKey(objective.Definition.Type));
-
-            _chrome.DescriptionText.color = isComplete ? _currentTheme.Accent : _currentTheme.SoftInk;
-            _chrome.DescriptionText.text = ObjectiveDescriptionFormatter.Describe(
-                objective.Definition, _localizationSystem, _currentTheme);
-
-            // Title and description text just changed length — reflow so a long, multi-line
-            // description grows the card downward instead of overlapping the title above it.
-            InfoCardChrome.Reflow(_chrome, _cardSize);
         }
 
         /// <summary>Rebuilds the hero glyph when the card is opened for an objective of a different
@@ -331,6 +375,10 @@ namespace MustyBlockBlast.Presentation.Views
                 panelRect, "ObjectiveInfoCard", _cardSize, _titleFontSize, _descriptionFontSize);
 
             BuildHero();
+            _demoStage = new InfoDemoStage(
+                _chrome.DemoRootRect,
+                new InfoDemoResources(_boardView, _localizationSystem),
+                this.GetCancellationTokenOnDestroy());
 
             _panel = panelObject;
         }

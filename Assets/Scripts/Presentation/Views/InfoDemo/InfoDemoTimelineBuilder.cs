@@ -45,6 +45,8 @@ namespace MustyBlockBlast.Presentation.Views
                         0,
                         null,
                         null,
+                        null,
+                        0f,
                         InfoDemoElementState.At(InfoDemoLayout.Cell(row, column), InfoDemoPaint.NONE, 1f));
                 }
             }
@@ -72,7 +74,7 @@ namespace MustyBlockBlast.Presentation.Views
         {
             InfoDemoElementState initial = InfoDemoElementState.At(position, paint, alpha);
             initial.Scale = scale;
-            return AddElement(InfoDemoElementKind.Piece, Vector2.one, InfoDemoSprite.None, 0, shape, null, initial);
+            return AddElement(InfoDemoElementKind.Piece, Vector2.one, InfoDemoSprite.None, 0, shape, null, null, 0f, initial);
         }
 
         /// <summary>A sprite <paramref name="size"/> board units square, tinted as
@@ -86,6 +88,8 @@ namespace MustyBlockBlast.Presentation.Views
                 spriteParameter,
                 null,
                 null,
+                null,
+                0f,
                 InfoDemoElementState.At(position, InfoDemoPaint.WHITE, alpha));
         }
 
@@ -98,6 +102,8 @@ namespace MustyBlockBlast.Presentation.Views
                 0,
                 null,
                 null,
+                null,
+                0f,
                 InfoDemoElementState.At(position, paint, alpha));
         }
 
@@ -105,24 +111,47 @@ namespace MustyBlockBlast.Presentation.Views
         internal int AddOutline(Vector2 position, Vector2 size, int paint, float alpha = 0f)
         {
             return AddElement(
-                InfoDemoElementKind.Outline, size, InfoDemoSprite.None, 0, null, null,
+                InfoDemoElementKind.Outline, size, InfoDemoSprite.None, 0, null, null, null, 0f,
                 InfoDemoElementState.At(position, paint, alpha));
         }
 
         internal int AddBand(Vector2 position, Vector2 size, int paint, float alpha = 0f)
         {
             return AddElement(
-                InfoDemoElementKind.Band, size, InfoDemoSprite.None, 0, null, null,
+                InfoDemoElementKind.Band, size, InfoDemoSprite.None, 0, null, null, null, 0f,
+                InfoDemoElementState.At(position, paint, alpha));
+        }
+
+        /// <summary>A solid rounded rectangle <paramref name="size"/> board units across (exactly — no
+        /// cell gap is subtracted, unlike a band) with <paramref name="cornerRadius"/> board-unit
+        /// corners. A radius of half the size draws a disc.</summary>
+        internal int AddPanel(Vector2 position, Vector2 size, float cornerRadius, int paint, float alpha = 1f)
+        {
+            return AddElement(
+                InfoDemoElementKind.Panel, size, InfoDemoSprite.None, 0, null, null, null, cornerRadius,
                 InfoDemoElementState.At(position, paint, alpha));
         }
 
         /// <summary>A localized label: <paramref name="width"/> board units wide, a font
-        /// <paramref name="fontHeight"/> board units tall.</summary>
-        internal int AddLabel(string localizationKey, Vector2 position, float width, float fontHeight, int paint, float alpha = 0f)
+        /// <paramref name="fontHeight"/> board units tall (shrunk to fit on one line if the translation
+        /// is wider). With <paramref name="argument"/> the entry is a format string and the argument
+        /// fills its <c>{0}</c>.</summary>
+        internal int AddLabel(
+            string localizationKey, Vector2 position, float width, float fontHeight, int paint, float alpha = 0f,
+            string argument = null)
         {
             return AddElement(
                 InfoDemoElementKind.Label, new Vector2(width, fontHeight), InfoDemoSprite.None, 0, null, localizationKey,
-                InfoDemoElementState.At(position, paint, alpha));
+                argument, 0f, InfoDemoElementState.At(position, paint, alpha));
+        }
+
+        /// <summary>A label showing <paramref name="literalText"/> as-is — language-neutral text such
+        /// as a "0/1" counter. Sized like <see cref="AddLabel"/>.</summary>
+        internal int AddText(string literalText, Vector2 position, float width, float fontHeight, int paint, float alpha = 0f)
+        {
+            return AddElement(
+                InfoDemoElementKind.Label, new Vector2(width, fontHeight), InfoDemoSprite.None, 0, null, null,
+                literalText, 0f, InfoDemoElementState.At(position, paint, alpha));
         }
 
         /// <summary>Queues one step. Steps may be added in any order; <see cref="Build"/> sorts them.</summary>
@@ -203,9 +232,12 @@ namespace MustyBlockBlast.Presentation.Views
             int spriteParameter,
             Vector2Int[] shape,
             string labelKey,
+            string labelArgument,
+            float cornerRadius,
             InfoDemoElementState initial)
         {
-            _elements.Add(new InfoDemoElement(kind, size, sprite, spriteParameter, shape, labelKey, initial));
+            _elements.Add(new InfoDemoElement(
+                kind, size, sprite, spriteParameter, shape, labelKey, labelArgument, cornerRadius, initial));
             return _elements.Count - 1;
         }
     }
