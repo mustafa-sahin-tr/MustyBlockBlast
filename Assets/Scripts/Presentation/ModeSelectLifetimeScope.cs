@@ -1,5 +1,7 @@
 using System.Collections.Generic;
+using MessagePipe;
 using MustyBlockBlast.Gameplay.Localization;
+using MustyBlockBlast.Gameplay.Messages;
 using MustyBlockBlast.Gameplay.Models;
 using MustyBlockBlast.Gameplay.Settings;
 using MustyBlockBlast.Gameplay.Systems;
@@ -37,6 +39,7 @@ namespace MustyBlockBlast.Presentation
         {
             RegisterSettings(builder);
             RegisterLocalization(builder);
+            RegisterMessaging(builder);
             RegisterModeSelection(builder);
             RegisterViews(builder);
 
@@ -69,6 +72,14 @@ namespace MustyBlockBlast.Presentation
             builder.Register<LocalizationSystem>(Lifetime.Singleton);
         }
 
+        /// <summary>The one message this scene carries: the pick, from <see cref="ModeSelectSystem"/> to
+        /// the loading curtain, published just before the gameplay load begins.</summary>
+        private static void RegisterMessaging(IContainerBuilder builder)
+        {
+            MessagePipeOptions options = builder.RegisterMessagePipe();
+            builder.RegisterMessageBroker<GameModeChosenMessage>(options);
+        }
+
         /// <summary>
         /// The pick itself: the mode Model, the Klasik length System with its config, the Macera
         /// "open the picker on boot" request, and the one System that records a choice and loads gameplay.
@@ -90,6 +101,9 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterComponentInHierarchy<SplashBackgroundView>();
             builder.RegisterComponentInHierarchy<ModeSelectPanelView>();
             builder.RegisterComponentInHierarchy<ModeSelectInputView>();
+
+            // Dormant until a pick; then it outlives this scene to cover the gameplay load.
+            builder.RegisterComponentInHierarchy<LoadingCurtainView>();
         }
 
         /// <summary>

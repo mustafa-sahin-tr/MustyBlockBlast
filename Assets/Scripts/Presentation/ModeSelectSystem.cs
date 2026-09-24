@@ -1,4 +1,6 @@
+using MessagePipe;
 using MustyBlockBlast.Gameplay;
+using MustyBlockBlast.Gameplay.Messages;
 using MustyBlockBlast.Gameplay.Models;
 using MustyBlockBlast.Gameplay.Systems;
 using UnityEngine.SceneManagement;
@@ -29,17 +31,20 @@ namespace MustyBlockBlast.Presentation
         private readonly GameModeModel _gameModeModel;
         private readonly TimedModeSystem _timedModeSystem;
         private readonly LevelPathOpenRequestSystem _levelPathOpenRequest;
+        private readonly IPublisher<GameModeChosenMessage> _modeChosenPublisher;
 
         private bool _transitionStarted;
 
         public ModeSelectSystem(
             GameModeModel gameModeModel,
             TimedModeSystem timedModeSystem,
-            LevelPathOpenRequestSystem levelPathOpenRequest)
+            LevelPathOpenRequestSystem levelPathOpenRequest,
+            IPublisher<GameModeChosenMessage> modeChosenPublisher)
         {
             _gameModeModel = gameModeModel;
             _timedModeSystem = timedModeSystem;
             _levelPathOpenRequest = levelPathOpenRequest;
+            _modeChosenPublisher = modeChosenPublisher;
 
             // The plates pre-highlight the last-played mode, so the Model has to hold it before the
             // View reads it in Start.
@@ -90,6 +95,10 @@ namespace MustyBlockBlast.Presentation
 
             _transitionStarted = true;
             _gameModeModel.SelectMode(mode);
+
+            // Before the load starts: the curtain has to be on screen before the scene load and the
+            // gameplay scope's construction stall the main thread, or it would only appear after them.
+            _modeChosenPublisher.Publish(new GameModeChosenMessage(mode));
 
             // Fire-and-forget: the load destroys the scene that owns this System, so there is nothing
             // here to await it for. SampleScene's own boot picks the choice up from PlayerPrefs.
