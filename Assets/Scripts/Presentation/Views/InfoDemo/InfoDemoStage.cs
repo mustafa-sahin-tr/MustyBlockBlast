@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using MustyBlockBlast.Core;
 using MustyBlockBlast.Gameplay.Settings;
 using UnityEngine;
 using UnityEngine.UI;
@@ -385,6 +386,11 @@ namespace MustyBlockBlast.Presentation.Views
 
         private Color ResolveFlatColour(int paint)
         {
+            if (InfoDemoPaint.TryGetSpecialCellGlow(paint, out SpecialCellKind glowKind))
+            {
+                return BoardView.GlowIdentityColor(glowKind);
+            }
+
             switch (paint)
             {
                 case InfoDemoPaint.VORTEX_BLOCK:

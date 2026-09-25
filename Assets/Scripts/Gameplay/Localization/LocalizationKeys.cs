@@ -125,6 +125,19 @@ namespace MustyBlockBlast.Gameplay.Localization
         /// <summary>The floating label the Hold demo shows as a park swaps the pocket's piece out (issue #449).</summary>
         public const string INFO_POPUP_DEMO_SWAPPED = "info_popup.demo.swapped";
 
+        /// <summary>The floating label the Explosive Core demo shows as its bonus wipe clears a line (issue #450).</summary>
+        public const string INFO_POPUP_DEMO_BONUS_LINE = "info_popup.demo.bonus_line";
+
+        /// <summary>The floating label the Laser demo shows as it wipes the line at right angles (issue #450).</summary>
+        public const string INFO_POPUP_DEMO_PERPENDICULAR_LINE = "info_popup.demo.perpendicular_line";
+
+        /// <summary>The floating label the Chain Lightning demo shows after its strike; a format string whose
+        /// <c>{0}</c> is the number of blocks struck (issue #450).</summary>
+        public const string INFO_POPUP_DEMO_RANDOM_BLOCKS = "info_popup.demo.random_blocks";
+
+        /// <summary>The floating label the Timer demo shows as the timer cell clears before it runs out (issue #450).</summary>
+        public const string INFO_POPUP_DEMO_JUST_IN_TIME = "info_popup.demo.just_in_time";
+
         public const string INFO_POPUP_SPECIAL_CELL_CHAIN_LIGHTNING_HEADER = "info_popup.special_cell.chain_lightning.header";
         public const string INFO_POPUP_SPECIAL_CELL_CHAIN_LIGHTNING_BODY = "info_popup.special_cell.chain_lightning.body";
         public const string INFO_POPUP_SPECIAL_CELL_SCORE_GEM_HEADER = "info_popup.special_cell.score_gem.header";

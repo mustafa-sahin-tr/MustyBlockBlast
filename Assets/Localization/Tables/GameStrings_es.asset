@@ -615,7 +615,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300692
-    m_Localized: "Cuando una fila o columna despejada destruye esta celda, tambi\xE9n borra la l\xEDnea completa en el otro sentido: despejada por una fila, se lleva toda su columna; por una columna, toda su fila, llena o no, de extremo a extremo. Destruida por una bomba o algo sin l\xEDnea, borra ambas. Cada celda que borra suma puntos de bonificaci\xF3n."
+    m_Localized: "Nace al despejar fila y columna. Al caer, borra tambi\xE9n la l\xEDnea perpendicular."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300693
@@ -623,7 +623,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300694
-    m_Localized: "En el instante en que esta celda se destruye, despeja toda su fila y columna de extremo a extremo, est\xE9n llenas o no."
+    m_Localized: "Borra toda la l\xEDnea perpendicular a su despeje. Con una Bomba, borra ambas."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300695
@@ -631,7 +631,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300696
-    m_Localized: "Aparece cada 5 l\xEDneas despejadas. Al destruirse, rellena los huecos cerrados del tablero."
+    m_Localized: "Aparece cada 5 l\xEDneas. Al destruirse, rellena los huecos cerrados del tablero."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300697
@@ -639,7 +639,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300698
-    m_Localized: "Al destruirse, salta a las celdas especiales cercanas y tambi\xE9n las activa antes de tiempo, pudiendo iniciar una cadena completa."
+    m_Localized: Al despejarse, fulmina 5 bloques al azar de todo el tablero.
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300699
@@ -647,7 +647,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300700
-    m_Localized: "Cuando una l\xEDnea despejada destruye esta celda, ganas puntos extra adem\xE1s de la puntuaci\xF3n normal de esa jugada."
+    m_Localized: "Nace cada 2 despejes de fila y columna. La jugada que lo despeja punt\xFAa \xD73."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300701
@@ -655,7 +655,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300702
-    m_Localized: "Destruye esta celda despejando su fila o columna y ganar\xE1s autom\xE1ticamente una moneda."
+    m_Localized: Da monedas al despejarse; el doble en el cruce de fila y columna.
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300703
@@ -775,7 +775,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 2136016130400258
-    m_Localized: "Cuenta hacia atr\xE1s una unidad cada vez que colocas una pieza, no por segundo. Desp\xE9jalo antes de que llegue a cero. En el modo Ruta, dejar que expire termina la partida de inmediato. En Sin l\xEDmite y Contrarreloj se convierte en una celda normal y pierdes su bonificaci\xF3n."
+    m_Localized: "Baja 1 por jugada; desp\xE9jalo antes de 0. En modo Ruta, si se agota, pierdes."
     m_Metadata:
       m_Items: []
   - m_Id: 2136016131400258
@@ -1004,6 +1004,22 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 4060774346514436
     m_Localized: Intercambiadas
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4067957490573312
+    m_Localized: "\xA1L\xEDnea extra!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4067957532516352
+    m_Localized: "\xA1L\xEDnea perpendicular!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4067957532516353
+    m_Localized: "\xA1{0} bloques al azar!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4067957532516354
+    m_Localized: "\xA1A tiempo!"
     m_Metadata:
       m_Items: []
   references:

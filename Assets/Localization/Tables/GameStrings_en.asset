@@ -615,7 +615,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300692
-    m_Localized: "When a row or column clear destroys this cell, it also wipes the full line running the other way \u2014 cleared by a row, it takes out its whole column; cleared by a column, its whole row \u2014 full or not, edge to edge. Destroyed by a bomb or anything with no line to it, it wipes both. Every cell it wipes scores a bonus."
+    m_Localized: Born from a row+column clear. When cleared, it wipes the line at right angles.
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300693
@@ -623,7 +623,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300694
-    m_Localized: The instant this cell is destroyed, it wipes its entire row and column from edge to edge, full or not.
+    m_Localized: Wipes the whole line at right angles to its clear. A Bomb makes it wipe both.
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300695
@@ -631,7 +631,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300696
-    m_Localized: Earned every 5 line clears. When destroyed, it fills every enclosed gap on the board.
+    m_Localized: Earned every 5 line clears. Destroying it fills the board's enclosed gaps.
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300697
@@ -639,7 +639,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300698
-    m_Localized: "When destroyed, it jumps to any special cells nearby and triggers them early too \u2014 it can set off a whole chain of special cells."
+    m_Localized: When cleared, it strikes 5 random blocks anywhere on the board.
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300699
@@ -647,7 +647,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300700
-    m_Localized: When a line clear destroys this cell, you earn bonus points on top of the normal score for that clear.
+    m_Localized: "Born every 2nd row+column clear. The move that clears it scores \xD73."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300701
@@ -655,7 +655,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300702
-    m_Localized: Destroy this cell by clearing its row or column and you automatically earn a coin.
+    m_Localized: Pays coins when cleared, double where a row and a column cross.
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300703
@@ -775,7 +775,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 2136016130400258
-    m_Localized: Counts down by one every time you place a piece, not by the second. Clear it before it reaches zero. In Path mode letting it expire ends the run immediately. In Endless and Timed it just becomes a normal cell and you lose its bonus.
+    m_Localized: Drops by 1 each move; clear it before 0. In Path mode, running out ends the run.
     m_Metadata:
       m_Items: []
   - m_Id: 2136016131400258
@@ -1004,6 +1004,22 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 4060774346514436
     m_Localized: Swapped
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4067957490573312
+    m_Localized: Bonus line!
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4067957532516352
+    m_Localized: Perpendicular line!
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4067957532516353
+    m_Localized: '{0} random blocks!'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4067957532516354
+    m_Localized: Just in time!
     m_Metadata:
       m_Items: []
   references:

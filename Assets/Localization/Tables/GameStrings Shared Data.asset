@@ -999,6 +999,22 @@ MonoBehaviour:
     m_Key: info_popup.demo.swapped
     m_Metadata:
       m_Items: []
+  - m_Id: 4067957490573312
+    m_Key: info_popup.demo.bonus_line
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4067957532516352
+    m_Key: info_popup.demo.perpendicular_line
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4067957532516353
+    m_Key: info_popup.demo.random_blocks
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4067957532516354
+    m_Key: info_popup.demo.just_in_time
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

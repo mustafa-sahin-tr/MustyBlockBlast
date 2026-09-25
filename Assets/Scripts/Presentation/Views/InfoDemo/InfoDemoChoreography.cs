@@ -101,6 +101,20 @@ namespace MustyBlockBlast.Presentation.Views
         private const float BEAM_HOLD = 0.15f;
         private const float BEAM_FADE_DURATION = 0.3f;
 
+        /// <summary>How long a bolt takes to grow from its source to its target (issue #450).</summary>
+        internal const float BOLT_GROW_DURATION = 0.12f;
+
+        /// <summary>How long a bolt holds at full length before it fades, and how long the fade takes.</summary>
+        internal const float BOLT_HOLD = 0.14f;
+        internal const float BOLT_FADE_DURATION = 0.2f;
+
+        /// <summary>A bolt's bright white core line and the coloured sheath around it, across the line,
+        /// in board units.</summary>
+        private const float BOLT_CORE_THICKNESS = 0.08f;
+        private const float BOLT_GLOW_THICKNESS = 0.24f;
+        private const float BOLT_GLOW_ALPHA = 0.85f;
+        private const float BOLT_APPEAR_DURATION = 0.04f;
+
         /// <summary>A burst's dense core ends at this fraction of the bloom's reach (the Vortex burst's
         /// authored 2 of 4.2), over this fraction of its duration.</summary>
         private const float BURST_CORE_REACH_FRACTION = 2f / 4.2f;
@@ -370,6 +384,59 @@ namespace MustyBlockBlast.Presentation.Views
             builder.Fade(glow, fadeStart, BEAM_FADE_DURATION, BEAM_GLOW_ALPHA, 0f, InfoDemoEasing.EaseInCubic);
             builder.Fade(bar, fadeStart, BEAM_FADE_DURATION, 1f, 0f, InfoDemoEasing.EaseInCubic);
             return fadeStart + BEAM_FADE_DURATION;
+        }
+
+        /// <summary>
+        /// A bolt from <paramref name="from"/> to <paramref name="to"/> (board units) starting at
+        /// <paramref name="startTime"/> (issue #450, a chain lightning's strike): a thin bright white line
+        /// inside a slightly wider <paramref name="glowPaint"/> sheath, both rotated onto the segment and growing from
+        /// the source towards the target over <see cref="BOLT_GROW_DURATION"/> — a per-axis stretch
+        /// 0 → 1 paired with a slide from the source to the midpoint on the same easing, so the source end
+        /// never moves — then holding for <see cref="BOLT_HOLD"/> and fading over
+        /// <see cref="BOLT_FADE_DURATION"/>. Drawn over the blocks. Returns the core line's element id;
+        /// the bolt reaches its target at <paramref name="startTime"/> + <see cref="BOLT_GROW_DURATION"/>.
+        /// </summary>
+        internal static int Bolt(InfoDemoTimelineBuilder builder, Vector2 from, Vector2 to, int glowPaint, float startTime)
+        {
+            float length = (to - from).magnitude;
+            float angle = BoltAngle(from, to);
+            Vector2 midpoint = (from + to) * 0.5f;
+            Vector2 collapsed = new Vector2(0f, 1f);
+            float fadeStart = startTime + BOLT_GROW_DURATION + BOLT_HOLD;
+
+            int glow = builder.AddPanel(
+                from, new Vector2(length, BOLT_GLOW_THICKNESS), BOLT_GLOW_THICKNESS * 0.5f, glowPaint, 0f);
+            int core = builder.AddPanel(
+                from, new Vector2(length, BOLT_CORE_THICKNESS), BOLT_CORE_THICKNESS * 0.5f, InfoDemoPaint.WHITE, 0f);
+
+            AnimateBoltPart(builder, glow, from, midpoint, angle, collapsed, BOLT_GLOW_ALPHA, startTime, fadeStart);
+            AnimateBoltPart(builder, core, from, midpoint, angle, collapsed, 1f, startTime, fadeStart);
+            return core;
+        }
+
+        /// <summary>The Z rotation (degrees) that lays a bar's local x axis along the segment
+        /// <paramref name="from"/> → <paramref name="to"/>. Board y runs down the rows while the stage's
+        /// pixels run up, so the row delta is negated.</summary>
+        internal static float BoltAngle(Vector2 from, Vector2 to)
+            => Mathf.Atan2(-(to.y - from.y), to.x - from.x) * Mathf.Rad2Deg;
+
+        private static void AnimateBoltPart(
+            InfoDemoTimelineBuilder builder,
+            int elementId,
+            Vector2 from,
+            Vector2 midpoint,
+            float angle,
+            Vector2 collapsed,
+            float peakAlpha,
+            float startTime,
+            float fadeStart)
+        {
+            builder.Rotate(elementId, 0f, 0f, angle, angle);
+            builder.Stretch(elementId, 0f, 0f, collapsed, collapsed);
+            builder.Stretch(elementId, startTime, BOLT_GROW_DURATION, collapsed, Vector2.one, InfoDemoEasing.EaseOutCubic);
+            builder.Move(elementId, startTime, BOLT_GROW_DURATION, from, midpoint, InfoDemoEasing.EaseOutCubic);
+            builder.Fade(elementId, startTime, BOLT_APPEAR_DURATION, 0f, peakAlpha);
+            builder.Fade(elementId, fadeStart, BOLT_FADE_DURATION, peakAlpha, 0f, InfoDemoEasing.EaseInCubic);
         }
 
         /// <summary>

@@ -5,7 +5,8 @@ namespace MustyBlockBlast.Presentation.Views
 {
     /// <summary>
     /// Which info-popup subjects have an animated demo, and the demo for each (the Vortex special cell,
-    /// #446; the six board-targeted power-ups, #448; the tray / targetless power-ups and the Hold pocket,
+    /// #446; the Explosive Core, Laser, Score Gem, Chain Lightning, Coin and Timer special cells, #450;
+    /// the six board-targeted power-ups, #448; the tray / targetless power-ups and the Hold pocket,
     /// #449; objective cards via <see cref="FindObjective"/>, #447). A subject with none
     /// returns null and its card keeps today's static hero icon (issue #445 AC9). Each demo is built
     /// once, the first time it is asked for, and cached — a timeline is immutable, so replaying it
@@ -20,7 +21,9 @@ namespace MustyBlockBlast.Presentation.Views
     /// </summary>
     internal sealed class InfoDemoCatalog
     {
-        private InfoDemoTimeline _vortex;
+        /// <summary>Special-cell demos (issues #446, #450), indexed by <see cref="SpecialCellKind"/> value;
+        /// a kind with no demo stays null.</summary>
+        private readonly InfoDemoTimeline[] _specialCells = new InfoDemoTimeline[(int)SpecialCellKind.Locked + 1];
 
         /// <summary>The Hold demo (issue #449), shared by both subjects that open the Hold card.</summary>
         private InfoDemoTimeline _hold;
@@ -37,14 +40,9 @@ namespace MustyBlockBlast.Presentation.Views
         /// when that subject has none.</summary>
         internal InfoDemoTimeline Find(InfoPopupSubjectKind subjectKind, int kindValue)
         {
-            if (subjectKind == InfoPopupSubjectKind.SpecialCell && kindValue == (int)SpecialCellKind.Vortex)
+            if (subjectKind == InfoPopupSubjectKind.SpecialCell)
             {
-                if (_vortex == null)
-                {
-                    _vortex = VortexInfoDemo.Build();
-                }
-
-                return _vortex;
+                return FindSpecialCell(kindValue);
             }
 
             if (subjectKind == InfoPopupSubjectKind.PowerUp)
@@ -60,6 +58,46 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             return null;
+        }
+
+        /// <summary>The special-cell demos — Vortex (issue #446) and Explosive Core, Laser, Score Gem, Chain
+        /// Lightning, Coin and Timer (issue #450). Diamond and Locked have none yet and keep their icon.</summary>
+        private InfoDemoTimeline FindSpecialCell(int kindValue)
+        {
+            if (kindValue < 0 || kindValue >= _specialCells.Length)
+            {
+                return null;
+            }
+
+            if (_specialCells[kindValue] == null)
+            {
+                _specialCells[kindValue] = BuildSpecialCell((SpecialCellKind)kindValue);
+            }
+
+            return _specialCells[kindValue];
+        }
+
+        private static InfoDemoTimeline BuildSpecialCell(SpecialCellKind kind)
+        {
+            switch (kind)
+            {
+                case SpecialCellKind.ExplosiveCore:
+                    return ExplosiveCoreInfoDemo.Build();
+                case SpecialCellKind.Laser:
+                    return LaserInfoDemo.Build();
+                case SpecialCellKind.ScoreGem:
+                    return ScoreGemInfoDemo.Build();
+                case SpecialCellKind.Vortex:
+                    return VortexInfoDemo.Build();
+                case SpecialCellKind.ChainLightning:
+                    return ChainLightningInfoDemo.Build();
+                case SpecialCellKind.Coin:
+                    return CoinCellInfoDemo.Build();
+                case SpecialCellKind.Timer:
+                    return TimerInfoDemo.Build();
+                default:
+                    return null;
+            }
         }
 
         private InfoDemoTimeline FindHold()

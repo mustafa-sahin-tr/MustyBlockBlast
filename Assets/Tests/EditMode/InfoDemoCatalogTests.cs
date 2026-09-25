@@ -7,8 +7,9 @@ using NUnit.Framework;
 namespace MustyBlockBlast.Tests.EditMode
 {
     /// <summary>
-    /// Which info-popup subjects get an animated demo (issue #446): of the special cells only the
-    /// Vortex, plus the objective cards (#447); the power-ups are covered by InfoDemoPowerUpTests (#448).
+    /// Which info-popup subjects get an animated demo (issue #446): the Vortex special cell, plus the
+    /// objective cards (#447); the power-ups are covered by InfoDemoPowerUpTests (#448) and
+    /// InfoDemoTrayPowerUpTests (#449), the other special cells by InfoDemoSpecialCellTests (#450).
     /// Every other subject must fall back to the static hero icon (issue #445 AC9), which the View
     /// does whenever the catalog returns null.
     /// </summary>
@@ -26,23 +27,8 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.AreSame(first, second);
         }
 
-        [Test]
-        public void EveryOtherSpecialCell_HasNoDemo()
-        {
-            InfoDemoCatalog catalog = new InfoDemoCatalog();
-            Array kinds = Enum.GetValues(typeof(SpecialCellKind));
-
-            for (int kindIndex = 0; kindIndex < kinds.Length; kindIndex++)
-            {
-                SpecialCellKind kind = (SpecialCellKind)kinds.GetValue(kindIndex);
-                if (kind == SpecialCellKind.Vortex)
-                {
-                    continue;
-                }
-
-                Assert.IsNull(catalog.Find(InfoPopupSubjectKind.SpecialCell, (int)kind), kind.ToString());
-            }
-        }
+        // Which of the other special cells have a demo, and which keep their icon, is covered by
+        // InfoDemoSpecialCellTests (issue #450).
 
         [Test]
         public void SpecialPieces_HaveNoDemo_EvenWithTheVortexKindValue()

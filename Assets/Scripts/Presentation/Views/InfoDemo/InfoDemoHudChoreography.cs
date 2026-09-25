@@ -131,6 +131,25 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         /// <summary>
+        /// <paramref name="badge"/> goes with whatever it is hung on at <paramref name="time"/> (issue #450 —
+        /// a timer cell's countdown badge leaving with its cleared cell): its rim, disc and the number it
+        /// shows at that point shrink and fade over <paramref name="duration"/>. Queue it after every
+        /// <see cref="TickBadge"/> that plays before <paramref name="time"/>, so the right number is taken.
+        /// Returns the time it is gone.
+        /// </summary>
+        internal static float HideBadge(InfoDemoTimelineBuilder builder, InfoDemoCountBadge badge, float time, float duration)
+        {
+            int[] parts = { badge.RimId, badge.DiscId, badge.LabelIdForCount(badge.Count) };
+            for (int partIndex = 0; partIndex < parts.Length; partIndex++)
+            {
+                builder.Scale(parts[partIndex], time, duration, 1f, 0.3f, InfoDemoEasing.EaseInCubic);
+                builder.Fade(parts[partIndex], time, duration, 1f, 0f, InfoDemoEasing.EaseInCubic);
+            }
+
+            return time + duration;
+        }
+
+        /// <summary>
         /// A thin countdown bar (issue #449, the 2x window): a faint <paramref name="trackPaint"/> track
         /// and a <paramref name="fillPaint"/> fill, both <paramref name="length"/> x
         /// <paramref name="thickness"/> board units and centred on <paramref name="centre"/>, fading in at
