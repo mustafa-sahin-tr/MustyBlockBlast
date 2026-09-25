@@ -243,6 +243,15 @@ namespace MustyBlockBlast.Core
         private readonly List<GridPosition> _openedLocks = new List<GridPosition>(4);
 
         /// <summary>
+        /// Charge each <see cref="SpecialCellKind.PowerStar"/> cell has built up (issue #482:
+        /// 0..<see cref="POWER_STAR_BURST_CHARGE"/>-1 while it stands), indexed exactly like
+        /// <see cref="_cells"/>; 0 for every other cell. Belongs to the block, so <see cref="Clear"/>
+        /// resets it, and <see cref="Clone"/>/<see cref="CopyFrom"/> copy it so Undo rewinds a star's
+        /// charge with everything else (AC4). Written only by <see cref="ChargePowerStar"/>.
+        /// </summary>
+        private readonly int[] _powerStarCharges;
+
+        /// <summary>
         /// Which of the visual skins a reinforced cell wears (issue #438: 0..<see cref="LOCKED_SKIN_COUNT"/>-1,
         /// rolled at seed time), indexed exactly like <see cref="_cells"/>. The same three looks a locked
         /// cell wears, deliberately — the reinforced cell reuses that art rather than owning any — so the
@@ -275,6 +284,10 @@ namespace MustyBlockBlast.Core
         /// index to a look. The single source of truth for both rolls' range.</summary>
         public const int LOCKED_SKIN_COUNT = 3;
 
+        /// <summary>Charge at which a <see cref="SpecialCellKind.PowerStar"/> bursts (issue #482): every
+        /// completed row or column through it adds one, and the line that brings it here destroys it.</summary>
+        public const int POWER_STAR_BURST_CHARGE = 3;
+
         /// <summary>The standard <see cref="SIZE"/> x <see cref="SIZE"/> hole-free board. Delegates to
         /// <see cref="BoardShape.Standard"/> so every level authored before board shapes existed keeps
         /// the exact geometry it was authored against.</summary>
@@ -297,13 +310,16 @@ namespace MustyBlockBlast.Core
             _lockedThresholds = new int[shape.CellCount];
             _lockedSkins = new int[shape.CellCount];
             _reinforcedSkins = new int[shape.CellCount];
+            _powerStarCharges = new int[shape.CellCount];
         }
 
         private Board(
             BoardShape shape, int[] cells, SpecialCellKind[] specialKinds, int[] hitCounts,
             int[] timerCountdowns, int[] coinValues, int[] diamondColourIds, int[] targetIceLevels,
-            int[] lockedProgressMasks, int[] lockedThresholds, int[] lockedSkins, int[] reinforcedSkins)
+            int[] lockedProgressMasks, int[] lockedThresholds, int[] lockedSkins, int[] reinforcedSkins,
+            int[] powerStarCharges)
         {
+            _powerStarCharges = powerStarCharges;
             _shape = shape;
             _cells = cells;
             _specialKinds = specialKinds;
@@ -442,6 +458,9 @@ namespace MustyBlockBlast.Core
 
             // As is a reinforced cell's skin (issue #438): it goes with the hit count it decorates.
             _reinforcedSkins[index] = 0;
+
+            // And a power star's charge (issue #482): it is the star's own state.
+            _powerStarCharges[index] = 0;
 
             // _targetIceLevels[index] is intentionally NOT reset here — see that field's doc comment.
         }
@@ -810,6 +829,39 @@ namespace MustyBlockBlast.Core
             Occupy(position, colourId);
             SetSpecialKind(position, SpecialCellKind.Timer);
             _timerCountdowns[Index(position)] = startingCountdown;
+        }
+
+        /// <summary>Occupies <paramref name="position"/> with a <see cref="SpecialCellKind.PowerStar"/>
+        /// at charge 0 (issue #482) — the one call its level seeder needs, mirroring
+        /// <see cref="OccupyTimer"/>.</summary>
+        public void OccupyPowerStar(GridPosition position, int colourId)
+        {
+            Occupy(position, colourId);
+            SetSpecialKind(position, SpecialCellKind.PowerStar);
+            _powerStarCharges[Index(position)] = 0;
+        }
+
+        /// <summary>The charge the <see cref="SpecialCellKind.PowerStar"/> on <paramref name="position"/>
+        /// has built up (0..<see cref="POWER_STAR_BURST_CHARGE"/>); 0 for any other cell.</summary>
+        public int GetPowerStarCharge(GridPosition position) => _powerStarCharges[Index(position)];
+
+        /// <summary>
+        /// Adds <paramref name="amount"/> charge to the <see cref="SpecialCellKind.PowerStar"/> on
+        /// <paramref name="position"/> (issue #482), capped at <see cref="POWER_STAR_BURST_CHARGE"/>, and
+        /// returns whether it has now reached it — i.e. whether the line clear charging it destroys it.
+        /// A no-op returning false for any cell that is not a power star.
+        /// </summary>
+        public bool ChargePowerStar(GridPosition position, int amount)
+        {
+            int index = Index(position);
+            if (_specialKinds[index] != SpecialCellKind.PowerStar || amount <= 0)
+            {
+                return false;
+            }
+
+            int charge = Math.Min(POWER_STAR_BURST_CHARGE, _powerStarCharges[index] + amount);
+            _powerStarCharges[index] = charge;
+            return charge >= POWER_STAR_BURST_CHARGE;
         }
 
         /// <summary>Coins the <see cref="SpecialCellKind.Coin"/> cell on <paramref name="position"/> pays
@@ -1488,10 +1540,13 @@ namespace MustyBlockBlast.Core
             int[] reinforcedSkinCopy = new int[_reinforcedSkins.Length];
             Array.Copy(_reinforcedSkins, reinforcedSkinCopy, _reinforcedSkins.Length);
 
+            int[] powerStarChargeCopy = new int[_powerStarCharges.Length];
+            Array.Copy(_powerStarCharges, powerStarChargeCopy, _powerStarCharges.Length);
+
             return new Board(
                 _shape, copy, specialCopy, hitCountCopy, timerCountdownCopy, coinValueCopy,
                 diamondColourIdCopy, targetIceLevelCopy, lockedProgressMaskCopy, lockedThresholdCopy,
-                lockedSkinCopy, reinforcedSkinCopy);
+                lockedSkinCopy, reinforcedSkinCopy, powerStarChargeCopy);
         }
 
         /// <summary>Overwrites this board's cells with <paramref name="source"/>'s. Used to reuse a scratch
@@ -1540,6 +1595,7 @@ namespace MustyBlockBlast.Core
             Array.Copy(source._lockedThresholds, _lockedThresholds, _lockedThresholds.Length);
             Array.Copy(source._lockedSkins, _lockedSkins, _lockedSkins.Length);
             Array.Copy(source._reinforcedSkins, _reinforcedSkins, _reinforcedSkins.Length);
+            Array.Copy(source._powerStarCharges, _powerStarCharges, _powerStarCharges.Length);
         }
 
         /// <summary>Flat index of <paramref name="position"/> — also the index a caller's own per-cell

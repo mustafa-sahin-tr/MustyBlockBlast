@@ -1726,6 +1726,14 @@ MonoBehaviour:
     m_Localized: 'Opens once enough of its different neighbours are cleared, then spills gold: as many coins as a Coin cell.'
     m_Metadata:
       m_Items: []
+  - m_Id: 4323470539218944
+    m_Localized: Power Star
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4323470639882240
+    m_Localized: "Line clears through it don't remove it \u2014 each adds a charge. At 3 charges it bursts, clearing the 3\xD73 around it."
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

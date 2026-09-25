@@ -477,6 +477,10 @@ namespace MustyBlockBlast.Gameplay.Systems
                     headerKey = LocalizationKeys.INFO_POPUP_SPECIAL_CELL_LOCKED_HEADER;
                     bodyKey = LocalizationKeys.INFO_POPUP_SPECIAL_CELL_LOCKED_BODY;
                     break;
+                case SpecialCellKind.PowerStar:
+                    headerKey = LocalizationKeys.INFO_POPUP_SPECIAL_CELL_POWER_STAR_HEADER;
+                    bodyKey = LocalizationKeys.INFO_POPUP_SPECIAL_CELL_POWER_STAR_BODY;
+                    break;
                 default:
                     headerKey = LocalizationKeys.INFO_POPUP_HOLD_HEADER;
                     bodyKey = LocalizationKeys.INFO_POPUP_HOLD_BODY;

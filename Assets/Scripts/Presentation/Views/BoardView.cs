@@ -153,6 +153,9 @@ namespace MustyBlockBlast.Presentation.Views
         [SerializeField] private Sprite _coinIconSprite;
         [SerializeField] private Sprite _timerIconSprite;
 
+        [Tooltip("Power star (issue #482): the star cube, drawn full-bleed with its charge pips under it.")]
+        [SerializeField] private Sprite _powerStarIconSprite;
+
         [Tooltip("Neutral grey crystal, tinted at runtime in the gem's own theme colour (issues #395/#480). Also drawn on decorated tray, pocket and drag-ghost cells through DiamondVisuals.")]
         [SerializeField] private Sprite _diamondIconSprite;
 
@@ -665,6 +668,7 @@ namespace MustyBlockBlast.Presentation.Views
             _boardModel.TimerCellExpired += OnTimerCellExpired;
             _boardModel.TargetIceLevelChanged += OnTargetIceLevelChanged;
             _boardModel.LockedCellChanged += OnLockedCellChanged;
+            _boardModel.PowerStarChargeChanged += OnPowerStarChargeChanged;
             _linesClearedSubscriber.Subscribe(OnLinesCleared).AddTo(_disposables);
             _runStartedSubscriber.Subscribe(OnRunStarted).AddTo(_disposables);
             _powerUpAppliedSubscriber.Subscribe(OnPowerUpApplied).AddTo(_disposables);
@@ -751,6 +755,7 @@ namespace MustyBlockBlast.Presentation.Views
                 _boardModel.TimerCellExpired -= OnTimerCellExpired;
                 _boardModel.TargetIceLevelChanged -= OnTargetIceLevelChanged;
                 _boardModel.LockedCellChanged -= OnLockedCellChanged;
+                _boardModel.PowerStarChargeChanged -= OnPowerStarChargeChanged;
             }
         }
 
@@ -1475,6 +1480,17 @@ namespace MustyBlockBlast.Presentation.Views
             ApplyTimerCountdown(index, _cellSpecialKinds[index], _cellTimerCountdowns[index]);
 
             _cells[index].SetAlpha(1f);
+        }
+
+        /// <summary>A power star's charge may have changed (issue #482 AC2): redraw its pips. Only a cell the
+        /// View already paints as a star is touched — a burst star is repainted by the cleared-cell path.</summary>
+        private void OnPowerStarChargeChanged(GridPosition cell, int charge)
+        {
+            int index = CellIndex(cell);
+            if (_cellSpecialKinds[index] == SpecialCellKind.PowerStar)
+            {
+                _cells[index].SetPowerStarCharge(charge);
+            }
         }
 
         /// <summary>A timer cell survived a placement and ticked down by one (issue #307 AC6a). Only the
@@ -3150,6 +3166,17 @@ namespace MustyBlockBlast.Presentation.Views
             // A locked cell (issue #434) wears its skin overlay and nothing else: no starburst, no glow
             // pulse — its "special" look is the whole plate, driven by OnLockedCellChanged, not a mark
             // on top of it. So it takes the no-icon path exactly as an ordinary cell does.
+            // A power star wears its charge pips under the art (issue #482); every other cell drops them,
+            // so a cell reused after a burst never keeps a previous star's charge.
+            if (kind == SpecialCellKind.PowerStar)
+            {
+                cell.SetPowerStarCharge(_boardModel.GetPowerStarCharge(new GridPosition(index % _width, index / _width)));
+            }
+            else
+            {
+                cell.ClearPowerStarCharge();
+            }
+
             if (kind == SpecialCellKind.None || kind == SpecialCellKind.Locked)
             {
                 cell.ClearSpecialIcon();
@@ -3307,6 +3334,9 @@ namespace MustyBlockBlast.Presentation.Views
                     break;
                 case SpecialCellKind.Timer:
                     sprite = _timerIconSprite;
+                    break;
+                case SpecialCellKind.PowerStar:
+                    sprite = _powerStarIconSprite;
                     break;
                 case SpecialCellKind.Diamond:
                     sprite = _diamondIconSprite;

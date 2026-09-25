@@ -37,6 +37,7 @@ namespace MustyBlockBlast.Tests.EditMode
             SpecialCellKind.ChainLightning,
             SpecialCellKind.Coin,
             SpecialCellKind.Timer,
+            SpecialCellKind.PowerStar,
         };
 
         // ---------------------------------------------------------------- catalog

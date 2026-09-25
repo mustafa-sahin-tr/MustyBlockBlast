@@ -234,6 +234,10 @@ namespace MustyBlockBlast.Core
             List<GridPosition> candidates = destroyedCells ?? new List<GridPosition>(Board.SIZE * 2);
             CollectDestroyedCells(board, clearedRows, clearedColumns, candidates);
 
+            // A power star (issue #482) is charged by the lines through it rather than removed; one still
+            // short of a burst stays standing and leaves the list here, before any bookkeeping reads it.
+            PowerStarCharging.ChargeAndKeepStanding(board, candidates, clearedRows, clearedColumns);
+
             // The damage gate, fused into turning the candidates into the real destroyed-cell list: a
             // reinforced cell with hits to spare absorbs one here and is dropped from the list, so it
             // counts towards neither ClearedCellCount nor the triggers collected below, and can never
@@ -293,6 +297,7 @@ namespace MustyBlockBlast.Core
             List<GridPosition> cellBuffer)
         {
             CollectDestroyedCells(board, clearedRows, clearedColumns, cellBuffer);
+            PowerStarCharging.ChargeAndKeepStanding(board, cellBuffer, clearedRows, clearedColumns);
             ReinforcedCellDamage.SpendHits(board, cellBuffer);
             ReinforcedCellDamage.RemoveAll(board, cellBuffer);
         }

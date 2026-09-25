@@ -1726,6 +1726,14 @@ MonoBehaviour:
     m_Localized: "Yeterince farkl\u0131 kom\u015Fusu temizlenince a\xE7\u0131l\u0131r ve alt\u0131n sa\xE7ar: bir Coin h\xFCcresi kadar coin kazand\u0131r\u0131r."
     m_Metadata:
       m_Items: []
+  - m_Id: 4323470539218944
+    m_Localized: "G\xFC\xE7 Y\u0131ld\u0131z\u0131"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4323470639882240
+    m_Localized: "Ge\xE7en her sat\u0131r ya da s\xFCtun temizli\u011Fi onu silmez, 1 \u015Farj verir. 3 \u015Farjda patlar ve etraf\u0131ndaki 3\xD73 alan\u0131 temizler."
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

@@ -28,7 +28,7 @@ namespace MustyBlockBlast.Presentation.Views
     {
         /// <summary>Special-cell demos (issues #446, #450), indexed by <see cref="SpecialCellKind"/> value;
         /// a kind with no demo stays null.</summary>
-        private readonly InfoDemoTimeline[] _specialCells = new InfoDemoTimeline[(int)SpecialCellKind.Locked + 1];
+        private readonly InfoDemoTimeline[] _specialCells = new InfoDemoTimeline[(int)SpecialCellKind.PowerStar + 1];
 
         /// <summary>Special dock piece demos (issue #451), indexed by <see cref="SpecialPieceKind"/> value;
         /// <see cref="SpecialPieceKind.None"/> stays null.</summary>
@@ -151,6 +151,8 @@ namespace MustyBlockBlast.Presentation.Views
                     return CoinCellInfoDemo.Build();
                 case SpecialCellKind.Timer:
                     return TimerInfoDemo.Build();
+                case SpecialCellKind.PowerStar:
+                    return PowerStarInfoDemo.Build();
                 default:
                     return null;
             }

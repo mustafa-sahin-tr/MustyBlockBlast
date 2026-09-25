@@ -283,6 +283,16 @@ opens it **reveals gold**: it pays the same coins as a Coin cell's base payout, 
 into the wallet like any other board coins, and the cell becomes an ordinary empty one. A chest
 still locked when the run ends pays nothing.
 
+**Power Star (Güç Yıldızı).** A level can place power stars: star cubes that line clears *charge*
+instead of removing. Every completed row or column through a star adds one charge (a row and a
+column completed through it at once add two), and the star stays where it is; its charge shows as
+three pips under it (0/3 → 3/3). The clear that brings it to **3** destroys it and it **bursts**,
+destroying every block in the 3×3 around it (holes and cells off the board are skipped). A
+power-up or the hammer that destroys a star directly makes it burst at once, whatever its charge.
+Special cells caught in a burst trigger normally, and a second star caught in one bursts too. Undo
+restores a star's charge and everything its burst destroyed. A star still short of 3 when the run
+ends does nothing.
+
 **v1 scope:** this is the tracking engine only. There is no level content, no objective UI and
 no persistence of objective progress yet — those are tracked separately in epic "Levels &
 Objectives" (sub-issues #72 and #73).

@@ -123,6 +123,12 @@ namespace MustyBlockBlast.Gameplay.Models
         /// </summary>
         public event Action<GridPosition> LockedCellChanged;
 
+        /// <summary>A <see cref="SpecialCellKind.PowerStar"/>'s charge may have changed (issue #482) —
+        /// announced for every star on the board by <see cref="NotifyPowerStarChargesRefreshed"/>, with the
+        /// charge it holds now, so a View can redraw its charge pips. A star that burst is announced
+        /// through the ordinary cleared-cell paths instead.</summary>
+        public event Action<GridPosition, int> PowerStarChargeChanged;
+
         /// <summary>The board's outline. Read-only and immutable — a View reads width, height and hole
         /// cells off it to lay itself out and to render the holes.</summary>
         public BoardShape Shape => _board.Shape;
@@ -155,6 +161,9 @@ namespace MustyBlockBlast.Gameplay.Models
         /// it accumulated from events. 0 for a cell that is not a <see cref="SpecialCellKind.Timer"/>
         /// cell.</summary>
         public int GetTimerCountdown(GridPosition position) => _board.GetTimerCountdown(position);
+
+        /// <summary>See <see cref="Core.Board.GetPowerStarCharge"/> (issue #482).</summary>
+        public int GetPowerStarCharge(GridPosition position) => _board.GetPowerStarCharge(position);
 
         /// <summary>Read-only access, for the reason <see cref="GetHitCount"/> is. Coins the
         /// <see cref="SpecialCellKind.Coin"/> cell on <paramref name="position"/> pays when destroyed;
@@ -241,6 +250,40 @@ namespace MustyBlockBlast.Gameplay.Models
             CellChanged?.Invoke(position, colourId);
             SpecialKindChanged?.Invoke(position, SpecialCellKind.Timer);
             TimerCountdownChanged?.Invoke(position, startingCountdown);
+        }
+
+        /// <summary>Occupies a cell as a <see cref="SpecialCellKind.PowerStar"/> at charge 0 (issue #482),
+        /// announcing it in the order <see cref="OccupyTimer"/> does. Seeder use only.</summary>
+        internal void OccupyPowerStar(GridPosition position, int colourId)
+        {
+            _board.OccupyPowerStar(position, colourId);
+            CellChanged?.Invoke(position, colourId);
+            SpecialKindChanged?.Invoke(position, SpecialCellKind.PowerStar);
+            PowerStarChargeChanged?.Invoke(position, 0);
+        }
+
+        /// <summary>Announces every <see cref="SpecialCellKind.PowerStar"/>'s current charge (issue #482)
+        /// — called after a resolution, since the charge advances inside the line-clear resolver, which
+        /// reports nothing. A scan, like <see cref="NotifyHitCountsRefreshed"/>: once per placement or
+        /// power-up, never per frame, and idempotent for a View that skips unchanged values.</summary>
+        internal void NotifyPowerStarChargesRefreshed()
+        {
+            if (PowerStarChargeChanged == null)
+            {
+                return;
+            }
+
+            for (int y = 0; y < _board.Height; y++)
+            {
+                for (int x = 0; x < _board.Width; x++)
+                {
+                    var position = new GridPosition(x, y);
+                    if (!_board.IsHole(position) && _board.GetSpecialKind(position) == SpecialCellKind.PowerStar)
+                    {
+                        PowerStarChargeChanged.Invoke(position, _board.GetPowerStarCharge(position));
+                    }
+                }
+            }
         }
 
         /// <summary>Occupies a cell as a <see cref="SpecialCellKind.Diamond"/> cell of gem colour
