@@ -41,6 +41,11 @@ namespace MustyBlockBlast.Presentation.Views
         /// builds this far.</summary>
         internal const int MAX_BUILDABLE_LINE_COUNT = 5;
 
+        /// <summary>The fewest lines the shared board can show clearing — a single block into the bottom
+        /// row's gap. Below <see cref="MIN_LINE_COUNT"/> only the At-Least demo builds this far (issue #506):
+        /// "exactly one line" is not an objective the catalog has.</summary>
+        internal const int MIN_BUILDABLE_LINE_COUNT = 1;
+
         /// <summary>The column the vertical piece fills — the one gap in each of the bottom rows.</summary>
         internal const int GAP_COLUMN = 4;
 
@@ -73,12 +78,12 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>
         /// The same N-lines-at-once choreography with <paramref name="chipCaptionKey"/> (its <c>{0}</c> the
         /// line count) on the chip — shared with the At Least Line Clear demo (issue #452), whose rule differs
-        /// only in what else would count, never in what one qualifying placement looks like. Builds up to
-        /// <see cref="MAX_BUILDABLE_LINE_COUNT"/> lines.
+        /// only in what else would count, never in what one qualifying placement looks like. Builds
+        /// <see cref="MIN_BUILDABLE_LINE_COUNT"/> to <see cref="MAX_BUILDABLE_LINE_COUNT"/> lines.
         /// </summary>
         internal static InfoDemoTimeline Build(int lineCount, string chipCaptionKey)
         {
-            int lines = Mathf.Clamp(lineCount, MIN_LINE_COUNT, MAX_BUILDABLE_LINE_COUNT);
+            int lines = Mathf.Clamp(lineCount, MIN_BUILDABLE_LINE_COUNT, MAX_BUILDABLE_LINE_COUNT);
             string lineCountText = lines.ToString(CultureInfo.InvariantCulture);
             int firstClearedRow = FirstClearedRow(lines);
 
@@ -120,10 +125,10 @@ namespace MustyBlockBlast.Presentation.Views
                 InfoDemoChoreography.ClearRow(builder, row, CLEAR_START);
             }
 
-            // 3. "N lines!" over the cleared band, and the goal ticks over to done.
+            // 3. "N lines!" ("1 line!" for one) over the cleared band, and the goal ticks over to done.
             InfoDemoChoreography.FloatLabel(
                 builder,
-                LocalizationKeys.INFO_POPUP_DEMO_LINES_CLEARED,
+                lines == 1 ? LocalizationKeys.INFO_POPUP_DEMO_ONE_LINE_CLEARED : LocalizationKeys.INFO_POPUP_DEMO_LINES_CLEARED,
                 new Vector2((InfoDemoLayout.BOARD_SIZE - 1) * 0.5f, firstClearedRow + ((lines - 1) * 0.5f)),
                 1.3f,
                 InfoDemoPaint.INK,

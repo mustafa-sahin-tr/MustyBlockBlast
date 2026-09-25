@@ -93,6 +93,10 @@ namespace MustyBlockBlast.Gameplay.Localization
         /// count (issue #447, e.g. "2 lines!").</summary>
         public const string INFO_POPUP_DEMO_LINES_CLEARED = "info_popup.demo.lines_cleared";
 
+        /// <summary><see cref="INFO_POPUP_DEMO_LINES_CLEARED"/> for exactly one line, "{0}" still the count
+        /// so a translation may keep the digit (issue #506, e.g. "1 line!").</summary>
+        public const string INFO_POPUP_DEMO_ONE_LINE_CLEARED = "info_popup.demo.one_line_cleared";
+
         /// <summary>The floating label the Row/Column Clear demos show as a not-full line clears
         /// (issue #448, "Even if not full!").</summary>
         public const string INFO_POPUP_DEMO_EVEN_IF_NOT_FULL = "info_popup.demo.even_if_not_full";
@@ -709,6 +713,10 @@ namespace MustyBlockBlast.Gameplay.Localization
         public const string OBJECTIVE_ROW_AND_COLUMN_CROSS_CLEAR = "objective.row_and_column_cross_clear";
         public const string OBJECTIVE_CLUTCH_RECOVERY_CLEAR = "objective.clutch_recovery_clear";
         public const string OBJECTIVE_AT_LEAST_LINE_CLEAR = "objective.at_least_line_clear";
+
+        /// <summary><see cref="OBJECTIVE_AT_LEAST_LINE_CLEAR"/> when the minimum is one line — any clear
+        /// counts, so "at least 1 rows" reads as its own sentence (issue #506).</summary>
+        public const string OBJECTIVE_AT_LEAST_ONE_LINE_CLEAR = "objective.at_least_one_line_clear";
         public const string OBJECTIVE_PIECE_ID_COUNT = "objective.piece_id_count";
         public const string OBJECTIVE_PIECE_ID_LINE_CLEAR = "objective.piece_id_line_clear";
         public const string OBJECTIVE_FOUR_CORNERS_CLEARED = "objective.four_corners_cleared";
