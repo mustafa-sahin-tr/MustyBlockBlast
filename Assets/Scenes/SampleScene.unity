@@ -2043,6 +2043,7 @@ MonoBehaviour:
   - {fileID: 21300000, guid: 3ed537dccdd5e431bb0d9db764852859, type: 3}
   - {fileID: 21300000, guid: b1457f48ecdf546ad82e33b5da56435f, type: 3}
   - {fileID: 21300000, guid: df082345de6c341249b4b446e357c822, type: 3}
+  - {fileID: 21300000, guid: 61497f245c3ca4455ab2414f3797984c, type: 3}
   _startScaleMultiplier: 6
   _flightDuration: 0.5
   _holdDuration: 0.8
