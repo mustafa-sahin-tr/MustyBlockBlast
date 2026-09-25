@@ -564,7 +564,13 @@ namespace MustyBlockBlast.Gameplay.Systems
             // a level it has left.
             ApplyLevelObjective(nextLevelNumber, restoreSavedProgress: false);
 
-            GrantLevelUpReward(completedLevelNumber);
+            // Classic (GameMode.Timed) is played with every extra off — no power-ups can be used there —
+            // so rolling onto the next level pays none either: a Row Clear earned for a four-line clear in
+            // Classic would only pile up unusable.
+            if (_gameModeSystem.ExtrasEnabled)
+            {
+                GrantLevelUpReward(completedLevelNumber);
+            }
 
             _levelAdvancedPublisher.Publish(new LevelAdvancedMessage(nextLevelNumber));
         }

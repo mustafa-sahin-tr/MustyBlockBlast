@@ -447,8 +447,8 @@ different mechanic, so they are not migrated.
 ### Classic skins
 
 In a Classic (timed) run the blocks change **skin** as the score climbs: the board starts on the
-plain colour blocks, and each score threshold of the configured sequence (for example jelly at
-2,000, pomegranate at 5,000, wood at 10,000) converts **every block on the board** to the next skin
+plain colour blocks, and each score threshold of the configured sequence (jelly at 500,
+pomegranate at 750, wood at 1,000) converts **every block on the board** to the next skin
 in a wave, and pieces are dealt in it from then on. Only one skin is ever on the board, and a run
 never goes back to an earlier one. A skin that is tinted by block colour (jelly) keeps each block's
 colour readable; others (fruit, wood) replace it. Each skin breaks its own way when a line clears

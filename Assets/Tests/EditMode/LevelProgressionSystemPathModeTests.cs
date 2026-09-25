@@ -645,6 +645,36 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.AreEqual(LevelCompletionRewards.For(1)[0], _powerUpGrantedBroker.Published[0].Kind);
         }
 
+        /// <summary>Classic (Timed) is played with every extra off, so rolling onto the next level there
+        /// pays no power-up — a four-line clear that completes the level's goal must not hand out a Row
+        /// Clear the mode can never use.</summary>
+        [Test]
+        public void ClearingALevel_InClassicMode_AdvancesButGrantsNoPowerUp()
+        {
+            LevelProgressionSystem system = CreateSystem(ACatalogOf(Level(1), Level(2), Level(3)));
+            Assert.IsNotNull(system);
+            _gameModeSystem.SelectMode(GameMode.Timed);
+
+            CompleteCurrentObjective();
+
+            Assert.AreEqual(2, _progressionModel.CurrentLevelNumber.Value);
+            Assert.AreEqual(0, _powerUpGrantedBroker.Published.Count);
+        }
+
+        /// <summary>The counterpart: Şölen (Endless) keeps its extras, and so its level-up reward.</summary>
+        [Test]
+        public void ClearingALevel_InSolenMode_StillGrantsTheLevelReward()
+        {
+            LevelProgressionSystem system = CreateSystem(ACatalogOf(Level(1), Level(2), Level(3)));
+            Assert.IsNotNull(system);
+            _gameModeSystem.SelectMode(GameMode.Endless);
+
+            CompleteCurrentObjective();
+
+            Assert.AreEqual(1, _powerUpGrantedBroker.Published.Count);
+            Assert.AreEqual(LevelCompletionRewards.For(1)[0], _powerUpGrantedBroker.Published[0].Kind);
+        }
+
         // --- Issue #464: rule-based rewards — a first-try streak pays an extra power-up ---
 
         /// <summary>AC2/AC3: three Path levels cleared on the first try, one after another, pay one
