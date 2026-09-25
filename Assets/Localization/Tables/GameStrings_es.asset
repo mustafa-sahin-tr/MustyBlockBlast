@@ -1146,10 +1146,6 @@ MonoBehaviour:
     m_Localized: PREMIO DEL NIVEL
     m_Metadata:
       m_Items: []
-  - m_Id: 4184519664984065
-    m_Localized: "BONO DE RACHA"
-    m_Metadata:
-      m_Items: []
   - m_Id: 4184519664984066
     m_Localized: "Racha al primer intento {0} \u00b7 +{1}"
     m_Metadata:
@@ -1656,6 +1652,10 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 4184519664984193
     m_Localized: "\u00a1BONO DE RACHA!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984194
+    m_Localized: "SIGUIENTE \u00b7 {0}"
     m_Metadata:
       m_Items: []
   references:

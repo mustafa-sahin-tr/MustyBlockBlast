@@ -332,9 +332,6 @@ namespace MustyBlockBlast.Gameplay.Localization
         /// level's first clear paid (issue #462).</summary>
         public const string RUN_RESULT_LEVEL_REWARD_LABEL = "result.level_reward_label";
 
-        /// <summary>Caption on a Path level-complete card's streak-bonus box, beside the extra
-        /// power-up(s) a first-try streak rule paid on this clear (issue #464).</summary>
-        public const string RUN_RESULT_STREAK_BONUS_LABEL = "result.streak_bonus_label";
 
         /// <summary>Tag on the record plate when this run set a new record.</summary>
         public const string RUN_RESULT_NEW_RECORD = "result.new_record";
@@ -350,6 +347,10 @@ namespace MustyBlockBlast.Gameplay.Localization
 
         /// <summary>The Path-mode advance button. <c>{0}</c> is the next level's number.</summary>
         public const string RUN_RESULT_NEXT_LEVEL = "result.next_level";
+
+        /// <summary>The short advance label on the next-level button beside the level's icon (issue
+        /// #464). <c>{0}</c> is the next level's number.</summary>
+        public const string RUN_RESULT_NEXT_SHORT = "result.next_short";
 
         /// <summary>The restart button when a Path level was failed rather than cleared.</summary>
         public const string RUN_RESULT_TRY_AGAIN = "result.try_again";

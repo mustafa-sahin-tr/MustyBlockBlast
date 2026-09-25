@@ -1146,10 +1146,6 @@ MonoBehaviour:
     m_Localized: LEVEL REWARD
     m_Metadata:
       m_Items: []
-  - m_Id: 4184519664984065
-    m_Localized: "STREAK BONUS"
-    m_Metadata:
-      m_Items: []
   - m_Id: 4184519664984066
     m_Localized: "First-try streak {0} \u00b7 +{1}"
     m_Metadata:
@@ -1656,6 +1652,10 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 4184519664984193
     m_Localized: "STREAK BONUS!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984194
+    m_Localized: "NEXT \u00b7 {0}"
     m_Metadata:
       m_Items: []
   references:

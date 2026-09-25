@@ -634,9 +634,15 @@ rule is **3 first-try levels in a row → +1 power-up**.
 - **Which kind:** a drawn bonus is a kind unlocked once the level is completed, preferring one
   the level's own reward did not pay; like the level reward, it is seeded from the level
   number. A rule may instead name a fixed kind, which is drawn anyway while still locked.
-- The bonus flies into the strip after the level's own reward, and the result card shows it
-  in a **STREAK BONUS** row under the level-reward row. In Path mode the Level Path card's
-  header shows progress towards the next bonus, e.g. "First-try streak 2/3 · +1".
+- The bonus flies into the strip after the level's own reward (captioned "STREAK BONUS!"),
+  and the result card lists it in the same reward row as the level's own reward — one row of
+  everything the clear paid. In Path mode the Level Path card's header shows progress towards
+  the next bonus, e.g. "First-try streak 2/3 · +1".
+
+**Level-complete buttons.** A cleared Path level with a next level puts both buttons on one
+row: a square **Play Again** with a restart arrow on the left, and a green **Next** button
+showing the next level's icon, "NEXT · N" and its name. Every other ending keeps the stacked
+buttons, the restart one carrying the same arrow.
 
 **Level-start card.** Tapping any Level Path node opens the level-start card. Every level has
 a **name** and an **icon** (`LevelIdentityCatalog`; 100 names in every language). The card

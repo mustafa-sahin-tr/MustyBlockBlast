@@ -1139,10 +1139,6 @@ MonoBehaviour:
     m_Key: result.level_reward_label
     m_Metadata:
       m_Items: []
-  - m_Id: 4184519664984065
-    m_Key: result.streak_bonus_label
-    m_Metadata:
-      m_Items: []
   - m_Id: 4184519664984066
     m_Key: level_path.streak_hint
     m_Metadata:
@@ -1649,6 +1645,10 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 4184519664984193
     m_Key: grant.streak_bonus
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984194
+    m_Key: result.next_short
     m_Metadata:
       m_Items: []
   m_Metadata:
