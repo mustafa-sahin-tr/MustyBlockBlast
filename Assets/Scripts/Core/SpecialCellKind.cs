@@ -180,9 +180,10 @@ namespace MustyBlockBlast.Core
         /// place — the removal branch of <see cref="Board.TryDamage"/> fans out to the destroyed cell's
         /// neighbours — so every destruction path (line, cascade, power-up, joker, hammer) counts alike.
         /// On reaching the authored threshold (1-3, <c>LockedCellAuthoring</c>) the cell becomes an
-        /// ordinary EMPTY cell: no removal effect, no score, no coin (AC6/AC8). There is deliberately no
-        /// <see cref="ISpecialCellEffect"/> for it; a lock that a Bomb or hammer happens to destroy
-        /// outright is just a destroyed cell.
+        /// ordinary EMPTY cell: no removal effect and no score (AC6/AC8) — but since issue #481 it
+        /// "reveals gold": the board records it in <see cref="Board.OpenedLocks"/>, however it opened, and
+        /// the resolving System pays it once, at the Coin cell's base payout. There is deliberately no
+        /// <see cref="ISpecialCellEffect"/> for it.
         /// </para>
         /// <para>
         /// The mask, the threshold and the randomly assigned visual skin are stored in their own per-cell

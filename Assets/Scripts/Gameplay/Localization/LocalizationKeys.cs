@@ -237,6 +237,10 @@ namespace MustyBlockBlast.Gameplay.Localization
         public const string INFO_POPUP_SPECIAL_CELL_SCORE_GEM_BODY = "info_popup.special_cell.score_gem.body";
         public const string INFO_POPUP_SPECIAL_CELL_COIN_HEADER = "info_popup.special_cell.coin.header";
         public const string INFO_POPUP_SPECIAL_CELL_COIN_BODY = "info_popup.special_cell.coin.body";
+
+        /// <summary>Locked cell info card (issue #481): what opens it, and the gold it reveals.</summary>
+        public const string INFO_POPUP_SPECIAL_CELL_LOCKED_HEADER = "info_popup.special_cell.locked.header";
+        public const string INFO_POPUP_SPECIAL_CELL_LOCKED_BODY = "info_popup.special_cell.locked.body";
         public const string INFO_POPUP_SPECIAL_CELL_TIMER_HEADER = "info_popup.special_cell.timer.header";
         public const string INFO_POPUP_SPECIAL_CELL_TIMER_BODY = "info_popup.special_cell.timer.body";
 

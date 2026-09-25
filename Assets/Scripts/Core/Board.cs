@@ -231,6 +231,18 @@ namespace MustyBlockBlast.Core
         private readonly int[] _lockedSkins;
 
         /// <summary>
+        /// Every <see cref="SpecialCellKind.Locked"/> cell that opened since the last
+        /// <see cref="ClearOpenedLocks"/> (issue #481: an opened lock pays coins, like a Coin cell). Filled
+        /// by the two places a lock opens — <see cref="CountDestroyedNeighbour"/> and a direct hit's
+        /// removal in <see cref="TryDamage"/> — so every destruction path records alike, and drained by
+        /// the Systems that announce a resolution's payout. Accounting for the resolution in flight, not
+        /// board state: <see cref="Clone"/> starts one empty and <see cref="CopyFrom"/> empties it, so an
+        /// Undo's restore never re-pays a lock. A position is recorded at most once per opening, because a
+        /// lock that opened is an ordinary cell and can never open again.
+        /// </summary>
+        private readonly List<GridPosition> _openedLocks = new List<GridPosition>(4);
+
+        /// <summary>
         /// Which of the visual skins a reinforced cell wears (issue #438: 0..<see cref="LOCKED_SKIN_COUNT"/>-1,
         /// rolled at seed time), indexed exactly like <see cref="_cells"/>. The same three looks a locked
         /// cell wears, deliberately — the reinforced cell reuses that art rather than owning any — so the
@@ -480,7 +492,8 @@ namespace MustyBlockBlast.Core
         {
             int index = Index(position);
 
-            if (_specialKinds[index] == SpecialCellKind.Locked && !AdvanceLockedByDirectHit(index))
+            bool isLock = _specialKinds[index] == SpecialCellKind.Locked;
+            if (isLock && !AdvanceLockedByDirectHit(index))
             {
                 return false;
             }
@@ -489,6 +502,12 @@ namespace MustyBlockBlast.Core
             {
                 bool wasOccupied = _cells[index] != EMPTY;
                 Clear(position);
+
+                // A lock a direct hit brought to its threshold opened here (issue #481).
+                if (isLock)
+                {
+                    _openedLocks.Add(position);
+                }
 
                 if (_targetIceLevels[index] > 0)
                 {
@@ -551,6 +570,7 @@ namespace MustyBlockBlast.Core
             if (PopCount(mask) >= _lockedThresholds[lockIndex])
             {
                 Clear(lockPosition);
+                _openedLocks.Add(lockPosition);
             }
         }
 
@@ -1484,12 +1504,22 @@ namespace MustyBlockBlast.Core
         /// this check exists to name.
         /// </para>
         /// </summary>
+        /// <summary>The locks opened since the last <see cref="ClearOpenedLocks"/>, in the order they
+        /// opened (issue #481). See <see cref="_openedLocks"/>.</summary>
+        public IReadOnlyList<GridPosition> OpenedLocks => _openedLocks;
+
+        /// <summary>Forgets <see cref="OpenedLocks"/> — called by whoever just paid for them, and on every
+        /// whole-board reset, so no lock is ever paid twice or carried into another run.</summary>
+        public void ClearOpenedLocks() => _openedLocks.Clear();
+
         public void CopyFrom(Board source)
         {
             if (source == null)
             {
                 throw new ArgumentNullException(nameof(source));
             }
+
+            _openedLocks.Clear();
 
             if (!ReferenceEquals(source._shape, _shape)
                 && (source.Width != Width || source.Height != Height))

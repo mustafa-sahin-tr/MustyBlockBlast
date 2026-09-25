@@ -643,6 +643,7 @@ namespace MustyBlockBlast.Gameplay.Models
 
         internal void ClearAll()
         {
+            _board.ClearOpenedLocks();
             for (int y = 0; y < _board.Height; y++)
             {
                 for (int x = 0; x < _board.Width; x++)
