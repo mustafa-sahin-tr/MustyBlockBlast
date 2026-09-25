@@ -181,6 +181,13 @@ namespace MustyBlockBlast.Presentation.Views
         /// keeps that refusal from being read here as "the ad was declined" and pulling the button.</summary>
         private bool _isRescueRequestInFlight;
 
+        private InterstitialFrequencySystem _interstitialFrequencySystem;
+
+        /// <summary>True from a "Next level" / "Play again" tap until any interstitial it brought up
+        /// (issue #502) has closed and the next run has started; every tap on the card in between is
+        /// swallowed so a second tap cannot start a second run.</summary>
+        private bool _isStartingNextRun;
+
         [Inject]
         public void Construct(
             BoardSystem boardSystem,
@@ -210,7 +217,8 @@ namespace MustyBlockBlast.Presentation.Views
             LivesSystem livesSystem,
             LivesHudView livesHudView,
             OutOfLivesSheetView outOfLivesSheetView,
-            OutOfMovesSheetView outOfMovesSheetView)
+            OutOfMovesSheetView outOfMovesSheetView,
+            InterstitialFrequencySystem interstitialFrequencySystem)
         {
             _boardSystem = boardSystem;
             _boardModel = boardModel;
@@ -240,6 +248,7 @@ namespace MustyBlockBlast.Presentation.Views
             _livesHudView = livesHudView;
             _outOfLivesSheetView = outOfLivesSheetView;
             _outOfMovesSheetView = outOfMovesSheetView;
+            _interstitialFrequencySystem = interstitialFrequencySystem;
         }
 
         private void Awake()
@@ -480,6 +489,11 @@ namespace MustyBlockBlast.Presentation.Views
             // the action to carry out, and anything else (the scrim, a label) is nothing at all.
             if (_runResultView.IsOpen)
             {
+                if (_isStartingNextRun)
+                {
+                    return;
+                }
+
                 switch (_runResultView.HandleTap(screenPosition))
                 {
                     case RunEndAction.ChangeMode:
@@ -489,7 +503,15 @@ namespace MustyBlockBlast.Presentation.Views
                         _hubPanelView.Open(HubTab.Settings);
                         break;
                     case RunEndAction.NextLevel:
-                        _levelProgressionSystem.TryStartPathLevel(_runResultView.NextLevelNumber);
+                        // Gated before the ad rather than after it, so a player at zero lives gets the
+                        // out-of-lives sheet instead of an interstitial followed by the sheet.
+                        // TryStartPathLevel checks the gate again at no cost.
+                        if (!_livesSystem.TryPassStartGate())
+                        {
+                            break;
+                        }
+
+                        StartNextRunAfterInterstitialAsync(_runResultView.NextLevelNumber).Forget();
                         break;
                     case RunEndAction.PlayAgain:
                         // At zero lives in Path the restart is refused before anything moves (issue #478):
@@ -502,12 +524,7 @@ namespace MustyBlockBlast.Presentation.Views
                             break;
                         }
 
-                        // "Play again" and Path's "Try again" are the same restart: the mode and, in
-                        // Path, the active level are untouched, so the run that starts is the same one.
-                        // A restart while a rescue is on offer is the player declining it (issue #371):
-                        // said so explicitly, though StartNewRun drops the offer on its own as well.
-                        _boardSystem.DeclineNoMovesRescue();
-                        _boardSystem.StartNewRun();
+                        StartNextRunAfterInterstitialAsync(nextLevelNumber: null).Forget();
                         break;
                     case RunEndAction.WatchAd:
                         RequestNoMovesRescueAsync().Forget();
@@ -694,6 +711,47 @@ namespace MustyBlockBlast.Presentation.Views
         /// the same way, once its error has been logged — the ad SDK's failure is not the player's
         /// problem, and the restart is still there.
         /// </summary>
+        /// <summary>
+        /// The end-of-run card's "Next level" (a Path level number) or "Play again" (null), after
+        /// whatever interstitial <see cref="InterstitialFrequencySystem"/> says is due (issue #502). None
+        /// due or none ready, the run starts at once; one shown, it starts when the player closes it.
+        /// </summary>
+        private async UniTaskVoid StartNextRunAfterInterstitialAsync(int? nextLevelNumber)
+        {
+            _isStartingNextRun = true;
+            try
+            {
+                await _interstitialFrequencySystem.ShowIfDueAsync(_destroyToken);
+            }
+            catch (OperationCanceledException)
+            {
+                // This View is going away; there is no run left to start from here.
+                return;
+            }
+            catch (Exception exception)
+            {
+                // An ad failure is never the player's problem: log it and start the run regardless.
+                Debug.LogException(exception, this);
+            }
+            finally
+            {
+                _isStartingNextRun = false;
+            }
+
+            if (nextLevelNumber.HasValue)
+            {
+                _levelProgressionSystem.TryStartPathLevel(nextLevelNumber.Value);
+                return;
+            }
+
+            // "Play again" and Path's "Try again" are the same restart: the mode and, in Path, the
+            // active level are untouched, so the run that starts is the same one. A restart while a
+            // rescue is on offer is the player declining it (issue #371): said so explicitly, though
+            // StartNewRun drops the offer on its own as well.
+            _boardSystem.DeclineNoMovesRescue();
+            _boardSystem.StartNewRun();
+        }
+
         private async UniTaskVoid RequestNoMovesRescueAsync()
         {
             if (_isRescueRequestInFlight)

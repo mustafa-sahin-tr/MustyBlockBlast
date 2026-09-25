@@ -736,7 +736,24 @@ level.
 
 ## Earning undo and power-ups
 
-Both are earned by watching a **rewarded ad**, opt-in only. No forced interstitials in v1.
+Both are earned by watching a **rewarded ad**, opt-in only.
+
+### Interstitial ads
+
+A forced **interstitial** ad is shown once every **3 finished runs**, counted **separately per
+mode** (Path, Endless, Timed) and kept across app restarts (#388):
+
+- **Every run end counts** — a win or a loss, and replaying an already-cleared Path level too. A
+  rescued run that ends again is still one run.
+- **When:** the end-of-run card always appears ad-free; the ad plays when the player taps **Next
+  level** (Path) or **Play again** (Endless/Timed), and the next run starts once it closes. Leaving
+  the card any other way (menu, map, mode change) shows no ad.
+- **Never shown:** to a player who bought **remove ads**; during the player's **first 5 runs**
+  overall; after Path levels **1–5**; or at the end of a run in which the player already watched a
+  rewarded ad (e.g. a rescue), so two ads never come back to back.
+- **Never waited on:** if no ad is loaded when it is due, the next run starts immediately and the
+  counter stays where it is, so the ad is tried again at the next run end. The counter resets only
+  when an ad was actually shown.
 
 Power-ups are additionally granted outright — no ad — on two earned events: unlocking a
 badge, and completing a level.
