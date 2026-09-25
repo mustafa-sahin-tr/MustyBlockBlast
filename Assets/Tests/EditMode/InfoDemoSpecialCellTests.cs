@@ -38,6 +38,7 @@ namespace MustyBlockBlast.Tests.EditMode
             SpecialCellKind.Coin,
             SpecialCellKind.Timer,
             SpecialCellKind.PowerStar,
+            SpecialCellKind.PuzzleLink,
         };
 
         // ---------------------------------------------------------------- catalog

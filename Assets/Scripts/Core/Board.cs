@@ -252,6 +252,29 @@ namespace MustyBlockBlast.Core
         private readonly int[] _powerStarCharges;
 
         /// <summary>
+        /// Which puzzle-link group each <see cref="SpecialCellKind.PuzzleLink"/> cell belongs to (issue
+        /// #483: 1 and up, one id per authored group), indexed exactly like <see cref="_cells"/>; 0 for
+        /// every other cell. Belongs to the block, so <see cref="Clear"/> resets it, and
+        /// <see cref="Clone"/>/<see cref="CopyFrom"/> copy it so Undo brings every group back (AC5).
+        /// </summary>
+        private readonly int[] _puzzleGroupIds;
+
+        /// <summary>
+        /// Link cells hit during the resolution in flight (issue #483). A hit link is never removed on the
+        /// spot — <see cref="TryDamage"/> only marks it — and <see cref="ResolvePuzzleLinks"/>, called once
+        /// the resolution is over, removes every group whose members were ALL hit and forgets the marks.
+        /// Accounting for the resolution in flight, like <see cref="_openedLocks"/>: never copied, and
+        /// emptied by <see cref="CopyFrom"/>.
+        /// </summary>
+        private readonly bool[] _puzzleHits;
+
+        /// <summary>Scratch for <see cref="ResolvePuzzleLinks"/>: groups already decided this call.</summary>
+        private readonly List<int> _decidedPuzzleGroups = new List<int>(4);
+
+        /// <summary>Scratch for <see cref="ResolvePuzzleLinks"/>: one group's member positions.</summary>
+        private readonly List<GridPosition> _puzzleGroupMembers = new List<GridPosition>(3);
+
+        /// <summary>
         /// Which of the visual skins a reinforced cell wears (issue #438: 0..<see cref="LOCKED_SKIN_COUNT"/>-1,
         /// rolled at seed time), indexed exactly like <see cref="_cells"/>. The same three looks a locked
         /// cell wears, deliberately — the reinforced cell reuses that art rather than owning any — so the
@@ -311,15 +334,19 @@ namespace MustyBlockBlast.Core
             _lockedSkins = new int[shape.CellCount];
             _reinforcedSkins = new int[shape.CellCount];
             _powerStarCharges = new int[shape.CellCount];
+            _puzzleGroupIds = new int[shape.CellCount];
+            _puzzleHits = new bool[shape.CellCount];
         }
 
         private Board(
             BoardShape shape, int[] cells, SpecialCellKind[] specialKinds, int[] hitCounts,
             int[] timerCountdowns, int[] coinValues, int[] diamondColourIds, int[] targetIceLevels,
             int[] lockedProgressMasks, int[] lockedThresholds, int[] lockedSkins, int[] reinforcedSkins,
-            int[] powerStarCharges)
+            int[] powerStarCharges, int[] puzzleGroupIds)
         {
             _powerStarCharges = powerStarCharges;
+            _puzzleGroupIds = puzzleGroupIds;
+            _puzzleHits = new bool[shape.CellCount];
             _shape = shape;
             _cells = cells;
             _specialKinds = specialKinds;
@@ -462,6 +489,10 @@ namespace MustyBlockBlast.Core
             // And a power star's charge (issue #482): it is the star's own state.
             _powerStarCharges[index] = 0;
 
+            // And a puzzle link's group (issue #483), with any hit mark it carried.
+            _puzzleGroupIds[index] = 0;
+            _puzzleHits[index] = false;
+
             // _targetIceLevels[index] is intentionally NOT reset here — see that field's doc comment.
         }
 
@@ -510,6 +541,14 @@ namespace MustyBlockBlast.Core
         public bool TryDamage(GridPosition position)
         {
             int index = Index(position);
+
+            // A puzzle link (issue #483) is never removed by a hit on its own: the hit is marked, and the
+            // group goes only if ResolvePuzzleLinks finds every member hit in this same resolution.
+            if (_specialKinds[index] == SpecialCellKind.PuzzleLink)
+            {
+                _puzzleHits[index] = true;
+                return false;
+            }
 
             bool isLock = _specialKinds[index] == SpecialCellKind.Locked;
             if (isLock && !AdvanceLockedByDirectHit(index))
@@ -839,6 +878,87 @@ namespace MustyBlockBlast.Core
             Occupy(position, colourId);
             SetSpecialKind(position, SpecialCellKind.PowerStar);
             _powerStarCharges[Index(position)] = 0;
+        }
+
+        /// <summary>Occupies <paramref name="position"/> with a <see cref="SpecialCellKind.PuzzleLink"/> of
+        /// group <paramref name="groupId"/> (issue #483; 1 and up) — the one call its seeder needs.</summary>
+        public void OccupyPuzzleLink(GridPosition position, int colourId, int groupId)
+        {
+            if (groupId <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(groupId), groupId, "A puzzle link group id is 1 or more.");
+            }
+
+            Occupy(position, colourId);
+            SetSpecialKind(position, SpecialCellKind.PuzzleLink);
+            _puzzleGroupIds[Index(position)] = groupId;
+        }
+
+        /// <summary>The puzzle-link group of <paramref name="position"/> (issue #483); 0 for any cell that
+        /// is not a link.</summary>
+        public int GetPuzzleGroupId(GridPosition position) => _puzzleGroupIds[Index(position)];
+
+        /// <summary>
+        /// Ends a resolution for the puzzle links (issue #483): every group whose members were ALL hit
+        /// since the last call is destroyed — each member through the ordinary removal path, so a lock
+        /// beside it counts it and an ice socket under it melts — and its positions are added to
+        /// <paramref name="removed"/>; every other group stays exactly as it was (a partial hit removes
+        /// nothing). Then every hit mark is forgotten. Returns how many cells were removed. The owner of a
+        /// resolution calls this once it is over, before announcing what the resolution changed.
+        /// </summary>
+        public int ResolvePuzzleLinks(List<GridPosition> removed)
+        {
+            int removedCount = 0;
+            _decidedPuzzleGroups.Clear();
+
+            for (int index = 0; index < _puzzleHits.Length; index++)
+            {
+                if (!_puzzleHits[index])
+                {
+                    continue;
+                }
+
+                int groupId = _puzzleGroupIds[index];
+                if (groupId <= 0 || _decidedPuzzleGroups.Contains(groupId))
+                {
+                    continue;
+                }
+
+                _decidedPuzzleGroups.Add(groupId);
+                _puzzleGroupMembers.Clear();
+                bool allHit = true;
+                for (int memberIndex = 0; memberIndex < _puzzleGroupIds.Length; memberIndex++)
+                {
+                    if (_puzzleGroupIds[memberIndex] != groupId)
+                    {
+                        continue;
+                    }
+
+                    _puzzleGroupMembers.Add(new GridPosition(memberIndex % Width, memberIndex / Width));
+                    allHit &= _puzzleHits[memberIndex];
+                }
+
+                if (!allHit)
+                {
+                    continue;
+                }
+
+                for (int i = 0; i < _puzzleGroupMembers.Count; i++)
+                {
+                    GridPosition member = _puzzleGroupMembers[i];
+                    int memberIndex = Index(member);
+
+                    // Stripped of the link first, so the removal below takes the ordinary path.
+                    _specialKinds[memberIndex] = SpecialCellKind.None;
+                    _puzzleGroupIds[memberIndex] = 0;
+                    TryDamage(member);
+                    removed?.Add(member);
+                    removedCount++;
+                }
+            }
+
+            Array.Clear(_puzzleHits, 0, _puzzleHits.Length);
+            return removedCount;
         }
 
         /// <summary>The charge the <see cref="SpecialCellKind.PowerStar"/> on <paramref name="position"/>
@@ -1543,10 +1663,13 @@ namespace MustyBlockBlast.Core
             int[] powerStarChargeCopy = new int[_powerStarCharges.Length];
             Array.Copy(_powerStarCharges, powerStarChargeCopy, _powerStarCharges.Length);
 
+            int[] puzzleGroupIdCopy = new int[_puzzleGroupIds.Length];
+            Array.Copy(_puzzleGroupIds, puzzleGroupIdCopy, _puzzleGroupIds.Length);
+
             return new Board(
                 _shape, copy, specialCopy, hitCountCopy, timerCountdownCopy, coinValueCopy,
                 diamondColourIdCopy, targetIceLevelCopy, lockedProgressMaskCopy, lockedThresholdCopy,
-                lockedSkinCopy, reinforcedSkinCopy, powerStarChargeCopy);
+                lockedSkinCopy, reinforcedSkinCopy, powerStarChargeCopy, puzzleGroupIdCopy);
         }
 
         /// <summary>Overwrites this board's cells with <paramref name="source"/>'s. Used to reuse a scratch
@@ -1596,6 +1719,8 @@ namespace MustyBlockBlast.Core
             Array.Copy(source._lockedSkins, _lockedSkins, _lockedSkins.Length);
             Array.Copy(source._reinforcedSkins, _reinforcedSkins, _reinforcedSkins.Length);
             Array.Copy(source._powerStarCharges, _powerStarCharges, _powerStarCharges.Length);
+            Array.Copy(source._puzzleGroupIds, _puzzleGroupIds, _puzzleGroupIds.Length);
+            Array.Clear(_puzzleHits, 0, _puzzleHits.Length);
         }
 
         /// <summary>Flat index of <paramref name="position"/> — also the index a caller's own per-cell

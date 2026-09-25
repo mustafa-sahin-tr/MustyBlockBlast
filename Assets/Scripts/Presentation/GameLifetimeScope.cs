@@ -124,6 +124,7 @@ namespace MustyBlockBlast.Presentation
                 container.Resolve<ExplosiveCoreScoreSystem>();
                 container.Resolve<LaserScoreSystem>();
                 container.Resolve<PiercingRocketScoreSystem>();
+                container.Resolve<PuzzleLinkScoreSystem>();
 
                 // Subscribes to ScoreModel.Streak in its constructor, so it must be watching before the
                 // first placement can build a streak — nothing else resolves it, so without this line
@@ -251,6 +252,7 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterMessageBroker<CoinsGrantedFromAdMessage>(options);
             builder.RegisterMessageBroker<CoinCellsClearedMessage>(options);
             builder.RegisterMessageBroker<LockedCellsOpenedMessage>(options);
+            builder.RegisterMessageBroker<PuzzleLinksClearedMessage>(options);
             builder.RegisterMessageBroker<CoinsGrantedFromPurchaseMessage>(options);
             builder.RegisterMessageBroker<CoinProductsFetchedMessage>(options);
 
@@ -682,6 +684,7 @@ namespace MustyBlockBlast.Presentation
 
             builder.Register<PowerUpScoreSystem>(Lifetime.Singleton).AsSelf();
             builder.Register<ExplosiveCoreScoreSystem>(Lifetime.Singleton).AsSelf();
+            builder.Register<PuzzleLinkScoreSystem>(Lifetime.Singleton).AsSelf();
             builder.Register<LaserScoreSystem>(Lifetime.Singleton).AsSelf();
             builder.Register<PiercingRocketScoreSystem>(Lifetime.Singleton).AsSelf();
             builder.Register<LaserSpawnSystem>(Lifetime.Singleton).AsSelf();
@@ -720,6 +723,7 @@ namespace MustyBlockBlast.Presentation
             // It also rolls each lock's visual skin from its own seeded Random (AC9).
             builder.Register<LevelLockedCellSeeder>(Lifetime.Singleton).AsSelf();
             builder.Register<LevelPowerStarCellSeeder>(Lifetime.Singleton).AsSelf();
+            builder.Register<LevelPuzzleLinkSeeder>(Lifetime.Singleton).AsSelf();
 
             // Picks each Path run's board outline from its level (issue #472); BoardSystem asks it at the
             // top of StartNewRun, before the seeders above place anything.

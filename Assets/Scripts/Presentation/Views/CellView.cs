@@ -80,6 +80,11 @@ namespace MustyBlockBlast.Presentation.Views
         private static readonly Color PowerStarPipUnlit = new Color(1f, 1f, 1f, 1f);
         private static readonly Color PowerStarPipBacking = new Color(0.48f, 0.35f, 0.07f, 0.95f);
 
+        /// <summary>A puzzle link's tooth (issue #483): the piece's own red on a white rim, as the mockup
+        /// draws the link between two pieces.</summary>
+        private static readonly Color PuzzleToothFill = new Color(0.78f, 0.18f, 0.18f, 1f);
+        private static readonly Color PuzzleToothRim = new Color(1f, 1f, 1f, 1f);
+
         /// <summary>How far <see cref="SetIconShine"/> blends the icon towards white at the brightest
         /// point of the pulse (issue #421) — subtle enough that the icon's own hue (and the vivid‑tint
         /// retune in <c>BoardView.IconTint</c>) still reads as that kind's identity, not a flash of
@@ -162,6 +167,15 @@ namespace MustyBlockBlast.Presentation.Views
         private GameObject _powerStarChargeRoot;
         private Image _powerStarChargeBacking;
         private Image[] _powerStarPips;
+
+        /// <summary>A puzzle link's teeth (issue #483 AC4): a tab bridging the gap to the linked
+        /// neighbour on the left and one to the neighbour below — each link is drawn by its right/upper
+        /// cell only, which the board draws after its neighbour, so the tab lies on top of both pieces and
+        /// a pair shows exactly one tooth. Rim (white) behind, tab (red) on top.</summary>
+        private Image _puzzleToothLeftRim;
+        private Image _puzzleToothLeft;
+        private Image _puzzleToothDownRim;
+        private Image _puzzleToothDown;
         private Text _bonusNumberText;
         private Outline _bonusNumberOutline;
 
@@ -349,6 +363,7 @@ namespace MustyBlockBlast.Presentation.Views
             _timerCountdownText.gameObject.SetActive(false);
 
             BuildPowerStarCharge();
+            BuildPuzzleTeeth();
 
             // Issue #424: the level-completion empty-cell count, written over the cell. Its own layer
             // rather than a reuse of the timer countdown so the two can never fight over one Text.
@@ -692,6 +707,71 @@ namespace MustyBlockBlast.Presentation.Views
             }
         }
 
+        /// <summary>Shows the puzzle-link teeth toward the linked neighbours (issue #483 AC4): one to the
+        /// left when <paramref name="left"/>, one downward when <paramref name="down"/>. Idempotent.</summary>
+        internal void SetPuzzleTeeth(bool left, bool down)
+        {
+            if (_puzzleToothLeft == null)
+            {
+                return;
+            }
+
+            SetTooth(_puzzleToothLeftRim, _puzzleToothLeft, left);
+            SetTooth(_puzzleToothDownRim, _puzzleToothDown, down);
+        }
+
+        /// <summary>Hides both puzzle-link teeth. Safe on a cell that never showed them.</summary>
+        internal void ClearPuzzleTeeth() => SetPuzzleTeeth(false, false);
+
+        private static void SetTooth(Image rim, Image tooth, bool show)
+        {
+            if (show)
+            {
+                ShowLayer(rim, PuzzleToothRim);
+                ShowLayer(tooth, PuzzleToothFill);
+            }
+            else
+            {
+                HideLayer(rim);
+                HideLayer(tooth);
+            }
+        }
+
+        /// <summary>Builds the two (hidden) teeth. Anchored past the cell's left and bottom edges so each
+        /// crosses the board's cell spacing into the neighbour, at any cell size.</summary>
+        private void BuildPuzzleTeeth()
+        {
+            const float along = 0.18f;
+            const float reachOut = 0.16f;
+            const float reachIn = 0.06f;
+            const float rimGrow = 0.035f;
+
+            _puzzleToothLeftRim = BuildTooth("PuzzleToothLeftRim",
+                new Vector2(-reachOut - rimGrow, 0.5f - along - rimGrow), new Vector2(reachIn + rimGrow, 0.5f + along + rimGrow));
+            _puzzleToothLeft = BuildTooth("PuzzleToothLeft",
+                new Vector2(-reachOut, 0.5f - along), new Vector2(reachIn, 0.5f + along));
+            _puzzleToothDownRim = BuildTooth("PuzzleToothDownRim",
+                new Vector2(0.5f - along - rimGrow, -reachOut - rimGrow), new Vector2(0.5f + along + rimGrow, reachIn + rimGrow));
+            _puzzleToothDown = BuildTooth("PuzzleToothDown",
+                new Vector2(0.5f - along, -reachOut), new Vector2(0.5f + along, reachIn));
+        }
+
+        private Image BuildTooth(string objectName, Vector2 anchorMin, Vector2 anchorMax)
+        {
+            Image tooth = CreateStretchedImage(transform, objectName);
+            tooth.sprite = UiSpriteFactory.RoundedSquare;
+            tooth.type = Image.Type.Sliced;
+            tooth.pixelsPerUnitMultiplier = 4f;
+            tooth.raycastTarget = false;
+            var rect = (RectTransform)tooth.transform;
+            rect.anchorMin = anchorMin;
+            rect.anchorMax = anchorMax;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+            tooth.gameObject.SetActive(false);
+            return tooth;
+        }
+
         /// <summary>Hides the power star charge pips. Safe on a cell that never showed them.</summary>
         internal void ClearPowerStarCharge()
         {
@@ -880,6 +960,12 @@ namespace MustyBlockBlast.Presentation.Views
             // And the lock skin (issue #434): the lock IS the block, so a lock destroyed outright fades
             // with it rather than floating over an emptying cell. Restored by the next SetStageOverlay.
             ApplyAlpha(_lockedOverlayImage, alpha);
+
+            // And a puzzle link's teeth (issue #483), which go with the link.
+            ApplyAlpha(_puzzleToothLeftRim, alpha);
+            ApplyAlpha(_puzzleToothLeft, alpha);
+            ApplyAlpha(_puzzleToothDownRim, alpha);
+            ApplyAlpha(_puzzleToothDown, alpha);
 
             // And a power star's charge pips (issue #482), which go with the star.
             if (_powerStarPips != null)

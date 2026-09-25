@@ -100,6 +100,16 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// test constructions that author none.</summary>
         private readonly LevelPowerStarCellSeeder _powerStarCellSeeder;
 
+        /// <summary>Pre-fills the level's authored puzzle-link groups at run start (issue #483). Optional.</summary>
+        private readonly LevelPuzzleLinkSeeder _puzzleLinkSeeder;
+
+        /// <summary>Where whole-group puzzle-link removals are announced for their bonus (issue #483).
+        /// Optional: null in test constructions, which still remove the groups.</summary>
+        private readonly IPublisher<PuzzleLinksClearedMessage> _puzzleLinksClearedPublisher;
+
+        /// <summary>The link cells the current resolution removed (issue #483), reused.</summary>
+        private readonly List<GridPosition> _removedPuzzleLinks = new List<GridPosition>(6);
+
         /// <summary>
         /// Which rule set the current run is played under. Read only by the per-placement timer tick
         /// (issue #307 AC4), to decide whether an expired <see cref="SpecialCellKind.Timer"/> cell ends
@@ -366,7 +376,9 @@ namespace MustyBlockBlast.Gameplay.Systems
             LevelLockedCellSeeder lockedCellSeeder = null,
             LevelBoardShapeSource boardShapeSource = null,
             IPublisher<LockedCellsOpenedMessage> lockedCellsOpenedPublisher = null,
-            LevelPowerStarCellSeeder powerStarCellSeeder = null)
+            LevelPowerStarCellSeeder powerStarCellSeeder = null,
+            LevelPuzzleLinkSeeder puzzleLinkSeeder = null,
+            IPublisher<PuzzleLinksClearedMessage> puzzleLinksClearedPublisher = null)
             : this(
                 boardModel, trayModel, scoreGemProgressModel, vortexProgressModel, pieceDraw,
                 runStartedPublisher, piecePlacedPublisher, linesClearedPublisher, gameOverPublisher,
@@ -376,7 +388,7 @@ namespace MustyBlockBlast.Gameplay.Systems
                 powerUpModel, specialCellSpawnedPublisher, specialPieceSpawnedPublisher,
                 timerCellSeeder, gameModeModel, rescueRewardSource, runRescuedPublisher,
                 diamondPieceDecorator, targetIceCellSeeder, lockedCellSeeder, boardShapeSource,
-                lockedCellsOpenedPublisher, powerStarCellSeeder)
+                lockedCellsOpenedPublisher, powerStarCellSeeder, puzzleLinkSeeder, puzzleLinksClearedPublisher)
         {
         }
 
@@ -412,7 +424,9 @@ namespace MustyBlockBlast.Gameplay.Systems
             LevelLockedCellSeeder lockedCellSeeder = null,
             LevelBoardShapeSource boardShapeSource = null,
             IPublisher<LockedCellsOpenedMessage> lockedCellsOpenedPublisher = null,
-            LevelPowerStarCellSeeder powerStarCellSeeder = null)
+            LevelPowerStarCellSeeder powerStarCellSeeder = null,
+            LevelPuzzleLinkSeeder puzzleLinkSeeder = null,
+            IPublisher<PuzzleLinksClearedMessage> puzzleLinksClearedPublisher = null)
         {
             _boardShapeSource = boardShapeSource;
             _reinforcedCellSeeder = reinforcedCellSeeder;
@@ -446,6 +460,8 @@ namespace MustyBlockBlast.Gameplay.Systems
             _coinCellsClearedPublisher = coinCellsClearedPublisher;
             _lockedCellsOpenedPublisher = lockedCellsOpenedPublisher;
             _powerStarCellSeeder = powerStarCellSeeder;
+            _puzzleLinkSeeder = puzzleLinkSeeder;
+            _puzzleLinksClearedPublisher = puzzleLinksClearedPublisher;
             _coinCellPayout = currencyConfig.CoinCellPayout;
             _coinEffect = new CoinEffect(currencyConfig.CoinCellPayout);
             _specialCellEffects = new CompositeSpecialCellEffect(
@@ -533,6 +549,12 @@ namespace MustyBlockBlast.Gameplay.Systems
             if (_powerStarCellSeeder != null)
             {
                 _powerStarCellSeeder.Seed(_boardModel);
+            }
+
+            // Puzzle-link groups (issue #483), exclusive per cell with everything above (IsValid).
+            if (_puzzleLinkSeeder != null)
+            {
+                _puzzleLinkSeeder.Seed(_boardModel);
             }
 
             // Dropped before the refill below, which is the thing that would otherwise pay them: a
@@ -746,6 +768,11 @@ namespace MustyBlockBlast.Gameplay.Systems
                 }
             }
 
+            // Puzzle links (issue #483): the resolution is over, so every group hit in full goes now —
+            // after the line clears have claimed their own cells, and before anything below reads the
+            // board (a removed link can open a lock beside it).
+            int puzzleLinkCellsRemoved = ResolvePuzzleLinks();
+
             // A laser's wipe is announced the same way and for the same reason: it empties a line
             // whether or not that line was full, so no LinesClearedMessage describes it.
             IReadOnlyList<GridPosition> wipedCells = _laserEffect.WipedCells;
@@ -857,6 +884,8 @@ namespace MustyBlockBlast.Gameplay.Systems
                 _linesClearedPublisher.Publish(new LinesClearedMessage(
                     clearResult.ClearedRows, clearResult.ClearedColumns, clearResult.ClearedCellCount));
             }
+
+            PublishPuzzleLinksCleared(puzzleLinkCellsRemoved);
 
             // Published after the two messages above so a subscriber that reacts to a detonation sees a
             // placement that has already been fully reported, and so the View's line-clear animation
@@ -1351,6 +1380,16 @@ namespace MustyBlockBlast.Gameplay.Systems
 
             ApplyHammerTriggeredSpecials();
 
+            // Puzzle links (issue #483): a hammer hits one cell, so it can only ever complete a group
+            // together with what its triggered specials hit; either way the resolution ends here.
+            int puzzleLinkCellsRemoved = ResolvePuzzleLinks();
+            if (puzzleLinkCellsRemoved > 0)
+            {
+                _boardModel.NotifyLockedCellsRefreshed();
+            }
+
+            PublishPuzzleLinksCleared(puzzleLinkCellsRemoved);
+
             // A hammer that opened a lock — hit directly, or as its neighbour — pays its gold (#481), and
             // so does one its triggered specials opened. Outside ApplyHammerTriggeredSpecials, which
             // returns early when the hammer destroyed no special cell.
@@ -1817,6 +1856,29 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// cell is not an event, so no subscriber ever has to handle a nil payout.
         /// </para>
         /// </summary>
+        /// <summary>Ends the resolution for the puzzle links (issue #483): removes every group whose
+        /// members were all hit (<see cref="Board.ResolvePuzzleLinks"/>) and announces the emptied cells
+        /// through the cleared-cells seam. Returns how many link cells went.</summary>
+        private int ResolvePuzzleLinks()
+        {
+            _removedPuzzleLinks.Clear();
+            int removed = _boardModel.Board.ResolvePuzzleLinks(_removedPuzzleLinks);
+            if (removed > 0)
+            {
+                _boardModel.NotifyPowerUpCleared(_removedPuzzleLinks);
+            }
+
+            return removed;
+        }
+
+        private void PublishPuzzleLinksCleared(int cellCount)
+        {
+            if (cellCount > 0 && _puzzleLinksClearedPublisher != null)
+            {
+                _puzzleLinksClearedPublisher.Publish(new PuzzleLinksClearedMessage(cellCount));
+            }
+        }
+
         /// <summary>Pays and forgets every lock the board recorded as opened (issue #481), through
         /// <see cref="LockedCellPayout"/>.</summary>
         private void PayOpenedLocks() => LockedCellPayout.PayAndDrain(

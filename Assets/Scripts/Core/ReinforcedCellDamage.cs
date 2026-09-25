@@ -49,6 +49,16 @@ namespace MustyBlockBlast.Core
             for (int readIndex = startIndex; readIndex < candidates.Count; readIndex++)
             {
                 GridPosition position = candidates[readIndex];
+
+                // A puzzle link (issue #483) is only marked as hit here and stays standing: whether its
+                // group goes is decided once the whole resolution is over (Board.ResolvePuzzleLinks), so
+                // it is no destroyed cell of this clear by any measure.
+                if (board.GetSpecialKind(position) == SpecialCellKind.PuzzleLink)
+                {
+                    board.TryDamage(position);
+                    continue;
+                }
+
                 int hitCount = board.GetHitCount(position);
 
                 if (hitCount > 1)

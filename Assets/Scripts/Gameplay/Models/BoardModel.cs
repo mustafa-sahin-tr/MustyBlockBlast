@@ -162,6 +162,9 @@ namespace MustyBlockBlast.Gameplay.Models
         /// cell.</summary>
         public int GetTimerCountdown(GridPosition position) => _board.GetTimerCountdown(position);
 
+        /// <summary>See <see cref="Core.Board.GetPuzzleGroupId"/> (issue #483).</summary>
+        public int GetPuzzleGroupId(GridPosition position) => _board.GetPuzzleGroupId(position);
+
         /// <summary>See <see cref="Core.Board.GetPowerStarCharge"/> (issue #482).</summary>
         public int GetPowerStarCharge(GridPosition position) => _board.GetPowerStarCharge(position);
 
@@ -250,6 +253,16 @@ namespace MustyBlockBlast.Gameplay.Models
             CellChanged?.Invoke(position, colourId);
             SpecialKindChanged?.Invoke(position, SpecialCellKind.Timer);
             TimerCountdownChanged?.Invoke(position, startingCountdown);
+        }
+
+        /// <summary>Occupies a cell as a <see cref="SpecialCellKind.PuzzleLink"/> of group
+        /// <paramref name="groupId"/> (issue #483), announcing it as <see cref="OccupyTimer"/> does. Seeder
+        /// use only.</summary>
+        internal void OccupyPuzzleLink(GridPosition position, int colourId, int groupId)
+        {
+            _board.OccupyPuzzleLink(position, colourId, groupId);
+            CellChanged?.Invoke(position, colourId);
+            SpecialKindChanged?.Invoke(position, SpecialCellKind.PuzzleLink);
         }
 
         /// <summary>Occupies a cell as a <see cref="SpecialCellKind.PowerStar"/> at charge 0 (issue #482),

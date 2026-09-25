@@ -1734,6 +1734,14 @@ MonoBehaviour:
     m_Localized: "Las l\xEDneas que la cruzan no la quitan: cada una le da una carga. Con 3 cargas estalla y despeja el 3\xD73 a su alrededor."
     m_Metadata:
       m_Items: []
+  - m_Id: 4328067626426368
+    m_Localized: Enlace de Puzle
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4328067689340928
+    m_Localized: Las piezas enlazadas solo salen si todas reciben el golpe en la misma jugada, y dan puntos extra. Si golpeas solo una, no sale ninguna.
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []
