@@ -458,7 +458,8 @@ namespace MustyBlockBlast.Presentation.Views
                 x += _leadingWidth + _sectionGap;
             }
 
-            // The chips flow from after the leading group and stop short of the trailing group: one
+            // The chips fill the band between the leading and trailing groups and stop short of the
+            // trailing group: one
             // that would run into it is hidden rather than drawn underneath, and so are those after it,
             // so the row never shows chip three without chip two.
             float limit = right - _trailingInset;
@@ -467,7 +468,16 @@ namespace MustyBlockBlast.Presentation.Views
                 limit -= _trailingWidth + _sectionGap;
             }
 
-            float chipScale = MeasureChipScale(tracked, objectiveCount, x, limit);
+            float chipScale = MeasureChipScale(tracked, objectiveCount, x, limit, out float naturalRowWidth);
+
+            // The chips sit in the middle of the band between the two groups (issue #508), not packed
+            // against the level section. A row that still overflows at the scale floor keeps starting
+            // at the band's left edge, so the clip below hides chips from the right as before.
+            float slack = (limit - x) - (naturalRowWidth * chipScale);
+            if (slack > 0f)
+            {
+                x += slack * 0.5f;
+            }
 
             bool isClipped = false;
             for (int slotIndex = 0; slotIndex < MAX_SLOT_COUNT; slotIndex++)
@@ -571,16 +581,18 @@ namespace MustyBlockBlast.Presentation.Views
         /// laid out because the widths are what decide the scale — the counter's text is set here for
         /// that measurement and set again, identically, by <see cref="RefreshChip"/>.
         /// </para>
+        /// <paramref name="totalWidth"/> is the row's unscaled width, spacing included, which
+        /// <see cref="Refresh"/> uses to centre the row in the band.
         /// </summary>
         private float MeasureChipScale(
-            IReadOnlyList<ObjectiveProgress> tracked, int objectiveCount, float x, float limit)
+            IReadOnlyList<ObjectiveProgress> tracked, int objectiveCount, float x, float limit, out float totalWidth)
         {
+            totalWidth = 0f;
             if (objectiveCount <= 0)
             {
                 return 1f;
             }
 
-            float totalWidth = 0f;
             for (int slotIndex = 0; slotIndex < objectiveCount; slotIndex++)
             {
                 ObjectiveProgress objective = tracked[slotIndex];
