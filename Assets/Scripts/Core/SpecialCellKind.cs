@@ -193,5 +193,23 @@ namespace MustyBlockBlast.Core
         /// </para>
         /// </summary>
         Locked = 9,
+
+        /// <summary>
+        /// A "power star" ("Güç Yıldızı", issue #482): a level-authored cell that line clears charge
+        /// rather than remove. Every completed row or column through it adds one charge — a row and a
+        /// column closed through it at once add two — and it stays standing (see
+        /// <see cref="PowerStarCharging"/>) until its charge reaches
+        /// <see cref="Board.POWER_STAR_BURST_CHARGE"/>: the line that gets it there destroys it, and it
+        /// bursts, destroying every occupied cell in the 3x3 around it (<see cref="PowerStarEffect"/>).
+        /// Destroyed outright by a power-up, the hammer or another star's burst, it bursts at once,
+        /// whatever its charge. (A laser's or explosive core's wipe only chains its own kind, as it
+        /// does for every other kind, so a star it takes out is simply destroyed.)
+        /// <para>
+        /// The charge is its own per-cell array on <see cref="Board"/>, copied for Undo. A star still
+        /// standing when the run ends does nothing. Level-authored only
+        /// (<c>PowerStarCellAuthoring</c>/<c>LevelPowerStarCellSeeder</c>).
+        /// </para>
+        /// </summary>
+        PowerStar = 10,
     }
 }

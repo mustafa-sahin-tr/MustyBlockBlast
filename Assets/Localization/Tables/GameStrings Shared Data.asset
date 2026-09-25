@@ -1719,6 +1719,14 @@ MonoBehaviour:
     m_Key: info_popup.special_cell.locked.body
     m_Metadata:
       m_Items: []
+  - m_Id: 4323470539218944
+    m_Key: info_popup.special_cell.power_star.header
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4323470639882240
+    m_Key: info_popup.special_cell.power_star.body
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

@@ -96,6 +96,10 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// </summary>
         private readonly LevelLockedCellSeeder _lockedCellSeeder;
 
+        /// <summary>Pre-fills the level's authored power stars at run start (issue #482). Optional: null in
+        /// test constructions that author none.</summary>
+        private readonly LevelPowerStarCellSeeder _powerStarCellSeeder;
+
         /// <summary>
         /// Which rule set the current run is played under. Read only by the per-placement timer tick
         /// (issue #307 AC4), to decide whether an expired <see cref="SpecialCellKind.Timer"/> cell ends
@@ -183,6 +187,10 @@ namespace MustyBlockBlast.Gameplay.Systems
         // One long-lived effect per kind, reset per placement rather than reallocated — each owns the
         // buffer its destroyed cells are reported through.
         private readonly ExplosiveCoreEffect _explosiveCoreEffect = new ExplosiveCoreEffect();
+
+        /// <summary>A destroyed power star's 3x3 burst (issue #482). Chained to <see cref="_specialCellEffects"/>
+        /// once that is built, so the specials a burst destroys trigger normally.</summary>
+        private readonly PowerStarEffect _powerStarEffect = new PowerStarEffect();
         private readonly LaserEffect _laserEffect = new LaserEffect();
 
         /// <summary>The odd one out among the board-mutating effects: it creates blocks instead of
@@ -357,7 +365,8 @@ namespace MustyBlockBlast.Gameplay.Systems
             LevelTargetIceCellSeeder targetIceCellSeeder = null,
             LevelLockedCellSeeder lockedCellSeeder = null,
             LevelBoardShapeSource boardShapeSource = null,
-            IPublisher<LockedCellsOpenedMessage> lockedCellsOpenedPublisher = null)
+            IPublisher<LockedCellsOpenedMessage> lockedCellsOpenedPublisher = null,
+            LevelPowerStarCellSeeder powerStarCellSeeder = null)
             : this(
                 boardModel, trayModel, scoreGemProgressModel, vortexProgressModel, pieceDraw,
                 runStartedPublisher, piecePlacedPublisher, linesClearedPublisher, gameOverPublisher,
@@ -367,7 +376,7 @@ namespace MustyBlockBlast.Gameplay.Systems
                 powerUpModel, specialCellSpawnedPublisher, specialPieceSpawnedPublisher,
                 timerCellSeeder, gameModeModel, rescueRewardSource, runRescuedPublisher,
                 diamondPieceDecorator, targetIceCellSeeder, lockedCellSeeder, boardShapeSource,
-                lockedCellsOpenedPublisher)
+                lockedCellsOpenedPublisher, powerStarCellSeeder)
         {
         }
 
@@ -402,7 +411,8 @@ namespace MustyBlockBlast.Gameplay.Systems
             LevelTargetIceCellSeeder targetIceCellSeeder = null,
             LevelLockedCellSeeder lockedCellSeeder = null,
             LevelBoardShapeSource boardShapeSource = null,
-            IPublisher<LockedCellsOpenedMessage> lockedCellsOpenedPublisher = null)
+            IPublisher<LockedCellsOpenedMessage> lockedCellsOpenedPublisher = null,
+            LevelPowerStarCellSeeder powerStarCellSeeder = null)
         {
             _boardShapeSource = boardShapeSource;
             _reinforcedCellSeeder = reinforcedCellSeeder;
@@ -435,11 +445,13 @@ namespace MustyBlockBlast.Gameplay.Systems
             _chainLightningTriggeredPublisher = chainLightningTriggeredPublisher;
             _coinCellsClearedPublisher = coinCellsClearedPublisher;
             _lockedCellsOpenedPublisher = lockedCellsOpenedPublisher;
+            _powerStarCellSeeder = powerStarCellSeeder;
             _coinCellPayout = currencyConfig.CoinCellPayout;
             _coinEffect = new CoinEffect(currencyConfig.CoinCellPayout);
             _specialCellEffects = new CompositeSpecialCellEffect(
                 _explosiveCoreEffect, _laserEffect, _scoreGemEffect, _vortexEffect, _chainLightningEffect,
-                _coinEffect, _timerCellClearEffect, _diamondClearEffect);
+                _coinEffect, _timerCellClearEffect, _diamondClearEffect, _powerStarEffect);
+            _powerStarEffect.SetChain(_specialCellEffects);
             _boardModel = boardModel;
             _trayModel = trayModel;
             _scoreGemProgressModel = scoreGemProgressModel;
@@ -514,6 +526,13 @@ namespace MustyBlockBlast.Gameplay.Systems
             if (_lockedCellSeeder != null)
             {
                 _lockedCellSeeder.Seed(_boardModel);
+            }
+
+            // Power stars (issue #482) are pre-filled blocks like the four above, and exclusive per cell
+            // with them (LevelObjectiveConfig.IsValid), so the order does not matter either.
+            if (_powerStarCellSeeder != null)
+            {
+                _powerStarCellSeeder.Seed(_boardModel);
             }
 
             // Dropped before the refill below, which is the thing that would otherwise pay them: a
@@ -694,6 +713,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             _coinEffect.BeginResolution();
             _timerCellClearEffect.BeginResolution();
             _diamondClearEffect.BeginResolution();
+            _powerStarEffect.BeginResolution();
 
             // Before the cascade, deliberately. The rocket empties its row and column whether or not
             // either was full, so running it first is what keeps a cell from being removed by the wipe
@@ -794,6 +814,9 @@ namespace MustyBlockBlast.Gameplay.Systems
             // destruction just advanced is the same block in the same place, and a lock that just
             // opened was never in any cleared line, so nothing above announces either. Same scan.
             _boardModel.NotifyLockedCellsRefreshed();
+
+            // And the power stars (issue #482): a burst's cells, and every star's charge.
+            AnnouncePowerStarWork();
 
             // The other half of the melted count: sockets still icy now. Ice only ever goes down, so the
             // difference is exactly the number of sockets this whole resolution melted to 0.
@@ -1687,12 +1710,16 @@ namespace MustyBlockBlast.Gameplay.Systems
             // the trigger's ClearAxis.None on its own.
             _coinEffect.BeginResolution();
 
+            // A hammered power star bursts at once, whatever its charge (issue #482).
+            _powerStarEffect.BeginResolution();
+
             for (int i = 0; i < _hammerTriggerBuffer.Count; i++)
             {
                 _explosiveCoreEffect.Apply(_boardModel.Board, _hammerTriggerBuffer[i]);
                 _laserEffect.Apply(_boardModel.Board, _hammerTriggerBuffer[i]);
                 _vortexEffect.Apply(_boardModel.Board, _hammerTriggerBuffer[i]);
                 _coinEffect.Apply(_boardModel.Board, _hammerTriggerBuffer[i]);
+                _powerStarEffect.Apply(_boardModel.Board, _hammerTriggerBuffer[i]);
             }
 
             // The vortex's fill never clears a line itself — it only fills island cells and relies on a
@@ -1758,7 +1785,26 @@ namespace MustyBlockBlast.Gameplay.Systems
             // Nor a lock the blast/wipe/strike advanced or opened from beside it (issue #434).
             _boardModel.NotifyLockedCellsRefreshed();
 
+            AnnouncePowerStarWork();
+
             PublishCoinsAwarded();
+        }
+
+        /// <summary>
+        /// Announces this resolution's power-star work (issue #482): every cell a burst destroyed, through
+        /// the same cleared-cells seam a blast or a wipe uses (a burst is not a line, so no
+        /// LinesClearedMessage describes it), then every standing star's charge — it advances inside the
+        /// line-clear resolver, which reports nothing.
+        /// </summary>
+        private void AnnouncePowerStarWork()
+        {
+            IReadOnlyList<GridPosition> burstCells = _powerStarEffect.BurstCells;
+            if (burstCells.Count > 0)
+            {
+                _boardModel.NotifyPowerUpCleared(burstCells);
+            }
+
+            _boardModel.NotifyPowerStarChargesRefreshed();
         }
 
         /// <summary>

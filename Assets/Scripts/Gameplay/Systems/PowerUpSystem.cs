@@ -141,6 +141,9 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// </summary>
         private readonly ExplosiveCoreEffect _explosiveCoreEffect = new ExplosiveCoreEffect();
 
+        /// <summary>A power star's 3x3 burst (issue #482), chained to <see cref="_specialCellEffects"/>.</summary>
+        private readonly PowerStarEffect _powerStarEffect = new PowerStarEffect();
+
         /// <summary>Its own instance for the same reason <see cref="_explosiveCoreEffect"/> is.</summary>
         private readonly LaserEffect _laserEffect = new LaserEffect();
 
@@ -226,7 +229,8 @@ namespace MustyBlockBlast.Gameplay.Systems
             _coinEffect = new CoinEffect(currencyConfig.CoinCellPayout);
             _vortexEffect = new VortexEffect(_random);
             _specialCellEffects = new CompositeSpecialCellEffect(
-                _explosiveCoreEffect, _laserEffect, _vortexEffect, _coinEffect);
+                _explosiveCoreEffect, _laserEffect, _vortexEffect, _coinEffect, _powerStarEffect);
+            _powerStarEffect.SetChain(_specialCellEffects);
             _powerUpModel = powerUpModel;
             _levelProgressionModel = levelProgressionModel;
             _levelCatalog = levelCatalog;
@@ -1216,8 +1220,15 @@ namespace MustyBlockBlast.Gameplay.Systems
 
         /// <summary>Pays and forgets every lock the board recorded as opened (issue #481), through
         /// <see cref="LockedCellPayout"/>.</summary>
-        private void PayOpenedLocks() => LockedCellPayout.PayAndDrain(
-            _boardModel.Board, _coinCellPayout, _coinCellsClearedPublisher, _lockedCellsOpenedPublisher);
+        private void PayOpenedLocks()
+        {
+            LockedCellPayout.PayAndDrain(
+                _boardModel.Board, _coinCellPayout, _coinCellsClearedPublisher, _lockedCellsOpenedPublisher);
+
+            // Every standing power star's charge too (issue #482): a joker's completed lines charge the
+            // stars in them, and nothing else repaints a star that is still standing. Idempotent scan.
+            _boardModel.NotifyPowerStarChargesRefreshed();
+        }
 
         /// <summary>
         /// Detonates the special cells this power-up's clear destroyed. A special block behaves the
@@ -1252,6 +1263,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             _laserEffect.BeginResolution();
             _vortexEffect.BeginResolution();
             _coinEffect.BeginResolution();
+            _powerStarEffect.BeginResolution();
 
             for (int i = 0; i < triggers.Count; i++)
             {
@@ -1261,6 +1273,9 @@ namespace MustyBlockBlast.Gameplay.Systems
                 _laserEffect.Apply(_boardModel.Board, triggers[i]);
                 _vortexEffect.Apply(_boardModel.Board, triggers[i]);
                 _coinEffect.Apply(_boardModel.Board, triggers[i]);
+
+                // A power star a power-up destroys directly bursts at once, whatever its charge (#482).
+                _powerStarEffect.Apply(_boardModel.Board, triggers[i]);
             }
 
             // The vortex's fill never clears a line itself — it only fills island cells and relies on a
@@ -1323,6 +1338,13 @@ namespace MustyBlockBlast.Gameplay.Systems
                 // data halfway through. One small pair of lists per application that did either.
                 _vortexIslandFilledPublisher.Publish(new VortexIslandFilledMessage(
                     new List<GridPosition>(islandFilledCells), new List<GridPosition>(vortexHandOffTargets)));
+            }
+
+            // A power star's burst (issue #482) is announced as a blast is: a region emptied, not a line.
+            IReadOnlyList<GridPosition> burstCells = _powerStarEffect.BurstCells;
+            if (burstCells.Count > 0)
+            {
+                _boardModel.NotifyPowerUpCleared(burstCells);
             }
 
             // A coin cell a Bomb destroys pays exactly as one a completed line destroys does, which is

@@ -74,6 +74,12 @@ namespace MustyBlockBlast.Presentation.Views
         /// outline.</summary>
         private static readonly Color SpecialIconRimColour = new Color(1f, 1f, 1f, SPECIAL_ICON_RIM_ALPHA);
 
+        /// <summary>A power star's charge pips (issue #482): lit in the mockup's amber, unlit white, on a
+        /// dark brown backing bar that keeps them readable over the star's own gold.</summary>
+        private static readonly Color PowerStarPipLit = new Color(1f, 0.70f, 0f, 1f);
+        private static readonly Color PowerStarPipUnlit = new Color(1f, 1f, 1f, 1f);
+        private static readonly Color PowerStarPipBacking = new Color(0.48f, 0.35f, 0.07f, 0.95f);
+
         /// <summary>How far <see cref="SetIconShine"/> blends the icon towards white at the brightest
         /// point of the pulse (issue #421) — subtle enough that the icon's own hue (and the vivid‑tint
         /// retune in <c>BoardView.IconTint</c>) still reads as that kind's identity, not a flash of
@@ -149,6 +155,13 @@ namespace MustyBlockBlast.Presentation.Views
         private Image _highlightImage;
         private Image _ghostRingImage;
         private Text _timerCountdownText;
+
+        /// <summary>A power star's charge pips (issue #482): one per charge up to
+        /// <c>Board.POWER_STAR_BURST_CHARGE</c>, across the bottom of the cell on a dark backing bar.
+        /// Null until <see cref="Build"/>; hidden on every cell that is not a standing star.</summary>
+        private GameObject _powerStarChargeRoot;
+        private Image _powerStarChargeBacking;
+        private Image[] _powerStarPips;
         private Text _bonusNumberText;
         private Outline _bonusNumberOutline;
 
@@ -334,6 +347,8 @@ namespace MustyBlockBlast.Presentation.Views
             _timerCountdownText = UiTextFactory.Create(
                 countdownRect, "TimerCountdown", TIMER_COUNTDOWN_FONT_SIZE, FontStyle.Bold, Color.white);
             _timerCountdownText.gameObject.SetActive(false);
+
+            BuildPowerStarCharge();
 
             // Issue #424: the level-completion empty-cell count, written over the cell. Its own layer
             // rather than a reuse of the timer countdown so the two can never fight over one Text.
@@ -654,6 +669,87 @@ namespace MustyBlockBlast.Presentation.Views
             _timerCountdownText.gameObject.SetActive(false);
         }
 
+        /// <summary>
+        /// Shows a power star's charge (issue #482 AC2): <paramref name="charge"/> of the pips lit gold,
+        /// the rest white — 0/3 through 3/3. Allocation-free and idempotent, safe on any repaint path.
+        /// </summary>
+        internal void SetPowerStarCharge(int charge)
+        {
+            if (_powerStarChargeRoot == null)
+            {
+                return;
+            }
+
+            for (int pipIndex = 0; pipIndex < _powerStarPips.Length; pipIndex++)
+            {
+                _powerStarPips[pipIndex].color = pipIndex < charge ? PowerStarPipLit : PowerStarPipUnlit;
+            }
+
+            _powerStarChargeBacking.color = PowerStarPipBacking;
+            if (!_powerStarChargeRoot.activeSelf)
+            {
+                _powerStarChargeRoot.SetActive(true);
+            }
+        }
+
+        /// <summary>Hides the power star charge pips. Safe on a cell that never showed them.</summary>
+        internal void ClearPowerStarCharge()
+        {
+            if (_powerStarChargeRoot != null && _powerStarChargeRoot.activeSelf)
+            {
+                _powerStarChargeRoot.SetActive(false);
+            }
+        }
+
+        /// <summary>Builds the (hidden) charge pips: a dark rounded backing bar across the bottom fifth of
+        /// the cell and <c>Board.POWER_STAR_BURST_CHARGE</c> rounded pips inside it, laid out by anchors so
+        /// they fit any cell size.</summary>
+        private void BuildPowerStarCharge()
+        {
+            const float barLeft = 0.14f;
+            const float barRight = 0.86f;
+            const float barBottom = -0.04f;
+            const float barTop = 0.16f;
+            const float pipGap = 0.03f;
+            const float pipInsetY = 0.035f;
+
+            var rootObject = new GameObject("PowerStarCharge", typeof(RectTransform));
+            var root = (RectTransform)rootObject.transform;
+            root.SetParent(transform, false);
+            root.anchorMin = new Vector2(barLeft, barBottom);
+            root.anchorMax = new Vector2(barRight, barTop);
+            root.offsetMin = Vector2.zero;
+            root.offsetMax = Vector2.zero;
+
+            _powerStarChargeBacking = CreateStretchedImage(root, "Backing");
+            _powerStarChargeBacking.sprite = UiSpriteFactory.RoundedSquare;
+            _powerStarChargeBacking.type = Image.Type.Sliced;
+            _powerStarChargeBacking.pixelsPerUnitMultiplier = 4f;
+            _powerStarChargeBacking.raycastTarget = false;
+
+            int pipCount = MustyBlockBlast.Core.Board.POWER_STAR_BURST_CHARGE;
+            _powerStarPips = new Image[pipCount];
+            float pipWidth = (1f - (pipGap * (pipCount + 1))) / pipCount;
+            for (int pipIndex = 0; pipIndex < pipCount; pipIndex++)
+            {
+                Image pip = CreateStretchedImage(root, "Pip");
+                pip.sprite = UiSpriteFactory.RoundedSquare;
+                pip.type = Image.Type.Sliced;
+                pip.pixelsPerUnitMultiplier = 5f;
+                pip.raycastTarget = false;
+                var pipRect = (RectTransform)pip.transform;
+                float left = pipGap + (pipIndex * (pipWidth + pipGap));
+                pipRect.anchorMin = new Vector2(left, pipInsetY * 4f);
+                pipRect.anchorMax = new Vector2(left + pipWidth, 1f - (pipInsetY * 4f));
+                pipRect.offsetMin = Vector2.zero;
+                pipRect.offsetMax = Vector2.zero;
+                _powerStarPips[pipIndex] = pip;
+            }
+
+            _powerStarChargeRoot = rootObject;
+            _powerStarChargeRoot.SetActive(false);
+        }
+
         /// <summary>Shows <paramref name="number"/> as this empty cell's place in the level-completion
         /// bonus count (issue #424). Independent of every other layer, exactly as
         /// <see cref="SetTimerCountdown"/> is: allocates nothing beyond the string conversion.</summary>
@@ -784,6 +880,16 @@ namespace MustyBlockBlast.Presentation.Views
             // And the lock skin (issue #434): the lock IS the block, so a lock destroyed outright fades
             // with it rather than floating over an emptying cell. Restored by the next SetStageOverlay.
             ApplyAlpha(_lockedOverlayImage, alpha);
+
+            // And a power star's charge pips (issue #482), which go with the star.
+            if (_powerStarPips != null)
+            {
+                ApplyAlpha(_powerStarChargeBacking, alpha * PowerStarPipBacking.a);
+                for (int pipIndex = 0; pipIndex < _powerStarPips.Length; pipIndex++)
+                {
+                    ApplyAlpha(_powerStarPips[pipIndex], alpha);
+                }
+            }
 
             // And the countdown number, for the same reason: a timer cell that is fading out (cleared
             // in time) must not leave its number floating over an emptying cell.

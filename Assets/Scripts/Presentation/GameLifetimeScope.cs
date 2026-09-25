@@ -719,6 +719,7 @@ namespace MustyBlockBlast.Presentation
             // before the tray is dealt. BoardSystem calls it inline, right after the ice-socket seeder.
             // It also rolls each lock's visual skin from its own seeded Random (AC9).
             builder.Register<LevelLockedCellSeeder>(Lifetime.Singleton).AsSelf();
+            builder.Register<LevelPowerStarCellSeeder>(Lifetime.Singleton).AsSelf();
 
             // Picks each Path run's board outline from its level (issue #472); BoardSystem asks it at the
             // top of StartNewRun, before the seeders above place anything.

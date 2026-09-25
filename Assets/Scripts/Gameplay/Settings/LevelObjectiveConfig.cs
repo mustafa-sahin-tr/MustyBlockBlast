@@ -42,6 +42,10 @@ namespace MustyBlockBlast.Gameplay.Settings
         /// null — the same never-existed-yet case <see cref="EmptyReinforcedCells"/> covers.</summary>
         private static readonly LockedCellAuthoring[] EmptyLockedCells = new LockedCellAuthoring[0];
 
+        /// <summary>Shared, never-mutated empty for a row whose <see cref="_powerStarCells"/> field is
+        /// null — the same never-existed-yet case <see cref="EmptyReinforcedCells"/> covers.</summary>
+        private static readonly PowerStarCellAuthoring[] EmptyPowerStarCells = new PowerStarCellAuthoring[0];
+
         /// <summary>Shared, never-mutated empty for a row whose <see cref="_bannedPowerUps"/> field is
         /// null — the same never-existed-yet case <see cref="EmptyReinforcedCells"/> covers.</summary>
         private static readonly PowerUpKind[] EmptyBannedPowerUps = new PowerUpKind[0];
@@ -151,6 +155,11 @@ namespace MustyBlockBlast.Gameplay.Settings
             + "default) means the level authors none.")]
         [SerializeField] private List<LockedCellAuthoring> _lockedCells = new List<LockedCellAuthoring>();
 
+        [Tooltip("Cells pre-filled with a power star (issue #482). Line clears through it charge it "
+            + "instead of removing it (+1 per line); at 3 charges it bursts and destroys the 3x3 around "
+            + "it. A power-up that destroys it bursts it at once. Empty (the default) means none.")]
+        [SerializeField] private List<PowerStarCellAuthoring> _powerStarCells = new List<PowerStarCellAuthoring>();
+
         [Tooltip("Power-up kinds this level's Path-mode run refuses to arm or spend. Empty (the " +
             "default) bans nothing, which is what every level authored before this field existed " +
             "does. Ignored entirely outside Path mode.")]
@@ -254,6 +263,11 @@ namespace MustyBlockBlast.Gameplay.Settings
         /// </summary>
         public IReadOnlyList<LockedCellAuthoring> LockedCells =>
             _lockedCells ?? (IReadOnlyList<LockedCellAuthoring>)EmptyLockedCells;
+
+        /// <summary>The power stars this level pre-fills its board with (issue #482), in authored order.
+        /// Never null, mirroring <see cref="ReinforcedCells"/>.</summary>
+        public IReadOnlyList<PowerStarCellAuthoring> PowerStarCells =>
+            _powerStarCells ?? (IReadOnlyList<PowerStarCellAuthoring>)EmptyPowerStarCells;
 
         /// <summary>
         /// Power-up kinds this level's Path-mode run refuses to arm or spend (see
@@ -706,6 +720,11 @@ namespace MustyBlockBlast.Gameplay.Settings
                 }
             }
 
+            if (!ArePowerStarCellsValid(reinforcedCells, timerCells, targetIceCells, lockedCells, out error))
+            {
+                return false;
+            }
+
             // The target for this type is the reinforced-cell count (see EffectiveTargetValue), so a
             // level authoring none would build an ObjectiveDefinition with target 0 — which throws.
             // Caught here, where every other type-specific precondition is, rather than at construction.
@@ -843,6 +862,80 @@ namespace MustyBlockBlast.Gameplay.Settings
             }
 
             return Mathf.Max(1, (_boardWidth * _boardHeight) - holeCount);
+        }
+
+        /// <summary>
+        /// The power stars' share of <see cref="IsValid"/> (issue #482): each one on the board, not on a
+        /// hole, authored once, and never on a cell another mechanic already claims — a star brings its
+        /// own block, so it cannot share a cell with a reinforced, timer or locked block, and an ice
+        /// socket starts empty by definition.
+        /// </summary>
+        private bool ArePowerStarCellsValid(
+            IReadOnlyList<ReinforcedCellAuthoring> reinforcedCells,
+            IReadOnlyList<TimerCellAuthoring> timerCells,
+            IReadOnlyList<TargetIceCellAuthoring> targetIceCells,
+            IReadOnlyList<LockedCellAuthoring> lockedCells,
+            out string error)
+        {
+            IReadOnlyList<PowerStarCellAuthoring> starCells = PowerStarCells;
+            for (int i = 0; i < starCells.Count; i++)
+            {
+                PowerStarCellAuthoring starCell = starCells[i];
+                if (starCell == null)
+                {
+                    error = "A power star entry is empty — remove the row or fill it in.";
+                    return false;
+                }
+
+                GridPosition position = starCell.ToGridPosition();
+                if (position.X < 0 || position.X >= _boardWidth || position.Y < 0 || position.Y >= _boardHeight)
+                {
+                    error = $"Power star {position} is outside this level's {_boardWidth}x{_boardHeight} board.";
+                    return false;
+                }
+
+                if (IsAuthoredHole(position))
+                {
+                    error = $"Power star {position} is also authored as a hole — a cell cannot be both.";
+                    return false;
+                }
+
+                bool claimed = false;
+                for (int index = 0; index < reinforcedCells.Count && !claimed; index++)
+                {
+                    claimed = reinforcedCells[index] != null && reinforcedCells[index].ToGridPosition().Equals(position);
+                }
+
+                for (int index = 0; index < timerCells.Count && !claimed; index++)
+                {
+                    claimed = timerCells[index] != null && timerCells[index].ToGridPosition().Equals(position);
+                }
+
+                for (int index = 0; index < targetIceCells.Count && !claimed; index++)
+                {
+                    claimed = targetIceCells[index] != null && targetIceCells[index].ToGridPosition().Equals(position);
+                }
+
+                for (int index = 0; index < lockedCells.Count && !claimed; index++)
+                {
+                    claimed = lockedCells[index] != null && lockedCells[index].ToGridPosition().Equals(position);
+                }
+
+                for (int index = 0; index < i && !claimed; index++)
+                {
+                    claimed = starCells[index] != null && starCells[index].ToGridPosition().Equals(position);
+                }
+
+                if (claimed)
+                {
+                    error = $"Power star {position} shares its cell with another authored cell — a cell cannot "
+                        + "be pre-filled twice.";
+                    return false;
+                }
+            }
+
+            error = null;
+            return true;
         }
 
         /// <summary>How many of <paramref name="position"/>'s four orthogonal neighbours are inside this

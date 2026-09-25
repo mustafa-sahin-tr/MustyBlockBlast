@@ -241,6 +241,10 @@ namespace MustyBlockBlast.Gameplay.Localization
         /// <summary>Locked cell info card (issue #481): what opens it, and the gold it reveals.</summary>
         public const string INFO_POPUP_SPECIAL_CELL_LOCKED_HEADER = "info_popup.special_cell.locked.header";
         public const string INFO_POPUP_SPECIAL_CELL_LOCKED_BODY = "info_popup.special_cell.locked.body";
+
+        /// <summary>Power star info card (issue #482): charged by line clears, bursts at 3.</summary>
+        public const string INFO_POPUP_SPECIAL_CELL_POWER_STAR_HEADER = "info_popup.special_cell.power_star.header";
+        public const string INFO_POPUP_SPECIAL_CELL_POWER_STAR_BODY = "info_popup.special_cell.power_star.body";
         public const string INFO_POPUP_SPECIAL_CELL_TIMER_HEADER = "info_popup.special_cell.timer.header";
         public const string INFO_POPUP_SPECIAL_CELL_TIMER_BODY = "info_popup.special_cell.timer.body";
 

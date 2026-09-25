@@ -1726,6 +1726,14 @@ MonoBehaviour:
     m_Localized: 'Se abre al despejar suficientes vecinos distintos y suelta oro: tantas monedas como una Celda de Moneda.'
     m_Metadata:
       m_Items: []
+  - m_Id: 4323470539218944
+    m_Localized: Estrella de Poder
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4323470639882240
+    m_Localized: "Las l\xEDneas que la cruzan no la quitan: cada una le da una carga. Con 3 cargas estalla y despeja el 3\xD73 a su alrededor."
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []
