@@ -1,9 +1,9 @@
 ---
 name: unity-build-ios
-description: "Builds/exports the Xcode project for iOS via MCP, so it can be opened and run on a device from Xcode. Pass dev or prod (e.g. /unity-build-ios dev); asks if omitted."
+description: "Builds/exports the Xcode project for iOS via MCP, so it can be opened and run on a device from Xcode. Pass dev or prod (e.g. /unity-build-ios dev), add sim for a Simulator-SDK export; asks if omitted."
 user-invocable: true
 args: build_type
-argument-hint: "dev | prod"
+argument-hint: "dev | prod [sim]"
 ---
 
 # /unity-build-ios — Export the Xcode Project
@@ -13,7 +13,10 @@ Argument: **$ARGUMENTS** — the build type:
 - `prod` / `production` / `release` / `store` → Production build (**LIVE** ads, for the store)
 - empty or anything else → **ask the user** which one before doing anything (see "Build Type" below)
 
-e.g. `/unity-build-ios dev` or `/unity-build-ios prod`.
+Optional second word **`sim`** → export for the iOS **Simulator** (Simulator SDK) instead of a physical
+phone. Without it the export is **always Device SDK**. `sim` is only valid with `dev`.
+
+e.g. `/unity-build-ios dev`, `/unity-build-ios prod`, `/unity-build-ios dev sim`.
 
 Fixed-platform shortcut for `/unity-build iOS`. Builds (exports) the Xcode project only —
 it does **not** archive, sign, or run on a device. After the export finishes, the user opens
@@ -37,6 +40,13 @@ Via `manage_build`:
 - Player settings: keep the existing bundle identifier (`com.mtafasahin.blockioblast`, read it from ProjectSettings first) unless the user asks to change it — do not silently overwrite it.
 - Minimum iOS version: 15.0+ unless the project already specifies otherwise (check current settings first, don't downgrade).
 - Target devices: iPhone (confirm with user if iPad support is also expected).
+- **Target SDK — set it explicitly every build** via MCP `execute_code`
+  (`PlayerSettings.iOS.sdkVersion = iOSSdkVersion.DeviceSDK` or `.SimulatorSDK`, then
+  `AssetDatabase.SaveAssets()`): **Device SDK** (`iPhoneSdkVersion: 988`) by default, **Simulator SDK**
+  (`989`) only when `$ARGUMENTS` contains `sim`. A Simulator-SDK export makes Xcode reject every
+  physical phone ("…iOS platform doesn't match MustyBlockBlast.app's supported platforms") — this
+  happened on 2026-09-25 after the setting was left on Simulator. After a `sim` build, switch it
+  back to Device SDK so the committed setting stays Device SDK, and report the SDK used.
 - Signing team ID: leave as configured in Xcode/Unity — this command does not manage signing. If unset, note it in the report rather than guessing a team ID.
 
 ### Build Type: Development vs Production — ask the user
@@ -112,6 +122,7 @@ build, archive, or sign anything.
 
 - Build result: SUCCESS or FAILURE.
 - Build type: Development (test ads) or Production (LIVE ads).
+- Target SDK: Device or Simulator.
 - Exact path to the exported Xcode project.
 - Any warnings from the build log.
 - `pod install` outcome: ran successfully / skipped (no Podfile) / needs manual CocoaPods install.
@@ -135,4 +146,5 @@ build, archive, or sign anything.
 | Stripping removes code | Add entries to `link.xml` |
 | `Undefined symbol: _CGSizeFromGADAdSize` (or other GAD/UMP symbols) | `Podfile` pods weren't installed — run `pod install` in the exported folder (see Step 3.5), then open `.xcworkspace` |
 | `IPHONEOS_DEPLOYMENT_TARGET is set to 12.0, but the range of supported deployment target versions is 15.0 to ...` | A pod's build settings weren't raised to the project minimum — add the `post_install` hook from Step 3.5 to the Podfile and re-run `pod install` |
+| "`<device>`'s iOS platform doesn't match … supported platforms" (even "Any iOS Device") | Project was exported with **Simulator SDK** — set Target SDK to Device SDK (see Step 2) and re-export |
 | Xcode signing errors after export | Not this command's job — open Xcode, fix signing under Signing & Capabilities |
