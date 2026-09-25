@@ -12,7 +12,7 @@ namespace MustyBlockBlast.Gameplay.Models
     /// </summary>
     public sealed class BoardModel
     {
-        private readonly Board _board;
+        private Board _board;
 
         /// <summary>The standard 8x8 hole-free board — what every level authored so far uses. Marked
         /// for injection explicitly so VContainer can never pick the shape-taking overload, which it has
@@ -24,15 +24,19 @@ namespace MustyBlockBlast.Gameplay.Models
         }
 
         /// <summary>
-        /// Builds the model around an explicit board outline. Not yet wired to level data: per-level
-        /// shape selection is a later sub-issue of the board-shapes epic, and this exists so the shape
-        /// a board is built with has one owner when that lands, rather than the model hardcoding a
-        /// square forever.
+        /// Builds the model around an explicit board outline. The live game starts on the standard
+        /// square and switches per run through <see cref="ApplyShape"/> (issue #472).
         /// </summary>
         internal BoardModel(BoardShape shape)
         {
             _board = new Board(shape);
         }
+
+        /// <summary>
+        /// Raised after <see cref="ApplyShape"/> replaced the board with one of a different outline (issue
+        /// #472). The new board is empty; a View rebuilds its hole mask and repaints from the model.
+        /// </summary>
+        public event Action ShapeChanged;
 
         /// <summary>Raised for every cell whose colour id changed. Args: position, new colour id
         /// (<see cref="Core.Board.EMPTY"/> when the cell became empty).</summary>
@@ -620,6 +624,23 @@ namespace MustyBlockBlast.Gameplay.Models
         /// before the new run's own sockets are seeded.
         /// </para>
         /// </summary>
+        /// <summary>
+        /// Switches the board to <paramref name="shape"/> for the run about to start (issue #472), by
+        /// replacing it with an empty board of that outline — only between runs, since a shape cannot
+        /// change under a board in play. Returns whether it changed; the same shape is a no-op.
+        /// </summary>
+        internal bool ApplyShape(BoardShape shape)
+        {
+            if (shape == null || ReferenceEquals(shape, _board.Shape))
+            {
+                return false;
+            }
+
+            _board = new Board(shape);
+            ShapeChanged?.Invoke();
+            return true;
+        }
+
         internal void ClearAll()
         {
             for (int y = 0; y < _board.Height; y++)

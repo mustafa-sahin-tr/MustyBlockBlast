@@ -307,35 +307,30 @@ namespace MustyBlockBlast.Tests.EditMode
 #if UNITY_EDITOR
         // --- The shipped level (AC3) ---
 
+        /// <summary>Level 20 introduces diamonds in the learning curve (issue #472): one colour, a small
+        /// target, and gems dealt more often than the bare default so the goal is reachable.</summary>
         [Test]
-        public void ShippedCatalog_Level13_IsTheThreeColourDiamondLevel()
+        public void ShippedCatalog_Level20_IsTheDiamondIntroduction()
         {
+            const int DiamondIntroLevel = 20;
             var catalog = AssetDatabase.LoadAssetAtPath<LevelCatalog>(SHIPPED_CATALOG_PATH);
             Assert.IsNotNull(catalog, $"No catalog at {SHIPPED_CATALOG_PATH}.");
 
-            IReadOnlyList<LevelObjectiveConfig> rows = catalog.FindAll(LEVEL);
-            Assert.AreEqual(3, rows.Count, "Level 13 is authored as three colour rows.");
+            IReadOnlyList<LevelObjectiveConfig> rows = catalog.FindAll(DiamondIntroLevel);
+            Assert.AreEqual(1, rows.Count, "The introduction asks for diamonds alone.");
 
-            var colours = new List<int>(3);
-            for (int rowIndex = 0; rowIndex < rows.Count; rowIndex++)
-            {
-                LevelObjectiveConfig row = rows[rowIndex];
-                Assert.IsTrue(row.IsValid(out string error), $"Row {rowIndex}: {error}");
-                Assert.AreEqual(ObjectiveType.DiamondsCleared, row.ObjectiveType);
-                Assert.AreEqual(ObjectiveScope.PerRun, row.Scope);
-                Assert.AreEqual(10, row.TargetValue);
-                Assert.IsFalse(colours.Contains(row.RequiredColourId), "Each row names its own colour.");
-                colours.Add(row.RequiredColourId);
-            }
-
-            LevelObjectiveConfig first = catalog.Find(LEVEL);
-            Assert.Greater(first.DiamondDecorationChance, LevelObjectiveConfig.DEFAULT_DIAMOND_DECORATION_CHANCE,
-                "A 30-diamond goal deals gems more often than the bare default.");
-            Assert.LessOrEqual(first.DiamondDecorationChance, 1f);
-            Assert.GreaterOrEqual(first.DiamondMinDecoratedCells, 1);
+            LevelObjectiveConfig row = rows[0];
+            Assert.IsTrue(row.IsValid(out string error), error);
+            Assert.AreEqual(ObjectiveType.DiamondsCleared, row.ObjectiveType);
+            Assert.AreEqual(ObjectiveScope.PerRun, row.Scope);
+            Assert.AreEqual(6, row.TargetValue);
+            Assert.Greater(row.DiamondDecorationChance, LevelObjectiveConfig.DEFAULT_DIAMOND_DECORATION_CHANCE,
+                "A diamond goal deals gems more often than the bare default.");
+            Assert.LessOrEqual(row.DiamondDecorationChance, 1f);
+            Assert.GreaterOrEqual(row.DiamondMinDecoratedCells, 1);
             Assert.IsTrue(
-                first.DiamondMaxDecoratedCells == LevelObjectiveConfig.DIAMOND_MAX_DECORATED_CELLS_UNCAPPED
-                || first.DiamondMaxDecoratedCells >= first.DiamondMinDecoratedCells);
+                row.DiamondMaxDecoratedCells == LevelObjectiveConfig.DIAMOND_MAX_DECORATED_CELLS_UNCAPPED
+                || row.DiamondMaxDecoratedCells >= row.DiamondMinDecoratedCells);
         }
 
         [Test]

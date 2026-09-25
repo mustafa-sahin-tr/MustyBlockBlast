@@ -255,6 +255,26 @@ watching the same counter would be redundant.
 - **Cumulative** — progress persists across runs and is never reset at run start, within the
   current app session (no cross-restart persistence yet — see the v1 scope note below).
 
+**Level curriculum (issue #472).** The 100 Path levels are a learning curve, zone by zone (the
+zones repeat every 10 levels: Meadow, Winter, City, Neighborhood):
+
+- **1–10 teach one rule each** with a single objective and no obstacles: clear a line, clear
+  lines, place a shape, reach a score, two lines at once, streak, row+column cross, corners.
+- **Every mechanic is introduced alone before it is combined:** reinforced cells (12), timer
+  blocks (16), diamonds (20), ice (21), board shapes (22), locked cells (26), colour (31), Bomb
+  (32), no isolated holes (33), line bursts (36), early score rush (39), board wipe (40).
+- **Every 5th level** is its zone's exam: two objectives, three from level 75.
+- Ice sockets and a diamonds objective never share a level (a diamond never lands on ice);
+  timer blocks are lined up in the same rows, since an expired one ends a Path run.
+- "Centre core evacuated" levels put locked cells in the centre 4×4, since an empty core would
+  otherwise count from the first placement.
+- Targets are first-pass values; score and time targets get a tuning pass from playtesting.
+
+**Board shapes.** A Path run is played on its level's authored outline — holes in the 8×8 frame
+(corner-less, plus, ring, L, scattered). A hole is never playable, and a row or column with holes
+clears when its playable cells are full. Endless and Timed roll through levels inside one run, so
+they always play the plain square.
+
 **v1 scope:** this is the tracking engine only. There is no level content, no objective UI and
 no persistence of objective progress yet — those are tracked separately in epic "Levels &
 Objectives" (sub-issues #72 and #73).
