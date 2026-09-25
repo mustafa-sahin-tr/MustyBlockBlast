@@ -35,6 +35,12 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>The theme's would-clear highlight — a line about to clear.</summary>
         internal const int LINE_HIGHLIGHT = 33;
 
+        /// <summary>The theme's soft ink — secondary text (a progress chip's caption).</summary>
+        internal const int SOFT_INK = 34;
+
+        /// <summary>The "goal done" green of a progress chip's check badge.</summary>
+        internal const int SUCCESS = 35;
+
         /// <summary>Maps a board-pattern character to a paint: '.' empty, then the first letter of each
         /// Ilkbahar block colour — 'p' pink (1), 'g' green (2), 'u' purple (3), 'm' magenta (4),
         /// 'b' blue (5), 'v' vortex indigo. Anything else is <see cref="NONE"/>.</summary>

@@ -33,6 +33,25 @@ namespace MustyBlockBlast.Presentation.Views
 
         internal const float FILL_POP_DURATION = 0.26f;
 
+        /// <summary>How long a progress chip's counter crossfades from one value to the next.</summary>
+        internal const float CHIP_COUNTER_CROSSFADE = 0.22f;
+
+        /// <summary>How long a progress chip's "done" badge takes to pop in.</summary>
+        internal const float CHIP_BADGE_POP_DURATION = 0.3f;
+
+        /// <summary>Mockup-unit geometry of a progress chip's contents (see
+        /// <see cref="InfoDemoLayout.MOCK_CHIP_WIDTH"/>): the caption and counter baselines relative to
+        /// the chip centre, their font heights, and the done badge.</summary>
+        private const float MOCK_CHIP_CORNER = 12f;
+        private const float MOCK_CHIP_SHADOW_DROP = 2f;
+        private const float MOCK_CHIP_CAPTION_OFFSET_Y = -10f;
+        private const float MOCK_CHIP_CAPTION_FONT = 10f;
+        private const float MOCK_CHIP_COUNTER_OFFSET_Y = 8f;
+        private const float MOCK_CHIP_COUNTER_FONT = 16f;
+        private const float MOCK_CHIP_BADGE_DIAMETER = 17f;
+        private const float MOCK_CHIP_CHECK_SIZE = 12f;
+        private const float CHIP_SHADOW_ALPHA = 0.1f;
+
         /// <summary>Peak opacity of a clearing line's highlight band — a glow behind the line, never a
         /// slab over the board.</summary>
         private const float CLEAR_BAND_ALPHA = 0.5f;
@@ -140,7 +159,8 @@ namespace MustyBlockBlast.Presentation.Views
 
         /// <summary>A label that fades in at <paramref name="startTime"/>, rises
         /// <paramref name="rise"/> board units over <paramref name="duration"/>, and fades out over the
-        /// last quarter of that.</summary>
+        /// last quarter of that. With <paramref name="labelArgument"/> the entry is a format string whose
+        /// <c>{0}</c> it fills.</summary>
         internal static int FloatLabel(
             InfoDemoTimelineBuilder builder,
             string localizationKey,
@@ -148,12 +168,14 @@ namespace MustyBlockBlast.Presentation.Views
             float rise,
             int paint,
             float startTime,
-            float duration)
+            float duration,
+            string labelArgument = null)
         {
             const float labelWidth = 7.6f;
             const float labelFontHeight = 0.62f;
 
-            int labelId = builder.AddLabel(localizationKey, position, labelWidth, labelFontHeight, paint);
+            int labelId = builder.AddLabel(
+                localizationKey, position, labelWidth, labelFontHeight, paint, 0f, labelArgument);
             builder.Fade(labelId, startTime, 0.15f, 0f, 1f, InfoDemoEasing.EaseOutCubic);
             builder.Move(labelId, startTime, duration, position, position + new Vector2(0f, -rise), InfoDemoEasing.EaseOutCubic);
 
@@ -196,6 +218,100 @@ namespace MustyBlockBlast.Presentation.Views
             float bandFadeStart = ClearCellShrinkStart(startTime, InfoDemoLayout.BOARD_SIZE - 1);
             builder.Fade(bandId, bandFadeStart, lastCellGone - bandFadeStart, CLEAR_BAND_ALPHA, 0f, InfoDemoEasing.EaseOutCubic);
             return lastCellGone;
+        }
+
+        /// <summary>
+        /// An objective demo's progress chip in the tray strip's left zone (issue #447 — the mockup's
+        /// "hedef çipi"): a white rounded chip with a caption on its top line
+        /// (<paramref name="captionKey"/>, its <c>{0}</c> filled with <paramref name="captionArgument"/>
+        /// when that is not null) and a "<paramref name="startValue"/>/<paramref name="target"/>"
+        /// counter below, plus a hidden green check badge at its top-right. Present from loop time 0;
+        /// move the counter on with <see cref="AdvanceChip"/>. Lay the tray out with
+        /// <see cref="InfoDemoTrayLayout.ChipLeft"/> so no piece sits under it.
+        /// </summary>
+        internal static InfoDemoProgressChip ProgressChip(
+            InfoDemoTimelineBuilder builder, string captionKey, string captionArgument, int startValue, int target)
+        {
+            Vector2 centre = InfoDemoLayout.ChipCentre;
+            Vector2 chipSize = new Vector2(
+                InfoDemoLayout.FromMockLength(InfoDemoLayout.MOCK_CHIP_WIDTH),
+                InfoDemoLayout.FromMockLength(InfoDemoLayout.MOCK_CHIP_HEIGHT));
+            float corner = InfoDemoLayout.FromMockLength(MOCK_CHIP_CORNER);
+            float textWidth = chipSize.x * 0.9f;
+
+            builder.AddPanel(
+                centre + new Vector2(0f, InfoDemoLayout.FromMockLength(MOCK_CHIP_SHADOW_DROP)),
+                chipSize, corner, InfoDemoPaint.INK, CHIP_SHADOW_ALPHA);
+            int panelId = builder.AddPanel(centre, chipSize, corner, InfoDemoPaint.WHITE);
+
+            int captionId = builder.AddLabel(
+                captionKey,
+                centre + new Vector2(0f, InfoDemoLayout.FromMockLength(MOCK_CHIP_CAPTION_OFFSET_Y)),
+                textWidth,
+                InfoDemoLayout.FromMockLength(MOCK_CHIP_CAPTION_FONT),
+                InfoDemoPaint.SOFT_INK,
+                1f,
+                captionArgument);
+
+            Vector2 counterPosition = centre + new Vector2(0f, InfoDemoLayout.FromMockLength(MOCK_CHIP_COUNTER_OFFSET_Y));
+            float counterFont = InfoDemoLayout.FromMockLength(MOCK_CHIP_COUNTER_FONT);
+            int valueCount = Mathf.Max(1, target - startValue + 1);
+            int[] counterLabelIds = new int[valueCount];
+            for (int valueIndex = 0; valueIndex < valueCount; valueIndex++)
+            {
+                int value = startValue + valueIndex;
+                counterLabelIds[valueIndex] = builder.AddText(
+                    value + "/" + target, counterPosition, textWidth, counterFont, InfoDemoPaint.INK,
+                    valueIndex == 0 ? 1f : 0f);
+            }
+
+            Vector2 badgeCentre = centre + new Vector2(
+                (chipSize.x * 0.5f) - InfoDemoLayout.FromMockLength(4f),
+                -(chipSize.y * 0.5f) + InfoDemoLayout.FromMockLength(3f));
+            float badgeDiameter = InfoDemoLayout.FromMockLength(MOCK_CHIP_BADGE_DIAMETER);
+            int badgeId = builder.AddPanel(
+                badgeCentre, new Vector2(badgeDiameter, badgeDiameter), badgeDiameter * 0.5f, InfoDemoPaint.SUCCESS, 0f);
+
+            // Icon sizes are in board-cell widths (MOCK_CELL), not pitches.
+            int checkId = builder.AddIcon(
+                InfoDemoSprite.CheckMark, 0, badgeCentre, MOCK_CHIP_CHECK_SIZE / InfoDemoLayout.MOCK_CELL, 0f);
+
+            return new InfoDemoProgressChip(panelId, captionId, counterLabelIds, startValue, target, badgeId, checkId);
+        }
+
+        /// <summary>
+        /// Moves <paramref name="chip"/>'s counter on by one at <paramref name="time"/>: the old value
+        /// fades out as the new one pops in, and when that reaches the target the green check badge pops
+        /// in at the chip's top-right. A chip already at its target is left alone. Returns the time the
+        /// beat settles.
+        /// </summary>
+        internal static float AdvanceChip(InfoDemoTimelineBuilder builder, InfoDemoProgressChip chip, float time)
+        {
+            if (chip.IsComplete)
+            {
+                return time;
+            }
+
+            int oldLabel = chip.CounterLabelId(chip.Value);
+            chip.Advance();
+            int newLabel = chip.CounterLabelId(chip.Value);
+
+            builder.Fade(oldLabel, time, CHIP_COUNTER_CROSSFADE, 1f, 0f, InfoDemoEasing.EaseInCubic);
+            builder.Fade(newLabel, time, CHIP_COUNTER_CROSSFADE, 0f, 1f, InfoDemoEasing.EaseOutCubic);
+            builder.Scale(newLabel, time, CHIP_COUNTER_CROSSFADE + 0.1f, 1.35f, 1f, InfoDemoEasing.EaseOutBack);
+
+            float settled = time + CHIP_COUNTER_CROSSFADE + 0.1f;
+            if (!chip.IsComplete)
+            {
+                return settled;
+            }
+
+            float badgeStart = time + (CHIP_COUNTER_CROSSFADE * 0.5f);
+            builder.Fade(chip.BadgeId, badgeStart, 0.1f, 0f, 1f);
+            builder.Scale(chip.BadgeId, badgeStart, CHIP_BADGE_POP_DURATION, 0.2f, 1f, InfoDemoEasing.EaseOutBack);
+            builder.Fade(chip.CheckId, badgeStart, 0.1f, 0f, 1f);
+            builder.Scale(chip.CheckId, badgeStart, CHIP_BADGE_POP_DURATION, 0.2f, 1f, InfoDemoEasing.EaseOutBack);
+            return Mathf.Max(settled, badgeStart + CHIP_BADGE_POP_DURATION);
         }
     }
 }

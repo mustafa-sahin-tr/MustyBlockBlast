@@ -127,7 +127,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 149663784099840
-    m_Localized: "Tek bir par\xE7a yerle\u015Ftirmesiyle ayn\u0131 anda {0} sat\u0131r veya s\xFCtunu tamamla."
+    m_Localized: "Tek bir par\xE7ayla ayn\u0131 anda tam {0} sat\u0131r veya s\xFCtun temizle. Fazlas\u0131 say\u0131lmaz."
     m_Metadata:
       m_Items: []
   - m_Id: 149663859597312
@@ -956,6 +956,14 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 4038190586388480
     m_Localized: "Bo\u015Fluklar doldu!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4044960587309056
+    m_Localized: TAM {0}
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4044960612474880
+    m_Localized: "{0} sat\u0131r!"
     m_Metadata:
       m_Items: []
   references:

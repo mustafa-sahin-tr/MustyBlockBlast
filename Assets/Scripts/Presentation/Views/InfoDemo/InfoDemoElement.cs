@@ -16,6 +16,8 @@ namespace MustyBlockBlast.Presentation.Views
             int spriteParameter,
             Vector2Int[] shape,
             string labelKey,
+            string labelArgument,
+            float cornerRadius,
             InfoDemoElementState initial)
         {
             Kind = kind;
@@ -24,6 +26,8 @@ namespace MustyBlockBlast.Presentation.Views
             SpriteParameter = spriteParameter;
             Shape = shape;
             LabelKey = labelKey;
+            LabelArgument = labelArgument;
+            CornerRadius = cornerRadius;
             Initial = initial;
         }
 
@@ -40,8 +44,18 @@ namespace MustyBlockBlast.Presentation.Views
         /// top-left cell; null for every other kind.</summary>
         internal Vector2Int[] Shape { get; }
 
-        /// <summary>A <see cref="InfoDemoElementKind.Label"/>'s localization key; null otherwise.</summary>
+        /// <summary>A <see cref="InfoDemoElementKind.Label"/>'s localization key; null for a literal
+        /// label (whose text is then <see cref="LabelArgument"/>) and for every other kind.</summary>
         internal string LabelKey { get; }
+
+        /// <summary>A <see cref="InfoDemoElementKind.Label"/>'s format argument (the <c>{0}</c> of
+        /// <see cref="LabelKey"/>), or its whole literal text when <see cref="LabelKey"/> is null
+        /// (a counter like "0/1" that needs no translation). Null for a plain translated label.</summary>
+        internal string LabelArgument { get; }
+
+        /// <summary>A <see cref="InfoDemoElementKind.Panel"/>'s corner radius in board units; 0 for
+        /// every other kind.</summary>
+        internal float CornerRadius { get; }
 
         /// <summary>The element's state at loop time 0. Mutable only while the builder owns it.</summary>
         internal InfoDemoElementState Initial;

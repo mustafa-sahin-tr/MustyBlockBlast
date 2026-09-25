@@ -89,6 +89,122 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.AreEqual(InfoDemoPaint.VORTEX_BLOCK, states[InfoDemoLayout.BoardBlockId(3, 3)].Paint);
         }
 
+        [Test]
+        public void SimultaneousLineClear_HasADemoPerRequiredLineCount_EachCached()
+        {
+            InfoDemoCatalog catalog = new InfoDemoCatalog();
+
+            for (int lineCount = SimultaneousLineClearInfoDemo.MIN_LINE_COUNT;
+                lineCount <= SimultaneousLineClearInfoDemo.MAX_LINE_COUNT;
+                lineCount++)
+            {
+                InfoDemoTimeline first = catalog.FindObjective(Objective(ObjectiveType.SimultaneousLineClear, lineCount));
+                InfoDemoTimeline second = catalog.FindObjective(Objective(ObjectiveType.SimultaneousLineClear, lineCount));
+
+                Assert.IsNotNull(first, lineCount.ToString());
+                Assert.AreSame(first, second, lineCount.ToString());
+            }
+
+            Assert.AreNotSame(
+                catalog.FindObjective(Objective(ObjectiveType.SimultaneousLineClear, 2)),
+                catalog.FindObjective(Objective(ObjectiveType.SimultaneousLineClear, 3)));
+        }
+
+        [Test]
+        public void SimultaneousLineClear_WithALineCountTheDemoCannotDraw_HasNoDemo()
+        {
+            InfoDemoCatalog catalog = new InfoDemoCatalog();
+
+            Assert.IsNull(catalog.FindObjective(Objective(ObjectiveType.SimultaneousLineClear, 1)));
+            Assert.IsNull(catalog.FindObjective(Objective(ObjectiveType.SimultaneousLineClear, 5)));
+            Assert.IsNull(catalog.FindObjective(null));
+        }
+
+        [Test]
+        public void EveryOtherObjectiveType_HasNoDemo()
+        {
+            InfoDemoCatalog catalog = new InfoDemoCatalog();
+            Array types = Enum.GetValues(typeof(ObjectiveType));
+
+            for (int typeIndex = 0; typeIndex < types.Length; typeIndex++)
+            {
+                ObjectiveType type = (ObjectiveType)types.GetValue(typeIndex);
+                if (type == ObjectiveType.SimultaneousLineClear)
+                {
+                    continue;
+                }
+
+                Assert.IsNull(catalog.FindObjective(Objective(type, 2)), type.ToString());
+            }
+        }
+
+        [Test]
+        public void SimultaneousLineClearDemo_PlacesAVerticalPiece_AndClearsExactlyTheBottomNRowsTogether()
+        {
+            for (int lineCount = SimultaneousLineClearInfoDemo.MIN_LINE_COUNT;
+                lineCount <= SimultaneousLineClearInfoDemo.MAX_LINE_COUNT;
+                lineCount++)
+            {
+                InfoDemoTimeline timeline = new InfoDemoCatalog().FindObjective(
+                    Objective(ObjectiveType.SimultaneousLineClear, lineCount));
+                InfoDemoElementState[] states = new InfoDemoElementState[timeline.ElementCount];
+                int firstRow = SimultaneousLineClearInfoDemo.FirstClearedRow(lineCount);
+                int gap = SimultaneousLineClearInfoDemo.GAP_COLUMN;
+
+                Assert.AreEqual(SimultaneousLineClearInfoDemo.LOOP_DURATION, timeline.Duration, 0.0001f);
+
+                // Loop start: the bottom N rows are full but for the gap column; the row above them
+                // (and every other row) is not full, so the placement clears exactly N lines.
+                timeline.Evaluate(0f, states);
+                for (int row = 0; row < InfoDemoLayout.BOARD_SIZE; row++)
+                {
+                    int filled = FilledInRow(states, row);
+                    int expected = row >= firstRow ? InfoDemoLayout.BOARD_SIZE - 1 : filled;
+                    Assert.AreEqual(expected, filled, $"N={lineCount} row {row}");
+                    Assert.Less(filled, InfoDemoLayout.BOARD_SIZE, $"N={lineCount} row {row} starts full");
+                    if (row >= firstRow)
+                    {
+                        Assert.AreEqual(InfoDemoPaint.NONE, states[InfoDemoLayout.BoardBlockId(row, gap)].Paint);
+                    }
+                }
+
+                // Landed, before the clear: the bottom N rows are full, nothing above is.
+                timeline.Evaluate(SimultaneousLineClearInfoDemo.CLEAR_START - 0.01f, states);
+                for (int row = 0; row < InfoDemoLayout.BOARD_SIZE; row++)
+                {
+                    bool full = FilledInRow(states, row) == InfoDemoLayout.BOARD_SIZE;
+                    Assert.AreEqual(row >= firstRow, full, $"N={lineCount} row {row} full after landing");
+                }
+
+                // Well after the clear: all N rows are gone together.
+                timeline.Evaluate(3f, states);
+                for (int row = firstRow; row < InfoDemoLayout.BOARD_SIZE; row++)
+                {
+                    Assert.AreEqual(0, FilledInRow(states, row), $"N={lineCount} row {row} cleared");
+                }
+            }
+        }
+
+        private static ObjectiveDefinition Objective(ObjectiveType type, int requiredLineCount)
+        {
+            return new ObjectiveDefinition(
+                "test", type, ObjectiveScope.PerRun, 1, requiredLineCount, requiredColourId: 1);
+        }
+
+        private static int FilledInRow(InfoDemoElementState[] states, int row)
+        {
+            int filled = 0;
+            for (int column = 0; column < InfoDemoLayout.BOARD_SIZE; column++)
+            {
+                if (states[InfoDemoLayout.BoardBlockId(row, column)].Paint != InfoDemoPaint.NONE)
+                {
+                    filled++;
+                }
+            }
+
+            return filled;
+        }
+
         private static void AssertNoneFor(InfoDemoCatalog catalog, InfoPopupSubjectKind subjectKind, Type enumType)
         {
             Array kinds = Enum.GetValues(enumType);

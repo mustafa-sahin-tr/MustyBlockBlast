@@ -45,7 +45,7 @@ namespace MustyBlockBlast.Presentation.Views
     /// </para>
     /// </summary>
     [DisallowMultipleComponent]
-    public sealed class InfoPopupView : MonoBehaviour, IInfoDemoResources
+    public sealed class InfoPopupView : MonoBehaviour
     {
         private readonly CompositeDisposable _disposables = new CompositeDisposable();
 
@@ -384,31 +384,6 @@ namespace MustyBlockBlast.Presentation.Views
             }
         }
 
-        bool IInfoDemoResources.TryGetSprite(InfoDemoSprite sprite, int parameter, out Sprite resolved, out Color tint)
-        {
-            switch (sprite)
-            {
-                case InfoDemoSprite.SpecialCellIcon:
-                    SpecialCellKind cellKind = (SpecialCellKind)parameter;
-                    resolved = _boardView.IconSprite(cellKind);
-                    tint = BoardView.IconTint(cellKind);
-                    return resolved != null;
-                default:
-                    resolved = null;
-                    tint = Color.clear;
-                    return false;
-            }
-        }
-
-        string IInfoDemoResources.Translate(string localizationKey) => _localizationSystem.Translate(localizationKey);
-
-        void IInfoDemoResources.GetBoardCellMetrics(out float cellSize, out float inset, out float bevelThickness)
-        {
-            cellSize = _boardView.CellSize;
-            inset = _boardView.CellInset;
-            bevelThickness = _boardView.CellBevelThickness;
-        }
-
         private void BuildPanel()
         {
             var rect = (RectTransform)transform;
@@ -432,7 +407,10 @@ namespace MustyBlockBlast.Presentation.Views
             _chrome = InfoCardChrome.Build(panelRect, "InfoCard", _cardSize, _headerFontSize, _bodyFontSize);
 
             BuildHero();
-            _demoStage = new InfoDemoStage(_chrome.DemoRootRect, this, this.GetCancellationTokenOnDestroy());
+            _demoStage = new InfoDemoStage(
+                _chrome.DemoRootRect,
+                new InfoDemoResources(_boardView, _localizationSystem),
+                this.GetCancellationTokenOnDestroy());
 
             _panel = panelObject;
         }

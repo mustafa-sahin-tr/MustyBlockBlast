@@ -951,6 +951,14 @@ MonoBehaviour:
     m_Key: info_popup.demo.vortex.filled
     m_Metadata:
       m_Items: []
+  - m_Id: 4044960587309056
+    m_Key: info_popup.demo.chip.exactly
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4044960612474880
+    m_Key: info_popup.demo.lines_cleared
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:
