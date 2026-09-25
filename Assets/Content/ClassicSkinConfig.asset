@@ -18,18 +18,97 @@ MonoBehaviour:
     _sprite: {fileID: 0}
     _tintByBlockColour: 0
     _clearEffect: 0
+    _clearSound: {fileID: 0}
+    _particleColour: {r: 1, g: 1, b: 1, a: 1}
   - _name: Jelly
     _scoreThreshold: 500
     _sprite: {fileID: 21300000, guid: 73230bbc774414c4d9408c51bbc152bd, type: 3}
     _tintByBlockColour: 1
     _clearEffect: 1
+    _clearSound: {fileID: 8300000, guid: c11227cbab21a497cabaa827159ee18f, type: 3}
+    _particleColour: {r: 1, g: 1, b: 1, a: 1}
   - _name: Pomegranate
     _scoreThreshold: 750
     _sprite: {fileID: 21300000, guid: 9ca90c34e565c43e1b5405cd649491ce, type: 3}
     _tintByBlockColour: 0
     _clearEffect: 2
+    _clearSound: {fileID: 8300000, guid: 2740877d30f624a29addd217ace1d490, type: 3}
+    _particleColour: {r: 0.86, g: 0.12, b: 0.22, a: 1}
   - _name: Wood
     _scoreThreshold: 1000
     _sprite: {fileID: 21300000, guid: 93c60cb7a758c4bec9d6c4ae31f53fa0, type: 3}
     _tintByBlockColour: 0
     _clearEffect: 3
+    _clearSound: {fileID: 8300000, guid: 5cee9e36c38ca4e66ad88e265c0efaa6, type: 3}
+    _particleColour: {r: 1, g: 1, b: 1, a: 1}
+  - _name: Peach
+    _scoreThreshold: 1250
+    _sprite: {fileID: 21300000, guid: f6fc49d78e1a3477d8866129bbdcc3c5, type: 3}
+    _tintByBlockColour: 0
+    _clearEffect: 2
+    _clearSound: {fileID: 8300000, guid: 2740877d30f624a29addd217ace1d490, type: 3}
+    _particleColour: {r: 1, g: 0.62, b: 0.25, a: 1}
+  - _name: Stone
+    _scoreThreshold: 1500
+    _sprite: {fileID: 21300000, guid: 3c2d83b9da4e04f108c6c1b3a4025aa8, type: 3}
+    _tintByBlockColour: 0
+    _clearEffect: 4
+    _clearSound: {fileID: 8300000, guid: b344764aaea08489ca779e46f0d71bbf, type: 3}
+    _particleColour: {r: 0.62, g: 0.62, b: 0.64, a: 1}
+  - _name: Passion fruit
+    _scoreThreshold: 1750
+    _sprite: {fileID: 21300000, guid: 7e4a8b653c51c4aedb88a43fe1463fff, type: 3}
+    _tintByBlockColour: 0
+    _clearEffect: 2
+    _clearSound: {fileID: 8300000, guid: 2740877d30f624a29addd217ace1d490, type: 3}
+    _particleColour: {r: 0.85, g: 0.78, b: 0.2, a: 1}
+  - _name: Diamond
+    _scoreThreshold: 2000
+    _sprite: {fileID: 21300000, guid: c259929c0fcae4d10ad422ea61980be1, type: 3}
+    _tintByBlockColour: 1
+    _clearEffect: 5
+    _clearSound: {fileID: 8300000, guid: a9e531fce27564a9f95dc0c4d169dc24, type: 3}
+    _particleColour: {r: 1, g: 1, b: 1, a: 1}
+  - _name: Fig
+    _scoreThreshold: 2250
+    _sprite: {fileID: 21300000, guid: 4d685ec50f2ab4533b0ab463efedd752, type: 3}
+    _tintByBlockColour: 0
+    _clearEffect: 2
+    _clearSound: {fileID: 8300000, guid: 2740877d30f624a29addd217ace1d490, type: 3}
+    _particleColour: {r: 0.85, g: 0.25, b: 0.35, a: 1}
+  - _name: Coconut
+    _scoreThreshold: 2500
+    _sprite: {fileID: 21300000, guid: 1f55f3df58cc747b8853102658658fc2, type: 3}
+    _tintByBlockColour: 0
+    _clearEffect: 2
+    _clearSound: {fileID: 8300000, guid: 2740877d30f624a29addd217ace1d490, type: 3}
+    _particleColour: {r: 0.95, g: 0.95, b: 0.92, a: 1}
+  - _name: Mangosteen
+    _scoreThreshold: 2750
+    _sprite: {fileID: 21300000, guid: 5cf92052843684e7098ff1af4a14e88d, type: 3}
+    _tintByBlockColour: 0
+    _clearEffect: 2
+    _clearSound: {fileID: 8300000, guid: 2740877d30f624a29addd217ace1d490, type: 3}
+    _particleColour: {r: 0.95, g: 0.92, b: 0.95, a: 1}
+  - _name: Guava
+    _scoreThreshold: 3000
+    _sprite: {fileID: 21300000, guid: f1fad1bdeb9504ba4958d81809f14b5f, type: 3}
+    _tintByBlockColour: 0
+    _clearEffect: 2
+    _clearSound: {fileID: 8300000, guid: 2740877d30f624a29addd217ace1d490, type: 3}
+    _particleColour: {r: 0.98, g: 0.45, b: 0.5, a: 1}
+  - _name: Rambutan
+    _scoreThreshold: 3250
+    _sprite: {fileID: 21300000, guid: 9fa56772690d0417e9072b6af1392008, type: 3}
+    _tintByBlockColour: 0
+    _clearEffect: 2
+    _clearSound: {fileID: 8300000, guid: 2740877d30f624a29addd217ace1d490, type: 3}
+    _particleColour: {r: 0.95, g: 0.95, b: 0.9, a: 1}
+  - _name: Avocado
+    _scoreThreshold: 3500
+    _sprite: {fileID: 21300000, guid: cd618c3ceff234c959e80d29876fc57c, type: 3}
+    _tintByBlockColour: 0
+    _clearEffect: 2
+    _clearSound: {fileID: 8300000, guid: 2740877d30f624a29addd217ace1d490, type: 3}
+    _particleColour: {r: 0.62, g: 0.8, b: 0.3, a: 1}
+  _loopStepPoints: 250

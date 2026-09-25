@@ -14,5 +14,11 @@ namespace MustyBlockBlast.Gameplay.Settings
 
         /// <summary>The block cracks into splinters and a little dust.</summary>
         WoodSplinters = 3,
+
+        /// <summary>The stone crumbles into tumbling rubble chunks.</summary>
+        StoneCrumble = 4,
+
+        /// <summary>The crystal shatters into spinning shards of its own colour.</summary>
+        CrystalShatter = 5,
     }
 }

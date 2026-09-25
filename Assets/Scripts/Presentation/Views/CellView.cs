@@ -1065,9 +1065,6 @@ namespace MustyBlockBlast.Presentation.Views
             RefreshBlockLook();
         }
 
-        /// <summary>The skin art's transform (issue #333), for the board's skin-change pop.</summary>
-        internal RectTransform SkinTransform => _skinImage != null ? (RectTransform)_skinImage.transform : null;
-
         private static void ShowLayer(Image image, Color colour)
         {
             if (image == null)
