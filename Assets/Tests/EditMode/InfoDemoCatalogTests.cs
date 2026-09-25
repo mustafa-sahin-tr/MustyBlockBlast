@@ -118,13 +118,24 @@ namespace MustyBlockBlast.Tests.EditMode
         [Test]
         public void EveryOtherObjectiveType_HasNoDemo()
         {
+            // The line-clear objectives of issue #452 are covered by InfoDemoLineClearObjectiveTests.
+            ObjectiveType[] withDemo =
+            {
+                ObjectiveType.SimultaneousLineClear,
+                ObjectiveType.AtLeastLineClear,
+                ObjectiveType.RowAndColumnCrossClear,
+                ObjectiveType.BombInducedLineClear,
+                ObjectiveType.PieceIdLineClear,
+                ObjectiveType.RollingLineClearWindow,
+            };
+
             InfoDemoCatalog catalog = new InfoDemoCatalog();
             Array types = Enum.GetValues(typeof(ObjectiveType));
 
             for (int typeIndex = 0; typeIndex < types.Length; typeIndex++)
             {
                 ObjectiveType type = (ObjectiveType)types.GetValue(typeIndex);
-                if (type == ObjectiveType.SimultaneousLineClear)
+                if (Array.IndexOf(withDemo, type) >= 0)
                 {
                     continue;
                 }

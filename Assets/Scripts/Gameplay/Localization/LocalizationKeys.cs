@@ -144,6 +144,24 @@ namespace MustyBlockBlast.Gameplay.Localization
         /// <summary>The pill the Demolition Hammer demo shows as the hammer is handed over (issue #451).</summary>
         public const string INFO_POPUP_DEMO_LAST_RESORT = "info_popup.demo.last_resort";
 
+        /// <summary>An objective demo's progress-chip caption for a minimum line count, "{0}" the count
+        /// (issue #452, the At Least Line Clear objective, e.g. "AT LEAST 3").</summary>
+        public const string INFO_POPUP_DEMO_CHIP_AT_LEAST = "info_popup.demo.chip.at_least";
+
+        /// <summary>The Row and Column Cross Clear demo's progress-chip caption (issue #452, "CROSS").</summary>
+        public const string INFO_POPUP_DEMO_CHIP_CROSS = "info_popup.demo.chip.cross";
+
+        /// <summary>The Bomb-induced line clear demo's progress-chip caption (issue #452, "EMPTY LINE").</summary>
+        public const string INFO_POPUP_DEMO_CHIP_EMPTY_LINE = "info_popup.demo.chip.empty_line";
+
+        /// <summary>The rolling line-clear window demo's progress-chip caption, "{0}" the window's whole
+        /// seconds (issue #452, e.g. "15 SEC").</summary>
+        public const string INFO_POPUP_DEMO_CHIP_WINDOW = "info_popup.demo.chip.window";
+
+        /// <summary>The floating label the Bomb-induced line clear demo shows as the blast leaves a row
+        /// completely empty (issue #452).</summary>
+        public const string INFO_POPUP_DEMO_ROW_EMPTIED = "info_popup.demo.row_emptied";
+
         public const string INFO_POPUP_SPECIAL_CELL_CHAIN_LIGHTNING_HEADER = "info_popup.special_cell.chain_lightning.header";
         public const string INFO_POPUP_SPECIAL_CELL_CHAIN_LIGHTNING_BODY = "info_popup.special_cell.chain_lightning.body";
         public const string INFO_POPUP_SPECIAL_CELL_SCORE_GEM_HEADER = "info_popup.special_cell.score_gem.header";

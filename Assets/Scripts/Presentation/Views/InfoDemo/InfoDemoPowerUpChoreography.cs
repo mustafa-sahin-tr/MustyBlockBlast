@@ -42,6 +42,10 @@ namespace MustyBlockBlast.Presentation.Views
         private const float ARMED_GLOW_ALPHA = 0.75f;
         private const float ARMED_RING_START_SCALE = 1.15f;
 
+        /// <summary>Mockup x of a power-up button placed beside a progress chip (issue #452): the chip ends
+        /// at 67, the plate spans ±23 around this and tray slot 1 starts near 150.</summary>
+        private const float MOCK_BUTTON_BESIDE_CHIP_X = 102f;
+
         /// <summary>Mockup-unit geometry of the colour picker pill: its swatches (rounded squares, like the
         /// real picker's), their pitch, the pill's padding and how far above the tapped cell it floats.</summary>
         private const float MOCK_SWATCH_SIZE = 18f;
@@ -79,8 +83,32 @@ namespace MustyBlockBlast.Presentation.Views
         /// </summary>
         internal static InfoDemoPowerUpButton PowerUpButton(
             InfoDemoTimelineBuilder builder, InfoDemoSprite iconSprite, int iconParameter, int platePaint, int count)
+            => PowerUpButton(builder, iconSprite, iconParameter, platePaint, count, InfoDemoLayout.ChipCentre);
+
+        /// <summary>
+        /// As <see cref="PowerUpButton(InfoDemoTimelineBuilder, PowerUpKind, int, int)"/>, centred on
+        /// <paramref name="centre"/> rather than in the strip's left zone — for an objective demo whose
+        /// progress chip already holds that zone and needs the power-up beside it (issue #452, the Bomb
+        /// behind the Bomb-induced line clear objective). <see cref="StripButtonBesideChip"/> is the spot
+        /// just right of the chip.
+        /// </summary>
+        internal static InfoDemoPowerUpButton PowerUpButton(
+            InfoDemoTimelineBuilder builder, PowerUpKind kind, int platePaint, int count, Vector2 centre)
+            => PowerUpButton(builder, InfoDemoSprite.PowerUpIcon, (int)kind, platePaint, count, centre);
+
+        /// <summary>The strip spot just right of an objective demo's progress chip (mockup x
+        /// <see cref="MOCK_BUTTON_BESIDE_CHIP_X"/>), where a power-up button sits clear of both the chip and
+        /// tray slots 1 and 2 of <see cref="InfoDemoTrayLayout.ChipLeft"/>.</summary>
+        internal static Vector2 StripButtonBesideChip => InfoDemoLayout.StripPoint(MOCK_BUTTON_BESIDE_CHIP_X);
+
+        private static InfoDemoPowerUpButton PowerUpButton(
+            InfoDemoTimelineBuilder builder,
+            InfoDemoSprite iconSprite,
+            int iconParameter,
+            int platePaint,
+            int count,
+            Vector2 centre)
         {
-            Vector2 centre = InfoDemoLayout.ChipCentre;
             float plateSide = InfoDemoLayout.FromMockLength(MOCK_PLATE_SIZE);
             Vector2 plateSize = new Vector2(plateSide, plateSide);
             float plateCorner = InfoDemoLayout.FromMockLength(MOCK_PLATE_CORNER);

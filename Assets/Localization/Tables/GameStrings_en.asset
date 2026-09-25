@@ -175,11 +175,11 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 217997032546304
-    m_Localized: Use the Bomb power-up so that its blast completes and clears a row or column.
+    m_Localized: Use the Bomb so its blast leaves a row or column completely empty.
     m_Metadata:
       m_Items: []
   - m_Id: 225277056638976
-    m_Localized: Place a single piece that completes a row and a column in the very same move.
+    m_Localized: Clear a row and a column at the same time with a single piece.
     m_Metadata:
       m_Items: []
   - m_Id: 227150882922496
@@ -187,7 +187,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 228634777346048
-    m_Localized: Complete {0} or more rows and columns in a single piece placement.
+    m_Localized: Clear at least {0} rows or columns at once with a single piece. More counts too.
     m_Metadata:
       m_Items: []
   - m_Id: 230162711961600
@@ -195,7 +195,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 230162825207808
-    m_Localized: Use a {0} piece to complete and clear a row or column.
+    m_Localized: Clear a row or column with a {0} piece.
     m_Metadata:
       m_Items: []
   - m_Id: 234786474942464
@@ -219,7 +219,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 240837526020096
-    m_Localized: Clear several rows or columns back-to-back, each one within {0} seconds of the last.
+    m_Localized: 'Clear fast: rows and columns cleared in the last {0} seconds add up.'
     m_Metadata:
       m_Items: []
   - m_Id: 240837534408704
@@ -1028,6 +1028,26 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 4074928906166272
     m_Localized: Last resort!
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4087913041092608
+    m_Localized: AT LEAST {0}
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4087913062064128
+    m_Localized: CROSS
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4087913062064129
+    m_Localized: EMPTY LINE
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4087913062064130
+    m_Localized: '{0} SEC'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4087913062064131
+    m_Localized: Row emptied!
     m_Metadata:
       m_Items: []
   references:
