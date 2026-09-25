@@ -631,7 +631,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300696
-    m_Localized: Fills in any fully enclosed pocket of empty cells on the board. Place a piece directly on it to destroy it.
+    m_Localized: Earned every 5 line clears. When destroyed, it fills every enclosed gap on the board.
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300697
@@ -952,6 +952,10 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 3631194104127488
     m_Localized: Ice Cells
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4038190586388480
+    m_Localized: Holes filled!
     m_Metadata:
       m_Items: []
   references:

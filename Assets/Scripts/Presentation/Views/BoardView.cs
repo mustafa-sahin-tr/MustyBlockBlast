@@ -223,8 +223,12 @@ namespace MustyBlockBlast.Presentation.Views
         /// (<c>vortex_icon.png</c>) instead of a white silhouette, so <see cref="IconTint"/> returns
         /// <see cref="Color.white"/> for it and lets the sprite's own colours show through untouched.
         /// </para>
+        /// <para>
+        /// Internal so the Vortex info demo (<see cref="InfoDemoStage"/>, issue #446) paints its halo,
+        /// burst and island outlines in this same identity hue rather than a second copy of it.
+        /// </para>
         /// </summary>
-        private static readonly Color VortexIconTint = new Color(0.62f, 0.66f, 1f, 1f);
+        internal static readonly Color VortexIconTint = new Color(0.62f, 0.66f, 1f, 1f);
 
         /// <summary>
         /// Colour a <see cref="SpecialCellKind.ChainLightning"/>'s icon is drawn in. A fourth distinct
