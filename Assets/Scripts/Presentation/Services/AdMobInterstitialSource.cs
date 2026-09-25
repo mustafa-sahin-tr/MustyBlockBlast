@@ -31,8 +31,7 @@ namespace MustyBlockBlast.Presentation.Services
     {
         // ------------------------------------------------------------------------------------------
         // Google's public test interstitial units — always fill, every ad is stamped "Test Ad" and
-        // earns nothing. Kept only as a quick manual revert if a real unit below ever needs pulling.
-        // Test ids: https://developers.google.com/admob/unity/test-ads
+        // earns nothing. Used by every development build (see InterstitialAdUnitId). Test ids: https://developers.google.com/admob/unity/test-ads
         // ------------------------------------------------------------------------------------------
         private const string TEST_ANDROID_INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-3940256099942544/1033173712";
         private const string TEST_IOS_INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-3940256099942544/4411468910";
@@ -46,11 +45,19 @@ namespace MustyBlockBlast.Presentation.Services
         private const string LIVE_ANDROID_INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-8909172296809126/7334802717";
         private const string LIVE_IOS_INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-8909172296809126/5543298189";
 
-        /// <summary>The unit every load requests.</summary>
+        /// <summary>
+        /// The unit every load requests: Google's test unit in a development build, the real one in a
+        /// release build. Development builds (anything built with "Development Build", including every
+        /// run from Xcode or Build And Run) therefore always get fill-guaranteed "Test Ad" creatives on any
+        /// device with no test-device registration, and a developer tapping one can never register as
+        /// invalid traffic on the live account. Only release builds ever touch the live unit.
+        /// </summary>
 #if UNITY_IOS
-        private const string INTERSTITIAL_AD_UNIT_ID = LIVE_IOS_INTERSTITIAL_AD_UNIT_ID;
+        private static string InterstitialAdUnitId =>
+            Debug.isDebugBuild ? TEST_IOS_INTERSTITIAL_AD_UNIT_ID : LIVE_IOS_INTERSTITIAL_AD_UNIT_ID;
 #else
-        private const string INTERSTITIAL_AD_UNIT_ID = LIVE_ANDROID_INTERSTITIAL_AD_UNIT_ID;
+        private static string InterstitialAdUnitId =>
+            Debug.isDebugBuild ? TEST_ANDROID_INTERSTITIAL_AD_UNIT_ID : LIVE_ANDROID_INTERSTITIAL_AD_UNIT_ID;
 #endif
 
         /// <summary>
@@ -203,7 +210,7 @@ namespace MustyBlockBlast.Presentation.Services
         private static async UniTask<InterstitialAd> LoadAsync(CancellationToken cancellationToken)
         {
             var loadSource = new UniTaskCompletionSource<InterstitialAd>();
-            InterstitialAd.Load(INTERSTITIAL_AD_UNIT_ID, new AdRequest(), (loadedAd, loadError) =>
+            InterstitialAd.Load(InterstitialAdUnitId, new AdRequest(), (loadedAd, loadError) =>
             {
                 if (loadError != null || loadedAd == null)
                 {
