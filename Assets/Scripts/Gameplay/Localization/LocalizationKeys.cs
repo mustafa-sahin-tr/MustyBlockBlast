@@ -452,6 +452,50 @@ namespace MustyBlockBlast.Gameplay.Localization
         /// <summary>Shown when the start is refused.</summary>
         public const string LEVEL_START_CANNOT_START = "level_start.cannot_start";
 
+        /// <summary>The level-start card's lives row, bold line (issue #478). <c>{0}</c> is the current
+        /// count, <c>{1}</c> the refill cap: "17 / 20 lives".</summary>
+        public const string LEVEL_START_LIVES = "level_start.lives";
+
+        /// <summary>The level-start card's lives row, second line: what the level costs.</summary>
+        public const string LEVEL_START_LIVES_HINT = "level_start.lives_hint";
+
+        // --- Out-of-lives sheet and the fail card's life row (issue #478) ---
+
+        /// <summary>Sheet title at zero lives.</summary>
+        public const string LIVES_SHEET_TITLE_OUT = "lives.sheet.title_out";
+
+        /// <summary>Sheet title when opened from the HUD with lives left.</summary>
+        public const string LIVES_SHEET_TITLE = "lives.sheet.title";
+
+        /// <summary>Caption over the refill countdown. <c>{0}</c> is the refill amount.</summary>
+        public const string LIVES_SHEET_NEXT_REFILL = "lives.sheet.next_refill";
+
+        /// <summary>The rule, under the countdown. <c>{0}</c> is the refill amount, <c>{1}</c> the cap.</summary>
+        public const string LIVES_SHEET_BODY = "lives.sheet.body";
+
+        /// <summary>The ad button's caption; the "+N" and heart ride beside it in a chip.</summary>
+        public const string LIVES_SHEET_WATCH_AD = "lives.sheet.watch_ad";
+
+        /// <summary>The ad button's caption while lives are at or above the cap and it is disabled.</summary>
+        public const string LIVES_SHEET_FULL = "lives.sheet.full";
+
+        /// <summary>Shown under the button when the ad was declined, dismissed or did not fill.</summary>
+        public const string LIVES_SHEET_AD_REFUSED = "lives.sheet.ad_refused";
+
+        /// <summary>The sheet's footer: the modes that never use lives.</summary>
+        public const string LIVES_SHEET_FOOTER = "lives.sheet.footer";
+
+        /// <summary>The fail card's life row, bold line: "You lost a life".</summary>
+        public const string RUN_RESULT_LIFE_LOST = "result.life_lost";
+
+        /// <summary>The fail card's life row, detail. <c>{0}</c> is the count before, <c>{1}</c> after:
+        /// "17 → 16 lives".</summary>
+        public const string RUN_RESULT_LIVES_CHANGE = "result.lives_change";
+
+        /// <summary>Appended to <see cref="RUN_RESULT_LIVES_CHANGE"/> below the cap. <c>{0}</c> is the
+        /// refill amount, <c>{1}</c> the "mm:ss" left: "+5 in 12:34".</summary>
+        public const string RUN_RESULT_LIVES_REFILL_IN = "result.lives_refill_in";
+
         // Each level's name (issue #464), one key per level like the BADGE_NAME_* keys: the rows of
         // LevelIdentityCatalog carry these, and every key must be declared here for the table tests.
         public const string LEVEL_NAME_1 = "level.name.1";

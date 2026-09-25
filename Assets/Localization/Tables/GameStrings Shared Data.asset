@@ -1651,6 +1651,58 @@ MonoBehaviour:
     m_Key: result.next_short
     m_Metadata:
       m_Items: []
+  - m_Id: 4289495674380288
+    m_Key: level_start.lives
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4289495720517632
+    m_Key: level_start.lives_hint
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4289495720517633
+    m_Key: lives.sheet.title_out
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4289495720517634
+    m_Key: lives.sheet.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4289495720517635
+    m_Key: lives.sheet.next_refill
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4289495720517636
+    m_Key: lives.sheet.body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4289495720517637
+    m_Key: lives.sheet.watch_ad
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4289495720517638
+    m_Key: lives.sheet.full
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4289495720517639
+    m_Key: lives.sheet.ad_refused
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4289495720517640
+    m_Key: lives.sheet.footer
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4289495720517641
+    m_Key: result.life_lost
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4289495720517642
+    m_Key: result.lives_change
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4289495720517643
+    m_Key: result.lives_refill_in
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

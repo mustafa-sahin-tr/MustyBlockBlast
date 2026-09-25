@@ -10,18 +10,19 @@ using UnityEngine;
 namespace MustyBlockBlast.Presentation.Services
 {
     /// <summary>
-    /// Google AdMob implementation of the three rewarded-ad seams — <see cref="IRewardSource"/>,
-    /// <see cref="ICoinRewardSource"/> and <see cref="IRescueRewardSource"/> (issue #380). The only type
+    /// Google AdMob implementation of the four rewarded-ad seams — <see cref="IRewardSource"/>,
+    /// <see cref="ICoinRewardSource"/>, <see cref="IRescueRewardSource"/> (issue #380) and
+    /// <see cref="ILivesRewardSource"/> (issue #478). The only type
     /// in the project that touches the Google Mobile Ads SDK, on the same footing as
     /// <see cref="UnityCoinPurchaseService"/> is for Unity IAP: swapping ad networks, or stubbing one out
     /// for the Editor and tests, is one binding in <see cref="GameLifetimeScope"/>.
     /// <para>
-    /// One class for three seams because the three are the same mechanic underneath — load a rewarded
+    /// One class for four seams because the four are the same mechanic underneath — load a rewarded
     /// ad, show it, and find out whether the player watched enough of it to be paid — and only the
     /// bookkeeping around the answer differs. Each interface method is a thin wrapper over
     /// <see cref="ShowRewardedAdAsync"/> that turns a bool into its own result type; the seams stay
     /// separate at the interface level for the reasons written on them, and this class simply happens
-    /// to satisfy all three.
+    /// to satisfy all four.
     /// </para>
     /// <para>
     /// The SDK's API is callback-driven (consent, initialisation, load, show and reward each complete on
@@ -52,7 +53,8 @@ namespace MustyBlockBlast.Presentation.Services
     /// as broken — the same policy <see cref="UnityCoinPurchaseService.EnsureReadyAsync"/> follows.
     /// </para>
     /// </summary>
-    public sealed class AdMobRewardSource : IRewardSource, ICoinRewardSource, IRescueRewardSource
+    public sealed class AdMobRewardSource
+        : IRewardSource, ICoinRewardSource, IRescueRewardSource, ILivesRewardSource
     {
         // ------------------------------------------------------------------------------------------
         // Google's public test rewarded units — always fill, every ad is stamped "Test Ad" and earns
@@ -101,7 +103,7 @@ namespace MustyBlockBlast.Presentation.Services
         /// <summary>
         /// Runs consent and SDK initialisation now rather than waiting for the first reward request —
         /// Google's own guidance for the reward-earned latency this buys back. Called once at boot by
-        /// <see cref="AdWarmUpSystem"/>; every one of the three seam methods still calls
+        /// <see cref="AdWarmUpSystem"/>; every one of the four seam methods still calls
         /// <see cref="EnsureReadyAsync"/> itself and finds the cached result already sitting there, so
         /// nothing here is load-bearing for correctness — a boot that never reaches this still ends up
         /// consented and initialised on the player's first ad, exactly as before this existed.
@@ -134,8 +136,17 @@ namespace MustyBlockBlast.Presentation.Services
             return new RescueRewardResult(earned);
         }
 
+        public async UniTask<LivesRewardResult> RequestLivesRewardAsync(
+            int amount, CancellationToken cancellationToken)
+        {
+            bool earned = await ShowRewardedAdAsync(cancellationToken);
+
+            // Paid in full or not at all, as the coin seam is; LivesSystem clamps what it banks.
+            return new LivesRewardResult(earned ? amount : 0, earned);
+        }
+
         /// <summary>
-        /// The whole mechanic, shared by all three seams: make sure the SDK is up, load one rewarded ad,
+        /// The whole mechanic, shared by all four seams: make sure the SDK is up, load one rewarded ad,
         /// show it, and report whether the reward-earned callback fired. Every failure path is a false
         /// return; only the caller's cancellation escapes.
         /// </summary>

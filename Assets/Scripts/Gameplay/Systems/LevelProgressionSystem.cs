@@ -83,6 +83,7 @@ namespace MustyBlockBlast.Gameplay.Systems
         private readonly GameModeSystem _gameModeSystem;
         private readonly BoardSystem _boardSystem;
         private readonly ScoreSystem _scoreSystem;
+        private readonly LivesSystem _livesSystem;
         private readonly IPublisher<LevelAdvancedMessage> _levelAdvancedPublisher;
         private readonly IPublisher<EmptyCellBonusCountingMessage> _emptyCellBonusCountingPublisher;
         private readonly ISubscriber<EmptyCellBonusCountingCompletedMessage> _emptyCellBonusCountingCompletedSubscriber;
@@ -130,9 +131,11 @@ namespace MustyBlockBlast.Gameplay.Systems
             IPublisher<BonusScoredMessage> bonusScoredPublisher,
             IPublisher<PendingFlightsDrainMessage> pendingFlightsDrainPublisher,
             ISubscriber<PendingFlightsDrainedMessage> pendingFlightsDrainedSubscriber,
-            InfoPopupModel infoPopupModel)
+            InfoPopupModel infoPopupModel,
+            LivesSystem livesSystem)
         {
             _infoPopupModel = infoPopupModel;
+            _livesSystem = livesSystem;
             _pendingFlightsDrainPublisher = pendingFlightsDrainPublisher;
             _pendingFlightsDrainedSubscriber = pendingFlightsDrainedSubscriber;
             _progressionModel = progressionModel;
@@ -174,7 +177,8 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// Starts a Path-mode run at <paramref name="levelNumber"/>, as the level path overlay's node
         /// tap does. Returns false — changing nothing at all — when the request is not one this mode
         /// accepts: outside <see cref="GameMode.Path"/>, for a level past the unlocked frontier, or for
-        /// a level the catalog does not author.
+        /// a level the catalog does not author — and, since issue #478, at zero lives, when
+        /// <see cref="LivesSystem.TryPassStartGate"/> refuses and opens the out-of-lives sheet instead.
         /// <para>
         /// Refusing outside Path mode rather than switching into it is what keeps a node read-only in
         /// Endless and Timed. Switching mode restarts the run, and a status light must not be able to
@@ -194,6 +198,14 @@ namespace MustyBlockBlast.Gameplay.Systems
             }
 
             if (!IsUnlocked(levelNumber) || _levelCatalog.Find(levelNumber) == null)
+            {
+                return false;
+            }
+
+            // After the request is known to be a legal one — an out-of-lives sheet for a locked node would
+            // be the wrong answer — and before anything below moves: a refusal must leave the walk, the
+            // active level, the objective and the board exactly as they were (issue #478).
+            if (!_livesSystem.TryPassStartGate())
             {
                 return false;
             }

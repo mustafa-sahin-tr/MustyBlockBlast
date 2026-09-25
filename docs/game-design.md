@@ -323,11 +323,30 @@ write lives.
 - **HUD:** in Path mode the goal row is one status bar: `[level icon + number] | [goal chips] |
   [heart with the life count]`. While lives are below 20, the time left to the next refill
   ("mm:ss") shows under the heart. At 20 or above, no countdown is shown. The top centre of the
-  screen stays empty for the Dynamic Island.
-- **Not yet:** in this first slice, 0 lives does not stop a Path level from starting. The
-  out-of-lives gate and the rewarded-ad top-up (+3, capped at 20) arrive in #478. The coin pack
-  (+10, not capped) arrives in #479.
-- Tuning values (cap, refill amount, starting lives) live in `LivesConfig`
+  screen stays empty for the Dynamic Island. Tapping the heart opens the lives sheet (below).
+- **Out of lives:** at **0 lives** a Path level cannot start. Start on the level-start card, Next
+  level and Play again / Try again on the result card all refuse, no board is dealt, and the
+  **out-of-lives sheet** opens on top instead. The card underneath stays open, so the player can
+  start once a life comes back. On the level-start card the check comes before any Coin Sower
+  charges are spent, so a refused start costs nothing. A refill that is due is paid before the
+  check, so a player who waits for xx:00 is let in on the dot. Endless and Timed are never
+  stopped: Play again there works exactly as before. (Switching into Path mode from the settings
+  is not gated.)
+- **Out-of-lives sheet:** a heart with the current count, the countdown to the next xx:00 refill
+  ("NEXT +5 LIVES IN mm:ss", hidden at 20 or more), the refill rule, and **Watch ad (+3)**. The
+  sheet reads "OUT OF LIVES" at 0 and "LIVES" when opened from the HUD with lives left.
+- **Rewarded ad (+3):** watching the ad adds **+3 lives, clamped at 20**. So 18 becomes 20, 17
+  becomes 20 and 15 becomes 18. At 20 or more the button is greyed out, reads "Lives full", and no
+  ad is shown. An ad never raises lives above 20 and never lowers a count that is already above 20.
+  A declined, skipped or unfilled ad grants nothing. The sheet stays open after a grant, showing
+  the new count.
+- **Level-start card and fail card:** the level-start card shows a pink lives row ("17 / 20 lives ·
+  Winning is free. Failing this level costs 1 life.") above its buttons. The result card of a Path
+  failure that actually cost a life shows "You lost a life" with the heart, a "−1" badge and
+  "17 → 16 lives · +5 in mm:ss" (the countdown part is left out at 20 or more). A failure at 0
+  lives cost nothing, so it shows no such row.
+- **Not yet:** the coin pack (+10, not capped) arrives in #479, as a second button on the sheet.
+- Tuning values (cap, refill amount, starting lives, ad reward) live in `LivesConfig`
   (`Assets/Content/Lives/LivesConfig.asset`).
 
 ## Timed mode

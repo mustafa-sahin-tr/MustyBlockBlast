@@ -50,6 +50,11 @@ namespace MustyBlockBlast.Presentation.Views
     /// While open it is modal, swallows every tap and holds the run's clock through
     /// <see cref="TimerRunSystem.SetMenuPaused"/> — see the gate chain in <see cref="BoardInputView"/>.
     /// </para>
+    /// <para>
+    /// Lives (issue #478): a pink row above the buttons shows "n / cap lives" and what failing costs,
+    /// and Start asks <see cref="LivesSystem.TryPassStartGate"/> before anything is spent. At zero lives
+    /// the out-of-lives sheet opens over this card, which stays open underneath for the retry.
+    /// </para>
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class LevelStartCardView : MonoBehaviour
@@ -131,6 +136,12 @@ namespace MustyBlockBlast.Presentation.Views
         private const float AD_CHIP_GAP = 14f;
         private const float AD_CHIP_COIN_SIZE = 30f;
 
+        private const float LIVES_ROW_HEIGHT = 112f;
+        private const float LIVES_ROW_RADIUS = 36f;
+        private const float LIVES_ROW_OUTLINE = 4f;
+        private const float LIVES_ROW_PAD = 22f;
+        private const float LIVES_HEART_SIZE = 76f;
+        private const float LIVES_TEXT_GAP = 20f;
         private const float LOCK_FOOTER_HEIGHT = 112f;
         private const float LOCK_FOOTER_GLYPH = 46f;
         private const float MESSAGE_HEIGHT = 76f;
@@ -195,6 +206,14 @@ namespace MustyBlockBlast.Presentation.Views
         private static readonly Color LockedIconTint = new Color(0.72f, 0.72f, 0.74f, 1f);
         private static readonly Color DimmedAlpha = new Color(1f, 1f, 1f, 0.5f);
 
+        /// <summary>The lives row's pink (issue #478 mockup: #FFEEF0 on #F8C9D0), shared with the
+        /// out-of-lives sheet and the fail card.</summary>
+        private static readonly Color LivesFill = new Color32(0xFF, 0xEE, 0xF0, 0xFF);
+        private static readonly Color LivesOutline = new Color32(0xF8, 0xC9, 0xD0, 0xFF);
+        private static readonly Color LivesInk = new Color32(0x8E, 0x2A, 0x3A, 0xFF);
+        private static readonly Color LivesSubInk = new Color32(0xB0, 0x48, 0x5A, 0xFF);
+        private static readonly Color LivesCountOutline = new Color(0.45f, 0.05f, 0.08f, 0.9f);
+
         private static readonly Color MeadowInk = new Color32(0x3E, 0x9E, 0x5C, 0xFF);
         private static readonly Color WinterInk = new Color32(0x2E, 0x8F, 0xC2, 0xFF);
         private static readonly Color CityInk = new Color32(0xD2, 0x69, 0x1E, 0xFF);
@@ -246,6 +265,8 @@ namespace MustyBlockBlast.Presentation.Views
         [SerializeField] private Sprite _coinCellSprite;
         [Tooltip("White flame glyph for the first-try streak row. Tinted at runtime.")]
         [SerializeField] private Sprite _flameSprite;
+        [Tooltip("Full-colour heart (HudIcon_Heart) the lives row's count sits on.")]
+        [SerializeField] private Sprite _heartSprite;
 
         [Header("Palette")]
         [SerializeField] private Color _scrimColour = new Color(0.08f, 0.09f, 0.16f, 0.58f);
@@ -264,6 +285,9 @@ namespace MustyBlockBlast.Presentation.Views
         private LevelIdentityCatalog _levelIdentityCatalog;
         private RewardRuleCatalog _rewardRuleCatalog;
         private PowerUpInventoryView _powerUpInventoryView;
+        private LivesModel _livesModel;
+        private LivesConfig _livesConfig;
+        private LivesSystem _livesSystem;
 
         private Canvas _canvas;
         private CancellationToken _destroyToken;
@@ -319,6 +343,11 @@ namespace MustyBlockBlast.Presentation.Views
         private RectTransform _adChipRect;
         private RectTransform _startButtonRect;
         private Text _startButtonText;
+
+        private RectTransform _livesRowRect;
+        private Text _livesCountText;
+        private Text _livesLineText;
+        private Text _livesHintText;
 
         private RectTransform _lockFooterRect;
         private Text _lockFooterText;
@@ -379,7 +408,10 @@ namespace MustyBlockBlast.Presentation.Views
             LevelCatalog levelCatalog,
             LevelIdentityCatalog levelIdentityCatalog,
             RewardRuleCatalog rewardRuleCatalog,
-            PowerUpInventoryView powerUpInventoryView)
+            PowerUpInventoryView powerUpInventoryView,
+            LivesModel livesModel,
+            LivesConfig livesConfig,
+            LivesSystem livesSystem)
         {
             _powerUpModel = powerUpModel;
             _levelProgressionModel = levelProgressionModel;
@@ -395,6 +427,9 @@ namespace MustyBlockBlast.Presentation.Views
             _levelIdentityCatalog = levelIdentityCatalog;
             _rewardRuleCatalog = rewardRuleCatalog;
             _powerUpInventoryView = powerUpInventoryView;
+            _livesModel = livesModel;
+            _livesConfig = livesConfig;
+            _livesSystem = livesSystem;
         }
 
         private void Awake()
@@ -411,7 +446,8 @@ namespace MustyBlockBlast.Presentation.Views
                 || _powerUpSystem == null || _levelProgressionSystem == null || _rewardRuleSystem == null
                 || _coinCellSeedSystem == null || _timerRunSystem == null || _localizationSystem == null
                 || _priceConfig == null || _levelCatalog == null || _levelIdentityCatalog == null
-                || _rewardRuleCatalog == null || _powerUpInventoryView == null)
+                || _rewardRuleCatalog == null || _powerUpInventoryView == null
+                || _livesModel == null || _livesConfig == null || _livesSystem == null)
             {
                 Debug.LogError(
                     $"{nameof(LevelStartCardView)} was not injected. Is it registered in the LifetimeScope?", this);
@@ -422,6 +458,10 @@ namespace MustyBlockBlast.Presentation.Views
             // frontier can move while the card is closed.
             _powerUpModel.CoinSowerCount.Subscribe(OnChargesChanged).AddTo(_disposables);
             _levelProgressionModel.CurrentLevelNumber.Subscribe(OnLevelChanged).AddTo(_disposables);
+
+            // Observed for the same reason: the out-of-lives sheet can open over this card, and the lives
+            // an ad pays there must show here the moment the sheet closes (issue #478).
+            _livesModel.CurrentLives.Subscribe(OnLivesChanged).AddTo(_disposables);
         }
 
         private void OnDestroy() => _disposables.Dispose();
@@ -529,9 +569,20 @@ namespace MustyBlockBlast.Presentation.Views
         /// Commits the sow (if any) and starts the level: spend, then queue, then start — the run consumes
         /// the queue on <c>RunStartedMessage</c>, which the start publishes. A refused spend leaves the card
         /// open with a message rather than silently starting without what was asked for.
+        /// <para>
+        /// The lives gate goes first (issue #478): at zero lives the start would be refused anyway, and
+        /// asking only after the spend would take the player's Coin Sower charges for a run that never
+        /// deals. A refusal opens the out-of-lives sheet over this card and leaves the card as it is, so
+        /// Start is still there once an ad (or the clock) has paid a life back.
+        /// </para>
         /// </summary>
         private void ConfirmAndStart()
         {
+            if (!_livesSystem.TryPassStartGate())
+            {
+                return;
+            }
+
             if (_pendingQuantity > 0 && !_powerUpSystem.TrySpendCoinSowerBulk(_pendingQuantity))
             {
                 SetMessage(_localizationSystem.Translate(LocalizationKeys.LEVEL_START_SOW_FAILED));
@@ -601,6 +652,8 @@ namespace MustyBlockBlast.Presentation.Views
 
         private void OnLevelChanged(int levelNumber) => Refresh();
 
+        private void OnLivesChanged(int lives) => Refresh();
+
         private void SetPendingQuantity(int quantity)
         {
             _pendingQuantity = Mathf.Clamp(quantity, 0, MaxSowableQuantity());
@@ -655,6 +708,7 @@ namespace MustyBlockBlast.Presentation.Views
             PaintStreak();
             PaintInventory();
             PaintSower();
+            PaintLives();
             PaintButtons();
 
             string footer = _messageOverride;
@@ -946,6 +1000,31 @@ namespace MustyBlockBlast.Presentation.Views
             _quantityText.text = _stringBuilder.ToString();
         }
 
+        /// <summary>
+        /// The lives row (issue #478): "17 / 20 lives" in bold over what the level costs, on the pink
+        /// plate with the count in a small heart. Shown whenever the card can start the level — a replay
+        /// costs a life on failure just as the frontier does — and hidden on a locked preview.
+        /// </summary>
+        private void PaintLives()
+        {
+            bool show = _mode != CardMode.Locked && _livesModel != null;
+            _livesRowRect.gameObject.SetActive(show);
+            if (!show)
+            {
+                return;
+            }
+
+            _stringBuilder.Clear();
+            _stringBuilder.Append(_livesModel.CurrentLives.Value);
+            string count = _stringBuilder.ToString();
+            _livesCountText.text = count;
+
+            _stringBuilder.Clear();
+            _stringBuilder.Append(_livesConfig.RegenCap);
+            _livesLineText.text = _localizationSystem.Format(LocalizationKeys.LEVEL_START_LIVES, count, _stringBuilder.ToString());
+            _livesHintText.text = _localizationSystem.Translate(LocalizationKeys.LEVEL_START_LIVES_HINT);
+        }
+
         private void PaintButtons()
         {
             bool locked = _mode == CardMode.Locked;
@@ -1113,6 +1192,7 @@ namespace MustyBlockBlast.Presentation.Views
             cursor = PlaceRow(_inventoryCaptionRect, CAPTION_HEIGHT, cursor, top, apply, STACK_GAP);
             cursor = PlaceRow(_gridRect, _gridRect.sizeDelta.y, cursor, top, apply, CAPTION_GAP + 6f);
             cursor = PlaceRow(_sowerRect, SOWER_HEIGHT, cursor, top, apply, STACK_GAP);
+            cursor = PlaceRow(_livesRowRect, LIVES_ROW_HEIGHT, cursor, top, apply, STACK_GAP);
             cursor = PlaceRow(_buttonsRect, BUTTON_HEIGHT, cursor, top, apply, STACK_GAP);
             cursor = PlaceRow(_lockFooterRect, LOCK_FOOTER_HEIGHT, cursor, top, apply, STACK_GAP);
             cursor = PlaceRow(_messageRect, MESSAGE_HEIGHT, cursor, top, apply, STACK_GAP);
@@ -1187,6 +1267,7 @@ namespace MustyBlockBlast.Presentation.Views
             BuildStreakRow();
             BuildInventory();
             BuildSowerRow();
+            BuildLivesRow();
             BuildButtons();
             BuildLockFooter();
 
@@ -1431,6 +1512,39 @@ namespace MustyBlockBlast.Presentation.Views
             glyphText.text = glyph;
             glyphText.rectTransform.anchoredPosition = new Vector2(0f, 4f);
             return stepperRect;
+        }
+
+        /// <summary>The pink lives row: a small heart holding the count, the bold "n / cap lives" line and
+        /// the cost hint under it. Laid out as the sow row is — glyph on the left, two left-aligned lines.</summary>
+        private void BuildLivesRow()
+        {
+            var size = new Vector2(CONTENT_WIDTH, LIVES_ROW_HEIGHT);
+            _livesRowRect = HudChrome.CreateRect(_cardRect, "LivesRow", size, Vector2.zero);
+            HudChrome.BuildRounded(_livesRowRect, "Plate", size, Vector2.zero, LIVES_ROW_RADIUS).color = LivesFill;
+            HudChrome.BuildOutline(_livesRowRect, "Outline", size, Vector2.zero, LIVES_ROW_RADIUS, LIVES_ROW_OUTLINE)
+                .color = LivesOutline;
+
+            float left = -CONTENT_WIDTH * 0.5f;
+            var heartSize = new Vector2(LIVES_HEART_SIZE, LIVES_HEART_SIZE);
+            var heartPosition = new Vector2(left + LIVES_ROW_PAD + (LIVES_HEART_SIZE * 0.5f), 0f);
+            Image heart = HudChrome.BuildGlyph(_livesRowRect, "Heart", _heartSprite, heartSize, heartPosition);
+            heart.preserveAspect = true;
+            heart.color = _heartSprite != null ? Color.white : Color.clear;
+
+            _livesCountText = CreateText(_livesRowRect, "Count", _bodyFontSize - 4, _displayFont, Color.white);
+            _livesCountText.rectTransform.sizeDelta = heartSize;
+            _livesCountText.rectTransform.anchoredPosition = heartPosition + new Vector2(0f, LIVES_HEART_SIZE * 0.06f);
+            Outline countOutline = _livesCountText.gameObject.AddComponent<Outline>();
+            countOutline.effectColor = LivesCountOutline;
+            countOutline.effectDistance = new Vector2(2f, -2f);
+
+            float textX = left + LIVES_ROW_PAD + LIVES_HEART_SIZE + LIVES_TEXT_GAP;
+            _livesLineText = HudChrome.CreateLabel(
+                _livesRowRect, "Lives", _bodyFontSize - 2, FontStyle.Normal, TextAnchor.MiddleLeft, new Vector2(textX, 18f), _bodyFont);
+            _livesLineText.color = LivesInk;
+            _livesHintText = HudChrome.CreateLabel(
+                _livesRowRect, "Hint", _bodyFontSize - 10, FontStyle.Normal, TextAnchor.MiddleLeft, new Vector2(textX, -20f), _bodyFont);
+            _livesHintText.color = LivesSubInk;
         }
 
         /// <summary>Watch Ad (blue, "+2 coin" chip) and Start (green) side by side on one row.</summary>

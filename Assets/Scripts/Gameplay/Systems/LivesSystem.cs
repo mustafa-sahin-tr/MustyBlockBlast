@@ -42,6 +42,19 @@ namespace MustyBlockBlast.Gameplay.Systems
     /// is recomputed from the stamp on every check, so a suspended app catches up on its first tick
     /// after resume, and every deduction re-checks first so a boundary is never missed between ticks.
     /// </para>
+    /// <para>
+    /// <b>The start gate (issue #478).</b> Every Path start — the level-start card, "Next level" and
+    /// "Try again" alike — asks <see cref="TryPassStartGate"/> first. At zero lives it refuses and
+    /// publishes <see cref="OutOfLivesMessage"/>, on which the out-of-lives sheet opens; no board is
+    /// dealt. Outside Path mode the gate always passes: Endless and Timed never read lives.
+    /// </para>
+    /// <para>
+    /// <b>The ad top-up (issue #478).</b> <see cref="RequestAdLivesAsync"/> pays
+    /// <see cref="LivesConfig.AdRewardAmount"/> through <see cref="ILivesRewardSource"/>, clamped at
+    /// <see cref="LivesConfig.RegenCap"/> — the cap bounds the ad exactly as it bounds the refill. It is
+    /// refused outright at or above the cap (the seam is never asked), and like the refill it never
+    /// lowers a count that is already above it.
+    /// </para>
     /// </summary>
     public sealed class LivesSystem : IStartable, IDisposable
     {
@@ -56,6 +69,8 @@ namespace MustyBlockBlast.Gameplay.Systems
         private readonly GameModeModel _gameModeModel;
         private readonly IDisposable _subscriptions;
         private readonly LivesSaveData _saveData;
+        private readonly ILivesRewardSource _rewardSource;
+        private readonly IPublisher<OutOfLivesMessage> _outOfLivesPublisher;
 
         /// <summary>
         /// Where "now" comes from. Local time on purpose: the refill lands on the device's own xx:00,
@@ -82,6 +97,10 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// bonus life over the cap.</summary>
         private int _livesBeforeCharge;
 
+        /// <summary>True from an ad request until the source answers, so a second tap cannot queue a
+        /// second ad — the sheet guards itself too, but the rule belongs to the System.</summary>
+        private bool _isAdRequestInFlight;
+
         /// <summary>
         /// DI entry point. Explicitly marked because VContainer, absent an <see cref="InjectAttribute"/>,
         /// resolves the constructor with the most parameters — the seeded-clock one below, which it
@@ -94,7 +113,9 @@ namespace MustyBlockBlast.Gameplay.Systems
             GameModeModel gameModeModel,
             ISubscriber<GameOverMessage> gameOverSubscriber,
             ISubscriber<RunRescuedMessage> runRescuedSubscriber,
-            ISubscriber<RunStartedMessage> runStartedSubscriber)
+            ISubscriber<RunStartedMessage> runStartedSubscriber,
+            ILivesRewardSource rewardSource,
+            IPublisher<OutOfLivesMessage> outOfLivesPublisher)
             : this(
                 model,
                 config,
@@ -102,6 +123,8 @@ namespace MustyBlockBlast.Gameplay.Systems
                 gameOverSubscriber,
                 runRescuedSubscriber,
                 runStartedSubscriber,
+                rewardSource,
+                outOfLivesPublisher,
                 LocalNow)
         {
         }
@@ -113,11 +136,15 @@ namespace MustyBlockBlast.Gameplay.Systems
             ISubscriber<GameOverMessage> gameOverSubscriber,
             ISubscriber<RunRescuedMessage> runRescuedSubscriber,
             ISubscriber<RunStartedMessage> runStartedSubscriber,
+            ILivesRewardSource rewardSource,
+            IPublisher<OutOfLivesMessage> outOfLivesPublisher,
             Func<DateTime> localNowProvider)
         {
             _model = model;
             _config = config;
             _gameModeModel = gameModeModel;
+            _rewardSource = rewardSource;
+            _outOfLivesPublisher = outOfLivesPublisher;
             _localNowProvider = localNowProvider ?? LocalNow;
 
             _saveData = Load(_config, CurrentHourStamp());
@@ -149,6 +176,101 @@ namespace MustyBlockBlast.Gameplay.Systems
         private bool IsPathMode => _gameModeModel.CurrentMode.Value == GameMode.Path;
 
         /// <summary>
+        /// Whether a watched ad would pay anything right now: lives are below the cap and no ad is
+        /// already in flight. The sheet reads this on every lives change to enable or grey its button.
+        /// </summary>
+        public bool CanRequestAdLives => !_isAdRequestInFlight && _saveData.lives < _config.RegenCap;
+
+        /// <summary>
+        /// The one gate in front of every Path start (issue #478). Outside Path mode it always passes —
+        /// Endless and Timed never use lives. In Path it first pays any hour boundary crossed since the
+        /// last tick (so a player who waited for xx:00 is not turned away a second early), then passes
+        /// while at least one life is left. At zero it refuses and publishes
+        /// <see cref="OutOfLivesMessage"/>, which opens the out-of-lives sheet; the caller must then
+        /// start nothing.
+        /// <para>
+        /// A pass spends nothing — a life is only ever charged by a failure — so a caller may ask twice
+        /// for the same start (the level-start card checks before spending Coin Sower charges, then
+        /// <see cref="LevelProgressionSystem.TryStartPathLevel"/> checks again) at no cost.
+        /// </para>
+        /// </summary>
+        public bool TryPassStartGate()
+        {
+            if (!IsPathMode)
+            {
+                return true;
+            }
+
+            RefreshRefill();
+            if (_saveData.lives > 0)
+            {
+                return true;
+            }
+
+            _outOfLivesPublisher.Publish(new OutOfLivesMessage());
+            return false;
+        }
+
+        /// <summary>
+        /// The out-of-lives sheet's "Watch ad" (issue #478): asks <see cref="ILivesRewardSource"/> for
+        /// <see cref="LivesConfig.AdRewardAmount"/> lives and banks what it grants, clamped at
+        /// <see cref="LivesConfig.RegenCap"/>, saved at once. Returns whether anything was banked.
+        /// <para>
+        /// Refused without asking the seam while lives are at or above the cap — an ad there could only
+        /// pay nothing — and while another request is in flight. A declined, dismissed or unfilled ad
+        /// banks nothing. The cap is re-checked after the ad too: a refill that landed while it played
+        /// may have filled the gap, and the grant tops up to the cap, never past it and never down to it.
+        /// Only the caller's cancellation escapes, as with every reward seam.
+        /// </para>
+        /// </summary>
+        public async UniTask<bool> RequestAdLivesAsync(CancellationToken cancellationToken)
+        {
+            if (_isAdRequestInFlight)
+            {
+                return false;
+            }
+
+            RefreshRefill();
+            if (_saveData.lives >= _config.RegenCap)
+            {
+                return false;
+            }
+
+            LivesRewardResult result;
+            _isAdRequestInFlight = true;
+            try
+            {
+                result = await _rewardSource.RequestLivesRewardAsync(_config.AdRewardAmount, cancellationToken);
+            }
+            finally
+            {
+                _isAdRequestInFlight = false;
+            }
+
+            if (!result.Granted || result.Amount <= 0)
+            {
+                return false;
+            }
+
+            // The ad may have straddled an hour boundary; pay that first, so the clamp below is taken
+            // against the count the player is actually entitled to.
+            RefreshRefill();
+
+            int cap = _config.RegenCap;
+            int lives = _saveData.lives;
+            if (lives >= cap)
+            {
+                return false;
+            }
+
+            // In long for the reason GrantRefill is: an absurd amount from a misbehaving source must not
+            // overflow into a negative count.
+            SetLives((int)Math.Min((long)lives + result.Amount, cap));
+            Save();
+            return true;
+        }
+
+        /// <summary>
         /// Pays every hour boundary crossed since the last check, clamped at the cap, and re-derives the
         /// countdown. Saves only when something changed. Called by the loop every second, and first
         /// thing before every deduction; internal so a test can drive it against a seeded clock.
@@ -176,7 +298,11 @@ namespace MustyBlockBlast.Gameplay.Systems
 
         /// <summary>A new run closes the rescue window on the last failure, so the refund it held is
         /// gone for good.</summary>
-        private void OnRunStarted(RunStartedMessage message) => _hasPendingRefund = false;
+        private void OnRunStarted(RunStartedMessage message)
+        {
+            _hasPendingRefund = false;
+            _model.LivesBeforeLastCharge.Value = 0;
+        }
 
         /// <summary>
         /// A Path run failed: one life, saved at once — waiting for the next run would let an app kill
@@ -198,6 +324,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             if (lives <= 0)
             {
                 _hasPendingRefund = false;
+                _model.LivesBeforeLastCharge.Value = 0;
                 return;
             }
 
@@ -205,6 +332,9 @@ namespace MustyBlockBlast.Gameplay.Systems
             _hasPendingRefund = message.IsRescueAvailable;
             SetLives(lives - 1);
             Save();
+
+            // Written after the count, so a view that reacts to this reads the charged count already.
+            _model.LivesBeforeLastCharge.Value = lives;
         }
 
         /// <summary>The failure just charged was taken back by the rescue ad: the run goes on, so its
@@ -217,6 +347,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             }
 
             _hasPendingRefund = false;
+            _model.LivesBeforeLastCharge.Value = 0;
             int ceiling = Math.Max(_config.RegenCap, _livesBeforeCharge);
             SetLives(Math.Min(_saveData.lives + 1, ceiling));
             Save();

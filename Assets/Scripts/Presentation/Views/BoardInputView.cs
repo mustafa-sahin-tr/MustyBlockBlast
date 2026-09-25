@@ -108,6 +108,9 @@ namespace MustyBlockBlast.Presentation.Views
         private InfoPopupView _infoPopupView;
         private InfoPopupSystem _infoPopupSystem;
         private PaintCrossColourPickerView _paintCrossColourPickerView;
+        private LivesSystem _livesSystem;
+        private LivesHudView _livesHudView;
+        private OutOfLivesSheetView _outOfLivesSheetView;
 
         private int _draggedSlot = -1;
 
@@ -202,7 +205,10 @@ namespace MustyBlockBlast.Presentation.Views
             ObjectiveInfoPopupView objectiveInfoPopupView,
             InfoPopupView infoPopupView,
             InfoPopupSystem infoPopupSystem,
-            PaintCrossColourPickerView paintCrossColourPickerView)
+            PaintCrossColourPickerView paintCrossColourPickerView,
+            LivesSystem livesSystem,
+            LivesHudView livesHudView,
+            OutOfLivesSheetView outOfLivesSheetView)
         {
             _boardSystem = boardSystem;
             _boardModel = boardModel;
@@ -228,6 +234,9 @@ namespace MustyBlockBlast.Presentation.Views
             _infoPopupView = infoPopupView;
             _infoPopupSystem = infoPopupSystem;
             _paintCrossColourPickerView = paintCrossColourPickerView;
+            _livesSystem = livesSystem;
+            _livesHudView = livesHudView;
+            _outOfLivesSheetView = outOfLivesSheetView;
         }
 
         private void Awake()
@@ -394,6 +403,17 @@ namespace MustyBlockBlast.Presentation.Views
                 return;
             }
 
+            // The out-of-lives sheet (issue #478) opens *over* the level-start card and the end-of-run
+            // card — a refused Start or Try again leaves them up underneath, so the start the player was
+            // after is still one tap away once lives come back. It must therefore be routed before
+            // either of them, or its buttons would be answered by the card hidden beneath. It holds no
+            // menu-pause flag, so sitting above the cards that do cannot put two owners on it.
+            if (_outOfLivesSheetView.IsOpen)
+            {
+                _outOfLivesSheetView.HandleTap(screenPosition);
+                return;
+            }
+
             // While any overlay is open it is modal and swallows every tap. These four gates are also
             // what keeps the overlays mutually exclusive, and the argument scales with their number
             // rather than pairing them off: *every* "is a panel open, route the tap into it" gate sits
@@ -461,6 +481,16 @@ namespace MustyBlockBlast.Presentation.Views
                         _levelProgressionSystem.TryStartPathLevel(_runResultView.NextLevelNumber);
                         break;
                     case RunEndAction.PlayAgain:
+                        // At zero lives in Path the restart is refused before anything moves (issue #478):
+                        // the gate opens the out-of-lives sheet over this card, and the card — rescue
+                        // offer included — stays exactly as it was. Declining the rescue first would
+                        // throw away the one way the player can still carry on without a life. Outside
+                        // Path the gate always passes, so Endless and Timed restart as they always have.
+                        if (!_livesSystem.TryPassStartGate())
+                        {
+                            break;
+                        }
+
                         // "Play again" and Path's "Try again" are the same restart: the mode and, in
                         // Path, the active level are untouched, so the run that starts is the same one.
                         // A restart while a rescue is on offer is the player declining it (issue #371):
@@ -479,8 +509,13 @@ namespace MustyBlockBlast.Presentation.Views
             if (_boardSystem.IsGameOver)
             {
                 // The card was not there to take the tap — it only ever happens if the game over
-                // arrived before the card had subscribed. Restarting is the one sane thing left.
-                _boardSystem.StartNewRun();
+                // arrived before the card had subscribed. Restarting is the one sane thing left — unless
+                // it is a Path restart at zero lives, which the gate turns into the sheet instead.
+                if (_livesSystem.TryPassStartGate())
+                {
+                    _boardSystem.StartNewRun();
+                }
+
                 return;
             }
 
@@ -495,6 +530,15 @@ namespace MustyBlockBlast.Presentation.Views
             if (_levelPathButtonView.ContainsScreenPoint(screenPosition))
             {
                 _levelPathPanelView.Open();
+                return;
+            }
+
+            // The HUD's lives section (issue #478) opens the same sheet a refused start does. Before the
+            // objective row below: the section sits in that bar's trailing slot, and a tap on the hearts
+            // is about lives, not about whichever goal chip is nearest.
+            if (_livesHudView.ContainsScreenPoint(screenPosition))
+            {
+                _outOfLivesSheetView.Open();
                 return;
             }
 
