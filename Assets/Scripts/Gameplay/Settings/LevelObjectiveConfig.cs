@@ -46,6 +46,10 @@ namespace MustyBlockBlast.Gameplay.Settings
         /// null — the same never-existed-yet case <see cref="EmptyReinforcedCells"/> covers.</summary>
         private static readonly PowerStarCellAuthoring[] EmptyPowerStarCells = new PowerStarCellAuthoring[0];
 
+        /// <summary>Shared, never-mutated empty for a row whose <see cref="_puzzleLinkGroups"/> field is
+        /// null — the same never-existed-yet case <see cref="EmptyReinforcedCells"/> covers.</summary>
+        private static readonly PuzzleLinkGroupAuthoring[] EmptyPuzzleLinkGroups = new PuzzleLinkGroupAuthoring[0];
+
         /// <summary>Shared, never-mutated empty for a row whose <see cref="_bannedPowerUps"/> field is
         /// null — the same never-existed-yet case <see cref="EmptyReinforcedCells"/> covers.</summary>
         private static readonly PowerUpKind[] EmptyBannedPowerUps = new PowerUpKind[0];
@@ -160,6 +164,11 @@ namespace MustyBlockBlast.Gameplay.Settings
             + "it. A power-up that destroys it bursts it at once. Empty (the default) means none.")]
         [SerializeField] private List<PowerStarCellAuthoring> _powerStarCells = new List<PowerStarCellAuthoring>();
 
+        [Tooltip("Puzzle-link groups (issue #483): 2-3 orthogonally connected cells locked together. A "
+            + "group goes only if every member is hit in the same move (e.g. two lines at once), and then "
+            + "pays a bonus; a partial hit removes none of it. Empty (the default) means none.")]
+        [SerializeField] private List<PuzzleLinkGroupAuthoring> _puzzleLinkGroups = new List<PuzzleLinkGroupAuthoring>();
+
         [Tooltip("Power-up kinds this level's Path-mode run refuses to arm or spend. Empty (the " +
             "default) bans nothing, which is what every level authored before this field existed " +
             "does. Ignored entirely outside Path mode.")]
@@ -268,6 +277,11 @@ namespace MustyBlockBlast.Gameplay.Settings
         /// Never null, mirroring <see cref="ReinforcedCells"/>.</summary>
         public IReadOnlyList<PowerStarCellAuthoring> PowerStarCells =>
             _powerStarCells ?? (IReadOnlyList<PowerStarCellAuthoring>)EmptyPowerStarCells;
+
+        /// <summary>The puzzle-link groups this level pre-fills its board with (issue #483), in authored
+        /// order — group N gets id N+1. Never null, mirroring <see cref="ReinforcedCells"/>.</summary>
+        public IReadOnlyList<PuzzleLinkGroupAuthoring> PuzzleLinkGroups =>
+            _puzzleLinkGroups ?? (IReadOnlyList<PuzzleLinkGroupAuthoring>)EmptyPuzzleLinkGroups;
 
         /// <summary>
         /// Power-up kinds this level's Path-mode run refuses to arm or spend (see
@@ -725,6 +739,11 @@ namespace MustyBlockBlast.Gameplay.Settings
                 return false;
             }
 
+            if (!ArePuzzleLinkGroupsValid(reinforcedCells, timerCells, targetIceCells, lockedCells, out error))
+            {
+                return false;
+            }
+
             // The target for this type is the reinforced-cell count (see EffectiveTargetValue), so a
             // level authoring none would build an ObjectiveDefinition with target 0 — which throws.
             // Caught here, where every other type-specific precondition is, rather than at construction.
@@ -862,6 +881,152 @@ namespace MustyBlockBlast.Gameplay.Settings
             }
 
             return Mathf.Max(1, (_boardWidth * _boardHeight) - holeCount);
+        }
+
+        /// <summary>
+        /// The puzzle-link groups' share of <see cref="IsValid"/> (issue #483 AC2): each group 2-3 cells,
+        /// orthogonally connected into one piece, every cell on the board, not on a hole and not claimed
+        /// by any other authored cell (a group brings its own blocks) or by another group.
+        /// </summary>
+        private bool ArePuzzleLinkGroupsValid(
+            IReadOnlyList<ReinforcedCellAuthoring> reinforcedCells,
+            IReadOnlyList<TimerCellAuthoring> timerCells,
+            IReadOnlyList<TargetIceCellAuthoring> targetIceCells,
+            IReadOnlyList<LockedCellAuthoring> lockedCells,
+            out string error)
+        {
+            IReadOnlyList<PuzzleLinkGroupAuthoring> groups = PuzzleLinkGroups;
+            IReadOnlyList<PowerStarCellAuthoring> starCells = PowerStarCells;
+            for (int groupIndex = 0; groupIndex < groups.Count; groupIndex++)
+            {
+                PuzzleLinkGroupAuthoring group = groups[groupIndex];
+                if (group == null)
+                {
+                    error = "A puzzle-link group entry is empty — remove the row or fill it in.";
+                    return false;
+                }
+
+                int label = groupIndex + 1;
+                if (group.CellCount < PuzzleLinkGroupAuthoring.MIN_GROUP_SIZE
+                    || group.CellCount > PuzzleLinkGroupAuthoring.MAX_GROUP_SIZE)
+                {
+                    error = $"Puzzle-link group {label} has {group.CellCount} cell(s); a group needs "
+                        + $"{PuzzleLinkGroupAuthoring.MIN_GROUP_SIZE}-{PuzzleLinkGroupAuthoring.MAX_GROUP_SIZE}.";
+                    return false;
+                }
+
+                if (!group.IsConnected())
+                {
+                    error = $"Puzzle-link group {label} is not one piece: every cell must sit directly above, "
+                        + "below, left or right of another cell of the group.";
+                    return false;
+                }
+
+                for (int cellIndex = 0; cellIndex < group.CellCount; cellIndex++)
+                {
+                    GridPosition position = group.CellAt(cellIndex);
+                    if (position.X < 0 || position.X >= _boardWidth || position.Y < 0 || position.Y >= _boardHeight)
+                    {
+                        error = $"Puzzle-link group {label} cell {position} is outside this level's "
+                            + $"{_boardWidth}x{_boardHeight} board.";
+                        return false;
+                    }
+
+                    if (IsAuthoredHole(position))
+                    {
+                        error = $"Puzzle-link group {label} cell {position} is also authored as a hole — a cell cannot be both.";
+                        return false;
+                    }
+
+                    if (IsClaimedByAnotherMechanic(position, reinforcedCells, timerCells, targetIceCells, lockedCells, starCells)
+                        || IsClaimedByAnotherPuzzleCell(position, groups, groupIndex, cellIndex))
+                    {
+                        error = $"Puzzle-link group {label} cell {position} shares its cell with another authored "
+                            + "cell — a cell cannot be pre-filled twice.";
+                        return false;
+                    }
+                }
+            }
+
+            error = null;
+            return true;
+        }
+
+        private static bool IsClaimedByAnotherMechanic(
+            GridPosition position,
+            IReadOnlyList<ReinforcedCellAuthoring> reinforcedCells,
+            IReadOnlyList<TimerCellAuthoring> timerCells,
+            IReadOnlyList<TargetIceCellAuthoring> targetIceCells,
+            IReadOnlyList<LockedCellAuthoring> lockedCells,
+            IReadOnlyList<PowerStarCellAuthoring> starCells)
+        {
+            for (int index = 0; index < reinforcedCells.Count; index++)
+            {
+                if (reinforcedCells[index] != null && reinforcedCells[index].ToGridPosition().Equals(position))
+                {
+                    return true;
+                }
+            }
+
+            for (int index = 0; index < timerCells.Count; index++)
+            {
+                if (timerCells[index] != null && timerCells[index].ToGridPosition().Equals(position))
+                {
+                    return true;
+                }
+            }
+
+            for (int index = 0; index < targetIceCells.Count; index++)
+            {
+                if (targetIceCells[index] != null && targetIceCells[index].ToGridPosition().Equals(position))
+                {
+                    return true;
+                }
+            }
+
+            for (int index = 0; index < lockedCells.Count; index++)
+            {
+                if (lockedCells[index] != null && lockedCells[index].ToGridPosition().Equals(position))
+                {
+                    return true;
+                }
+            }
+
+            for (int index = 0; index < starCells.Count; index++)
+            {
+                if (starCells[index] != null && starCells[index].ToGridPosition().Equals(position))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>Whether <paramref name="position"/> was already used by an earlier cell — of an earlier
+        /// group, or earlier in its own group.</summary>
+        private static bool IsClaimedByAnotherPuzzleCell(
+            GridPosition position, IReadOnlyList<PuzzleLinkGroupAuthoring> groups, int groupIndex, int cellIndex)
+        {
+            for (int earlierGroup = 0; earlierGroup <= groupIndex; earlierGroup++)
+            {
+                PuzzleLinkGroupAuthoring group = groups[earlierGroup];
+                if (group == null)
+                {
+                    continue;
+                }
+
+                int limit = earlierGroup == groupIndex ? cellIndex : group.CellCount;
+                for (int index = 0; index < limit; index++)
+                {
+                    if (group.CellAt(index).Equals(position))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
         }
 
         /// <summary>

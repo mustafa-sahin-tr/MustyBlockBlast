@@ -24,6 +24,10 @@ namespace MustyBlockBlast.Core
         /// <see cref="SpecialCellKind.ScoreGem"/>.</summary>
         public const int SCORE_GEM_FACTOR = 3;
 
+        /// <summary>Bonus points each cell of a puzzle-link group pays when the whole group is taken out in
+        /// one resolution (issue #483) — a group of two is worth 20, of three 30.</summary>
+        public const int PUZZLE_LINK_BONUS_PER_CELL = 10;
+
         /// <summary>+1 point per cell of the piece just placed.</summary>
         public static int PlacementScore(int cellCount) => cellCount * POINTS_PER_PLACED_CELL;
 

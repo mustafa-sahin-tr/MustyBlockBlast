@@ -293,6 +293,15 @@ Special cells caught in a burst trigger normally, and a second star caught in on
 restores a star's charge and everything its burst destroyed. A star still short of 3 when the run
 ends does nothing.
 
+**Puzzle link (Yapboz bağlantısı).** A level can place puzzle-link groups: 2–3 cells side by side
+(each directly above, below, left or right of another piece), drawn as puzzle cubes whose teeth
+lock into each other. A group only comes off **as a whole**: every one of its pieces has to be hit
+by the same move (for example one placement that clears two rows at once, or a power-up whose area
+covers them all). Then the whole group is destroyed and pays a bonus of 10 points per piece (doubled
+during a frenzy). If only some pieces are hit, none of them goes; the rest of the line clears around
+them and the group stays exactly as it was. Hits from different moves never add up. Undo restores the
+groups exactly.
+
 **v1 scope:** this is the tracking engine only. There is no level content, no objective UI and
 no persistence of objective progress yet — those are tracked separately in epic "Levels &
 Objectives" (sub-issues #72 and #73).

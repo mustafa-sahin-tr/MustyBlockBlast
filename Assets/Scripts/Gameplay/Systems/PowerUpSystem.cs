@@ -188,6 +188,13 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// test constructions, which still pay the coins.</summary>
         private readonly IPublisher<LockedCellsOpenedMessage> _lockedCellsOpenedPublisher;
 
+        /// <summary>Where whole-group puzzle-link removals are announced for their bonus (issue #483).
+        /// Optional: null in test constructions, which still remove the groups.</summary>
+        private readonly IPublisher<PuzzleLinksClearedMessage> _puzzleLinksClearedPublisher;
+
+        /// <summary>The link cells the current resolution removed (issue #483), reused.</summary>
+        private readonly List<GridPosition> _removedPuzzleLinks = new List<GridPosition>(6);
+
         /// <summary>What an opened lock pays — the Coin cell's own base payout (issue #481 AC1).</summary>
         private readonly int _coinCellPayout;
 
@@ -216,8 +223,10 @@ namespace MustyBlockBlast.Gameplay.Systems
             ISubscriber<GameOverMessage> gameOverSubscriber,
             IPublisher<PowerUpUnlockedMessage> powerUpUnlockedPublisher = null,
             IPublisher<HoldFirstUseMessage> holdFirstUsePublisher = null,
-            IPublisher<LockedCellsOpenedMessage> lockedCellsOpenedPublisher = null)
+            IPublisher<LockedCellsOpenedMessage> lockedCellsOpenedPublisher = null,
+            IPublisher<PuzzleLinksClearedMessage> puzzleLinksClearedPublisher = null)
         {
+            _puzzleLinksClearedPublisher = puzzleLinksClearedPublisher;
             _lockedCellsOpenedPublisher = lockedCellsOpenedPublisher;
             _coinCellPayout = currencyConfig.CoinCellPayout;
             _explosiveCoreDetonatedPublisher = explosiveCoreDetonatedPublisher;
@@ -1222,6 +1231,16 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// <see cref="LockedCellPayout"/>.</summary>
         private void PayOpenedLocks()
         {
+            // Puzzle links first (issue #483): the power-up's resolution is over, so every group it hit in
+            // full goes now — and a removed link can open a lock, which the payout below then pays.
+            _removedPuzzleLinks.Clear();
+            int puzzleLinkCellsRemoved = _boardModel.Board.ResolvePuzzleLinks(_removedPuzzleLinks);
+            if (puzzleLinkCellsRemoved > 0)
+            {
+                _boardModel.NotifyPowerUpCleared(_removedPuzzleLinks);
+                _puzzleLinksClearedPublisher?.Publish(new PuzzleLinksClearedMessage(puzzleLinkCellsRemoved));
+            }
+
             LockedCellPayout.PayAndDrain(
                 _boardModel.Board, _coinCellPayout, _coinCellsClearedPublisher, _lockedCellsOpenedPublisher);
 

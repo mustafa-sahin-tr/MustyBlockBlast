@@ -245,6 +245,10 @@ namespace MustyBlockBlast.Gameplay.Localization
         /// <summary>Power star info card (issue #482): charged by line clears, bursts at 3.</summary>
         public const string INFO_POPUP_SPECIAL_CELL_POWER_STAR_HEADER = "info_popup.special_cell.power_star.header";
         public const string INFO_POPUP_SPECIAL_CELL_POWER_STAR_BODY = "info_popup.special_cell.power_star.body";
+
+        /// <summary>Puzzle link info card (issue #483): the group goes only when every piece is hit at once.</summary>
+        public const string INFO_POPUP_SPECIAL_CELL_PUZZLE_LINK_HEADER = "info_popup.special_cell.puzzle_link.header";
+        public const string INFO_POPUP_SPECIAL_CELL_PUZZLE_LINK_BODY = "info_popup.special_cell.puzzle_link.body";
         public const string INFO_POPUP_SPECIAL_CELL_TIMER_HEADER = "info_popup.special_cell.timer.header";
         public const string INFO_POPUP_SPECIAL_CELL_TIMER_BODY = "info_popup.special_cell.timer.body";
 

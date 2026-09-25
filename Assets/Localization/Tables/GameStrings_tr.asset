@@ -1734,6 +1734,14 @@ MonoBehaviour:
     m_Localized: "Ge\xE7en her sat\u0131r ya da s\xFCtun temizli\u011Fi onu silmez, 1 \u015Farj verir. 3 \u015Farjda patlar ve etraf\u0131ndaki 3\xD73 alan\u0131 temizler."
     m_Metadata:
       m_Items: []
+  - m_Id: 4328067626426368
+    m_Localized: "Yapboz Ba\u011Flant\u0131s\u0131"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4328067689340928
+    m_Localized: "Kenetli par\xE7alar ancak hepsi ayn\u0131 hamlede vurulursa kalkar ve bonus puan verir. Sadece biri vurulursa hi\xE7biri gitmez."
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

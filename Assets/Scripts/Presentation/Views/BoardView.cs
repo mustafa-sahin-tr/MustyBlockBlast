@@ -156,6 +156,10 @@ namespace MustyBlockBlast.Presentation.Views
         [Tooltip("Power star (issue #482): the star cube, drawn full-bleed with its charge pips under it.")]
         [SerializeField] private Sprite _powerStarIconSprite;
 
+        [Tooltip("Puzzle link (issue #483): one piece of a locked-together group, drawn full-bleed; the "
+            + "teeth toward its linked neighbours are drawn by CellView.")]
+        [SerializeField] private Sprite _puzzleLinkIconSprite;
+
         [Tooltip("Neutral grey crystal, tinted at runtime in the gem's own theme colour (issues #395/#480). Also drawn on decorated tray, pocket and drag-ghost cells through DiamondVisuals.")]
         [SerializeField] private Sprite _diamondIconSprite;
 
@@ -1481,6 +1485,12 @@ namespace MustyBlockBlast.Presentation.Views
 
             _cells[index].SetAlpha(1f);
         }
+
+        /// <summary>Whether <paramref name="position"/> is on the board and a link of group
+        /// <paramref name="groupId"/> (issue #483).</summary>
+        private bool IsSamePuzzleGroup(GridPosition position, int groupId)
+            => groupId > 0 && position.X >= 0 && position.Y >= 0 && position.X < _width && position.Y < _height
+                && _boardModel.GetPuzzleGroupId(position) == groupId;
 
         /// <summary>A power star's charge may have changed (issue #482 AC2): redraw its pips. Only a cell the
         /// View already paints as a star is touched — a burst star is repainted by the cleared-cell path.</summary>
@@ -3177,6 +3187,21 @@ namespace MustyBlockBlast.Presentation.Views
                 cell.ClearPowerStarCharge();
             }
 
+            // A puzzle link locks into the members of its own group beside it (issue #483 AC4). Read off
+            // the model's group ids, so the teeth are right whichever member is repainted first.
+            if (kind == SpecialCellKind.PuzzleLink)
+            {
+                var position = new GridPosition(index % _width, index / _width);
+                int groupId = _boardModel.GetPuzzleGroupId(position);
+                cell.SetPuzzleTeeth(
+                    IsSamePuzzleGroup(new GridPosition(position.X - 1, position.Y), groupId),
+                    IsSamePuzzleGroup(new GridPosition(position.X, position.Y - 1), groupId));
+            }
+            else
+            {
+                cell.ClearPuzzleTeeth();
+            }
+
             if (kind == SpecialCellKind.None || kind == SpecialCellKind.Locked)
             {
                 cell.ClearSpecialIcon();
@@ -3337,6 +3362,9 @@ namespace MustyBlockBlast.Presentation.Views
                     break;
                 case SpecialCellKind.PowerStar:
                     sprite = _powerStarIconSprite;
+                    break;
+                case SpecialCellKind.PuzzleLink:
+                    sprite = _puzzleLinkIconSprite;
                     break;
                 case SpecialCellKind.Diamond:
                     sprite = _diamondIconSprite;

@@ -211,5 +211,20 @@ namespace MustyBlockBlast.Core
         /// </para>
         /// </summary>
         PowerStar = 10,
+
+        /// <summary>
+        /// A "puzzle link" ("Yapboz bağlantısı", issue #483): a level-authored obstacle placed in groups of
+        /// 2-3 orthogonally connected cells that visibly lock into each other. A group goes only if EVERY
+        /// member is hit in the same resolution — e.g. one placement that clears two rows at once — and
+        /// then the whole group is destroyed and pays a bonus. Any hit on only some members removes none:
+        /// the rest of the line clears around them.
+        /// <para>
+        /// A hit never removes a link on the spot: <see cref="Board.TryDamage"/> only marks it, and the
+        /// resolving System calls <see cref="Board.ResolvePuzzleLinks"/> once its resolution is over. The
+        /// group id is its own per-cell array on <see cref="Board"/>, copied for Undo. Level-authored only
+        /// (<c>PuzzleLinkGroupAuthoring</c>/<c>LevelPuzzleLinkSeeder</c>).
+        /// </para>
+        /// </summary>
+        PuzzleLink = 11,
     }
 }

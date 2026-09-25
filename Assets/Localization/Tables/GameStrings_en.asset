@@ -1734,6 +1734,14 @@ MonoBehaviour:
     m_Localized: "Line clears through it don't remove it \u2014 each adds a charge. At 3 charges it bursts, clearing the 3\xD73 around it."
     m_Metadata:
       m_Items: []
+  - m_Id: 4328067626426368
+    m_Localized: Puzzle Link
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4328067689340928
+    m_Localized: Locked pieces only come off if every one is hit in the same move, and then pay bonus points. Hit just one and none goes.
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

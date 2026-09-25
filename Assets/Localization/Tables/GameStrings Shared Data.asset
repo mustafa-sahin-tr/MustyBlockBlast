@@ -1727,6 +1727,14 @@ MonoBehaviour:
     m_Key: info_popup.special_cell.power_star.body
     m_Metadata:
       m_Items: []
+  - m_Id: 4328067626426368
+    m_Key: info_popup.special_cell.puzzle_link.header
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4328067689340928
+    m_Key: info_popup.special_cell.puzzle_link.body
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:
