@@ -27,6 +27,14 @@ namespace MustyBlockBlast.Tests.EditMode
         private const string DAILY_AD_GRANTS_REMAINING_KEY = "Profile.DailyAdGrantsRemaining";
         private const string DAILY_AD_GRANT_DAY_MARKER_KEY = "Profile.DailyAdGrantDayMarker";
 
+        /// <summary>The lives save blob (issue #479's pack grants into it). Backed up and restored rather
+        /// than deleted, so running the suite never costs the device's real lives.</summary>
+        private const string LIVES_SAVE_KEY = "Lives.State";
+
+        /// <summary>The lives pack tests' local clock: fixed, so no hour boundary can land mid-test and
+        /// blur a pack's +10 with a refill's +5.</summary>
+        private static readonly DateTime LivesNow = new DateTime(2026, 9, 25, 10, 40, 0);
+
         /// <summary>A frontier past the last gate in <see cref="PowerUpUnlockLevels"/>, so no kind is
         /// withheld from the purchase tests that are not about the gate.</summary>
         private const int ALL_KINDS_UNLOCKED_LEVEL = 99;
@@ -80,6 +88,13 @@ namespace MustyBlockBlast.Tests.EditMode
         private PowerUpModel _powerUpModel;
         private PowerUpSystem _powerUpSystem;
 
+        /// <summary>The lives pack's config and the model its grant lands in (issue #479). Only the pack
+        /// tests build a <see cref="LivesSystem"/> over them; every other test's system has none.</summary>
+        private LivesConfig _livesConfig;
+        private LivesModel _livesModel;
+        private bool _hadLivesSave;
+        private string _livesSave;
+
         /// <summary>CurrencySystem loads the three counters in its constructor, and PowerUpSystem loads
         /// the inventory in its own, so anything left behind by a previous test would silently decide
         /// what the next one can convert or buy.</summary>
@@ -100,6 +115,12 @@ namespace MustyBlockBlast.Tests.EditMode
             _utcNow = DefaultNowUtc;
             _levelProgressionModel = new LevelProgressionModel();
             _levelProgressionModel.CurrentLevelNumber.Value = ALL_KINDS_UNLOCKED_LEVEL;
+
+            _hadLivesSave = PlayerPrefs.HasKey(LIVES_SAVE_KEY);
+            _livesSave = _hadLivesSave ? PlayerPrefs.GetString(LIVES_SAVE_KEY) : null;
+            PlayerPrefs.DeleteKey(LIVES_SAVE_KEY);
+            _livesConfig = ScriptableObject.CreateInstance<LivesConfig>();
+            _livesModel = new LivesModel();
         }
 
         [TearDown]
@@ -120,6 +141,20 @@ namespace MustyBlockBlast.Tests.EditMode
             if (_promotionConfig != null)
             {
                 UnityEngine.Object.DestroyImmediate(_promotionConfig);
+            }
+
+            if (_livesConfig != null)
+            {
+                UnityEngine.Object.DestroyImmediate(_livesConfig);
+            }
+
+            if (_hadLivesSave)
+            {
+                PlayerPrefs.SetString(LIVES_SAVE_KEY, _livesSave);
+            }
+            else
+            {
+                PlayerPrefs.DeleteKey(LIVES_SAVE_KEY);
             }
         }
 
@@ -1004,6 +1039,114 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.AreEqual(1000, profileModel.ScoreConverted.Value);
         }
 
+        // --- Issue #479: the coin lives pack, the second coin sink ---
+
+        /// <summary>
+        /// The issue's AC in full: exactly the price leaves the balance, exactly ten lives arrive, and
+        /// both are on the disk — a fresh balance and a fresh lives system read them back.
+        /// </summary>
+        [Test]
+        public void TryPurchaseLivesPack_WithEnoughCoins_DebitsThePriceGrantsTenAndPersistsBoth()
+        {
+            var profileModel = new ProfileModel();
+            CurrencySystem system = CreateSystemWithLivesPack(
+                profileModel, coins: 500, lives: 15, out LivesSystem lives);
+            int price = system.LivesPackPrice;
+
+            bool bought = system.TryPurchaseLivesPack();
+
+            Assert.IsTrue(bought);
+            Assert.AreEqual(500 - price, profileModel.CoinBalance.Value);
+            Assert.AreEqual(25, _livesModel.CurrentLives.Value);
+
+            lives.Dispose();
+            var reloadedProfile = new ProfileModel();
+            CreateSystem(reloadedProfile, new ScoreModel());
+            var reloadedLives = new LivesModel();
+            LivesSystem reloadedLivesSystem = CreateLivesSystem(-1, reloadedLives);
+
+            Assert.AreEqual(500 - price, reloadedProfile.CoinBalance.Value);
+            Assert.AreEqual(25, reloadedLives.CurrentLives.Value);
+            reloadedLivesSystem.Dispose();
+        }
+
+        /// <summary>The price charged is the config's placeholder figure, read through the one seam the
+        /// sheet reads it through.</summary>
+        [Test]
+        public void LivesPackPrice_IsTheConfiguredPrice_AndIsUnbuyableWithoutAConfig()
+        {
+            CurrencySystem wired = CreateSystemWithLivesPack(
+                new ProfileModel(), coins: 0, lives: 20, out LivesSystem lives);
+            CurrencySystem unwired = CreateSystem(new ProfileModel(), new ScoreModel());
+
+            Assert.AreEqual(_livesConfig.LivesPackCoinPrice, wired.LivesPackPrice);
+            Assert.AreEqual(int.MaxValue, unwired.LivesPackPrice);
+            lives.Dispose();
+        }
+
+        /// <summary>One coin short is a refusal: no partial debit and not a single life.</summary>
+        [Test]
+        public void TryPurchaseLivesPack_WithTooFewCoins_ChangesNothing()
+        {
+            var profileModel = new ProfileModel();
+            int shortBalance = _livesConfig.LivesPackCoinPrice - 1;
+            CurrencySystem system = CreateSystemWithLivesPack(
+                profileModel, coins: shortBalance, lives: 15, out LivesSystem lives);
+
+            bool bought = system.TryPurchaseLivesPack();
+
+            Assert.IsFalse(bought);
+            Assert.AreEqual(shortBalance, profileModel.CoinBalance.Value);
+            Assert.AreEqual(shortBalance, PlayerPrefs.GetInt(COIN_BALANCE_KEY, 0));
+            Assert.AreEqual(15, _livesModel.CurrentLives.Value);
+            lives.Dispose();
+        }
+
+        /// <summary>The pack is uncapped: bought at 22 — where the ad reads "Lives full" — it leaves 32.</summary>
+        [TestCase(15, 25)]
+        [TestCase(22, 32)]
+        public void TryPurchaseLivesPack_IsNotClampedAtTheCap(int livesBefore, int expectedLives)
+        {
+            var profileModel = new ProfileModel();
+            CurrencySystem system = CreateSystemWithLivesPack(
+                profileModel, coins: 1000, lives: livesBefore, out LivesSystem lives);
+
+            Assert.IsTrue(system.TryPurchaseLivesPack());
+
+            Assert.AreEqual(expectedLives, _livesModel.CurrentLives.Value);
+            lives.Dispose();
+        }
+
+        /// <summary>Two packs back to back are two debits and twenty lives; the second is refused once the
+        /// balance no longer covers it.</summary>
+        [Test]
+        public void TryPurchaseLivesPack_Repeatedly_ChargesEachAndStopsWhenTheBalanceRunsOut()
+        {
+            var profileModel = new ProfileModel();
+            int price = _livesConfig.LivesPackCoinPrice;
+            CurrencySystem system = CreateSystemWithLivesPack(
+                profileModel, coins: (price * 2) + 1, lives: 20, out LivesSystem lives);
+
+            Assert.IsTrue(system.TryPurchaseLivesPack());
+            Assert.IsTrue(system.TryPurchaseLivesPack());
+            Assert.IsFalse(system.TryPurchaseLivesPack());
+
+            Assert.AreEqual(1, profileModel.CoinBalance.Value);
+            Assert.AreEqual(40, _livesModel.CurrentLives.Value);
+            lives.Dispose();
+        }
+
+        /// <summary>Without a lives system wired the pack is refused rather than debited for nothing.</summary>
+        [Test]
+        public void TryPurchaseLivesPack_WithNoLivesSystem_RefusesWithoutDebiting()
+        {
+            var profileModel = new ProfileModel();
+            CurrencySystem system = CreateSystemWithCoins(profileModel, coins: 1000);
+
+            Assert.IsFalse(system.TryPurchaseLivesPack());
+            Assert.AreEqual(1000, profileModel.CoinBalance.Value);
+        }
+
         // --- Issue #165: time-limited power-up promotions ---
         //
         // Scoped to power-up prices, and deliberately not to coin bundles: a bundle's price lives in App
@@ -1606,7 +1749,8 @@ namespace MustyBlockBlast.Tests.EditMode
             ScoreModel scoreModel,
             ICoinRewardSource coinRewardSource = null,
             DailyAdGrantModel dailyAdGrantModel = null,
-            TestMessageBroker<RunStartedMessage> runStartedBroker = null)
+            TestMessageBroker<RunStartedMessage> runStartedBroker = null,
+            LivesSystem livesSystem = null)
         {
             return new CurrencySystem(
                 profileModel,
@@ -1639,7 +1783,59 @@ namespace MustyBlockBlast.Tests.EditMode
                 // fixture has no reason to run the two clocks apart, and reusing the one field lets a
                 // day-rollover test move "today" the same way the promotion tests already move "now".
                 () => _utcNow,
-                runStartedBroker);
+                runStartedBroker,
+                // The lives pack's pair (issue #479): only wired when a test built a LivesSystem, so every
+                // other test's system refuses a pack exactly as a misconfigured scene would.
+                livesSystem != null ? _livesConfig : null,
+                livesSystem);
+        }
+
+        /// <summary>
+        /// A real <see cref="LivesSystem"/> over <see cref="_livesModel"/>, starting from
+        /// <paramref name="lives"/> saved at the fixed <see cref="LivesNow"/> — so the pack grants through
+        /// the very code the game grants through, and a reload reads the count back out of PlayerPrefs.
+        /// Never started, so no countdown loop runs under a test.
+        /// </summary>
+        private LivesSystem CreateLivesSystem(int lives, LivesModel model = null)
+        {
+            if (lives >= 0)
+            {
+                var data = new LivesSaveData
+                {
+                    lives = lives,
+                    lastRefillHourStamp = LivesNow.Ticks / TimeSpan.TicksPerHour,
+                };
+                PlayerPrefs.SetString(LIVES_SAVE_KEY, JsonUtility.ToJson(data));
+            }
+
+            var gameModeModel = new GameModeModel();
+            gameModeModel.CurrentMode.Value = GameMode.Path;
+            return new LivesSystem(
+                model ?? _livesModel,
+                _livesConfig,
+                gameModeModel,
+                new TestMessageBroker<GameOverMessage>(),
+                new TestMessageBroker<RunRescuedMessage>(),
+                new TestMessageBroker<RunStartedMessage>(),
+                new DeterministicLivesRewardSource(),
+                new TestMessageBroker<OutOfLivesMessage>(),
+                () => LivesNow);
+        }
+
+        /// <summary>A system wired for the lives pack, holding <paramref name="coins"/> coins and
+        /// <paramref name="lives"/> lives.</summary>
+        private CurrencySystem CreateSystemWithLivesPack(
+            ProfileModel profileModel, int coins, int lives, out LivesSystem livesSystem)
+        {
+            livesSystem = CreateLivesSystem(lives);
+            CurrencySystem system = CreateSystem(
+                profileModel, new ScoreModel(), new StubCoinRewardSource(granted: true), livesSystem: livesSystem);
+            if (coins > 0)
+            {
+                GrantCoins(system, profileModel, coins);
+            }
+
+            return system;
         }
 
         /// <summary>

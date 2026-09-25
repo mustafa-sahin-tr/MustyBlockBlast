@@ -333,8 +333,9 @@ write lives.
   stopped: Play again there works exactly as before. (Switching into Path mode from the settings
   is not gated.)
 - **Out-of-lives sheet:** a heart with the current count, the countdown to the next xx:00 refill
-  ("NEXT +5 LIVES IN mm:ss", hidden at 20 or more), the refill rule, and **Watch ad (+3)**. The
-  sheet reads "OUT OF LIVES" at 0 and "LIVES" when opened from the HUD with lives left.
+  ("NEXT +5 LIVES IN mm:ss", hidden at 20 or more), the refill rule, **Watch ad (+3)** and, under
+  it, the gold **Lives pack** button (+10 for coins). The sheet reads "OUT OF LIVES" at 0 and
+  "LIVES" when opened from the HUD with lives left.
 - **Rewarded ad (+3):** watching the ad adds **+3 lives, clamped at 20**. So 18 becomes 20, 17
   becomes 20 and 15 becomes 18. At 20 or more the button is greyed out, reads "Lives full", and no
   ad is shown. An ad never raises lives above 20 and never lowers a count that is already above 20.
@@ -345,9 +346,19 @@ write lives.
   failure that actually cost a life shows "You lost a life" with the heart, a "−1" badge and
   "17 → 16 lives · +5 in mm:ss" (the countdown part is left out at 20 or more). A failure at 0
   lives cost nothing, so it shows no such row.
-- **Not yet:** the coin pack (+10, not capped) arrives in #479, as a second button on the sheet.
-- Tuning values (cap, refill amount, starting lives, ad reward) live in `LivesConfig`
-  (`Assets/Content/Lives/LivesConfig.asset`).
+- **Coin lives pack (+10, not capped):** the sheet's gold button buys **+10 lives for 150 coins**.
+  Unlike the refill and the ad it is **not clamped at 20**: 15 becomes 25 and 22 becomes 32. It
+  stays on offer at 20 or more, while the ad button beside it reads "Lives full". The coins and the
+  lives change together, or not at all: with too few coins the button is greyed out, nothing is
+  taken and nothing is added, and a tap on it says "Not enough coins" on the sheet. After a purchase
+  the sheet stays open, showing the new count. No shop promotion applies to the pack. The **150**
+  price is a **placeholder** until the economy is tuned.
+- **Above 20:** lives bought past the cap are kept. The hourly refill adds nothing while the count
+  is at or above 20 and never lowers it, and no countdown shows. Failures spend those lives one at
+  a time as usual; once the count drops below 20 the refill and its countdown resume, topping up to
+  20 again.
+- Tuning values (cap, refill amount, starting lives, ad reward, pack size and pack price) live in
+  `LivesConfig` (`Assets/Content/Lives/LivesConfig.asset`).
 
 ## Timed mode
 

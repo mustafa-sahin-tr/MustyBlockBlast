@@ -107,6 +107,10 @@ namespace MustyBlockBlast.Presentation
                 // Must stay below PowerUpSystem: a coin purchase debits here and grants there, so it
                 // takes that system as a constructor dependency. The container would build it anyway;
                 // this order says so rather than relying on it.
+                //
+                // Since issue #479 it also takes LivesSystem (the coin lives pack debits here and grants
+                // there), so this line is what first constructs LivesSystem. That only moves its
+                // subscriptions earlier; nothing it handles depends on running after the systems below.
                 container.Resolve<CurrencySystem>();
 
                 // Loads the persisted ad-removal flag in its constructor, like CurrencySystem loads the
@@ -179,9 +183,10 @@ namespace MustyBlockBlast.Presentation
 
                 // Loads the saved lives and subscribes in its constructor (issue #477), so it must be
                 // listening before the first Path run can fail — the same reason as the line above. Its
-                // countdown loop starts later, from IStartable, like any entry point. (LevelProgressionSystem
-                // above already pulled it in as its start gate, issue #478; this line stays as the
-                // explicit statement of the requirement.)
+                // countdown loop starts later, from IStartable, like any entry point. (CurrencySystem above
+                // already pulled it in for the coin lives pack, issue #479, and LevelProgressionSystem needs
+                // it as its start gate, issue #478; this line stays as the explicit statement of the
+                // requirement.)
                 container.Resolve<LivesSystem>();
 
                 // Subscribes in its constructor and loads the lifetime counters there too, so it must

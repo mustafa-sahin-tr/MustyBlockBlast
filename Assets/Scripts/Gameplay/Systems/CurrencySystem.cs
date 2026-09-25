@@ -48,12 +48,13 @@ namespace MustyBlockBlast.Gameplay.Systems
     /// the whole conversion; it cannot keep half of one.
     /// </para>
     /// <para>
-    /// It is also the one and only place a coin is <em>spent</em>. Today that means exactly one sink,
-    /// <see cref="TryPurchasePowerUp"/>: the debit lives here because the balance does, and the grant
-    /// it pays for is delegated to <see cref="PowerUpSystem"/>, which owns the inventory. That keeps
-    /// each half of a purchase behind its own single writer — the same one-writer-per-slice split this
-    /// class already has with <see cref="ProfileSystem"/> — while the whole purchase still reaches the
-    /// disk in one flush.
+    /// It is also the one and only place a coin is <em>spent</em>. Today that means exactly two sinks,
+    /// <see cref="TryPurchasePowerUp"/> and (issue #479) <see cref="TryPurchaseLivesPack"/>: the debit
+    /// lives here because the balance does, and the grant it pays for is delegated to the system that
+    /// owns what was bought — <see cref="PowerUpSystem"/> for the inventory, <see cref="LivesSystem"/>
+    /// for the lives. That keeps each half of a purchase behind its own single writer — the same
+    /// one-writer-per-slice split this class already has with <see cref="ProfileSystem"/> — while the
+    /// whole purchase still reaches the disk in one flush.
     /// </para>
     /// <para>
     /// The fourth and last faucet is the only one that costs real money:
@@ -102,6 +103,15 @@ namespace MustyBlockBlast.Gameplay.Systems
         private readonly PowerUpPriceConfig _priceConfig;
         private readonly PromotionConfig _promotionConfig;
         private readonly PowerUpSystem _powerUpSystem;
+
+        /// <summary>
+        /// The lives pack's numbers and the system that grants it (issue #479) — the second sink's pair,
+        /// as <see cref="_priceConfig"/> and <see cref="_powerUpSystem"/> are the first's. Optional
+        /// constructor arguments, null in a test that never buys a pack; the game's container always
+        /// supplies both. With either missing <see cref="TryPurchaseLivesPack"/> refuses.
+        /// </summary>
+        private readonly LivesConfig _livesConfig;
+        private readonly LivesSystem _livesSystem;
         private readonly ICoinRewardSource _coinRewardSource;
         private readonly ICoinPurchaseService _coinPurchaseService;
         private readonly IPurchaseReceiptValidator _receiptValidator;
@@ -191,7 +201,9 @@ namespace MustyBlockBlast.Gameplay.Systems
             ISubscriber<GameOverMessage> gameOverSubscriber,
             ISubscriber<CoinCellsClearedMessage> coinCellsClearedSubscriber,
             ISubscriber<CoinProductsFetchedMessage> coinProductsFetchedSubscriber,
-            ISubscriber<RunStartedMessage> runStartedSubscriber = null)
+            ISubscriber<RunStartedMessage> runStartedSubscriber = null,
+            LivesConfig livesConfig = null,
+            LivesSystem livesSystem = null)
             : this(
                 profileModel,
                 dailyAdGrantModel,
@@ -213,7 +225,9 @@ namespace MustyBlockBlast.Gameplay.Systems
                 coinProductsFetchedSubscriber,
                 UtcNow,
                 LocalNow,
-                runStartedSubscriber)
+                runStartedSubscriber,
+                livesConfig,
+                livesSystem)
         {
         }
 
@@ -238,7 +252,9 @@ namespace MustyBlockBlast.Gameplay.Systems
             ISubscriber<CoinProductsFetchedMessage> coinProductsFetchedSubscriber,
             Func<DateTime> utcNowProvider,
             Func<DateTime> localNowProvider = null,
-            ISubscriber<RunStartedMessage> runStartedSubscriber = null)
+            ISubscriber<RunStartedMessage> runStartedSubscriber = null,
+            LivesConfig livesConfig = null,
+            LivesSystem livesSystem = null)
         {
             _promotionConfig = promotionConfig;
             _utcNowProvider = utcNowProvider ?? UtcNow;
@@ -251,6 +267,8 @@ namespace MustyBlockBlast.Gameplay.Systems
             _config = config;
             _priceConfig = priceConfig;
             _powerUpSystem = powerUpSystem;
+            _livesConfig = livesConfig;
+            _livesSystem = livesSystem;
             _coinRewardSource = coinRewardSource;
             _coinPurchaseService = coinPurchaseService;
             _receiptValidator = receiptValidator;
@@ -696,6 +714,62 @@ namespace MustyBlockBlast.Gameplay.Systems
             PlayerPrefs.Save();
 
             return PowerUpPurchaseResult.Success;
+        }
+
+        /// <summary>
+        /// What one coin lives pack costs (issue #479), or <see cref="int.MaxValue"/> — unbuyable — when
+        /// no <see cref="LivesConfig"/> was supplied. The out-of-lives sheet shows this figure and greys
+        /// its button against it, and <see cref="TryPurchaseLivesPack"/> charges it, so the price on the
+        /// button and the price taken off the balance are one read, the contract
+        /// <see cref="QuotePriceFor"/> has with the shop.
+        /// <para>
+        /// No promotion applies. <see cref="PromotionConfig"/>'s campaigns are keyed by
+        /// <see cref="PowerUpKind"/>, and a life is not one; bending a power-up discount onto the pack
+        /// would be a rule nobody wrote. A lives sale, if one is ever wanted, is its own config.
+        /// </para>
+        /// </summary>
+        public int LivesPackPrice => _livesConfig == null ? int.MaxValue : _livesConfig.LivesPackCoinPrice;
+
+        /// <summary>
+        /// Buys one coin lives pack (issue #479): debits <see cref="LivesPackPrice"/> and grants
+        /// <see cref="LivesConfig.LivesPackAmount"/> lives, uncapped — or refuses and changes nothing.
+        /// Returns whether the pack was bought. The second coin sink, built as the first
+        /// (<see cref="TryPurchasePowerUp"/>) is.
+        /// <para>
+        /// A short balance is refused rather than partly paid: the sheet greys the button against the same
+        /// price, so an unaffordable tap is refused whole and the sheet says so. There is no cap check —
+        /// the pack is the one lives source allowed past <see cref="LivesConfig.RegenCap"/>, so it stays on
+        /// offer at 22 lives while the ad reads "Lives full".
+        /// </para>
+        /// <para>
+        /// Then the same atomic ordering: debit here (this class is the one writer of the balance), grant
+        /// through <see cref="LivesSystem.GrantPurchasedLives"/> (the one writer of the lives, which
+        /// persists and deliberately does not flush), and one <see cref="PlayerPrefs.Save"/> at the end,
+        /// so a crash keeps the whole purchase or none of it — never the coins without the lives.
+        /// </para>
+        /// </summary>
+        public bool TryPurchaseLivesPack()
+        {
+            if (_livesConfig == null || _livesSystem == null)
+            {
+                return false;
+            }
+
+            int price = LivesPackPrice;
+            if (price > _profileModel.CoinBalance.Value)
+            {
+                return false;
+            }
+
+            int newBalance = _profileModel.CoinBalance.Value - price;
+            _profileModel.CoinBalance.Value = newBalance;
+            PlayerPrefs.SetInt(COIN_BALANCE_KEY, newBalance);
+
+            // Charged first, then handed over, for the reason TryPurchasePowerUp orders its own halves so.
+            _livesSystem.GrantPurchasedLives(_livesConfig.LivesPackAmount);
+
+            PlayerPrefs.Save();
+            return true;
         }
 
         /// <summary>

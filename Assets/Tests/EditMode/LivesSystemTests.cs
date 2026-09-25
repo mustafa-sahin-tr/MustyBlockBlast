@@ -514,6 +514,109 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.That(_system.TryPassStartGate(), Is.True);
         }
 
+        // --- Issue #479: the coin lives pack's grant (the debit is CurrencySystemTests') ---
+
+        [TestCase(15, 25)]
+        [TestCase(22, 32)]
+        [TestCase(0, 10)]
+        public void PackGrant_AddsTen_WithNoCap(int livesBefore, int expectedLives)
+        {
+            SeedSave(livesBefore, TenForty);
+            CreateSystem();
+
+            _system.GrantPurchasedLives(_config.LivesPackAmount);
+
+            Assert.That(_model.CurrentLives.Value, Is.EqualTo(expectedLives));
+        }
+
+        [Test]
+        public void PackGrant_IsPersisted()
+        {
+            SeedSave(22, TenForty);
+            CreateSystem();
+
+            _system.GrantPurchasedLives(10);
+            _system.Dispose();
+            _system = null;
+
+            LivesModel reloadedModel = new LivesModel();
+            _system = new LivesSystem(
+                reloadedModel, _config, _gameModeModel,
+                _gameOverBroker, _runRescuedBroker, _runStartedBroker,
+                _rewardSource, _outOfLivesBroker, () => _now);
+
+            Assert.That(reloadedModel.CurrentLives.Value, Is.EqualTo(32), "a count above the cap survives a reload");
+        }
+
+        [Test]
+        public void PackGrant_AboveTheCap_TheRefillAddsNothingAndNeverLowersIt()
+        {
+            SeedSave(15, TenForty);
+            CreateSystem();
+            _system.GrantPurchasedLives(10);
+
+            _now = new DateTime(2026, 9, 25, 11, 0, 0);
+            _system.RefreshRefill();
+            _now = new DateTime(2026, 9, 25, 16, 0, 0);
+            _system.RefreshRefill();
+
+            Assert.That(_model.CurrentLives.Value, Is.EqualTo(25));
+            Assert.That(_model.SecondsUntilRefill.Value, Is.EqualTo(0), "no countdown above the cap");
+        }
+
+        [Test]
+        public void PackGrant_SpentBackBelowTheCap_TheRefillResumes()
+        {
+            SeedSave(15, TenForty);
+            CreateSystem();
+            _system.GrantPurchasedLives(10);
+
+            for (int failureIndex = 0; failureIndex < 7; failureIndex++)
+            {
+                Fail();
+            }
+
+            Assert.That(_model.CurrentLives.Value, Is.EqualTo(18));
+            Assert.That(_model.SecondsUntilRefill.Value, Is.EqualTo(20 * 60), "the countdown is back below the cap");
+
+            _now = new DateTime(2026, 9, 25, 11, 0, 0);
+            _system.RefreshRefill();
+
+            Assert.That(_model.CurrentLives.Value, Is.EqualTo(20), "refilled, and clamped at the cap again");
+        }
+
+        [Test]
+        public void PackGrant_PaysACrossedBoundaryFirst()
+        {
+            SeedSave(3, TenForty);
+            CreateSystem();
+
+            // 11:00 has passed since the last check: the refill's +5 lands first, then the pack's +10.
+            _now = new DateTime(2026, 9, 25, 11, 5, 0);
+            _system.GrantPurchasedLives(10);
+
+            Assert.That(_model.CurrentLives.Value, Is.EqualTo(18));
+        }
+
+        [TestCase(0)]
+        [TestCase(-5)]
+        public void PackGrant_WithANonPositiveAmount_IsANoOp(int amount)
+        {
+            SeedSave(12, TenForty);
+            CreateSystem();
+
+            _system.GrantPurchasedLives(amount);
+
+            Assert.That(_model.CurrentLives.Value, Is.EqualTo(12));
+        }
+
+        [Test]
+        public void LivesConfig_ShipsTheIssuesPlaceholderPack()
+        {
+            Assert.That(_config.LivesPackAmount, Is.EqualTo(10));
+            Assert.That(_config.LivesPackCoinPrice, Is.EqualTo(150));
+        }
+
         private bool RequestAd() => _system.RequestAdLivesAsync(CancellationToken.None).GetAwaiter().GetResult();
 
         private void CreateSystem()

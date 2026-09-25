@@ -922,6 +922,7 @@ MonoBehaviour:
   _buttonFontSize: 40
   _buttonSprite: {fileID: 21300000, guid: be54dd355e70442e6885fd6762cac582, type: 3}
   _heartSprite: {fileID: 21300000, guid: 2dbf5b39c82b24b0684829f33b0d5125, type: 3}
+  _coinSprite: {fileID: 21300000, guid: ef1b23357960542ca8a3614b7fbc2837, type: 3}
   _scrimColour: {r: 0.08, g: 0.09, b: 0.16, a: 0.58}
 --- !u!1 &737113204
 GameObject:

@@ -1703,6 +1703,14 @@ MonoBehaviour:
     m_Key: result.lives_refill_in
     m_Metadata:
       m_Items: []
+  - m_Id: 4293722148691968
+    m_Key: lives.sheet.pack
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4293722182246400
+    m_Key: lives.sheet.pack_refused
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:
