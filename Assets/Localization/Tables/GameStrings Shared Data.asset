@@ -1139,6 +1139,518 @@ MonoBehaviour:
     m_Key: result.level_reward_label
     m_Metadata:
       m_Items: []
+  - m_Id: 4184519664984066
+    m_Key: level_path.streak_hint
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984067
+    m_Key: level.name.1
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984068
+    m_Key: level.name.2
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984069
+    m_Key: level.name.3
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984070
+    m_Key: level.name.4
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984071
+    m_Key: level.name.5
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984072
+    m_Key: level.name.6
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984073
+    m_Key: level.name.7
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984074
+    m_Key: level.name.8
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984075
+    m_Key: level.name.9
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984076
+    m_Key: level.name.10
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984077
+    m_Key: level.name.11
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984078
+    m_Key: level.name.12
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984079
+    m_Key: level.name.13
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984080
+    m_Key: level.name.14
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984081
+    m_Key: level.name.15
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984082
+    m_Key: level.name.16
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984083
+    m_Key: level.name.17
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984084
+    m_Key: level.name.18
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984085
+    m_Key: level.name.19
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984086
+    m_Key: level.name.20
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984087
+    m_Key: level.name.21
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984088
+    m_Key: level.name.22
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984089
+    m_Key: level.name.23
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984090
+    m_Key: level.name.24
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984091
+    m_Key: level.name.25
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984092
+    m_Key: level.name.26
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984093
+    m_Key: level.name.27
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984094
+    m_Key: level.name.28
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984095
+    m_Key: level.name.29
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984096
+    m_Key: level.name.30
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984097
+    m_Key: level.name.31
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984098
+    m_Key: level.name.32
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984099
+    m_Key: level.name.33
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984100
+    m_Key: level.name.34
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984101
+    m_Key: level.name.35
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984102
+    m_Key: level.name.36
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984103
+    m_Key: level.name.37
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984104
+    m_Key: level.name.38
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984105
+    m_Key: level.name.39
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984106
+    m_Key: level.name.40
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984107
+    m_Key: level.name.41
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984108
+    m_Key: level.name.42
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984109
+    m_Key: level.name.43
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984110
+    m_Key: level.name.44
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984111
+    m_Key: level.name.45
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984112
+    m_Key: level.name.46
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984113
+    m_Key: level.name.47
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984114
+    m_Key: level.name.48
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984115
+    m_Key: level.name.49
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984116
+    m_Key: level.name.50
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984117
+    m_Key: level.name.51
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984118
+    m_Key: level.name.52
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984119
+    m_Key: level.name.53
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984120
+    m_Key: level.name.54
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984121
+    m_Key: level.name.55
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984122
+    m_Key: level.name.56
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984123
+    m_Key: level.name.57
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984124
+    m_Key: level.name.58
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984125
+    m_Key: level.name.59
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984126
+    m_Key: level.name.60
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984127
+    m_Key: level.name.61
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984128
+    m_Key: level.name.62
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984129
+    m_Key: level.name.63
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984130
+    m_Key: level.name.64
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984131
+    m_Key: level.name.65
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984132
+    m_Key: level.name.66
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984133
+    m_Key: level.name.67
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984134
+    m_Key: level.name.68
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984135
+    m_Key: level.name.69
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984136
+    m_Key: level.name.70
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984137
+    m_Key: level.name.71
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984138
+    m_Key: level.name.72
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984139
+    m_Key: level.name.73
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984140
+    m_Key: level.name.74
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984141
+    m_Key: level.name.75
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984142
+    m_Key: level.name.76
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984143
+    m_Key: level.name.77
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984144
+    m_Key: level.name.78
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984145
+    m_Key: level.name.79
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984146
+    m_Key: level.name.80
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984147
+    m_Key: level.name.81
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984148
+    m_Key: level.name.82
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984149
+    m_Key: level.name.83
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984150
+    m_Key: level.name.84
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984151
+    m_Key: level.name.85
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984152
+    m_Key: level.name.86
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984153
+    m_Key: level.name.87
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984154
+    m_Key: level.name.88
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984155
+    m_Key: level.name.89
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984156
+    m_Key: level.name.90
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984157
+    m_Key: level.name.91
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984158
+    m_Key: level.name.92
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984159
+    m_Key: level.name.93
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984160
+    m_Key: level.name.94
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984161
+    m_Key: level.name.95
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984162
+    m_Key: level.name.96
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984163
+    m_Key: level.name.97
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984164
+    m_Key: level.name.98
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984165
+    m_Key: level.name.99
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984166
+    m_Key: level.name.100
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984167
+    m_Key: level_start.zone.meadow
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984168
+    m_Key: level_start.zone.winter
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984169
+    m_Key: level_start.zone.city
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984170
+    m_Key: level_start.zone.neighborhood
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984171
+    m_Key: level_start.pill
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984172
+    m_Key: level_start.milestone
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984173
+    m_Key: level_start.clear_to_win
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984174
+    m_Key: level_start.locked_caption
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984175
+    m_Key: level_start.collected_caption
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984176
+    m_Key: level_start.streak_progress
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984177
+    m_Key: level_start.streak_lands
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984178
+    m_Key: level_start.streak_replay
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984179
+    m_Key: level_start.streak_at
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984180
+    m_Key: level_start.streak_bonus
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984181
+    m_Key: level_start.your_power_ups
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984183
+    m_Key: level_start.unlock_hint
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984184
+    m_Key: level_start.start
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984185
+    m_Key: level_start.start_sow
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984186
+    m_Key: level_start.play_again
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984187
+    m_Key: level_start.watch_ad
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984188
+    m_Key: level_start.sow_row
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984189
+    m_Key: level_start.charges
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984190
+    m_Key: level_start.sow_failed
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984191
+    m_Key: level_start.cannot_start
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984192
+    m_Key: grant.won
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984193
+    m_Key: grant.streak_bonus
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984194
+    m_Key: result.next_short
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

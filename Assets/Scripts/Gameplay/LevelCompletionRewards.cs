@@ -52,6 +52,10 @@ namespace MustyBlockBlast.Gameplay
         /// random reward.</summary>
         private const uint SEED_MULTIPLIER = 2654435761u;
 
+        /// <summary>First draw index a rule bonus (issue #464) hashes with — well past the handful
+        /// <see cref="For(int)"/> can use for the level's own reward.</summary>
+        private const int BONUS_DRAW_INDEX_OFFSET = 64;
+
         /// <summary>
         /// The kinds a level can pay: the power-up strip's kinds, in strip order. The order matters
         /// only for determinism — it is the order the pool is drawn from.
@@ -127,6 +131,72 @@ namespace MustyBlockBlast.Gameplay
             }
 
             return rewards;
+        }
+
+        /// <summary>
+        /// One extra kind for a rule-based bonus paid on the first clear of
+        /// <paramref name="completedLevelNumber"/> (issue #464). Drawn from the same pool as the
+        /// level's own reward — the strip kinds unlocked once the level is cleared — but preferring a
+        /// kind <see cref="For(int)"/> did not already pay, so the bonus reads as something extra rather
+        /// than a second copy. Falls back to the whole unlocked pool when the level paid every kind
+        /// there is. Deterministic in (level, <paramref name="drawIndex"/>), like everything else here.
+        /// </summary>
+        /// <param name="drawIndex">Distinguishes several bonus kinds drawn for the same level (a rule
+        /// paying more than one, or two rules paying on the same clear); 0 for the first.</param>
+        public static PowerUpKind DrawBonusKind(int completedLevelNumber, int drawIndex)
+            => DrawBonusKind(completedLevelNumber, drawIndex, RewardableKinds, ShippedUnlockTable);
+
+        /// <summary><see cref="DrawBonusKind(int, int)"/> against an arbitrary roster and unlock table —
+        /// the test seam, as for <see cref="For(int, IReadOnlyList{PowerUpKind}, Func{PowerUpKind, int})"/>.</summary>
+        internal static PowerUpKind DrawBonusKind(
+            int completedLevelNumber, int drawIndex,
+            IReadOnlyList<PowerUpKind> rewardableKinds, Func<PowerUpKind, int> unlockLevelFor)
+        {
+            IReadOnlyList<PowerUpKind> levelRewards = For(completedLevelNumber, rewardableKinds, unlockLevelFor);
+            int frontierAfterClear = completedLevelNumber + 1;
+
+            List<PowerUpKind> unlocked = new List<PowerUpKind>(rewardableKinds.Count);
+            List<PowerUpKind> notYetPaid = new List<PowerUpKind>(rewardableKinds.Count);
+            for (int kindIndex = 0; kindIndex < rewardableKinds.Count; kindIndex++)
+            {
+                PowerUpKind kind = rewardableKinds[kindIndex];
+                if (unlockLevelFor(kind) > frontierAfterClear)
+                {
+                    continue;
+                }
+
+                unlocked.Add(kind);
+                if (!Contains(levelRewards, kind))
+                {
+                    notYetPaid.Add(kind);
+                }
+            }
+
+            List<PowerUpKind> pool = notYetPaid.Count > 0 ? notYetPaid : unlocked;
+            if (pool.Count == 0)
+            {
+                // Unreachable under the shipped table (the starter kinds are always unlocked); a
+                // degenerate test roster still gets a defined answer rather than a crash.
+                return rewardableKinds.Count > 0 ? rewardableKinds[0] : PowerUpKind.Bomb;
+            }
+
+            // Offset past every index For() could have used, so the bonus is not simply correlated with
+            // the level's own draws.
+            uint hash = Hash(completedLevelNumber, BONUS_DRAW_INDEX_OFFSET + drawIndex);
+            return pool[(int)(hash % (uint)pool.Count)];
+        }
+
+        private static bool Contains(IReadOnlyList<PowerUpKind> kinds, PowerUpKind kind)
+        {
+            for (int kindIndex = 0; kindIndex < kinds.Count; kindIndex++)
+            {
+                if (kinds[kindIndex] == kind)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         /// <summary>

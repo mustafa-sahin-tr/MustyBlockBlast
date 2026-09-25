@@ -101,6 +101,10 @@ namespace MustyBlockBlast.Presentation.Views
         private const float REWARD_BOX_ICON_GAP = 14f;
         private const float REWARD_GLYPH_SIZE = 56f;
 
+        /// <summary>Most discs the reward row can show: a milestone's bundle plus one first-try streak
+        /// bonus (issue #464). A rule authored to pay more shows its first this-many.</summary>
+        private const int REWARD_ROW_CAPACITY = LevelCompletionRewards.MILESTONE_REWARD_COUNT + 1;
+
         /// <summary>Seconds the coin balance takes to count up to its post-level figure. The score
         /// card's own count-up length (<see cref="ScoreView"/>), so the two read as the same gesture.</summary>
         private const float COIN_COUNT_UP_DURATION = 0.4f;
@@ -125,6 +129,21 @@ namespace MustyBlockBlast.Presentation.Views
         private const float BUTTONS_TOP_PAD = 24f;
         private const float BUTTON_HEIGHT = 116f;
         private const float BUTTON_GAP = 20f;
+
+        // The Path success row (issue #464): a square restart on the left, the next-level button filling
+        // the rest — the next level's icon inset on its left, "NEXT · N" over its name, a chevron right.
+        private const float NEXT_ROW_HEIGHT = 150f;
+        private const float NEXT_ICON_SIZE = 116f;
+        private const float NEXT_ICON_FRAME = 6f;
+        private const float NEXT_ICON_RADIUS = 30f;
+        private const float NEXT_ICON_INSET = 16f;
+        private const float NEXT_TEXT_GAP = 22f;
+        private const float NEXT_CHEVRON_SIZE = 44f;
+        private const float NEXT_CHEVRON_INSET = 28f;
+        private const float RESTART_GLYPH_SIZE = 64f;
+        private const float RESTART_INLINE_GLYPH_SIZE = 48f;
+        private const float RESTART_INLINE_GAP = 16f;
+        private static readonly Color NextSubLabelInk = new Color(0.92f, 0.98f, 0.9f, 1f);
         private const float BOTTOM_PAD = 36f;
         private const float STAR_DISC_SIZE = 76f;
         private const float STAR_GLYPH_SIZE = 44f;
@@ -200,6 +219,12 @@ namespace MustyBlockBlast.Presentation.Views
         [Tooltip("White 9-sliced glossy button, shared with the shop. Tinted at runtime from the theme.")]
         [SerializeField] private Sprite _buttonSprite;
 
+        [Tooltip("White restart (circular arrow) glyph on the play-again button (issue #464).")]
+        [SerializeField] private Sprite _restartSprite;
+
+        [Tooltip("White chevron on the next-level button (issue #464).")]
+        [SerializeField] private Sprite _chevronSprite;
+
         [Tooltip("White trophy silhouette beside the record caption. Hidden when unassigned.")]
         [SerializeField] private Sprite _trophySprite;
 
@@ -224,6 +249,7 @@ namespace MustyBlockBlast.Presentation.Views
         /// the Level Path's reward badges and the info popup use.</summary>
         private PowerUpInventoryView _powerUpInventoryView;
         private ISubscriber<LevelAdvancedMessage> _levelAdvancedSubscriber;
+        private RewardRuleModel _rewardRuleModel;
         private PathRunModel _pathRunModel;
         private TimedHighScoreModel _timedHighScoreModel;
         private BadgeModel _badgeModel;
@@ -235,6 +261,10 @@ namespace MustyBlockBlast.Presentation.Views
         private GameModeSystem _gameModeSystem;
         private TimedModeSystem _timedModeSystem;
         private LevelCatalog _levelCatalog;
+        private LevelIdentityCatalog _levelIdentityCatalog;
+
+        /// <summary>True while the buttons share one row: a Path success with a next level (issue #464).</summary>
+        private bool _buttonsInRow;
         private ISubscriber<GameOverMessage> _gameOverSubscriber;
         private ISubscriber<RunStartedMessage> _runStartedSubscriber;
         private ISubscriber<NewRecordMessage> _newRecordSubscriber;
@@ -279,12 +309,12 @@ namespace MustyBlockBlast.Presentation.Views
         private Image _coinBoxPillPlate;
         private Text _coinBoxPillText;
 
-        private RectTransform _rewardBoxRoot;
-        private Image _rewardBoxShadow;
-        private Image _rewardBoxPlate;
-        private Text _rewardBoxCaptionText;
-        private readonly Image[] _rewardDiscs = new Image[LevelCompletionRewards.MILESTONE_REWARD_COUNT];
-        private readonly Image[] _rewardGlyphs = new Image[LevelCompletionRewards.MILESTONE_REWARD_COUNT];
+        /// <summary>Everything this clear paid: the level's own reward (issue #462) followed by any
+        /// first-try streak bonus (issue #464), in one row.</summary>
+        private RewardRow _levelRewardRow;
+
+        /// <summary>Scratch list for the reward row's kinds, reused per open.</summary>
+        private readonly List<PowerUpKind> _shownRewards = new List<PowerUpKind>(REWARD_ROW_CAPACITY);
 
         /// <summary>
         /// The level whose first clear this run paid its power-up reward, or 0 when none did. Set off
@@ -427,16 +457,64 @@ namespace MustyBlockBlast.Presentation.Views
             internal Text ValueText { get; }
         }
 
+        /// <summary>One reward row on a Path clear's card (issues #462, #464): a plate, a caption, and
+        /// a fixed set of accent discs with power-up glyphs, of which only as many as were paid show.</summary>
+        private sealed class RewardRow
+        {
+            internal RewardRow(RectTransform root, Image shadow, Image plate, Text captionText, Image[] discs, Image[] glyphs)
+            {
+                Root = root;
+                Shadow = shadow;
+                Plate = plate;
+                CaptionText = captionText;
+                Discs = discs;
+                Glyphs = glyphs;
+            }
+
+            internal RectTransform Root { get; }
+
+            internal Image Shadow { get; }
+
+            internal Image Plate { get; }
+
+            internal Text CaptionText { get; }
+
+            internal Image[] Discs { get; }
+
+            internal Image[] Glyphs { get; }
+        }
+
         /// <summary>One glossy action button: the pill is the hit area, the label sits on it. What
         /// the button does and which kind tints it are set per open in <see cref="RefreshButtons"/>.</summary>
         private sealed class ActionButton
         {
-            internal ActionButton(Image plate, Text labelText)
+            internal ActionButton(
+                Image plate, Text labelText, Image restartGlyph, RectTransform levelIconRoot, Image levelIcon,
+                Text subLabelText, Image chevron)
             {
                 Plate = plate;
                 Rect = plate.rectTransform;
                 LabelText = labelText;
+                RestartGlyph = restartGlyph;
+                LevelIconRoot = levelIconRoot;
+                LevelIcon = levelIcon;
+                SubLabelText = subLabelText;
+                Chevron = chevron;
             }
+
+            /// <summary>The restart arrow: the whole face of the square play-again button, or inline
+            /// before the label on a wide restart (issue #464).</summary>
+            internal Image RestartGlyph { get; }
+
+            /// <summary>The next level's icon on its white frame, inset on the next-level button's left.</summary>
+            internal RectTransform LevelIconRoot { get; }
+
+            internal Image LevelIcon { get; }
+
+            /// <summary>The next level's name under "NEXT · N".</summary>
+            internal Text SubLabelText { get; }
+
+            internal Image Chevron { get; }
 
             internal Image Plate { get; }
 
@@ -464,8 +542,10 @@ namespace MustyBlockBlast.Presentation.Views
             GameModeSystem gameModeSystem,
             TimedModeSystem timedModeSystem,
             LevelCatalog levelCatalog,
+            LevelIdentityCatalog levelIdentityCatalog,
             PowerUpInventoryView powerUpInventoryView,
             ISubscriber<LevelAdvancedMessage> levelAdvancedSubscriber,
+            RewardRuleModel rewardRuleModel,
             ISubscriber<GameOverMessage> gameOverSubscriber,
             ISubscriber<RunStartedMessage> runStartedSubscriber,
             ISubscriber<NewRecordMessage> newRecordSubscriber,
@@ -484,8 +564,10 @@ namespace MustyBlockBlast.Presentation.Views
             _gameModeSystem = gameModeSystem;
             _timedModeSystem = timedModeSystem;
             _levelCatalog = levelCatalog;
+            _levelIdentityCatalog = levelIdentityCatalog;
             _powerUpInventoryView = powerUpInventoryView;
             _levelAdvancedSubscriber = levelAdvancedSubscriber;
+            _rewardRuleModel = rewardRuleModel;
             _gameOverSubscriber = gameOverSubscriber;
             _runStartedSubscriber = runStartedSubscriber;
             _newRecordSubscriber = newRecordSubscriber;
@@ -507,7 +589,7 @@ namespace MustyBlockBlast.Presentation.Views
                 || _localizationModel == null || _localizationSystem == null || _gameModeSystem == null
                 || _timedModeSystem == null || _gameOverSubscriber == null || _runStartedSubscriber == null
                 || _newRecordSubscriber == null || _runRescuedSubscriber == null
-                || _powerUpInventoryView == null || _levelAdvancedSubscriber == null)
+                || _powerUpInventoryView == null || _levelAdvancedSubscriber == null || _rewardRuleModel == null)
             {
                 Debug.LogError($"{nameof(RunResultView)} was not injected. Is it registered in the LifetimeScope?", this);
                 return;
@@ -715,7 +797,7 @@ namespace MustyBlockBlast.Presentation.Views
             _newTagText.color = Color.white;
 
             PaintCoinBox();
-            PaintRewardBox();
+            PaintRewardRow(_levelRewardRow);
 
             _badgesHeadingText.color = theme.SoftInk;
             _claimHintText.color = theme.Accent;
@@ -747,22 +829,22 @@ namespace MustyBlockBlast.Presentation.Views
             _coinBoxPillText.color = Color.white;
         }
 
-        /// <summary>The level-reward box in the coin box's vocabulary: same plate, same caption ink, and
+        /// <summary>A reward row in the coin box's vocabulary: same plate, same caption ink, and
         /// accent discs carrying the power-up glyphs as the Level Path's reward badges do.</summary>
-        private void PaintRewardBox()
+        private void PaintRewardRow(RewardRow row)
         {
-            if (_rewardBoxRoot == null || _currentTheme == null)
+            if (row == null || _currentTheme == null)
             {
                 return;
             }
 
-            _rewardBoxShadow.color = _currentTheme.CardShadow;
-            _rewardBoxPlate.color = _currentTheme.CardBackground;
-            _rewardBoxCaptionText.color = _currentTheme.SoftInk;
-            for (int rewardIndex = 0; rewardIndex < _rewardDiscs.Length; rewardIndex++)
+            row.Shadow.color = _currentTheme.CardShadow;
+            row.Plate.color = _currentTheme.CardBackground;
+            row.CaptionText.color = _currentTheme.SoftInk;
+            for (int rewardIndex = 0; rewardIndex < row.Discs.Length; rewardIndex++)
             {
-                _rewardDiscs[rewardIndex].color = _currentTheme.Accent;
-                _rewardGlyphs[rewardIndex].color = Color.white;
+                row.Discs[rewardIndex].color = _currentTheme.Accent;
+                row.Glyphs[rewardIndex].color = Color.white;
             }
         }
 
@@ -801,7 +883,7 @@ namespace MustyBlockBlast.Presentation.Views
             RefreshHeader();
             RefreshStats();
             RefreshCoinBox();
-            RefreshRewardBox();
+            RefreshRewardRows();
             RefreshBadges();
             RefreshButtons();
             Layout();
@@ -990,39 +1072,55 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         /// <summary>
-        /// The level-reward box (issue #462), shown only on a cleared Path level whose clear paid its
-        /// power-up reward — a first clear. Shows the very kinds the rule paid, one disc each (three on
-        /// a milestone); the fly-in to the strip is <see cref="PowerUpGrantAnimationView"/>'s, not
-        /// this card's. Every other card leaves the row hidden, and <see cref="Layout"/> then gives it
-        /// no height at all.
+        /// The reward row, shown only on a cleared Path level whose clear paid something: the level's own
+        /// reward (issue #462) — a first clear — followed by any first-try streak bonus the same clear
+        /// landed (issue #464), one disc each, in the order they flew in. One row rather than two: what
+        /// the player won is the point, not which rule paid which part. A hidden row gets no height from
+        /// <see cref="Layout"/>.
         /// </summary>
-        private void RefreshRewardBox()
+        private void RefreshRewardRows()
         {
-            if (_rewardBoxRoot == null || _localizationSystem == null || _powerUpInventoryView == null)
+            if (_levelRewardRow == null || _localizationSystem == null || _powerUpInventoryView == null)
             {
                 return;
             }
 
-            bool show = _lastMode == GameMode.Path
-                && _lastReason == GameOverReason.LevelCompleted
-                && _rewardedLevelNumber > 0
-                && _rewardedLevelNumber == _playedLevelNumber;
-            _rewardBoxRoot.gameObject.SetActive(show);
+            _shownRewards.Clear();
+            bool isPathClear = _lastMode == GameMode.Path && _lastReason == GameOverReason.LevelCompleted;
+            if (isPathClear && _rewardedLevelNumber > 0 && _rewardedLevelNumber == _playedLevelNumber)
+            {
+                _shownRewards.AddRange(LevelCompletionRewards.For(_playedLevelNumber));
+            }
+
+            if (isPathClear
+                && _rewardRuleModel.LastPayoutLevelNumber > 0
+                && _rewardRuleModel.LastPayoutLevelNumber == _playedLevelNumber)
+            {
+                _shownRewards.AddRange(_rewardRuleModel.LastPayoutKinds);
+            }
+
+            ShowRewardRow(
+                _levelRewardRow, _shownRewards.Count > 0, LocalizationKeys.RUN_RESULT_LEVEL_REWARD_LABEL, _shownRewards);
+        }
+
+        private void ShowRewardRow(RewardRow row, bool show, string captionKey, IReadOnlyList<PowerUpKind> rewards)
+        {
+            row.Root.gameObject.SetActive(show);
             if (!show)
             {
                 return;
             }
 
-            _rewardBoxCaptionText.text = _localizationSystem.Translate(LocalizationKeys.RUN_RESULT_LEVEL_REWARD_LABEL);
+            row.CaptionText.text = _localizationSystem.Translate(captionKey);
 
-            IReadOnlyList<PowerUpKind> rewards = LevelCompletionRewards.For(_playedLevelNumber);
+            int shownCount = Mathf.Min(rewards.Count, row.Discs.Length);
             float rowWidth = _cardWidth - (SIDE_INSET * 2f);
             float rightEdge = (rowWidth * 0.5f) - COIN_BOX_PAD;
-            for (int rewardIndex = 0; rewardIndex < _rewardDiscs.Length; rewardIndex++)
+            for (int rewardIndex = 0; rewardIndex < row.Discs.Length; rewardIndex++)
             {
-                bool hasReward = rewardIndex < rewards.Count;
-                _rewardDiscs[rewardIndex].gameObject.SetActive(hasReward);
-                _rewardGlyphs[rewardIndex].gameObject.SetActive(hasReward);
+                bool hasReward = rewardIndex < shownCount;
+                row.Discs[rewardIndex].gameObject.SetActive(hasReward);
+                row.Glyphs[rewardIndex].gameObject.SetActive(hasReward);
                 if (!hasReward)
                 {
                     continue;
@@ -1030,13 +1128,13 @@ namespace MustyBlockBlast.Presentation.Views
 
                 // Right-aligned, first reward rightmost-last: laid out left to right so the list reads
                 // in grant order, the same order the fly-ins arrive in.
-                int slotFromRight = rewards.Count - 1 - rewardIndex;
+                int slotFromRight = shownCount - 1 - rewardIndex;
                 float discX = rightEdge - (COIN_DISC_SIZE * 0.5f)
                     - (slotFromRight * (COIN_DISC_SIZE + REWARD_BOX_ICON_GAP));
                 Vector2 position = new Vector2(discX, 0f);
-                _rewardDiscs[rewardIndex].rectTransform.anchoredPosition = position;
-                _rewardGlyphs[rewardIndex].rectTransform.anchoredPosition = position;
-                _rewardGlyphs[rewardIndex].sprite = _powerUpInventoryView.IconFor(rewards[rewardIndex]);
+                row.Discs[rewardIndex].rectTransform.anchoredPosition = position;
+                row.Glyphs[rewardIndex].rectTransform.anchoredPosition = position;
+                row.Glyphs[rewardIndex].sprite = _powerUpInventoryView.IconFor(rewards[rewardIndex]);
             }
         }
 
@@ -1225,16 +1323,13 @@ namespace MustyBlockBlast.Presentation.Views
             bool isPath = _lastMode == GameMode.Path;
             int buttonIndex = 0;
 
-            if (_lastReason == GameOverReason.LevelCompleted && _hasNextLevel)
+            _buttonsInRow = _lastReason == GameOverReason.LevelCompleted && _hasNextLevel;
+            if (_buttonsInRow)
             {
-                _stringBuilder.Clear();
-                _stringBuilder.Append(NextLevelNumber);
-                ConfigureButton(
-                    buttonIndex++, RunEndAction.NextLevel, HudChrome.GREEN_KIND,
-                    _localizationSystem.Format(LocalizationKeys.RUN_RESULT_NEXT_LEVEL, _stringBuilder.ToString()));
-                ConfigureButton(
-                    buttonIndex++, RunEndAction.PlayAgain, PRIMARY_KIND,
-                    _localizationSystem.Translate(LocalizationKeys.RUN_RESULT_PLAY_AGAIN));
+                // One row (issue #464): the square restart on the left, then the next-level button
+                // showing where the player is going — its icon, number and name.
+                ConfigureRestartSquare(buttonIndex++);
+                ConfigureNextLevel(buttonIndex++, NextLevelNumber);
             }
             else
             {
@@ -1251,7 +1346,8 @@ namespace MustyBlockBlast.Presentation.Views
                     ? LocalizationKeys.RUN_RESULT_TRY_AGAIN
                     : LocalizationKeys.RUN_RESULT_PLAY_AGAIN;
                 ConfigureButton(
-                    buttonIndex++, RunEndAction.PlayAgain, PRIMARY_KIND, _localizationSystem.Translate(restartKey));
+                    buttonIndex++, RunEndAction.PlayAgain, PRIMARY_KIND, _localizationSystem.Translate(restartKey),
+                    withRestartGlyph: true);
 
                 if (_lastMode == GameMode.Timed)
                 {
@@ -1268,14 +1364,130 @@ namespace MustyBlockBlast.Presentation.Views
             }
         }
 
-        private void ConfigureButton(int buttonIndex, RunEndAction action, int kind, string label)
+        /// <summary>A full-width stacked button with a centred label — and, for a restart, the restart
+        /// arrow before it, the two centred as one group.</summary>
+        private void ConfigureButton(int buttonIndex, RunEndAction action, int kind, string label, bool withRestartGlyph = false)
+        {
+            ActionButton button = PrepareButton(buttonIndex, action, kind, new Vector2(_cardWidth - (SIDE_INSET * 2f), BUTTON_HEIGHT));
+            button.LabelText.text = label;
+            button.LabelText.alignment = TextAnchor.MiddleCenter;
+            button.LabelText.gameObject.SetActive(true);
+
+            bool glyph = withRestartGlyph && _restartSprite != null;
+            button.RestartGlyph.gameObject.SetActive(glyph);
+            float labelWidth = button.LabelText.preferredWidth;
+            if (glyph)
+            {
+                float groupWidth = RESTART_INLINE_GLYPH_SIZE + RESTART_INLINE_GAP + labelWidth;
+                button.RestartGlyph.rectTransform.sizeDelta = new Vector2(RESTART_INLINE_GLYPH_SIZE, RESTART_INLINE_GLYPH_SIZE);
+                button.RestartGlyph.rectTransform.anchoredPosition = new Vector2((-groupWidth * 0.5f) + (RESTART_INLINE_GLYPH_SIZE * 0.5f), 0f);
+                SetLabelCentre(button.LabelText, (groupWidth * 0.5f) - (labelWidth * 0.5f), -2f);
+            }
+            else
+            {
+                SetLabelCentre(button.LabelText, 0f, -2f);
+            }
+        }
+
+        /// <summary>The square play-again button of the success row: the restart arrow alone.</summary>
+        private void ConfigureRestartSquare(int buttonIndex)
+        {
+            ActionButton button = PrepareButton(
+                buttonIndex, RunEndAction.PlayAgain, PRIMARY_KIND, new Vector2(NEXT_ROW_HEIGHT, NEXT_ROW_HEIGHT));
+            button.LabelText.gameObject.SetActive(_restartSprite == null);
+            button.LabelText.text = _localizationSystem.Translate(LocalizationKeys.RUN_RESULT_PLAY_AGAIN);
+            button.RestartGlyph.gameObject.SetActive(_restartSprite != null);
+            button.RestartGlyph.rectTransform.sizeDelta = new Vector2(RESTART_GLYPH_SIZE, RESTART_GLYPH_SIZE);
+            button.RestartGlyph.rectTransform.anchoredPosition = Vector2.zero;
+        }
+
+        /// <summary>
+        /// The next-level button of the success row: the next level's icon inset on its left, "NEXT · N"
+        /// over the level's name, and a chevron on the right. Falls back to the plain label when the
+        /// level has no identity row.
+        /// </summary>
+        private void ConfigureNextLevel(int buttonIndex, int nextLevelNumber)
+        {
+            float rowWidth = _cardWidth - (SIDE_INSET * 2f);
+            float width = rowWidth - NEXT_ROW_HEIGHT - BUTTON_GAP;
+            ActionButton button = PrepareButton(
+                buttonIndex, RunEndAction.NextLevel, HudChrome.GREEN_KIND, new Vector2(width, NEXT_ROW_HEIGHT));
+
+            _stringBuilder.Clear();
+            _stringBuilder.Append(nextLevelNumber);
+            button.LabelText.text = _localizationSystem.Format(LocalizationKeys.RUN_RESULT_NEXT_SHORT, _stringBuilder.ToString());
+            button.LabelText.gameObject.SetActive(true);
+
+            // Beside the icon the label has a fixed width, so it shrinks to fit rather than overrun.
+            button.LabelText.horizontalOverflow = HorizontalWrapMode.Wrap;
+            button.LabelText.resizeTextForBestFit = true;
+            button.LabelText.resizeTextMinSize = _buttonFontSize / 2;
+            button.LabelText.resizeTextMaxSize = _buttonFontSize;
+
+            LevelIdentityConfig identity = _levelIdentityCatalog != null ? _levelIdentityCatalog.Find(nextLevelNumber) : null;
+            bool hasIcon = identity != null && identity.Icon != null;
+            string levelName = identity != null && !string.IsNullOrEmpty(identity.NameKey)
+                ? _localizationSystem.Translate(identity.NameKey)
+                : string.Empty;
+
+            float left = -width * 0.5f;
+            button.LevelIconRoot.gameObject.SetActive(hasIcon);
+            float textLeft = left + NEXT_CHEVRON_INSET;
+            if (hasIcon)
+            {
+                button.LevelIcon.sprite = identity.Icon;
+                float iconCentre = left + NEXT_ICON_INSET + (NEXT_ICON_SIZE * 0.5f);
+                button.LevelIconRoot.anchoredPosition = new Vector2(iconCentre, 0f);
+                textLeft = left + NEXT_ICON_INSET + NEXT_ICON_SIZE + NEXT_TEXT_GAP;
+            }
+
+            bool hasChevron = _chevronSprite != null;
+            button.Chevron.gameObject.SetActive(hasChevron);
+            button.Chevron.rectTransform.anchoredPosition = new Vector2(
+                (width * 0.5f) - NEXT_CHEVRON_INSET - (NEXT_CHEVRON_SIZE * 0.5f), 0f);
+
+            bool hasName = levelName.Length > 0;
+            button.SubLabelText.gameObject.SetActive(hasName);
+            button.SubLabelText.text = levelName;
+
+            button.LabelText.alignment = TextAnchor.MiddleLeft;
+            button.SubLabelText.alignment = TextAnchor.MiddleLeft;
+            float textWidth = (width * 0.5f) - NEXT_CHEVRON_INSET - (hasChevron ? NEXT_CHEVRON_SIZE + 12f : 0f) - textLeft;
+            button.LabelText.rectTransform.pivot = new Vector2(0f, 0.5f);
+            button.LabelText.rectTransform.sizeDelta = new Vector2(textWidth, NEXT_ROW_HEIGHT * 0.45f);
+            button.LabelText.rectTransform.anchoredPosition = new Vector2(textLeft, hasName ? 18f : -2f);
+            button.SubLabelText.rectTransform.sizeDelta = new Vector2(textWidth, NEXT_ROW_HEIGHT * 0.3f);
+            button.SubLabelText.rectTransform.anchoredPosition = new Vector2(textLeft, -30f);
+        }
+
+        /// <summary>Shows slot <paramref name="buttonIndex"/> at <paramref name="size"/> for
+        /// <paramref name="action"/>, painted as <paramref name="kind"/>, with every optional part hidden —
+        /// the configure call turns on only what its shape uses.</summary>
+        private ActionButton PrepareButton(int buttonIndex, RunEndAction action, int kind, Vector2 size)
         {
             ActionButton button = _buttons[buttonIndex];
             button.Action = action;
             button.Kind = kind;
-            button.LabelText.text = label;
+            button.Rect.sizeDelta = size;
             button.Rect.gameObject.SetActive(true);
+            button.LabelText.horizontalOverflow = HorizontalWrapMode.Overflow;
+            button.LabelText.resizeTextForBestFit = false;
+            button.RestartGlyph.gameObject.SetActive(false);
+            button.LevelIconRoot.gameObject.SetActive(false);
+            button.SubLabelText.gameObject.SetActive(false);
+            button.Chevron.gameObject.SetActive(false);
             PaintButton(button);
+            return button;
+        }
+
+        /// <summary>Centres a label at (<paramref name="x"/>, <paramref name="y"/>) inside its button,
+        /// undoing any left-aligned shape an earlier open gave it.</summary>
+        private static void SetLabelCentre(Text label, float x, float y)
+        {
+            RectTransform rect = label.rectTransform;
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.sizeDelta = new Vector2(label.preferredWidth + 8f, rect.sizeDelta.y);
+            rect.anchoredPosition = new Vector2(x, y);
         }
 
         /// <summary>
@@ -1321,13 +1533,8 @@ namespace MustyBlockBlast.Presentation.Views
                 y += COIN_BOX_HEIGHT;
             }
 
-            // Straight under the coin box, on the same terms: only a Path first clear shows it.
-            if (_rewardBoxRoot.gameObject.activeSelf)
-            {
-                y += COIN_BOX_TOP_GAP;
-                HangCentre(_rewardBoxRoot, 0f, y + (COIN_BOX_HEIGHT * 0.5f));
-                y += COIN_BOX_HEIGHT;
-            }
+            // Straight under the coin box, on the same terms: only a Path clear that paid something.
+            y = LayoutRewardRow(_levelRewardRow, y);
 
             if (_badgesHeadingText.gameObject.activeSelf)
             {
@@ -1357,7 +1564,17 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             y += BUTTONS_TOP_PAD;
-            for (int buttonIndex = 0; buttonIndex < _buttons.Length; buttonIndex++)
+            if (_buttonsInRow)
+            {
+                // Square restart on the left, the next-level button filling the rest of the row.
+                float rowLeft = -(_cardWidth * 0.5f) + SIDE_INSET;
+                float rowCentre = y + (NEXT_ROW_HEIGHT * 0.5f);
+                HangCentre(_buttons[0].Rect, rowLeft + (NEXT_ROW_HEIGHT * 0.5f), rowCentre);
+                HangCentre(_buttons[1].Rect, rowLeft + NEXT_ROW_HEIGHT + BUTTON_GAP + (_buttons[1].Rect.sizeDelta.x * 0.5f), rowCentre);
+                y += NEXT_ROW_HEIGHT;
+            }
+
+            for (int buttonIndex = 0; buttonIndex < _buttons.Length && !_buttonsInRow; buttonIndex++)
             {
                 ActionButton button = _buttons[buttonIndex];
                 if (!button.Rect.gameObject.activeSelf)
@@ -1383,6 +1600,20 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>Hangs a centre-pivoted rect (or an edge-pivoted label) from the card's top edge,
         /// its vertical centre <paramref name="centreFromTop"/> below it. The pivot is left alone, so
         /// a left- or right-aligned label keeps <paramref name="x"/> as its aligned edge.</summary>
+        /// <summary>Hangs a reward row under <paramref name="y"/> when it is showing and returns the
+        /// new running height; a hidden row takes no room.</summary>
+        private static float LayoutRewardRow(RewardRow row, float y)
+        {
+            if (!row.Root.gameObject.activeSelf)
+            {
+                return y;
+            }
+
+            y += COIN_BOX_TOP_GAP;
+            HangCentre(row.Root, 0f, y + (COIN_BOX_HEIGHT * 0.5f));
+            return y + COIN_BOX_HEIGHT;
+        }
+
         private static void HangCentre(RectTransform rect, float x, float centreFromTop)
         {
             rect.anchorMin = new Vector2(0.5f, 1f);
@@ -1450,7 +1681,7 @@ namespace MustyBlockBlast.Presentation.Views
 
             BuildWell();
             BuildCoinBox();
-            BuildRewardBox();
+            _levelRewardRow = BuildRewardRow("RewardBox");
 
             _badgesHeadingText = HudChrome.CreateLabel(
                 _cardRect, "BadgesHeading", _captionFontSize, FontStyle.Bold, TextAnchor.MiddleLeft, Vector2.zero, _labelFont);
@@ -1601,34 +1832,37 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         /// <summary>
-        /// The level-reward box (issue #462): the coin box's plate, its caption on the left, and up to
-        /// <see cref="LevelCompletionRewards.MILESTONE_REWARD_COUNT"/> accent discs carrying power-up
-        /// glyphs, positioned per open by <see cref="RefreshRewardBox"/>. Built hidden.
+        /// One reward row (issues #462, #464): the coin box's plate, its caption on the left, and up to
+        /// <see cref="REWARD_ROW_CAPACITY"/> accent discs carrying power-up glyphs, positioned per open
+        /// by <see cref="ShowRewardRow"/>. Built hidden.
         /// </summary>
-        private void BuildRewardBox()
+        private RewardRow BuildRewardRow(string objectName)
         {
             float rowWidth = _cardWidth - (SIDE_INSET * 2f);
             var rowSize = new Vector2(rowWidth, COIN_BOX_HEIGHT);
-            _rewardBoxRoot = HudChrome.CreateRect(_cardRect, "RewardBox", rowSize, Vector2.zero);
+            RectTransform root = HudChrome.CreateRect(_cardRect, objectName, rowSize, Vector2.zero);
             HudChrome.BuildPlate(
-                _rewardBoxRoot, "Body", rowSize, Vector2.zero, COIN_BOX_RADIUS, HudChrome.PLATE_SHADOW_DROP,
-                out _rewardBoxShadow, out _rewardBoxPlate);
+                root, "Body", rowSize, Vector2.zero, COIN_BOX_RADIUS, HudChrome.PLATE_SHADOW_DROP,
+                out Image shadow, out Image plate);
 
             float captionX = (-rowWidth * 0.5f) + COIN_BOX_PAD + COIN_ICON_TEXT_GAP;
-            _rewardBoxCaptionText = HudChrome.CreateLabel(
-                _rewardBoxRoot, "Caption", _captionFontSize, FontStyle.Bold, TextAnchor.MiddleLeft,
+            Text caption = HudChrome.CreateLabel(
+                root, "Caption", _captionFontSize, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(captionX, 0f), _labelFont);
 
-            for (int rewardIndex = 0; rewardIndex < _rewardDiscs.Length; rewardIndex++)
+            var discs = new Image[REWARD_ROW_CAPACITY];
+            var glyphs = new Image[REWARD_ROW_CAPACITY];
+            for (int rewardIndex = 0; rewardIndex < REWARD_ROW_CAPACITY; rewardIndex++)
             {
-                _rewardDiscs[rewardIndex] = HudChrome.BuildCircle(
-                    _rewardBoxRoot, $"RewardDisc_{rewardIndex}", COIN_DISC_SIZE, Vector2.zero);
-                _rewardGlyphs[rewardIndex] = HudChrome.BuildGlyph(
-                    _rewardBoxRoot, $"RewardGlyph_{rewardIndex}", null,
+                discs[rewardIndex] = HudChrome.BuildCircle(
+                    root, $"RewardDisc_{rewardIndex}", COIN_DISC_SIZE, Vector2.zero);
+                glyphs[rewardIndex] = HudChrome.BuildGlyph(
+                    root, $"RewardGlyph_{rewardIndex}", null,
                     new Vector2(REWARD_GLYPH_SIZE, REWARD_GLYPH_SIZE), Vector2.zero);
             }
 
-            _rewardBoxRoot.gameObject.SetActive(false);
+            root.gameObject.SetActive(false);
+            return new RewardRow(root, shadow, plate, caption, discs, glyphs);
         }
 
         private StatPlate BuildStatPlate(string objectName, float width, Vector2 anchoredPosition)
@@ -1704,7 +1938,32 @@ namespace MustyBlockBlast.Presentation.Views
                 plate.rectTransform, "Label", _buttonFontSize, FontStyle.Normal, TextAnchor.MiddleCenter,
                 new Vector2(0f, -2f), _displayFont);
             AddLetteringShadow(label, BUTTON_SHADOW_DROP).effectColor = new Color(0f, 0f, 0f, BUTTON_SHADOW_ALPHA);
-            return new ActionButton(plate, label);
+
+            Image restartGlyph = HudChrome.BuildGlyph(
+                plate.rectTransform, "Restart", _restartSprite, new Vector2(RESTART_GLYPH_SIZE, RESTART_GLYPH_SIZE), Vector2.zero);
+            restartGlyph.color = Color.white;
+            restartGlyph.gameObject.SetActive(false);
+
+            float framed = NEXT_ICON_SIZE + (NEXT_ICON_FRAME * 2f);
+            RectTransform iconRoot = HudChrome.CreateRect(plate.rectTransform, "LevelIcon", new Vector2(framed, framed), Vector2.zero);
+            HudChrome.BuildRounded(iconRoot, "Frame", new Vector2(framed, framed), Vector2.zero, NEXT_ICON_RADIUS + NEXT_ICON_FRAME)
+                .color = Color.white;
+            Image levelIcon = HudChrome.BuildGlyph(iconRoot, "Icon", null, new Vector2(NEXT_ICON_SIZE, NEXT_ICON_SIZE), Vector2.zero);
+            levelIcon.color = Color.white;
+            iconRoot.gameObject.SetActive(false);
+
+            Text subLabel = HudChrome.CreateLabel(
+                plate.rectTransform, "SubLabel", _captionFontSize + 4, FontStyle.Bold, TextAnchor.MiddleLeft, Vector2.zero, _labelFont);
+            subLabel.color = NextSubLabelInk;
+            subLabel.horizontalOverflow = HorizontalWrapMode.Wrap;
+            subLabel.gameObject.SetActive(false);
+
+            Image chevron = HudChrome.BuildGlyph(
+                plate.rectTransform, "Chevron", _chevronSprite, new Vector2(NEXT_CHEVRON_SIZE, NEXT_CHEVRON_SIZE), Vector2.zero);
+            chevron.color = Color.white;
+            chevron.gameObject.SetActive(false);
+
+            return new ActionButton(plate, label, restartGlyph, iconRoot, levelIcon, subLabel, chevron);
         }
 
         /// <summary>The mockup's hard "0 Npx 0" text shadow: a plain drop, no blur, riding the

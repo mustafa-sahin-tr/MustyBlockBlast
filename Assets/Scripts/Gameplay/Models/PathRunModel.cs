@@ -43,6 +43,14 @@ namespace MustyBlockBlast.Gameplay.Models
         /// </summary>
         public ReactiveProperty<int> PathTotalScore { get; } = new ReactiveProperty<int>(0);
 
+        /// <summary>
+        /// True from the moment a Path level's objective is met until its level-complete screen opens —
+        /// the special cells landing, the empty-cell count and the reward fly-ins (issue #464). Special
+        /// cells won on that final move skip their first-time explainer (see
+        /// <c>InfoPopupSystem</c>); they are explained the next time they are won mid-level.
+        /// </summary>
+        public bool IsLevelCompleting { get; internal set; }
+
         /// <summary>The best final score banked so far this walk, per level. Never persisted — cleared
         /// with the rest of the walk's state by <see cref="ResetWalk"/>.</summary>
         private readonly Dictionary<int, int> _bestScoreByLevel = new Dictionary<int, int>();

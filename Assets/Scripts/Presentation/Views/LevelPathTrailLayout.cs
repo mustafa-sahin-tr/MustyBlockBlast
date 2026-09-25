@@ -25,7 +25,7 @@ namespace MustyBlockBlast.Presentation.Views
     {
         /// <summary>Vertical distance between consecutive nodes. Also the trail's only length scale:
         /// <see cref="ContentHeight"/> is derived from it, so the two can never disagree.</summary>
-        internal const float ROW_SPACING = 150f;
+        internal const float ROW_SPACING = 210f;
 
         /// <summary>
         /// Nodes per full left-right-left sweep. Six is the smallest count that still reads as a curve

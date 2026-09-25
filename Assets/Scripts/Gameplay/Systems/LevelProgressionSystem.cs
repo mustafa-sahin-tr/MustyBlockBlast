@@ -66,7 +66,15 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// </summary>
         private static readonly TimeSpan EmptyCellBonusCountingTimeout = TimeSpan.FromSeconds(6f);
 
+        /// <summary>
+        /// Upper bound on how long <see cref="CompletePathLevelAsync"/> waits for the special cells won on
+        /// the final move to finish flying onto the board. Several flights of ~0.5 s each, generously; it
+        /// exists only so a missing view can never hold a cleared level's result screen hostage.
+        /// </summary>
+        private static readonly TimeSpan PendingFlightsTimeout = TimeSpan.FromSeconds(5f);
+
         private readonly LevelProgressionModel _progressionModel;
+        private readonly InfoPopupModel _infoPopupModel;
         private readonly PathRunModel _pathRunModel;
         private readonly ObjectiveModel _objectiveModel;
         private readonly BoardModel _boardModel;
@@ -79,6 +87,8 @@ namespace MustyBlockBlast.Gameplay.Systems
         private readonly IPublisher<EmptyCellBonusCountingMessage> _emptyCellBonusCountingPublisher;
         private readonly ISubscriber<EmptyCellBonusCountingCompletedMessage> _emptyCellBonusCountingCompletedSubscriber;
         private readonly IPublisher<BonusScoredMessage> _bonusScoredPublisher;
+        private readonly IPublisher<PendingFlightsDrainMessage> _pendingFlightsDrainPublisher;
+        private readonly ISubscriber<PendingFlightsDrainedMessage> _pendingFlightsDrainedSubscriber;
         private readonly IDisposable _subscriptions;
         private readonly CancellationTokenSource _disposeCts = new CancellationTokenSource();
         private readonly LevelProgressSaveData _saveData;
@@ -117,8 +127,14 @@ namespace MustyBlockBlast.Gameplay.Systems
             IPublisher<LevelAdvancedMessage> levelAdvancedPublisher,
             IPublisher<EmptyCellBonusCountingMessage> emptyCellBonusCountingPublisher,
             ISubscriber<EmptyCellBonusCountingCompletedMessage> emptyCellBonusCountingCompletedSubscriber,
-            IPublisher<BonusScoredMessage> bonusScoredPublisher)
+            IPublisher<BonusScoredMessage> bonusScoredPublisher,
+            IPublisher<PendingFlightsDrainMessage> pendingFlightsDrainPublisher,
+            ISubscriber<PendingFlightsDrainedMessage> pendingFlightsDrainedSubscriber,
+            InfoPopupModel infoPopupModel)
         {
+            _infoPopupModel = infoPopupModel;
+            _pendingFlightsDrainPublisher = pendingFlightsDrainPublisher;
+            _pendingFlightsDrainedSubscriber = pendingFlightsDrainedSubscriber;
             _progressionModel = progressionModel;
             _pathRunModel = pathRunModel;
             _objectiveModel = objectiveModel;
@@ -313,9 +329,40 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// </summary>
         private async UniTaskVoid CompletePathLevelAsync()
         {
+            // Raised for the whole sequence, cleared however it ends (screen shown or scope torn down) —
+            // see PathRunModel.IsLevelCompleting.
+            _pathRunModel.IsLevelCompleting = true;
+            try
+            {
+                await CompletePathLevelSequenceAsync();
+            }
+            finally
+            {
+                _pathRunModel.IsLevelCompleting = false;
+            }
+        }
+
+        private async UniTask CompletePathLevelSequenceAsync()
+        {
             int completedLevelNumber = _pathRunModel.ActiveLevelNumber.Value;
             LevelObjectiveConfig completedLevel = _levelCatalog.Find(completedLevelNumber);
             int configBonus = completedLevel != null ? completedLevel.CompletionScoreBonus : 0;
+
+            // Special cells won on the final move fly onto the board first — and a first-time one's
+            // explainer, which opens as it lands, is closed — before the empty cells are counted; the
+            // result screen comes after that. Nothing ever plays over anything else.
+            try
+            {
+                await AwaitRequestAsync(
+                    () => _pendingFlightsDrainPublisher.Publish(new PendingFlightsDrainMessage()),
+                    _pendingFlightsDrainedSubscriber, PendingFlightsTimeout, _disposeCts.Token);
+                await WaitForInfoPopupClosedAsync(_disposeCts.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                // Disposed (scene/scope tearing down) mid-wait — there is no run left to end.
+                return;
+            }
 
             Board board = _boardModel.Board;
             int emptyCellBonus = Math.Max(0, board.PlayableCellCount - board.OccupiedCellCount());
@@ -349,7 +396,53 @@ namespace MustyBlockBlast.Gameplay.Systems
 
             TryAdvanceFrontierAfterPathLevel(completedLevelNumber);
 
+            // The rewards just paid fly in ("YOU WON!") and a first-time power-up opens its explainer
+            // when it lands; the result card waits for both, so the player reads what they won before
+            // the level-complete screen comes up rather than on top of it.
+            try
+            {
+                await AwaitRequestAsync(
+                    () => _pendingFlightsDrainPublisher.Publish(new PendingFlightsDrainMessage()),
+                    _pendingFlightsDrainedSubscriber, PendingFlightsTimeout, _disposeCts.Token);
+                await WaitForInfoPopupClosedAsync(_disposeCts.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                // Disposed (scene/scope tearing down) mid-wait — there is no run left to end.
+                return;
+            }
+
             _boardSystem.ForceGameOver(GameOverReason.LevelCompleted);
+        }
+
+        /// <summary>
+        /// Completes once no info popup is open — at once if none is. No timeout: the popup is the
+        /// player's to dismiss, and the level-complete card simply follows it.
+        /// </summary>
+        private async UniTask WaitForInfoPopupClosedAsync(CancellationToken cancellationToken)
+        {
+            if (_infoPopupModel.OpenContent.Value == null)
+            {
+                return;
+            }
+
+            UniTaskCompletionSource<bool> closed = new UniTaskCompletionSource<bool>();
+            IDisposable subscription = _infoPopupModel.OpenContent.Subscribe(content =>
+            {
+                if (content == null)
+                {
+                    closed.TrySetResult(true);
+                }
+            });
+
+            try
+            {
+                await closed.Task.AttachExternalCancellation(cancellationToken);
+            }
+            finally
+            {
+                subscription.Dispose();
+            }
         }
 
         /// <summary>
@@ -359,19 +452,35 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// subscribed to <em>before</em> the request goes out, so a view that answers synchronously
         /// (nothing to show) is not missed. Modelled on <c>InfoPopupSystem</c>'s grant-animation wait.
         /// </summary>
-        private async UniTask RequestEmptyCellBonusCountingAsync(int emptyCellCount, CancellationToken cancellationToken)
+        private UniTask RequestEmptyCellBonusCountingAsync(int emptyCellCount, CancellationToken cancellationToken)
+            => AwaitRequestAsync(
+                () => _emptyCellBonusCountingPublisher.Publish(new EmptyCellBonusCountingMessage(emptyCellCount)),
+                _emptyCellBonusCountingCompletedSubscriber, EmptyCellBonusCountingTimeout, cancellationToken);
+
+        /// <summary>
+        /// Publishes a request (via <paramref name="publishRequest"/>) and awaits the next
+        /// <typeparamref name="TReply"/>, or <paramref name="timeout"/>, whichever comes first. The reply
+        /// is subscribed to <em>before</em> the request goes out, so a view that answers synchronously
+        /// is not missed — and then this returns in the same frame.
+        /// </summary>
+        private static async UniTask AwaitRequestAsync<TReply>(
+            Action publishRequest, ISubscriber<TReply> replySubscriber, TimeSpan timeout, CancellationToken cancellationToken)
         {
             UniTaskCompletionSource<bool> completionSource = new UniTaskCompletionSource<bool>();
-            IDisposable subscription = _emptyCellBonusCountingCompletedSubscriber.Subscribe(
-                _ => completionSource.TrySetResult(true));
+            IDisposable subscription = replySubscriber.Subscribe(_ => completionSource.TrySetResult(true));
 
             try
             {
-                _emptyCellBonusCountingPublisher.Publish(new EmptyCellBonusCountingMessage(emptyCellCount));
+                publishRequest();
+
+                if (completionSource.Task.Status == UniTaskStatus.Succeeded)
+                {
+                    return;
+                }
 
                 await UniTask.WhenAny(
                     completionSource.Task.AttachExternalCancellation(cancellationToken),
-                    UniTask.Delay(EmptyCellBonusCountingTimeout, cancellationToken: cancellationToken));
+                    UniTask.Delay(timeout, cancellationToken: cancellationToken));
             }
             finally
             {

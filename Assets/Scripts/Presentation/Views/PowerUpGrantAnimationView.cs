@@ -5,6 +5,7 @@ using Cysharp.Threading.Tasks;
 using MessagePipe;
 using MustyBlockBlast.Core;
 using MustyBlockBlast.Gameplay;
+using MustyBlockBlast.Gameplay.Localization;
 using MustyBlockBlast.Gameplay.Messages;
 using MustyBlockBlast.Gameplay.Systems;
 using Mtafasahin.Reactive;
@@ -64,6 +65,31 @@ namespace MustyBlockBlast.Presentation.Views
         /// clamped up to this floor so a hastily-tuned value can never fall under the approved minimum.</summary>
         private const float MIN_START_SCALE_MULTIPLIER = 2f;
 
+        /// <summary>
+        /// How far above its parent canvas the fly-in layer sorts. A level's reward is granted in the
+        /// same frame the level-complete card opens and moves itself to the top of the sibling order,
+        /// so sibling order alone would put the "YOU WON!" caption behind that card (issue #464).
+        /// </summary>
+        private const int LAYER_SORT_OFFSET = 50;
+
+        // The "YOU WON! · +1 Row Clear" caption an earned grant holds at the centre before flying
+        // (issue #464): its plate, text sizes and how the icon pops in and the caption fades out.
+        private const float CAPTION_PLATE_WIDTH = 560f;
+        private const float CAPTION_PLATE_PADDING = 150f;
+        private const float CAPTION_PLATE_RADIUS = 56f;
+        private const float CAPTION_TITLE_GAP = 56f;
+        private const float CAPTION_NAME_GAP = 48f;
+        private const int CAPTION_TITLE_FONT_SIZE = 64;
+        private const int CAPTION_NAME_FONT_SIZE = 40;
+        private const float POP_IN_SECONDS = 0.25f;
+        private const float POP_IN_START_SCALE = 0.6f;
+        private const float CAPTION_FADE_OUT_FRACTION = 0.35f;
+        private const string PLUS_ONE = "+1 ";
+        private static readonly Color CaptionPlate = new Color(0.12f, 0.1f, 0.2f, 0.88f);
+        private static readonly Color CaptionTitleInk = new Color32(0xFF, 0xD2, 0x4A, 0xFF);
+        private static readonly Color CaptionShadow = new Color(0f, 0f, 0f, 0.35f);
+        private static readonly Vector2 CaptionShadowOffset = new Vector2(0f, -4f);
+
         [Header("Icons")]
         [Tooltip("Hero-sized icon per kind, in the same order as the power-up strip (Bomb, Row Clear, "
             + "Column Clear, Joker, Colour Cleanser, Rotate, Reroll, Double Score, Ghost Fit, Paint Cross). A kind "
@@ -77,6 +103,16 @@ namespace MustyBlockBlast.Presentation.Views
         [Tooltip("Seconds the flight from centre screen to its destination takes.")]
         [SerializeField] private float _flightDuration = 0.5f;
 
+        [Tooltip("Seconds an earned power-up holds at the centre with its \"YOU WON!\" caption before "
+            + "flying. Purchases skip the hold.")]
+        [SerializeField] private float _holdDuration = 0.8f;
+
+        [Header("Caption")]
+        [Tooltip("Display face (Bowlby One SC) for the \"YOU WON!\" title.")]
+        [SerializeField] private Font _titleFont;
+        [Tooltip("Body face for the \"+1 Row Clear\" line.")]
+        [SerializeField] private Font _bodyFont;
+
         private readonly CompositeDisposable _disposables = new CompositeDisposable();
         private readonly Queue<PendingFlight> _pendingGrants = new Queue<PendingFlight>();
 
@@ -84,9 +120,13 @@ namespace MustyBlockBlast.Presentation.Views
         private ISubscriber<SpecialCellSpawnedMessage> _specialCellSpawnedSubscriber;
         private ISubscriber<RunStartedMessage> _runStartedSubscriber;
         private IPublisher<PowerUpGrantAnimationCompletedMessage> _grantAnimationCompletedPublisher;
+        private ISubscriber<PendingFlightsDrainMessage> _pendingFlightsDrainSubscriber;
+        private IPublisher<SpecialCellFlightCompletedMessage> _specialCellFlightCompletedPublisher;
+        private IPublisher<PendingFlightsDrainedMessage> _pendingFlightsDrainedPublisher;
         private PowerUpInventoryView _powerUpInventoryView;
         private BoardView _boardView;
         private BoardSystem _boardSystem;
+        private LocalizationSystem _localizationSystem;
 
         /// <summary>One queued flight — either a granted power-up (flies to its inventory slot, and
         /// publishes <see cref="PowerUpGrantAnimationCompletedMessage"/> on arrival) or a newly spawned
@@ -95,26 +135,34 @@ namespace MustyBlockBlast.Presentation.Views
         private readonly struct PendingFlight
         {
             private readonly bool _isPowerUp;
+            private readonly PowerUpGrantSource _source;
             private readonly PowerUpKind _powerUpKind;
             private readonly SpecialCellKind _specialCellKind;
             private readonly GridPosition _position;
 
             private PendingFlight(
-                bool isPowerUp, PowerUpKind powerUpKind, SpecialCellKind specialCellKind, GridPosition position)
+                bool isPowerUp, PowerUpGrantSource source, PowerUpKind powerUpKind, SpecialCellKind specialCellKind, GridPosition position)
             {
                 _isPowerUp = isPowerUp;
+                _source = source;
                 _powerUpKind = powerUpKind;
                 _specialCellKind = specialCellKind;
                 _position = position;
             }
 
-            public static PendingFlight ForPowerUp(PowerUpKind kind)
-                => new PendingFlight(true, kind, default, default);
+            public static PendingFlight ForPowerUp(PowerUpKind kind, PowerUpGrantSource source)
+                => new PendingFlight(true, source, kind, default, default);
 
             public static PendingFlight ForSpecialCell(SpecialCellKind kind, GridPosition position)
-                => new PendingFlight(false, default, kind, position);
+                => new PendingFlight(false, PowerUpGrantSource.Reward, default, kind, position);
 
             public bool IsPowerUp => _isPowerUp;
+
+            /// <summary>An earned power-up (not bought, not a special cell): the one flight that holds
+            /// at the centre with the "YOU WON!" caption.</summary>
+            public bool ShowsWonCaption => _isPowerUp && _source != PowerUpGrantSource.Purchase;
+
+            public PowerUpGrantSource Source => _source;
             public PowerUpKind PowerUpKindValue => _powerUpKind;
             public SpecialCellKind SpecialCellKindValue => _specialCellKind;
             public GridPosition Position => _position;
@@ -124,6 +172,10 @@ namespace MustyBlockBlast.Presentation.Views
         private GameObject _layerObject;
         private RectTransform _iconRect;
         private Image _iconImage;
+        private CanvasGroup _captionGroup;
+        private RectTransform _captionPlateRect;
+        private Text _captionTitleText;
+        private Text _captionNameText;
 
         private Vector2 _flightStart;
         private Vector2 _flightTarget;
@@ -142,8 +194,16 @@ namespace MustyBlockBlast.Presentation.Views
             IPublisher<PowerUpGrantAnimationCompletedMessage> grantAnimationCompletedPublisher,
             PowerUpInventoryView powerUpInventoryView,
             BoardView boardView,
-            BoardSystem boardSystem)
+            BoardSystem boardSystem,
+            LocalizationSystem localizationSystem,
+            ISubscriber<PendingFlightsDrainMessage> pendingFlightsDrainSubscriber,
+            IPublisher<PendingFlightsDrainedMessage> pendingFlightsDrainedPublisher,
+            IPublisher<SpecialCellFlightCompletedMessage> specialCellFlightCompletedPublisher)
         {
+            _specialCellFlightCompletedPublisher = specialCellFlightCompletedPublisher;
+            _pendingFlightsDrainSubscriber = pendingFlightsDrainSubscriber;
+            _pendingFlightsDrainedPublisher = pendingFlightsDrainedPublisher;
+            _localizationSystem = localizationSystem;
             _powerUpGrantedSubscriber = powerUpGrantedSubscriber;
             _specialCellSpawnedSubscriber = specialCellSpawnedSubscriber;
             _runStartedSubscriber = runStartedSubscriber;
@@ -183,6 +243,39 @@ namespace MustyBlockBlast.Presentation.Views
             {
                 _runStartedSubscriber.Subscribe(OnRunStarted).AddTo(_disposables);
             }
+
+            if (_pendingFlightsDrainSubscriber != null && _pendingFlightsDrainedPublisher != null)
+            {
+                _pendingFlightsDrainSubscriber.Subscribe(OnPendingFlightsDrain).AddTo(_disposables);
+            }
+        }
+
+        /// <summary>A cleared level asks to be told once every flight has landed (see
+        /// <see cref="PendingFlightsDrainMessage"/>).</summary>
+        private void OnPendingFlightsDrain(PendingFlightsDrainMessage message) => ReplyWhenDrainedAsync().Forget();
+
+        /// <summary>
+        /// Waits one frame first — the level completes in the middle of the final placement, and that
+        /// same placement's special-cell spawns are published after it — then until the queue has
+        /// emptied, and replies. Replies on destruction too, though the system's own timeout would
+        /// cover that.
+        /// </summary>
+        private async UniTaskVoid ReplyWhenDrainedAsync()
+        {
+            try
+            {
+                await UniTask.Yield(PlayerLoopTiming.Update, _destroyToken);
+                while (_isProcessingQueue || _pendingGrants.Count > 0)
+                {
+                    await UniTask.Yield(PlayerLoopTiming.Update, _destroyToken);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+
+            _pendingFlightsDrainedPublisher.Publish(new PendingFlightsDrainedMessage());
         }
 
         private void OnDestroy()
@@ -200,7 +293,7 @@ namespace MustyBlockBlast.Presentation.Views
 
         private void OnPowerUpGranted(PowerUpGrantedMessage message)
         {
-            Enqueue(PendingFlight.ForPowerUp(message.Kind));
+            Enqueue(PendingFlight.ForPowerUp(message.Kind, message.Source));
         }
 
         /// <summary>Issue #353 (expanded): a newly spawned special board cell — an Explosive Core,
@@ -221,6 +314,7 @@ namespace MustyBlockBlast.Presentation.Views
         {
             if (_boardSystem != null && _boardSystem.IsGameOver)
             {
+                PublishSpecialCellCompleted(message.Kind);
                 return;
             }
 
@@ -251,6 +345,10 @@ namespace MustyBlockBlast.Presentation.Views
                 if (flight.IsPowerUp)
                 {
                     PublishCompleted(flight.PowerUpKindValue);
+                }
+                else
+                {
+                    PublishSpecialCellCompleted(flight.SpecialCellKindValue);
                 }
             }
 
@@ -300,11 +398,7 @@ namespace MustyBlockBlast.Presentation.Views
             // special-cell spawn has nothing awaiting it, so it simply does nothing.
             if (destination == null)
             {
-                if (flight.IsPowerUp)
-                {
-                    PublishCompleted(flight.PowerUpKindValue);
-                }
-
+                PublishFlightCompleted(flight);
                 return;
             }
 
@@ -314,9 +408,9 @@ namespace MustyBlockBlast.Presentation.Views
                 if (flight.IsPowerUp)
                 {
                     LogMissingIconWarning(flight.PowerUpKindValue);
-                    PublishCompleted(flight.PowerUpKindValue);
                 }
 
+                PublishFlightCompleted(flight);
                 return;
             }
 
@@ -324,9 +418,27 @@ namespace MustyBlockBlast.Presentation.Views
             CancellationToken token = _runCts.Token;
 
             Setup(icon, destination);
+            bool showsCaption = flight.ShowsWonCaption && _localizationSystem != null;
+            SetupCaption(showsCaption, flight.PowerUpKindValue, flight.Source);
 
             try
             {
+                // An earned power-up first holds at the centre, popping in under its caption, so the
+                // player reads what they won before it leaves for the strip (issue #464).
+                if (showsCaption)
+                {
+                    float holdDuration = Mathf.Max(0.01f, _holdDuration);
+                    float held = 0f;
+                    while (held < holdDuration)
+                    {
+                        AnimateHold(held);
+                        await UniTask.Yield(PlayerLoopTiming.Update, token);
+                        held += Time.unscaledDeltaTime;
+                    }
+
+                    AnimateHold(holdDuration);
+                }
+
                 float flightDuration = Mathf.Max(0.01f, _flightDuration);
                 float elapsed = 0f;
                 while (elapsed < flightDuration)
@@ -353,10 +465,31 @@ namespace MustyBlockBlast.Presentation.Views
                 }
             }
 
+            PublishFlightCompleted(flight);
+        }
+
+        /// <summary>Announces that <paramref name="flight"/> has landed (or was skipped): the power-up
+        /// completion for a grant, the special-cell completion for a spawned cell.</summary>
+        private void PublishFlightCompleted(PendingFlight flight)
+        {
             if (flight.IsPowerUp)
             {
                 PublishCompleted(flight.PowerUpKindValue);
             }
+            else
+            {
+                PublishSpecialCellCompleted(flight.SpecialCellKindValue);
+            }
+        }
+
+        private void PublishSpecialCellCompleted(SpecialCellKind kind)
+        {
+            if (_isDestroyed || _specialCellFlightCompletedPublisher == null)
+            {
+                return;
+            }
+
+            _specialCellFlightCompletedPublisher.Publish(new SpecialCellFlightCompletedMessage(kind));
         }
 
         private void PublishCompleted(PowerUpKind kind)
@@ -410,9 +543,53 @@ namespace MustyBlockBlast.Presentation.Views
             return localPoint;
         }
 
+        /// <summary>
+        /// Shows or hides the "YOU WON! · +1 Row Clear" caption for the flight about to play, sized
+        /// around the icon's opening size. Hidden (and so skipped) for purchases and special cells.
+        /// </summary>
+        private void SetupCaption(bool show, PowerUpKind kind, PowerUpGrantSource source)
+        {
+            _captionGroup.gameObject.SetActive(show);
+            if (!show)
+            {
+                return;
+            }
+
+            _captionGroup.alpha = 0f;
+            // A streak bonus says so, so it never reads as a second copy of the level's own reward.
+            _captionTitleText.text = _localizationSystem.Translate(
+                source == PowerUpGrantSource.StreakBonus ? LocalizationKeys.GRANT_STREAK_BONUS : LocalizationKeys.GRANT_WON);
+            _captionNameText.text = PLUS_ONE + _localizationSystem.Translate(PowerUpShopView.NameKeyOf(kind));
+
+            float iconHalf = _iconRect.sizeDelta.y * 0.5f;
+            _captionTitleText.rectTransform.anchoredPosition = new Vector2(0f, iconHalf + CAPTION_TITLE_GAP);
+            _captionNameText.rectTransform.anchoredPosition = new Vector2(0f, -iconHalf - CAPTION_NAME_GAP);
+            _captionPlateRect.sizeDelta = new Vector2(
+                Mathf.Max(CAPTION_PLATE_WIDTH, _iconRect.sizeDelta.x + CAPTION_PLATE_PADDING),
+                (iconHalf * 2f) + CAPTION_PLATE_PADDING + CAPTION_TITLE_GAP + CAPTION_NAME_GAP);
+        }
+
+        /// <summary>The hold before an earned flight: over its first <see cref="POP_IN_SECONDS"/> the
+        /// icon pops in at the centre and the caption fades up, then both rest until the flight.</summary>
+        private void AnimateHold(float heldSeconds)
+        {
+            float pop = Mathf.Clamp01(heldSeconds / POP_IN_SECONDS);
+            float startScale = Mathf.Max(_startScaleMultiplier, MIN_START_SCALE_MULTIPLIER);
+            float scale = Mathf.LerpUnclamped(POP_IN_START_SCALE, 1f, EaseOutCubic(pop));
+            _iconRect.sizeDelta = _restingSize * (startScale * scale);
+            _iconRect.anchoredPosition = _flightStart;
+            _captionGroup.alpha = pop;
+        }
+
         private void Animate(float normalisedTime)
         {
             float progress = EaseOutCubic(normalisedTime);
+
+            // The caption clears out of the way as the icon leaves, so only the icon arrives.
+            if (_captionGroup.gameObject.activeSelf)
+            {
+                _captionGroup.alpha = 1f - Mathf.Clamp01(normalisedTime / CAPTION_FADE_OUT_FRACTION);
+            }
 
             _iconRect.anchoredPosition = Vector2.LerpUnclamped(_flightStart, _flightTarget, progress);
 
@@ -439,6 +616,13 @@ namespace MustyBlockBlast.Presentation.Views
             layerRect.SetParent(rootRect, false);
             Stretch(layerRect);
 
+            // Sorted above every panel rather than by sibling order — see LAYER_SORT_OFFSET.
+            var layerCanvas = layerObject.GetComponent<Canvas>();
+            layerCanvas.overrideSorting = true;
+            layerCanvas.sortingOrder = (_canvas != null ? _canvas.sortingOrder : 0) + LAYER_SORT_OFFSET;
+
+            BuildCaption(layerRect);
+
             var iconObject = new GameObject("GrantIcon", typeof(RectTransform), typeof(Image));
             _iconRect = (RectTransform)iconObject.transform;
             _iconRect.SetParent(layerRect, false);
@@ -450,6 +634,42 @@ namespace MustyBlockBlast.Presentation.Views
             _iconImage = iconObject.GetComponent<Image>();
             _iconImage.raycastTarget = false;
             _iconImage.preserveAspect = true;
+        }
+
+        /// <summary>The caption behind the held icon: a dark rounded plate, the gold title above the icon
+        /// and the "+1 name" line below it. Built behind the icon so the icon draws on top.</summary>
+        private void BuildCaption(RectTransform layerRect)
+        {
+            var captionObject = new GameObject("WonCaption", typeof(RectTransform), typeof(CanvasGroup));
+            var captionRect = (RectTransform)captionObject.transform;
+            captionRect.SetParent(layerRect, false);
+            captionRect.anchorMin = new Vector2(0.5f, 0.5f);
+            captionRect.anchorMax = new Vector2(0.5f, 0.5f);
+            captionRect.sizeDelta = Vector2.zero;
+            _captionGroup = captionObject.GetComponent<CanvasGroup>();
+            _captionGroup.blocksRaycasts = false;
+            _captionGroup.interactable = false;
+
+            Image plate = HudChrome.BuildRounded(
+                captionRect, "Plate", new Vector2(CAPTION_PLATE_WIDTH, CAPTION_PLATE_WIDTH), Vector2.zero, CAPTION_PLATE_RADIUS);
+            plate.color = CaptionPlate;
+            _captionPlateRect = plate.rectTransform;
+
+            _captionTitleText = UiTextFactory.Create(
+                captionRect, "Title", CAPTION_TITLE_FONT_SIZE, FontStyle.Normal, CaptionTitleInk, _titleFont);
+            AddCaptionShadow(_captionTitleText);
+            _captionNameText = UiTextFactory.Create(
+                captionRect, "Name", CAPTION_NAME_FONT_SIZE, FontStyle.Bold, Color.white, _bodyFont);
+            AddCaptionShadow(_captionNameText);
+
+            captionObject.SetActive(false);
+        }
+
+        private static void AddCaptionShadow(Text text)
+        {
+            var shadow = text.gameObject.AddComponent<Shadow>();
+            shadow.effectColor = CaptionShadow;
+            shadow.effectDistance = CaptionShadowOffset;
         }
 
         /// <summary>The icon configured for <paramref name="kind"/>, or null when this kind has no

@@ -38,6 +38,10 @@ namespace MustyBlockBlast.Tests.EditMode
         /// behind instead of the Endless default it expects.</summary>
         private const string GAME_MODE_KEY = "Settings.GameMode";
 
+        /// <summary>The PlayerPrefs blob <see cref="RewardRuleSystem"/> persists the first-try streak
+        /// under (issue #464). Cleared around every test for the same reason as the level save.</summary>
+        private const string REWARD_RULE_SAVE_KEY = "RewardRules.Progress";
+
         private TestMessageBroker<ObjectiveCompletedMessage> _objectiveCompletedBroker;
         private TestMessageBroker<ObjectiveProgressChangedMessage> _objectiveProgressBroker;
         private TestMessageBroker<LevelAdvancedMessage> _levelAdvancedBroker;
@@ -58,6 +62,13 @@ namespace MustyBlockBlast.Tests.EditMode
         private TestMessageBroker<EmptyCellBonusCountingCompletedMessage> _emptyCellBonusCountingCompletedBroker;
         private System.IDisposable _countingAutoReply;
 
+        /// <summary>Stand-in for the fly-in's "every flight has landed" reply: answers at once, so a
+        /// completion stays synchronous unless a test takes over the reply by hand.</summary>
+        private TestMessageBroker<PendingFlightsDrainMessage> _flightsDrainBroker;
+        private TestMessageBroker<PendingFlightsDrainedMessage> _flightsDrainedBroker;
+        private System.IDisposable _flightsAutoReply;
+        private InfoPopupModel _infoPopupModel;
+
         /// <summary>The "+N flies to the score counter" feedback every bonus publishes (issue #329) —
         /// kept as a field, unlike <see cref="ScoreSystem"/>'s own internal uses of the same message
         /// type, so a test can assert the empty-cell bonus reaches it (issue #424).</summary>
@@ -71,7 +82,11 @@ namespace MustyBlockBlast.Tests.EditMode
         private TrayModel _trayModel;
         private BoardSystem _boardSystem;
         private GameModeSystem _gameModeSystem;
+        private GameModeModel _gameModeModel;
         private ScoreSystem _scoreSystem;
+        private PowerUpSystem _powerUpSystem;
+        private TestMessageBroker<RunRescuedMessage> _runRescuedBroker;
+        private RewardRuleModel _rewardRuleModel;
 
         [SetUp]
         public void ClearPersistedProgress()
@@ -79,8 +94,10 @@ namespace MustyBlockBlast.Tests.EditMode
             PlayerPrefs.DeleteKey(LEVEL_SAVE_KEY);
             PlayerPrefs.DeleteKey(HIGH_SCORE_KEY);
             PlayerPrefs.DeleteKey(GAME_MODE_KEY);
+            PlayerPrefs.DeleteKey(REWARD_RULE_SAVE_KEY);
             ClearPowerUpInventory();
 
+            _runRescuedBroker = new TestMessageBroker<RunRescuedMessage>();
             _objectiveCompletedBroker = new TestMessageBroker<ObjectiveCompletedMessage>();
             _objectiveProgressBroker = new TestMessageBroker<ObjectiveProgressChangedMessage>();
             _levelAdvancedBroker = new TestMessageBroker<LevelAdvancedMessage>();
@@ -92,6 +109,8 @@ namespace MustyBlockBlast.Tests.EditMode
             _emptyCellBonusCountingBroker = new TestMessageBroker<EmptyCellBonusCountingMessage>();
             _emptyCellBonusCountingCompletedBroker = new TestMessageBroker<EmptyCellBonusCountingCompletedMessage>();
             _bonusScoredBroker = new TestMessageBroker<BonusScoredMessage>();
+            _flightsDrainBroker = new TestMessageBroker<PendingFlightsDrainMessage>();
+            _flightsDrainedBroker = new TestMessageBroker<PendingFlightsDrainedMessage>();
         }
 
         [TearDown]
@@ -100,6 +119,7 @@ namespace MustyBlockBlast.Tests.EditMode
             PlayerPrefs.DeleteKey(LEVEL_SAVE_KEY);
             PlayerPrefs.DeleteKey(HIGH_SCORE_KEY);
             PlayerPrefs.DeleteKey(GAME_MODE_KEY);
+            PlayerPrefs.DeleteKey(REWARD_RULE_SAVE_KEY);
 
             // A level-up reward is persisted the moment it is granted, so a test that earns one would
             // otherwise hand the next fixture a stocked inventory. Every level now rewards some kind
@@ -274,6 +294,60 @@ namespace MustyBlockBlast.Tests.EditMode
                 _gameOverBroker.Published[_gameOverBroker.Published.Count - 1].Reason);
             Assert.AreEqual(250 + emptyCellBonus, _scoreModel.Score.Value);
             Assert.AreEqual(250 + emptyCellBonus, _pathRunModel.PathTotalScore.Value);
+        }
+
+        /// <summary>Special cells won on the final move land first: the empty-cell count is not even
+        /// asked for — and the run does not end — until the fly-in reports every flight has landed.</summary>
+        [Test]
+        public void ObjectiveCompleted_InPathMode_WaitsForPendingFlightsBeforeCountingEmptyCells()
+        {
+            LevelProgressionSystem system = CreateSystem(ACatalogOf(Level(1), Level(2)));
+            Assert.IsNotNull(system);
+            _gameModeSystem.SelectMode(GameMode.Path);
+
+            // Stand in for a fly-in with special cells still in the air.
+            _flightsAutoReply.Dispose();
+
+            CompleteCurrentObjective();
+
+            Assert.AreEqual(1, _flightsDrainBroker.Published.Count);
+            Assert.AreEqual(0, _emptyCellBonusCountingBroker.Published.Count, "Counted before the cells landed.");
+            Assert.IsFalse(_boardSystem.IsGameOver, "The result screen came up over the flights.");
+            Assert.IsTrue(_pathRunModel.IsLevelCompleting, "Special cells landing now must skip their explainer.");
+
+            _flightsDrainedBroker.Publish(new PendingFlightsDrainedMessage());
+
+            // The same stand-in answers the second drain too (after the rewards), since the auto-reply
+            // is gone: the run ends once that one is answered.
+            _flightsDrainedBroker.Publish(new PendingFlightsDrainedMessage());
+
+            Assert.AreEqual(1, _emptyCellBonusCountingBroker.Published.Count);
+            Assert.IsTrue(_boardSystem.IsGameOver);
+            Assert.IsFalse(_pathRunModel.IsLevelCompleting);
+        }
+
+        /// <summary>An explainer open when the level completes (a special cell's, opened as it landed)
+        /// holds everything after it: the empty-cell count, the reward and the level-complete card all
+        /// wait until the player closes it, so nothing ever stacks on it.</summary>
+        [Test]
+        public void ObjectiveCompleted_InPathMode_WaitsForAnOpenInfoPopupBeforeCounting()
+        {
+            LevelProgressionSystem system = CreateSystem(ACatalogOf(Level(1), Level(2)));
+            Assert.IsNotNull(system);
+            _gameModeSystem.SelectMode(GameMode.Path);
+            _infoPopupModel.OpenContent.Value = new InfoPopupContent(
+                "SpecialCell_Coin", InfoPopupSubjectKind.SpecialCell, 1, "h", "b");
+
+            CompleteCurrentObjective();
+
+            Assert.AreEqual(0, _emptyCellBonusCountingBroker.Published.Count, "Counted under the explainer.");
+            Assert.AreEqual(0, _powerUpGrantedBroker.Published.Count, "Rewarded under the explainer.");
+            Assert.IsFalse(_boardSystem.IsGameOver, "The level-complete card came up over the explainer.");
+
+            _infoPopupModel.OpenContent.Value = null;
+
+            Assert.AreEqual(1, _powerUpGrantedBroker.Published.Count);
+            Assert.IsTrue(_boardSystem.IsGameOver);
         }
 
         [Test]
@@ -480,6 +554,200 @@ namespace MustyBlockBlast.Tests.EditMode
             // Path previews.
             Assert.AreEqual(1, _powerUpGrantedBroker.Published.Count);
             Assert.AreEqual(LevelCompletionRewards.For(1)[0], _powerUpGrantedBroker.Published[0].Kind);
+        }
+
+        // --- Issue #464: rule-based rewards — a first-try streak pays an extra power-up ---
+
+        /// <summary>AC2/AC3: three Path levels cleared on the first try, one after another, pay one
+        /// extra power-up on the third clear — after that level's own reward, through the same grant
+        /// path — and the payout is on the model for the result card.</summary>
+        [Test]
+        public void ThreeFirstTryClearsInARow_PayOneExtraPowerUp_OnTheThirdClear()
+        {
+            LevelProgressionSystem system = CreateSystem(ACatalogOf(Level(1), Level(2), Level(3), Level(4)));
+            CreateRewardRuleSystem(AFirstTryRule(threshold: 3));
+            _gameModeSystem.SelectMode(GameMode.Path);
+
+            CompleteCurrentObjective();
+            Assert.IsTrue(system.TryStartPathLevel(2));
+            CompleteCurrentObjective();
+            Assert.AreEqual(2, _powerUpGrantedBroker.Published.Count, "Two level rewards, no bonus yet.");
+            Assert.AreEqual(0, _rewardRuleModel.LastPayoutLevelNumber);
+
+            Assert.IsTrue(system.TryStartPathLevel(3));
+            CompleteCurrentObjective();
+
+            Assert.AreEqual(3, _rewardRuleModel.FirstTryStreak.Value);
+            Assert.AreEqual(4, _powerUpGrantedBroker.Published.Count);
+            Assert.AreEqual(LevelCompletionRewards.For(3)[0], _powerUpGrantedBroker.Published[2].Kind);
+            PowerUpKind bonus = LevelCompletionRewards.DrawBonusKind(3, 0);
+            Assert.AreEqual(bonus, _powerUpGrantedBroker.Published[3].Kind);
+            Assert.AreEqual(PowerUpGrantSource.Reward, _powerUpGrantedBroker.Published[2].Source);
+            Assert.AreEqual(
+                PowerUpGrantSource.StreakBonus, _powerUpGrantedBroker.Published[3].Source,
+                "The fly-in labels the bonus by this, so it never reads as a second level reward.");
+            Assert.AreEqual(3, _rewardRuleModel.LastPayoutLevelNumber);
+            CollectionAssert.AreEqual(new[] { bonus }, _rewardRuleModel.LastPayoutKinds);
+        }
+
+        /// <summary>AC7: the rule is repeatable — it pays again at 6 — but never off a multiple.</summary>
+        [TestCase(5, 2)]
+        [TestCase(3, 1)]
+        [TestCase(4, 1)]
+        public void AFirstTryClear_PaysTheBonusOnlyWhenTheStreakLandsOnAMultiple(int streakBefore, int expectedGrants)
+        {
+            PersistStreak(streakBefore, failedLevelNumber: 0);
+            PersistFrontier(6);
+            LevelProgressionSystem system = CreateSystem(ACatalogOf(
+                Level(1), Level(2), Level(3), Level(4), Level(5), Level(6), Level(7)));
+            Assert.IsNotNull(system);
+            CreateRewardRuleSystem(AFirstTryRule(threshold: 3));
+            _gameModeSystem.SelectMode(GameMode.Path);
+
+            CompleteCurrentObjective();
+
+            Assert.AreEqual(streakBefore + 1, _rewardRuleModel.FirstTryStreak.Value);
+            Assert.AreEqual(expectedGrants, _powerUpGrantedBroker.Published.Count);
+        }
+
+        /// <summary>AC2: a failed run of the frontier level breaks the streak, and clearing that level on
+        /// the retry is not a first try — it leaves the streak at zero and pays no bonus.</summary>
+        [Test]
+        public void AFailedFrontierRun_ResetsTheStreak_AndTheRetriedClearDoesNotCount()
+        {
+            PersistStreak(2, failedLevelNumber: 0);
+            PersistFrontier(3);
+            LevelProgressionSystem system = CreateSystem(ACatalogOf(Level(1), Level(2), Level(3), Level(4)));
+            CreateRewardRuleSystem(AFirstTryRule(threshold: 3));
+            _gameModeSystem.SelectMode(GameMode.Path);
+
+            _boardSystem.ForceGameOver(GameOverReason.ObjectiveMissed);
+            Assert.AreEqual(0, _rewardRuleModel.FirstTryStreak.Value);
+
+            Assert.IsTrue(system.TryStartPathLevel(3));
+            CompleteCurrentObjective();
+
+            Assert.AreEqual(0, _rewardRuleModel.FirstTryStreak.Value);
+            Assert.AreEqual(1, _powerUpGrantedBroker.Published.Count, "Only the level's own reward.");
+        }
+
+        /// <summary>AC6: replaying an already-cleared level neither breaks the streak when it fails nor
+        /// extends it when it is cleared.</summary>
+        [Test]
+        public void ReplayingAClearedLevel_NeitherBreaksNorExtendsTheStreak()
+        {
+            PersistStreak(2, failedLevelNumber: 0);
+            PersistFrontier(4);
+            LevelProgressionSystem system = CreateSystem(ACatalogOf(Level(1), Level(2), Level(3), Level(4)));
+            CreateRewardRuleSystem(AFirstTryRule(threshold: 3));
+            _gameModeSystem.SelectMode(GameMode.Path);
+
+            Assert.IsTrue(system.TryStartPathLevel(2));
+            _boardSystem.ForceGameOver(GameOverReason.ObjectiveMissed);
+            Assert.AreEqual(2, _rewardRuleModel.FirstTryStreak.Value);
+
+            Assert.IsTrue(system.TryStartPathLevel(2));
+            CompleteCurrentObjective();
+            Assert.AreEqual(2, _rewardRuleModel.FirstTryStreak.Value);
+            Assert.AreEqual(0, _powerUpGrantedBroker.Published.Count);
+        }
+
+        /// <summary>A no-moves ending the rescue ad then takes back is not a failure: the streak is
+        /// restored, and the rescued run's clear still counts as a first try.</summary>
+        [Test]
+        public void ARescuedNoMovesEnding_DoesNotBreakTheStreak()
+        {
+            PersistStreak(2, failedLevelNumber: 0);
+            PersistFrontier(3);
+            LevelProgressionSystem system = CreateSystem(ACatalogOf(Level(1), Level(2), Level(3), Level(4)));
+            Assert.IsNotNull(system);
+            CreateRewardRuleSystem(AFirstTryRule(threshold: 3));
+            _gameModeSystem.SelectMode(GameMode.Path);
+
+            _gameOverBroker.Publish(new GameOverMessage(GameOverReason.NoMovesLeft, isRescueAvailable: true));
+            Assert.AreEqual(0, _rewardRuleModel.FirstTryStreak.Value, "Committed at once, in case the app is killed.");
+
+            _runRescuedBroker.Publish(new RunRescuedMessage());
+            Assert.AreEqual(2, _rewardRuleModel.FirstTryStreak.Value);
+
+            CompleteCurrentObjective();
+            Assert.AreEqual(3, _rewardRuleModel.FirstTryStreak.Value);
+            Assert.AreEqual(2, _powerUpGrantedBroker.Published.Count, "Level reward plus the streak bonus.");
+        }
+
+        /// <summary>AC4: the streak — and a pending failure — survive a restart.</summary>
+        [Test]
+        public void TheStreakAndAPendingFailure_ArePersisted()
+        {
+            PersistFrontier(2);
+            LevelProgressionSystem system = CreateSystem(ACatalogOf(Level(1), Level(2), Level(3), Level(4)));
+            CreateRewardRuleSystem(AFirstTryRule(threshold: 3));
+            _gameModeSystem.SelectMode(GameMode.Path);
+            CompleteCurrentObjective();
+            Assert.IsTrue(system.TryStartPathLevel(3));
+            _boardSystem.ForceGameOver(GameOverReason.ObjectiveMissed);
+
+            RewardRuleModel reloaded = CreateRewardRuleSystem(AFirstTryRule(threshold: 3));
+            Assert.AreEqual(0, reloaded.FirstTryStreak.Value);
+            StringAssert.Contains("\"failedLevelNumber\":3", PlayerPrefs.GetString(REWARD_RULE_SAVE_KEY));
+
+            PlayerPrefs.DeleteKey(REWARD_RULE_SAVE_KEY);
+            PersistStreak(4, failedLevelNumber: 0);
+            Assert.AreEqual(4, CreateRewardRuleSystem(AFirstTryRule(threshold: 3)).FirstTryStreak.Value);
+        }
+
+        /// <summary>The streak is a Path-mode idea: an Endless first clear neither extends it nor pays.</summary>
+        [Test]
+        public void AnEndlessFirstClear_DoesNotTouchTheStreak()
+        {
+            PersistStreak(2, failedLevelNumber: 0);
+            PersistFrontier(3);
+            LevelProgressionSystem system = CreateSystem(ACatalogOf(Level(1), Level(2), Level(3), Level(4)));
+            Assert.IsNotNull(system);
+            CreateRewardRuleSystem(AFirstTryRule(threshold: 3));
+            _gameModeSystem.SelectMode(GameMode.Endless);
+
+            CompleteCurrentObjective();
+
+            Assert.AreEqual(2, _rewardRuleModel.FirstTryStreak.Value);
+            Assert.AreEqual(1, _powerUpGrantedBroker.Published.Count);
+        }
+
+        /// <summary>The level-start card's "would this clear be a first try" question: yes for the
+        /// frontier, no once it has been failed, no for a replay or a locked level.</summary>
+        [Test]
+        public void IsFirstTryPending_OnlyForTheUnfailedFrontier()
+        {
+            PersistFrontier(3);
+            CreateSystem(ACatalogOf(Level(1), Level(2), Level(3), Level(4)));
+            RewardRuleSystem rules = CreateRewardRuleSystemForQuery(AFirstTryRule(threshold: 3));
+            _gameModeSystem.SelectMode(GameMode.Path);
+
+            Assert.IsTrue(rules.IsFirstTryPending(3));
+            Assert.IsFalse(rules.IsFirstTryPending(2), "A replay.");
+            Assert.IsFalse(rules.IsFirstTryPending(4), "A locked level.");
+
+            _boardSystem.ForceGameOver(GameOverReason.ObjectiveMissed);
+
+            Assert.IsFalse(rules.IsFirstTryPending(3), "Failed once already.");
+        }
+
+        /// <summary>A rule paying a fixed, already-unlocked kind pays exactly that kind.</summary>
+        [Test]
+        public void AFixedKindRule_PaysItsAuthoredKind()
+        {
+            PersistStreak(2, failedLevelNumber: 0);
+            PersistFrontier(3);
+            LevelProgressionSystem system = CreateSystem(ACatalogOf(Level(1), Level(2), Level(3), Level(4)));
+            Assert.IsNotNull(system);
+            CreateRewardRuleSystem(AFirstTryRule(threshold: 3, fixedKind: PowerUpKind.RowClear, count: 2));
+            _gameModeSystem.SelectMode(GameMode.Path);
+
+            CompleteCurrentObjective();
+
+            Assert.AreEqual(3, _powerUpGrantedBroker.Published.Count);
+            Assert.AreEqual(PowerUpKind.RowClear, _powerUpGrantedBroker.Published[1].Kind);
+            Assert.AreEqual(PowerUpKind.RowClear, _powerUpGrantedBroker.Published[2].Kind);
         }
 
         // --- Issue #462: every level completion rewards, by rule ---
@@ -1073,6 +1341,68 @@ namespace MustyBlockBlast.Tests.EditMode
                 + $"\"cumulativeProgress\":[{{\"objectiveId\":\"{objectiveId}\",\"currentValue\":{alreadyAtValue}}}]}}");
         }
 
+        /// <summary>
+        /// A <see cref="RewardRuleSystem"/> wired to this fixture's models, brokers and real
+        /// <see cref="PowerUpSystem"/>. Returns its model; also kept in <see cref="_rewardRuleModel"/>.
+        /// </summary>
+        private RewardRuleModel CreateRewardRuleSystem(RewardRuleCatalog catalog)
+        {
+            _rewardRuleModel = new RewardRuleModel();
+            var system = new RewardRuleSystem(
+                _rewardRuleModel,
+                catalog,
+                _progressionModel,
+                _pathRunModel,
+                _gameModeModel,
+                _powerUpSystem,
+                _levelAdvancedBroker,
+                _gameOverBroker,
+                _runRescuedBroker,
+                _runStartedBroker);
+            Assert.IsNotNull(system);
+            return _rewardRuleModel;
+        }
+
+        /// <summary>Like <see cref="CreateRewardRuleSystem"/>, but hands back the system for the queries
+        /// the level-start card makes of it.</summary>
+        private RewardRuleSystem CreateRewardRuleSystemForQuery(RewardRuleCatalog catalog)
+        {
+            _rewardRuleModel = new RewardRuleModel();
+            return new RewardRuleSystem(
+                _rewardRuleModel,
+                catalog,
+                _progressionModel,
+                _pathRunModel,
+                _gameModeModel,
+                _powerUpSystem,
+                _levelAdvancedBroker,
+                _gameOverBroker,
+                _runRescuedBroker,
+                _runStartedBroker);
+        }
+
+        /// <summary>A catalog holding one first-try streak rule. Built through JsonUtility, like
+        /// <see cref="ACatalogOf"/>, so the row is exactly what the Inspector would author.</summary>
+        private static RewardRuleCatalog AFirstTryRule(int threshold, PowerUpKind? fixedKind = null, int count = 1)
+        {
+            var catalog = ScriptableObject.CreateInstance<RewardRuleCatalog>();
+            int selection = fixedKind.HasValue ? (int)RewardKindSelection.Fixed : (int)RewardKindSelection.DrawUnlocked;
+            int kind = fixedKind.HasValue ? (int)fixedKind.Value : 0;
+            JsonUtility.FromJsonOverwrite(
+                "{\"_rules\":[{\"_condition\":0,"
+                + $"\"_threshold\":{threshold},\"_kindSelection\":{selection},"
+                + $"\"_rewardKind\":{kind},\"_rewardCount\":{count}}}]}}",
+                catalog);
+            return catalog;
+        }
+
+        private static void PersistStreak(int streak, int failedLevelNumber)
+        {
+            PlayerPrefs.SetString(
+                REWARD_RULE_SAVE_KEY,
+                $"{{\"schemaVersion\":1,\"firstTryStreak\":{streak},\"failedLevelNumber\":{failedLevelNumber}}}");
+        }
+
         private LevelProgressionSystem CreateSystem(LevelCatalog catalog)
         {
             _progressionModel = new LevelProgressionModel();
@@ -1102,7 +1432,8 @@ namespace MustyBlockBlast.Tests.EditMode
                 ScriptableObject.CreateInstance<CurrencyConfig>(),
                 reinforcedCellSeeder: null);
 
-            _gameModeSystem = new GameModeSystem(new GameModeModel(), _boardSystem);
+            _gameModeModel = new GameModeModel();
+            _gameModeSystem = new GameModeSystem(_gameModeModel, _boardSystem);
 
             _scoreSystem = new ScoreSystem(
                 _scoreModel,
@@ -1125,13 +1456,16 @@ namespace MustyBlockBlast.Tests.EditMode
             _countingAutoReply = _emptyCellBonusCountingBroker.Subscribe(
                 _ => _emptyCellBonusCountingCompletedBroker.Publish(new EmptyCellBonusCountingCompletedMessage()));
 
+            _flightsAutoReply = _flightsDrainBroker.Subscribe(
+                _ => _flightsDrainedBroker.Publish(new PendingFlightsDrainedMessage()));
+
             var system = new LevelProgressionSystem(
                 _progressionModel,
                 _pathRunModel,
                 _objectiveModel,
                 _boardModel,
                 catalog,
-                CreatePowerUpSystem(catalog),
+                _powerUpSystem = CreatePowerUpSystem(catalog),
                 _gameModeSystem,
                 _boardSystem,
                 _scoreSystem,
@@ -1140,7 +1474,10 @@ namespace MustyBlockBlast.Tests.EditMode
                 _levelAdvancedBroker,
                 _emptyCellBonusCountingBroker,
                 _emptyCellBonusCountingCompletedBroker,
-                _bonusScoredBroker);
+                _bonusScoredBroker,
+                _flightsDrainBroker,
+                _flightsDrainedBroker,
+                _infoPopupModel = new InfoPopupModel());
 
             // Starts the first run, as BoardSystem's IStartable entry point does in the scene, so the
             // tray holds pieces and IsGameOver is a real answer rather than its default.

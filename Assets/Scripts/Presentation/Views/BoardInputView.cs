@@ -99,7 +99,7 @@ namespace MustyBlockBlast.Presentation.Views
         private HubPanelView _hubPanelView;
         private LevelPathButtonView _levelPathButtonView;
         private LevelPathPanelView _levelPathPanelView;
-        private CoinSowerPickerView _coinSowerPickerView;
+        private LevelStartCardView _levelStartCardView;
         private RunResultView _runResultView;
         private CoinTotalHudView _coinTotalHudView;
         private PowerUpInventoryView _powerUpInventoryView;
@@ -194,7 +194,7 @@ namespace MustyBlockBlast.Presentation.Views
             HubPanelView hubPanelView,
             LevelPathButtonView levelPathButtonView,
             LevelPathPanelView levelPathPanelView,
-            CoinSowerPickerView coinSowerPickerView,
+            LevelStartCardView levelStartCardView,
             RunResultView runResultView,
             CoinTotalHudView coinTotalHudView,
             PowerUpInventoryView powerUpInventoryView,
@@ -219,7 +219,7 @@ namespace MustyBlockBlast.Presentation.Views
             _hubPanelView = hubPanelView;
             _levelPathButtonView = levelPathButtonView;
             _levelPathPanelView = levelPathPanelView;
-            _coinSowerPickerView = coinSowerPickerView;
+            _levelStartCardView = levelStartCardView;
             _runResultView = runResultView;
             _coinTotalHudView = coinTotalHudView;
             _powerUpInventoryView = powerUpInventoryView;
@@ -423,13 +423,13 @@ namespace MustyBlockBlast.Presentation.Views
                 return;
             }
 
-            // The level-start Coin Sower picker. Opened by a node tap in the level path panel rather than
+            // The level-start card (issue #464). Opened by a node tap in the level path panel rather than
             // by a HUD icon, so it has no "tapped an icon, open that panel" gate below — but it is modal
             // exactly like the others and holds the same single menu-pause flag, so it belongs in this
             // tier. It opens only as the path panel closes, which is what keeps the two from stacking.
-            if (_coinSowerPickerView.IsOpen)
+            if (_levelStartCardView.IsOpen)
             {
-                _coinSowerPickerView.HandleTap(screenPosition);
+                _levelStartCardView.HandleTap(screenPosition);
                 return;
             }
 

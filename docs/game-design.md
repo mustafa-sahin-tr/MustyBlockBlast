@@ -613,6 +613,53 @@ belongs to the level **completed**, not the one advanced into:
 Rewards arrive through the ordinary grant path, so each one flies into its strip slot one after
 another, and a Path level's result card lists what the level paid.
 
+**Streak bonus (rule-based rewards).** On top of a level's own reward, authored rules pay extra
+power-ups for playing well across several levels. The rules are data (`RewardRuleCatalog`):
+each has a condition, a threshold and a reward (a kind, or "drawn", × a count). The shipped
+rule is **3 first-try levels in a row → +1 power-up**.
+
+- **First-try streak:** counts Path levels completed on the first attempt, one after another.
+  A first completion of the frontier level extends it by one. It is persisted, so it survives
+  an app restart.
+- **What breaks it:** only a **failed Path run of the frontier level** (no moves left, or a
+  failed level requirement). The streak drops to 0, and completing that level on a later try
+  is not a first try, so the streak stays at 0 rather than restarting at 1. A no-moves ending
+  the rescue ad takes back is not a failure. Undo, restarting and leaving mid-level never end
+  a run as failed, so they don't touch the streak.
+- **What is ignored:** replaying an already-completed level neither extends nor breaks the
+  streak, and Endless/Timed play never touches it.
+- **Repeatable:** a rule pays each time the streak reaches a multiple of its threshold (3, 6,
+  9, …). The streak moves one step at a time, so a rule can never pay twice for the same
+  streak.
+- **Which kind:** a drawn bonus is a kind unlocked once the level is completed, preferring one
+  the level's own reward did not pay; like the level reward, it is seeded from the level
+  number. A rule may instead name a fixed kind, which is drawn anyway while still locked.
+- The bonus flies into the strip after the level's own reward (captioned "STREAK BONUS!"),
+  and the result card lists it in the same reward row as the level's own reward — one row of
+  everything the clear paid. In Path mode the Level Path card's header shows progress towards
+  the next bonus, e.g. "First-try streak 2/3 · +1".
+
+**Level-complete buttons.** A cleared Path level with a next level puts both buttons on one
+row: a square **Play Again** with a restart arrow on the left, and a green **Next** button
+showing the next level's icon, "NEXT · N" and its name. Every other ending keeps the stacked
+buttons, the restart one carrying the same arrow.
+
+**Level-start card.** Tapping any Level Path node opens the level-start card. Every level has
+a **name** and an **icon** (`LevelIdentityCatalog`; 100 names in every language). The card
+shows:
+
+- **Clear it to win:** the level's own reward, plus the first-try streak as a reward item with
+  its x/n progress. When a first-try clear of this level would complete a rule, the actual
+  bonus power-up is shown.
+- **Your power-ups:** every unlocked strip kind, with *now › after this level* counts for the
+  ones this clear adds to.
+- **Coin Sower:** a compact sow stepper, only once Coin Sower is unlocked (level 35).
+- **Watch ad** (banks two Coin Sower charges) and **Start Level** on one row.
+
+A **replay** of a cleared level shows its rewards as already collected and notes that replays
+don't count toward the streak; Start reads "Play Again". A **locked** level opens the same
+card as a read-only preview: its rewards and "Clear Level N to unlock", with no buttons.
+
 The game logic must not know that ads exist. `Core` and `Gameplay` depend on an interface
 such as `IRewardSource` that grants a reward; the ad SDK lives entirely in `Presentation`
 or an outer composition layer. This keeps the whole rule set testable without an SDK, and

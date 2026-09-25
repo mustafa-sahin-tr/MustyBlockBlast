@@ -8,7 +8,7 @@ namespace MustyBlockBlast.Presentation.Views
 {
     /// <summary>
     /// The <see cref="PowerUpKind.CoinSower"/> info demo (issue #449, mockup artboard "Coin Yağmuru"),
-    /// authored from the real rule (docs/game-design.md "Coin Sower charges", <c>CoinSowerPickerView</c>,
+    /// authored from the real rule (docs/game-design.md "Coin Sower charges", <c>LevelStartCardView</c>,
     /// <c>CoinSpawnSelector</c>): each banked charge sows one coin cell onto an occupied block — a coin is a
     /// property of a block, never of an empty cell — and a coin cell pays out when a clear destroys it.
     /// <para>
