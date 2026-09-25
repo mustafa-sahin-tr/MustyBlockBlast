@@ -867,6 +867,10 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterComponentInHierarchy<CoinTotalHudView>();
             builder.RegisterComponentInHierarchy<GhostFitView>();
             builder.RegisterComponentInHierarchy<LineClearBurstView>();
+
+            // The board card's capped line-clear punch (issue #367 AC5). Lives on BoardView's own
+            // GameObject and can be switched off from the settings card.
+            builder.RegisterComponentInHierarchy<BoardPunchView>();
             builder.RegisterComponentInHierarchy<BonusFeedbackView>();
             builder.RegisterComponentInHierarchy<PowerUpInventoryView>();
 

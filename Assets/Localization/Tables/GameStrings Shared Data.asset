@@ -1831,6 +1831,10 @@ MonoBehaviour:
     m_Key: result.reason.leftover_moves
     m_Metadata:
       m_Items: []
+  - m_Id: 4350167317733401
+    m_Key: settings.row.board_punch
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

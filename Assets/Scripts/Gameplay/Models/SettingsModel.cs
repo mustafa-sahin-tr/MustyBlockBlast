@@ -5,8 +5,8 @@ using MustyBlockBlast.Gameplay.Settings;
 namespace MustyBlockBlast.Gameplay.Models
 {
     /// <summary>
-    /// Runtime player-settings state. Currently only the selected theme, but this is the home for
-    /// every future setting (sound on/off, haptics, ...) — it is deliberately not theme-only.
+    /// Runtime player-settings state: the selected theme and whether the board punch plays. This is
+    /// the home for every future setting (haptics, ...) — it is deliberately not theme-only.
     /// Mutated exclusively by <c>SettingsSystem</c>.
     /// </summary>
     public sealed class SettingsModel
@@ -26,5 +26,12 @@ namespace MustyBlockBlast.Gameplay.Models
 
         /// <summary>The theme Views render with. Never null once at least one theme is configured.</summary>
         public ReactiveProperty<ThemeDefinition> CurrentTheme { get; }
+
+        /// <summary>
+        /// Whether the board card plays its short scale punch on a line clear (issue #367 AC5). On by
+        /// default; the player can switch it off from the settings card. Presentation-only — no rule
+        /// reads it.
+        /// </summary>
+        public ReactiveProperty<bool> BoardPunchEnabled { get; } = new ReactiveProperty<bool>(true);
     }
 }

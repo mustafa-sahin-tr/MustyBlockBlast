@@ -1838,6 +1838,10 @@ MonoBehaviour:
     m_Localized: "Kalan hamle bonusu: {0} hamle \xB7 +{1}"
     m_Metadata:
       m_Items: []
+  - m_Id: 4350167317733401
+    m_Localized: "Sars\u0131nt\u0131"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

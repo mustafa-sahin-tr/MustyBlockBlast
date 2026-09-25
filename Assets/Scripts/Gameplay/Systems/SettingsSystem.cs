@@ -6,13 +6,14 @@ using UnityEngine;
 namespace MustyBlockBlast.Gameplay.Systems
 {
     /// <summary>
-    /// Owns <see cref="SettingsModel"/>. Loads the persisted theme selection on construction and
-    /// writes it back on every change, so it must be resolved before any View subscribes.
-    /// An unset, unknown or corrupted saved id silently falls back to the default theme.
+    /// Owns <see cref="SettingsModel"/>. Loads the persisted theme selection and board-punch switch on
+    /// construction and writes each back on every change, so it must be resolved before any View
+    /// subscribes. An unset, unknown or corrupted saved id silently falls back to the default theme.
     /// </summary>
     public sealed class SettingsSystem
     {
         private const string THEME_ID_PREFS_KEY = "Settings.ThemeId";
+        private const string BOARD_PUNCH_PREFS_KEY = "Settings.BoardPunchEnabled";
 
         private readonly SettingsModel _settingsModel;
 
@@ -23,6 +24,15 @@ namespace MustyBlockBlast.Gameplay.Systems
             IReadOnlyList<ThemeDefinition> themes = _settingsModel.AvailableThemes;
             int defaultThemeId = themes.Count > 0 ? themes[0].Id : 0;
             SetTheme(PlayerPrefs.GetInt(THEME_ID_PREFS_KEY, defaultThemeId));
+
+            _settingsModel.BoardPunchEnabled.Value = PlayerPrefs.GetInt(BOARD_PUNCH_PREFS_KEY, 1) != 0;
+        }
+
+        /// <summary>Switches the board's line-clear punch on or off and persists the choice.</summary>
+        public void SetBoardPunchEnabled(bool enabled)
+        {
+            _settingsModel.BoardPunchEnabled.Value = enabled;
+            PlayerPrefs.SetInt(BOARD_PUNCH_PREFS_KEY, enabled ? 1 : 0);
         }
 
         /// <summary>
