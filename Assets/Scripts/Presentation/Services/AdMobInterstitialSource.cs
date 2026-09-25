@@ -31,18 +31,26 @@ namespace MustyBlockBlast.Presentation.Services
     {
         // ------------------------------------------------------------------------------------------
         // Google's public test interstitial units — always fill, every ad is stamped "Test Ad" and
-        // earns nothing. Safe with the live App IDs. Test ids: https://developers.google.com/admob/unity/test-ads
-        // TODO(#501): replace with real interstitial units from the developer's AdMob account (app
-        // "Blockio Blast: Time Rush") before any build ships a placement that shows these.
+        // earns nothing. Kept only as a quick manual revert if a real unit below ever needs pulling.
+        // Test ids: https://developers.google.com/admob/unity/test-ads
         // ------------------------------------------------------------------------------------------
         private const string TEST_ANDROID_INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-3940256099942544/1033173712";
         private const string TEST_IOS_INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-3940256099942544/4411468910";
 
+        // ------------------------------------------------------------------------------------------
+        // Real interstitial units from the developer's own AdMob account (app "Blockio Blast: Time
+        // Rush"). Each must match the AdMob App ID entered for its platform in Assets > Google Mobile
+        // Ads > Settings... (Android: ca-app-pub-8909172296809126~5406503750, iOS:
+        // ca-app-pub-8909172296809126~5705870749) — see AdMobRewardSource for why they swap together.
+        // ------------------------------------------------------------------------------------------
+        private const string LIVE_ANDROID_INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-8909172296809126/7334802717";
+        private const string LIVE_IOS_INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-8909172296809126/5543298189";
+
         /// <summary>The unit every load requests.</summary>
 #if UNITY_IOS
-        private const string INTERSTITIAL_AD_UNIT_ID = TEST_IOS_INTERSTITIAL_AD_UNIT_ID;
+        private const string INTERSTITIAL_AD_UNIT_ID = LIVE_IOS_INTERSTITIAL_AD_UNIT_ID;
 #else
-        private const string INTERSTITIAL_AD_UNIT_ID = TEST_ANDROID_INTERSTITIAL_AD_UNIT_ID;
+        private const string INTERSTITIAL_AD_UNIT_ID = LIVE_ANDROID_INTERSTITIAL_AD_UNIT_ID;
 #endif
 
         /// <summary>
