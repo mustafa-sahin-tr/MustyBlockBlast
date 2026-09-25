@@ -1,0 +1,35 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8a3241020df7f4a189ad96e15685143e, type: 3}
+  m_Name: ClassicSkinConfig
+  m_EditorClassIdentifier: MustyBlockBlast.Gameplay::MustyBlockBlast.Gameplay.Settings.ClassicSkinConfig
+  _stages:
+  - _name: Colours
+    _scoreThreshold: 0
+    _sprite: {fileID: 0}
+    _tintByBlockColour: 0
+    _clearEffect: 0
+  - _name: Jelly
+    _scoreThreshold: 2000
+    _sprite: {fileID: 21300000, guid: 73230bbc774414c4d9408c51bbc152bd, type: 3}
+    _tintByBlockColour: 1
+    _clearEffect: 1
+  - _name: Pomegranate
+    _scoreThreshold: 5000
+    _sprite: {fileID: 21300000, guid: 9ca90c34e565c43e1b5405cd649491ce, type: 3}
+    _tintByBlockColour: 0
+    _clearEffect: 2
+  - _name: Wood
+    _scoreThreshold: 10000
+    _sprite: {fileID: 21300000, guid: 93c60cb7a758c4bec9d6c4ae31f53fa0, type: 3}
+    _tintByBlockColour: 0
+    _clearEffect: 3

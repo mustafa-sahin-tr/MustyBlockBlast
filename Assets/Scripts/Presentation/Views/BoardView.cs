@@ -502,6 +502,13 @@ namespace MustyBlockBlast.Presentation.Views
         private ISubscriber<VortexIslandFilledMessage> _vortexIslandFilledSubscriber;
         private ISubscriber<ChainLightningTriggeredMessage> _chainLightningTriggeredSubscriber;
         private ISubscriber<LockedCellsOpenedMessage> _lockedCellsOpenedSubscriber;
+
+        /// <summary>The Classic skin sequence and the stage the board is on (issue #333).</summary>
+        private ClassicSkinModel _skinModel;
+        private ClassicSkinConfig _skinConfig;
+
+        /// <summary>The stage the board is drawn in now, or null for the plain colour blocks.</summary>
+        private ClassicSkinConfig.Stage _activeSkin;
         private ISubscriber<SpecialCellSpawnedMessage> _specialCellSpawnedSubscriber;
         private ISubscriber<EmptyCellBonusCountingMessage> _emptyCellBonusCountingSubscriber;
         private IPublisher<EmptyCellBonusCountingCompletedMessage> _emptyCellBonusCountingCompletedPublisher;
@@ -536,8 +543,12 @@ namespace MustyBlockBlast.Presentation.Views
             ISubscriber<SpecialCellSpawnedMessage> specialCellSpawnedSubscriber,
             ISubscriber<EmptyCellBonusCountingMessage> emptyCellBonusCountingSubscriber,
             IPublisher<EmptyCellBonusCountingCompletedMessage> emptyCellBonusCountingCompletedPublisher,
-            ISubscriber<LockedCellsOpenedMessage> lockedCellsOpenedSubscriber)
+            ISubscriber<LockedCellsOpenedMessage> lockedCellsOpenedSubscriber,
+            ClassicSkinModel skinModel,
+            ClassicSkinConfig skinConfig)
         {
+            _skinModel = skinModel;
+            _skinConfig = skinConfig;
             _lockedCellsOpenedSubscriber = lockedCellsOpenedSubscriber;
             _emptyCellBonusCountingSubscriber = emptyCellBonusCountingSubscriber;
             _emptyCellBonusCountingCompletedPublisher = emptyCellBonusCountingCompletedPublisher;
@@ -710,6 +721,11 @@ namespace MustyBlockBlast.Presentation.Views
 
             // Issue #481: an opened lock reveals gold — the chest pops open where it stood.
             _lockedCellsOpenedSubscriber.Subscribe(OnLockedCellsOpened).AddTo(_disposables);
+
+            // Issue #333: the Classic skin the whole board wears. Subscribing reports the current stage
+            // at once, which only sets it — the wave plays for a change during the run.
+            _activeSkin = SkinStageAt(_skinModel.StageIndex.Value);
+            _skinModel.StageIndex.Subscribe(OnSkinStageChanged).AddTo(_disposables);
 
             // Issue #424: a cleared Path level pays one point per empty cell, and the system holds the
             // result screen back until this view has counted those cells out over the board.
@@ -1488,6 +1504,128 @@ namespace MustyBlockBlast.Presentation.Views
             ApplyTimerCountdown(index, _cellSpecialKinds[index], _cellTimerCountdowns[index]);
 
             _cells[index].SetAlpha(1f);
+        }
+
+        /// <summary>
+        /// Draws <paramref name="cell"/> — a block of <paramref name="colourId"/> — in the active Classic
+        /// skin (issue #333), or as the plain colour block when there is none. A skin tinted by block
+        /// colour takes the theme's fill. A Golden dock piece keeps its gold: that fill IS its meaning.
+        /// Internal so the tray, the pocket and the drag ghost dress their pieces exactly as the board does.
+        /// </summary>
+        internal void ApplyBlockSkin(CellView cell, int colourId, SpecialPieceKind pieceKind = SpecialPieceKind.None)
+        {
+            if (cell == null)
+            {
+                return;
+            }
+
+            // Read off the model, not the cached _activeSkin, so a tray or pocket repainting on the same
+            // stage change as this View never sees the previous skin, whichever of them heard it first.
+            ClassicSkinConfig.Stage skin = _skinModel != null ? SkinStageAt(_skinModel.StageIndex.Value) : null;
+            if (skin == null || pieceKind == SpecialPieceKind.Golden)
+            {
+                cell.ClearBlockSkin();
+                return;
+            }
+
+            Color tint = skin.TintByBlockColour && _currentTheme != null
+                ? _currentTheme.GetFill(colourId)
+                : Color.white;
+            cell.SetBlockSkin(skin.Sprite, tint);
+        }
+
+        private ClassicSkinConfig.Stage SkinStageAt(int stageIndex)
+        {
+            ClassicSkinConfig.Stage stage = _skinConfig != null ? _skinConfig.StageAt(stageIndex) : null;
+            return stage != null && stage.Sprite != null ? stage : null;
+        }
+
+        /// <summary>The board moves on to another Classic skin (issue #333): every block converts in a
+        /// diagonal wave from the top-left, each popping as it turns. A return to the colour blocks (a new
+        /// run) repaints at once — the run-start redraw is already under way.</summary>
+        private void OnSkinStageChanged(int stageIndex)
+        {
+            ClassicSkinConfig.Stage stage = SkinStageAt(stageIndex);
+            if (stage == _activeSkin)
+            {
+                return;
+            }
+
+            _activeSkin = stage;
+            if (stage == null || _cells == null)
+            {
+                RedrawAll();
+                return;
+            }
+
+            PlaySkinWaveAsync().Forget();
+        }
+
+        private async UniTaskVoid PlaySkinWaveAsync()
+        {
+            const float stepSeconds = 0.035f;
+            try
+            {
+                for (int diagonal = 0; diagonal < _width + _height - 1; diagonal++)
+                {
+                    for (int x = 0; x < _width; x++)
+                    {
+                        int rowFromTop = diagonal - x;
+                        if (rowFromTop < 0 || rowFromTop >= _height)
+                        {
+                            continue;
+                        }
+
+                        var cell = new GridPosition(x, _height - 1 - rowFromTop);
+                        int index = CellIndex(cell);
+                        int colourId = _boardModel.GetCell(cell);
+                        if (_holeMask[index] || _cellPending[index] || colourId == Board.EMPTY)
+                        {
+                            continue;
+                        }
+
+                        ApplyCellColour(cell, colourId);
+                        PlaySkinPopAsync(_cells[index].SkinTransform).Forget();
+                    }
+
+                    await UniTask.Delay(TimeSpan.FromSeconds(stepSeconds), true, PlayerLoopTiming.Update, _destroyToken);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // The board went away mid-wave.
+            }
+        }
+
+        private async UniTaskVoid PlaySkinPopAsync(RectTransform skin)
+        {
+            if (skin == null)
+            {
+                return;
+            }
+
+            const float duration = 0.25f;
+            try
+            {
+                float elapsed = 0f;
+                while (elapsed < duration)
+                {
+                    float t = elapsed / duration;
+                    float scale = t < 0.5f ? Mathf.Lerp(0.6f, 1.12f, t / 0.5f) : Mathf.Lerp(1.12f, 1f, (t - 0.5f) / 0.5f);
+                    skin.localScale = new Vector3(scale, scale, 1f);
+                    await UniTask.Yield(PlayerLoopTiming.Update, _destroyToken);
+                    elapsed += Time.unscaledDeltaTime;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+
+            if (skin != null)
+            {
+                skin.localScale = Vector3.one;
+            }
         }
 
         /// <summary>Whether <paramref name="position"/> is on the board and a link of group
@@ -2334,6 +2472,20 @@ namespace MustyBlockBlast.Presentation.Views
                         ApplyClearTint(view, colourId, 0f);
                     }
 
+                    // Issue #333: a Classic skin breaks its own way — jelly splats, fruit is sliced, wood
+                    // splinters — over a plain fade, instead of the random single-line effect.
+                    if (_activeSkin != null && _activeSkin.ClearEffect != ClassicSkinClearEffect.None
+                        && colourId != Board.EMPTY && _cellLayerRoot != null)
+                    {
+                        Color skinTint = _activeSkin.TintByBlockColour && _currentTheme != null
+                            ? _currentTheme.GetFill(colourId)
+                            : Color.white;
+                        SkinClearFx.PlayAsync(
+                            _cellLayerRoot, CellAnchoredPosition(cell), _cellSize, _activeSkin.ClearEffect,
+                            _activeSkin.Sprite, skinTint, _destroyToken).Forget();
+                        effect = null;
+                    }
+
                     // Issue #331: WHAT a cell does once its stagger delay (and, on the rare intersection
                     // cell, its flash) is done varies by the effect chosen once for this whole clear event.
                     // No effect (multi-line clears, and every power-up kind that is not a single line) keeps
@@ -3158,6 +3310,9 @@ namespace MustyBlockBlast.Presentation.Views
 
             if (colourId == Board.EMPTY)
             {
+                // Dropped with the block (issue #333), so a drag preview on this empty cell never shows
+                // the skin of the block that stood here.
+                view.ClearBlockSkin();
                 view.SetColours(_currentTheme.EmptyCellFill, _currentTheme.EmptyCellOutline);
                 return;
             }
@@ -3169,6 +3324,7 @@ namespace MustyBlockBlast.Presentation.Views
                 _currentTheme.GetFill(colourId),
                 _currentTheme.GetHighlight(colourId),
                 _currentTheme.GetShade(colourId));
+            ApplyBlockSkin(view, colourId);
         }
 
         /// <summary>Shows or hides one cell's special-cell icon. Allocation-free and idempotent, like
