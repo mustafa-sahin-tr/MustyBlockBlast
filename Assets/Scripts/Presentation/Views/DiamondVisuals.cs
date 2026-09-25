@@ -35,7 +35,11 @@ namespace MustyBlockBlast.Presentation.Views
                 return;
             }
 
+            // The crystal is a whole block of its own (issue #480): drawn full-bleed, with no block colour
+            // behind it, on the board and on every piece cell alike, so a gem looks the same in the air
+            // as once it lands.
             Color tint = Tint(theme, diamondColourId);
+            cell.SetSpecialIconFullBleed(true);
             cell.SetSpecialIcon(tint, glyph);
             cell.SetSpecialGlow(BoardView.GlowTintFrom(tint));
         }

@@ -48,6 +48,11 @@ namespace MustyBlockBlast.Presentation.Views
         /// tell apart at a glance.</summary>
         private const float SPECIAL_ICON_BEVEL_INSET_MULTIPLIER = 0.5f;
 
+        /// <summary>How far a full-bleed icon (see <see cref="SetSpecialIconFullBleed"/>) overhangs the
+        /// cell on every side, in reference pixels — the mockup's "art covers the cell, 3px past it"
+        /// (issue #480). Well under half the board's 8px cell spacing, so it never touches a neighbour.</summary>
+        private const float FULL_BLEED_ICON_OVERHANG = 3f;
+
         /// <summary>How far the special-cell glow halo (issue #365) bleeds past the cell's own bounds,
         /// in reference pixels, so it reads as a soft radiating backing like the approved mockup rather
         /// than a shape confined to the icon's own inset. Kept under half the board's cell spacing (8px,
@@ -166,6 +171,22 @@ namespace MustyBlockBlast.Presentation.Views
         /// level skips the re-slice rather than re-assigning the same sprite on every redraw.</summary>
         private float _iceRingThickness;
 
+        /// <summary>The inset the special icon and its rim sit at in the ordinary look, kept from
+        /// <see cref="Build"/> so <see cref="SetSpecialIconFullBleed"/> can put them back.</summary>
+        private float _iconInset;
+
+        /// <summary>Whether the special icon is currently drawn full-bleed (issue #480 trial): the art IS
+        /// the block, so the block look, the rim-light and the glow halo stay hidden while it is set.</summary>
+        private bool _iconFullBleed;
+
+        /// <summary>Whether the last colour call asked for the block look (<see cref="SetEmbossedColours"/>)
+        /// rather than the flat one — what leaving full-bleed restores.</summary>
+        private bool _blockLookRequested;
+
+        /// <summary>Whether a stage overlay (a locked cell's chest, a reinforced cell's rock) is showing —
+        /// that art is the whole block too (issue #480), so the block look stays hidden under it.</summary>
+        private bool _stageOverlayShown;
+
         private void Awake() => CacheOuter();
 
         /// <summary>Creates both layer sets. Called by the builder right after AddComponent.
@@ -232,21 +253,24 @@ namespace MustyBlockBlast.Presentation.Views
             _iceRingThickness = ICE_RING_THICKNESS;
             _iceRingImage.gameObject.SetActive(false);
 
-            // The locked-cell skin (issue #434): one full-colour pixel-art plate (planks, nails or a
-            // padlock cage) over the block. Built after the block look and the ice plate so it draws
-            // over both — a lock is a pre-filled block, and its skin is what marks it — and before the
-            // glow/icon/rings, which a lock never wears (BoardView paints no icon for it). Parented to
-            // the cell rather than the block root for the reason the ice plate is, and inset by the
-            // cell's own inset so it sits on the block's face rather than over the outline.
+            // The stage overlay (issues #434/#438/#480): the full-colour chest or rock art (a locked or
+            // reinforced cell). The art is the whole block, so while it shows the block look is hidden
+            // (RefreshBlockLook) and it overhangs the cell like a full-bleed icon. Built after the block
+            // look and the ice plate so it draws over both, and before the glow/icon/rings, which a lock
+            // never wears (BoardView paints no icon for it). Parented to the cell rather than the block
+            // root for the reason the ice plate is.
             _lockedOverlayImage = CreateStretchedImage(transform, "LockedOverlay");
             _lockedOverlayImage.type = Image.Type.Simple;
             _lockedOverlayImage.preserveAspect = true;
             _lockedOverlayImage.raycastTarget = false;
             _lockedOverlayImage.color = Color.white;
-            SetStretchInsets((RectTransform)_lockedOverlayImage.transform, inset, inset, inset, inset);
+            SetStretchInsets(
+                (RectTransform)_lockedOverlayImage.transform,
+                -FULL_BLEED_ICON_OVERHANG, -FULL_BLEED_ICON_OVERHANG, -FULL_BLEED_ICON_OVERHANG, -FULL_BLEED_ICON_OVERHANG);
             _lockedOverlayImage.gameObject.SetActive(false);
 
             float iconInset = inset + (bevelThickness * SPECIAL_ICON_BEVEL_INSET_MULTIPLIER);
+            _iconInset = iconInset;
 
             // The special-cell glow halo (issue #365): a soft, bright backing behind the icon so a
             // special cell reads as special even on a theme fill it happens to be close in luminance
@@ -384,7 +408,43 @@ namespace MustyBlockBlast.Presentation.Views
                 }
 
                 _specialIconRimImage.transform.localScale = Vector3.one * SPECIAL_ICON_RIM_SCALE;
-                ShowLayer(_specialIconRimImage, SpecialIconRimColour);
+                if (_iconFullBleed)
+                {
+                    HideLayer(_specialIconRimImage);
+                }
+                else
+                {
+                    ShowLayer(_specialIconRimImage, SpecialIconRimColour);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Switches the special icon between its ordinary look — a mark inset on the coloured block, with
+        /// a rim-light and a glow halo — and full-bleed (issue #480 trial): the art alone, stretched
+        /// <see cref="FULL_BLEED_ICON_OVERHANG"/> past the cell, with no block colour, rim or halo behind
+        /// it, for art that is itself a whole block. Idempotent and allocation-free; call it before
+        /// <see cref="SetSpecialIcon(Color, Sprite)"/> and <see cref="SetSpecialGlow"/>, which honour it.
+        /// <see cref="ClearSpecialIcon"/> always switches it back off.
+        /// </summary>
+        internal void SetSpecialIconFullBleed(bool fullBleed)
+        {
+            if (_iconFullBleed == fullBleed || _specialIconImage == null)
+            {
+                return;
+            }
+
+            _iconFullBleed = fullBleed;
+            float inset = fullBleed ? -FULL_BLEED_ICON_OVERHANG : _iconInset;
+            SetStretchInsets((RectTransform)_specialIconImage.transform, inset, inset, inset, inset);
+            SetStretchInsets((RectTransform)_specialIconRimImage.transform, inset, inset, inset, inset);
+
+            RefreshBlockLook();
+
+            if (fullBleed)
+            {
+                HideLayer(_specialIconRimImage);
+                ClearSpecialGlow();
             }
         }
 
@@ -442,28 +502,29 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         /// <summary>
-        /// Shows the locked-cell skin (issue #434) — <paramref name="skin"/> picks one of the three
-        /// approved looks, <paramref name="stagesRemaining"/> how many layers it still shows — or hides it
-        /// when <paramref name="stagesRemaining"/> is 0, at which point the cell is indistinguishable from
-        /// one that was never locked (AC6). The sprite comes from <see cref="UiSpriteFactory.LockedSkin"/>'s
-        /// cache, so this touches no pixels and allocates nothing: safe on any repaint path. Independent of
-        /// every other layer, and — unlike the ice plate — it IS faded by <see cref="SetAlpha"/>, because
-        /// the lock is the block: a lock a Bomb destroys outright fades out as one piece.
+        /// Shows the stage art a locked (issue #434) or reinforced (issue #438) cell wears — the chest or
+        /// the rock at its current stage, resolved by the caller (issue #480: <c>BoardView</c>'s authored
+        /// stage sprites) — or hides it when <paramref name="sprite"/> is null, at which point the cell is
+        /// indistinguishable from one that never wore any (AC6). Only swaps a sprite reference, so it
+        /// allocates nothing: safe on any repaint path. Independent of every other layer, and — unlike the
+        /// ice plate — it IS faded by <see cref="SetAlpha"/>, because the lock is the block: a lock a Bomb
+        /// destroys outright fades out as one piece.
         /// </summary>
-        internal void SetLockedOverlay(int skin, int stagesRemaining)
+        internal void SetStageOverlay(Sprite sprite)
         {
             if (_lockedOverlayImage == null)
             {
                 return;
             }
 
-            if (stagesRemaining <= 0)
+            _stageOverlayShown = sprite != null;
+            RefreshBlockLook();
+            if (sprite == null)
             {
                 HideLayer(_lockedOverlayImage);
                 return;
             }
 
-            Sprite sprite = UiSpriteFactory.LockedSkin(skin, stagesRemaining);
             if (_lockedOverlayImage.sprite != sprite)
             {
                 _lockedOverlayImage.sprite = sprite;
@@ -478,6 +539,7 @@ namespace MustyBlockBlast.Presentation.Views
         {
             HideLayer(_specialIconImage);
             HideLayer(_specialIconRimImage);
+            SetSpecialIconFullBleed(false);
         }
 
         /// <summary>Shows the special-cell glow halo (issue #365) behind the icon in
@@ -487,6 +549,11 @@ namespace MustyBlockBlast.Presentation.Views
         internal void SetSpecialGlow(Color colour)
         {
             if (_specialGlowImage == null)
+            {
+                return;
+            }
+
+            if (_iconFullBleed)
             {
                 return;
             }
@@ -654,10 +721,8 @@ namespace MustyBlockBlast.Presentation.Views
                 _flatFaceImage.color = face;
             }
 
-            if (_blockRoot != null)
-            {
-                _blockRoot.SetActive(false);
-            }
+            _blockLookRequested = false;
+            RefreshBlockLook();
         }
 
         /// <summary>Block look: filled piece cells on the board, tray, pocket and ghost. The three
@@ -677,7 +742,8 @@ namespace MustyBlockBlast.Presentation.Views
                 return;
             }
 
-            _blockRoot.SetActive(true);
+            _blockLookRequested = true;
+            RefreshBlockLook();
             _blockShadeImage.color = shade;
             _blockFaceImage.color = fill;
             _blockGlossImage.color = new Color(highlight.r, highlight.g, highlight.b, highlight.a * GLOSS_ALPHA);
@@ -716,7 +782,7 @@ namespace MustyBlockBlast.Presentation.Views
             ApplyAlpha(_specialGlowImage, alpha * _glowBaseAlpha);
 
             // And the lock skin (issue #434): the lock IS the block, so a lock destroyed outright fades
-            // with it rather than floating over an emptying cell. Restored by the next SetLockedOverlay.
+            // with it rather than floating over an emptying cell. Restored by the next SetStageOverlay.
             ApplyAlpha(_lockedOverlayImage, alpha);
 
             // And the countdown number, for the same reason: a timer cell that is fading out (cleared
@@ -726,6 +792,22 @@ namespace MustyBlockBlast.Presentation.Views
                 Color colour = _timerCountdownText.color;
                 colour.a = alpha;
                 _timerCountdownText.color = colour;
+            }
+        }
+
+        /// <summary>Shows the block look only when a colour call asked for it and no full-bleed art — a
+        /// full-bleed special icon or a stage overlay (issue #480) — stands in for the block.</summary>
+        private void RefreshBlockLook()
+        {
+            if (_blockRoot == null)
+            {
+                return;
+            }
+
+            bool show = _blockLookRequested && !_iconFullBleed && !_stageOverlayShown;
+            if (_blockRoot.activeSelf != show)
+            {
+                _blockRoot.SetActive(show);
             }
         }
 

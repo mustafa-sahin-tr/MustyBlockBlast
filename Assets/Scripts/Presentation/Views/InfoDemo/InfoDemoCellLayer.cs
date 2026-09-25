@@ -14,18 +14,19 @@ namespace MustyBlockBlast.Presentation.Views
         /// the position, so it shows whether or not a block stands on it.</summary>
         IceSocket,
 
-        /// <summary>A reinforced cell's armour skin (<c>CellView.SetLockedOverlay</c>, issue #438). Value:
-        /// hits left, which is the skin's stage count; the element's <see cref="InfoDemoElement.Variant"/>
-        /// is the skin (0..<c>Board.LOCKED_SKIN_COUNT</c>-1).</summary>
+        /// <summary>A reinforced cell's rock (<c>CellView.SetStageOverlay</c>, issues #438/#480). Value:
+        /// hits left, which picks the rock's stage (<c>BoardView.ReinforcedStageSprite</c>). The element's
+        /// <see cref="InfoDemoElement.Variant"/> (the model's rolled skin) is no longer drawn: every
+        /// reinforced cell wears the one rock.</summary>
         Armour,
 
-        /// <summary>A <c>SpecialCellKind.Timer</c> cell: its icon and glow halo
-        /// (<c>CellView.SetSpecialIcon</c>/<c>SetSpecialGlow</c>) and its countdown number drawn on the cell
+        /// <summary>A <c>SpecialCellKind.Timer</c> cell: its art, full-bleed (<c>CellView.SetSpecialIcon</c>,
+        /// issue #480) and its countdown number drawn on the cell
         /// (<c>CellView.SetTimerCountdown</c>, issue #307). Value: placements left.</summary>
         Timer,
 
-        /// <summary>A <c>SpecialCellKind.Diamond</c> gem (<c>DiamondVisuals.Apply</c>, issue #395) — icon
-        /// and halo in the gem's own theme colour. Value: the gem's colour id (1..5).</summary>
+        /// <summary>A <c>SpecialCellKind.Diamond</c> gem (<c>DiamondVisuals.Apply</c>, issue #395) — its
+        /// crystal, full-bleed, in the gem's own theme colour (issue #480). Value: the gem's colour id (1..5).</summary>
         Diamond,
     }
 }

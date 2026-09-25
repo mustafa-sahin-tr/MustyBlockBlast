@@ -82,7 +82,7 @@ namespace MustyBlockBlast.Presentation.Views
             builder.AddPiece(DominoShape, InfoDemoPaint.BLOCK_3, InfoDemoLayout.TraySlot(2), scale);
 
             int gemIcon = InfoDemoSpecialCellChoreography.SpecialCell(
-                builder, SpecialCellKind.ScoreGem, GEM_ROW, GEM_COLUMN, out int gemHalo);
+                builder, SpecialCellKind.ScoreGem, GEM_ROW, GEM_COLUMN, out int gemBlock);
             int gemPaint = InfoDemoPaint.SpecialCellGlow(SpecialCellKind.ScoreGem);
 
             // 1. The single completes row 7, which clears, taking the gem with it.
@@ -91,7 +91,7 @@ namespace MustyBlockBlast.Presentation.Views
             InfoDemoChoreography.ClearRow(builder, GEM_ROW, CLEAR_START);
 
             float gemGone = GemGoneTime();
-            InfoDemoSpecialCellChoreography.GoWithCell(builder, gemIcon, gemHalo, gemGone);
+            InfoDemoSpecialCellChoreography.GoWithCell(builder, gemIcon, gemBlock, gemGone);
             InfoDemoChoreography.Burst(
                 builder, InfoDemoLayout.Cell(GEM_ROW, GEM_COLUMN), gemPaint, InfoDemoPaint.NONE, 1f, 2.6f,
                 gemGone + BURST_DELAY, 0.45f);

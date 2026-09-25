@@ -109,7 +109,7 @@ namespace MustyBlockBlast.Presentation.Views
             builder.AddPiece(DominoShape, InfoDemoPaint.BLOCK_5, InfoDemoLayout.TraySlot(2), scale);
 
             int coreIcon = InfoDemoSpecialCellChoreography.SpecialCell(
-                builder, SpecialCellKind.ExplosiveCore, CORE_ROW, CORE_COLUMN, out int coreHalo);
+                builder, SpecialCellKind.ExplosiveCore, CORE_ROW, CORE_COLUMN, out int coreBlock);
             int corePaint = InfoDemoPaint.SpecialCellGlow(SpecialCellKind.ExplosiveCore);
             Vector2 coreCell = InfoDemoLayout.Cell(CORE_ROW, CORE_COLUMN);
 
@@ -119,7 +119,7 @@ namespace MustyBlockBlast.Presentation.Views
             InfoDemoChoreography.ClearColumn(builder, CORE_COLUMN, CLEAR_START);
 
             float coreGone = CoreGoneTime();
-            InfoDemoSpecialCellChoreography.GoWithCell(builder, coreIcon, coreHalo, coreGone);
+            InfoDemoSpecialCellChoreography.GoWithCell(builder, coreIcon, coreBlock, coreGone);
             InfoDemoChoreography.Burst(
                 builder, coreCell, corePaint, InfoDemoPaint.BLAST, 1.2f, 4f, coreGone + BURST_DELAY, 0.6f);
 

@@ -42,6 +42,15 @@ namespace MustyBlockBlast.Presentation.Views
         /// rather than by a role no theme authors.</summary>
         private const int GHOST_KIND = 2;
 
+        /// <summary>Looks a locked cell's chest goes through (issue #480): closed, key in, ajar — see
+        /// <see cref="LockedStageSprite"/> for how unlock progress picks one.</summary>
+        private const int LOCKED_STAGE_COUNT = 3;
+
+        /// <summary>Looks a reinforced cell's rock goes through (issue #480), one per hit left:
+        /// <c>ReinforcedCellAuthoring.MAX_HIT_COUNT</c>, kept local so this View needs no authoring
+        /// reference. A hit count above it is clamped to the most solid look.</summary>
+        private const int REINFORCED_STAGE_COUNT = 3;
+
         /// <summary>Alpha of the ghost silhouette's fill at full pulse: the mockup's 0.22.</summary>
         private const float GHOST_FILL_ALPHA = 0.3f;
 
@@ -144,8 +153,15 @@ namespace MustyBlockBlast.Presentation.Views
         [SerializeField] private Sprite _coinIconSprite;
         [SerializeField] private Sprite _timerIconSprite;
 
-        [Tooltip("White silhouette, tinted at runtime in the gem's own theme colour (issue #395). Also drawn on decorated tray, pocket and drag-ghost cells through DiamondVisuals.")]
+        [Tooltip("Neutral grey crystal, tinted at runtime in the gem's own theme colour (issues #395/#480). Also drawn on decorated tray, pocket and drag-ghost cells through DiamondVisuals.")]
         [SerializeField] private Sprite _diamondIconSprite;
+
+        [Header("Stage Overlays (issue #480)")]
+        [Tooltip("Locked cell's chest by unlock progress: 0 = untouched (closed), 1 = partly unlocked (key in), 2 = one neighbour from opening (ajar).")]
+        [SerializeField] private Sprite[] _lockedStageSprites = new Sprite[LOCKED_STAGE_COUNT];
+
+        [Tooltip("Reinforced cell's rock by hits left: 0 = 1 hit left (crumbling), 1 = 2 left (cracked), 2 = 3 left (solid).")]
+        [SerializeField] private Sprite[] _reinforcedStageSprites = new Sprite[REINFORCED_STAGE_COUNT];
 
         [Header("Empty-Cell Bonus Count (issue #424)")]
         [Tooltip("The chunky display face the level-completion empty-cell bonus count is drawn in — the same asset ScoreView draws the score and best figures in, so the on-board count reads as the same digits the score counter is about to gain. Falls back to the builtin font when unassigned.")]
@@ -417,14 +433,14 @@ namespace MustyBlockBlast.Presentation.Views
         /// locked cell's threshold minus the distinct neighbours already counted (issue #434), or a
         /// reinforced cell's hits left (issue #438 — the two wear the same art and a cell is never both).
         /// 0 for every other cell, which is every cell on a board no level locked or reinforced. Mirrors
-        /// what <see cref="CellView.SetLockedOverlay"/> was last given, so a re-announce of an unchanged
+        /// what <see cref="CellView.SetStageOverlay"/> was last given, so a re-announce of an unchanged
         /// state can be skipped; always derived through <see cref="ReadOverlayState"/>, never written
         /// from a notification's payload directly.</summary>
         private int[] _cellLockedStages;
 
-        /// <summary>Which skin each overlay-wearing cell shows, parallel to <see cref="_cellLockedStages"/>
-        /// and meaningless where that reads 0.</summary>
-        private int[] _cellLockedSkins;
+        /// <summary>The stage art each overlay-wearing cell shows (issue #480), parallel to
+        /// <see cref="_cellLockedStages"/> and null where that reads 0.</summary>
+        private Sprite[] _cellOverlaySprites;
 
         /// <summary>Placements left before each <see cref="SpecialCellKind.Timer"/> cell converts to an
         /// ordinary one, parallel to the bookkeeping above. 0 for every cell that is not a timer cell —
@@ -1101,7 +1117,7 @@ namespace MustyBlockBlast.Presentation.Views
             _cellHitCounts = new int[cellCount];
             _cellIceLevels = new int[cellCount];
             _cellLockedStages = new int[cellCount];
-            _cellLockedSkins = new int[cellCount];
+            _cellOverlaySprites = new Sprite[cellCount];
             _cellTimerCountdowns = new int[cellCount];
             _cellDiamondColourIds = new int[cellCount];
             _glowActiveMask = new bool[cellCount];
@@ -1204,23 +1220,23 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         /// <summary>
-        /// The skin overlay state of <paramref name="cell"/>, read back off the model: how many layers
-        /// its skin still shows (0 when it wears none) and which skin. The ONE place that decides what
-        /// <see cref="CellView.SetLockedOverlay"/> shows, for both mechanics that use that layer: a
+        /// The stage overlay state of <paramref name="cell"/>, read back off the model: how many layers
+        /// it still shows (0 when it wears none) and the art for that stage (issue #480; null when it
+        /// wears none). The ONE place that decides what <see cref="CellView.SetStageOverlay"/> shows, for both mechanics that use that layer: a
         /// locked cell's layers are its threshold minus the neighbours counted (issue #434); a reinforced
         /// cell's are its hits left (issue #438), which map 1:1 onto the art's stages because
         /// <c>ReinforcedCellAuthoring.MAX_HIT_COUNT</c> is the stage count. A cell is never both, so the
         /// order of the two checks is a formality — but a single reader is not: two independent paths
-        /// each calling <see cref="CellView.SetLockedOverlay"/> for the same cell would stomp each other,
+        /// each calling <see cref="CellView.SetStageOverlay"/> for the same cell would stomp each other,
         /// whichever ran last hiding an overlay the other had legitimately set.
         /// </summary>
-        private void ReadOverlayState(GridPosition cell, out int stagesRemaining, out int skin)
+        private void ReadOverlayState(GridPosition cell, out int stagesRemaining, out Sprite sprite)
         {
             if (_boardModel.IsLocked(cell))
             {
-                stagesRemaining = Mathf.Max(
-                    1, _boardModel.GetLockedThreshold(cell) - _boardModel.GetLockedProgressCount(cell));
-                skin = _boardModel.GetLockedSkin(cell);
+                int progress = _boardModel.GetLockedProgressCount(cell);
+                stagesRemaining = Mathf.Max(1, _boardModel.GetLockedThreshold(cell) - progress);
+                sprite = LockedStageSprite(progress, stagesRemaining);
                 return;
             }
 
@@ -1228,21 +1244,54 @@ namespace MustyBlockBlast.Presentation.Views
             if (hitCount > 0)
             {
                 stagesRemaining = hitCount;
-                skin = _boardModel.GetReinforcedSkin(cell);
+                sprite = ReinforcedStageSprite(hitCount);
                 return;
             }
 
             stagesRemaining = 0;
-            skin = 0;
+            sprite = null;
+        }
+
+        /// <summary>
+        /// The chest a locked cell shows (issue #480): closed until the first neighbour counts, ajar once
+        /// it is one neighbour from opening, key-in in between. Keyed on progress rather than on layers
+        /// left alone so a fresh lock always reads as closed whatever its threshold — a threshold-1 lock
+        /// is closed until it opens, a threshold-3 one walks all three looks. Every lock uses the one
+        /// chest: the model's rolled skin is no longer drawn (out of scope for #480: per-cell variants).
+        /// </summary>
+        private Sprite LockedStageSprite(int progress, int stagesRemaining)
+        {
+            int stage = progress <= 0 ? 0 : (stagesRemaining <= 1 ? 2 : 1);
+            return StageSprite(_lockedStageSprites, stage);
+        }
+
+        /// <summary>The rock a reinforced cell with <paramref name="hitsLeft"/> hits shows (issue #480):
+        /// crumbling at 1, cracked at 2, solid at 3 or more. Internal so the info demos (via
+        /// <see cref="InfoDemoResources"/>) draw the board's own rock.</summary>
+        internal Sprite ReinforcedStageSprite(int hitsLeft)
+        {
+            return hitsLeft <= 0 ? null : StageSprite(_reinforcedStageSprites, hitsLeft - 1);
+        }
+
+        /// <summary><paramref name="sprites"/>[<paramref name="stage"/>], clamped into the array; null
+        /// for an unassigned array so a missing slot hides the overlay rather than throwing.</summary>
+        private static Sprite StageSprite(Sprite[] sprites, int stage)
+        {
+            if (sprites == null || sprites.Length == 0)
+            {
+                return null;
+            }
+
+            return sprites[Mathf.Clamp(stage, 0, sprites.Length - 1)];
         }
 
         /// <summary>Reads <paramref name="cell"/>'s overlay state off the model, records it and shows it.
-        /// Unconditional — <see cref="CellView.SetLockedOverlay"/> is idempotent — so every path that
+        /// Unconditional — <see cref="CellView.SetStageOverlay"/> is idempotent — so every path that
         /// may have changed what the cell wears can call it without first working out whether it did.</summary>
         private void ApplyOverlay(GridPosition cell, int index)
         {
-            ReadOverlayState(cell, out _cellLockedStages[index], out _cellLockedSkins[index]);
-            _cells[index].SetLockedOverlay(_cellLockedSkins[index], _cellLockedStages[index]);
+            ReadOverlayState(cell, out _cellLockedStages[index], out _cellOverlaySprites[index]);
+            _cells[index].SetStageOverlay(_cellOverlaySprites[index]);
         }
 
         private void OnCellChanged(GridPosition cell, int colourId)
@@ -1316,8 +1365,8 @@ namespace MustyBlockBlast.Presentation.Views
             // plate back over an empty cell (issue #438 AC6). A lock a Bomb destroyed outright loses
             // its plate the same instant, which is exactly when OnLockedCellChanged dropped it before.
             _cellLockedStages[index] = 0;
-            _cellLockedSkins[index] = 0;
-            _cells[index].SetLockedOverlay(0, 0);
+            _cellOverlaySprites[index] = null;
+            _cells[index].SetStageOverlay(null);
 
             // A cleared timer cell stops counting down immediately (issue #307 AC3/AC6a) — unlike the
             // icon, the number does not fade with the block; it simply has nothing left to count for.
@@ -1379,16 +1428,16 @@ namespace MustyBlockBlast.Presentation.Views
         private void OnLockedCellChanged(GridPosition cell)
         {
             int index = CellIndex(cell);
-            ReadOverlayState(cell, out int stagesRemaining, out int skin);
-            if (_cellLockedStages[index] == stagesRemaining && _cellLockedSkins[index] == skin)
+            ReadOverlayState(cell, out int stagesRemaining, out Sprite sprite);
+            if (_cellLockedStages[index] == stagesRemaining && _cellOverlaySprites[index] == sprite)
             {
                 return;
             }
 
             bool unlocked = _cellLockedStages[index] > 0 && stagesRemaining == 0;
             _cellLockedStages[index] = stagesRemaining;
-            _cellLockedSkins[index] = skin;
-            _cells[index].SetLockedOverlay(skin, stagesRemaining);
+            _cellOverlaySprites[index] = sprite;
+            _cells[index].SetStageOverlay(sprite);
 
             if (!unlocked || _cellPending[index])
             {
@@ -2999,12 +3048,16 @@ namespace MustyBlockBlast.Presentation.Views
                 }
                 else
                 {
+                    cell.SetSpecialIconFullBleed(true);
                     cell.SetSpecialIcon(IconTint(kind), IconSprite(kind));
                     cell.SetSpecialGlow(GlowTint(kind));
                 }
             }
             else
             {
+                // Every special cell's art is a whole block of its own (issue #480): drawn full-bleed,
+                // with no block colour, rim or glow behind it — see CellView.SetSpecialIconFullBleed.
+                cell.SetSpecialIconFullBleed(true);
                 cell.SetSpecialIcon(IconTint(kind), IconSprite(kind));
                 cell.SetSpecialGlow(GlowTint(kind));
             }
@@ -3016,35 +3069,21 @@ namespace MustyBlockBlast.Presentation.Views
             }
         }
 
-        /// <summary>The tint one kind's icon is drawn in. Stated once, as a switch rather than a chain
-        /// of conditionals, so a new kind is one line here and nothing else. Internal so
-        /// <see cref="InfoPopupView"/> can reuse it for a special cell's popup hero icon rather than
-        /// duplicating this table.
+        /// <summary>The tint one kind's icon is drawn in. Internal so <see cref="InfoPopupView"/> and the
+        /// info demos can reuse it for a special cell's hero icon rather than duplicating it.
         /// <para>
-        /// Vortex, Coin, and ExplosiveCore return <see cref="Color.white"/> (no-op tint): those three
-        /// ship as full-colour hand-picked sprites rather than white silhouettes, so multiplying them by
-        /// anything but white would recolour art that already carries its own palette. Their
-        /// distinguishing hue lives only in <see cref="GlowIdentityColor"/> now, for the halo behind
-        /// them. Every other kind is still a white silhouette tinted here, exactly as before.
+        /// Since issue #480 every kind ships as a full-colour sprite carrying its own palette, so every
+        /// kind returns <see cref="Color.white"/> (a no-op tint) — multiplying the art by anything else
+        /// would recolour it. The one exception is <see cref="SpecialCellKind.Diamond"/>'s fallback: its
+        /// neutral crystal is normally tinted per cell by <see cref="DiamondVisuals"/> in the gem's own
+        /// colour, and only when no gem colour is known does it take the flat
+        /// <see cref="SpecialIconTint"/> here. A kind's distinguishing hue lives in
+        /// <see cref="GlowIdentityColor"/>, for the halo behind it.
         /// </para>
         /// </summary>
         internal static Color IconTint(SpecialCellKind kind)
         {
-            switch (kind)
-            {
-                case SpecialCellKind.Vortex:
-                case SpecialCellKind.Coin:
-                case SpecialCellKind.ExplosiveCore:
-                    return Color.white;
-                case SpecialCellKind.ScoreGem:
-                    return ScoreGemIconTint;
-                case SpecialCellKind.ChainLightning:
-                    return ChainLightningIconTint;
-                case SpecialCellKind.Timer:
-                    return SpecialIconTint;
-                default:
-                    return SpecialIconTint;
-            }
+            return kind == SpecialCellKind.Diamond ? SpecialIconTint : Color.white;
         }
 
         /// <summary>

@@ -57,5 +57,9 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>The HUD countdown pill's white clock (<c>TimerHudView.ClockSprite</c>), tinted by the
         /// element's paint — the Early Score Rush demo's deadline (issue #454). The sprite parameter is unused.</summary>
         HudClock,
+
+        /// <summary>A reinforced cell's rock at a stage (<c>BoardView.ReinforcedStageSprite</c>, issue #480),
+        /// untinted — the board's own art for the armour layer. The sprite parameter is the hits left.</summary>
+        ReinforcedStage,
     }
 }

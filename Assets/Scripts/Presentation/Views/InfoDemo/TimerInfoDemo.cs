@@ -100,7 +100,7 @@ namespace MustyBlockBlast.Presentation.Views
             builder.AddPiece(CornerShape, InfoDemoPaint.BLOCK_2, InfoDemoLayout.TraySlot(2), scale);
 
             int timerIcon = InfoDemoSpecialCellChoreography.SpecialCell(
-                builder, SpecialCellKind.Timer, TIMER_ROW, TIMER_COLUMN, out int timerHalo);
+                builder, SpecialCellKind.Timer, TIMER_ROW, TIMER_COLUMN, out int timerBlock);
             badge = InfoDemoHudChoreography.CountBadge(
                 builder, BadgeCentre, START_COUNTDOWN, InfoDemoPaint.SUCCESS, BADGE_DIAMETER, BADGE_RIM, BADGE_FONT);
 
@@ -120,7 +120,7 @@ namespace MustyBlockBlast.Presentation.Views
             InfoDemoChoreography.ClearRow(builder, TIMER_ROW, CLEAR_START);
 
             float timerGone = TimerGoneTime();
-            InfoDemoSpecialCellChoreography.GoWithCell(builder, timerIcon, timerHalo, timerGone);
+            InfoDemoSpecialCellChoreography.GoWithCell(builder, timerIcon, timerBlock, timerGone);
             InfoDemoHudChoreography.HideBadge(builder, badge, timerGone, InfoDemoSpecialCellChoreography.EXIT_DURATION);
 
             InfoDemoChoreography.FloatLabel(

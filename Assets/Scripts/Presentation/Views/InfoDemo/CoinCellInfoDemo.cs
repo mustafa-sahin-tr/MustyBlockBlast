@@ -96,7 +96,7 @@ namespace MustyBlockBlast.Presentation.Views
             builder.AddPiece(DominoShape, InfoDemoPaint.BLOCK_1, InfoDemoLayout.TraySlot(2, InfoDemoTrayLayout.ChipLeft), scale);
 
             int coinIcon = InfoDemoSpecialCellChoreography.SpecialCell(
-                builder, SpecialCellKind.Coin, COIN_ROW, COIN_COLUMN, out int coinHalo);
+                builder, SpecialCellKind.Coin, COIN_ROW, COIN_COLUMN, out int coinBlock);
             Vector2 coinCell = InfoDemoLayout.Cell(COIN_ROW, COIN_COLUMN);
 
             // 1. The single completes row 6, which clears, taking the coin cell with it...
@@ -105,7 +105,7 @@ namespace MustyBlockBlast.Presentation.Views
             InfoDemoChoreography.ClearRow(builder, COIN_ROW, CLEAR_START);
 
             float coinGone = CoinGoneTime();
-            InfoDemoSpecialCellChoreography.GoWithCell(builder, coinIcon, coinHalo, coinGone);
+            InfoDemoSpecialCellChoreography.GoWithCell(builder, coinIcon, coinBlock, coinGone);
 
             // 2. ...paying out: a coin flies to the wallet, which ticks up by one coin cell's payout.
             InfoDemoHudChoreography.FlyTo(

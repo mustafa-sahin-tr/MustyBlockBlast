@@ -131,6 +131,11 @@ namespace MustyBlockBlast.Presentation.Views
         private InfoDemoElementState[] _states = new InfoDemoElementState[0];
         private InfoDemoElementState[] _applied = new InfoDemoElementState[0];
         private bool[] _appliedValid = new bool[0];
+
+        /// <summary>Whether each element was last drawn covered (issue #480, see
+        /// <see cref="InfoDemoElement.IsCoveredAt"/>) — part of the "unchanged since last frame" check,
+        /// since a cover starts or ends on the clock rather than on a change of the element's state.</summary>
+        private bool[] _appliedCovered = new bool[0];
         private bool[] _visible = new bool[0];
         private RectTransform[] _elementRects = new RectTransform[0];
         private Image[] _elementImages = new Image[0];
@@ -313,20 +318,24 @@ namespace MustyBlockBlast.Presentation.Views
         private void ApplyElement(int elementIndex)
         {
             InfoDemoElementState state = _states[elementIndex];
-            if (_appliedValid[elementIndex] && state.SameAs(_applied[elementIndex]))
+            InfoDemoElement element = _timeline.GetElement(elementIndex);
+            bool covered = element.Kind == InfoDemoElementKind.BoardBlock && element.IsCoveredAt(_elapsed);
+            if (_appliedValid[elementIndex] && _appliedCovered[elementIndex] == covered
+                && state.SameAs(_applied[elementIndex]))
             {
                 return;
             }
 
             _applied[elementIndex] = state;
             _appliedValid[elementIndex] = true;
+            _appliedCovered[elementIndex] = covered;
 
-            InfoDemoElement element = _timeline.GetElement(elementIndex);
             // A cell layer's paint is its value, and 0 is "no layer" (issue #453).
             bool needsPaint = element.Kind == InfoDemoElementKind.BoardBlock
                 || element.Kind == InfoDemoElementKind.Piece
                 || element.Kind == InfoDemoElementKind.CellLayer;
-            bool visible = state.Alpha > MIN_VISIBLE_ALPHA && (!needsPaint || state.Paint != InfoDemoPaint.NONE);
+            bool visible = !covered
+                && state.Alpha > MIN_VISIBLE_ALPHA && (!needsPaint || state.Paint != InfoDemoPaint.NONE);
 
             RectTransform rect = _elementRects[elementIndex];
             if (_visible[elementIndex] != visible)
@@ -374,7 +383,7 @@ namespace MustyBlockBlast.Presentation.Views
                     if (_elementCellValues[elementIndex] != state.Paint)
                     {
                         _elementCellValues[elementIndex] = state.Paint;
-                        ApplyCellLayer(layer.Cell, (InfoDemoCellLayer)element.SpriteParameter, element.Variant, state.Paint);
+                        ApplyCellLayer(layer.Cell, (InfoDemoCellLayer)element.SpriteParameter, state.Paint);
                     }
 
                     break;
@@ -410,11 +419,11 @@ namespace MustyBlockBlast.Presentation.Views
         /// Shows one special-cell layer of value <paramref name="value"/> on <paramref name="cell"/> through
         /// the same <see cref="CellView"/> call <see cref="BoardView"/> makes for it (issue #453), so the
         /// demo's ice, armour, timer and diamond are the board's own art: <c>SetIceOverlay</c> at the
-        /// board's own maximum level, <c>SetLockedOverlay</c>, the timer's icon/glow/countdown, and
+        /// board's own maximum level, <c>SetStageOverlay</c> with the board's rock (issue #480), the timer's icon/glow/countdown, and
         /// <c>DiamondVisuals.Apply</c>. Called only when the value changes (or after a repaint), never per
         /// frame.
         /// </summary>
-        private void ApplyCellLayer(CellView cell, InfoDemoCellLayer layer, int variant, int value)
+        private void ApplyCellLayer(CellView cell, InfoDemoCellLayer layer, int value)
         {
             switch (layer)
             {
@@ -422,9 +431,11 @@ namespace MustyBlockBlast.Presentation.Views
                     cell.SetIceOverlay(value, TargetIceCellAuthoring.MAX_ICE_LEVEL);
                     break;
                 case InfoDemoCellLayer.Armour:
-                    cell.SetLockedOverlay(variant, value);
+                    _resources.TryGetSprite(InfoDemoSprite.ReinforcedStage, value, out Sprite rock, out Color _);
+                    cell.SetStageOverlay(rock);
                     break;
                 case InfoDemoCellLayer.Timer:
+                    cell.SetSpecialIconFullBleed(true);
                     cell.SetSpecialIcon(_timerIconTint, _timerSprite);
                     cell.SetSpecialGlow(BoardView.GlowTintFrom(BoardView.GlowIdentityColor(SpecialCellKind.Timer)));
                     cell.SetTimerCountdown(value);
@@ -768,7 +779,7 @@ namespace MustyBlockBlast.Presentation.Views
 
             CellView cell = layer.Cell;
             cell.SetIceOverlay(0, TargetIceCellAuthoring.MAX_ICE_LEVEL);
-            cell.SetLockedOverlay(0, 0);
+            cell.SetStageOverlay(null);
             cell.ClearSpecialIcon();
             cell.ClearSpecialGlow();
             cell.ClearTimerCountdown();
@@ -857,6 +868,7 @@ namespace MustyBlockBlast.Presentation.Views
             _states = new InfoDemoElementState[elementCount];
             _applied = new InfoDemoElementState[elementCount];
             _appliedValid = new bool[elementCount];
+            _appliedCovered = new bool[elementCount];
             _visible = new bool[elementCount];
             _elementRects = new RectTransform[elementCount];
             _elementImages = new Image[elementCount];

@@ -242,6 +242,19 @@ namespace MustyBlockBlast.Presentation.Views
             _elements[elementId].MarkOnTop();
         }
 
+        /// <summary>Leaves board block <paramref name="blockId"/> undrawn from <paramref name="from"/> until
+        /// <paramref name="until"/> (loop time), while a full-bleed special cell stands on it (issue #480,
+        /// see <see cref="InfoDemoElement.CoveredFrom"/>). A later call replaces the window.</summary>
+        internal void CoverBoardBlock(int blockId, float from, float until)
+        {
+            if (blockId < 0 || blockId >= InfoDemoLayout.BOARD_CELL_COUNT)
+            {
+                throw new ArgumentOutOfRangeException(nameof(blockId), blockId, "Not a board block.");
+            }
+
+            _elements[blockId].Cover(from, until);
+        }
+
         /// <summary>Queues one step. Steps may be added in any order; <see cref="Build"/> sorts them.</summary>
         internal void Animate(
             int elementId,
