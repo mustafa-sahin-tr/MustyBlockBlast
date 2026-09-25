@@ -12,7 +12,7 @@ namespace MustyBlockBlast.Presentation.Views
     /// (the target is always every timer cell the level authored). One that runs out turns into a plain block
     /// — and in Path mode ends the run. The same rule as the Timer special-cell demo (#450,
     /// <see cref="TimerInfoDemo"/>), whose board it shares; here the cell is drawn exactly as the board draws
-    /// it — icon, halo and the countdown number on the cell (<see cref="InfoDemoCellLayer.Timer"/>). The
+    /// it — its full-bleed art and the countdown number on the cell (<see cref="InfoDemoCellLayer.Timer"/>). The
     /// objective has no parameter, so there is one demo.
     /// <para>
     /// Choreography (5.4 s loop; board rows top to bottom, '.' empty, letters are block colours):

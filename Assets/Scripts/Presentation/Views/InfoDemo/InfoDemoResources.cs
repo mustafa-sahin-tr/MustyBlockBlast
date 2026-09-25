@@ -74,6 +74,10 @@ namespace MustyBlockBlast.Presentation.Views
                     resolved = _boardView.IconSprite(SpecialCellKind.Diamond);
                     tint = Color.white;
                     return resolved != null;
+                case InfoDemoSprite.ReinforcedStage:
+                    resolved = _boardView.ReinforcedStageSprite(parameter);
+                    tint = Color.white;
+                    return resolved != null;
                 case InfoDemoSprite.CheckMark:
                     resolved = UiSpriteFactory.CheckMark;
                     tint = Color.white;

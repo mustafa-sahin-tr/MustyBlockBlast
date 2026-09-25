@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: 8ebc62a0972e440f3b50bbdf82f06b06
+guid: 52c38b385b00e4de2b4dcaa5d7b4e037
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 3304427637661687229
-    second: timer_icon_0
+      213: 8387801444242785632
+    second: locked_chest_key_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -77,7 +77,7 @@ TextureImporter:
     maxTextureSize: 2048
     resizeAlgorithm: 0
     textureFormat: -1
-    textureCompression: 1
+    textureCompression: 0
     compressionQuality: 50
     crunchedCompression: 0
     allowsAlphaSplitting: 0
@@ -141,13 +141,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: timer_icon_0
+      name: locked_chest_key_0
       rect:
         serializedVersion: 2
-        x: 34
-        y: 16
-        width: 203
-        height: 240
+        x: 5
+        y: 40
+        width: 246
+        height: 177
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -156,8 +156,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: dbddec8cd6fabdd20800000000000000
-      internalID: 3304427637661687229
+      spriteID: 065899a19f4776470800000000000000
+      internalID: 8387801444242785632
       vertices: []
       indices: 
       edges: []
@@ -176,7 +176,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      timer_icon_0: 3304427637661687229
+      locked_chest_key_0: 8387801444242785632
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

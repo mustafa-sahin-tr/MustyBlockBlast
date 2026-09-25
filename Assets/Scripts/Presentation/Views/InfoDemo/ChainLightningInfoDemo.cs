@@ -99,7 +99,7 @@ namespace MustyBlockBlast.Presentation.Views
             builder.AddPiece(DominoShape, InfoDemoPaint.BLOCK_2, InfoDemoLayout.TraySlot(2), scale);
 
             int lightningIcon = InfoDemoSpecialCellChoreography.SpecialCell(
-                builder, SpecialCellKind.ChainLightning, LIGHTNING_ROW, LIGHTNING_COLUMN, out int lightningHalo);
+                builder, SpecialCellKind.ChainLightning, LIGHTNING_ROW, LIGHTNING_COLUMN, out int lightningBlock);
             int boltPaint = InfoDemoPaint.SpecialCellGlow(SpecialCellKind.ChainLightning);
             Vector2 source = InfoDemoLayout.Cell(LIGHTNING_ROW, LIGHTNING_COLUMN);
 
@@ -107,7 +107,7 @@ namespace MustyBlockBlast.Presentation.Views
             InfoDemoChoreography.PlacePiece(
                 builder, single, SingleShape, InfoDemoPaint.BLOCK_1, singleSlot, LAND_ROW, LAND_COLUMN, PLACE_START);
             InfoDemoChoreography.ClearRow(builder, LIGHTNING_ROW, CLEAR_START);
-            InfoDemoSpecialCellChoreography.GoWithCell(builder, lightningIcon, lightningHalo, LightningGoneTime());
+            InfoDemoSpecialCellChoreography.GoWithCell(builder, lightningIcon, lightningBlock, LightningGoneTime());
 
             // 2. Its strike: a bolt to each of five random blocks anywhere on the board, each vaporized as
             // its bolt lands.

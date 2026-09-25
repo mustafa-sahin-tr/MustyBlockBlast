@@ -10,7 +10,7 @@ namespace MustyBlockBlast.Presentation.Views
     /// level-authored block with 2-3 hits. A clear that takes it while it has more than one hit left only spends
     /// one — the block stays, the rest of the line goes — and the clear that finds it on its last hit destroys it.
     /// Only that destruction counts (the target is always every reinforced cell the level authored). The armour
-    /// is drawn exactly as the board draws it — the skin of <c>CellView.SetLockedOverlay</c>, one stage per hit
+    /// is drawn exactly as the board draws it — the rock of <c>CellView.SetStageOverlay</c> (issue #480), one stage per hit
     /// left; there is no number on the cell. The objective has no parameter, so there is one demo.
     /// <para>
     /// Choreography (5.6 s loop; board rows top to bottom, '.' empty, letters are block colours):

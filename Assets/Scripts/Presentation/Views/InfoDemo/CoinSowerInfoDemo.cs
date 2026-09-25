@@ -62,7 +62,10 @@ namespace MustyBlockBlast.Presentation.Views
         internal const int COIN_CELL_PAYOUT = 5;
 
         private const int BUTTON_COUNT = 3;
-        private const float COIN_CELL_ICON_SIZE = 0.8f;
+        /// <summary>How far into its pop-in a sown coin covers the block it lands on (issue #480): late
+        /// enough that the coin has grown to nearly a cell, so the block is never seen to vanish from under
+        /// a still-tiny coin.</summary>
+        private const float COIN_COVER_DELAY = 0.12f;
         private const float FLYING_COIN_SIZE = 0.7f;
         private const float SOW_ARC_HEIGHT = 1.2f;
         private const float PAYOUT_ARC_HEIGHT = 1.4f;
@@ -145,11 +148,15 @@ namespace MustyBlockBlast.Presentation.Views
                     SOW_ARC_HEIGHT);
 
                 coinIcons[coinIndex] = builder.AddIcon(
-                    InfoDemoSprite.SpecialCellIcon, (int)SpecialCellKind.Coin, cell, COIN_CELL_ICON_SIZE, 0f);
+                    InfoDemoSprite.SpecialCellIcon, (int)SpecialCellKind.Coin, cell,
+                    InfoDemoSpecialCellChoreography.ICON_SIZE, 0f);
                 builder.Fade(coinIcons[coinIndex], convertTime, 0.08f, 0f, 1f);
                 builder.Scale(coinIcons[coinIndex], convertTime, 0.3f, 0.3f, 1f, InfoDemoEasing.EaseOutBack);
 
+                // Once it is a coin cell the coin's art is the whole block, as on the board (issue #480);
+                // the destroyed one's cover ends when it is gone, below.
                 int blockId = InfoDemoLayout.BoardBlockId(CoinCells[coinIndex].y, CoinCells[coinIndex].x);
+                builder.CoverBoardBlock(blockId, convertTime + COIN_COVER_DELAY, float.PositiveInfinity);
                 builder.Flash(blockId, convertTime, 0.3f, 0f, 0.5f, InfoDemoEasing.Pulse);
                 InfoDemoChoreography.Burst(builder, cell, InfoDemoPaint.PLATE_GOLD, InfoDemoPaint.NONE, 1f, 2.4f, convertTime, 0.4f);
             }
@@ -163,6 +170,11 @@ namespace MustyBlockBlast.Presentation.Views
             int destroyedIcon = coinIcons[CoinCells.Length - 1];
             builder.Scale(destroyedIcon, coinGone, InfoDemoChoreography.CLEAR_SHRINK_DURATION, 1f, 0.25f, InfoDemoEasing.EaseInCubic);
             builder.Fade(destroyedIcon, coinGone, InfoDemoChoreography.CLEAR_SHRINK_DURATION, 1f, 0f, InfoDemoEasing.EaseInCubic);
+            Vector2Int destroyedCoinCell = CoinCells[CoinCells.Length - 1];
+            builder.CoverBoardBlock(
+                InfoDemoLayout.BoardBlockId(destroyedCoinCell.y, destroyedCoinCell.x),
+                ConvertTime(CoinCells.Length - 1) + COIN_COVER_DELAY,
+                coinGone + InfoDemoChoreography.CLEAR_SHRINK_DURATION);
 
             // 3. ...paying out: a coin flies to the wallet, which ticks up.
             Vector2 destroyedCell = InfoDemoLayout.Cell(CoinCells[CoinCells.Length - 1].y, CoinCells[CoinCells.Length - 1].x);

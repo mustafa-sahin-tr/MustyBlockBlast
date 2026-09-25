@@ -90,5 +90,22 @@ namespace MustyBlockBlast.Presentation.Views
         internal bool OnTop { get; private set; }
 
         internal void MarkOnTop() => OnTop = true;
+
+        /// <summary>Loop-time window [<see cref="CoveredFrom"/>, <see cref="CoveredUntil"/>) in which a board
+        /// block is not drawn because a full-bleed special cell stands on it (issue #480): the special
+        /// cell's art is the whole block, exactly as on the real board. Only the drawing is skipped — the
+        /// block's animated state (its paint, which the demo tests compare with the real board) is
+        /// untouched. Empty (0, 0) for every element that is never covered.</summary>
+        internal float CoveredFrom { get; private set; }
+
+        internal float CoveredUntil { get; private set; }
+
+        internal bool IsCoveredAt(float time) => time >= CoveredFrom && time < CoveredUntil;
+
+        internal void Cover(float from, float until)
+        {
+            CoveredFrom = from;
+            CoveredUntil = until;
+        }
     }
 }

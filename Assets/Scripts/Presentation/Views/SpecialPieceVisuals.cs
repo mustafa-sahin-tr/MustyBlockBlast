@@ -115,6 +115,9 @@ namespace MustyBlockBlast.Presentation.Views
                 return;
             }
 
+            // A dock glyph is a mark on the plate, never full-bleed — reset it in case this cell last
+            // wore a diamond (issue #480).
+            cell.SetSpecialIconFullBleed(false);
             cell.SetSpecialIcon(IconTint, glyph);
         }
 

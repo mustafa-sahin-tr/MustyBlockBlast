@@ -60,11 +60,13 @@ namespace MustyBlockBlast.Presentation.Views
                 SingleShape, InfoDemoPaint.BLOCK_1, singleTrayPosition, InfoDemoLayout.TRAY_PIECE_SCALE);
             builder.AddPiece(DominoShape, InfoDemoPaint.BLOCK_3, InfoDemoLayout.TraySlot(2), InfoDemoLayout.TRAY_PIECE_SCALE);
 
-            // The Vortex on (7,1): its halo and its (slowly spinning) icon over the pink block.
+            // The Vortex on (7,1): its (slowly spinning) art, full-bleed over its cell like the board draws
+            // it (issue #480) — the pink block under it keeps its paint but is not drawn while it stands.
             Vector2 vortexCell = InfoDemoLayout.Cell(VORTEX_ROW, VORTEX_COLUMN);
-            int halo = builder.AddGlow(vortexCell, 1.35f, InfoDemoPaint.VORTEX_GLOW, 0.55f);
+            int vortexBlock = InfoDemoLayout.BoardBlockId(VORTEX_ROW, VORTEX_COLUMN);
             int vortexIcon = builder.AddIcon(
-                InfoDemoSprite.SpecialCellIcon, (int)SpecialCellKind.Vortex, vortexCell, 0.8f);
+                InfoDemoSprite.SpecialCellIcon, (int)SpecialCellKind.Vortex, vortexCell,
+                InfoDemoSpecialCellChoreography.ICON_SIZE);
 
             // 1. Play the single into the one gap in row 7.
             InfoDemoChoreography.PlacePiece(
@@ -83,7 +85,7 @@ namespace MustyBlockBlast.Presentation.Views
                 spunBeforeExit, spunBeforeExit + (vortexExitDuration * SPIN_DEGREES_PER_SECOND * 2f));
             builder.Scale(vortexIcon, vortexGone, vortexExitDuration, 1f, 1.7f, InfoDemoEasing.EaseOutCubic);
             builder.Fade(vortexIcon, vortexGone, vortexExitDuration, 1f, 0f, InfoDemoEasing.EaseInCubic);
-            builder.Fade(halo, vortexGone, 0.2f, 0.55f, 0f);
+            builder.CoverBoardBlock(vortexBlock, 0f, vortexGone + vortexExitDuration);
 
             // 3. Its effect: a violet burst where it stood — a wide soft bloom around a denser indigo core.
             InfoDemoChoreography.Burst(

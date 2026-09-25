@@ -115,7 +115,7 @@ namespace MustyBlockBlast.Presentation.Views
             builder.AddPiece(DominoShape, InfoDemoPaint.BLOCK_5, InfoDemoLayout.TraySlot(2), scale);
 
             int laserIcon = InfoDemoSpecialCellChoreography.SpecialCell(
-                builder, SpecialCellKind.Laser, LASER_ROW, LASER_COLUMN, out int laserHalo);
+                builder, SpecialCellKind.Laser, LASER_ROW, LASER_COLUMN, out int laserBlock);
             int laserPaint = InfoDemoPaint.SpecialCellGlow(SpecialCellKind.Laser);
             Vector2 laserCell = InfoDemoLayout.Cell(LASER_ROW, LASER_COLUMN);
 
@@ -123,7 +123,7 @@ namespace MustyBlockBlast.Presentation.Views
             InfoDemoChoreography.PlacePiece(
                 builder, single, SingleShape, InfoDemoPaint.BLOCK_3, singleSlot, LAND_ROW, LAND_COLUMN, PLACE_START);
             InfoDemoChoreography.ClearRow(builder, LASER_ROW, CLEAR_START);
-            InfoDemoSpecialCellChoreography.GoWithCell(builder, laserIcon, laserHalo, LaserGoneTime());
+            InfoDemoSpecialCellChoreography.GoWithCell(builder, laserIcon, laserBlock, LaserGoneTime());
 
             // 2. Its effect: the line at right angles — column 3 — is wiped end to end, though not full.
             InfoDemoChoreography.Beam(builder, BeamTime(), false, LASER_COLUMN, laserPaint);
