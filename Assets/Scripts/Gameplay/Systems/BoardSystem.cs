@@ -343,6 +343,15 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// </summary>
         private bool _isRescueRequestPending;
 
+        /// <summary>
+        /// The Path level's move budget (issue #465), or null. Read, never written: <c>MoveBudgetSystem</c>
+        /// owns it. A spent budget refuses every placement (<see cref="CanPlace"/>), and while its
+        /// "+moves" offer is up the run is held rather than checked for a dead dock
+        /// (<see cref="CheckGameOver"/>) — the offer is the answer to "out of moves", and a no-moves
+        /// ending published under it would put two contradicting sheets on screen.
+        /// </summary>
+        private readonly MoveBudgetModel _moveBudgetModel;
+
         /// <summary>DI entry point — VContainer must not pick the seeded constructor.</summary>
         [Inject]
         public BoardSystem(
@@ -378,7 +387,8 @@ namespace MustyBlockBlast.Gameplay.Systems
             IPublisher<LockedCellsOpenedMessage> lockedCellsOpenedPublisher = null,
             LevelPowerStarCellSeeder powerStarCellSeeder = null,
             LevelPuzzleLinkSeeder puzzleLinkSeeder = null,
-            IPublisher<PuzzleLinksClearedMessage> puzzleLinksClearedPublisher = null)
+            IPublisher<PuzzleLinksClearedMessage> puzzleLinksClearedPublisher = null,
+            MoveBudgetModel moveBudgetModel = null)
             : this(
                 boardModel, trayModel, scoreGemProgressModel, vortexProgressModel, pieceDraw,
                 runStartedPublisher, piecePlacedPublisher, linesClearedPublisher, gameOverPublisher,
@@ -388,7 +398,8 @@ namespace MustyBlockBlast.Gameplay.Systems
                 powerUpModel, specialCellSpawnedPublisher, specialPieceSpawnedPublisher,
                 timerCellSeeder, gameModeModel, rescueRewardSource, runRescuedPublisher,
                 diamondPieceDecorator, targetIceCellSeeder, lockedCellSeeder, boardShapeSource,
-                lockedCellsOpenedPublisher, powerStarCellSeeder, puzzleLinkSeeder, puzzleLinksClearedPublisher)
+                lockedCellsOpenedPublisher, powerStarCellSeeder, puzzleLinkSeeder, puzzleLinksClearedPublisher,
+                moveBudgetModel)
         {
         }
 
@@ -426,8 +437,10 @@ namespace MustyBlockBlast.Gameplay.Systems
             IPublisher<LockedCellsOpenedMessage> lockedCellsOpenedPublisher = null,
             LevelPowerStarCellSeeder powerStarCellSeeder = null,
             LevelPuzzleLinkSeeder puzzleLinkSeeder = null,
-            IPublisher<PuzzleLinksClearedMessage> puzzleLinksClearedPublisher = null)
+            IPublisher<PuzzleLinksClearedMessage> puzzleLinksClearedPublisher = null,
+            MoveBudgetModel moveBudgetModel = null)
         {
+            _moveBudgetModel = moveBudgetModel;
             _boardShapeSource = boardShapeSource;
             _reinforcedCellSeeder = reinforcedCellSeeder;
             _timerCellSeeder = timerCellSeeder;
@@ -589,6 +602,14 @@ namespace MustyBlockBlast.Gameplay.Systems
         public bool CanPlace(int slotIndex, GridPosition anchor)
         {
             if (IsGameOver || !IsValidSlot(slotIndex))
+            {
+                return false;
+            }
+
+            // A spent move budget (issue #465) takes no placement at all — nor does one whose offer of
+            // extra moves is still waiting on the player. Refused here, not only in TryPlacePiece, so the
+            // drag preview refuses the drop for the same reason and a refused drop never costs a move.
+            if (_moveBudgetModel != null && _moveBudgetModel.IsActive.Value && _moveBudgetModel.MovesLeft.Value <= 0)
             {
                 return false;
             }
@@ -2013,6 +2034,13 @@ namespace MustyBlockBlast.Gameplay.Systems
             // move left would publish a second, contradicting GameOverMessage over the success one.
             // Inert for Endless and Timed: nothing ends a run of theirs part-way through a placement.
             if (IsGameOver)
+            {
+                return;
+            }
+
+            // Held while the "+moves" offer (issue #465) is up: the player's answer to it decides the run
+            // — the offer's own grant re-checks the dock, and its refusal ends the run as ObjectiveMissed.
+            if (_moveBudgetModel != null && _moveBudgetModel.IsOfferOpen.Value)
             {
                 return;
             }

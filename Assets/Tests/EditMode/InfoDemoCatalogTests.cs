@@ -119,7 +119,7 @@ namespace MustyBlockBlast.Tests.EditMode
         public void EveryObjectiveType_HasADemo_ForItsAuthoringDefaults()
         {
             // With issue #454 every objective type has a demo path. Each is asked for with the level authoring
-            // defaults (LevelObjectiveConfig: 2 lines, square_3x3, 52 occupied cells, 15 s, colour 1) and a target
+            // defaults (LevelObjectiveConfig: 2 lines, square_3x3, 52 occupied cells, 15 s, colour 1, 20 moves) and a target
             // of 2; the per-type test classes cover the values each demo can and cannot draw.
             InfoDemoCatalog catalog = new InfoDemoCatalog();
             Array types = Enum.GetValues(typeof(ObjectiveType));
@@ -130,7 +130,8 @@ namespace MustyBlockBlast.Tests.EditMode
                 ObjectiveDefinition definition = new ObjectiveDefinition(
                     "test", type, ObjectiveScope.PerRun, 2, requiredLineCount: 2, requiredPieceFamily: PieceFamily.Corner,
                     requiredOccupancyThreshold: 52, requiredPieceId: "square_3x3", windowSeconds: 15f,
-                    requiredColourId: type == ObjectiveType.FruitsCollected ? Collectibles.FruitId(FruitKind.Pomegranate) : 1);
+                    requiredColourId: type == ObjectiveType.FruitsCollected ? Collectibles.FruitId(FruitKind.Pomegranate) : 1,
+                    moveLimit: 20);
 
                 Assert.IsNotNull(catalog.FindObjective(definition), type.ToString());
             }

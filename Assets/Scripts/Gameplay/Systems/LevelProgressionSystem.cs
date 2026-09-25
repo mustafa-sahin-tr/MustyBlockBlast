@@ -84,6 +84,10 @@ namespace MustyBlockBlast.Gameplay.Systems
         private readonly BoardSystem _boardSystem;
         private readonly ScoreSystem _scoreSystem;
         private readonly LivesSystem _livesSystem;
+
+        /// <summary>Pays a "score within N moves" level's leftover moves (issue #465); null in tests that
+        /// have no budget.</summary>
+        private readonly MoveBudgetSystem _moveBudgetSystem;
         private readonly IPublisher<LevelAdvancedMessage> _levelAdvancedPublisher;
         private readonly IPublisher<EmptyCellBonusCountingMessage> _emptyCellBonusCountingPublisher;
         private readonly ISubscriber<EmptyCellBonusCountingCompletedMessage> _emptyCellBonusCountingCompletedSubscriber;
@@ -132,8 +136,10 @@ namespace MustyBlockBlast.Gameplay.Systems
             IPublisher<PendingFlightsDrainMessage> pendingFlightsDrainPublisher,
             ISubscriber<PendingFlightsDrainedMessage> pendingFlightsDrainedSubscriber,
             InfoPopupModel infoPopupModel,
-            LivesSystem livesSystem)
+            LivesSystem livesSystem,
+            MoveBudgetSystem moveBudgetSystem = null)
         {
+            _moveBudgetSystem = moveBudgetSystem;
             _infoPopupModel = infoPopupModel;
             _livesSystem = livesSystem;
             _pendingFlightsDrainPublisher = pendingFlightsDrainPublisher;
@@ -360,6 +366,11 @@ namespace MustyBlockBlast.Gameplay.Systems
             LevelObjectiveConfig completedLevel = _levelCatalog.Find(completedLevelNumber);
             int configBonus = completedLevel != null ? completedLevel.CompletionScoreBonus : 0;
 
+            // Every move left on a "score within N moves" level pays its bonus (issue #465), into the same
+            // score and the same "+N" flight as the empty cells. Counted now, as the target is reached,
+            // before the waits below — a piece dropped while the flights land must not eat into it.
+            int leftoverMovesBonus = _moveBudgetSystem != null ? _moveBudgetSystem.ClaimLeftoverBonus() : 0;
+
             // Special cells won on the final move fly onto the board first — and a first-time one's
             // explainer, which opens as it lands, is closed — before the empty cells are counted; the
             // result screen comes after that. Nothing ever plays over anything else.
@@ -392,7 +403,7 @@ namespace MustyBlockBlast.Gameplay.Systems
                 }
             }
 
-            int finalScore = _scoreSystem.AddLevelCompletionBonus(configBonus + emptyCellBonus);
+            int finalScore = _scoreSystem.AddLevelCompletionBonus(configBonus + emptyCellBonus + leftoverMovesBonus);
             _pathRunModel.RecordLevelCompletion(completedLevelNumber, finalScore);
 
             // Reuses the same "+N flies to the score counter" feedback every other bonus already gets
@@ -401,9 +412,10 @@ namespace MustyBlockBlast.Gameplay.Systems
             // landed in the score they see at the top of the screen (issue #424). The flat, unannounced
             // per-level CompletionScoreBonus is deliberately left out of this popup: it predates this
             // feedback and changing its presentation is not this issue's concern.
-            if (emptyCellBonus > 0)
+            int announcedBonus = emptyCellBonus + leftoverMovesBonus;
+            if (announcedBonus > 0)
             {
-                _bonusScoredPublisher.Publish(new BonusScoredMessage(emptyCellBonus));
+                _bonusScoredPublisher.Publish(new BonusScoredMessage(announcedBonus));
             }
 
             TryAdvanceFrontierAfterPathLevel(completedLevelNumber);

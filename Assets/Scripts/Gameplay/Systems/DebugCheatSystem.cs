@@ -206,6 +206,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             {
                 ObjectiveType.ScoreInRun => SCORE_TARGET,
                 ObjectiveType.EarlyScoreRush => SCORE_TARGET,
+                ObjectiveType.ScoreInMoves => SCORE_TARGET,
                 ObjectiveType.ReinforcedCellsCleared => SeedDebugReinforcedCells(),
                 ObjectiveType.IceCellsCleared => SeedDebugIceCells(),
                 _ => DEFAULT_TARGET,
@@ -221,7 +222,8 @@ namespace MustyBlockBlast.Gameplay.Systems
                 requiredOccupancyThreshold: 52,
                 requiredPieceId: "square_3x3",
                 windowSeconds: 15f,
-                requiredColourId: 1);
+                requiredColourId: 1,
+                moveLimit: 20);
         }
 
         /// <summary>

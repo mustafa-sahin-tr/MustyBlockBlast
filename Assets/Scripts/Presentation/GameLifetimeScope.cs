@@ -72,6 +72,11 @@ namespace MustyBlockBlast.Presentation
             + "Required — without it every value falls back to the built-in defaults.")]
         [SerializeField] private LivesConfig _livesConfig;
 
+        [Tooltip("The \"score within N moves\" levels' shared numbers: the ad's extra moves, the leftover-move "
+            + "bonus and the HUD's low-moves threshold (issue #465). Required — without it every value falls "
+            + "back to the built-in defaults.")]
+        [SerializeField] private MoveBudgetConfig _moveBudgetConfig;
+
         protected override void Configure(IContainerBuilder builder)
         {
             RegisterMessaging(builder);
@@ -184,6 +189,12 @@ namespace MustyBlockBlast.Presentation
                 // placements by the time that objective can be progressed.
                 container.Resolve<LevelProgressionSystem>();
 
+                // Must come after ObjectiveSystem, for the same PiecePlacedMessage subscription-order
+                // reason (issue #465): its handler reads whether the placement that spent the last move
+                // completed the level, which ObjectiveSystem's handler decides. LevelProgressionSystem
+                // above already constructed it; this line states the requirement.
+                container.Resolve<MoveBudgetSystem>();
+
                 // Subscribes in its constructor and loads the saved first-try streak there, so it must
                 // be listening before the first Path level can be cleared or failed (issue #464).
                 container.Resolve<RewardRuleSystem>();
@@ -229,6 +240,10 @@ namespace MustyBlockBlast.Presentation
             // Path's "a start was refused at zero lives" (issue #478): LivesSystem publishes it from its
             // start gate; OutOfLivesSheetView opens on it.
             builder.RegisterMessageBroker<OutOfLivesMessage>(options);
+
+            // A Path level's move budget ran out short of its target (issue #465): MoveBudgetSystem
+            // publishes it as the "+moves" offer opens; OutOfMovesSheetView opens on it.
+            builder.RegisterMessageBroker<MovesRanOutMessage>(options);
 
             // Timed mode's "a line clear gave the clock seconds back" (issue #319): TimerRunSystem
             // publishes it after extending the countdown; TimerHudView flashes the "+Ns" on it.
@@ -293,6 +308,7 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterInstance(ResolveRemoveAdsProductConfig());
             builder.RegisterInstance(ResolvePromotionConfig());
             builder.RegisterInstance(ResolveLivesConfig());
+            builder.RegisterInstance(ResolveMoveBudgetConfig());
 
             // Languages come from the project's Locale assets rather than a scene field: a new
             // language is a Locale asset plus a String Table column, with no scene edit.
@@ -320,6 +336,7 @@ namespace MustyBlockBlast.Presentation
             builder.Register<PathRunModel>(Lifetime.Singleton);
             builder.Register<RewardRuleModel>(Lifetime.Singleton);
             builder.Register<LivesModel>(Lifetime.Singleton);
+            builder.Register<MoveBudgetModel>(Lifetime.Singleton);
             builder.Register<BadgeStatsModel>(Lifetime.Singleton);
             builder.Register<BadgeModel>(Lifetime.Singleton);
             builder.Register<PendingScoreModel>(Lifetime.Singleton);
@@ -477,6 +494,20 @@ namespace MustyBlockBlast.Presentation
                 $"{nameof(GameLifetimeScope)} has no {nameof(LivesConfig)} assigned. " +
                 "Lives will use the built-in defaults.", this);
             return ScriptableObject.CreateInstance<LivesConfig>();
+        }
+
+        /// <summary>Same defensive shape as <see cref="ResolveLivesConfig"/> (issue #465).</summary>
+        private MoveBudgetConfig ResolveMoveBudgetConfig()
+        {
+            if (_moveBudgetConfig != null)
+            {
+                return _moveBudgetConfig;
+            }
+
+            Debug.LogError(
+                $"{nameof(GameLifetimeScope)} has no {nameof(MoveBudgetConfig)} assigned. " +
+                "Move-limited levels will use the built-in defaults.", this);
+            return ScriptableObject.CreateInstance<MoveBudgetConfig>();
         }
 
         /// <summary>
@@ -654,6 +685,10 @@ namespace MustyBlockBlast.Presentation
             // pays Path lives. Its own interface because a life is neither a coin nor an item.
             builder.Register<DeterministicLivesRewardSource>(Lifetime.Singleton)
                 .As<ILivesRewardSource>().AsSelf();
+
+            // The fifth seam (issue #465): the out-of-moves sheet's "+moves" ad.
+            builder.Register<DeterministicExtraMovesRewardSource>(Lifetime.Singleton)
+                .As<IExtraMovesRewardSource>().AsSelf();
 #else
             // The real thing on Android and iOS devices (issue #380): Google AdMob behind all four
             // seams (the lives one since issue #478). One class because the three are one mechanic underneath — load a rewarded ad, show
@@ -661,6 +696,7 @@ namespace MustyBlockBlast.Presentation
             // touches the ad SDK. Live App IDs/unit ids per platform; see the class for the swap-out note.
             builder.Register<AdMobRewardSource>(Lifetime.Singleton)
                 .As<IRewardSource>().As<ICoinRewardSource>().As<IRescueRewardSource>().As<ILivesRewardSource>()
+                .As<IExtraMovesRewardSource>()
                 .AsSelf();
 
             // Runs consent + SDK init at boot rather than on the player's first reward request, per
@@ -761,6 +797,11 @@ namespace MustyBlockBlast.Presentation
             builder.Register<DiamondPieceDecorator>(Lifetime.Singleton).AsSelf();
             builder.Register<ObjectiveSystem>(Lifetime.Singleton);
             builder.Register<LevelProgressionSystem>(Lifetime.Singleton);
+
+            // The move budget of "score within N moves" levels (issue #465). LevelProgressionSystem takes
+            // it (the leftover-move bonus), so resolving that one constructs this — after ObjectiveSystem,
+            // which is the order its PiecePlacedMessage handler needs.
+            builder.Register<MoveBudgetSystem>(Lifetime.Singleton);
             builder.Register<RewardRuleSystem>(Lifetime.Singleton);
 
             // Entry point for its countdown loop (IStartable); AsSelf because the build callback
@@ -838,6 +879,9 @@ namespace MustyBlockBlast.Presentation
             // The lives section at the goal bar's trailing end (issue #477). Takes
             // ObjectiveIconContainerView, registered above, as a dependency.
             builder.RegisterComponentInHierarchy<LivesHudView>();
+
+            // The moves-left counter beside the lives (issue #465), a second guest of the same trailing slot.
+            builder.RegisterComponentInHierarchy<MovesHudView>();
             builder.RegisterComponentInHierarchy<ObjectiveInfoPopupView>();
             builder.RegisterComponentInHierarchy<InfoPopupView>();
 
@@ -859,6 +903,10 @@ namespace MustyBlockBlast.Presentation
             // section; BoardInputView routes every tap into it while it is up, above the level-start and
             // end-of-run cards it opens over.
             builder.RegisterComponentInHierarchy<OutOfLivesSheetView>();
+
+            // The out-of-moves sheet (issue #465): opens on MovesRanOutMessage; BoardInputView routes every
+            // tap into it while it is up.
+            builder.RegisterComponentInHierarchy<OutOfMovesSheetView>();
             builder.RegisterComponentInHierarchy<BoardInputView>();
             builder.RegisterComponentInHierarchy<SfxPlayerView>();
             builder.RegisterComponentInHierarchy<MusicPlayerView>();

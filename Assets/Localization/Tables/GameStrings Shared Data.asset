@@ -1783,6 +1783,54 @@ MonoBehaviour:
     m_Key: fruit.avocado
     m_Metadata:
       m_Items: []
+  - m_Id: 4350167263207424
+    m_Key: objective.name.score_in_moves
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4350167317733376
+    m_Key: objective.score_in_moves
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4350167317733377
+    m_Key: objective.score_in_moves_short
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4350167317733378
+    m_Key: moves.hud.label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4350167317733379
+    m_Key: moves.sheet.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4350167317733380
+    m_Key: moves.sheet.needed
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4350167317733381
+    m_Key: moves.sheet.body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4350167317733382
+    m_Key: moves.sheet.watch_ad
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4350167317733383
+    m_Key: moves.sheet.decline
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4350167317733384
+    m_Key: gameover.title.out_of_moves
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4350167317733385
+    m_Key: result.reason.out_of_moves
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4350167317733386
+    m_Key: result.reason.leftover_moves
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

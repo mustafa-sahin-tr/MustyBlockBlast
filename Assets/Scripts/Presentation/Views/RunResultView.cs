@@ -286,6 +286,13 @@ namespace MustyBlockBlast.Presentation.Views
         private LevelIdentityCatalog _levelIdentityCatalog;
         private LivesModel _livesModel;
         private LivesConfig _livesConfig;
+        private MoveBudgetModel _moveBudgetModel;
+
+        /// <summary>Whether the ending on the card was a move budget running out (issue #465), and a
+        /// cleared move-limited level's leftover moves and the points they paid — captured at the ending.</summary>
+        private bool _wasOutOfMoves;
+        private int _leftoverMoves;
+        private int _leftoverMovesBonus;
 
         /// <summary>True while the buttons share one row: a Path success with a next level (issue #464).</summary>
         private bool _buttonsInRow;
@@ -583,8 +590,10 @@ namespace MustyBlockBlast.Presentation.Views
             ISubscriber<NewRecordMessage> newRecordSubscriber,
             ISubscriber<RunRescuedMessage> runRescuedSubscriber,
             LivesModel livesModel,
-            LivesConfig livesConfig)
+            LivesConfig livesConfig,
+            MoveBudgetModel moveBudgetModel)
         {
+            _moveBudgetModel = moveBudgetModel;
             _livesModel = livesModel;
             _livesConfig = livesConfig;
             _scoreModel = scoreModel;
@@ -626,7 +635,7 @@ namespace MustyBlockBlast.Presentation.Views
                 || _timedModeSystem == null || _gameOverSubscriber == null || _runStartedSubscriber == null
                 || _newRecordSubscriber == null || _runRescuedSubscriber == null
                 || _powerUpInventoryView == null || _levelAdvancedSubscriber == null || _rewardRuleModel == null
-                || _livesModel == null || _livesConfig == null)
+                || _livesModel == null || _livesConfig == null || _moveBudgetModel == null)
             {
                 Debug.LogError($"{nameof(RunResultView)} was not injected. Is it registered in the LifetimeScope?", this);
                 return;
@@ -750,6 +759,12 @@ namespace MustyBlockBlast.Presentation.Views
 
             _lastReason = message.Reason;
             _isRescueAvailable = message.IsRescueAvailable;
+
+            // Read now: the budget resets with the next run, and the card outlives the ending (issue #465).
+            _wasOutOfMoves = message.Reason == GameOverReason.ObjectiveMissed
+                && _moveBudgetModel.IsActive.Value && _moveBudgetModel.MovesLeft.Value <= 0;
+            _leftoverMoves = message.Reason == GameOverReason.LevelCompleted ? _moveBudgetModel.LeftoverMoves : 0;
+            _leftoverMovesBonus = message.Reason == GameOverReason.LevelCompleted ? _moveBudgetModel.LeftoverBonus : 0;
             _lastMode = _gameModeSystem.CurrentMode.Value;
             _lastDurationSeconds = _timedModeSystem.SelectedDuration.Value;
 
@@ -966,13 +981,28 @@ namespace MustyBlockBlast.Presentation.Views
                 _stringBuilder.Append(_playedLevelNumber);
                 _titleText.text = _localizationSystem.Format(
                     LocalizationKeys.GAME_OVER_TITLE_LEVEL_COMPLETE, _stringBuilder.ToString());
-                _reasonText.text = _localizationSystem.Translate(LocalizationKeys.RUN_RESULT_REASON_LEVEL_COMPLETE);
+                _reasonText.text = _leftoverMovesBonus > 0
+                    ? _localizationSystem.Format(
+                        LocalizationKeys.RUN_RESULT_REASON_LEFTOVER_MOVES,
+                        _leftoverMoves.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                        _leftoverMovesBonus.ToString(System.Globalization.CultureInfo.InvariantCulture))
+                    : _localizationSystem.Translate(LocalizationKeys.RUN_RESULT_REASON_LEVEL_COMPLETE);
             }
             else if (_lastReason == GameOverReason.TimeUp)
             {
                 _titleText.text = _localizationSystem.Translate(LocalizationKeys.GAME_OVER_TITLE_TIME_UP);
                 _reasonText.text = _localizationSystem.Format(
                     LocalizationKeys.RUN_RESULT_REASON_TIME_UP, FormatDuration());
+            }
+            else if (_lastReason == GameOverReason.ObjectiveMissed && _wasOutOfMoves)
+            {
+                // A move-limited level's budget ran out short of its target (issue #465): its own copy,
+                // since the timer-cell wording below would name the wrong failure.
+                _titleText.text = _localizationSystem.Translate(LocalizationKeys.GAME_OVER_TITLE_OUT_OF_MOVES);
+                _stringBuilder.Clear();
+                _stringBuilder.Append(_playedLevelNumber);
+                _reasonText.text = _localizationSystem.Format(
+                    LocalizationKeys.RUN_RESULT_REASON_OUT_OF_MOVES, _stringBuilder.ToString());
             }
             else if (_lastReason == GameOverReason.ObjectiveMissed)
             {

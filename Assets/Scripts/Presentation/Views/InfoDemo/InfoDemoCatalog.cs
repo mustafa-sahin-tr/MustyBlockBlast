@@ -82,6 +82,7 @@ namespace MustyBlockBlast.Presentation.Views
             new Dictionary<(PieceFamily, int), InfoDemoTimeline>();
         private readonly Dictionary<(string, int), InfoDemoTimeline> _pieceIdCount = new Dictionary<(string, int), InfoDemoTimeline>();
         private readonly Dictionary<int, InfoDemoTimeline> _scoreInRun = new Dictionary<int, InfoDemoTimeline>();
+        private readonly Dictionary<int, InfoDemoTimeline> _scoreInMoves = new Dictionary<int, InfoDemoTimeline>();
         private readonly Dictionary<(int, int), InfoDemoTimeline> _earlyScoreRush = new Dictionary<(int, int), InfoDemoTimeline>();
         private readonly InfoDemoTimeline[] _streakThreshold = new InfoDemoTimeline[StreakThresholdInfoDemo.MAX_TARGET + 1];
         private readonly Dictionary<int, InfoDemoTimeline> _clutchRecoveryClear = new Dictionary<int, InfoDemoTimeline>();
@@ -456,6 +457,7 @@ namespace MustyBlockBlast.Presentation.Views
                 case ObjectiveType.PieceFamilyCount:
                 case ObjectiveType.PieceIdCount:
                 case ObjectiveType.ScoreInRun:
+                case ObjectiveType.ScoreInMoves:
                 case ObjectiveType.EarlyScoreRush:
                 case ObjectiveType.StreakThreshold:
                 case ObjectiveType.ClutchRecoveryClear:
@@ -521,6 +523,20 @@ namespace MustyBlockBlast.Presentation.Views
                     {
                         demo = ScoreInRunInfoDemo.Build(target);
                         _scoreInRun.Add(target, demo);
+                    }
+
+                    return demo;
+
+                case ObjectiveType.ScoreInMoves:
+                    if (!ScoreInRunInfoDemo.Supports(target))
+                    {
+                        return null;
+                    }
+
+                    if (!_scoreInMoves.TryGetValue(target, out demo))
+                    {
+                        demo = ScoreInMovesInfoDemo.Build(target);
+                        _scoreInMoves.Add(target, demo);
                     }
 
                     return demo;

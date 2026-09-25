@@ -22,9 +22,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -32,7 +34,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -45,9 +49,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -55,7 +61,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -68,9 +76,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -78,7 +88,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -91,9 +103,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -101,7 +115,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -114,9 +130,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -124,7 +142,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -137,9 +157,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -147,7 +169,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -160,9 +184,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -170,7 +196,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -183,9 +211,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -193,7 +223,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -206,9 +238,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -216,7 +250,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -229,9 +265,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -239,7 +277,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -252,9 +292,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -262,7 +304,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -275,9 +319,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -285,7 +331,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -298,9 +346,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -314,7 +364,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -327,9 +379,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -337,7 +391,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -350,9 +406,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -360,7 +418,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -373,9 +433,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -395,7 +457,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -408,9 +472,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -418,7 +484,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -431,9 +499,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -447,7 +517,9 @@ MonoBehaviour:
       _startingCountdown: 4
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -460,9 +532,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -470,7 +544,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -483,9 +559,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 36
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -493,7 +571,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -506,9 +586,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -525,7 +607,9 @@ MonoBehaviour:
       _startingCountdown: 3
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -538,9 +622,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -548,7 +634,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.35
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 3
@@ -561,9 +649,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -583,7 +673,9 @@ MonoBehaviour:
       _y: 1
       _iceLevel: 1
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -596,9 +688,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles:
@@ -630,7 +724,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -643,9 +739,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -653,7 +751,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -666,9 +766,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -676,7 +778,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -689,9 +793,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -717,7 +823,9 @@ MonoBehaviour:
       _y: 5
       _iceLevel: 2
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -730,9 +838,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -740,12 +850,14 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
   - _levelNumber: 26
-    _objectiveType: 2
+    _objectiveType: 23
     _scope: 0
     _targetValue: 800
     _requiredLineCount: 2
@@ -753,9 +865,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 60
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -775,7 +889,9 @@ MonoBehaviour:
     - _x: 5
       _y: 0
       _unlockThreshold: 1
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -788,9 +904,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 2
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -798,7 +916,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.35
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 3
@@ -811,9 +931,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -833,7 +955,9 @@ MonoBehaviour:
     - _x: 4
       _y: 4
       _unlockThreshold: 1
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -846,9 +970,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -856,7 +982,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -866,12 +994,14 @@ MonoBehaviour:
     _targetValue: 1
     _requiredLineCount: 2
     _requiredPieceFamily: 0
-    _requiredOccupancyThreshold: 52
+    _requiredOccupancyThreshold: 48
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles:
@@ -929,7 +1059,9 @@ MonoBehaviour:
       _y: 4
       _iceLevel: 1
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -942,9 +1074,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -952,7 +1086,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -965,9 +1101,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -975,7 +1113,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -988,9 +1128,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -998,7 +1140,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -1011,9 +1155,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -1021,7 +1167,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -1034,9 +1182,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: line_h5
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -1044,7 +1194,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -1057,9 +1209,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -1085,7 +1239,9 @@ MonoBehaviour:
       _startingCountdown: 4
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -1098,9 +1254,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -1108,7 +1266,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -1121,9 +1281,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -1131,7 +1293,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -1144,9 +1308,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 20
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -1154,7 +1320,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -1167,9 +1335,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 2
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -1177,7 +1347,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -1190,9 +1362,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -1218,7 +1392,9 @@ MonoBehaviour:
     - _x: 7
       _y: 2
       _unlockThreshold: 1
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -1231,9 +1407,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 60
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -1241,7 +1419,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -1254,9 +1434,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -1264,7 +1446,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -1277,9 +1461,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -1311,7 +1497,9 @@ MonoBehaviour:
       _y: 3
       _iceLevel: 1
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -1324,9 +1512,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -1334,7 +1524,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -1347,9 +1539,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 3
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -1357,7 +1551,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -1370,9 +1566,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -1380,7 +1578,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -1393,9 +1593,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -1412,7 +1614,9 @@ MonoBehaviour:
       _startingCountdown: 4
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -1425,9 +1629,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -1435,7 +1641,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -1448,9 +1656,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 3
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -1458,7 +1668,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.35
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 3
@@ -1471,9 +1683,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -1496,12 +1710,14 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
   - _levelNumber: 45
-    _objectiveType: 2
+    _objectiveType: 23
     _scope: 0
     _targetValue: 1500
     _requiredLineCount: 2
@@ -1509,9 +1725,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 90
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -1519,7 +1737,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -1532,9 +1752,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles:
@@ -1562,7 +1784,9 @@ MonoBehaviour:
     - _x: 4
       _y: 4
       _unlockThreshold: 1
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -1575,9 +1799,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -1603,7 +1829,9 @@ MonoBehaviour:
     - _x: 7
       _y: 2
       _unlockThreshold: 1
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -1616,9 +1844,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 25
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -1626,7 +1856,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -1639,9 +1871,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -1649,7 +1883,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -1662,9 +1898,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -1696,7 +1934,9 @@ MonoBehaviour:
       _y: 3
       _iceLevel: 1
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -1709,9 +1949,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -1719,7 +1961,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -1732,9 +1976,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -1754,7 +2000,9 @@ MonoBehaviour:
       _startingCountdown: 4
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -1767,9 +2015,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -1777,7 +2027,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -1790,9 +2042,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 60
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -1800,7 +2054,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -1813,9 +2069,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -1853,7 +2111,9 @@ MonoBehaviour:
       _y: 4
       _iceLevel: 1
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -1866,9 +2126,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -1903,7 +2165,9 @@ MonoBehaviour:
       _startingCountdown: 4
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -1916,9 +2180,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -1926,7 +2192,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -1939,9 +2207,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -1949,7 +2219,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -1962,9 +2234,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -1972,7 +2246,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -1985,9 +2261,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 40
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -1995,7 +2273,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -2008,9 +2288,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 4
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -2018,7 +2300,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.35
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 3
@@ -2031,9 +2315,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -2041,7 +2327,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -2054,9 +2342,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 20
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -2064,7 +2354,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -2077,9 +2369,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -2099,7 +2393,9 @@ MonoBehaviour:
       _startingCountdown: 4
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -2112,9 +2408,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -2122,7 +2420,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -2135,9 +2435,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles:
@@ -2163,7 +2465,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -2176,9 +2480,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 4
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -2210,7 +2516,9 @@ MonoBehaviour:
     - _x: 2
       _y: 0
       _unlockThreshold: 1
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -2223,9 +2531,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles:
@@ -2241,7 +2551,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -2254,9 +2566,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -2300,7 +2614,9 @@ MonoBehaviour:
       _y: 0
       _iceLevel: 2
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -2313,9 +2629,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -2323,7 +2641,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -2333,12 +2653,14 @@ MonoBehaviour:
     _targetValue: 1
     _requiredLineCount: 2
     _requiredPieceFamily: 0
-    _requiredOccupancyThreshold: 52
+    _requiredOccupancyThreshold: 48
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles:
@@ -2402,7 +2724,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -2415,9 +2739,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -2425,7 +2751,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -2438,9 +2766,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: line_h5
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -2448,7 +2778,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -2461,9 +2793,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 5
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -2471,7 +2805,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.35
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 3
@@ -2484,9 +2820,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -2494,7 +2832,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -2507,9 +2847,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -2517,7 +2859,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -2530,9 +2874,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -2540,7 +2886,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -2553,9 +2901,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 5
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -2563,7 +2913,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -2576,9 +2928,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -2586,12 +2940,14 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
   - _levelNumber: 72
-    _objectiveType: 2
+    _objectiveType: 23
     _scope: 0
     _targetValue: 2500
     _requiredLineCount: 2
@@ -2599,9 +2955,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 125
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -2639,7 +2997,9 @@ MonoBehaviour:
     - _x: 4
       _y: 7
       _unlockThreshold: 2
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -2652,9 +3012,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -2677,7 +3039,9 @@ MonoBehaviour:
       _startingCountdown: 4
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -2690,9 +3054,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -2700,7 +3066,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -2713,9 +3081,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -2777,7 +3147,9 @@ MonoBehaviour:
     - _x: 4
       _y: 4
       _unlockThreshold: 1
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -2790,9 +3162,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -2800,7 +3174,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -2813,9 +3189,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -2853,7 +3231,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -2866,9 +3246,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -2876,7 +3258,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -2889,9 +3273,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -2899,7 +3285,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -2912,9 +3300,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 45
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -2922,7 +3312,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -2935,9 +3327,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -2945,7 +3339,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.35
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 3
@@ -2958,9 +3354,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -2968,7 +3366,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -2981,9 +3381,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 36
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles:
@@ -2999,7 +3401,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -3012,9 +3416,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 25
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -3022,7 +3428,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -3035,9 +3443,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -3096,7 +3506,9 @@ MonoBehaviour:
       _y: 1
       _iceLevel: 1
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -3109,9 +3521,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -3119,7 +3533,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -3132,9 +3548,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -3142,7 +3560,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -3155,9 +3575,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -3165,7 +3587,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -3178,9 +3602,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -3188,7 +3614,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -3201,9 +3629,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -3259,7 +3689,9 @@ MonoBehaviour:
       _y: 3
       _iceLevel: 3
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -3272,9 +3704,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -3282,7 +3716,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -3295,9 +3731,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -3341,7 +3779,9 @@ MonoBehaviour:
     - _x: 7
       _y: 4
       _unlockThreshold: 2
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -3354,9 +3794,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -3418,7 +3860,9 @@ MonoBehaviour:
       _startingCountdown: 4
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -3431,9 +3875,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -3441,7 +3887,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -3454,9 +3902,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -3464,7 +3914,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -3477,9 +3929,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -3487,7 +3941,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -3500,9 +3956,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -3510,7 +3968,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -3523,9 +3983,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 2
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -3533,7 +3995,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.5
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 3
@@ -3546,9 +4010,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 30
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -3556,7 +4022,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -3569,9 +4037,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -3579,7 +4049,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -3592,9 +4064,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -3602,7 +4076,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -3615,9 +4091,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 60
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -3625,7 +4103,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -3638,9 +4118,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -3666,7 +4148,9 @@ MonoBehaviour:
       _startingCountdown: 4
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -3679,9 +4163,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -3743,7 +4229,9 @@ MonoBehaviour:
       _y: 2
       _iceLevel: 3
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -3756,9 +4244,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -3766,12 +4256,14 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
   - _levelNumber: 94
-    _objectiveType: 2
+    _objectiveType: 23
     _scope: 0
     _targetValue: 3000
     _requiredLineCount: 2
@@ -3779,9 +4271,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 130
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles:
@@ -3839,7 +4333,9 @@ MonoBehaviour:
     - _x: 4
       _y: 0
       _unlockThreshold: 2
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -3852,9 +4348,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -3904,7 +4402,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -3917,9 +4417,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -3927,7 +4429,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -3940,9 +4444,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -3950,7 +4456,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -3963,9 +4471,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 3
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -3973,7 +4483,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.5
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 3
@@ -3986,9 +4498,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -3996,7 +4510,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -4009,9 +4525,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -4019,7 +4537,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -4032,9 +4552,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -4120,7 +4642,9 @@ MonoBehaviour:
       _y: 0
       _iceLevel: 1
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -4133,9 +4657,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -4143,7 +4669,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -4156,9 +4684,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 25
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -4166,7 +4696,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -4179,9 +4711,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -4189,7 +4723,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -4202,9 +4738,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -4242,7 +4780,9 @@ MonoBehaviour:
       _y: 4
       _iceLevel: 1
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -4255,9 +4795,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -4265,7 +4807,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0
@@ -4278,9 +4822,11 @@ MonoBehaviour:
     _requiredOccupancyThreshold: 52
     _requiredPieceId: square_3x3
     _requiredColourId: 1
+    _requiredFruit: 0
     _completionScoreBonus: 0
     _coinCellCount: 0
     _windowSeconds: 15
+    _moveLimit: 20
     _boardWidth: 8
     _boardHeight: 8
     _boardHoles: []
@@ -4288,7 +4834,9 @@ MonoBehaviour:
     _timerCells: []
     _targetIceCells: []
     _lockedCells: []
-    _bannedPowerUps: []
+    _powerStarCells: []
+    _puzzleLinkGroups: []
+    _bannedPowerUps: 
     _diamondDecorationChance: 0.2
     _diamondMinDecoratedCells: 1
     _diamondMaxDecoratedCells: 0

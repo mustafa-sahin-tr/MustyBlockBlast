@@ -1790,6 +1790,54 @@ MonoBehaviour:
     m_Localized: Avocado
     m_Metadata:
       m_Items: []
+  - m_Id: 4350167263207424
+    m_Localized: Score in Moves
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4350167317733376
+    m_Localized: Reach {0} points within {1} moves. Power-ups don't use a move, and every move left over earns bonus points.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4350167317733377
+    m_Localized: '{0} points / {1} moves'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4350167317733378
+    m_Localized: MOVES
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4350167317733379
+    m_Localized: OUT OF MOVES
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4350167317733380
+    m_Localized: '{0} more points to go'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4350167317733381
+    m_Localized: Watch a short ad and keep going with +{0} moves. Only once per level.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4350167317733382
+    m_Localized: +{0} MOVES
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4350167317733383
+    m_Localized: No thanks
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4350167317733384
+    m_Localized: Out of Moves
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4350167317733385
+    m_Localized: You ran out of moves on Level {0}
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4350167317733386
+    m_Localized: "Leftover moves bonus: {0} moves \xB7 +{1}"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

@@ -75,6 +75,13 @@ namespace MustyBlockBlast.Presentation.Views
                     AddStarburst(parent, inkImages, size * 0.72f, Vector2.zero);
                     break;
 
+                case ObjectiveType.ScoreInMoves:
+                    // Score's starburst over a short bar — points, within a budget (issue #465). The
+                    // procedural fallback only; the catalog carries the authored block-and-flag art.
+                    AddStarburst(parent, inkImages, size * 0.56f, new Vector2(0f, size * 0.1f));
+                    AddBar(parent, inkImages, barLength * 0.8f, barThickness * 0.8f, new Vector2(0f, -size * 0.3f));
+                    break;
+
                 case ObjectiveType.PieceFamilyCount:
                     // A plain upright block — one piece of a shape family.
                     AddPlate(parent, inkImages, new Vector2(size * 0.5f, size * 0.5f), Vector2.zero, 0f);

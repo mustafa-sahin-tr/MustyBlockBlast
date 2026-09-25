@@ -77,6 +77,14 @@ namespace MustyBlockBlast.Presentation.Views
                 case ObjectiveType.ScoreInRun:
                     return localization.Translate(LocalizationKeys.OBJECTIVE_SCORE_IN_RUN);
 
+                case ObjectiveType.ScoreInMoves:
+                    // The whole rule, target and budget both (issue #465): the card is where the player
+                    // learns that only placements spend a move.
+                    return localization.Format(
+                        LocalizationKeys.OBJECTIVE_SCORE_IN_MOVES,
+                        definition.TargetValue.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                        definition.MoveLimit.ToString(System.Globalization.CultureInfo.InvariantCulture));
+
                 case ObjectiveType.StreakThreshold:
                     return localization.Translate(LocalizationKeys.OBJECTIVE_STREAK_THRESHOLD);
 
@@ -173,6 +181,17 @@ namespace MustyBlockBlast.Presentation.Views
 
             headline = localization.Translate(TitleKey(definition.Type));
 
+            // A move-limited goal (issue #465) states both of its numbers as "S points / N moves" — the
+            // sentence would be too long for the card's line, and "x1500" alone would hide the budget.
+            if (definition.Type == ObjectiveType.ScoreInMoves)
+            {
+                detail = localization.Format(
+                    LocalizationKeys.OBJECTIVE_SCORE_IN_MOVES_SHORT,
+                    definition.TargetValue.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    definition.MoveLimit.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                return;
+            }
+
             string sentence = Describe(definition, localization, theme);
             detail = definition.TargetValue > 1
                 ? sentence + " " + TARGET_MULTIPLIER + definition.TargetValue.ToString(
@@ -236,6 +255,8 @@ namespace MustyBlockBlast.Presentation.Views
                     return LocalizationKeys.OBJECTIVE_NAME_ICE_CELLS_CLEARED;
                 case ObjectiveType.TimerCellsMeltedInTime:
                     return LocalizationKeys.OBJECTIVE_NAME_TIMER_CELLS_MELTED_IN_TIME;
+                case ObjectiveType.ScoreInMoves:
+                    return LocalizationKeys.OBJECTIVE_NAME_SCORE_IN_MOVES;
                 default:
                     return LocalizationKeys.OBJECTIVE_NAME_SIMULTANEOUS_LINE_CLEAR;
             }
