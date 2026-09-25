@@ -2,7 +2,6 @@ using System;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using GoogleMobileAds.Api;
-using GoogleMobileAds.Ump.Api;
 using MustyBlockBlast.Gameplay;
 using MustyBlockBlast.Gameplay.Systems;
 using UnityEngine;
@@ -13,7 +12,7 @@ namespace MustyBlockBlast.Presentation.Services
     /// Google AdMob implementation of the four rewarded-ad seams — <see cref="IRewardSource"/>,
     /// <see cref="ICoinRewardSource"/>, <see cref="IRescueRewardSource"/> (issue #380) and
     /// <see cref="ILivesRewardSource"/> (issue #478). The only type
-    /// in the project that touches the Google Mobile Ads SDK, on the same footing as
+    /// in the project that shows a rewarded ad through the Google Mobile Ads SDK, on the same footing as
     /// <see cref="UnityCoinPurchaseService"/> is for Unity IAP: swapping ad networks, or stubbing one out
     /// for the Editor and tests, is one binding in <see cref="GameLifetimeScope"/>.
     /// <para>
@@ -40,17 +39,15 @@ namespace MustyBlockBlast.Presentation.Services
     /// propagate is the caller's own cancellation, which the deterministic stubs propagate too.
     /// </para>
     /// <para>
-    /// One ad at a time. A rewarded ad is full-screen and modal, so a second overlapping request has
-    /// nowhere to go; it is refused with a false grant rather than queued behind the first, and the
-    /// single in-flight slot is also what makes matching the SDK's events back to their awaiter
-    /// unambiguous.
+    /// One ad at a time. A rewarded ad is full-screen and modal, so a request made while any ad —
+    /// rewarded or interstitial — holds <see cref="AdMobSdk"/>'s full-screen slot is refused with a false
+    /// grant rather than queued behind it, and that single slot is also what makes matching the SDK's
+    /// events back to their awaiter unambiguous.
     /// </para>
     /// <para>
-    /// The SDK is initialised lazily on the first request, and the User Messaging Platform consent flow
-    /// runs before that initialisation, so no ad is ever requested before the player has been asked
-    /// (issue #380, AC6). The readiness result is cached for the session on success and cleared on
-    /// failure, so an SDK that could not come up now is asked again on the next tap rather than pinned
-    /// as broken — the same policy <see cref="UnityCoinPurchaseService.EnsureReadyAsync"/> follows.
+    /// Consent and SDK initialisation belong to <see cref="AdMobSdk"/> (split out in issue #501 so the
+    /// interstitial format shares them): it runs before the first request of any format, so no ad is
+    /// ever requested before the player has been asked (issue #380, AC6).
     /// </para>
     /// </summary>
     public sealed class AdMobRewardSource
@@ -83,34 +80,11 @@ namespace MustyBlockBlast.Presentation.Services
         private const string REWARDED_AD_UNIT_ID = LIVE_ANDROID_REWARDED_AD_UNIT_ID;
 #endif
 
-        /// <summary>
-        /// How long consent lookup, SDK initialisation and an ad load are each allowed before they count
-        /// as a no-fill. Real time rather than game time because the game may well be paused behind the
-        /// request. The consent form and the ad itself are deliberately not on a clock: both are paced by
-        /// the player, and a form left open for a minute is not a failure.
-        /// </summary>
-        private static readonly TimeSpan StepTimeout = TimeSpan.FromSeconds(20);
+        private readonly AdMobSdk _sdk;
 
-        /// <summary>
-        /// Completion of the one-time consent-and-initialise, cached so every later request awaits the
-        /// same result instead of re-running the flow. Null until the first request asks for it, and
-        /// cleared again on failure so the next request retries.
-        /// </summary>
-        private UniTaskCompletionSource<bool> _readySource;
-
-        private bool _isRequestInFlight;
-
-        /// <summary>
-        /// Runs consent and SDK initialisation now rather than waiting for the first reward request —
-        /// Google's own guidance for the reward-earned latency this buys back. Called once at boot by
-        /// <see cref="AdWarmUpSystem"/>; every one of the four seam methods still calls
-        /// <see cref="EnsureReadyAsync"/> itself and finds the cached result already sitting there, so
-        /// nothing here is load-bearing for correctness — a boot that never reaches this still ends up
-        /// consented and initialised on the player's first ad, exactly as before this existed.
-        /// </summary>
-        public async UniTask WarmUpAsync(CancellationToken cancellationToken)
+        public AdMobRewardSource(AdMobSdk sdk)
         {
-            await EnsureReadyAsync(cancellationToken);
+            _sdk = sdk;
         }
 
         public async UniTask<RewardResult> RequestRewardAsync(
@@ -160,15 +134,14 @@ namespace MustyBlockBlast.Presentation.Services
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (_isRequestInFlight)
+            if (!_sdk.TryAcquireFullScreen())
             {
                 return false;
             }
 
-            _isRequestInFlight = true;
             try
             {
-                bool isReady = await EnsureReadyAsync(cancellationToken);
+                bool isReady = await _sdk.EnsureReadyAsync(cancellationToken);
                 if (!isReady)
                 {
                     return false;
@@ -202,122 +175,9 @@ namespace MustyBlockBlast.Presentation.Services
             }
             finally
             {
-                // Cleared even on cancellation, or the single in-flight slot would stay occupied for
-                // the rest of the session and refuse every later request.
-                _isRequestInFlight = false;
-            }
-        }
-
-        /// <summary>
-        /// Runs the consent flow and initialises the SDK, once. Every caller after the first awaits the
-        /// same cached result. A failed attempt clears the cache rather than caching the failure, so an
-        /// SDK that could not come up now is asked again on the next request.
-        /// </summary>
-        private async UniTask<bool> EnsureReadyAsync(CancellationToken cancellationToken)
-        {
-            if (_readySource != null)
-            {
-                return await _readySource.Task.AttachExternalCancellation(cancellationToken);
-            }
-
-            var readySource = new UniTaskCompletionSource<bool>();
-            _readySource = readySource;
-
-            bool isReady = false;
-            try
-            {
-                isReady = await InitializeAsync(cancellationToken);
-            }
-            catch (Exception exception) when (!(exception is OperationCanceledException))
-            {
-                Debug.LogError($"{nameof(AdMobRewardSource)}: initialising the ads SDK failed: {exception.Message}");
-            }
-            finally
-            {
-                readySource.TrySetResult(isReady);
-                if (!isReady && ReferenceEquals(_readySource, readySource))
-                {
-                    _readySource = null;
-                }
-            }
-
-            return isReady;
-        }
-
-        /// <summary>
-        /// Consent first, then the SDK — in that order, because the SDK must not be initialised (and
-        /// no ad requested) until the User Messaging Platform says ads may be requested. UMP's own
-        /// answer is what decides that: a returning player who consented last session passes straight
-        /// through, a player in a consent region sees Google's default form once.
-        /// </summary>
-        private async UniTask<bool> InitializeAsync(CancellationToken cancellationToken)
-        {
-            await GatherConsentAsync(cancellationToken);
-
-            if (!ConsentInformation.CanRequestAds())
-            {
-                Debug.LogWarning($"{nameof(AdMobRewardSource)}: consent does not allow ad requests; no ad will be shown.");
-                return false;
-            }
-
-            // Play Console declares this app's target audience as 5+ (Everyone) with no neutral age
-            // screen, so every ad request must be tagged child-directed per Google's policy.
-            var requestConfiguration = new RequestConfiguration
-            {
-                TagForChildDirectedTreatment = TagForChildDirectedTreatment.True,
-                TagForUnderAgeOfConsent = TagForUnderAgeOfConsent.True,
-                MaxAdContentRating = MaxAdContentRating.G
-            };
-            MobileAds.SetRequestConfiguration(requestConfiguration);
-
-            var initializeSource = new UniTaskCompletionSource<bool>();
-            MobileAds.Initialize(status => initializeSource.TrySetResult(status != null));
-
-            // AttachExternalCancellation rather than a cancellable await: the SDK call takes no token,
-            // so cancelling abandons the await and leaves initialisation to finish on its own.
-            bool isInitialized = await initializeSource.Task
-                .AttachExternalCancellation(cancellationToken)
-                .Timeout(StepTimeout, DelayType.Realtime);
-
-            // SDK callbacks are not guaranteed to arrive on Unity's main thread, and everything after
-            // an await here goes on to touch the SDK again or hand a result back to a View.
-            await UniTask.SwitchToMainThread(cancellationToken);
-            return isInitialized;
-        }
-
-        /// <summary>
-        /// The UMP flow as Google documents it: refresh consent information, then load and show the
-        /// consent form if — and only if — it is required. Errors are logged and swallowed because
-        /// the caller's next question, <see cref="ConsentInformation.CanRequestAds"/>, is the real
-        /// verdict either way: a consent lookup that fails offline still permits ads for a player who
-        /// consented last session, and still refuses them for one who has not.
-        /// </summary>
-        private static async UniTask GatherConsentAsync(CancellationToken cancellationToken)
-        {
-            var updateSource = new UniTaskCompletionSource<FormError>();
-            ConsentInformation.Update(new ConsentRequestParameters(), error => updateSource.TrySetResult(error));
-
-            FormError updateError = await updateSource.Task
-                .AttachExternalCancellation(cancellationToken)
-                .Timeout(StepTimeout, DelayType.Realtime);
-            await UniTask.SwitchToMainThread(cancellationToken);
-
-            if (updateError != null)
-            {
-                Debug.LogWarning($"{nameof(AdMobRewardSource)}: consent information update failed: {updateError.Message}");
-                return;
-            }
-
-            // Not on the clock: the form is paced by the player.
-            var formSource = new UniTaskCompletionSource<FormError>();
-            ConsentForm.LoadAndShowConsentFormIfRequired(error => formSource.TrySetResult(error));
-
-            FormError formError = await formSource.Task.AttachExternalCancellation(cancellationToken);
-            await UniTask.SwitchToMainThread(cancellationToken);
-
-            if (formError != null)
-            {
-                Debug.LogWarning($"{nameof(AdMobRewardSource)}: consent form failed: {formError.Message}");
+                // Released even on cancellation, or the shared full-screen slot would stay occupied for
+                // the rest of the session and refuse every later ad of either format.
+                _sdk.ReleaseFullScreen();
             }
         }
 
@@ -346,7 +206,7 @@ namespace MustyBlockBlast.Presentation.Services
 
             RewardedAd rewardedAd = await loadSource.Task
                 .AttachExternalCancellation(cancellationToken)
-                .Timeout(StepTimeout, DelayType.Realtime);
+                .Timeout(AdMobSdk.StepTimeout, DelayType.Realtime);
             await UniTask.SwitchToMainThread(cancellationToken);
             return rewardedAd;
         }
