@@ -370,7 +370,7 @@ namespace MustyBlockBlast.Presentation.Views
                         // A decorated dock cell wears its gem exactly as the dock paints it (issue #453).
                         if (diamonds != null && diamonds[cellIndex] != TrayModel.NO_DIAMOND)
                         {
-                            DiamondVisuals.Apply(piece.Cells[cellIndex], diamonds[cellIndex], _theme, _diamondSprite);
+                            DiamondVisuals.Apply(piece.Cells[cellIndex], diamonds[cellIndex], _theme, CollectibleSprite(diamonds[cellIndex]));
                         }
                     }
 
@@ -423,6 +423,20 @@ namespace MustyBlockBlast.Presentation.Views
         /// <c>DiamondVisuals.Apply</c>. Called only when the value changes (or after a repaint), never per
         /// frame.
         /// </summary>
+        /// <summary>The art a collectible of <paramref name="collectibleId"/> is drawn with — a fruit's own
+        /// for a fruit id (issue #484), the diamond crystal otherwise — resolved through the resources, so
+        /// the demo draws exactly what the board draws. Only called when a value changes.</summary>
+        private Sprite CollectibleSprite(int collectibleId)
+        {
+            if (Collectibles.IsFruit(collectibleId)
+                && _resources.TryGetSprite(InfoDemoSprite.DiamondIcon, collectibleId, out Sprite fruit, out Color _))
+            {
+                return fruit;
+            }
+
+            return _diamondSprite;
+        }
+
         private void ApplyCellLayer(CellView cell, InfoDemoCellLayer layer, int value)
         {
             switch (layer)
@@ -441,7 +455,7 @@ namespace MustyBlockBlast.Presentation.Views
                     cell.SetTimerCountdown(value);
                     break;
                 case InfoDemoCellLayer.Diamond:
-                    DiamondVisuals.Apply(cell, value, _theme, _diamondSprite);
+                    DiamondVisuals.Apply(cell, value, _theme, CollectibleSprite(value));
                     break;
             }
         }

@@ -1742,6 +1742,54 @@ MonoBehaviour:
     m_Localized: Locked pieces only come off if every one is hit in the same move, and then pay bonus points. Hit just one and none goes.
     m_Metadata:
       m_Items: []
+  - m_Id: 4332125015760896
+    m_Localized: Collect Fruit
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4332125082869760
+    m_Localized: Collect {0}
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4332125082869761
+    m_Localized: Fruit collected!
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4332125082869762
+    m_Localized: Pomegranate
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4332125082869763
+    m_Localized: Passion Fruit
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4332125082869764
+    m_Localized: Peach
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4332125082869765
+    m_Localized: Fig
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4332125082869766
+    m_Localized: Coconut
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4332125082869767
+    m_Localized: Mangosteen
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4332125082869768
+    m_Localized: Guava
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4332125082869769
+    m_Localized: Rambutan
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4332125082869770
+    m_Localized: Avocado
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

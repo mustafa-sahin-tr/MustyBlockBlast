@@ -53,6 +53,14 @@ namespace MustyBlockBlast.Presentation.Views
         /// are what keep it legible when it happens to ride on a block of its own colour.
         /// </summary>
         internal static Color Tint(ThemeDefinition theme, int diamondColourId)
-            => theme != null ? theme.GetFill(diamondColourId) : Color.white;
+        {
+            // A fruit (issue #484) is realistic art carrying its own colours: never tinted.
+            if (Collectibles.IsFruit(diamondColourId))
+            {
+                return Color.white;
+            }
+
+            return theme != null ? theme.GetFill(diamondColourId) : Color.white;
+        }
     }
 }

@@ -37,7 +37,7 @@ namespace MustyBlockBlast.Core
     /// </summary>
     public sealed class DiamondClearEffect : ISpecialCellEffect
     {
-        private readonly int[] _destroyedCountByColour = new int[ColourTally.LENGTH];
+        private readonly int[] _destroyedCountByColour = new int[Collectibles.TALLY_LENGTH];
 
         /// <summary>How many diamonds of each colour have been destroyed since the last
         /// <see cref="BeginResolution"/>, indexed by the gem's colour id — the <see cref="ColourTally"/>
@@ -50,7 +50,7 @@ namespace MustyBlockBlast.Core
         /// <c>PowerUpClearResult.TriggeredSpecials</c> is handed back directly — mirroring
         /// <see cref="TimerCellClearEffect.CountDestroyed"/>, so "what counts as clearing a diamond" has
         /// one definition whether it is read from a list or accumulated through <see cref="Apply"/>.
-        /// Null for a null list; otherwise a fresh <see cref="ColourTally.LENGTH"/>-long array — one
+        /// Null for a null list; otherwise a fresh <see cref="Collectibles.TALLY_LENGTH"/>-long array — one
         /// small allocation per power-up application, never per frame.
         /// </summary>
         public static int[] CountDestroyedByColour(IReadOnlyList<SpecialCellTrigger> triggers)
@@ -60,12 +60,12 @@ namespace MustyBlockBlast.Core
                 return null;
             }
 
-            var tally = new int[ColourTally.LENGTH];
+            var tally = new int[Collectibles.TALLY_LENGTH];
             for (int i = 0; i < triggers.Count; i++)
             {
                 if (triggers[i].Kind == SpecialCellKind.Diamond)
                 {
-                    ColourTally.Increment(tally, triggers[i].DiamondColourId);
+                    Collectibles.Increment(tally, triggers[i].DiamondColourId);
                 }
             }
 
@@ -91,7 +91,7 @@ namespace MustyBlockBlast.Core
                 return;
             }
 
-            ColourTally.Increment(_destroyedCountByColour, trigger.DiamondColourId);
+            Collectibles.Increment(_destroyedCountByColour, trigger.DiamondColourId);
         }
     }
 }

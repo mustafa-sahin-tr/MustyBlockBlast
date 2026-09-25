@@ -163,6 +163,10 @@ namespace MustyBlockBlast.Presentation.Views
         [Tooltip("Neutral grey crystal, tinted at runtime in the gem's own theme colour (issues #395/#480). Also drawn on decorated tray, pocket and drag-ghost cells through DiamondVisuals.")]
         [SerializeField] private Sprite _diamondIconSprite;
 
+        [Tooltip("Fruits a Path level can ask for (issue #484), one per FruitKind in enum order. Drawn "
+            + "untinted and full-bleed wherever a diamond would be drawn.")]
+        [SerializeField] private Sprite[] _fruitSprites = new Sprite[Collectibles.FRUIT_COUNT];
+
         [Header("Stage Overlays (issue #480)")]
         [Tooltip("Locked cell's chest by unlock progress: 0 = untouched (closed), 1 = partly unlocked (key in), 2 = one neighbour from opening (ajar).")]
         [SerializeField] private Sprite[] _lockedStageSprites = new Sprite[LOCKED_STAGE_COUNT];
@@ -3229,7 +3233,7 @@ namespace MustyBlockBlast.Presentation.Views
                 if (_currentTheme != null && _cellDiamondColourIds[index] != TrayModel.NO_DIAMOND)
                 {
                     DiamondVisuals.Apply(
-                        cell, _cellDiamondColourIds[index], _currentTheme, IconSprite(kind));
+                        cell, _cellDiamondColourIds[index], _currentTheme, CollectibleSprite(_cellDiamondColourIds[index]));
                 }
                 else
                 {
@@ -3380,6 +3384,26 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             return sprite != null ? sprite : UiSpriteFactory.Starburst;
+        }
+
+        /// <summary>
+        /// The sprite a collectible of <paramref name="collectibleId"/> is drawn with (issue #484): its fruit
+        /// when the id is a fruit, the diamond crystal for a diamond colour (and for anything else, so a
+        /// stray id still shows as special rather than nothing). The one lookup every View that paints
+        /// collectibles — board, tray, pocket, drag ghost, info demos — goes through.
+        /// </summary>
+        internal Sprite CollectibleSprite(int collectibleId)
+        {
+            if (Collectibles.IsFruit(collectibleId) && _fruitSprites != null)
+            {
+                int fruitIndex = (int)Collectibles.FruitOf(collectibleId);
+                if (fruitIndex < _fruitSprites.Length && _fruitSprites[fruitIndex] != null)
+                {
+                    return _fruitSprites[fruitIndex];
+                }
+            }
+
+            return IconSprite(SpecialCellKind.Diamond);
         }
 
         /// <summary>Draws a clearing cell blended towards the flash tint, keeping it on the same

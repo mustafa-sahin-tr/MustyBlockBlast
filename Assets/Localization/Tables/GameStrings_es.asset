@@ -1742,6 +1742,54 @@ MonoBehaviour:
     m_Localized: Las piezas enlazadas solo salen si todas reciben el golpe en la misma jugada, y dan puntos extra. Si golpeas solo una, no sale ninguna.
     m_Metadata:
       m_Items: []
+  - m_Id: 4332125015760896
+    m_Localized: Recoge Fruta
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4332125082869760
+    m_Localized: Recoge {0}
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4332125082869761
+    m_Localized: "\xA1Fruta recogida!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4332125082869762
+    m_Localized: Granada
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4332125082869763
+    m_Localized: "Maracuy\xE1"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4332125082869764
+    m_Localized: "Melocot\xF3n"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4332125082869765
+    m_Localized: Higo
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4332125082869766
+    m_Localized: Coco
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4332125082869767
+    m_Localized: "Mangost\xE1n"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4332125082869768
+    m_Localized: Guayaba
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4332125082869769
+    m_Localized: "Rambut\xE1n"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4332125082869770
+    m_Localized: Aguacate
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

@@ -37,6 +37,44 @@ namespace MustyBlockBlast.Gameplay.Settings
         [SerializeField] private List<Entry> _entries = new List<Entry>();
 
         /// <summary>The authored glyph for <paramref name="type"/>, or null when none is authored.</summary>
+        [Tooltip("One icon per FruitKind, in enum order (issue #484): the HUD chip, info card and level card "
+            + "of a FruitsCollected goal show its own fruit.")]
+        [SerializeField] private List<Sprite> _fruitIcons = new List<Sprite>();
+
+        /// <summary>The icon of the fruit whose collectible id is <paramref name="collectibleId"/> (issue
+        /// #484), or null for a non-fruit id or a fruit left unassigned.</summary>
+        public Sprite FindFruit(int collectibleId)
+        {
+            if (!Collectibles.IsFruit(collectibleId) || _fruitIcons == null)
+            {
+                return null;
+            }
+
+            int fruitIndex = (int)Collectibles.FruitOf(collectibleId);
+            return fruitIndex < _fruitIcons.Count ? _fruitIcons[fruitIndex] : null;
+        }
+
+        /// <summary>The icon for <paramref name="definition"/>: its fruit's for a
+        /// <see cref="ObjectiveType.FruitsCollected"/> goal (issue #484), otherwise its type's.</summary>
+        public Sprite FindFor(ObjectiveDefinition definition)
+        {
+            if (definition == null)
+            {
+                return null;
+            }
+
+            if (definition.Type == ObjectiveType.FruitsCollected)
+            {
+                Sprite fruit = FindFruit(definition.RequiredColourId);
+                if (fruit != null)
+                {
+                    return fruit;
+                }
+            }
+
+            return Find(definition.Type);
+        }
+
         public Sprite Find(ObjectiveType type)
         {
             if (_entries == null)

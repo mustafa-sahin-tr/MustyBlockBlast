@@ -1283,7 +1283,6 @@ namespace MustyBlockBlast.Presentation.Views
                 return;
             }
 
-            Sprite diamondGlyph = _boardView.IconSprite(SpecialCellKind.Diamond);
 
             var ghostObject = new GameObject("DragGhost", typeof(RectTransform));
             _ghostRoot = (RectTransform)ghostObject.transform;
@@ -1310,8 +1309,8 @@ namespace MustyBlockBlast.Presentation.Views
                 var rect = (RectTransform)cell.transform;
                 rect.anchoredPosition = new Vector2(offsetX + (offset.X * pitch), offsetY + (offset.Y * pitch));
                 SpecialPieceVisuals.Apply(cell, specialKind, _currentTheme, colourId);
-                DiamondVisuals.Apply(
-                    cell, _trayModel.GetDiamondColourId(slotIndex, i), _currentTheme, diamondGlyph);
+                int collectibleId = _trayModel.GetDiamondColourId(slotIndex, i);
+                DiamondVisuals.Apply(cell, collectibleId, _currentTheme, _boardView.CollectibleSprite(collectibleId));
 
                 // After the colours, never before: SetAlpha writes every layer the look just painted,
                 // including the special glyph and the gem, so the ghost fades as one block.

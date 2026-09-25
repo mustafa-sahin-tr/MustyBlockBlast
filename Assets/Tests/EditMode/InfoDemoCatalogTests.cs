@@ -129,7 +129,8 @@ namespace MustyBlockBlast.Tests.EditMode
                 ObjectiveType type = (ObjectiveType)types.GetValue(typeIndex);
                 ObjectiveDefinition definition = new ObjectiveDefinition(
                     "test", type, ObjectiveScope.PerRun, 2, requiredLineCount: 2, requiredPieceFamily: PieceFamily.Corner,
-                    requiredOccupancyThreshold: 52, requiredPieceId: "square_3x3", windowSeconds: 15f, requiredColourId: 1);
+                    requiredOccupancyThreshold: 52, requiredPieceId: "square_3x3", windowSeconds: 15f,
+                    requiredColourId: type == ObjectiveType.FruitsCollected ? Collectibles.FruitId(FruitKind.Pomegranate) : 1);
 
                 Assert.IsNotNull(catalog.FindObjective(definition), type.ToString());
             }

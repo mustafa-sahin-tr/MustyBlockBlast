@@ -245,7 +245,7 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// counters. Owned and reused so the once-per-placement sum allocates nothing; handed to
         /// <see cref="PiecePlacedMessage"/> as a snapshot copy, because this buffer is overwritten on
         /// the next placement and a subscriber must never read the next move's data.</summary>
-        private readonly int[] _destroyedDiamondCountByColourBuffer = new int[ColourTally.LENGTH];
+        private readonly int[] _destroyedDiamondCountByColourBuffer = new int[Collectibles.TALLY_LENGTH];
 
         /// <summary>The other effect that changes nothing on the board: it only totals what the coin
         /// cells this placement's resolution destroyed are worth. Built in the constructor rather than

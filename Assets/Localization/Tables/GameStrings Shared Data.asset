@@ -1735,6 +1735,54 @@ MonoBehaviour:
     m_Key: info_popup.special_cell.puzzle_link.body
     m_Metadata:
       m_Items: []
+  - m_Id: 4332125015760896
+    m_Key: objective.name.fruits_collected
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4332125082869760
+    m_Key: objective.fruits_collected
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4332125082869761
+    m_Key: info_popup.demo.fruits_collected
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4332125082869762
+    m_Key: fruit.pomegranate
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4332125082869763
+    m_Key: fruit.passion_fruit
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4332125082869764
+    m_Key: fruit.peach
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4332125082869765
+    m_Key: fruit.fig
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4332125082869766
+    m_Key: fruit.coconut
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4332125082869767
+    m_Key: fruit.mangosteen
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4332125082869768
+    m_Key: fruit.guava
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4332125082869769
+    m_Key: fruit.rambutan
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4332125082869770
+    m_Key: fruit.avocado
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

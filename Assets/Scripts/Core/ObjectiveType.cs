@@ -204,5 +204,14 @@ namespace MustyBlockBlast.Core
         /// </para>
         /// </summary>
         IceCellsCleared = 21,
+
+        /// <summary>
+        /// "Collect N of a fruit" (issue #484, Path mode only): the fruit is the objective's
+        /// <see cref="ObjectiveDefinition.RequiredColourId"/>, holding its <see cref="Collectibles"/> fruit id.
+        /// Fruits ride on dealt pieces exactly as diamonds do and are counted exactly as
+        /// <see cref="DiamondsCleared"/> counts its gems — one per fruit cell destroyed, by every destruction
+        /// path — through the same per-collectible tally; a fruit has no other effect (no score, no coin).
+        /// </summary>
+        FruitsCollected = 22,
     }
 }

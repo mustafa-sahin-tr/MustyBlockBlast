@@ -633,6 +633,16 @@ namespace MustyBlockBlast.Presentation.Views
 
             bool isComplete = objective.IsComplete;
 
+            // A fruit goal (issue #484) shows its own fruit, which the per-type glyph cannot know.
+            if (objective.Definition.Type == ObjectiveType.FruitsCollected)
+            {
+                Sprite fruit = _iconCatalog.FindFruit(objective.Definition.RequiredColourId);
+                if (fruit != null && chip.IconImage.sprite != fruit)
+                {
+                    chip.IconImage.sprite = fruit;
+                }
+            }
+
             if (chip.IconImage.sprite != null)
             {
                 // The authored art is full-colour illustration, so white — an identity multiply —

@@ -242,6 +242,9 @@ namespace MustyBlockBlast.Core
                     break;
 
                 case ObjectiveType.DiamondsCleared:
+                case ObjectiveType.FruitsCollected:
+                    // A fruit (issue #484) is counted exactly as a diamond is — it rides the same
+                    // collectible tally, its RequiredColourId holding the fruit's collectible id.
                     // The ColourCleared shape, keyed on the diamond's own colour rather than the
                     // block's: things destroyed, not events, so one placement that takes out several
                     // diamonds of the wanted colour credits every one of them. The two tallies are
@@ -475,7 +478,8 @@ namespace MustyBlockBlast.Core
         /// </summary>
         public bool ApplyPowerUpDiamondsCleared(IReadOnlyList<int> destroyedDiamondCountByColour)
         {
-            if (IsComplete || Definition.Type != ObjectiveType.DiamondsCleared)
+            if (IsComplete
+                || (Definition.Type != ObjectiveType.DiamondsCleared && Definition.Type != ObjectiveType.FruitsCollected))
             {
                 return false;
             }

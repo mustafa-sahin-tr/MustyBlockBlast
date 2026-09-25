@@ -72,7 +72,7 @@ namespace MustyBlockBlast.Presentation.Views
 
         /// <summary>Colour Cleared and Diamonds Cleared demos (issue #453), one per colour id, indexed by it.</summary>
         private readonly InfoDemoTimeline[] _colourCleared = new InfoDemoTimeline[Board.COLOUR_COUNT + 1];
-        private readonly InfoDemoTimeline[] _diamondsCleared = new InfoDemoTimeline[Board.COLOUR_COUNT + 1];
+        private readonly InfoDemoTimeline[] _diamondsCleared = new InfoDemoTimeline[Collectibles.TALLY_LENGTH];
 
         /// <summary>The counter / streak objective demos (issue #454), each cached per the parameters it draws:
         /// Piece Family per (family, target), Piece Id Count per (piece id, target), Score In Run per target,
@@ -412,7 +412,9 @@ namespace MustyBlockBlast.Presentation.Views
                 }
 
                 case ObjectiveType.DiamondsCleared:
+                case ObjectiveType.FruitsCollected:
                 {
+                    // A fruit goal (issue #484) plays the diamond demo with its fruit — the same mechanic.
                     int colourId = definition.RequiredColourId;
                     if (!DiamondsClearedInfoDemo.Supports(colourId))
                     {
