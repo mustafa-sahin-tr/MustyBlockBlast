@@ -29,17 +29,22 @@ Via `manage_build`:
 - Output format: ask the user once — **APK** (for direct install/sideload on a test device) or **AAB** (for Play Store upload) — if not already clear from context. Default to APK for local device testing since that matches "open and run on my device" workflows.
 - Keystore/signing: leave as configured. If unset and the user wants a signed release build, tell them to configure a keystore first rather than generating one automatically.
 
-### Build Type: Development (default) vs Production
+### Build Type: Development vs Production — ask the user
 
-Always pass `development` explicitly to `manage_build action:"build"` — never inherit whatever the
-Build Profile checkbox happens to be:
+**Ask first, every time the user has not already said which one.** Before building, ask:
+"Development build mi (test reklamları, kendi cihazın için) yoksa production build mi (canlı
+reklamlar, store için)?" — recommend Development. Never pick silently: the user asked to be asked,
+in case they forget to say it. Skip the question only when the request already names the type
+("development build al", "production build al", "prod build", "store build", "release build").
 
-- **Default → Development build** (`development: "true"`). Every build for the user's own devices.
+Then always pass `development` explicitly to `manage_build action:"build"` — never inherit whatever
+the Build Profile checkbox happens to be:
+
+- **Development build** (`development: "true"`) — for the user's own devices.
   `Debug.isDebugBuild` is true, so `AdMobRewardSource` and `AdMobInterstitialSource` load Google's
   **test** ad units — test creatives, no device registration needed, taps are harmless.
-- **Only when the user explicitly says "production build"** (or "prod build", "store build",
-  "release build") → **Release build** (`development: "false"`). `Debug.isDebugBuild` is false, so
-  the **live** AdMob units are used — this is the build that goes to the store.
+- **Production build** (`development: "false"`) — `Debug.isDebugBuild` is false, so the **live**
+  AdMob units are used; this is the build that goes to the store.
 
 State the build type in the report ("Development — test ads" / "Production — LIVE ads"). For a
 production build, warn the user not to tap ads when testing it on their own device.

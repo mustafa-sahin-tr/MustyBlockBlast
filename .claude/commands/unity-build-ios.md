@@ -30,17 +30,22 @@ Via `manage_build`:
 - Target devices: iPhone (confirm with user if iPad support is also expected).
 - Signing team ID: leave as configured in Xcode/Unity — this command does not manage signing. If unset, note it in the report rather than guessing a team ID.
 
-### Build Type: Development (default) vs Production
+### Build Type: Development vs Production — ask the user
 
-Always pass `development` explicitly to `manage_build action:"build"` — never inherit whatever the
-Build Profile checkbox happens to be:
+**Ask first, every time the user has not already said which one.** Before building, ask:
+"Development build mi (test reklamları, kendi cihazın için) yoksa production build mi (canlı
+reklamlar, store için)?" — recommend Development. Never pick silently: the user asked to be asked,
+in case they forget to say it. Skip the question only when the request already names the type
+("development build al", "production build al", "prod build", "store build", "release build").
 
-- **Default → Development build** (`development: "true"`). Every build for the user's own devices.
+Then always pass `development` explicitly to `manage_build action:"build"` — never inherit whatever
+the Build Profile checkbox happens to be:
+
+- **Development build** (`development: "true"`) — for the user's own devices.
   `Debug.isDebugBuild` is true, so `AdMobRewardSource` and `AdMobInterstitialSource` load Google's
   **test** ad units — test creatives, no device registration needed, taps are harmless.
-- **Only when the user explicitly says "production build"** (or "prod build", "store build",
-  "release build") → **Release build** (`development: "false"`). `Debug.isDebugBuild` is false, so
-  the **live** AdMob units are used — this is the build that goes to the store.
+- **Production build** (`development: "false"`) — `Debug.isDebugBuild` is false, so the **live**
+  AdMob units are used; this is the build that goes to the store.
 
 State the build type in the report ("Development — test ads" / "Production — LIVE ads"). For a
 production build, warn the user not to tap ads when testing it on their own device.
