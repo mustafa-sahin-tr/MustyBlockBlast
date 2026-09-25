@@ -561,6 +561,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.LineClearBurstView
   _anchoredPosition: {x: 0, y: 120}
+  _displayFont: {fileID: 12800000, guid: 0879445ee55bb4fc5bfdc99e4b94f899, type: 3}
   _durationScale: 1
   _particleScale: 1
   _flashAlpha: 0.28
