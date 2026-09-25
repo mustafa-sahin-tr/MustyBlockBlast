@@ -1,10 +1,19 @@
 ---
 name: unity-build-ios
-description: "Builds/exports the Xcode project for iOS via MCP, so it can be opened and run on a device from Xcode."
+description: "Builds/exports the Xcode project for iOS via MCP, so it can be opened and run on a device from Xcode. Pass dev or prod (e.g. /unity-build-ios dev); asks if omitted."
 user-invocable: true
+args: build_type
+argument-hint: "dev | prod"
 ---
 
 # /unity-build-ios — Export the Xcode Project
+
+Argument: **$ARGUMENTS** — the build type:
+- `dev` / `development` → Development build (Google **test** ads, for the user's own devices)
+- `prod` / `production` / `release` / `store` → Production build (**LIVE** ads, for the store)
+- empty or anything else → **ask the user** which one before doing anything (see "Build Type" below)
+
+e.g. `/unity-build-ios dev` or `/unity-build-ios prod`.
 
 Fixed-platform shortcut for `/unity-build iOS`. Builds (exports) the Xcode project only —
 it does **not** archive, sign, or run on a device. After the export finishes, the user opens
@@ -29,6 +38,26 @@ Via `manage_build`:
 - Minimum iOS version: 15.0+ unless the project already specifies otherwise (check current settings first, don't downgrade).
 - Target devices: iPhone (confirm with user if iPad support is also expected).
 - Signing team ID: leave as configured in Xcode/Unity — this command does not manage signing. If unset, note it in the report rather than guessing a team ID.
+
+### Build Type: Development vs Production — ask the user
+
+**Resolve the type from `$ARGUMENTS` first.** If it is missing or not one of the values above, ask:
+"Development build mi (test reklamları, kendi cihazın için) yoksa production build mi (canlı
+reklamlar, store için)?" — recommend Development. Never pick silently: the user asked to be asked,
+in case they forget to say it. Skip the question only when `$ARGUMENTS` or the request itself already
+names the type ("development build al", "production build al", "prod build", "store build").
+
+Then always pass `development` explicitly to `manage_build action:"build"` — never inherit whatever
+the Build Profile checkbox happens to be:
+
+- **Development build** (`development: "true"`) — for the user's own devices.
+  `Debug.isDebugBuild` is true, so `AdMobRewardSource` and `AdMobInterstitialSource` load Google's
+  **test** ad units — test creatives, no device registration needed, taps are harmless.
+- **Production build** (`development: "false"`) — `Debug.isDebugBuild` is false, so the **live**
+  AdMob units are used; this is the build that goes to the store.
+
+State the build type in the report ("Development — test ads" / "Production — LIVE ads"). For a
+production build, warn the user not to tap ads when testing it on their own device.
 
 ### Step 3: Build (Export Xcode Project)
 
@@ -82,6 +111,7 @@ build, archive, or sign anything.
 ### Step 4: Report
 
 - Build result: SUCCESS or FAILURE.
+- Build type: Development (test ads) or Production (LIVE ads).
 - Exact path to the exported Xcode project.
 - Any warnings from the build log.
 - `pod install` outcome: ran successfully / skipped (no Podfile) / needs manual CocoaPods install.

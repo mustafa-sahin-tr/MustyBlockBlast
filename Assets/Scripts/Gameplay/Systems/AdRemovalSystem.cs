@@ -32,15 +32,13 @@ namespace MustyBlockBlast.Gameplay.Systems
     /// to a server it must move for both products at once.
     /// </para>
     /// <para>
-    /// <b>What this flag gates today: nothing.</b> The game shows no forced or interstitial advertising
-    /// at all (see <c>docs/game-design.md</c> — "no forced interstitials in v1"), so there is no ad
-    /// display to suppress. The two ad seams that do exist, <see cref="IRewardSource"/> and
-    /// <see cref="ICoinRewardSource"/>, are opt-in rewarded ads the player asks for in exchange for a
-    /// power-up or coins, and they deliberately stay available after this purchase: taking them away
-    /// would make "remove ads" remove a way to earn, which is the opposite of what was bought. So this
-    /// is persisted state with no consumer yet, on purpose — the flag has to exist and survive before
-    /// anything can honour it, and the first forced-ad placement to be added will read it here rather
-    /// than inventing its own record of the purchase.
+    /// <b>What this flag gates: the forced interstitial, and only that.</b> Since issue #501 the game
+    /// shows an interstitial every few runs (see <c>docs/game-design.md</c> — "Interstitial ads"), and
+    /// <see cref="IInterstitialAdSource"/> reads this flag itself: with it set, no interstitial is ever
+    /// loaded or shown. The opt-in rewarded seams (<see cref="IRewardSource"/>,
+    /// <see cref="ICoinRewardSource"/> and the rest) deliberately stay available after this purchase:
+    /// taking them away would make "remove ads" remove a way to earn, which is the opposite of what
+    /// was bought.
     /// </para>
     /// <para>
     /// Persistence is one flat PlayerPrefs key, exactly as <see cref="ProfileSystem"/>,

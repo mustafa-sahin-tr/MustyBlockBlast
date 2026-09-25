@@ -2,7 +2,9 @@ using System;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using GoogleMobileAds.Api;
+using MessagePipe;
 using MustyBlockBlast.Gameplay;
+using MustyBlockBlast.Gameplay.Messages;
 using MustyBlockBlast.Gameplay.Systems;
 using UnityEngine;
 
@@ -88,10 +90,12 @@ namespace MustyBlockBlast.Presentation.Services
 #endif
 
         private readonly AdMobSdk _sdk;
+        private readonly IPublisher<RewardedAdShownMessage> _rewardedAdShownPublisher;
 
-        public AdMobRewardSource(AdMobSdk sdk)
+        public AdMobRewardSource(AdMobSdk sdk, IPublisher<RewardedAdShownMessage> rewardedAdShownPublisher)
         {
             _sdk = sdk;
+            _rewardedAdShownPublisher = rewardedAdShownPublisher;
         }
 
         public async UniTask<RewardResult> RequestRewardAsync(
@@ -162,7 +166,12 @@ namespace MustyBlockBlast.Presentation.Services
 
                 try
                 {
-                    return await ShowAsync(rewardedAd, cancellationToken);
+                    bool earned = await ShowAsync(rewardedAd, cancellationToken);
+
+                    // Earned or not, the player just sat through an ad (issue #502): no interstitial
+                    // should follow it straight away.
+                    _rewardedAdShownPublisher.Publish(new RewardedAdShownMessage());
+                    return earned;
                 }
                 finally
                 {

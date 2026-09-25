@@ -241,6 +241,10 @@ namespace MustyBlockBlast.Presentation
             // start gate; OutOfLivesSheetView opens on it.
             builder.RegisterMessageBroker<OutOfLivesMessage>(options);
 
+            // "A rewarded ad was on screen" (issue #502): AdMobRewardSource publishes it after any rewarded
+            // ad closes; InterstitialFrequencySystem holds back an interstitial that would follow it.
+            builder.RegisterMessageBroker<RewardedAdShownMessage>(options);
+
             // A Path level's move budget ran out short of its target (issue #465): MoveBudgetSystem
             // publishes it as the "+moves" offer opens; OutOfMovesSheetView opens on it.
             builder.RegisterMessageBroker<MovesRanOutMessage>(options);
@@ -754,6 +758,10 @@ namespace MustyBlockBlast.Presentation
             // AsSelf because SettingsPanelView asks for the concrete system — there is no second
             // implementation to hide behind an interface.
             builder.Register<AdRemovalSystem>(Lifetime.Singleton).AsSelf();
+
+            // When the forced interstitial shows (issue #502): every 3rd run end per mode, on the end-of-run
+            // card's Next level / Play again, with the early-game and after-a-rewarded-ad exemptions.
+            builder.Register<InterstitialFrequencySystem>(Lifetime.Singleton);
 
             builder.Register<PowerUpScoreSystem>(Lifetime.Singleton).AsSelf();
             builder.Register<ExplosiveCoreScoreSystem>(Lifetime.Singleton).AsSelf();
