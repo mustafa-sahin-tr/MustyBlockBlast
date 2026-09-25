@@ -124,6 +124,9 @@ namespace MustyBlockBlast.Presentation.Views
                 case ObjectiveType.IceCellsCleared:
                     return localization.Translate(LocalizationKeys.OBJECTIVE_ICE_CELLS_CLEARED);
 
+                case ObjectiveType.TimerCellsMeltedInTime:
+                    return localization.Translate(LocalizationKeys.OBJECTIVE_TIMER_CELLS_MELTED_IN_TIME);
+
                 default:
                     return string.Empty;
             }
@@ -220,6 +223,8 @@ namespace MustyBlockBlast.Presentation.Views
                     return LocalizationKeys.OBJECTIVE_NAME_DIAMONDS_CLEARED;
                 case ObjectiveType.IceCellsCleared:
                     return LocalizationKeys.OBJECTIVE_NAME_ICE_CELLS_CLEARED;
+                case ObjectiveType.TimerCellsMeltedInTime:
+                    return LocalizationKeys.OBJECTIVE_NAME_TIMER_CELLS_MELTED_IN_TIME;
                 default:
                     return LocalizationKeys.OBJECTIVE_NAME_SIMULTANEOUS_LINE_CLEAR;
             }

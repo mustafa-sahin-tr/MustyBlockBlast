@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using MustyBlockBlast.Core;
+using MustyBlockBlast.Gameplay.Models;
 using MustyBlockBlast.Gameplay.Settings;
 using UnityEngine;
 using UnityEngine.UI;
@@ -95,6 +96,7 @@ namespace MustyBlockBlast.Presentation.Views
         private readonly List<Text> _labelPool = new List<Text>(2);
         private readonly List<Outline> _labelOutlinePool = new List<Outline>(2);
         private readonly List<PieceVisual> _piecePool = new List<PieceVisual>(4);
+        private readonly List<CellLayerVisual> _cellLayerPool = new List<CellLayerVisual>(2);
 
         private float _cellPixels;
         private float _cellInset;
@@ -104,6 +106,7 @@ namespace MustyBlockBlast.Presentation.Views
         private CanvasGroup _contentGroup;
         private RectTransform _bandLayer;
         private RectTransform _blockLayer;
+        private RectTransform _cellLayerLayer;
         private RectTransform _outlineLayer;
         private RectTransform _glowLayer;
         private RectTransform _panelLayer;
@@ -135,11 +138,37 @@ namespace MustyBlockBlast.Presentation.Views
         private Outline[] _elementTextOutlines = new Outline[0];
         private PieceVisual[] _elementPieces = new PieceVisual[0];
         private Color[] _elementTints = new Color[0];
+        private CellLayerVisual[] _elementCellLayers = new CellLayerVisual[0];
+
+        /// <summary>The value each <see cref="InfoDemoElementKind.CellLayer"/> element last pushed to its
+        /// <see cref="CellView"/> (<see cref="NO_CELL_LAYER_VALUE"/> when none yet), so a frame that only
+        /// fades or scales the layer never re-calls <c>SetTimerCountdown</c> — whose number-to-text
+        /// conversion allocates — or any other layer setter.</summary>
+        private int[] _elementCellValues = new int[0];
+
+        /// <summary>The board's own diamond and timer art (issue #453), resolved through
+        /// <see cref="IInfoDemoResources"/> when a timeline that draws them binds.</summary>
+        private Sprite _diamondSprite;
+        private Sprite _timerSprite;
+        private Color _timerIconTint;
 
         private CancellationTokenSource _runCts;
         private float _elapsed;
         private bool _isPlaying;
         private bool _isDisposed;
+
+        /// <summary>No value pushed to a cell layer's <see cref="CellView"/> yet.</summary>
+        private const int NO_CELL_LAYER_VALUE = int.MinValue;
+
+        /// <summary>A pooled cell layer (issue #453): a root that moves/scales/fades as one, and the real
+        /// <see cref="CellView"/> under it whose block look is switched off so only its special-cell layers
+        /// draw.</summary>
+        private sealed class CellLayerVisual
+        {
+            internal RectTransform Root;
+            internal CanvasGroup Group;
+            internal CellView Cell;
+        }
 
         /// <summary>A pooled multi-cell piece: a root that moves/scales/fades as one, and its cells.</summary>
         private sealed class PieceVisual
@@ -293,7 +322,10 @@ namespace MustyBlockBlast.Presentation.Views
             _appliedValid[elementIndex] = true;
 
             InfoDemoElement element = _timeline.GetElement(elementIndex);
-            bool needsPaint = element.Kind == InfoDemoElementKind.BoardBlock || element.Kind == InfoDemoElementKind.Piece;
+            // A cell layer's paint is its value, and 0 is "no layer" (issue #453).
+            bool needsPaint = element.Kind == InfoDemoElementKind.BoardBlock
+                || element.Kind == InfoDemoElementKind.Piece
+                || element.Kind == InfoDemoElementKind.CellLayer;
             bool visible = state.Alpha > MIN_VISIBLE_ALPHA && (!needsPaint || state.Paint != InfoDemoPaint.NONE);
 
             RectTransform rect = _elementRects[elementIndex];
@@ -321,9 +353,28 @@ namespace MustyBlockBlast.Presentation.Views
                 {
                     PieceVisual piece = _elementPieces[elementIndex];
                     piece.Group.alpha = state.Alpha;
+                    int[] diamonds = element.CellValues;
                     for (int cellIndex = 0; cellIndex < piece.ActiveCellCount; cellIndex++)
                     {
                         PaintBlock(piece.Cells[cellIndex], state.Paint, state.Flash, 1f);
+
+                        // A decorated dock cell wears its gem exactly as the dock paints it (issue #453).
+                        if (diamonds != null && diamonds[cellIndex] != TrayModel.NO_DIAMOND)
+                        {
+                            DiamondVisuals.Apply(piece.Cells[cellIndex], diamonds[cellIndex], _theme, _diamondSprite);
+                        }
+                    }
+
+                    break;
+                }
+                case InfoDemoElementKind.CellLayer:
+                {
+                    CellLayerVisual layer = _elementCellLayers[elementIndex];
+                    layer.Group.alpha = state.Alpha;
+                    if (_elementCellValues[elementIndex] != state.Paint)
+                    {
+                        _elementCellValues[elementIndex] = state.Paint;
+                        ApplyCellLayer(layer.Cell, (InfoDemoCellLayer)element.SpriteParameter, element.Variant, state.Paint);
                     }
 
                     break;
@@ -352,6 +403,35 @@ namespace MustyBlockBlast.Presentation.Views
                     _elementImages[elementIndex].color = HudChrome.WithAlpha(colour, state.Alpha);
                     break;
                 }
+            }
+        }
+
+        /// <summary>
+        /// Shows one special-cell layer of value <paramref name="value"/> on <paramref name="cell"/> through
+        /// the same <see cref="CellView"/> call <see cref="BoardView"/> makes for it (issue #453), so the
+        /// demo's ice, armour, timer and diamond are the board's own art: <c>SetIceOverlay</c> at the
+        /// board's own maximum level, <c>SetLockedOverlay</c>, the timer's icon/glow/countdown, and
+        /// <c>DiamondVisuals.Apply</c>. Called only when the value changes (or after a repaint), never per
+        /// frame.
+        /// </summary>
+        private void ApplyCellLayer(CellView cell, InfoDemoCellLayer layer, int variant, int value)
+        {
+            switch (layer)
+            {
+                case InfoDemoCellLayer.IceSocket:
+                    cell.SetIceOverlay(value, TargetIceCellAuthoring.MAX_ICE_LEVEL);
+                    break;
+                case InfoDemoCellLayer.Armour:
+                    cell.SetLockedOverlay(variant, value);
+                    break;
+                case InfoDemoCellLayer.Timer:
+                    cell.SetSpecialIcon(_timerIconTint, _timerSprite);
+                    cell.SetSpecialGlow(BoardView.GlowTintFrom(BoardView.GlowIdentityColor(SpecialCellKind.Timer)));
+                    cell.SetTimerCountdown(value);
+                    break;
+                case InfoDemoCellLayer.Diamond:
+                    DiamondVisuals.Apply(cell, value, _theme, _diamondSprite);
+                    break;
             }
         }
 
@@ -476,6 +556,7 @@ namespace MustyBlockBlast.Presentation.Views
             for (int elementIndex = 0; elementIndex < _appliedValid.Length; elementIndex++)
             {
                 _appliedValid[elementIndex] = false;
+                _elementCellValues[elementIndex] = NO_CELL_LAYER_VALUE;
             }
         }
 
@@ -513,6 +594,8 @@ namespace MustyBlockBlast.Presentation.Views
             int ringsUsed = 0;
             int labelsUsed = 0;
             int piecesUsed = 0;
+            int cellLayersUsed = 0;
+            ResolveSpecialCellArt();
 
             for (int elementIndex = 0; elementIndex < elementCount; elementIndex++)
             {
@@ -521,6 +604,8 @@ namespace MustyBlockBlast.Presentation.Views
                 _elementTexts[elementIndex] = null;
                 _elementTextOutlines[elementIndex] = null;
                 _elementPieces[elementIndex] = null;
+                _elementCellLayers[elementIndex] = null;
+                _elementCellValues[elementIndex] = NO_CELL_LAYER_VALUE;
 
                 switch (element.Kind)
                 {
@@ -595,9 +680,19 @@ namespace MustyBlockBlast.Presentation.Views
                         for (int cellIndex = 0; cellIndex < piece.ActiveCellCount; cellIndex++)
                         {
                             SpecialPieceVisuals.ApplyGlyph(piece.Cells[cellIndex], specialKind);
+
+                            // Nor may a diamond's halo (issue #453) outlive the timeline that drew it.
+                            piece.Cells[cellIndex].ClearSpecialGlow();
                         }
 
                         _elementRects[elementIndex] = piece.Root;
+                        break;
+                    }
+                    case InfoDemoElementKind.CellLayer:
+                    {
+                        CellLayerVisual layer = TakeCellLayer(cellLayersUsed++);
+                        _elementCellLayers[elementIndex] = layer;
+                        _elementRects[elementIndex] = layer.Root;
                         break;
                     }
                 }
@@ -626,6 +721,58 @@ namespace MustyBlockBlast.Presentation.Views
             {
                 _piecePool[pieceIndex].Root.gameObject.SetActive(false);
             }
+
+            for (int layerIndex = cellLayersUsed; layerIndex < _cellLayerPool.Count; layerIndex++)
+            {
+                _cellLayerPool[layerIndex].Root.gameObject.SetActive(false);
+            }
+        }
+
+        /// <summary>The board's own diamond and timer sprites and the timer icon's tint, looked up once per
+        /// bind (issue #453). A sprite the View cannot resolve stays null, which a <see cref="CellView"/>
+        /// treats as "keep the sprite it has".</summary>
+        private void ResolveSpecialCellArt()
+        {
+            _resources.TryGetSprite(InfoDemoSprite.DiamondIcon, 0, out _diamondSprite, out Color _);
+            _resources.TryGetSprite(
+                InfoDemoSprite.SpecialCellIcon, (int)SpecialCellKind.Timer, out _timerSprite, out _timerIconTint);
+        }
+
+        /// <summary>A pooled cell layer for index <paramref name="index"/>, building it on first use: a
+        /// fading root and a real <see cref="CellView"/> the size of a demo board cell whose flat and block
+        /// looks are both transparent, and whose every special-cell layer is reset, so only what
+        /// <see cref="ApplyCellLayer"/> turns on draws.</summary>
+        private CellLayerVisual TakeCellLayer(int index)
+        {
+            CellLayerVisual layer;
+            if (index < _cellLayerPool.Count)
+            {
+                layer = _cellLayerPool[index];
+            }
+            else
+            {
+                GameObject rootObject = new GameObject($"CellLayer_{index}", typeof(RectTransform), typeof(CanvasGroup));
+                layer = new CellLayerVisual
+                {
+                    Root = (RectTransform)rootObject.transform,
+                    Group = rootObject.GetComponent<CanvasGroup>(),
+                };
+                layer.Root.SetParent(_cellLayerLayer, false);
+                HudChrome.Centre(layer.Root, new Vector2(_cellPixels, _cellPixels));
+                layer.Group.interactable = false;
+                layer.Group.blocksRaycasts = false;
+                layer.Cell = CellFactory.CreateCell(layer.Root, "LayerCell", _cellPixels, _cellInset, _cellBevel);
+                layer.Cell.SetColours(Color.clear, Color.clear);
+                _cellLayerPool.Add(layer);
+            }
+
+            CellView cell = layer.Cell;
+            cell.SetIceOverlay(0, TargetIceCellAuthoring.MAX_ICE_LEVEL);
+            cell.SetLockedOverlay(0, 0);
+            cell.ClearSpecialIcon();
+            cell.ClearSpecialGlow();
+            cell.ClearTimerCountdown();
+            return layer;
         }
 
         /// <summary>
@@ -670,6 +817,8 @@ namespace MustyBlockBlast.Presentation.Views
                     return _pieceLayer;
                 case InfoDemoElementKind.Label:
                     return _labelLayer;
+                case InfoDemoElementKind.CellLayer:
+                    return _cellLayerLayer;
                 default:
                     return _blockLayer;
             }
@@ -715,6 +864,8 @@ namespace MustyBlockBlast.Presentation.Views
             _elementTextOutlines = new Outline[elementCount];
             _elementPieces = new PieceVisual[elementCount];
             _elementTints = new Color[elementCount];
+            _elementCellLayers = new CellLayerVisual[elementCount];
+            _elementCellValues = new int[elementCount];
         }
 
         private static Image TakeImage(List<Image> pool, int index, RectTransform layer, string objectName)
@@ -899,6 +1050,7 @@ namespace MustyBlockBlast.Presentation.Views
             // stage-local space ToPixels returns.
             _bandLayer = CreateLayer(contentRect, "Bands", contentRect.anchoredPosition);
             _blockLayer = CreateLayer(contentRect, "Blocks", contentRect.anchoredPosition);
+            _cellLayerLayer = CreateLayer(contentRect, "CellLayers", contentRect.anchoredPosition);
             _outlineLayer = CreateLayer(contentRect, "Outlines", contentRect.anchoredPosition);
             _glowLayer = CreateLayer(contentRect, "Glows", contentRect.anchoredPosition);
             _panelLayer = CreateLayer(contentRect, "Panels", contentRect.anchoredPosition);

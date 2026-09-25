@@ -139,7 +139,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 149663863791617
-    m_Localized: "Llena y despeja todas las celdas del tablero a la vez, dej\xE1ndolo completamente vac\xEDo."
+    m_Localized: "Vac\xEDa todo el tablero con una sola jugada."
     m_Metadata:
       m_Items: []
   - m_Id: 149663863791618
@@ -207,15 +207,15 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 236115477913600
-    m_Localized: Completa una fila o columna que pase por una de las cuatro esquinas del tablero.
+    m_Localized: Despeja una fila o columna que pase por una esquina del tablero.
     m_Metadata:
       m_Items: []
   - m_Id: 236115591159808
-    m_Localized: "Despeja todos los bloques que est\xE9n en las celdas centrales del tablero."
+    m_Localized: "Haz una jugada que deje totalmente vac\xEDo el 4\xD74 central del tablero."
     m_Metadata:
       m_Items: []
   - m_Id: 236115591159809
-    m_Localized: "Sigue colocando piezas sin dejar nunca una celda vac\xEDa completamente aislada e inalcanzable."
+    m_Localized: "Coloca piezas seguidas sin dejar nunca una celda vac\xEDa encerrada."
     m_Metadata:
       m_Items: []
   - m_Id: 240837526020096
@@ -395,7 +395,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1371178030587925
-    m_Localized: "Despeja todos los bloques de este color \u2014 {0} \u2014 est\xE9n donde est\xE9n en el tablero."
+    m_Localized: Despeja bloques de este color {0}; cada uno destruido cuenta.
     m_Metadata:
       m_Items: []
   - m_Id: 1371178030587926
@@ -759,7 +759,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 2017094311862272
-    m_Localized: "Rompe el blindaje protector de una celda reforzada despej\xE1ndola las veces suficientes para eliminarla."
+    m_Localized: Una celda reforzada pierde una capa de blindaje por despeje y luego se rompe.
     m_Metadata:
       m_Items: []
   - m_Id: 2136016063291392
@@ -899,7 +899,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 3259943359602688
-    m_Localized: "Despeja los bloques que llevan un diamante de este color \u2014 {0} \u2014 para recogerlo. Los bloques con diamante llegan a tu bandeja mientras este objetivo est\xE9 activo."
+    m_Localized: Despeja los bloques con diamantes {0} de tu bandeja para recogerlos.
     m_Metadata:
       m_Items: []
   - m_Id: 3514168819834880
@@ -947,7 +947,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 3631194057990144
-    m_Localized: "Derrite todas las celdas de hielo llen\xE1ndolas y despejando la l\xEDnea que las cruza, capa por capa."
+    m_Localized: "Llena una celda de hielo y desp\xE9jala; cada despeje derrite una capa."
     m_Metadata:
       m_Items: []
   - m_Id: 3631194104127488
@@ -1048,6 +1048,70 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 4087913062064131
     m_Localized: "\xA1Fila vac\xEDa!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099367964672
+    m_Localized: Despeja los bloques con temporizador antes de que su cuenta llegue a 0.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931136
+    m_Localized: Derrite a tiempo
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931137
+    m_Localized: "TABLERO VAC\xCDO"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931138
+    m_Localized: ESQUINA
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931139
+    m_Localized: CENTRO
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931140
+    m_Localized: SIN HUECOS
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931141
+    m_Localized: HIELO
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931142
+    m_Localized: BLINDAJE
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931143
+    m_Localized: "\xA1Tablero vac\xEDo!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931144
+    m_Localized: "\xA1Esquina despejada!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931145
+    m_Localized: "\xA1Centro vac\xEDo!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931146
+    m_Localized: "\xA1Sin huecos!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931147
+    m_Localized: "\xA1Color despejado!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931148
+    m_Localized: "\xA1Diamantes recogidos!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931149
+    m_Localized: "\xA1Hielo derretido!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931150
+    m_Localized: "\xA1Blindaje roto!"
     m_Metadata:
       m_Items: []
   references:

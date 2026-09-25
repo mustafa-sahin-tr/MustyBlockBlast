@@ -49,5 +49,49 @@ namespace MustyBlockBlast.Presentation.Views
             builder.Fade(haloId, time, HALO_EXIT_DURATION, HALO_ALPHA, 0f);
             return time + EXIT_DURATION;
         }
+
+        /// <summary>How long a cell layer's value change pops (issue #453): a crack of the armour, a melt of
+        /// the ice, a tick of the countdown.</summary>
+        internal const float LAYER_STEP_DURATION = 0.3f;
+
+        private const float LAYER_STEP_SCALE = 1.18f;
+        private const float LAYER_APPEAR_DURATION = 0.18f;
+
+        /// <summary>
+        /// Cell layer <paramref name="layerId"/> (<see cref="InfoDemoTimelineBuilder.AddCellLayer"/>) changes to
+        /// <paramref name="value"/> at <paramref name="time"/> with a small swell and a white flash — the ice
+        /// losing a level, the armour losing a stage, the countdown ticking (issue #453). Returns the time the
+        /// pop settles.
+        /// </summary>
+        internal static float StepLayer(InfoDemoTimelineBuilder builder, int layerId, int value, float time)
+        {
+            builder.Paint(layerId, time, value);
+            builder.Scale(layerId, time, LAYER_STEP_DURATION, 1f, LAYER_STEP_SCALE, InfoDemoEasing.Pulse);
+            return time + LAYER_STEP_DURATION;
+        }
+
+        /// <summary>Cell layer <paramref name="layerId"/> goes at <paramref name="time"/> the way
+        /// <see cref="GoWithCell"/> takes an icon — it swells and fades — and then holds no value, so nothing is
+        /// left of it (issue #453: a timer or diamond cell going with its cleared block, the last level of an ice
+        /// socket melting). Returns the time it is gone.</summary>
+        internal static float LayerGoes(InfoDemoTimelineBuilder builder, int layerId, float time)
+        {
+            builder.Scale(layerId, time, EXIT_DURATION, 1f, EXIT_SCALE, InfoDemoEasing.EaseOutCubic);
+            builder.Fade(layerId, time, EXIT_DURATION, 1f, 0f, InfoDemoEasing.EaseInCubic);
+
+            float gone = time + EXIT_DURATION;
+            builder.Paint(layerId, gone, 0);
+            return gone;
+        }
+
+        /// <summary>Cell layer <paramref name="layerId"/> — added hidden (alpha 0) — appears at
+        /// <paramref name="time"/> with the landing cell's pop (issue #453: a diamond arriving on the board
+        /// with the piece that carried it).</summary>
+        internal static void LayerAppears(InfoDemoTimelineBuilder builder, int layerId, float time)
+        {
+            builder.Fade(layerId, time, 0f, 0f, 1f);
+            builder.Scale(
+                layerId, time, LAYER_APPEAR_DURATION, InfoDemoChoreography.LAND_POP_START_SCALE, 1f, InfoDemoEasing.EaseOutBack);
+        }
     }
 }

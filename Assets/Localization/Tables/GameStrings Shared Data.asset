@@ -1043,6 +1043,70 @@ MonoBehaviour:
     m_Key: info_popup.demo.row_emptied
     m_Metadata:
       m_Items: []
+  - m_Id: 4097099367964672
+    m_Key: objective.timer_cells_melted_in_time
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931136
+    m_Key: objective.name.timer_cells_melted_in_time
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931137
+    m_Key: info_popup.demo.chip.board_wipe
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931138
+    m_Key: info_popup.demo.chip.corner
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931139
+    m_Key: info_popup.demo.chip.center
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931140
+    m_Key: info_popup.demo.chip.no_holes
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931141
+    m_Key: info_popup.demo.chip.ice
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931142
+    m_Key: info_popup.demo.chip.armour
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931143
+    m_Key: info_popup.demo.board_cleared
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931144
+    m_Key: info_popup.demo.corner_cleared
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931145
+    m_Key: info_popup.demo.center_empty
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931146
+    m_Key: info_popup.demo.no_holes
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931147
+    m_Key: info_popup.demo.colour_gone
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931148
+    m_Key: info_popup.demo.diamonds_collected
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931149
+    m_Key: info_popup.demo.ice_melted
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931150
+    m_Key: info_popup.demo.armour_broken
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

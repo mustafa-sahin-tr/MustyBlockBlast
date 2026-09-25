@@ -58,6 +58,11 @@ namespace MustyBlockBlast.Presentation.Views
                     resolved = _boardView.IconSprite(cellKind);
                     tint = BoardView.IconTint(cellKind);
                     return resolved != null;
+                case InfoDemoSprite.DiamondIcon:
+                    // White: the element's paint (the gem's colour id) supplies DiamondVisuals.Tint.
+                    resolved = _boardView.IconSprite(SpecialCellKind.Diamond);
+                    tint = Color.white;
+                    return resolved != null;
                 case InfoDemoSprite.CheckMark:
                     resolved = UiSpriteFactory.CheckMark;
                     tint = Color.white;
