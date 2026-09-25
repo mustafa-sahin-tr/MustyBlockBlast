@@ -36,7 +36,12 @@ Use the `unity-build-runner` agent to:
 ### Step 2: Configure iOS Platform
 
 Via `manage_build`:
-- Switch active platform to **iOS** if not already active.
+- Switch active platform to **iOS** if not already active — **as its own step, before the build**,
+  then bring the Unity editor to the front (it only recompiles while focused) and wait until
+  `mcpforunity://editor/state` reports no compilation / domain reload pending. Google Mobile Ads'
+  `PListProcessor` (which writes `GADApplicationIdentifier` into `Info.plist`) is compiled only under
+  `#if UNITY_IOS`; building before the editor has recompiled for iOS silently skips it, and the app
+  then crashes at launch with `GADInvalidInitializationException` (happened on 2026-09-25/26).
 - Player settings: keep the existing bundle identifier (`com.mtafasahin.blockioblast`, read it from ProjectSettings first) unless the user asks to change it — do not silently overwrite it.
 - Minimum iOS version: 15.0+ unless the project already specifies otherwise (check current settings first, don't downgrade).
 - Target devices: iPhone (confirm with user if iPad support is also expected).
@@ -77,6 +82,15 @@ read_console → monitor progress and catch errors
 ```
 
 Export to the project's existing iOS build output folder if one exists (check for a prior `Builds/iOS` or similar path before creating a new one); otherwise use a sensible default and report the exact path chosen.
+
+### Step 3.1: Verify the AdMob keys landed in `Info.plist`
+
+After a successful export, check `<output_path>/Info.plist` with
+`/usr/libexec/PlistBuddy -c "Print :GADApplicationIdentifier"`. It must equal the iOS App ID in
+`Assets/GoogleMobileAds/Resources/GoogleMobileAdsSettings.asset` (`adMobIOSAppId`), and
+`SKAdNetworkItems` must exist. If they are missing, the ads package's post-processor did not run —
+the editor had not recompiled for iOS. Do **not** hand the project to the user: make sure the editor
+is on iOS and has finished compiling (see Step 2), re-export, and check again. Report the check result.
 
 ### Step 3.5: CocoaPods (`pod install`)
 
@@ -123,6 +137,7 @@ build, archive, or sign anything.
 - Build result: SUCCESS or FAILURE.
 - Build type: Development (test ads) or Production (LIVE ads).
 - Target SDK: Device or Simulator.
+- AdMob `Info.plist` check (Step 3.1): passed / failed.
 - Exact path to the exported Xcode project.
 - Any warnings from the build log.
 - `pod install` outcome: ran successfully / skipped (no Podfile) / needs manual CocoaPods install.
@@ -147,4 +162,5 @@ build, archive, or sign anything.
 | `Undefined symbol: _CGSizeFromGADAdSize` (or other GAD/UMP symbols) | `Podfile` pods weren't installed — run `pod install` in the exported folder (see Step 3.5), then open `.xcworkspace` |
 | `IPHONEOS_DEPLOYMENT_TARGET is set to 12.0, but the range of supported deployment target versions is 15.0 to ...` | A pod's build settings weren't raised to the project minimum — add the `post_install` hook from Step 3.5 to the Podfile and re-run `pod install` |
 | "`<device>`'s iOS platform doesn't match … supported platforms" (even "Any iOS Device") | Project was exported with **Simulator SDK** — set Target SDK to Device SDK (see Step 2) and re-export |
+| Launch crash `GADInvalidInitializationException` "initialized without an application ID" | `Info.plist` has no `GADApplicationIdentifier` — the export ran before the editor recompiled for iOS. Switch to iOS, let it compile (focused), re-export, verify with Step 3.1 |
 | Xcode signing errors after export | Not this command's job — open Xcode, fix signing under Signing & Capabilities |
