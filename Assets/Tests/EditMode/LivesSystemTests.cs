@@ -1,5 +1,7 @@
 using System;
 using System.Text.RegularExpressions;
+using System.Threading;
+using Cysharp.Threading.Tasks;
 using MustyBlockBlast.Gameplay;
 using MustyBlockBlast.Gameplay.Messages;
 using MustyBlockBlast.Gameplay.Models;
@@ -13,7 +15,8 @@ namespace MustyBlockBlast.Tests.EditMode
 {
     /// <summary>
     /// Covers <see cref="LivesSystem"/> (issue #477): the Path-failure charge, the rescue refund, the
-    /// hourly refill against a seeded clock, and persistence. The system is built directly with
+    /// hourly refill against a seeded clock, and persistence — and (issue #478) the start gate, the
+    /// charge the fail card reads, and the ad top-up's clamp. The system is built directly with
     /// <see cref="TestMessageBroker{TMessage}"/> stand-ins and never started, so no countdown loop runs
     /// under a test — every refill check is an explicit <see cref="LivesSystem.RefreshRefill"/>.
     /// </summary>
@@ -30,6 +33,8 @@ namespace MustyBlockBlast.Tests.EditMode
         private TestMessageBroker<GameOverMessage> _gameOverBroker;
         private TestMessageBroker<RunRescuedMessage> _runRescuedBroker;
         private TestMessageBroker<RunStartedMessage> _runStartedBroker;
+        private TestMessageBroker<OutOfLivesMessage> _outOfLivesBroker;
+        private StubLivesRewardSource _rewardSource;
         private LivesSystem _system;
         private DateTime _now;
 
@@ -51,6 +56,8 @@ namespace MustyBlockBlast.Tests.EditMode
             _gameOverBroker = new TestMessageBroker<GameOverMessage>();
             _runRescuedBroker = new TestMessageBroker<RunRescuedMessage>();
             _runStartedBroker = new TestMessageBroker<RunStartedMessage>();
+            _outOfLivesBroker = new TestMessageBroker<OutOfLivesMessage>();
+            _rewardSource = new StubLivesRewardSource(granted: true);
             _now = TenForty;
         }
 
@@ -300,7 +307,8 @@ namespace MustyBlockBlast.Tests.EditMode
             LivesModel reloadedModel = new LivesModel();
             _system = new LivesSystem(
                 reloadedModel, _config, _gameModeModel,
-                _gameOverBroker, _runRescuedBroker, _runStartedBroker, () => _now);
+                _gameOverBroker, _runRescuedBroker, _runStartedBroker,
+                _rewardSource, _outOfLivesBroker, () => _now);
 
             Assert.That(reloadedModel.CurrentLives.Value, Is.EqualTo(18));
         }
@@ -316,15 +324,234 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.That(_model.CurrentLives.Value, Is.EqualTo(20));
         }
 
+        // --- Issue #478: the start gate ---
+
+        [Test]
+        public void StartGate_AtZeroLivesInPath_RefusesAndAnnouncesIt()
+        {
+            SeedSave(0, TenForty);
+            CreateSystem();
+
+            bool passed = _system.TryPassStartGate();
+
+            Assert.That(passed, Is.False);
+            Assert.That(_outOfLivesBroker.Published.Count, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void StartGate_WithALifeLeftInPath_PassesSilentlyAndSpendsNothing()
+        {
+            SeedSave(1, TenForty);
+            CreateSystem();
+
+            bool passed = _system.TryPassStartGate();
+
+            Assert.That(passed, Is.True);
+            Assert.That(_outOfLivesBroker.Published.Count, Is.EqualTo(0));
+            Assert.That(_model.CurrentLives.Value, Is.EqualTo(1), "passing the gate is not a charge");
+        }
+
+        [TestCase(GameMode.Endless)]
+        [TestCase(GameMode.Timed)]
+        public void StartGate_OutsidePathMode_AlwaysPassesEvenAtZero(GameMode mode)
+        {
+            SeedSave(0, TenForty);
+            CreateSystem();
+            _gameModeModel.CurrentMode.Value = mode;
+
+            Assert.That(_system.TryPassStartGate(), Is.True);
+            Assert.That(_outOfLivesBroker.Published.Count, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void StartGate_PaysACrossedBoundaryBeforeDeciding()
+        {
+            SeedSave(0, TenForty);
+            CreateSystem();
+
+            // 11:00 has come since the last tick: the refill is owed, so the start is not refused.
+            _now = new DateTime(2026, 9, 25, 11, 0, 0);
+
+            Assert.That(_system.TryPassStartGate(), Is.True);
+            Assert.That(_model.CurrentLives.Value, Is.EqualTo(5));
+        }
+
+        // --- Issue #478: what the fail card reads ---
+
+        [Test]
+        public void AChargedFailure_RecordsTheCountBeforeIt_AndTheNextRunClearsIt()
+        {
+            SeedSave(17, TenForty);
+            CreateSystem();
+
+            Fail();
+            Assert.That(_model.LivesBeforeLastCharge.Value, Is.EqualTo(17));
+            Assert.That(_model.CurrentLives.Value, Is.EqualTo(16));
+
+            _runStartedBroker.Publish(new RunStartedMessage());
+            Assert.That(_model.LivesBeforeLastCharge.Value, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void AFailureAtZero_RecordsNoCharge()
+        {
+            SeedSave(0, TenForty);
+            CreateSystem();
+
+            Fail();
+
+            Assert.That(_model.LivesBeforeLastCharge.Value, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void ARefundedCharge_IsClearedToo()
+        {
+            CreateSystem();
+
+            Fail(isRescueAvailable: true);
+            _runRescuedBroker.Publish(new RunRescuedMessage());
+
+            Assert.That(_model.LivesBeforeLastCharge.Value, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void ALevelCompleted_RecordsNoCharge()
+        {
+            CreateSystem();
+
+            _gameOverBroker.Publish(new GameOverMessage(GameOverReason.LevelCompleted));
+
+            Assert.That(_model.LivesBeforeLastCharge.Value, Is.EqualTo(0));
+        }
+
+        // --- Issue #478: the ad top-up ---
+
+        [TestCase(18, 20)]
+        [TestCase(17, 20)]
+        [TestCase(15, 18)]
+        [TestCase(0, 3)]
+        public void AdGrant_AddsThree_ClampedAtTheCap(int livesBefore, int expectedLives)
+        {
+            SeedSave(livesBefore, TenForty);
+            CreateSystem();
+
+            bool granted = RequestAd();
+
+            Assert.That(granted, Is.True);
+            Assert.That(_model.CurrentLives.Value, Is.EqualTo(expectedLives));
+            Assert.That(_rewardSource.LastRequestedAmount, Is.EqualTo(3));
+        }
+
+        [TestCase(20)]
+        [TestCase(25)]
+        public void AdGrant_AtOrAboveTheCap_IsRefusedWithoutAskingTheSeam(int livesBefore)
+        {
+            SeedSave(livesBefore, TenForty);
+            CreateSystem();
+
+            Assert.That(_system.CanRequestAdLives, Is.False);
+            bool granted = RequestAd();
+
+            Assert.That(granted, Is.False);
+            Assert.That(_model.CurrentLives.Value, Is.EqualTo(livesBefore), "never raised, never lowered");
+            Assert.That(_rewardSource.RequestCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void AdGrant_Declined_GrantsNothing()
+        {
+            SeedSave(4, TenForty);
+            _rewardSource = new StubLivesRewardSource(granted: false);
+            CreateSystem();
+
+            bool granted = RequestAd();
+
+            Assert.That(granted, Is.False);
+            Assert.That(_model.CurrentLives.Value, Is.EqualTo(4));
+            Assert.That(_rewardSource.RequestCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void AdGrant_IsPersisted()
+        {
+            SeedSave(2, TenForty);
+            CreateSystem();
+
+            RequestAd();
+            _system.Dispose();
+            _system = null;
+
+            LivesModel reloadedModel = new LivesModel();
+            _system = new LivesSystem(
+                reloadedModel, _config, _gameModeModel,
+                _gameOverBroker, _runRescuedBroker, _runStartedBroker,
+                _rewardSource, _outOfLivesBroker, () => _now);
+
+            Assert.That(reloadedModel.CurrentLives.Value, Is.EqualTo(5));
+        }
+
+        [Test]
+        public void AdGrant_ASourceOverpaying_IsStillClampedAtTheCap()
+        {
+            SeedSave(10, TenForty);
+            _rewardSource = new StubLivesRewardSource(granted: true, amountOverride: 1000);
+            CreateSystem();
+
+            RequestAd();
+
+            Assert.That(_model.CurrentLives.Value, Is.EqualTo(20));
+        }
+
+        [Test]
+        public void AdGrant_LiftsTheZeroGate()
+        {
+            SeedSave(0, TenForty);
+            CreateSystem();
+            Assert.That(_system.TryPassStartGate(), Is.False);
+
+            RequestAd();
+
+            Assert.That(_system.TryPassStartGate(), Is.True);
+        }
+
+        private bool RequestAd() => _system.RequestAdLivesAsync(CancellationToken.None).GetAwaiter().GetResult();
+
         private void CreateSystem()
         {
             _system = new LivesSystem(
                 _model, _config, _gameModeModel,
-                _gameOverBroker, _runRescuedBroker, _runStartedBroker, () => _now);
+                _gameOverBroker, _runRescuedBroker, _runStartedBroker,
+                _rewardSource, _outOfLivesBroker, () => _now);
         }
 
         private void Fail(bool isRescueAvailable = false)
             => _gameOverBroker.Publish(new GameOverMessage(GameOverReason.NoMovesLeft, isRescueAvailable));
+
+        /// <summary>The lives ad seam's stand-in: answers at once with the grant it was built with, and
+        /// counts what it was asked for so a test can prove the seam was — or was not — reached.</summary>
+        private sealed class StubLivesRewardSource : ILivesRewardSource
+        {
+            private readonly bool _granted;
+            private readonly int _amountOverride;
+
+            internal StubLivesRewardSource(bool granted, int amountOverride = 0)
+            {
+                _granted = granted;
+                _amountOverride = amountOverride;
+            }
+
+            internal int RequestCount { get; private set; }
+
+            internal int LastRequestedAmount { get; private set; }
+
+            public UniTask<LivesRewardResult> RequestLivesRewardAsync(int amount, CancellationToken cancellationToken)
+            {
+                RequestCount++;
+                LastRequestedAmount = amount;
+                int paid = _granted ? (_amountOverride > 0 ? _amountOverride : amount) : 0;
+                return UniTask.FromResult(new LivesRewardResult(paid, _granted));
+            }
+        }
 
         private static void SeedSave(int lives, DateTime lastCheck)
         {

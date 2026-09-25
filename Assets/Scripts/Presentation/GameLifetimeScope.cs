@@ -179,7 +179,9 @@ namespace MustyBlockBlast.Presentation
 
                 // Loads the saved lives and subscribes in its constructor (issue #477), so it must be
                 // listening before the first Path run can fail — the same reason as the line above. Its
-                // countdown loop starts later, from IStartable, like any entry point.
+                // countdown loop starts later, from IStartable, like any entry point. (LevelProgressionSystem
+                // above already pulled it in as its start gate, issue #478; this line stays as the
+                // explicit statement of the requirement.)
                 container.Resolve<LivesSystem>();
 
                 // Subscribes in its constructor and loads the lifetime counters there too, so it must
@@ -211,6 +213,10 @@ namespace MustyBlockBlast.Presentation
             // on an accepted rescue; TimerRunSystem releases the clock on it. The end-of-run card and
             // the strip will listen too once #371 wires the offer's UI.
             builder.RegisterMessageBroker<RunRescuedMessage>(options);
+
+            // Path's "a start was refused at zero lives" (issue #478): LivesSystem publishes it from its
+            // start gate; OutOfLivesSheetView opens on it.
+            builder.RegisterMessageBroker<OutOfLivesMessage>(options);
 
             // Timed mode's "a line clear gave the clock seconds back" (issue #319): TimerRunSystem
             // publishes it after extending the countdown; TimerHudView flashes the "+Ns" on it.
@@ -612,13 +618,19 @@ namespace MustyBlockBlast.Presentation
             // item — and its presence is what makes BoardSystem mark a NoMovesLeft ending rescuable.
             builder.Register<DeterministicRescueRewardSource>(Lifetime.Singleton)
                 .As<IRescueRewardSource>().AsSelf();
+
+            // The fourth seam of the same stub (issue #478): the out-of-lives sheet's "Watch ad", which
+            // pays Path lives. Its own interface because a life is neither a coin nor an item.
+            builder.Register<DeterministicLivesRewardSource>(Lifetime.Singleton)
+                .As<ILivesRewardSource>().AsSelf();
 #else
-            // The real thing on Android and iOS devices (issue #380): Google AdMob behind all three
-            // seams. One class because the three are one mechanic underneath — load a rewarded ad, show
+            // The real thing on Android and iOS devices (issue #380): Google AdMob behind all four
+            // seams (the lives one since issue #478). One class because the three are one mechanic underneath — load a rewarded ad, show
             // it, pay only on the SDK's reward-earned callback — and the only type in the project that
             // touches the ad SDK. Live App IDs/unit ids per platform; see the class for the swap-out note.
             builder.Register<AdMobRewardSource>(Lifetime.Singleton)
-                .As<IRewardSource>().As<ICoinRewardSource>().As<IRescueRewardSource>().AsSelf();
+                .As<IRewardSource>().As<ICoinRewardSource>().As<IRescueRewardSource>().As<ILivesRewardSource>()
+                .AsSelf();
 
             // Runs consent + SDK init at boot rather than on the player's first reward request, per
             // Google's own latency guidance. AsSelf above is what lets this take the concrete type
@@ -807,6 +819,11 @@ namespace MustyBlockBlast.Presentation
             // next level actions together. Opens on GameOverMessage; BoardInputView routes every tap
             // into it while it is up and carries out the action it resolves.
             builder.RegisterComponentInHierarchy<RunResultView>();
+
+            // The out-of-lives sheet (issue #478). Opens on OutOfLivesMessage or a tap on the HUD's lives
+            // section; BoardInputView routes every tap into it while it is up, above the level-start and
+            // end-of-run cards it opens over.
+            builder.RegisterComponentInHierarchy<OutOfLivesSheetView>();
             builder.RegisterComponentInHierarchy<BoardInputView>();
             builder.RegisterComponentInHierarchy<SfxPlayerView>();
             builder.RegisterComponentInHierarchy<MusicPlayerView>();

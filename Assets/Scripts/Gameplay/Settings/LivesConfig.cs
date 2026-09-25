@@ -3,8 +3,9 @@ using UnityEngine;
 namespace MustyBlockBlast.Gameplay.Settings
 {
     /// <summary>
-    /// The Path-mode lives economy's three numbers (issue #477): how many lives the hourly refill tops
-    /// up to, how many each refill grants, and how many a new install starts with. Static config, so
+    /// The Path-mode lives economy's numbers (issue #477): how many lives the hourly refill tops up to,
+    /// how many each refill grants, how many a new install starts with — and, since issue #478, how
+    /// many one rewarded ad on the out-of-lives sheet pays. Static config, so
     /// it lives in a ScriptableObject for the reason <see cref="CurrencyConfig"/> does: retuning it is
     /// an asset edit, never a code change.
     /// <para>
@@ -26,6 +27,10 @@ namespace MustyBlockBlast.Gameplay.Settings
         [Tooltip("Lives a device with no saved lives starts with — new and existing installs alike.")]
         [SerializeField] private int _startingLives = 20;
 
+        [Tooltip("Lives one rewarded ad on the out-of-lives sheet grants, clamped at the cap. The ad is "
+            + "not offered at all while lives are at or above the cap.")]
+        [SerializeField] private int _adRewardAmount = 3;
+
         /// <summary>
         /// What the hourly refill tops up to. At least 1: a zero cap would make the refill a no-op
         /// forever, which is spelled by setting the refill amount to zero, not by an unreachable cap.
@@ -38,5 +43,9 @@ namespace MustyBlockBlast.Gameplay.Settings
 
         /// <summary>Lives a first launch starts with. Never negative, for the reason the refill is not.</summary>
         public int StartingLives => Mathf.Max(0, _startingLives);
+
+        /// <summary>Lives one watched ad asks for (issue #478). At least 1: an ad that pays nothing is not
+        /// an offer, and the sheet would be showing a button that does nothing.</summary>
+        public int AdRewardAmount => Mathf.Max(1, _adRewardAmount);
     }
 }

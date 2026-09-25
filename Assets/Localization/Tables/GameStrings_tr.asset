@@ -1147,27 +1147,27 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984066
-    m_Localized: "\u0130lk denemede seri {0} \u00b7 +{1}"
+    m_Localized: "\u0130lk denemede seri {0} \xB7 +{1}"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984067
-    m_Localized: "Papatya Tepesi"
+    m_Localized: Papatya Tepesi
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984068
-    m_Localized: "Yonca Deresi"
+    m_Localized: Yonca Deresi
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984069
-    m_Localized: "G\u00fcne\u015fli K\u00f6pr\u00fc"
+    m_Localized: "G\xFCne\u015Fli K\xF6pr\xFC"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984070
-    m_Localized: "D\u00fc\u011f\u00fcn\u00e7i\u00e7e\u011fi Yolu"
+    m_Localized: "D\xFC\u011F\xFCn\xE7i\xE7e\u011Fi Yolu"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984071
-    m_Localized: "S\u00f6\u011f\u00fct G\u00f6leti"
+    m_Localized: "S\xF6\u011F\xFCt G\xF6leti"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984072
@@ -1175,43 +1175,43 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984073
-    m_Localized: "Karahindiba R\u00fczg\u00e2r\u0131"
+    m_Localized: "Karahindiba R\xFCzg\xE2r\u0131"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984074
-    m_Localized: "Gelincik Vadisi"
+    m_Localized: Gelincik Vadisi
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984075
-    m_Localized: "G\u00f6kku\u015fa\u011f\u0131 \u00c7ay\u0131"
+    m_Localized: "G\xF6kku\u015Fa\u011F\u0131 \xC7ay\u0131"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984076
-    m_Localized: "\u00c7ay\u0131r Tac\u0131"
+    m_Localized: "\xC7ay\u0131r Tac\u0131"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984077
-    m_Localized: "K\u0131ra\u011f\u0131 \u00c7am\u0131"
+    m_Localized: "K\u0131ra\u011F\u0131 \xC7am\u0131"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984078
-    m_Localized: "Kardelen Yolu"
+    m_Localized: Kardelen Yolu
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984079
-    m_Localized: "Buz Sa\u00e7a\u011f\u0131 S\u0131rt\u0131"
+    m_Localized: "Buz Sa\xE7a\u011F\u0131 S\u0131rt\u0131"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984080
-    m_Localized: "Kutup G\u00f6l\u00fc"
+    m_Localized: "Kutup G\xF6l\xFC"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984081
-    m_Localized: "Eldiven Tepesi"
+    m_Localized: Eldiven Tepesi
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984082
-    m_Localized: "Tipi Ge\u00e7idi"
+    m_Localized: "Tipi Ge\xE7idi"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984083
@@ -1219,7 +1219,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984084
-    m_Localized: "Kutup I\u015f\u0131\u011f\u0131 Zirvesi"
+    m_Localized: "Kutup I\u015F\u0131\u011F\u0131 Zirvesi"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984085
@@ -1227,27 +1227,27 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984086
-    m_Localized: "K\u0131\u015f Zirvesi"
+    m_Localized: "K\u0131\u015F Zirvesi"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984087
-    m_Localized: "Ana Cadde"
+    m_Localized: Ana Cadde
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984088
-    m_Localized: "Fenerli Sokak"
+    m_Localized: Fenerli Sokak
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984089
-    m_Localized: "Tramvay K\u00f6\u015fesi"
+    m_Localized: "Tramvay K\xF6\u015Fesi"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984090
-    m_Localized: "Sil\u00fcet Manzaras\u0131"
+    m_Localized: "Sil\xFCet Manzaras\u0131"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984091
-    m_Localized: "\u00c7e\u015fme Meydan\u0131"
+    m_Localized: "\xC7e\u015Fme Meydan\u0131"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984092
@@ -1255,7 +1255,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984093
-    m_Localized: "Saat Kulesi"
+    m_Localized: Saat Kulesi
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984094
@@ -1263,35 +1263,35 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984095
-    m_Localized: "Liman I\u015f\u0131klar\u0131"
+    m_Localized: "Liman I\u015F\u0131klar\u0131"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984096
-    m_Localized: "B\u00fcy\u00fck Stadyum"
+    m_Localized: "B\xFCy\xFCk Stadyum"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984097
-    m_Localized: "F\u0131r\u0131n K\u00f6\u015fesi"
+    m_Localized: "F\u0131r\u0131n K\xF6\u015Fesi"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984098
-    m_Localized: "Okul Bah\u00e7esi"
+    m_Localized: "Okul Bah\xE7esi"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984099
-    m_Localized: "Ak\u00e7aa\u011fa\u00e7 Soka\u011f\u0131"
+    m_Localized: "Ak\xE7aa\u011Fa\xE7 Soka\u011F\u0131"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984100
-    m_Localized: "Bah\u00e7e Kap\u0131s\u0131"
+    m_Localized: "Bah\xE7e Kap\u0131s\u0131"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984101
-    m_Localized: "K\u00f6\u015fe Bakkal"
+    m_Localized: "K\xF6\u015Fe Bakkal"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984102
-    m_Localized: "K\u00fct\u00fcphane Yolu"
+    m_Localized: "K\xFCt\xFCphane Yolu"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984103
@@ -1299,15 +1299,15 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984104
-    m_Localized: "Postane"
+    m_Localized: Postane
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984105
-    m_Localized: "A\u011fa\u00e7 Ev"
+    m_Localized: "A\u011Fa\xE7 Ev"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984106
-    m_Localized: "Mahalle \u015eenli\u011fi"
+    m_Localized: "Mahalle \u015Eenli\u011Fi"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984107
@@ -1319,31 +1319,31 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984109
-    m_Localized: "De\u011firmen Deresi"
+    m_Localized: "De\u011Firmen Deresi"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984110
-    m_Localized: "Meyve Bah\u00e7esi"
+    m_Localized: "Meyve Bah\xE7esi"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984111
-    m_Localized: "Ay\u00e7i\u00e7e\u011fi Tepesi"
+    m_Localized: "Ay\xE7i\xE7e\u011Fi Tepesi"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984112
-    m_Localized: "Tilki Kovu\u011fu"
+    m_Localized: "Tilki Kovu\u011Fu"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984113
-    m_Localized: "B\u00f6\u011f\u00fcrtlen Bah\u00e7esi"
+    m_Localized: "B\xF6\u011F\xFCrtlen Bah\xE7esi"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984114
-    m_Localized: "\u00c7ak\u0131l Ge\u00e7idi"
+    m_Localized: "\xC7ak\u0131l Ge\xE7idi"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984115
-    m_Localized: "Tarlaku\u015fu \u00c7ay\u0131r\u0131"
+    m_Localized: "Tarlaku\u015Fu \xC7ay\u0131r\u0131"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984116
@@ -1351,11 +1351,11 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984117
-    m_Localized: "Kar Tanesi Vadisi"
+    m_Localized: Kar Tanesi Vadisi
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984118
-    m_Localized: "Donmu\u015f \u015eelale"
+    m_Localized: "Donmu\u015F \u015Eelale"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984119
@@ -1363,19 +1363,19 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984120
-    m_Localized: "Kakao Kul\u00fcbesi"
+    m_Localized: "Kakao Kul\xFCbesi"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984121
-    m_Localized: "Kristal Ma\u011fara"
+    m_Localized: "Kristal Ma\u011Fara"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984122
-    m_Localized: "Penguen Burnu"
+    m_Localized: Penguen Burnu
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984123
-    m_Localized: "Kuzey I\u015f\u0131klar\u0131"
+    m_Localized: "Kuzey I\u015F\u0131klar\u0131"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984124
@@ -1383,7 +1383,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984125
-    m_Localized: "\u00c7\u0131\u011f S\u0131rt\u0131"
+    m_Localized: "\xC7\u0131\u011F S\u0131rt\u0131"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984126
@@ -1391,15 +1391,15 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984127
-    m_Localized: "Otob\u00fcs Dura\u011f\u0131"
+    m_Localized: "Otob\xFCs Dura\u011F\u0131"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984128
-    m_Localized: "K\u00f6pr\u00fc Caddesi"
+    m_Localized: "K\xF6pr\xFC Caddesi"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984129
-    m_Localized: "\u00c7at\u0131 Bah\u00e7esi"
+    m_Localized: "\xC7at\u0131 Bah\xE7esi"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984130
@@ -1407,15 +1407,15 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984131
-    m_Localized: "M\u00fcze Merdivenleri"
+    m_Localized: "M\xFCze Merdivenleri"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984132
-    m_Localized: "Sinema Soka\u011f\u0131"
+    m_Localized: "Sinema Soka\u011F\u0131"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984133
-    m_Localized: "G\u00f6kdelen"
+    m_Localized: "G\xF6kdelen"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984134
@@ -1423,11 +1423,11 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984135
-    m_Localized: "Fener \u015eenli\u011fi"
+    m_Localized: "Fener \u015Eenli\u011Fi"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984136
-    m_Localized: "\u015eehir Tac\u0131"
+    m_Localized: "\u015Eehir Tac\u0131"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984137
@@ -1435,23 +1435,23 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984138
-    m_Localized: "Evcil Hayvan D\u00fckk\u00e2n\u0131"
+    m_Localized: "Evcil Hayvan D\xFCkk\xE2n\u0131"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984139
-    m_Localized: "Bisiklet Yolu"
+    m_Localized: Bisiklet Yolu
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984140
-    m_Localized: "\u00c7i\u00e7ek\u00e7i Tezg\u00e2h\u0131"
+    m_Localized: "\xC7i\xE7ek\xE7i Tezg\xE2h\u0131"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984141
-    m_Localized: "Oyuncak\u00e7\u0131"
+    m_Localized: "Oyuncak\xE7\u0131"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984142
-    m_Localized: "Otob\u00fcs Garaj\u0131"
+    m_Localized: "Otob\xFCs Garaj\u0131"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984143
@@ -1463,39 +1463,39 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984145
-    m_Localized: "\u00c7at\u0131lar"
+    m_Localized: "\xC7at\u0131lar"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984146
-    m_Localized: "Sokak Partisi"
+    m_Localized: Sokak Partisi
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984147
-    m_Localized: "Sabah \u00c7iyi"
+    m_Localized: "Sabah \xC7iyi"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984148
-    m_Localized: "Kelebek A\u00e7\u0131kl\u0131\u011f\u0131"
+    m_Localized: "Kelebek A\xE7\u0131kl\u0131\u011F\u0131"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984149
-    m_Localized: "Ya\u015fl\u0131 Me\u015fe"
+    m_Localized: "Ya\u015Fl\u0131 Me\u015Fe"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984150
-    m_Localized: "Saman \u00c7iftli\u011fi"
+    m_Localized: "Saman \xC7iftli\u011Fi"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984151
-    m_Localized: "Yelde\u011firmeni Tepesi"
+    m_Localized: "Yelde\u011Firmeni Tepesi"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984152
-    m_Localized: "G\u00fcnbat\u0131m\u0131 Meras\u0131"
+    m_Localized: "G\xFCnbat\u0131m\u0131 Meras\u0131"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984153
-    m_Localized: "Ate\u015fb\u00f6ce\u011fi Tarlas\u0131"
+    m_Localized: "Ate\u015Fb\xF6ce\u011Fi Tarlas\u0131"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984154
@@ -1503,35 +1503,35 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984155
-    m_Localized: "U\u00e7urtma Tepesi"
+    m_Localized: "U\xE7urtma Tepesi"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984156
-    m_Localized: "Alt\u0131n \u00c7ay\u0131r"
+    m_Localized: "Alt\u0131n \xC7ay\u0131r"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984157
-    m_Localized: "Sessiz Kar"
+    m_Localized: Sessiz Kar
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984158
-    m_Localized: "Ayaz Feneri"
+    m_Localized: Ayaz Feneri
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984159
-    m_Localized: "Buz Pisti"
+    m_Localized: Buz Pisti
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984160
-    m_Localized: "Kar Kalesi"
+    m_Localized: Kar Kalesi
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984161
-    m_Localized: "Y\u0131ld\u0131zl\u0131 Yama\u00e7"
+    m_Localized: "Y\u0131ld\u0131zl\u0131 Yama\xE7"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984162
-    m_Localized: "Donmu\u015f Liman"
+    m_Localized: "Donmu\u015F Liman"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984163
@@ -1543,111 +1543,111 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984165
-    m_Localized: "Kutup Gecesi"
+    m_Localized: Kutup Gecesi
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984166
-    m_Localized: "Son Zirve"
+    m_Localized: Son Zirve
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984167
-    m_Localized: "\u00c7ay\u0131r"
+    m_Localized: "\xC7ay\u0131r"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984168
-    m_Localized: "K\u0131\u015f"
+    m_Localized: "K\u0131\u015F"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984169
-    m_Localized: "\u015eehir"
+    m_Localized: "\u015Eehir"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984170
-    m_Localized: "Mahalle"
+    m_Localized: Mahalle
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984171
-    m_Localized: "{0} \u00b7 Seviye {1}"
+    m_Localized: "{0} \xB7 Seviye {1}"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984172
-    m_Localized: "Kilometre ta\u015f\u0131"
+    m_Localized: "Kilometre ta\u015F\u0131"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984173
-    m_Localized: "GE\u00c7 VE KAZAN"
+    m_Localized: "GE\xC7 VE KAZAN"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984174
-    m_Localized: "K\u0130L\u0130TL\u0130 \u00b7 GE\u00c7 VE KAZAN"
+    m_Localized: "K\u0130L\u0130TL\u0130 \xB7 GE\xC7 VE KAZAN"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984175
-    m_Localized: "\u00d6D\u00dcLLER \u00b7 ALINDI"
+    m_Localized: "\xD6D\xDCLLER \xB7 ALINDI"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984176
-    m_Localized: "\u0130lk deneme serisi \u00b7 \u015fu an {0}"
+    m_Localized: "\u0130lk deneme serisi \xB7 \u015Fu an {0}"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984177
-    m_Localized: "\u0130lk deneme serisi \u00b7 bu ge\u00e7i\u015fle {0}"
+    m_Localized: "\u0130lk deneme serisi \xB7 bu ge\xE7i\u015Fle {0}"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984178
-    m_Localized: "\u0130lk deneme serisi \u00b7 tekrarlar say\u0131lmaz"
+    m_Localized: "\u0130lk deneme serisi \xB7 tekrarlar say\u0131lmaz"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984179
-    m_Localized: "{1}'TE +{0}"
+    m_Localized: '{1}''TE +{0}'
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984180
-    m_Localized: "+{0} BONUS"
+    m_Localized: +{0} BONUS
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984181
-    m_Localized: "G\u00dc\u00c7LER\u0130N"
+    m_Localized: "G\xDC\xC7LER\u0130N"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984183
-    m_Localized: "A\u00e7mak i\u00e7in Seviye {0}'\u0131 ge\u00e7"
+    m_Localized: "A\xE7mak i\xE7in Seviye {0}'\u0131 ge\xE7"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984184
-    m_Localized: "Ba\u015fla"
+    m_Localized: "Ba\u015Fla"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984185
-    m_Localized: "Ba\u015fla \u00b7 {0} ek"
+    m_Localized: "Ba\u015Fla \xB7 {0} ek"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984186
-    m_Localized: "Tekrar Oyna"
+    m_Localized: Tekrar Oyna
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984187
-    m_Localized: "Reklam izle"
+    m_Localized: Reklam izle
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984188
-    m_Localized: "Alt\u0131n h\u00fccre ek"
+    m_Localized: "Alt\u0131n h\xFCcre ek"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984189
-    m_Localized: "{0} hak birikti"
+    m_Localized: '{0} hak birikti'
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984190
-    m_Localized: "Alt\u0131n h\u00fccreler ekilemedi. Haklar\u0131n duruyor."
+    m_Localized: "Alt\u0131n h\xFCcreler ekilemedi. Haklar\u0131n duruyor."
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984191
-    m_Localized: "Bu seviye \u015fu an ba\u015flat\u0131lam\u0131yor."
+    m_Localized: "Bu seviye \u015Fu an ba\u015Flat\u0131lam\u0131yor."
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984192
-    m_Localized: "KAZANDIN!"
+    m_Localized: KAZANDIN!
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984193
@@ -1655,7 +1655,59 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984194
-    m_Localized: "SONRAK\u0130 \u00b7 {0}"
+    m_Localized: "SONRAK\u0130 \xB7 {0}"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4289495674380288
+    m_Localized: '{0} / {1} can'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4289495720517632
+    m_Localized: "Kazanmak bedava. Bu b\xF6l\xFCm\xFC kaybetmek 1 cana mal olur."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4289495720517633
+    m_Localized: CANIN KALMADI
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4289495720517634
+    m_Localized: CANLAR
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4289495720517635
+    m_Localized: "SONRAK\u0130 +{0} CANA KALAN"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4289495720517636
+    m_Localized: "Her saat ba\u015F\u0131 {0} can yenilenir, en fazla {1} olur. Ya da hemen \u015Fimdi al:"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4289495720517637
+    m_Localized: Reklam izle
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4289495720517638
+    m_Localized: Canlar dolu
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4289495720517639
+    m_Localized: "\u015Eu an reklam yok. Birazdan tekrar dene."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4289495720517640
+    m_Localized: "\u015E\xF6len ve Klasik modlar can kullanmaz."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4289495720517641
+    m_Localized: Bir can kaybettin
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4289495720517642
+    m_Localized: "{0} \u2192 {1} can"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4289495720517643
+    m_Localized: "{1} i\xE7inde +{0}"
     m_Metadata:
       m_Items: []
   references:

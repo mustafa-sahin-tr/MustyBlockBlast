@@ -185,6 +185,7 @@ MonoBehaviour:
   _trophySprite: {fileID: 21300000, guid: d8372834e562f4948bd9696e268073d3, type: 3}
   _clockSprite: {fileID: 21300000, guid: 81df2d59ed6e24011a379b7a4e619259, type: 3}
   _coinSprite: {fileID: 21300000, guid: ef1b23357960542ca8a3614b7fbc2837, type: 3}
+  _heartSprite: {fileID: 21300000, guid: 2dbf5b39c82b24b0684829f33b0d5125, type: 3}
 --- !u!1 &201649901
 GameObject:
   m_ObjectHideFlags: 0
@@ -864,6 +865,64 @@ MonoBehaviour:
   _sectionFontSize: 30
   _rowFontSize: 32
   _scrimColour: {r: 0.17, g: 0.15, b: 0.2, a: 0.55}
+--- !u!1 &682877584
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 682877585}
+  - component: {fileID: 682877586}
+  m_Layer: 0
+  m_Name: OutOfLivesSheet
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &682877585
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 682877584}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1595068338}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &682877586
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 682877584}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 10db9225cf96849ba924ad50824dab50, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.OutOfLivesSheetView
+  _displayFont: {fileID: 12800000, guid: 0879445ee55bb4fc5bfdc99e4b94f899, type: 3}
+  _bodyFont: {fileID: 12800000, guid: 6537f3bea187e4d82b1d0969d9d00fa6, type: 3}
+  _titleFontSize: 64
+  _heartCountFontSize: 72
+  _countdownFontSize: 84
+  _bodyFontSize: 32
+  _buttonFontSize: 40
+  _buttonSprite: {fileID: 21300000, guid: be54dd355e70442e6885fd6762cac582, type: 3}
+  _heartSprite: {fileID: 21300000, guid: 2dbf5b39c82b24b0684829f33b0d5125, type: 3}
+  _scrimColour: {r: 0.08, g: 0.09, b: 0.16, a: 0.58}
 --- !u!1 &737113204
 GameObject:
   m_ObjectHideFlags: 0
@@ -1519,6 +1578,7 @@ MonoBehaviour:
   _coinSprite: {fileID: 21300000, guid: ef1b23357960542ca8a3614b7fbc2837, type: 3}
   _coinCellSprite: {fileID: 21300000, guid: 268a8cfa1d5d54ed193641c4b8a91502, type: 3}
   _flameSprite: {fileID: 21300000, guid: 42fc2fb984c9e44c484a75a2089ae62e, type: 3}
+  _heartSprite: {fileID: 21300000, guid: 2dbf5b39c82b24b0684829f33b0d5125, type: 3}
   _scrimColour: {r: 0.08, g: 0.09, b: 0.16, a: 0.58}
 --- !u!1 &1102059201
 GameObject:
@@ -2536,6 +2596,7 @@ RectTransform:
   - {fileID: 1101196077}
   - {fileID: 759772934}
   - {fileID: 98212318}
+  - {fileID: 682877585}
   - {fileID: 1934059591}
   - {fileID: 1448311301}
   - {fileID: 1375135744}

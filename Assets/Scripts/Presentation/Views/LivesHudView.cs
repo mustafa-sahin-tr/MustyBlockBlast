@@ -25,7 +25,13 @@ namespace MustyBlockBlast.Presentation.Views
     /// A fixed-width section: the countdown's digits are proportional, and re-measuring the bar every
     /// second as "10:59" became "10:58" would re-pack the chips beside it for nothing. Parented onto
     /// <see cref="ObjectiveIconContainerView.TrailingSlot"/> in <see cref="Start"/> rather than Awake,
-    /// for the reason <see cref="LevelPathButtonView"/> is. Non-interactive throughout.
+    /// for the reason <see cref="LevelPathButtonView"/> is.
+    /// </para>
+    /// <para>
+    /// Tappable since issue #478: a tap on the section opens the out-of-lives sheet. Like every HUD
+    /// widget here it answers a hit test (<see cref="ContainsScreenPoint"/>) for
+    /// <see cref="BoardInputView"/> rather than taking raycasts itself, which is why its CanvasGroup
+    /// still blocks none.
     /// </para>
     /// </summary>
     [DisallowMultipleComponent]
@@ -69,6 +75,7 @@ namespace MustyBlockBlast.Presentation.Views
         private SettingsModel _settingsModel;
         private ObjectiveIconContainerView _objectiveIconContainerView;
 
+        private Canvas _canvas;
         private RectTransform _rect;
         private CanvasGroup _group;
         private RectTransform _heartRect;
@@ -93,7 +100,11 @@ namespace MustyBlockBlast.Presentation.Views
             _objectiveIconContainerView = objectiveIconContainerView;
         }
 
-        private void Awake() => BuildSection();
+        private void Awake()
+        {
+            _canvas = GetComponentInParent<Canvas>();
+            BuildSection();
+        }
 
         private void Start()
         {
@@ -114,6 +125,25 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         private void OnDestroy() => _disposables.Dispose();
+
+        /// <summary>
+        /// Whether <paramref name="screenPosition"/> lands on the section — false whenever it is hidden
+        /// (outside Path mode), so a tap there can never open a sheet about lives the mode does not use.
+        /// Read by <see cref="BoardInputView"/> in its HUD-icon tier.
+        /// </summary>
+        internal bool ContainsScreenPoint(Vector2 screenPosition)
+        {
+            if (_rect == null || !_isVisible)
+            {
+                return false;
+            }
+
+            Camera eventCamera = _canvas != null && _canvas.renderMode != RenderMode.ScreenSpaceOverlay
+                ? _canvas.worldCamera
+                : null;
+
+            return RectTransformUtility.RectangleContainsScreenPoint(_rect, screenPosition, eventCamera);
+        }
 
         private void OnThemeChanged(ThemeDefinition theme)
         {

@@ -109,6 +109,25 @@ namespace MustyBlockBlast.Presentation.Views
         /// card's own count-up length (<see cref="ScoreView"/>), so the two read as the same gesture.</summary>
         private const float COIN_COUNT_UP_DURATION = 0.4f;
 
+        /// <summary>The fail card's life row (issue #478): the coin box's footprint, in the lives pink.</summary>
+        private const float LIVES_HEART_SIZE = 84f;
+        private const float LIVES_BADGE_SIZE = 46f;
+        private const float LIVES_ROW_OUTLINE = 4f;
+
+        /// <summary>Between the count change and the refill countdown on the life row's detail line. A
+        /// symbol, not a word — nothing here for a translator.</summary>
+        private const string LIVES_DETAIL_SEPARATOR = " · ";
+
+        /// <summary>The badge on the life row's heart. A minus sign and a digit: the same everywhere.</summary>
+        private const string LIFE_LOST_BADGE = "\u22121";
+
+        private static readonly Color LivesFill = new Color32(0xFF, 0xEE, 0xF0, 0xFF);
+        private static readonly Color LivesOutline = new Color32(0xF8, 0xC9, 0xD0, 0xFF);
+        private static readonly Color LivesInk = new Color32(0x8E, 0x2A, 0x3A, 0xFF);
+        private static readonly Color LivesSubInk = new Color32(0xB0, 0x48, 0x5A, 0xFF);
+        private static readonly Color LifeLostRed = new Color32(0xE0, 0x3E, 0x4E, 0xFF);
+        private static readonly Color LivesCountOutline = new Color(0.45f, 0.05f, 0.08f, 0.9f);
+
         private const float BADGES_TOP_GAP = 24f;
         private const float BADGES_HEADING_HEIGHT = 30f;
         private const float BADGES_HEADING_GAP = 14f;
@@ -234,6 +253,9 @@ namespace MustyBlockBlast.Presentation.Views
         [Tooltip("The coin on a badge row's claim button. Hidden when unassigned.")]
         [SerializeField] private Sprite _coinSprite;
 
+        [Tooltip("Full-colour heart (HudIcon_Heart) for the fail card's life row.")]
+        [SerializeField] private Sprite _heartSprite;
+
         private readonly CompositeDisposable _disposables = new CompositeDisposable();
         private readonly StringBuilder _stringBuilder = new StringBuilder(32);
         private readonly BadgeRow[] _badgeRows = new BadgeRow[BADGE_ROW_COUNT];
@@ -262,6 +284,8 @@ namespace MustyBlockBlast.Presentation.Views
         private TimedModeSystem _timedModeSystem;
         private LevelCatalog _levelCatalog;
         private LevelIdentityCatalog _levelIdentityCatalog;
+        private LivesModel _livesModel;
+        private LivesConfig _livesConfig;
 
         /// <summary>True while the buttons share one row: a Path success with a next level (issue #464).</summary>
         private bool _buttonsInRow;
@@ -308,6 +332,14 @@ namespace MustyBlockBlast.Presentation.Views
         private Text _coinBoxValueText;
         private Image _coinBoxPillPlate;
         private Text _coinBoxPillText;
+
+        /// <summary>The fail card's "You lost a life" row (issue #478): the new count in a heart with a
+        /// "−1" badge, and "17 → 16 lives · +5 in 12:34" beside it. Shown only when the run on the card
+        /// actually cost a life — see <see cref="RefreshLivesRow"/>.</summary>
+        private RectTransform _livesRowRoot;
+        private Text _livesRowCountText;
+        private Text _livesRowTitleText;
+        private Text _livesRowDetailText;
 
         /// <summary>Everything this clear paid: the level's own reward (issue #462) followed by any
         /// first-try streak bonus (issue #464), in one row.</summary>
@@ -549,8 +581,12 @@ namespace MustyBlockBlast.Presentation.Views
             ISubscriber<GameOverMessage> gameOverSubscriber,
             ISubscriber<RunStartedMessage> runStartedSubscriber,
             ISubscriber<NewRecordMessage> newRecordSubscriber,
-            ISubscriber<RunRescuedMessage> runRescuedSubscriber)
+            ISubscriber<RunRescuedMessage> runRescuedSubscriber,
+            LivesModel livesModel,
+            LivesConfig livesConfig)
         {
+            _livesModel = livesModel;
+            _livesConfig = livesConfig;
             _scoreModel = scoreModel;
             _profileModel = profileModel;
             _pathRunModel = pathRunModel;
@@ -589,7 +625,8 @@ namespace MustyBlockBlast.Presentation.Views
                 || _localizationModel == null || _localizationSystem == null || _gameModeSystem == null
                 || _timedModeSystem == null || _gameOverSubscriber == null || _runStartedSubscriber == null
                 || _newRecordSubscriber == null || _runRescuedSubscriber == null
-                || _powerUpInventoryView == null || _levelAdvancedSubscriber == null || _rewardRuleModel == null)
+                || _powerUpInventoryView == null || _levelAdvancedSubscriber == null || _rewardRuleModel == null
+                || _livesModel == null || _livesConfig == null)
             {
                 Debug.LogError($"{nameof(RunResultView)} was not injected. Is it registered in the LifetimeScope?", this);
                 return;
@@ -609,6 +646,12 @@ namespace MustyBlockBlast.Presentation.Views
             _newRecordSubscriber.Subscribe(OnNewRecord).AddTo(_disposables);
             _runRescuedSubscriber.Subscribe(OnRunRescued).AddTo(_disposables);
             _levelAdvancedSubscriber.Subscribe(OnLevelAdvanced).AddTo(_disposables);
+
+            // Observed rather than read on game over (issue #478): LivesSystem charges the life on the
+            // same GameOverMessage this card opens on, and which subscriber the broker calls first must
+            // not decide whether the row shows. A rescue clears it, and the card closes then anyway.
+            _livesModel.LivesBeforeLastCharge.Subscribe(OnLivesChargeChanged).AddTo(_disposables);
+            _livesModel.SecondsUntilRefill.Subscribe(OnSecondsUntilRefillChanged).AddTo(_disposables);
 
             // A defensive baseline: every real run start replaces this, but a card that somehow opens
             // without one then reads "nothing earned" rather than crediting the whole balance.
@@ -743,6 +786,24 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         private void OnNewRecord(NewRecordMessage message) => _isNewRecordThisRun = true;
+
+        private void OnLivesChargeChanged(int livesBeforeCharge)
+        {
+            RefreshLivesRow();
+            if (IsOpen)
+            {
+                Layout();
+            }
+        }
+
+        /// <summary>Keeps the row's "+5 in mm:ss" ticking while the card is up; nothing to do otherwise.</summary>
+        private void OnSecondsUntilRefillChanged(int secondsUntilRefill)
+        {
+            if (IsOpen && _livesRowRoot != null && _livesRowRoot.gameObject.activeSelf)
+            {
+                PaintLivesDetail();
+            }
+        }
 
         /// <summary>A first clear just moved the frontier past the level it cleared — and paid that
         /// level's reward. See <see cref="_rewardedLevelNumber"/>.</summary>
@@ -884,6 +945,7 @@ namespace MustyBlockBlast.Presentation.Views
             RefreshStats();
             RefreshCoinBox();
             RefreshRewardRows();
+            RefreshLivesRow();
             RefreshBadges();
             RefreshButtons();
             Layout();
@@ -1101,6 +1163,84 @@ namespace MustyBlockBlast.Presentation.Views
 
             ShowRewardRow(
                 _levelRewardRow, _shownRewards.Count > 0, LocalizationKeys.RUN_RESULT_LEVEL_REWARD_LABEL, _shownRewards);
+        }
+
+        /// <summary>
+        /// The life row, shown only on a Path failure that actually charged a life: the run on the card
+        /// is Path, it did not end in <see cref="GameOverReason.LevelCompleted"/>, and
+        /// <see cref="LivesModel.LivesBeforeLastCharge"/> says a charge landed. A failure at zero lives
+        /// charged nothing and leaves that at 0, so its card has no row — the player lost nothing.
+        /// Hidden, it takes no height from <see cref="Layout"/>.
+        /// </summary>
+        private void RefreshLivesRow()
+        {
+            if (_livesRowRoot == null || _livesModel == null || _localizationSystem == null)
+            {
+                return;
+            }
+
+            int livesBefore = _livesModel.LivesBeforeLastCharge.Value;
+            bool show = _lastMode == GameMode.Path
+                && _lastReason != GameOverReason.LevelCompleted
+                && livesBefore > 0;
+            _livesRowRoot.gameObject.SetActive(show);
+            if (!show)
+            {
+                return;
+            }
+
+            _stringBuilder.Clear();
+            _stringBuilder.Append(livesBefore - 1);
+            _livesRowCountText.text = _stringBuilder.ToString();
+            _livesRowTitleText.text = _localizationSystem.Translate(LocalizationKeys.RUN_RESULT_LIFE_LOST);
+            PaintLivesDetail();
+        }
+
+        /// <summary>"17 → 16 lives", plus " · +5 in 12:34" while below the cap — omitted at or above it,
+        /// where <see cref="LivesModel.SecondsUntilRefill"/> is 0 and no refill is coming.</summary>
+        private void PaintLivesDetail()
+        {
+            int livesBefore = _livesModel.LivesBeforeLastCharge.Value;
+            _stringBuilder.Clear();
+            _stringBuilder.Append(livesBefore);
+            string before = _stringBuilder.ToString();
+            _stringBuilder.Clear();
+            _stringBuilder.Append(livesBefore - 1);
+            string change = _localizationSystem.Format(LocalizationKeys.RUN_RESULT_LIVES_CHANGE, before, _stringBuilder.ToString());
+
+            int seconds = _livesModel.SecondsUntilRefill.Value;
+            if (seconds <= 0)
+            {
+                _livesRowDetailText.text = change;
+                return;
+            }
+
+            _stringBuilder.Clear();
+            _stringBuilder.Append(_livesConfig.RefillAmount);
+            string amount = _stringBuilder.ToString();
+
+            // mm:ss, as the HUD's own countdown: a universal numeric format, not a table entry.
+            _stringBuilder.Clear();
+            AppendPadded(seconds / 60);
+            _stringBuilder.Append(':');
+            AppendPadded(seconds % 60);
+            string refill = _localizationSystem.Format(LocalizationKeys.RUN_RESULT_LIVES_REFILL_IN, amount, _stringBuilder.ToString());
+
+            _stringBuilder.Clear();
+            _stringBuilder.Append(change);
+            _stringBuilder.Append(LIVES_DETAIL_SEPARATOR);
+            _stringBuilder.Append(refill);
+            _livesRowDetailText.text = _stringBuilder.ToString();
+        }
+
+        private void AppendPadded(int value)
+        {
+            if (value < 10)
+            {
+                _stringBuilder.Append('0');
+            }
+
+            _stringBuilder.Append(value);
         }
 
         private void ShowRewardRow(RewardRow row, bool show, string captionKey, IReadOnlyList<PowerUpKind> rewards)
@@ -1536,6 +1676,15 @@ namespace MustyBlockBlast.Presentation.Views
             // Straight under the coin box, on the same terms: only a Path clear that paid something.
             y = LayoutRewardRow(_levelRewardRow, y);
 
+            // The life row takes the same slot on the other outcome: only a Path failure that cost a life
+            // (issue #478). The two rows never show together — one needs a clear, the other a failure.
+            if (_livesRowRoot.gameObject.activeSelf)
+            {
+                y += COIN_BOX_TOP_GAP;
+                HangCentre(_livesRowRoot, 0f, y + (COIN_BOX_HEIGHT * 0.5f));
+                y += COIN_BOX_HEIGHT;
+            }
+
             if (_badgesHeadingText.gameObject.activeSelf)
             {
                 y += BADGES_TOP_GAP;
@@ -1682,6 +1831,7 @@ namespace MustyBlockBlast.Presentation.Views
             BuildWell();
             BuildCoinBox();
             _levelRewardRow = BuildRewardRow("RewardBox");
+            BuildLivesRow();
 
             _badgesHeadingText = HudChrome.CreateLabel(
                 _cardRect, "BadgesHeading", _captionFontSize, FontStyle.Bold, TextAnchor.MiddleLeft, Vector2.zero, _labelFont);
@@ -1829,6 +1979,58 @@ namespace MustyBlockBlast.Presentation.Views
                 new Vector2(0f, -2f), _displayFont);
 
             _coinBoxRoot.gameObject.SetActive(false);
+        }
+
+        /// <summary>
+        /// The fail card's life row (issue #478): the coin box's footprint on the lives pink — a heart
+        /// holding the new count with a red "−1" badge on its shoulder, the bold "You lost a life" and the
+        /// detail line under it. Fixed colours rather than theme ones: the pink is what marks lives across
+        /// the level-start card, the sheet and this row. Built hidden.
+        /// </summary>
+        private void BuildLivesRow()
+        {
+            float rowWidth = _cardWidth - (SIDE_INSET * 2f);
+            var rowSize = new Vector2(rowWidth, COIN_BOX_HEIGHT);
+            _livesRowRoot = HudChrome.CreateRect(_cardRect, "LivesRow", rowSize, Vector2.zero);
+            HudChrome.BuildRounded(_livesRowRoot, "Fill", rowSize, Vector2.zero, COIN_BOX_RADIUS).color = LivesFill;
+            HudChrome.BuildOutline(_livesRowRoot, "Outline", rowSize, Vector2.zero, COIN_BOX_RADIUS, LIVES_ROW_OUTLINE)
+                .color = LivesOutline;
+
+            float heartX = (-rowWidth * 0.5f) + COIN_BOX_PAD + (LIVES_HEART_SIZE * 0.5f);
+            var heartSize = new Vector2(LIVES_HEART_SIZE, LIVES_HEART_SIZE);
+            Image heart = HudChrome.BuildGlyph(_livesRowRoot, "Heart", _heartSprite, heartSize, new Vector2(heartX, 0f));
+            heart.preserveAspect = true;
+            heart.color = _heartSprite != null ? Color.white : Color.clear;
+
+            _livesRowCountText = HudChrome.CreateLabel(
+                _livesRowRoot, "Count", _claimFontSize, FontStyle.Normal, TextAnchor.MiddleCenter,
+                new Vector2(heartX, LIVES_HEART_SIZE * 0.06f), _displayFont);
+            _livesRowCountText.color = Color.white;
+            Outline countOutline = _livesRowCountText.gameObject.AddComponent<Outline>();
+            countOutline.effectColor = LivesCountOutline;
+            countOutline.effectDistance = new Vector2(2f, -2f);
+
+            var badgePosition = new Vector2(heartX + (LIVES_HEART_SIZE * 0.42f), LIVES_HEART_SIZE * 0.36f);
+            Image badge = HudChrome.BuildCircle(_livesRowRoot, "LostBadge", LIVES_BADGE_SIZE, badgePosition);
+            badge.color = LifeLostRed;
+            Text badgeText = HudChrome.CreateLabel(
+                badge.rectTransform, "Amount", _captionFontSize - 4, FontStyle.Bold, TextAnchor.MiddleCenter,
+                new Vector2(0f, 1f), _labelFont);
+            badgeText.color = Color.white;
+            badgeText.text = LIFE_LOST_BADGE;
+
+            float textX = heartX + (LIVES_HEART_SIZE * 0.5f) + COIN_ICON_TEXT_GAP;
+            float half = COIN_BOX_HEIGHT * 0.5f;
+            _livesRowTitleText = HudChrome.CreateLabel(
+                _livesRowRoot, "Title", _captionFontSize + 4, FontStyle.Bold, TextAnchor.MiddleLeft,
+                new Vector2(textX, half - COIN_CAPTION_TOP - (_captionFontSize * 0.5f)), _labelFont);
+            _livesRowTitleText.color = LivesInk;
+            _livesRowDetailText = HudChrome.CreateLabel(
+                _livesRowRoot, "Detail", _captionFontSize, FontStyle.Bold, TextAnchor.MiddleLeft,
+                new Vector2(textX, -half + COIN_VALUE_BOTTOM + (_captionFontSize * 0.5f)), _labelFont);
+            _livesRowDetailText.color = LivesSubInk;
+
+            _livesRowRoot.gameObject.SetActive(false);
         }
 
         /// <summary>

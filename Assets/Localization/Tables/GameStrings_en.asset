@@ -1147,515 +1147,567 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984066
-    m_Localized: "First-try streak {0} \u00b7 +{1}"
+    m_Localized: "First-try streak {0} \xB7 +{1}"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984067
-    m_Localized: "Daisy Hill"
+    m_Localized: Daisy Hill
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984068
-    m_Localized: "Clover Creek"
+    m_Localized: Clover Creek
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984069
-    m_Localized: "Sunny Bridge"
+    m_Localized: Sunny Bridge
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984070
-    m_Localized: "Buttercup Lane"
+    m_Localized: Buttercup Lane
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984071
-    m_Localized: "Willow Pond"
+    m_Localized: Willow Pond
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984072
-    m_Localized: "Honeybee Field"
+    m_Localized: Honeybee Field
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984073
-    m_Localized: "Dandelion Drift"
+    m_Localized: Dandelion Drift
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984074
-    m_Localized: "Poppy Valley"
+    m_Localized: Poppy Valley
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984075
-    m_Localized: "Rainbow Brook"
+    m_Localized: Rainbow Brook
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984076
-    m_Localized: "Meadow Crown"
+    m_Localized: Meadow Crown
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984077
-    m_Localized: "Frost Pine"
+    m_Localized: Frost Pine
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984078
-    m_Localized: "Snowdrop Path"
+    m_Localized: Snowdrop Path
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984079
-    m_Localized: "Icicle Ridge"
+    m_Localized: Icicle Ridge
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984080
-    m_Localized: "Polar Lake"
+    m_Localized: Polar Lake
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984081
-    m_Localized: "Mitten Hill"
+    m_Localized: Mitten Hill
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984082
-    m_Localized: "Blizzard Pass"
+    m_Localized: Blizzard Pass
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984083
-    m_Localized: "Snowman Square"
+    m_Localized: Snowman Square
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984084
-    m_Localized: "Aurora Peak"
+    m_Localized: Aurora Peak
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984085
-    m_Localized: "Glacier Gate"
+    m_Localized: Glacier Gate
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984086
-    m_Localized: "Winter Summit"
+    m_Localized: Winter Summit
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984087
-    m_Localized: "Main Street"
+    m_Localized: Main Street
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984088
-    m_Localized: "Lamp Post Row"
+    m_Localized: Lamp Post Row
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984089
-    m_Localized: "Tram Corner"
+    m_Localized: Tram Corner
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984090
-    m_Localized: "Skyline View"
+    m_Localized: Skyline View
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984091
-    m_Localized: "Fountain Plaza"
+    m_Localized: Fountain Plaza
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984092
-    m_Localized: "Market Square"
+    m_Localized: Market Square
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984093
-    m_Localized: "Clock Tower"
+    m_Localized: Clock Tower
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984094
-    m_Localized: "Neon Avenue"
+    m_Localized: Neon Avenue
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984095
-    m_Localized: "Harbor Lights"
+    m_Localized: Harbor Lights
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984096
-    m_Localized: "Grand Stadium"
+    m_Localized: Grand Stadium
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984097
-    m_Localized: "Bakery Corner"
+    m_Localized: Bakery Corner
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984098
-    m_Localized: "School Yard"
+    m_Localized: School Yard
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984099
-    m_Localized: "Maple Street"
+    m_Localized: Maple Street
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984100
-    m_Localized: "Garden Gate"
+    m_Localized: Garden Gate
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984101
-    m_Localized: "Corner Shop"
+    m_Localized: Corner Shop
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984102
-    m_Localized: "Library Lane"
+    m_Localized: Library Lane
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984103
-    m_Localized: "Playground"
+    m_Localized: Playground
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984104
-    m_Localized: "Post Office"
+    m_Localized: Post Office
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984105
-    m_Localized: "Treehouse"
+    m_Localized: Treehouse
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984106
-    m_Localized: "Town Fair"
+    m_Localized: Town Fair
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984107
-    m_Localized: "Tulip Terrace"
+    m_Localized: Tulip Terrace
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984108
-    m_Localized: "Lavender Fields"
+    m_Localized: Lavender Fields
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984109
-    m_Localized: "Mill Stream"
+    m_Localized: Mill Stream
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984110
-    m_Localized: "Orchard Row"
+    m_Localized: Orchard Row
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984111
-    m_Localized: "Sunflower Hill"
+    m_Localized: Sunflower Hill
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984112
-    m_Localized: "Fox Hollow"
+    m_Localized: Fox Hollow
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984113
-    m_Localized: "Berry Patch"
+    m_Localized: Berry Patch
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984114
-    m_Localized: "Pebble Ford"
+    m_Localized: Pebble Ford
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984115
-    m_Localized: "Lark Meadow"
+    m_Localized: Lark Meadow
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984116
-    m_Localized: "Harvest Crown"
+    m_Localized: Harvest Crown
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984117
-    m_Localized: "Snowflake Glen"
+    m_Localized: Snowflake Glen
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984118
-    m_Localized: "Frozen Falls"
+    m_Localized: Frozen Falls
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984119
-    m_Localized: "Sled Run"
+    m_Localized: Sled Run
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984120
-    m_Localized: "Cocoa Cabin"
+    m_Localized: Cocoa Cabin
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984121
-    m_Localized: "Crystal Cave"
+    m_Localized: Crystal Cave
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984122
-    m_Localized: "Penguin Point"
+    m_Localized: Penguin Point
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984123
-    m_Localized: "Northern Lights"
+    m_Localized: Northern Lights
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984124
-    m_Localized: "Ice Palace"
+    m_Localized: Ice Palace
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984125
-    m_Localized: "Avalanche Ridge"
+    m_Localized: Avalanche Ridge
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984126
-    m_Localized: "Frost Crown"
+    m_Localized: Frost Crown
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984127
-    m_Localized: "Bus Stop"
+    m_Localized: Bus Stop
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984128
-    m_Localized: "Bridge Street"
+    m_Localized: Bridge Street
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984129
-    m_Localized: "Rooftop Garden"
+    m_Localized: Rooftop Garden
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984130
-    m_Localized: "Subway Line"
+    m_Localized: Subway Line
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984131
-    m_Localized: "Museum Steps"
+    m_Localized: Museum Steps
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984132
-    m_Localized: "Cinema Row"
+    m_Localized: Cinema Row
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984133
-    m_Localized: "Skyscraper"
+    m_Localized: Skyscraper
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984134
-    m_Localized: "Riverside Walk"
+    m_Localized: Riverside Walk
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984135
-    m_Localized: "Lantern Festival"
+    m_Localized: Lantern Festival
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984136
-    m_Localized: "City Crown"
+    m_Localized: City Crown
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984137
-    m_Localized: "Ice Cream Stand"
+    m_Localized: Ice Cream Stand
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984138
-    m_Localized: "Pet Shop"
+    m_Localized: Pet Shop
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984139
-    m_Localized: "Bicycle Lane"
+    m_Localized: Bicycle Lane
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984140
-    m_Localized: "Flower Stall"
+    m_Localized: Flower Stall
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984141
-    m_Localized: "Toy Store"
+    m_Localized: Toy Store
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984142
-    m_Localized: "Bus Depot"
+    m_Localized: Bus Depot
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984143
-    m_Localized: "Fire Station"
+    m_Localized: Fire Station
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984144
-    m_Localized: "Night Market"
+    m_Localized: Night Market
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984145
-    m_Localized: "Rooftops"
+    m_Localized: Rooftops
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984146
-    m_Localized: "Block Party"
+    m_Localized: Block Party
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984147
-    m_Localized: "Morning Dew"
+    m_Localized: Morning Dew
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984148
-    m_Localized: "Butterfly Glade"
+    m_Localized: Butterfly Glade
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984149
-    m_Localized: "Old Oak"
+    m_Localized: Old Oak
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984150
-    m_Localized: "Hay Bale Farm"
+    m_Localized: Hay Bale Farm
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984151
-    m_Localized: "Windmill Hill"
+    m_Localized: Windmill Hill
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984152
-    m_Localized: "Sunset Pasture"
+    m_Localized: Sunset Pasture
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984153
-    m_Localized: "Firefly Field"
+    m_Localized: Firefly Field
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984154
-    m_Localized: "Brook Bend"
+    m_Localized: Brook Bend
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984155
-    m_Localized: "Kite Hill"
+    m_Localized: Kite Hill
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984156
-    m_Localized: "Golden Meadow"
+    m_Localized: Golden Meadow
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984157
-    m_Localized: "Silent Snow"
+    m_Localized: Silent Snow
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984158
-    m_Localized: "Frost Lantern"
+    m_Localized: Frost Lantern
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984159
-    m_Localized: "Ice Rink"
+    m_Localized: Ice Rink
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984160
-    m_Localized: "Snow Fort"
+    m_Localized: Snow Fort
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984161
-    m_Localized: "Starry Slope"
+    m_Localized: Starry Slope
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984162
-    m_Localized: "Frozen Harbor"
+    m_Localized: Frozen Harbor
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984163
-    m_Localized: "Yeti Trail"
+    m_Localized: Yeti Trail
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984164
-    m_Localized: "Glacier Crown"
+    m_Localized: Glacier Crown
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984165
-    m_Localized: "Polar Night"
+    m_Localized: Polar Night
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984166
-    m_Localized: "The Last Summit"
+    m_Localized: The Last Summit
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984167
-    m_Localized: "Meadow"
+    m_Localized: Meadow
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984168
-    m_Localized: "Winter"
+    m_Localized: Winter
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984169
-    m_Localized: "City"
+    m_Localized: City
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984170
-    m_Localized: "Neighborhood"
+    m_Localized: Neighborhood
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984171
-    m_Localized: "{0} \u00b7 Level {1}"
+    m_Localized: "{0} \xB7 Level {1}"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984172
-    m_Localized: "Milestone"
+    m_Localized: Milestone
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984173
-    m_Localized: "CLEAR IT TO WIN"
+    m_Localized: CLEAR IT TO WIN
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984174
-    m_Localized: "LOCKED \u00b7 CLEAR TO WIN"
+    m_Localized: "LOCKED \xB7 CLEAR TO WIN"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984175
-    m_Localized: "REWARDS \u00b7 ALREADY COLLECTED"
+    m_Localized: "REWARDS \xB7 ALREADY COLLECTED"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984176
-    m_Localized: "First-try streak \u00b7 you're at {0}"
+    m_Localized: "First-try streak \xB7 you're at {0}"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984177
-    m_Localized: "First-try streak \u00b7 this clear makes it {0}"
+    m_Localized: "First-try streak \xB7 this clear makes it {0}"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984178
-    m_Localized: "First-try streak \u00b7 replays don't count"
+    m_Localized: "First-try streak \xB7 replays don't count"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984179
-    m_Localized: "+{0} AT {1}"
+    m_Localized: +{0} AT {1}
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984180
-    m_Localized: "+{0} BONUS"
+    m_Localized: +{0} BONUS
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984181
-    m_Localized: "YOUR POWER-UPS"
+    m_Localized: YOUR POWER-UPS
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984183
-    m_Localized: "Clear Level {0} to unlock"
+    m_Localized: Clear Level {0} to unlock
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984184
-    m_Localized: "Start Level"
+    m_Localized: Start Level
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984185
-    m_Localized: "Start \u00b7 Sow {0}"
+    m_Localized: "Start \xB7 Sow {0}"
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984186
-    m_Localized: "Play Again"
+    m_Localized: Play Again
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984187
-    m_Localized: "Watch ad"
+    m_Localized: Watch ad
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984188
-    m_Localized: "Sow coin cells"
+    m_Localized: Sow coin cells
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984189
-    m_Localized: "{0} charges banked"
+    m_Localized: '{0} charges banked'
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984190
-    m_Localized: "Those coin cells could not be sown. Your charges are still banked."
+    m_Localized: Those coin cells could not be sown. Your charges are still banked.
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984191
-    m_Localized: "This level cannot be started right now."
+    m_Localized: This level cannot be started right now.
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984192
-    m_Localized: "YOU WON!"
+    m_Localized: YOU WON!
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984193
-    m_Localized: "STREAK BONUS!"
+    m_Localized: STREAK BONUS!
     m_Metadata:
       m_Items: []
   - m_Id: 4184519664984194
-    m_Localized: "NEXT \u00b7 {0}"
+    m_Localized: "NEXT \xB7 {0}"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4289495674380288
+    m_Localized: '{0} / {1} lives'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4289495720517632
+    m_Localized: Winning is free. Failing this level costs 1 life.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4289495720517633
+    m_Localized: OUT OF LIVES
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4289495720517634
+    m_Localized: LIVES
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4289495720517635
+    m_Localized: NEXT +{0} LIVES IN
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4289495720517636
+    m_Localized: 'Lives refill by {0} every hour, up to {1}. Or get some right now:'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4289495720517637
+    m_Localized: Watch ad
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4289495720517638
+    m_Localized: Lives full
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4289495720517639
+    m_Localized: No ad right now. Try again in a moment.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4289495720517640
+    m_Localized: Festival and Classic modes never use lives.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4289495720517641
+    m_Localized: You lost a life
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4289495720517642
+    m_Localized: "{0} \u2192 {1} lives"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4289495720517643
+    m_Localized: +{0} in {1}
     m_Metadata:
       m_Items: []
   references:

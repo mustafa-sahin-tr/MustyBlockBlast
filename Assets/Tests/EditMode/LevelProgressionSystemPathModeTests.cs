@@ -42,6 +42,14 @@ namespace MustyBlockBlast.Tests.EditMode
         /// under (issue #464). Cleared around every test for the same reason as the level save.</summary>
         private const string REWARD_RULE_SAVE_KEY = "RewardRules.Progress";
 
+        /// <summary>The PlayerPrefs blob <see cref="LivesSystem"/> persists the lives under (issue #477).
+        /// Cleared around every test: Path failures here charge real lives, and a count left behind would
+        /// decide whether the next fixture's start gate (issue #478) lets a run begin.</summary>
+        private const string LIVES_SAVE_KEY = "Lives.State";
+
+        /// <summary>The lives system's clock, pinned so no refill can land mid-test.</summary>
+        private static readonly System.DateTime LivesClock = new System.DateTime(2026, 9, 25, 10, 40, 0);
+
         private TestMessageBroker<ObjectiveCompletedMessage> _objectiveCompletedBroker;
         private TestMessageBroker<ObjectiveProgressChangedMessage> _objectiveProgressBroker;
         private TestMessageBroker<LevelAdvancedMessage> _levelAdvancedBroker;
@@ -87,6 +95,10 @@ namespace MustyBlockBlast.Tests.EditMode
         private PowerUpSystem _powerUpSystem;
         private TestMessageBroker<RunRescuedMessage> _runRescuedBroker;
         private RewardRuleModel _rewardRuleModel;
+        private LivesModel _livesModel;
+        private LivesConfig _livesConfig;
+        private LivesSystem _livesSystem;
+        private TestMessageBroker<OutOfLivesMessage> _outOfLivesBroker;
 
         [SetUp]
         public void ClearPersistedProgress()
@@ -95,8 +107,10 @@ namespace MustyBlockBlast.Tests.EditMode
             PlayerPrefs.DeleteKey(HIGH_SCORE_KEY);
             PlayerPrefs.DeleteKey(GAME_MODE_KEY);
             PlayerPrefs.DeleteKey(REWARD_RULE_SAVE_KEY);
+            PlayerPrefs.DeleteKey(LIVES_SAVE_KEY);
             ClearPowerUpInventory();
 
+            _outOfLivesBroker = new TestMessageBroker<OutOfLivesMessage>();
             _runRescuedBroker = new TestMessageBroker<RunRescuedMessage>();
             _objectiveCompletedBroker = new TestMessageBroker<ObjectiveCompletedMessage>();
             _objectiveProgressBroker = new TestMessageBroker<ObjectiveProgressChangedMessage>();
@@ -120,11 +134,28 @@ namespace MustyBlockBlast.Tests.EditMode
             PlayerPrefs.DeleteKey(HIGH_SCORE_KEY);
             PlayerPrefs.DeleteKey(GAME_MODE_KEY);
             PlayerPrefs.DeleteKey(REWARD_RULE_SAVE_KEY);
+            PlayerPrefs.DeleteKey(LIVES_SAVE_KEY);
+            DisposeLives();
 
             // A level-up reward is persisted the moment it is granted, so a test that earns one would
             // otherwise hand the next fixture a stocked inventory. Every level now rewards some kind
             // (issue #462), so every kind's slot is cleared, not just one.
             ClearPowerUpInventory();
+        }
+
+        private void DisposeLives()
+        {
+            if (_livesSystem != null)
+            {
+                _livesSystem.Dispose();
+                _livesSystem = null;
+            }
+
+            if (_livesConfig != null)
+            {
+                UnityEngine.Object.DestroyImmediate(_livesConfig);
+                _livesConfig = null;
+            }
         }
 
         private static void ClearPowerUpInventory()
@@ -491,6 +522,64 @@ namespace MustyBlockBlast.Tests.EditMode
 
             Assert.IsFalse(system.TryStartPathLevel(0));
             Assert.IsFalse(system.TryStartPathLevel(9));
+        }
+
+        // --- Issue #478: the out-of-lives gate ---
+
+        [Test]
+        public void TryStartPathLevel_AtZeroLives_IsRefusedAndChangesNothing()
+        {
+            PersistFrontier(3);
+            PersistLives(0);
+            LevelProgressionSystem system = CreateSystem(ACatalogOf(
+                Level(1), Level(2), Level(3, completionScoreBonus: 500), Level(4)));
+            _gameModeSystem.SelectMode(GameMode.Path);
+
+            // A walk in progress, so a refused start from level 1 can be shown not to reset it.
+            CompleteCurrentObjective();
+            int pathTotalBefore = _pathRunModel.PathTotalScore.Value;
+            Assert.Greater(pathTotalBefore, 0);
+            int activeLevelBefore = _pathRunModel.ActiveLevelNumber.Value;
+            string objectiveBefore = _objectiveModel.CurrentObjective.Definition.Id;
+            int runsBefore = _runStartedBroker.Published.Count;
+
+            bool started = system.TryStartPathLevel(1);
+
+            Assert.IsFalse(started);
+            Assert.AreEqual(1, _outOfLivesBroker.Published.Count, "the refusal opens the out-of-lives sheet");
+            Assert.AreEqual(runsBefore, _runStartedBroker.Published.Count, "no board is dealt");
+            Assert.AreEqual(activeLevelBefore, _pathRunModel.ActiveLevelNumber.Value);
+            Assert.AreEqual(objectiveBefore, _objectiveModel.CurrentObjective.Definition.Id);
+            Assert.AreEqual(pathTotalBefore, _pathRunModel.PathTotalScore.Value, "the walk is not reset");
+        }
+
+        [Test]
+        public void TryStartPathLevel_WithOneLifeLeft_StartsAsUsual()
+        {
+            PersistFrontier(4);
+            PersistLives(1);
+            LevelProgressionSystem system = CreateSystem(
+                ACatalogOf(Level(1), Level(2), Level(3), Level(4)));
+            _gameModeSystem.SelectMode(GameMode.Path);
+            int runsBefore = _runStartedBroker.Published.Count;
+
+            Assert.IsTrue(system.TryStartPathLevel(2));
+            Assert.AreEqual(runsBefore + 1, _runStartedBroker.Published.Count);
+            Assert.AreEqual(0, _outOfLivesBroker.Published.Count);
+            Assert.AreEqual(1, _livesModel.CurrentLives.Value, "starting a run costs nothing");
+        }
+
+        [Test]
+        public void TryStartPathLevel_OnALockedLevelAtZeroLives_IsRefusedWithoutTheSheet()
+        {
+            PersistFrontier(2);
+            PersistLives(0);
+            LevelProgressionSystem system = CreateSystem(
+                ACatalogOf(Level(1), Level(2), Level(3), Level(4)));
+            _gameModeSystem.SelectMode(GameMode.Path);
+
+            Assert.IsFalse(system.TryStartPathLevel(3));
+            Assert.AreEqual(0, _outOfLivesBroker.Published.Count, "an illegal request is not a lives problem");
         }
 
         /// <summary>
@@ -1322,6 +1411,18 @@ namespace MustyBlockBlast.Tests.EditMode
 
         /// <summary>Writes the save blob the system reads at construction, so a test can start the
         /// player part-way up the ladder without having to clear their way there.</summary>
+        /// <summary>Seeds the saved lives, anchored to <see cref="LivesClock"/>'s hour so the load pays no
+        /// refill on top (issue #478).</summary>
+        private static void PersistLives(int lives)
+        {
+            var data = new LivesSaveData
+            {
+                lives = lives,
+                lastRefillHourStamp = LivesClock.Ticks / System.TimeSpan.TicksPerHour,
+            };
+            PlayerPrefs.SetString(LIVES_SAVE_KEY, JsonUtility.ToJson(data));
+        }
+
         private static void PersistFrontier(int levelNumber)
         {
             PlayerPrefs.SetString(
@@ -1459,6 +1560,22 @@ namespace MustyBlockBlast.Tests.EditMode
             _flightsAutoReply = _flightsDrainBroker.Subscribe(
                 _ => _flightsDrainedBroker.Publish(new PendingFlightsDrainedMessage()));
 
+            // The start gate (issue #478), on a pinned clock so no refill can land mid-test. Disposed first
+            // in case a test builds twice: two systems on the same brokers would charge a failure twice.
+            DisposeLives();
+            _livesModel = new LivesModel();
+            _livesConfig = ScriptableObject.CreateInstance<LivesConfig>();
+            _livesSystem = new LivesSystem(
+                _livesModel,
+                _livesConfig,
+                _gameModeModel,
+                _gameOverBroker,
+                _runRescuedBroker,
+                _runStartedBroker,
+                new DeterministicLivesRewardSource(),
+                _outOfLivesBroker,
+                () => LivesClock);
+
             var system = new LevelProgressionSystem(
                 _progressionModel,
                 _pathRunModel,
@@ -1477,7 +1594,8 @@ namespace MustyBlockBlast.Tests.EditMode
                 _bonusScoredBroker,
                 _flightsDrainBroker,
                 _flightsDrainedBroker,
-                _infoPopupModel = new InfoPopupModel());
+                _infoPopupModel = new InfoPopupModel(),
+                _livesSystem);
 
             // Starts the first run, as BoardSystem's IStartable entry point does in the scene, so the
             // tray holds pieces and IsGameOver is a real answer rather than its default.
