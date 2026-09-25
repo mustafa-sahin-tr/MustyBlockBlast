@@ -523,7 +523,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300676
-    m_Localized: "Se\xE7ti\u011Fin s\xFCtundaki t\xFCm bloklar\u0131, s\xFCtun dolu olsun ya da olmas\u0131n an\u0131nda temizler. \u0130konuna dokunup silahland\u0131ktan sonra tahtada temizlemek istedi\u011Fin s\xFCtuna dokun."
+    m_Localized: "Dokundu\u011Fun s\xFCtunu, dolu olsun olmas\u0131n, ba\u015Ftan sona temizler."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300675
@@ -531,7 +531,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300674
-    m_Localized: "Se\xE7ti\u011Fin sat\u0131rdaki t\xFCm bloklar\u0131, sat\u0131r dolu olsun ya da olmas\u0131n an\u0131nda temizler. \u0130konuna dokunup silahland\u0131ktan sonra tahtada temizlemek istedi\u011Fin sat\u0131ra dokun."
+    m_Localized: "Dokundu\u011Fun sat\u0131r\u0131, dolu olsun olmas\u0131n, ba\u015Ftan sona temizler."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300673
@@ -547,7 +547,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300672
-    m_Localized: "Tahtada se\xE7ti\u011Fin h\xFCcrenin etraf\u0131ndaki 3x3'l\xFCk alan i\xE7indeki t\xFCm bloklar\u0131 an\u0131nda yok eder. Kullanmak i\xE7in ikonuna dokun, sonra tahtada patlatmak istedi\u011Fin noktaya dokun."
+    m_Localized: "\u0130kona dokun, sonra tahtada bir h\xFCcreye: etraf\u0131ndaki 3x3 alan an\u0131nda temizlenir."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479841329152
@@ -559,7 +559,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300678
-    m_Localized: "Herhangi bir rengi tamamlayabilen \xF6zel bir tekli blok verir. Bu blo\u011Fu yerle\u015Ftirdi\u011Finde, tamamlad\u0131\u011F\u0131 her sat\u0131r veya s\xFCtun an\u0131nda temizlenir \u2014 normal bir par\xE7a gibi elinle s\xFCr\xFCkleyip yerle\u015Ftir."
+    m_Localized: "Bo\u015F bir h\xFCcreye dokun: oray\u0131 doldurur, tamamlanan sat\u0131r ya da s\xFCtun temizlenir."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300679
@@ -567,7 +567,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300680
-    m_Localized: "Tahtada o an bulunan renklerden birini se\xE7mene izin verir; se\xE7ti\u011Fin renkteki t\xFCm bloklar, tahtan\u0131n neresinde olurlarsa olsunlar an\u0131nda yok olur."
+    m_Localized: "Dolu bir h\xFCcreye dokun: tahtada o renkteki b\xFCt\xFCn bloklar yok olur."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300681
@@ -935,7 +935,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 3514168870166535
-    m_Localized: "Bir h\xFCcreye dokun, sonra bir renk se\xE7: o sat\u0131r ve s\xFCtundaki her blok o rengi al\u0131r. Hi\xE7bir \u015Fey temizlenmez; bir renk hedefini haz\u0131rlamak i\xE7in kullan."
+    m_Localized: "H\xFCcreye dokun, renk se\xE7: sat\u0131r\u0131 ve s\xFCtunu o renge boyan\u0131r. Hi\xE7bir \u015Fey silinmez."
     m_Metadata:
       m_Items: []
   - m_Id: 3514168870166536
@@ -964,6 +964,22 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 4044960612474880
     m_Localized: "{0} sat\u0131r!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4052349470367744
+    m_Localized: Dolu olmasa da!
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4052349499727872
+    m_Localized: "Sat\u0131r tamam!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4052349499727873
+    m_Localized: "Ayn\u0131 renktekiler!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4052349499727874
+    m_Localized: "Hi\xE7bir \u015Fey silinmez"
     m_Metadata:
       m_Items: []
   references:

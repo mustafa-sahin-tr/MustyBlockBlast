@@ -523,7 +523,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300676
-    m_Localized: Instantly clears every block in the column you choose, whether or not that column was already full. Arm it by tapping its icon, then tap the column you want cleared.
+    m_Localized: Clears the column you tap from end to end, full or not.
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300675
@@ -531,7 +531,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300674
-    m_Localized: Instantly clears every block in the row you choose, whether or not that row was already full. Arm it by tapping its icon, then tap the row you want cleared.
+    m_Localized: Clears the row you tap from end to end, full or not.
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300673
@@ -547,7 +547,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300672
-    m_Localized: Destroys every block in the 3x3 area centred on the cell you choose. Tap its icon to arm it, then tap anywhere on the board to detonate it there.
+    m_Localized: 'Tap the icon, then a cell: the 3x3 area around it clears instantly.'
     m_Metadata:
       m_Items: []
   - m_Id: 1892479841329152
@@ -559,7 +559,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300678
-    m_Localized: "Gives you a special single block that counts as any colour. Drag and place it like a normal piece \u2014 any row or column it completes clears instantly."
+    m_Localized: 'Tap an empty cell: it fills in, and any row or column it completes clears.'
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300679
@@ -567,7 +567,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300680
-    m_Localized: "Lets you pick one of the colours currently on the board \u2014 every block of that colour disappears at once, wherever it sits."
+    m_Localized: 'Tap a filled cell: every block of that colour on the board disappears.'
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300681
@@ -935,7 +935,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 3514168870166535
-    m_Localized: 'Tap a cell, then pick a colour: every block in that row and column takes it. Nothing is cleared, so use it to line up a colour goal.'
+    m_Localized: 'Tap a cell, pick a colour: its row and column are painted that colour. Nothing is cleared.'
     m_Metadata:
       m_Items: []
   - m_Id: 3514168870166536
@@ -964,6 +964,22 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 4044960612474880
     m_Localized: '{0} lines!'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4052349470367744
+    m_Localized: Even if not full!
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4052349499727872
+    m_Localized: Row complete!
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4052349499727873
+    m_Localized: Same colour, gone!
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4052349499727874
+    m_Localized: Nothing is cleared
     m_Metadata:
       m_Items: []
   references:

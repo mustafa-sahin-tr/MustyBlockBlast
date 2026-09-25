@@ -104,6 +104,11 @@ namespace MustyBlockBlast.Presentation.Views
                 case InfoDemoProperty.Scale:
                     state.Scale = Mathf.LerpUnclamped(step.From.x, step.To.x, eased);
                     break;
+                case InfoDemoProperty.Stretch:
+                    state.Stretch = new Vector2(
+                        Mathf.LerpUnclamped(step.From.x, step.To.x, eased),
+                        Mathf.LerpUnclamped(step.From.y, step.To.y, eased));
+                    break;
                 case InfoDemoProperty.Position:
                     state.Position = new Vector2(
                         Mathf.LerpUnclamped(step.From.x, step.To.x, eased),

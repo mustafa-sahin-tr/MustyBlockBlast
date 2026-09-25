@@ -56,6 +56,17 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>A progress chip's "goal done" badge green (#34C27A).</summary>
         private static readonly Color SuccessGreen = new Color(0.204f, 0.761f, 0.478f, 1f);
 
+        /// <summary>Power-up demo accents (issue #448) — see <see cref="InfoDemoPaint"/>.</summary>
+        private static readonly Color PlateBomb = new Color(0.886f, 0.325f, 0.239f, 1f);
+        private static readonly Color PlateLineClear = new Color(0.247f, 0.561f, 0.839f, 1f);
+        private static readonly Color PlateJoker = new Color(0.729f, 0.408f, 0.784f, 1f);
+        private static readonly Color PlateCleanser = new Color(0.400f, 0.733f, 0.416f, 1f);
+        private static readonly Color PlatePaint = new Color(0.941f, 0.384f, 0.573f, 1f);
+        private static readonly Color ArmedYellow = new Color(1f, 0.835f, 0.310f, 1f);
+        private static readonly Color BlastOrange = new Color(1f, 0.541f, 0.239f, 1f);
+        private static readonly Color BlastPreview = new Color(1f, 0.706f, 0.635f, 1f);
+        private static readonly Color BadgeRed = new Color(0.898f, 0.224f, 0.208f, 1f);
+
         /// <summary>Smallest a label's font may shrink to (as a fraction of its authored height) to fit
         /// a long translation on one line.</summary>
         private const float LABEL_MIN_FONT_FRACTION = 0.55f;
@@ -73,6 +84,7 @@ namespace MustyBlockBlast.Presentation.Views
         private readonly List<Image> _glowPool = new List<Image>(4);
         private readonly List<Image> _panelPool = new List<Image>(4);
         private readonly List<Image> _iconPool = new List<Image>(4);
+        private readonly List<Image> _ringPool = new List<Image>(4);
         private readonly List<Text> _labelPool = new List<Text>(2);
         private readonly List<Outline> _labelOutlinePool = new List<Outline>(2);
         private readonly List<PieceVisual> _piecePool = new List<PieceVisual>(4);
@@ -89,6 +101,7 @@ namespace MustyBlockBlast.Presentation.Views
         private RectTransform _glowLayer;
         private RectTransform _panelLayer;
         private RectTransform _iconLayer;
+        private RectTransform _ringLayer;
         private RectTransform _pieceLayer;
         private RectTransform _labelLayer;
 
@@ -288,7 +301,7 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             rect.anchoredPosition = ToPixels(state.Position);
-            rect.localScale = new Vector3(state.Scale, state.Scale, 1f);
+            rect.localScale = new Vector3(state.Scale * state.Stretch.x, state.Scale * state.Stretch.y, 1f);
             rect.localRotation = Quaternion.Euler(0f, 0f, state.Rotation);
 
             switch (element.Kind)
@@ -308,13 +321,21 @@ namespace MustyBlockBlast.Presentation.Views
                     break;
                 }
                 case InfoDemoElementKind.Icon:
-                    _elementImages[elementIndex].color = HudChrome.WithAlpha(_elementTints[elementIndex], state.Alpha);
+                {
+                    // Resolved tint times paint: white paint keeps an authored icon's own tint, a plain
+                    // white shape sprite (a finger disc) takes its paint outright.
+                    Color paintColour = Color.Lerp(ResolveFlatColour(state.Paint), Color.white, state.Flash);
+                    _elementImages[elementIndex].color = HudChrome.WithAlpha(_elementTints[elementIndex] * paintColour, state.Alpha);
                     break;
+                }
                 case InfoDemoElementKind.Label:
                 {
                     Color labelColour = Color.Lerp(ResolveFlatColour(state.Paint), Color.white, state.Flash);
                     _elementTexts[elementIndex].color = HudChrome.WithAlpha(labelColour, state.Alpha);
-                    _elementTextOutlines[elementIndex].effectColor = new Color(1f, 1f, 1f, 0.9f * state.Alpha);
+                    // The white halo lifts coloured text off the board; on white text (a count badge's
+                    // number, issue #448) it only smears the glyph, so it is dropped there.
+                    float outlineAlpha = state.Paint == InfoDemoPaint.WHITE ? 0f : 0.9f * state.Alpha;
+                    _elementTextOutlines[elementIndex].effectColor = new Color(1f, 1f, 1f, outlineAlpha);
                     break;
                 }
                 default:
@@ -375,6 +396,24 @@ namespace MustyBlockBlast.Presentation.Views
                     return _theme.SoftInk;
                 case InfoDemoPaint.SUCCESS:
                     return SuccessGreen;
+                case InfoDemoPaint.PLATE_BOMB:
+                    return PlateBomb;
+                case InfoDemoPaint.PLATE_LINE_CLEAR:
+                    return PlateLineClear;
+                case InfoDemoPaint.PLATE_JOKER:
+                    return PlateJoker;
+                case InfoDemoPaint.PLATE_CLEANSER:
+                    return PlateCleanser;
+                case InfoDemoPaint.PLATE_PAINT:
+                    return PlatePaint;
+                case InfoDemoPaint.ARMED:
+                    return ArmedYellow;
+                case InfoDemoPaint.BLAST:
+                    return BlastOrange;
+                case InfoDemoPaint.BLAST_PREVIEW:
+                    return BlastPreview;
+                case InfoDemoPaint.BADGE_RED:
+                    return BadgeRed;
                 default:
                     return _theme.GetFill(paint);
             }
@@ -432,6 +471,7 @@ namespace MustyBlockBlast.Presentation.Views
             int glowsUsed = 0;
             int panelsUsed = 0;
             int iconsUsed = 0;
+            int ringsUsed = 0;
             int labelsUsed = 0;
             int piecesUsed = 0;
 
@@ -487,6 +527,14 @@ namespace MustyBlockBlast.Presentation.Views
                         BindImage(elementIndex, icon, element.Size * (InfoDemoLayout.MOCK_CELL * SCALE));
                         break;
                     }
+                    case InfoDemoElementKind.Ring:
+                    {
+                        Image ring = TakeImage(_ringPool, ringsUsed++, _ringLayer, "Ring");
+                        float pitchPixels = InfoDemoLayout.MOCK_PITCH * SCALE;
+                        HudChrome.ConfigureOutline(ring, element.CornerRadius * pitchPixels, element.StrokeWidth * pitchPixels);
+                        BindImage(elementIndex, ring, element.Size * pitchPixels);
+                        break;
+                    }
                     case InfoDemoElementKind.Label:
                     {
                         Text label = TakeLabel(labelsUsed, element, out Outline labelOutline);
@@ -518,6 +566,7 @@ namespace MustyBlockBlast.Presentation.Views
             ParkUnused(_glowPool, glowsUsed);
             ParkUnused(_panelPool, panelsUsed);
             ParkUnused(_iconPool, iconsUsed);
+            ParkUnused(_ringPool, ringsUsed);
 
             for (int labelIndex = labelsUsed; labelIndex < _labelPool.Count; labelIndex++)
             {
@@ -758,6 +807,7 @@ namespace MustyBlockBlast.Presentation.Views
             _glowLayer = CreateLayer(contentRect, "Glows", contentRect.anchoredPosition);
             _panelLayer = CreateLayer(contentRect, "Panels", contentRect.anchoredPosition);
             _iconLayer = CreateLayer(contentRect, "Icons", contentRect.anchoredPosition);
+            _ringLayer = CreateLayer(contentRect, "Rings", contentRect.anchoredPosition);
             _pieceLayer = CreateLayer(contentRect, "Pieces", contentRect.anchoredPosition);
             _labelLayer = CreateLayer(contentRect, "Labels", contentRect.anchoredPosition);
 

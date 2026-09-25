@@ -56,6 +56,57 @@ namespace MustyBlockBlast.Presentation.Views
         /// slab over the board.</summary>
         private const float CLEAR_BAND_ALPHA = 0.5f;
 
+        /// <summary>How long a demo finger glides in before it touches down (issue #448).</summary>
+        internal const float TAP_GLIDE_DURATION = 0.32f;
+
+        /// <summary>How long a tap ring takes to expand and fade.</summary>
+        internal const float TAP_RING_DURATION = 0.45f;
+
+        /// <summary>How long a beam takes to grow out from its centre to the full line.</summary>
+        internal const float BEAM_GROW_DURATION = 0.2f;
+
+        /// <summary>How long a recoloured cell's flash-and-swell pop lasts.</summary>
+        internal const float RECOLOUR_POP_DURATION = 0.3f;
+
+        /// <summary>Mockup-unit geometry of a demo finger: its face diameter, border, soft shadow and the
+        /// offset it glides in from (down and to the right of the touch point, where a thumb comes from).</summary>
+        private const float MOCK_FINGER_DIAMETER = 22f;
+        private const float MOCK_FINGER_BORDER = 1.5f;
+        private const float MOCK_FINGER_SHADOW_DIAMETER = 36f;
+        private const float MOCK_FINGER_SHADOW_DROP = 3f;
+        private const float MOCK_FINGER_START_OFFSET_X = 26f;
+        private const float MOCK_FINGER_START_OFFSET_Y = 34f;
+        private const float FINGER_BORDER_ALPHA = 0.55f;
+        private const float FINGER_SHADOW_ALPHA = 0.35f;
+        private const float FINGER_PRESS_SCALE = 0.78f;
+        private const float FINGER_PRESS_IN_DURATION = 0.08f;
+        private const float FINGER_RELEASE_DURATION = 0.2f;
+        private const float FINGER_FADE_DELAY = 0.22f;
+        private const float FINGER_FADE_DURATION = 0.2f;
+
+        /// <summary>Mockup-unit tap ring: diameter at scale 1 and wall thickness.</summary>
+        private const float MOCK_TAP_RING_DIAMETER = 26f;
+        private const float MOCK_TAP_RING_STROKE = 2.5f;
+        private const float TAP_RING_START_SCALE = 0.3f;
+        private const float TAP_RING_END_SCALE = 1.7f;
+        private const float TAP_RING_START_ALPHA = 0.9f;
+
+        /// <summary>A beam's white core bar and coloured halo, in board units (bar) and board-cell widths
+        /// (halo) across the line; both run the full line length.</summary>
+        private const float BEAM_BAR_LENGTH = InfoDemoLayout.BOARD_SIZE + 0.3f;
+        private const float BEAM_BAR_THICKNESS = 0.3f;
+        private const float BEAM_GLOW_LENGTH = InfoDemoLayout.BOARD_SIZE + 1.2f;
+        private const float BEAM_GLOW_THICKNESS = 1.9f;
+        private const float BEAM_GLOW_ALPHA = 0.85f;
+        private const float BEAM_HOLD = 0.15f;
+        private const float BEAM_FADE_DURATION = 0.3f;
+
+        /// <summary>A burst's dense core ends at this fraction of the bloom's reach (the Vortex burst's
+        /// authored 2 of 4.2), over this fraction of its duration.</summary>
+        private const float BURST_CORE_REACH_FRACTION = 2f / 4.2f;
+        private const float BURST_CORE_DURATION_FRACTION = 0.7f;
+        private const float BURST_CORE_ALPHA = 0.9f;
+
         /// <summary>
         /// Drops piece <paramref name="pieceId"/> (sitting in the tray at <paramref name="trayPosition"/>)
         /// onto the board with its top-left cell at (<paramref name="row"/>, <paramref name="column"/>):
@@ -182,6 +233,268 @@ namespace MustyBlockBlast.Presentation.Views
             float fadeOutDuration = duration * 0.25f;
             builder.Fade(labelId, startTime + duration - fadeOutDuration, fadeOutDuration, 1f, 0f, InfoDemoEasing.EaseInCubic);
             return labelId;
+        }
+
+        /// <summary>
+        /// A simulated tap at <paramref name="position"/> (board units) landing at <paramref name="time"/>
+        /// (issue #448): a white fingertip — soft shadow, thin dark rim — glides in from below-right over
+        /// <see cref="TAP_GLIDE_DURATION"/>, presses (1 → 0.78 → 1) and lifts away, while a white ring
+        /// expands from the touch point (0.3 → 1.7, fading). Each call adds its own finger, so a demo can
+        /// tap as often as it likes. Returns the time the ring has faded.
+        /// </summary>
+        internal static float Tap(InfoDemoTimelineBuilder builder, float time, Vector2 position)
+        {
+            float glideStart = Mathf.Max(0f, time - TAP_GLIDE_DURATION);
+            Vector2 startOffset = new Vector2(
+                InfoDemoLayout.FromMockLength(MOCK_FINGER_START_OFFSET_X),
+                InfoDemoLayout.FromMockLength(MOCK_FINGER_START_OFFSET_Y));
+            Vector2 shadowDrop = new Vector2(0f, InfoDemoLayout.FromMockLength(MOCK_FINGER_SHADOW_DROP));
+
+            // Icon sizes are in board-cell widths (MOCK_CELL), not pitches. Back to front: shadow, rim, face.
+            int shadow = builder.AddIcon(
+                InfoDemoSprite.SoftDisc, 0, position + startOffset + shadowDrop,
+                MOCK_FINGER_SHADOW_DIAMETER / InfoDemoLayout.MOCK_CELL, 0f, InfoDemoPaint.INK);
+            int rim = builder.AddIcon(
+                InfoDemoSprite.Disc, 0, position + startOffset,
+                (MOCK_FINGER_DIAMETER + (MOCK_FINGER_BORDER * 2f)) / InfoDemoLayout.MOCK_CELL, 0f, InfoDemoPaint.INK);
+            int face = builder.AddIcon(
+                InfoDemoSprite.Disc, 0, position + startOffset,
+                MOCK_FINGER_DIAMETER / InfoDemoLayout.MOCK_CELL, 0f, InfoDemoPaint.WHITE);
+
+            AnimateFingerPart(builder, shadow, glideStart, time, position + startOffset + shadowDrop, position + shadowDrop, FINGER_SHADOW_ALPHA);
+            AnimateFingerPart(builder, rim, glideStart, time, position + startOffset, position, FINGER_BORDER_ALPHA);
+            AnimateFingerPart(builder, face, glideStart, time, position + startOffset, position, 1f);
+
+            float ringDiameter = InfoDemoLayout.FromMockLength(MOCK_TAP_RING_DIAMETER);
+            int ring = builder.AddRing(
+                position, new Vector2(ringDiameter, ringDiameter), ringDiameter * 0.5f,
+                InfoDemoLayout.FromMockLength(MOCK_TAP_RING_STROKE), InfoDemoPaint.WHITE);
+            builder.Scale(ring, time, TAP_RING_DURATION, TAP_RING_START_SCALE, TAP_RING_END_SCALE, InfoDemoEasing.EaseOutCubic);
+            builder.Fade(ring, time, TAP_RING_DURATION, TAP_RING_START_ALPHA, 0f, InfoDemoEasing.EaseInCubic);
+
+            return time + TAP_RING_DURATION;
+        }
+
+        /// <summary><see cref="Tap"/> on the centre of board cell (<paramref name="row"/>, <paramref name="column"/>).</summary>
+        internal static float TapCell(InfoDemoTimelineBuilder builder, float time, int row, int column)
+            => Tap(builder, time, InfoDemoLayout.Cell(row, column));
+
+        /// <summary>
+        /// A power-up beam along row (<paramref name="isRow"/>) or column <paramref name="lineIndex"/>
+        /// (issue #448): a bright white bar inside a <paramref name="paint"/> halo, growing out from the
+        /// line's centre to its full length over <see cref="BEAM_GROW_DURATION"/>, holding briefly, then
+        /// fading. Drawn over the blocks. Returns the time it has faded.
+        /// </summary>
+        internal static float Beam(InfoDemoTimelineBuilder builder, float time, bool isRow, int lineIndex, int paint)
+        {
+            float centre = (InfoDemoLayout.BOARD_SIZE - 1) * 0.5f;
+            Vector2 position = isRow ? new Vector2(centre, lineIndex) : new Vector2(lineIndex, centre);
+            Vector2 glowSize = isRow
+                ? new Vector2(BEAM_GLOW_LENGTH, BEAM_GLOW_THICKNESS)
+                : new Vector2(BEAM_GLOW_THICKNESS, BEAM_GLOW_LENGTH);
+            Vector2 barSize = isRow
+                ? new Vector2(BEAM_BAR_LENGTH, BEAM_BAR_THICKNESS)
+                : new Vector2(BEAM_BAR_THICKNESS, BEAM_BAR_LENGTH);
+            Vector2 collapsed = isRow ? new Vector2(0f, 1f) : new Vector2(1f, 0f);
+
+            int glow = builder.AddGlow(position, glowSize, paint);
+            int bar = builder.AddPanel(position, barSize, BEAM_BAR_THICKNESS * 0.5f, InfoDemoPaint.WHITE, 0f);
+
+            float fadeStart = time + BEAM_GROW_DURATION + BEAM_HOLD;
+            builder.Stretch(glow, time, BEAM_GROW_DURATION, collapsed, Vector2.one, InfoDemoEasing.EaseOutCubic);
+            builder.Stretch(bar, time, BEAM_GROW_DURATION, collapsed, Vector2.one, InfoDemoEasing.EaseOutCubic);
+            builder.Fade(glow, time, 0.06f, 0f, BEAM_GLOW_ALPHA);
+            builder.Fade(bar, time, 0.06f, 0f, 1f);
+            builder.Fade(glow, fadeStart, BEAM_FADE_DURATION, BEAM_GLOW_ALPHA, 0f, InfoDemoEasing.EaseInCubic);
+            builder.Fade(bar, fadeStart, BEAM_FADE_DURATION, 1f, 0f, InfoDemoEasing.EaseInCubic);
+            return fadeStart + BEAM_FADE_DURATION;
+        }
+
+        /// <summary>
+        /// A radial burst at <paramref name="centre"/>: a wide soft <paramref name="paint"/> bloom
+        /// <paramref name="size"/> board-cell widths across growing 0.5 → <paramref name="reach"/> while it
+        /// fades, around a denser <paramref name="corePaint"/> core that stops short of it
+        /// (<see cref="InfoDemoPaint.NONE"/> for no core). The Vortex's violet burst (#446) and the
+        /// power-up blasts (#448). Returns the time the bloom is gone.
+        /// </summary>
+        internal static float Burst(
+            InfoDemoTimelineBuilder builder,
+            Vector2 centre,
+            int paint,
+            int corePaint,
+            float size,
+            float reach,
+            float startTime,
+            float duration)
+        {
+            int bloom = builder.AddGlow(centre, size, paint);
+            builder.Scale(bloom, startTime, duration, 0.5f, reach, InfoDemoEasing.EaseOutCubic);
+            builder.Fade(bloom, startTime, duration, 1f, 0f, InfoDemoEasing.EaseInCubic);
+
+            if (corePaint != InfoDemoPaint.NONE)
+            {
+                float coreDuration = duration * BURST_CORE_DURATION_FRACTION;
+                int core = builder.AddGlow(centre, size, corePaint);
+                builder.Scale(core, startTime, coreDuration, 0.3f, reach * BURST_CORE_REACH_FRACTION, InfoDemoEasing.EaseOutCubic);
+                builder.Fade(core, startTime, coreDuration, BURST_CORE_ALPHA, 0f, InfoDemoEasing.EaseInCubic);
+            }
+
+            return startTime + duration;
+        }
+
+        /// <summary>
+        /// A translucent filled highlight over the block of cells rows <paramref name="topRow"/>..
+        /// <paramref name="bottomRow"/>, columns <paramref name="leftColumn"/>..<paramref name="rightColumn"/>
+        /// (issue #448 — a bomb's 3x3 preview): fades in to <paramref name="peakAlpha"/> at
+        /// <paramref name="startTime"/> and out from <paramref name="endTime"/>. Drawn over the blocks.
+        /// </summary>
+        internal static int RectHighlight(
+            InfoDemoTimelineBuilder builder,
+            int topRow,
+            int leftColumn,
+            int bottomRow,
+            int rightColumn,
+            int paint,
+            float peakAlpha,
+            float startTime,
+            float endTime)
+        {
+            const float padding = 0.08f;
+            const float cornerRadius = 0.3f;
+            const float fadeInDuration = 0.15f;
+            const float fadeOutDuration = 0.25f;
+
+            Vector2 size = new Vector2(rightColumn - leftColumn + 1 + padding, bottomRow - topRow + 1 + padding);
+            int highlight = builder.AddPanel(
+                InfoDemoLayout.CellSpanCentre(topRow, leftColumn, bottomRow, rightColumn), size, cornerRadius, paint, 0f);
+            builder.Fade(highlight, startTime, fadeInDuration, 0f, peakAlpha, InfoDemoEasing.EaseOutCubic);
+            builder.Fade(highlight, endTime, fadeOutDuration, peakAlpha, 0f, InfoDemoEasing.EaseInCubic);
+            return highlight;
+        }
+
+        /// <summary>Repaints an occupied board cell as <paramref name="paint"/> at <paramref name="time"/>
+        /// with a small pop — a white flash and a swell that both settle back (issue #448, Paint Cross).
+        /// Returns the time the pop settles.</summary>
+        internal static float Recolour(InfoDemoTimelineBuilder builder, int row, int column, int paint, float time)
+        {
+            int blockId = InfoDemoLayout.BoardBlockId(row, column);
+            builder.Paint(blockId, time, paint);
+            builder.Flash(blockId, time, RECOLOUR_POP_DURATION, 0f, 0.55f, InfoDemoEasing.Pulse);
+            builder.Scale(blockId, time, RECOLOUR_POP_DURATION, 1f, 1.15f, InfoDemoEasing.Pulse);
+            return time + RECOLOUR_POP_DURATION;
+        }
+
+        /// <summary><see cref="Recolour"/> on every cell of <paramref name="cells"/> (x = column,
+        /// y = row), nearest to <paramref name="origin"/> first, <paramref name="stagger"/> apart.
+        /// Returns the time the last pop settles.</summary>
+        internal static float RecolourCells(
+            InfoDemoTimelineBuilder builder, Vector2Int[] cells, Vector2 origin, int paint, float startTime, float stagger)
+        {
+            Vector2Int[] ordered = OrderByDistance(cells, origin);
+            float settled = startTime;
+            for (int orderIndex = 0; orderIndex < ordered.Length; orderIndex++)
+            {
+                Vector2Int cell = ordered[orderIndex];
+                settled = Recolour(builder, cell.y, cell.x, paint, startTime + (orderIndex * stagger));
+            }
+
+            return settled;
+        }
+
+        /// <summary>Flashes every cell of <paramref name="cells"/> (x = column, y = row) bright and back,
+        /// <paramref name="pulseCount"/> times over <paramref name="duration"/> — "these ones" (issue
+        /// #448, the cells a Color Cleanser is about to take). Returns the end time.</summary>
+        internal static float PulseCells(
+            InfoDemoTimelineBuilder builder, Vector2Int[] cells, float startTime, float duration, float peakFlash, int pulseCount)
+        {
+            int pulses = Mathf.Max(1, pulseCount);
+            float pulseDuration = duration / pulses;
+            for (int cellIndex = 0; cellIndex < cells.Length; cellIndex++)
+            {
+                int blockId = InfoDemoLayout.BoardBlockId(cells[cellIndex].y, cells[cellIndex].x);
+                for (int pulseIndex = 0; pulseIndex < pulses; pulseIndex++)
+                {
+                    builder.Flash(blockId, startTime + (pulseIndex * pulseDuration), pulseDuration, 0f, peakFlash, InfoDemoEasing.Pulse);
+                }
+            }
+
+            return startTime + duration;
+        }
+
+        /// <summary>
+        /// Clears an arbitrary set of board cells (x = column, y = row) the way a line clear clears its
+        /// line — each flashes bright, then shrinks and fades — but ordered by distance from
+        /// <paramref name="origin"/>, nearest first, <paramref name="stagger"/> apart (issue #448: a
+        /// bomb's 3x3 from its centre out, a cleanser's colour from the tapped cell out). Returns the time
+        /// the last cell is gone.
+        /// </summary>
+        internal static float ClearCells(
+            InfoDemoTimelineBuilder builder, Vector2Int[] cells, Vector2 origin, float startTime, float stagger)
+        {
+            Vector2Int[] ordered = OrderByDistance(cells, origin);
+            float lastCellGone = startTime;
+            for (int orderIndex = 0; orderIndex < ordered.Length; orderIndex++)
+            {
+                Vector2Int cell = ordered[orderIndex];
+                int blockId = InfoDemoLayout.BoardBlockId(cell.y, cell.x);
+                float cellStart = startTime + (orderIndex * stagger);
+
+                builder.Flash(blockId, cellStart, CLEAR_FLASH_DURATION, 0f, 0.75f, InfoDemoEasing.EaseOutCubic);
+
+                float shrinkStart = cellStart + CLEAR_FLASH_DURATION;
+                builder.Scale(blockId, shrinkStart, CLEAR_SHRINK_DURATION, 1f, 0.25f, InfoDemoEasing.EaseInCubic);
+                builder.Fade(blockId, shrinkStart, CLEAR_SHRINK_DURATION, 1f, 0f, InfoDemoEasing.EaseInCubic);
+
+                float cellGone = shrinkStart + CLEAR_SHRINK_DURATION;
+                builder.Paint(blockId, cellGone, InfoDemoPaint.NONE);
+                builder.ResetLook(blockId, cellGone);
+                lastCellGone = Mathf.Max(lastCellGone, cellGone);
+            }
+
+            return lastCellGone;
+        }
+
+        /// <summary>A copy of <paramref name="cells"/> sorted nearest-to-<paramref name="origin"/> first;
+        /// ties keep their given order. Build-time only (it allocates).</summary>
+        internal static Vector2Int[] OrderByDistance(Vector2Int[] cells, Vector2 origin)
+        {
+            Vector2Int[] ordered = new Vector2Int[cells.Length];
+            float[] distances = new float[cells.Length];
+            for (int cellIndex = 0; cellIndex < cells.Length; cellIndex++)
+            {
+                Vector2Int cell = cells[cellIndex];
+                float distance = ((Vector2)cell - origin).sqrMagnitude;
+
+                // Insertion sort, stable: shift strictly farther cells right.
+                int insertIndex = cellIndex - 1;
+                while (insertIndex >= 0 && distances[insertIndex] > distance)
+                {
+                    ordered[insertIndex + 1] = ordered[insertIndex];
+                    distances[insertIndex + 1] = distances[insertIndex];
+                    insertIndex--;
+                }
+
+                ordered[insertIndex + 1] = cell;
+                distances[insertIndex + 1] = distance;
+            }
+
+            return ordered;
+        }
+
+        private static void AnimateFingerPart(
+            InfoDemoTimelineBuilder builder, int elementId, float glideStart, float touchTime, Vector2 from, Vector2 to, float peakAlpha)
+        {
+            float glideDuration = Mathf.Max(0.01f, touchTime - glideStart);
+            builder.Move(elementId, glideStart, glideDuration, from, to, InfoDemoEasing.EaseOutCubic);
+            builder.Fade(elementId, glideStart, Mathf.Min(0.12f, glideDuration), 0f, peakAlpha, InfoDemoEasing.EaseOutCubic);
+
+            builder.Scale(
+                elementId, touchTime - FINGER_PRESS_IN_DURATION, FINGER_PRESS_IN_DURATION, 1f, FINGER_PRESS_SCALE,
+                InfoDemoEasing.EaseInCubic);
+            builder.Scale(elementId, touchTime, FINGER_RELEASE_DURATION, FINGER_PRESS_SCALE, 1f, InfoDemoEasing.EaseOutCubic);
+
+            builder.Fade(
+                elementId, touchTime + FINGER_FADE_DELAY, FINGER_FADE_DURATION, peakAlpha, 0f, InfoDemoEasing.EaseInCubic);
         }
 
         private static float ClearLine(InfoDemoTimelineBuilder builder, bool isRow, int lineIndex, float startTime)

@@ -47,6 +47,7 @@ namespace MustyBlockBlast.Presentation.Views
                         null,
                         null,
                         0f,
+                        0f,
                         InfoDemoElementState.At(InfoDemoLayout.Cell(row, column), InfoDemoPaint.NONE, 1f));
                 }
             }
@@ -74,12 +75,15 @@ namespace MustyBlockBlast.Presentation.Views
         {
             InfoDemoElementState initial = InfoDemoElementState.At(position, paint, alpha);
             initial.Scale = scale;
-            return AddElement(InfoDemoElementKind.Piece, Vector2.one, InfoDemoSprite.None, 0, shape, null, null, 0f, initial);
+            return AddElement(InfoDemoElementKind.Piece, Vector2.one, InfoDemoSprite.None, 0, shape, null, null, 0f, 0f, initial);
         }
 
-        /// <summary>A sprite <paramref name="size"/> board units square, tinted as
-        /// <see cref="IInfoDemoResources"/> resolves it.</summary>
-        internal int AddIcon(InfoDemoSprite sprite, int spriteParameter, Vector2 position, float size, float alpha = 1f)
+        /// <summary>A sprite <paramref name="size"/> board-cell widths square, tinted as
+        /// <see cref="IInfoDemoResources"/> resolves it and multiplied by <paramref name="paint"/> (white
+        /// leaves the resolved tint as it is; a plain white shape sprite takes the paint outright).</summary>
+        internal int AddIcon(
+            InfoDemoSprite sprite, int spriteParameter, Vector2 position, float size, float alpha = 1f,
+            int paint = InfoDemoPaint.WHITE)
         {
             return AddElement(
                 InfoDemoElementKind.Icon,
@@ -90,20 +94,38 @@ namespace MustyBlockBlast.Presentation.Views
                 null,
                 null,
                 0f,
-                InfoDemoElementState.At(position, InfoDemoPaint.WHITE, alpha));
+                0f,
+                InfoDemoElementState.At(position, paint, alpha));
         }
 
         internal int AddGlow(Vector2 position, float size, int paint, float alpha = 0f)
+            => AddGlow(position, new Vector2(size, size), paint, alpha);
+
+        /// <summary>A soft radial glow stretched to <paramref name="size"/> board-cell widths — an
+        /// elongated glow (a beam's halo) when the two axes differ.</summary>
+        internal int AddGlow(Vector2 position, Vector2 size, int paint, float alpha = 0f)
         {
             return AddElement(
                 InfoDemoElementKind.Glow,
-                new Vector2(size, size),
+                size,
                 InfoDemoSprite.None,
                 0,
                 null,
                 null,
                 null,
                 0f,
+                0f,
+                InfoDemoElementState.At(position, paint, alpha));
+        }
+
+        /// <summary>A solid hollow rounded frame <paramref name="size"/> board units across (exactly,
+        /// like a panel) with <paramref name="cornerRadius"/> corners and a
+        /// <paramref name="strokeWidth"/> wall, all in board units. A radius of half the size draws a
+        /// circle ring (issue #448).</summary>
+        internal int AddRing(Vector2 position, Vector2 size, float cornerRadius, float strokeWidth, int paint, float alpha = 0f)
+        {
+            return AddElement(
+                InfoDemoElementKind.Ring, size, InfoDemoSprite.None, 0, null, null, null, cornerRadius, strokeWidth,
                 InfoDemoElementState.At(position, paint, alpha));
         }
 
@@ -111,14 +133,14 @@ namespace MustyBlockBlast.Presentation.Views
         internal int AddOutline(Vector2 position, Vector2 size, int paint, float alpha = 0f)
         {
             return AddElement(
-                InfoDemoElementKind.Outline, size, InfoDemoSprite.None, 0, null, null, null, 0f,
+                InfoDemoElementKind.Outline, size, InfoDemoSprite.None, 0, null, null, null, 0f, 0f,
                 InfoDemoElementState.At(position, paint, alpha));
         }
 
         internal int AddBand(Vector2 position, Vector2 size, int paint, float alpha = 0f)
         {
             return AddElement(
-                InfoDemoElementKind.Band, size, InfoDemoSprite.None, 0, null, null, null, 0f,
+                InfoDemoElementKind.Band, size, InfoDemoSprite.None, 0, null, null, null, 0f, 0f,
                 InfoDemoElementState.At(position, paint, alpha));
         }
 
@@ -128,7 +150,7 @@ namespace MustyBlockBlast.Presentation.Views
         internal int AddPanel(Vector2 position, Vector2 size, float cornerRadius, int paint, float alpha = 1f)
         {
             return AddElement(
-                InfoDemoElementKind.Panel, size, InfoDemoSprite.None, 0, null, null, null, cornerRadius,
+                InfoDemoElementKind.Panel, size, InfoDemoSprite.None, 0, null, null, null, cornerRadius, 0f,
                 InfoDemoElementState.At(position, paint, alpha));
         }
 
@@ -142,7 +164,7 @@ namespace MustyBlockBlast.Presentation.Views
         {
             return AddElement(
                 InfoDemoElementKind.Label, new Vector2(width, fontHeight), InfoDemoSprite.None, 0, null, localizationKey,
-                argument, 0f, InfoDemoElementState.At(position, paint, alpha));
+                argument, 0f, 0f, InfoDemoElementState.At(position, paint, alpha));
         }
 
         /// <summary>A label showing <paramref name="literalText"/> as-is — language-neutral text such
@@ -151,7 +173,7 @@ namespace MustyBlockBlast.Presentation.Views
         {
             return AddElement(
                 InfoDemoElementKind.Label, new Vector2(width, fontHeight), InfoDemoSprite.None, 0, null, null,
-                literalText, 0f, InfoDemoElementState.At(position, paint, alpha));
+                literalText, 0f, 0f, InfoDemoElementState.At(position, paint, alpha));
         }
 
         /// <summary>Queues one step. Steps may be added in any order; <see cref="Build"/> sorts them.</summary>
@@ -180,6 +202,11 @@ namespace MustyBlockBlast.Presentation.Views
 
         internal void Move(int elementId, float startTime, float duration, Vector2 from, Vector2 to, InfoDemoEasing easing = InfoDemoEasing.Linear)
             => Animate(elementId, InfoDemoProperty.Position, startTime, duration, from, to, easing);
+
+        /// <summary>Drives the per-axis <see cref="InfoDemoElementState.Stretch"/> — (0, 1) → (1, 1)
+        /// grows a horizontal bar out from its centre.</summary>
+        internal void Stretch(int elementId, float startTime, float duration, Vector2 from, Vector2 to, InfoDemoEasing easing = InfoDemoEasing.Linear)
+            => Animate(elementId, InfoDemoProperty.Stretch, startTime, duration, from, to, easing);
 
         internal void Rotate(int elementId, float startTime, float duration, float fromDegrees, float toDegrees, InfoDemoEasing easing = InfoDemoEasing.Linear)
             => Animate(elementId, InfoDemoProperty.Rotation, startTime, duration, new Vector4(fromDegrees, 0f), new Vector4(toDegrees, 0f), easing);
@@ -234,10 +261,11 @@ namespace MustyBlockBlast.Presentation.Views
             string labelKey,
             string labelArgument,
             float cornerRadius,
+            float strokeWidth,
             InfoDemoElementState initial)
         {
             _elements.Add(new InfoDemoElement(
-                kind, size, sprite, spriteParameter, shape, labelKey, labelArgument, cornerRadius, initial));
+                kind, size, sprite, spriteParameter, shape, labelKey, labelArgument, cornerRadius, strokeWidth, initial));
             return _elements.Count - 1;
         }
     }

@@ -27,6 +27,10 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>A sprite — a special cell's icon, a power-up icon, a finger.</summary>
         Icon,
 
+        /// <summary>A solid hollow rounded frame (a tap ring, a power-up's "armed" ring, issue #448).
+        /// In front of the icons, so a ring expanding from a fingertip stays visible over it.</summary>
+        Ring,
+
         /// <summary>A piece made of several blocks (tray pieces, a piece being dragged).</summary>
         Piece,
 

@@ -41,6 +41,27 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>The "goal done" green of a progress chip's check badge.</summary>
         internal const int SUCCESS = 35;
 
+        /// <summary>Power-up button plates in the demo strip (issue #448), one per power-up family:
+        /// Bomb red (#E2533D), Row/Column Clear blue (#3F8FD6), Joker violet (#BA68C8), Color Cleanser
+        /// green (#66BB6A), Paint Cross pink (#F06292).</summary>
+        internal const int PLATE_BOMB = 40;
+        internal const int PLATE_LINE_CLEAR = 41;
+        internal const int PLATE_JOKER = 42;
+        internal const int PLATE_CLEANSER = 43;
+        internal const int PLATE_PAINT = 44;
+
+        /// <summary>The yellow (#FFD54F) of a power-up's "armed" ring and glow.</summary>
+        internal const int ARMED = 45;
+
+        /// <summary>A bomb's orange blast (#FF8A3D).</summary>
+        internal const int BLAST = 46;
+
+        /// <summary>The soft coral (#FFB4A2) a bomb's 3x3 target area is previewed in.</summary>
+        internal const int BLAST_PREVIEW = 47;
+
+        /// <summary>The red (#E53935) of a power-up button's count badge.</summary>
+        internal const int BADGE_RED = 48;
+
         /// <summary>Maps a board-pattern character to a paint: '.' empty, then the first letter of each
         /// Ilkbahar block colour — 'p' pink (1), 'g' green (2), 'u' purple (3), 'm' magenta (4),
         /// 'b' blue (5), 'v' vortex indigo. Anything else is <see cref="NONE"/>.</summary>

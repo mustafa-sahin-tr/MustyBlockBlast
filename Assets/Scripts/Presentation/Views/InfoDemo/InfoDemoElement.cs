@@ -18,6 +18,7 @@ namespace MustyBlockBlast.Presentation.Views
             string labelKey,
             string labelArgument,
             float cornerRadius,
+            float strokeWidth,
             InfoDemoElementState initial)
         {
             Kind = kind;
@@ -28,6 +29,7 @@ namespace MustyBlockBlast.Presentation.Views
             LabelKey = labelKey;
             LabelArgument = labelArgument;
             CornerRadius = cornerRadius;
+            StrokeWidth = strokeWidth;
             Initial = initial;
         }
 
@@ -53,9 +55,13 @@ namespace MustyBlockBlast.Presentation.Views
         /// (a counter like "0/1" that needs no translation). Null for a plain translated label.</summary>
         internal string LabelArgument { get; }
 
-        /// <summary>A <see cref="InfoDemoElementKind.Panel"/>'s corner radius in board units; 0 for
-        /// every other kind.</summary>
+        /// <summary>A <see cref="InfoDemoElementKind.Panel"/>'s or <see cref="InfoDemoElementKind.Ring"/>'s
+        /// corner radius in board units; 0 for every other kind.</summary>
         internal float CornerRadius { get; }
+
+        /// <summary>A <see cref="InfoDemoElementKind.Ring"/>'s wall thickness in board units; 0 for every
+        /// other kind.</summary>
+        internal float StrokeWidth { get; }
 
         /// <summary>The element's state at loop time 0. Mutable only while the builder owns it.</summary>
         internal InfoDemoElementState Initial;

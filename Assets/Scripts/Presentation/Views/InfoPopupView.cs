@@ -409,7 +409,7 @@ namespace MustyBlockBlast.Presentation.Views
             BuildHero();
             _demoStage = new InfoDemoStage(
                 _chrome.DemoRootRect,
-                new InfoDemoResources(_boardView, _localizationSystem),
+                new InfoDemoResources(_boardView, _powerUpInventoryView, _localizationSystem),
                 this.GetCancellationTokenOnDestroy());
 
             _panel = panelObject;

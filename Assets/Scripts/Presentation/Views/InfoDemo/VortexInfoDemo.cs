@@ -86,14 +86,8 @@ namespace MustyBlockBlast.Presentation.Views
             builder.Fade(halo, vortexGone, 0.2f, 0.55f, 0f);
 
             // 3. Its effect: a violet burst where it stood — a wide soft bloom around a denser indigo core.
-            const float burstStart = 1.65f;
-            const float burstDuration = 0.6f;
-            int burst = builder.AddGlow(vortexCell, 1.2f, InfoDemoPaint.VORTEX_GLOW);
-            builder.Scale(burst, burstStart, burstDuration, 0.5f, 4.2f, InfoDemoEasing.EaseOutCubic);
-            builder.Fade(burst, burstStart, burstDuration, 1f, 0f, InfoDemoEasing.EaseInCubic);
-            int burstCore = builder.AddGlow(vortexCell, 1.2f, InfoDemoPaint.VORTEX_BLOCK);
-            builder.Scale(burstCore, burstStart, burstDuration * 0.7f, 0.3f, 2f, InfoDemoEasing.EaseOutCubic);
-            builder.Fade(burstCore, burstStart, burstDuration * 0.7f, 0.9f, 0f, InfoDemoEasing.EaseInCubic);
+            InfoDemoChoreography.Burst(
+                builder, vortexCell, InfoDemoPaint.VORTEX_GLOW, InfoDemoPaint.VORTEX_BLOCK, 1.2f, 4.2f, 1.65f, 0.6f);
 
             // 4. The three enclosed islands are called out (in the fill's own indigo, so outline and fill
             // read as one idea)...

@@ -12,6 +12,11 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>Board units: x = column, y = row (row 0 at the top) — see <see cref="InfoDemoLayout"/>.</summary>
         internal Vector2 Position;
         internal float Scale;
+
+        /// <summary>Per-axis scale on top of <see cref="Scale"/>, (1, 1) at rest — a beam growing out
+        /// along its line from its centre (issue #448).</summary>
+        internal Vector2 Stretch;
+
         internal float Alpha;
         internal float Rotation;
         internal float Flash;
@@ -23,6 +28,7 @@ namespace MustyBlockBlast.Presentation.Views
             {
                 Position = position,
                 Scale = 1f,
+                Stretch = Vector2.one,
                 Alpha = alpha,
                 Rotation = 0f,
                 Flash = 0f,
@@ -36,6 +42,7 @@ namespace MustyBlockBlast.Presentation.Views
         {
             return Position == other.Position
                 && Mathf.Approximately(Scale, other.Scale)
+                && Stretch == other.Stretch
                 && Mathf.Approximately(Alpha, other.Alpha)
                 && Mathf.Approximately(Rotation, other.Rotation)
                 && Mathf.Approximately(Flash, other.Flash)
