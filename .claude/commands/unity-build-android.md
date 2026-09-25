@@ -29,6 +29,21 @@ Via `manage_build`:
 - Output format: ask the user once — **APK** (for direct install/sideload on a test device) or **AAB** (for Play Store upload) — if not already clear from context. Default to APK for local device testing since that matches "open and run on my device" workflows.
 - Keystore/signing: leave as configured. If unset and the user wants a signed release build, tell them to configure a keystore first rather than generating one automatically.
 
+### Build Type: Development (default) vs Production
+
+Always pass `development` explicitly to `manage_build action:"build"` — never inherit whatever the
+Build Profile checkbox happens to be:
+
+- **Default → Development build** (`development: "true"`). Every build for the user's own devices.
+  `Debug.isDebugBuild` is true, so `AdMobRewardSource` and `AdMobInterstitialSource` load Google's
+  **test** ad units — test creatives, no device registration needed, taps are harmless.
+- **Only when the user explicitly says "production build"** (or "prod build", "store build",
+  "release build") → **Release build** (`development: "false"`). `Debug.isDebugBuild` is false, so
+  the **live** AdMob units are used — this is the build that goes to the store.
+
+State the build type in the report ("Development — test ads" / "Production — LIVE ads"). For a
+production build, warn the user not to tap ads when testing it on their own device.
+
 ### Step 3: Build
 
 ```
@@ -41,6 +56,7 @@ Output to the project's existing Android build output folder if one exists (chec
 ### Step 4: Report
 
 - Build result: SUCCESS or FAILURE.
+- Build type: Development (test ads) or Production (LIVE ads).
 - Exact path to the built `.apk`/`.aab`.
 - Build size.
 - Any warnings from the build log.

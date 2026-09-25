@@ -30,6 +30,21 @@ Via `manage_build`:
 - Target devices: iPhone (confirm with user if iPad support is also expected).
 - Signing team ID: leave as configured in Xcode/Unity — this command does not manage signing. If unset, note it in the report rather than guessing a team ID.
 
+### Build Type: Development (default) vs Production
+
+Always pass `development` explicitly to `manage_build action:"build"` — never inherit whatever the
+Build Profile checkbox happens to be:
+
+- **Default → Development build** (`development: "true"`). Every build for the user's own devices.
+  `Debug.isDebugBuild` is true, so `AdMobRewardSource` and `AdMobInterstitialSource` load Google's
+  **test** ad units — test creatives, no device registration needed, taps are harmless.
+- **Only when the user explicitly says "production build"** (or "prod build", "store build",
+  "release build") → **Release build** (`development: "false"`). `Debug.isDebugBuild` is false, so
+  the **live** AdMob units are used — this is the build that goes to the store.
+
+State the build type in the report ("Development — test ads" / "Production — LIVE ads"). For a
+production build, warn the user not to tap ads when testing it on their own device.
+
 ### Step 3: Build (Export Xcode Project)
 
 ```
@@ -82,6 +97,7 @@ build, archive, or sign anything.
 ### Step 4: Report
 
 - Build result: SUCCESS or FAILURE.
+- Build type: Development (test ads) or Production (LIVE ads).
 - Exact path to the exported Xcode project.
 - Any warnings from the build log.
 - `pod install` outcome: ran successfully / skipped (no Podfile) / needs manual CocoaPods install.

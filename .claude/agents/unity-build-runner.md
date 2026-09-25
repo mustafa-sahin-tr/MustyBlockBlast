@@ -52,6 +52,14 @@ manage_build action:"switch_platform" → target platform (if different)
 - Check that all scenes in build list exist
 - Verify no `UnityEditor` namespace leaks (the guard-editor-runtime hook should catch this)
 
+### Step 4.5: Development vs Production (this project)
+- **Default is a Development build** — pass `development: "true"` to `manage_build action:"build"`.
+  Development builds make the AdMob sources use Google's test ad units (`Debug.isDebugBuild`).
+- **Only if the user explicitly asked for a "production build"** (prod / store / release build) pass
+  `development: "false"` — that build serves LIVE ads.
+- Always pass the flag explicitly; never rely on the Build Profile's current checkbox. Report which
+  type was built.
+
 ### Step 5: Execute Build
 ```
 manage_build action:"build" → trigger build with configured settings
