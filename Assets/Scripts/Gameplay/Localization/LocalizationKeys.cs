@@ -162,6 +162,51 @@ namespace MustyBlockBlast.Gameplay.Localization
         /// completely empty (issue #452).</summary>
         public const string INFO_POPUP_DEMO_ROW_EMPTIED = "info_popup.demo.row_emptied";
 
+        /// <summary>The Board Wipe objective demo's progress-chip caption (issue #453, "EMPTY BOARD").</summary>
+        public const string INFO_POPUP_DEMO_CHIP_BOARD_WIPE = "info_popup.demo.chip.board_wipe";
+
+        /// <summary>The Four Corners objective demo's progress-chip caption (issue #453, "CORNER").</summary>
+        public const string INFO_POPUP_DEMO_CHIP_CORNER = "info_popup.demo.chip.corner";
+
+        /// <summary>The Center Core objective demo's progress-chip caption (issue #453, "CENTER").</summary>
+        public const string INFO_POPUP_DEMO_CHIP_CENTER = "info_popup.demo.chip.center";
+
+        /// <summary>The No Isolated Holes streak demo's progress-chip caption (issue #453, "NO HOLES").</summary>
+        public const string INFO_POPUP_DEMO_CHIP_NO_HOLES = "info_popup.demo.chip.no_holes";
+
+        /// <summary>The Ice Cells objective demo's progress-chip caption (issue #453, "ICE").</summary>
+        public const string INFO_POPUP_DEMO_CHIP_ICE = "info_popup.demo.chip.ice";
+
+        /// <summary>The Reinforced Cells objective demo's progress-chip caption (issue #453, "ARMOUR").</summary>
+        public const string INFO_POPUP_DEMO_CHIP_ARMOUR = "info_popup.demo.chip.armour";
+
+        /// <summary>The floating label the Board Wipe demo shows as the board is left empty (issue #453).</summary>
+        public const string INFO_POPUP_DEMO_BOARD_CLEARED = "info_popup.demo.board_cleared";
+
+        /// <summary>The floating label the Four Corners demo shows as a clear takes two corners (issue #453).</summary>
+        public const string INFO_POPUP_DEMO_CORNER_CLEARED = "info_popup.demo.corner_cleared";
+
+        /// <summary>The floating label the Center Core demo shows as the centre 4x4 empties (issue #453).</summary>
+        public const string INFO_POPUP_DEMO_CENTER_EMPTY = "info_popup.demo.center_empty";
+
+        /// <summary>The floating label the No Isolated Holes streak demo shows after its third clean
+        /// placement (issue #453).</summary>
+        public const string INFO_POPUP_DEMO_NO_HOLES = "info_popup.demo.no_holes";
+
+        /// <summary>The floating label the Colour Cleared demo shows once the last block of its colour goes
+        /// (issue #453). Generic — never a colour name, which a theme switch would make wrong; the label is
+        /// drawn in the colour itself.</summary>
+        public const string INFO_POPUP_DEMO_COLOUR_GONE = "info_popup.demo.colour_gone";
+
+        /// <summary>The floating label the Diamonds Cleared demo shows as its gems reach the chip (issue #453).</summary>
+        public const string INFO_POPUP_DEMO_DIAMONDS_COLLECTED = "info_popup.demo.diamonds_collected";
+
+        /// <summary>The floating label the Ice Cells demo shows as the socket's last level melts (issue #453).</summary>
+        public const string INFO_POPUP_DEMO_ICE_MELTED = "info_popup.demo.ice_melted";
+
+        /// <summary>The floating label the Reinforced Cells demo shows as the armoured cell breaks (issue #453).</summary>
+        public const string INFO_POPUP_DEMO_ARMOUR_BROKEN = "info_popup.demo.armour_broken";
+
         public const string INFO_POPUP_SPECIAL_CELL_CHAIN_LIGHTNING_HEADER = "info_popup.special_cell.chain_lightning.header";
         public const string INFO_POPUP_SPECIAL_CELL_CHAIN_LIGHTNING_BODY = "info_popup.special_cell.chain_lightning.body";
         public const string INFO_POPUP_SPECIAL_CELL_SCORE_GEM_HEADER = "info_popup.special_cell.score_gem.header";
@@ -437,6 +482,13 @@ namespace MustyBlockBlast.Gameplay.Localization
         /// same rich-text glyph <see cref="OBJECTIVE_COLOUR_CLEARED"/> uses, since the objective is
         /// scoped by the diamond's colour the way ColourCleared is by the block's.</summary>
         public const string OBJECTIVE_DIAMONDS_CLEARED = "objective.diamonds_cleared";
+
+        /// <summary>TimerCellsMeltedInTime's title (issue #453 — the type had none, so its card and the
+        /// Level Path panel fell back to another objective's name).</summary>
+        public const string OBJECTIVE_NAME_TIMER_CELLS_MELTED_IN_TIME = "objective.name.timer_cells_melted_in_time";
+
+        /// <summary>TimerCellsMeltedInTime's description (issue #453).</summary>
+        public const string OBJECTIVE_TIMER_CELLS_MELTED_IN_TIME = "objective.timer_cells_melted_in_time";
 
         // Translated display names for individual catalog pieces, keyed by piece id in
         // ObjectiveDescriptionFormatter.PieceIdNameKey. Not exhaustive — only pieces an authored

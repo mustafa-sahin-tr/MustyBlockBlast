@@ -49,5 +49,9 @@ namespace MustyBlockBlast.Presentation.Views
         internal int CounterLabelId(int value) => _counterLabelIds[value - _startValue];
 
         internal void Advance() => Value++;
+
+        /// <summary>Moves <see cref="Value"/> on by <paramref name="steps"/> at once (issue #453 — one clear
+        /// that destroys several counted things), never past <see cref="Target"/>.</summary>
+        internal void Advance(int steps) => Value = System.Math.Min(Target, Value + System.Math.Max(0, steps));
     }
 }

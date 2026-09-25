@@ -19,7 +19,9 @@ namespace MustyBlockBlast.Presentation.Views
             string labelArgument,
             float cornerRadius,
             float strokeWidth,
-            InfoDemoElementState initial)
+            InfoDemoElementState initial,
+            int variant = 0,
+            int[] cellValues = null)
         {
             Kind = kind;
             Size = size;
@@ -31,6 +33,8 @@ namespace MustyBlockBlast.Presentation.Views
             CornerRadius = cornerRadius;
             StrokeWidth = strokeWidth;
             Initial = initial;
+            Variant = variant;
+            CellValues = cellValues;
         }
 
         internal InfoDemoElementKind Kind { get; }
@@ -66,6 +70,16 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>A <see cref="InfoDemoElementKind.Ring"/>'s wall thickness in board units; 0 for every
         /// other kind.</summary>
         internal float StrokeWidth { get; }
+
+        /// <summary>A <see cref="InfoDemoElementKind.CellLayer"/>'s fixed look variant (issue #453) — the
+        /// armour skin of an <see cref="InfoDemoCellLayer.Armour"/> layer; 0 for every other kind.</summary>
+        internal int Variant { get; }
+
+        /// <summary>A <see cref="InfoDemoElementKind.Piece"/>'s per-cell diamond gem colour ids, parallel to
+        /// <see cref="Shape"/> (issue #453 — the dock's diamond decoration, drawn on those cells through
+        /// <c>DiamondVisuals</c>); 0 marks an undecorated cell. Null for an undecorated piece and every other
+        /// kind.</summary>
+        internal int[] CellValues { get; }
 
         /// <summary>The element's state at loop time 0. Mutable only while the builder owns it.</summary>
         internal InfoDemoElementState Initial;

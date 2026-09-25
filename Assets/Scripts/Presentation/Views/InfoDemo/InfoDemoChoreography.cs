@@ -60,6 +60,10 @@ namespace MustyBlockBlast.Presentation.Views
         private const float MOCK_CHIP_GLYPH_MAX_HEIGHT = 17f;
         private const float MOCK_CHIP_GLYPH_CELL = 6f;
 
+        /// <summary>Mockup-unit size of a chip's icon (issue #453): a little taller than the glyph band,
+        /// since a sprite has its own transparent margin.</summary>
+        private const float MOCK_CHIP_ICON_SIZE = 20f;
+
         /// <summary>A progress chip's size in board units (it sits at <see cref="InfoDemoLayout.ChipCentre"/>),
         /// for beats that decorate it — a countdown bar along its foot (issue #452).</summary>
         internal static Vector2 ChipSize => new Vector2(
@@ -192,6 +196,51 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>As <see cref="ClearRow"/>, for a column, top to bottom.</summary>
         internal static float ClearColumn(InfoDemoTimelineBuilder builder, int column, float startTime)
             => ClearLine(builder, false, column, startTime);
+
+        /// <summary>
+        /// As <see cref="ClearRow"/>, but the cell at column <paramref name="survivorColumn"/> survives the
+        /// clear (issue #453 — a reinforced cell that only spends a hit, <c>Board.TryDamage</c>): it flashes
+        /// with the line and takes a knock (a squash-and-back) instead of going. Returns the time the last
+        /// cleared cell is gone; the knock lands at <see cref="ClearCellShrinkStart"/> of the survivor.
+        /// </summary>
+        internal static float ClearRowSparing(InfoDemoTimelineBuilder builder, int row, int survivorColumn, float startTime)
+            => ClearLineSparing(builder, true, row, survivorColumn, startTime);
+
+        /// <summary>As <see cref="ClearRowSparing"/>, for a column, top to bottom.</summary>
+        internal static float ClearColumnSparing(InfoDemoTimelineBuilder builder, int column, int survivorRow, float startTime)
+            => ClearLineSparing(builder, false, column, survivorRow, startTime);
+
+        private static float ClearLineSparing(
+            InfoDemoTimelineBuilder builder, bool isRow, int lineIndex, int survivorIndexAlongLine, float startTime)
+        {
+            const float knockDuration = 0.3f;
+            const float knockScale = 0.8f;
+
+            int bandId = AddClearBand(builder, isRow, lineIndex, startTime);
+
+            float lastCellGone = startTime;
+            for (int indexAlongLine = 0; indexAlongLine < InfoDemoLayout.BOARD_SIZE; indexAlongLine++)
+            {
+                int row = isRow ? lineIndex : indexAlongLine;
+                int column = isRow ? indexAlongLine : lineIndex;
+                if (indexAlongLine != survivorIndexAlongLine)
+                {
+                    lastCellGone = ClearLineCell(builder, row, column, startTime, indexAlongLine);
+                    continue;
+                }
+
+                int blockId = InfoDemoLayout.BoardBlockId(row, column);
+                builder.Flash(blockId, startTime, CLEAR_FLASH_DURATION, 0f, 0.75f, InfoDemoEasing.EaseOutCubic);
+                float knock = ClearCellShrinkStart(startTime, indexAlongLine);
+                builder.Flash(blockId, knock, CLEAR_SHRINK_DURATION, 0.75f, 0f, InfoDemoEasing.EaseOutCubic);
+                builder.Scale(blockId, knock, knockDuration, 1f, knockScale, InfoDemoEasing.Pulse);
+            }
+
+            float bandFadeStart = ClearCellShrinkStart(startTime, InfoDemoLayout.BOARD_SIZE - 1);
+            float bandFadeDuration = Mathf.Max(0.01f, lastCellGone - bandFadeStart);
+            builder.Fade(bandId, bandFadeStart, bandFadeDuration, CLEAR_BAND_ALPHA, 0f, InfoDemoEasing.EaseOutCubic);
+            return lastCellGone;
+        }
 
         /// <summary>Fills an empty board cell with <paramref name="paint"/> and a springy pop.
         /// Returns the time the pop settles.</summary>
@@ -761,7 +810,7 @@ namespace MustyBlockBlast.Presentation.Views
         /// </summary>
         internal static InfoDemoProgressChip ProgressChip(
             InfoDemoTimelineBuilder builder, string captionKey, string captionArgument, int startValue, int target)
-            => AddProgressChip(builder, captionKey, captionArgument, null, InfoDemoPaint.NONE, startValue, target);
+            => AddProgressChip(builder, captionKey, captionArgument, null, InfoDemoPaint.NONE, InfoDemoSprite.None, 0, startValue, target);
 
         /// <summary>
         /// As <see cref="ProgressChip(InfoDemoTimelineBuilder, string, string, int, int)"/>, with a miniature
@@ -772,7 +821,26 @@ namespace MustyBlockBlast.Presentation.Views
         /// </summary>
         internal static InfoDemoProgressChip ProgressChip(
             InfoDemoTimelineBuilder builder, Vector2Int[] glyphShape, int glyphPaint, int startValue, int target)
-            => AddProgressChip(builder, null, null, glyphShape, glyphPaint, startValue, target);
+            => AddProgressChip(builder, null, null, glyphShape, glyphPaint, InfoDemoSprite.None, 0, startValue, target);
+
+        /// <summary>
+        /// As <see cref="ProgressChip(InfoDemoTimelineBuilder, string, string, int, int)"/>, with the game's
+        /// own <paramref name="icon"/> sprite (variant <paramref name="iconParameter"/>, multiplied by
+        /// <paramref name="iconPaint"/>) on the chip's top line instead of a caption (issue #453 — "clear
+        /// <i>these</i>": the timer cell's icon, a diamond in its gem colour). Its element id is
+        /// <see cref="InfoDemoProgressChip.CaptionId"/>.
+        /// </summary>
+        internal static InfoDemoProgressChip ProgressChip(
+            InfoDemoTimelineBuilder builder, InfoDemoSprite icon, int iconParameter, int iconPaint, int startValue, int target)
+            => AddProgressChip(builder, null, null, null, iconPaint, icon, iconParameter, startValue, target);
+
+        /// <summary>Where a chip's glyph or icon sits (board units) — the target a thing collected flies to
+        /// (issue #453, a diamond landing on its chip).</summary>
+        internal static Vector2 ChipGlyphCentre
+            => InfoDemoLayout.ChipCentre + new Vector2(0f, InfoDemoLayout.FromMockLength(MOCK_CHIP_GLYPH_OFFSET_Y));
+
+        /// <summary>A chip icon's size in board-cell widths (issue #453): the caption band's height.</summary>
+        internal static float ChipIconSize => MOCK_CHIP_ICON_SIZE / InfoDemoLayout.MOCK_CELL;
 
         /// <summary>The scale (relative to a board cell) a chip's piece glyph of <paramref name="glyphShape"/>
         /// is drawn at: as large as <see cref="MOCK_CHIP_GLYPH_CELL"/> allows, shrunk so the whole shape fits
@@ -793,6 +861,8 @@ namespace MustyBlockBlast.Presentation.Views
             string captionArgument,
             Vector2Int[] glyphShape,
             int glyphPaint,
+            InfoDemoSprite icon,
+            int iconParameter,
             int startValue,
             int target)
         {
@@ -807,7 +877,17 @@ namespace MustyBlockBlast.Presentation.Views
             int panelId = builder.AddPanel(centre, chipSize, corner, InfoDemoPaint.WHITE);
 
             int captionId;
-            if (glyphShape != null)
+            if (icon != InfoDemoSprite.None)
+            {
+                captionId = builder.AddIcon(
+                    icon,
+                    iconParameter,
+                    centre + new Vector2(0f, InfoDemoLayout.FromMockLength(MOCK_CHIP_GLYPH_OFFSET_Y)),
+                    ChipIconSize,
+                    1f,
+                    glyphPaint);
+            }
+            else if (glyphShape != null)
             {
                 captionId = builder.AddPiece(
                     glyphShape,
@@ -860,14 +940,20 @@ namespace MustyBlockBlast.Presentation.Views
         /// beat settles.
         /// </summary>
         internal static float AdvanceChip(InfoDemoTimelineBuilder builder, InfoDemoProgressChip chip, float time)
+            => AdvanceChip(builder, chip, time, 1);
+
+        /// <summary>As <see cref="AdvanceChip(InfoDemoTimelineBuilder, InfoDemoProgressChip, float)"/>, moving
+        /// the counter on by <paramref name="steps"/> in one crossfade (issue #453 — one clear that took
+        /// several counted cells at once), never past the target.</summary>
+        internal static float AdvanceChip(InfoDemoTimelineBuilder builder, InfoDemoProgressChip chip, float time, int steps)
         {
-            if (chip.IsComplete)
+            if (chip.IsComplete || steps <= 0)
             {
                 return time;
             }
 
             int oldLabel = chip.CounterLabelId(chip.Value);
-            chip.Advance();
+            chip.Advance(steps);
             int newLabel = chip.CounterLabelId(chip.Value);
 
             builder.Fade(oldLabel, time, CHIP_COUNTER_CROSSFADE, 1f, 0f, InfoDemoEasing.EaseInCubic);

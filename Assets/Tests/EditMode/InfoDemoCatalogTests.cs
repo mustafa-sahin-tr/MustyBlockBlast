@@ -127,6 +127,17 @@ namespace MustyBlockBlast.Tests.EditMode
                 ObjectiveType.BombInducedLineClear,
                 ObjectiveType.PieceIdLineClear,
                 ObjectiveType.RollingLineClearWindow,
+
+                // The board-layout objectives of issue #453 are covered by InfoDemoBoardLayoutObjectiveTests.
+                ObjectiveType.BoardWipeCount,
+                ObjectiveType.FourCornersCleared,
+                ObjectiveType.CenterCoreEvacuated,
+                ObjectiveType.NoIsolatedHolesStreak,
+                ObjectiveType.ColourCleared,
+                ObjectiveType.DiamondsCleared,
+                ObjectiveType.IceCellsCleared,
+                ObjectiveType.ReinforcedCellsCleared,
+                ObjectiveType.TimerCellsMeltedInTime,
             };
 
             InfoDemoCatalog catalog = new InfoDemoCatalog();

@@ -38,5 +38,12 @@ namespace MustyBlockBlast.Presentation.Views
 
         /// <summary>A localized floating label.</summary>
         Label,
+
+        /// <summary>One board cell's special-cell layer (issue #453 — an ice socket, a reinforced cell's
+        /// armour, a timer cell with its countdown, a diamond gem; see <see cref="InfoDemoCellLayer"/>),
+        /// drawn by a real <see cref="CellView"/> exactly as <see cref="BoardView"/> draws it. Its own layer
+        /// just in front of the board blocks — the real cell draws these over its block — and behind the
+        /// outlines, glows and icons.</summary>
+        CellLayer,
     }
 }

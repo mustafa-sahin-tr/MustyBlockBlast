@@ -10,7 +10,8 @@ namespace MustyBlockBlast.Presentation.Views
     /// the six board-targeted power-ups, #448; the tray / targetless power-ups and the Hold pocket,
     /// #449; the Golden, Piercing Rocket and Demolition Hammer special pieces, #451; objective cards via
     /// <see cref="FindObjective"/> — Simultaneous Line Clear, #447; At Least, Row and Column Cross, Bomb-induced,
-    /// Piece Id and Rolling Window line clears, #452). A subject with none
+    /// Piece Id and Rolling Window line clears, #452; Board Wipe, Four Corners, Center Core, No Isolated Holes,
+    /// Colour, Diamonds, Ice, Reinforced and Timer cells, #453). A subject with none
     /// returns null and its card keeps today's static hero icon (issue #445 AC9). Each demo is built
     /// once, the first time it is asked for, and cached — a timeline is immutable, so replaying it
     /// every time the card opens costs nothing.
@@ -56,6 +57,21 @@ namespace MustyBlockBlast.Presentation.Views
 
         /// <summary>Rolling line-clear window demos (issue #452), one per window in whole seconds.</summary>
         private readonly Dictionary<int, InfoDemoTimeline> _rollingLineClearWindow = new Dictionary<int, InfoDemoTimeline>();
+
+        /// <summary>The board-layout objective demos without a parameter (issue #453).</summary>
+        private InfoDemoTimeline _boardWipe;
+        private InfoDemoTimeline _fourCornersCleared;
+        private InfoDemoTimeline _centerCoreEvacuated;
+        private InfoDemoTimeline _iceCellsCleared;
+        private InfoDemoTimeline _reinforcedCellsCleared;
+        private InfoDemoTimeline _timerCellsMeltedInTime;
+
+        /// <summary>No Isolated Holes streak demos (issue #453), one per target the chip counts to.</summary>
+        private readonly Dictionary<int, InfoDemoTimeline> _noIsolatedHolesStreak = new Dictionary<int, InfoDemoTimeline>();
+
+        /// <summary>Colour Cleared and Diamonds Cleared demos (issue #453), one per colour id, indexed by it.</summary>
+        private readonly InfoDemoTimeline[] _colourCleared = new InfoDemoTimeline[Board.COLOUR_COUNT + 1];
+        private readonly InfoDemoTimeline[] _diamondsCleared = new InfoDemoTimeline[Board.COLOUR_COUNT + 1];
 
         /// <summary>The demo for (<paramref name="subjectKind"/>, <paramref name="kindValue"/>), or null
         /// when that subject has none.</summary>
@@ -225,8 +241,9 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>The demo for the objective card of <paramref name="definition"/>, or null when that
         /// objective has none (its card keeps its static glyph). A parameterised demo shows the objective's
         /// own parameter — the required line count (Simultaneous, #447; At Least, #452), the required
-        /// piece (Piece Id Line Clear, #452), the window (Rolling Line Clear Window, #452) — and a value the
-        /// demo cannot draw gets null rather than a demo showing a different one.</summary>
+        /// piece (Piece Id Line Clear, #452), the window (Rolling Line Clear Window, #452), the colour (Colour and
+        /// Diamonds Cleared, #453), the streak target (No Isolated Holes, #453) — and a value the demo cannot draw
+        /// gets null rather than a demo showing a different one.</summary>
         internal InfoDemoTimeline FindObjective(ObjectiveDefinition definition)
         {
             if (definition == null)
@@ -317,6 +334,103 @@ namespace MustyBlockBlast.Presentation.Views
 
                     return demo;
                 }
+
+                case ObjectiveType.BoardWipeCount:
+                    if (_boardWipe == null)
+                    {
+                        _boardWipe = BoardWipeInfoDemo.Build();
+                    }
+
+                    return _boardWipe;
+
+                case ObjectiveType.FourCornersCleared:
+                    if (_fourCornersCleared == null)
+                    {
+                        _fourCornersCleared = FourCornersClearedInfoDemo.Build();
+                    }
+
+                    return _fourCornersCleared;
+
+                case ObjectiveType.CenterCoreEvacuated:
+                    if (_centerCoreEvacuated == null)
+                    {
+                        _centerCoreEvacuated = CenterCoreEvacuatedInfoDemo.Build();
+                    }
+
+                    return _centerCoreEvacuated;
+
+                case ObjectiveType.NoIsolatedHolesStreak:
+                {
+                    int target = definition.TargetValue;
+                    if (!NoIsolatedHolesStreakInfoDemo.Supports(target))
+                    {
+                        return null;
+                    }
+
+                    if (!_noIsolatedHolesStreak.TryGetValue(target, out InfoDemoTimeline demo))
+                    {
+                        demo = NoIsolatedHolesStreakInfoDemo.Build(target);
+                        _noIsolatedHolesStreak.Add(target, demo);
+                    }
+
+                    return demo;
+                }
+
+                case ObjectiveType.ColourCleared:
+                {
+                    int colourId = definition.RequiredColourId;
+                    if (!ColourClearedInfoDemo.Supports(colourId))
+                    {
+                        return null;
+                    }
+
+                    if (_colourCleared[colourId] == null)
+                    {
+                        _colourCleared[colourId] = ColourClearedInfoDemo.Build(colourId);
+                    }
+
+                    return _colourCleared[colourId];
+                }
+
+                case ObjectiveType.DiamondsCleared:
+                {
+                    int colourId = definition.RequiredColourId;
+                    if (!DiamondsClearedInfoDemo.Supports(colourId))
+                    {
+                        return null;
+                    }
+
+                    if (_diamondsCleared[colourId] == null)
+                    {
+                        _diamondsCleared[colourId] = DiamondsClearedInfoDemo.Build(colourId);
+                    }
+
+                    return _diamondsCleared[colourId];
+                }
+
+                case ObjectiveType.IceCellsCleared:
+                    if (_iceCellsCleared == null)
+                    {
+                        _iceCellsCleared = IceCellsClearedInfoDemo.Build();
+                    }
+
+                    return _iceCellsCleared;
+
+                case ObjectiveType.ReinforcedCellsCleared:
+                    if (_reinforcedCellsCleared == null)
+                    {
+                        _reinforcedCellsCleared = ReinforcedCellsClearedInfoDemo.Build();
+                    }
+
+                    return _reinforcedCellsCleared;
+
+                case ObjectiveType.TimerCellsMeltedInTime:
+                    if (_timerCellsMeltedInTime == null)
+                    {
+                        _timerCellsMeltedInTime = TimerCellsMeltedInTimeInfoDemo.Build();
+                    }
+
+                    return _timerCellsMeltedInTime;
 
                 default:
                     return null;

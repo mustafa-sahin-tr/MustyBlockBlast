@@ -42,5 +42,11 @@ namespace MustyBlockBlast.Presentation.Views
         /// element's paint — the Golden piece demo's combo pill (issue #451). The sprite parameter is
         /// unused.</summary>
         StreakFlame,
+
+        /// <summary>The diamond gem's white silhouette (<c>BoardView.IconSprite(SpecialCellKind.Diamond)</c>),
+        /// untinted — paint it with the gem's block colour id so it reads exactly as
+        /// <c>DiamondVisuals.Tint</c> tints it on the board (issue #453: a gem flying to the objective chip,
+        /// the chip's own glyph). The sprite parameter is unused.</summary>
+        DiamondIcon,
     }
 }

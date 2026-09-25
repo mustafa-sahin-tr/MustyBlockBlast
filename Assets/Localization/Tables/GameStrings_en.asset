@@ -139,7 +139,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 149663863791617
-    m_Localized: Fill and clear every single cell on the board at once, leaving it completely empty.
+    m_Localized: Empty the whole board with a single move.
     m_Metadata:
       m_Items: []
   - m_Id: 149663863791618
@@ -207,15 +207,15 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 236115477913600
-    m_Localized: Complete a row or column that runs through one of the board's four corners.
+    m_Localized: Clear a row or column that runs through a corner of the board.
     m_Metadata:
       m_Items: []
   - m_Id: 236115591159808
-    m_Localized: Clear every block sitting in the board's central cells.
+    m_Localized: "Make a move that leaves the board's central 4\xD74 completely empty."
     m_Metadata:
       m_Items: []
   - m_Id: 236115591159809
-    m_Localized: Keep placing pieces without ever leaving a single empty cell sealed off and unreachable.
+    m_Localized: Place pieces in a row without ever walling off an empty cell.
     m_Metadata:
       m_Items: []
   - m_Id: 240837526020096
@@ -395,7 +395,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1371178030587925
-    m_Localized: "Clear every block of this colour \u2014 {0} \u2014 from the board, wherever they are."
+    m_Localized: Clear blocks of this colour {0}; every one destroyed counts.
     m_Metadata:
       m_Items: []
   - m_Id: 1371178030587926
@@ -759,7 +759,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 2017094311862272
-    m_Localized: Break through a reinforced cell's protective armour by clearing it enough times to remove it.
+    m_Localized: A reinforced cell loses a layer of armour with each clear, then breaks.
     m_Metadata:
       m_Items: []
   - m_Id: 2136016063291392
@@ -899,7 +899,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 3259943359602688
-    m_Localized: "Clear blocks carrying a diamond of this colour \u2014 {0} \u2014 to collect it. Diamond blocks arrive in your tray while this goal is active."
+    m_Localized: Clear the blocks with {0} diamonds from your tray to collect them.
     m_Metadata:
       m_Items: []
   - m_Id: 3514168819834880
@@ -947,7 +947,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 3631194057990144
-    m_Localized: Melt every ice cell by filling it and clearing the line through it, one layer at a time.
+    m_Localized: Fill an ice cell and clear it; each clear melts one layer of ice.
     m_Metadata:
       m_Items: []
   - m_Id: 3631194104127488
@@ -1048,6 +1048,70 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 4087913062064131
     m_Localized: Row emptied!
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099367964672
+    m_Localized: Clear timer blocks before their countdown runs out; every move ticks it down.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931136
+    m_Localized: Melt In Time
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931137
+    m_Localized: EMPTY BOARD
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931138
+    m_Localized: CORNER
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931139
+    m_Localized: CENTER
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931140
+    m_Localized: NO HOLES
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931141
+    m_Localized: ICE
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931142
+    m_Localized: ARMOUR
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931143
+    m_Localized: Board cleared!
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931144
+    m_Localized: Corner cleared!
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931145
+    m_Localized: Center empty!
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931146
+    m_Localized: No holes!
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931147
+    m_Localized: Colour cleared!
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931148
+    m_Localized: Diamonds collected!
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931149
+    m_Localized: Ice melted!
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931150
+    m_Localized: Armour broken!
     m_Metadata:
       m_Items: []
   references:

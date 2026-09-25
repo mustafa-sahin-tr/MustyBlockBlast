@@ -139,7 +139,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 149663863791617
-    m_Localized: "Tahtadaki t\xFCm h\xFCcreleri doldurup ayn\u0131 anda temizleyerek tahtay\u0131 tamamen bo\u015Falt."
+    m_Localized: "Tek hamlede son bloklar\u0131 temizle, tahta bombo\u015F kals\u0131n."
     m_Metadata:
       m_Items: []
   - m_Id: 149663863791618
@@ -207,15 +207,15 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 236115477913600
-    m_Localized: "Tahtan\u0131n d\xF6rt k\xF6\u015Fesinden birinden ge\xE7en bir sat\u0131r veya s\xFCtunu tamamla."
+    m_Localized: "Tahtan\u0131n bir k\xF6\u015Fesinden ge\xE7en bir sat\u0131r\u0131 ya da s\xFCtunu temizle."
     m_Metadata:
       m_Items: []
   - m_Id: 236115591159808
-    m_Localized: "Tahtan\u0131n merkezindeki h\xFCcrelerde bulunan t\xFCm bloklar\u0131 temizle."
+    m_Localized: "Bir hamleyle tahtan\u0131n ortas\u0131ndaki 4\xD74 alan\u0131 tamamen bo\u015Falt."
     m_Metadata:
       m_Items: []
   - m_Id: 236115591159809
-    m_Localized: "Hi\xE7bir bo\u015F h\xFCcreyi tamamen kapal\u0131 ve ula\u015F\u0131lamaz b\u0131rakmadan par\xE7a yerle\u015Ftirmeye devam et."
+    m_Localized: "Arka arkaya par\xE7a yerle\u015Ftir; hi\xE7bir bo\u015F h\xFCcreyi kapal\u0131 b\u0131rakma."
     m_Metadata:
       m_Items: []
   - m_Id: 240837526020096
@@ -395,7 +395,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1371178030587925
-    m_Localized: "Bu renkteki \u2014 {0} \u2014 t\xFCm bloklar\u0131, tahtan\u0131n neresinde olurlarsa olsunlar temizle."
+    m_Localized: "Bu renkteki {0} bloklar\u0131 temizle; yok olan her blok say\u0131l\u0131r."
     m_Metadata:
       m_Items: []
   - m_Id: 1371178030587926
@@ -759,7 +759,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 2017094311862272
-    m_Localized: "G\xFC\xE7lendirilmi\u015F bir h\xFCcrenin koruyucu z\u0131rh\u0131n\u0131, yeterince temizleyerek k\u0131r ve tahtadan kald\u0131r."
+    m_Localized: "G\xFC\xE7lendirilmi\u015F h\xFCcre her temizlikte bir kat z\u0131rh kaybeder, sonunda k\u0131r\u0131l\u0131r."
     m_Metadata:
       m_Items: []
   - m_Id: 2136016063291392
@@ -899,7 +899,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 3259943359602688
-    m_Localized: "Bu renkteki \u2014 {0} \u2014 elmas ta\u015F\u0131yan bloklar\u0131 temizleyerek elmaslar\u0131 topla. Bu hedef aktifken elmasl\u0131 bloklar tepsine gelir."
+    m_Localized: "Tepsine gelen {0} elmasl\u0131 bloklar\u0131 temizleyerek elmaslar\u0131 topla."
     m_Metadata:
       m_Items: []
   - m_Id: 3514168819834880
@@ -947,7 +947,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 3631194057990144
-    m_Localized: "Her buzlu h\xFCcreyi doldurup \xFCzerinden ge\xE7en sat\u0131r\u0131 temizleyerek katman katman erit."
+    m_Localized: "Buzlu h\xFCcreyi doldurup temizle; her temizlik buzu bir kat eritir."
     m_Metadata:
       m_Items: []
   - m_Id: 3631194104127488
@@ -1048,6 +1048,70 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 4087913062064131
     m_Localized: "Sat\u0131r bombo\u015F!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099367964672
+    m_Localized: "Zamanlay\u0131c\u0131l\u0131 bloklar\u0131 saya\xE7lar\u0131 bitmeden temizle; her hamle sayac\u0131 d\xFC\u015F\xFCr\xFCr."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931136
+    m_Localized: "Zaman\u0131nda Erit"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931137
+    m_Localized: "BO\u015E TAHTA"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931138
+    m_Localized: "K\xD6\u015EE"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931139
+    m_Localized: MERKEZ
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931140
+    m_Localized: "DEL\u0130KS\u0130Z"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931141
+    m_Localized: BUZ
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931142
+    m_Localized: ZIRH
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931143
+    m_Localized: "Tahta bombo\u015F!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931144
+    m_Localized: "K\xF6\u015Fe temizlendi!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931145
+    m_Localized: "Merkez bo\u015F!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931146
+    m_Localized: "Hi\xE7 delik yok!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931147
+    m_Localized: "Renk kalmad\u0131!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931148
+    m_Localized: "Elmaslar topland\u0131!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931149
+    m_Localized: Buz eridi!
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4097099539931150
+    m_Localized: "Z\u0131rh k\u0131r\u0131ld\u0131!"
     m_Metadata:
       m_Items: []
   references:

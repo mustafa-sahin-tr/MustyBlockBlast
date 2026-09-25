@@ -94,6 +94,43 @@ namespace MustyBlockBlast.Presentation.Views
                 InfoDemoElementKind.Piece, Vector2.one, InfoDemoSprite.None, (int)kind, shape, null, null, 0f, 0f, initial);
         }
 
+        /// <summary>
+        /// As <see cref="AddPiece"/>, for an ordinary dock piece decorated with diamonds (issue #453, the
+        /// Diamonds Cleared objective): <paramref name="diamondColourIds"/>, parallel to
+        /// <paramref name="shape"/>, gives each cell's gem colour id, or 0 for an undecorated cell — the
+        /// dock's own <c>TrayModel</c> decoration, drawn on those cells exactly as the dock draws it
+        /// (<c>DiamondVisuals.Apply</c>).
+        /// </summary>
+        internal int AddDiamondPiece(
+            Vector2Int[] shape, int paint, int[] diamondColourIds, Vector2 position, float scale, float alpha = 1f)
+        {
+            if (diamondColourIds == null || diamondColourIds.Length != shape.Length)
+            {
+                throw new ArgumentException("One diamond colour id per piece cell.", nameof(diamondColourIds));
+            }
+
+            InfoDemoElementState initial = InfoDemoElementState.At(position, paint, alpha);
+            initial.Scale = scale;
+            return AddElement(
+                InfoDemoElementKind.Piece, Vector2.one, InfoDemoSprite.None, 0, shape, null, null, 0f, 0f, initial,
+                0, (int[])diamondColourIds.Clone());
+        }
+
+        /// <summary>
+        /// One of board cell (<paramref name="row"/>, <paramref name="column"/>)'s special-cell layers
+        /// (issue #453, see <see cref="InfoDemoCellLayer"/>) showing <paramref name="value"/> from loop time
+        /// 0 — drawn by a real <c>CellView</c> just in front of the board blocks, as the board draws it.
+        /// Move it on with <see cref="Paint"/> (the value) and fade it with <see cref="Fade"/>;
+        /// <paramref name="variant"/> is the armour skin of an <see cref="InfoDemoCellLayer.Armour"/> layer.
+        /// </summary>
+        internal int AddCellLayer(
+            InfoDemoCellLayer layer, int row, int column, int value, int variant = 0, float alpha = 1f)
+        {
+            return AddElement(
+                InfoDemoElementKind.CellLayer, Vector2.one, InfoDemoSprite.None, (int)layer, null, null, null, 0f, 0f,
+                InfoDemoElementState.At(InfoDemoLayout.Cell(row, column), value, alpha), variant);
+        }
+
         /// <summary>A sprite <paramref name="size"/> board-cell widths square, tinted as
         /// <see cref="IInfoDemoResources"/> resolves it and multiplied by <paramref name="paint"/> (white
         /// leaves the resolved tint as it is; a plain white shape sprite takes the paint outright).</summary>
@@ -291,10 +328,13 @@ namespace MustyBlockBlast.Presentation.Views
             string labelArgument,
             float cornerRadius,
             float strokeWidth,
-            InfoDemoElementState initial)
+            InfoDemoElementState initial,
+            int variant = 0,
+            int[] cellValues = null)
         {
             _elements.Add(new InfoDemoElement(
-                kind, size, sprite, spriteParameter, shape, labelKey, labelArgument, cornerRadius, strokeWidth, initial));
+                kind, size, sprite, spriteParameter, shape, labelKey, labelArgument, cornerRadius, strokeWidth, initial,
+                variant, cellValues));
             return _elements.Count - 1;
         }
     }
