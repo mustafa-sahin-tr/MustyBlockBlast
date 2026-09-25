@@ -1,10 +1,19 @@
 ---
 name: unity-build-ios
-description: "Builds/exports the Xcode project for iOS via MCP, so it can be opened and run on a device from Xcode."
+description: "Builds/exports the Xcode project for iOS via MCP, so it can be opened and run on a device from Xcode. Pass dev or prod (e.g. /unity-build-ios dev); asks if omitted."
 user-invocable: true
+args: build_type
+argument-hint: "dev | prod"
 ---
 
 # /unity-build-ios — Export the Xcode Project
+
+Argument: **$ARGUMENTS** — the build type:
+- `dev` / `development` → Development build (Google **test** ads, for the user's own devices)
+- `prod` / `production` / `release` / `store` → Production build (**LIVE** ads, for the store)
+- empty or anything else → **ask the user** which one before doing anything (see "Build Type" below)
+
+e.g. `/unity-build-ios dev` or `/unity-build-ios prod`.
 
 Fixed-platform shortcut for `/unity-build iOS`. Builds (exports) the Xcode project only —
 it does **not** archive, sign, or run on a device. After the export finishes, the user opens
@@ -32,11 +41,11 @@ Via `manage_build`:
 
 ### Build Type: Development vs Production — ask the user
 
-**Ask first, every time the user has not already said which one.** Before building, ask:
+**Resolve the type from `$ARGUMENTS` first.** If it is missing or not one of the values above, ask:
 "Development build mi (test reklamları, kendi cihazın için) yoksa production build mi (canlı
 reklamlar, store için)?" — recommend Development. Never pick silently: the user asked to be asked,
-in case they forget to say it. Skip the question only when the request already names the type
-("development build al", "production build al", "prod build", "store build", "release build").
+in case they forget to say it. Skip the question only when `$ARGUMENTS` or the request itself already
+names the type ("development build al", "production build al", "prod build", "store build").
 
 Then always pass `development` explicitly to `manage_build action:"build"` — never inherit whatever
 the Build Profile checkbox happens to be:

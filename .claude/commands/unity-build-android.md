@@ -1,10 +1,19 @@
 ---
 name: unity-build-android
-description: "Builds an Android APK/AAB via MCP for local device testing or Play Store upload."
+description: "Builds an Android APK/AAB via MCP for local device testing or Play Store upload. Pass dev or prod (e.g. /unity-build-android dev); asks if omitted."
 user-invocable: true
+args: build_type
+argument-hint: "dev | prod"
 ---
 
 # /unity-build-android — Build for Android
+
+Argument: **$ARGUMENTS** — the build type:
+- `dev` / `development` → Development build (Google **test** ads, for the user's own devices)
+- `prod` / `production` / `release` / `store` → Production build (**LIVE** ads, for the store)
+- empty or anything else → **ask the user** which one before doing anything (see "Build Type" below)
+
+e.g. `/unity-build-android dev` or `/unity-build-android prod`.
 
 Fixed-platform shortcut for `/unity-build Android`. Builds an installable Android package.
 
@@ -26,16 +35,16 @@ Via `manage_build`:
 - Player settings: package name: keep the existing `com.mtafasahin.blockioblast` (matches the iOS bundle id) — do not overwrite it.
 - Minimum API level: 24+ unless the project already specifies otherwise.
 - IL2CPP scripting backend, ARM64 only (disable ARMv7) for a modern device build.
-- Output format: ask the user once — **APK** (for direct install/sideload on a test device) or **AAB** (for Play Store upload) — if not already clear from context. Default to APK for local device testing since that matches "open and run on my device" workflows.
+- Output format: ask the user once — **APK** (for direct install/sideload on a test device) or **AAB** (for Play Store upload) — if not already clear from context. Default to APK for local device testing since that matches "open and run on my device" workflows. The build type settles it in the usual case: `dev` → APK, `prod` → AAB (Play Store); ask only if the user says otherwise.
 - Keystore/signing: leave as configured. If unset and the user wants a signed release build, tell them to configure a keystore first rather than generating one automatically.
 
 ### Build Type: Development vs Production — ask the user
 
-**Ask first, every time the user has not already said which one.** Before building, ask:
+**Resolve the type from `$ARGUMENTS` first.** If it is missing or not one of the values above, ask:
 "Development build mi (test reklamları, kendi cihazın için) yoksa production build mi (canlı
 reklamlar, store için)?" — recommend Development. Never pick silently: the user asked to be asked,
-in case they forget to say it. Skip the question only when the request already names the type
-("development build al", "production build al", "prod build", "store build", "release build").
+in case they forget to say it. Skip the question only when `$ARGUMENTS` or the request itself already
+names the type ("development build al", "production build al", "prod build", "store build").
 
 Then always pass `development` explicitly to `manage_build action:"build"` — never inherit whatever
 the Build Profile checkbox happens to be:
