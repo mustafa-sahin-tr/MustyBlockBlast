@@ -101,6 +101,12 @@ namespace MustyBlockBlast.Presentation.Views
                         definition.RequiredOccupancyThreshold.ToString(System.Globalization.CultureInfo.InvariantCulture));
 
                 case ObjectiveType.AtLeastLineClear:
+                    // A minimum of one is "any clear counts" (issue #506) — its own sentence, not "at least 1 rows".
+                    if (definition.RequiredLineCount <= 1)
+                    {
+                        return localization.Translate(LocalizationKeys.OBJECTIVE_AT_LEAST_ONE_LINE_CLEAR);
+                    }
+
                     return localization.Format(
                         LocalizationKeys.OBJECTIVE_AT_LEAST_LINE_CLEAR,
                         definition.RequiredLineCount.ToString());

@@ -1842,6 +1842,14 @@ MonoBehaviour:
     m_Localized: Sacudida
     m_Metadata:
       m_Items: []
+  - m_Id: 4350167317733402
+    m_Localized: "\u00a1{0} l\u00ednea!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4350167317733403
+    m_Localized: "Limpia una fila o columna: cada jugada que limpia al menos una l\u00ednea cuenta."
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

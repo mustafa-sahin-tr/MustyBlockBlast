@@ -1835,6 +1835,14 @@ MonoBehaviour:
     m_Key: settings.row.board_punch
     m_Metadata:
       m_Items: []
+  - m_Id: 4350167317733402
+    m_Key: info_popup.demo.one_line_cleared
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4350167317733403
+    m_Key: objective.at_least_one_line_clear
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

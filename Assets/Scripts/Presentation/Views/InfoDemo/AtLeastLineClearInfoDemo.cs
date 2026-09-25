@@ -16,8 +16,8 @@ namespace MustyBlockBlast.Presentation.Views
     /// bottom N rows clear at once · 1.7 s "N lines!" · 1.75 s the chip ticks 0/1 → 1/1 with the check.
     /// </para>
     /// <para>
-    /// N is 2..5: 2 is the authoring default (<c>LevelObjectiveConfig._requiredLineCount</c>) and the
-    /// debug cheat's value; no level in the catalog uses this type yet. 5 is the most a vertical catalog
+    /// N is 1..5: 1 is the "Total Lines Cleared" levels (1, 2 and 22 — any clear counts, issue #506), where
+    /// the "1xN" is a single block filling the bottom row's one gap. 5 is the most a vertical catalog
     /// line (1x5) can clear on the demo board. Any other N gets no demo and the card keeps its glyph.
     /// </para>
     /// </summary>
@@ -25,7 +25,7 @@ namespace MustyBlockBlast.Presentation.Views
     {
         internal const float LOOP_DURATION = SimultaneousLineClearInfoDemo.LOOP_DURATION;
 
-        internal const int MIN_LINE_COUNT = SimultaneousLineClearInfoDemo.MIN_LINE_COUNT;
+        internal const int MIN_LINE_COUNT = SimultaneousLineClearInfoDemo.MIN_BUILDABLE_LINE_COUNT;
         internal const int MAX_LINE_COUNT = SimultaneousLineClearInfoDemo.MAX_BUILDABLE_LINE_COUNT;
 
         /// <summary>Whether a demo exists for an objective requiring at least <paramref name="lineCount"/> lines.</summary>

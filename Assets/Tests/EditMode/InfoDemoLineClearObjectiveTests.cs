@@ -100,8 +100,9 @@ namespace MustyBlockBlast.Tests.EditMode
                 Assert.AreEqual(AtLeastLineClearInfoDemo.LOOP_DURATION, first.Duration, TOLERANCE);
             }
 
+            Assert.AreEqual(1, AtLeastLineClearInfoDemo.MIN_LINE_COUNT, "levels 1, 2 and 22 require one line (issue #506)");
             Assert.AreEqual(5, AtLeastLineClearInfoDemo.MAX_LINE_COUNT, "a 1x5 is the longest catalog line");
-            Assert.IsNull(catalog.FindObjective(LineObjective(ObjectiveType.AtLeastLineClear, 1)));
+            Assert.IsNull(catalog.FindObjective(LineObjective(ObjectiveType.AtLeastLineClear, 0)));
             Assert.IsNull(catalog.FindObjective(LineObjective(ObjectiveType.AtLeastLineClear, 6)));
             Assert.AreNotSame(
                 catalog.FindObjective(LineObjective(ObjectiveType.SimultaneousLineClear, 3)),
@@ -118,6 +119,54 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.GreaterOrEqual(caption, 0);
             Assert.AreEqual("3", timeline.GetElement(caption).LabelArgument);
             Assert.AreEqual(-1, FindLabel(timeline, LocalizationKeys.INFO_POPUP_DEMO_CHIP_EXACTLY));
+        }
+
+        [Test]
+        public void SimultaneousStillHasNoDemoForOneLine()
+        {
+            // "Exactly one line" is not an objective the catalog has — only At Least builds down to one (issue #506).
+            Assert.IsFalse(SimultaneousLineClearInfoDemo.Supports(1));
+            Assert.IsNull(new InfoDemoCatalog().FindObjective(LineObjective(ObjectiveType.SimultaneousLineClear, 1)));
+        }
+
+        [Test]
+        public void AtLeastOne_ChipReadsAtLeastOne_AndTheLabelIsSingular()
+        {
+            InfoDemoTimeline timeline = AtLeastLineClearInfoDemo.Build(1);
+
+            int caption = FindLabel(timeline, LocalizationKeys.INFO_POPUP_DEMO_CHIP_AT_LEAST);
+            Assert.GreaterOrEqual(caption, 0);
+            Assert.AreEqual("1", timeline.GetElement(caption).LabelArgument);
+
+            int label = FindLabel(timeline, LocalizationKeys.INFO_POPUP_DEMO_ONE_LINE_CLEARED);
+            Assert.GreaterOrEqual(label, 0, "\"1 line!\", not \"1 lines!\"");
+            Assert.AreEqual("1", timeline.GetElement(label).LabelArgument);
+            Assert.AreEqual(-1, FindLabel(timeline, LocalizationKeys.INFO_POPUP_DEMO_LINES_CLEARED));
+        }
+
+        [Test]
+        public void AtLeastTwoAndUp_KeepThePluralLabel()
+        {
+            for (int lineCount = 2; lineCount <= AtLeastLineClearInfoDemo.MAX_LINE_COUNT; lineCount++)
+            {
+                InfoDemoTimeline timeline = AtLeastLineClearInfoDemo.Build(lineCount);
+                Assert.GreaterOrEqual(FindLabel(timeline, LocalizationKeys.INFO_POPUP_DEMO_LINES_CLEARED), 0, $"N={lineCount}");
+                Assert.AreEqual(-1, FindLabel(timeline, LocalizationKeys.INFO_POPUP_DEMO_ONE_LINE_CLEARED), $"N={lineCount}");
+            }
+        }
+
+        [Test]
+        public void AtLeastDescription_UsesItsOwnSentenceForOneLine_AndTheCountedOneAbove()
+        {
+            // No locales and no string source: Translate/Format hand back the key, so the key picked is observable.
+            LocalizationSystem localization = new LocalizationSystem(new LocalizationModel(null), null);
+
+            Assert.AreEqual(
+                LocalizationKeys.OBJECTIVE_AT_LEAST_ONE_LINE_CLEAR,
+                ObjectiveDescriptionFormatter.Describe(LineObjective(ObjectiveType.AtLeastLineClear, 1), localization));
+            Assert.AreEqual(
+                LocalizationKeys.OBJECTIVE_AT_LEAST_LINE_CLEAR,
+                ObjectiveDescriptionFormatter.Describe(LineObjective(ObjectiveType.AtLeastLineClear, 3), localization));
         }
 
         [Test]
@@ -213,8 +262,8 @@ namespace MustyBlockBlast.Tests.EditMode
                 ObjectiveProgress oneMore = new ObjectiveProgress(LineObjective(ObjectiveType.AtLeastLineClear, lineCount + 1));
                 _objectiveModel.SetObjectives(new[] { atLeast, oneMore });
 
-                // The demo's vertical 1xN, dropped into the gap column with its foot on row 7.
-                _trayModel.SetSlot(0, FindPiece("line_v" + lineCount), 4);
+                // The demo's vertical 1xN (a single block for N=1), dropped into the gap column with its foot on row 7.
+                _trayModel.SetSlot(0, FindPiece(lineCount == 1 ? "single_1x1" : "line_v" + lineCount), 4);
                 Assert.IsTrue(_boardSystem.TryPlacePiece(
                     0, ToGrid(InfoDemoLayout.BOARD_SIZE - 1, SimultaneousLineClearInfoDemo.GAP_COLUMN)), $"N={lineCount}");
 
