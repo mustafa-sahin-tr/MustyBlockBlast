@@ -81,7 +81,10 @@ namespace MustyBlockBlast.Presentation.Views
                     return localization.Translate(LocalizationKeys.OBJECTIVE_ROW_AND_COLUMN_CROSS_CLEAR);
 
                 case ObjectiveType.ClutchRecoveryClear:
-                    return localization.Translate(LocalizationKeys.OBJECTIVE_CLUTCH_RECOVERY_CLEAR);
+                    // Names the real threshold (issue #454): the rule is a block count, not a feeling of "nearly full".
+                    return localization.Format(
+                        LocalizationKeys.OBJECTIVE_CLUTCH_RECOVERY_CLEAR,
+                        definition.RequiredOccupancyThreshold.ToString(System.Globalization.CultureInfo.InvariantCulture));
 
                 case ObjectiveType.AtLeastLineClear:
                     return localization.Format(

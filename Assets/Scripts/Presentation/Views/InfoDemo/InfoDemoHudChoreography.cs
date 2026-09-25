@@ -155,7 +155,9 @@ namespace MustyBlockBlast.Presentation.Views
         /// <paramref name="thickness"/> board units and centred on <paramref name="centre"/>, fading in at
         /// <paramref name="appearTime"/>. The fill drains linearly towards its left end between
         /// <paramref name="drainStart"/> and <paramref name="drainEnd"/> — a per-axis stretch plus a matching
-        /// slide, so its left edge never moves. Returns the fill's element id.
+        /// slide, so its left edge never moves — all the way to empty, or only down to
+        /// <paramref name="endFraction"/> of its length (issue #454 — a deadline longer than the loop, of which
+        /// the loop only ever shows the start). Returns the fill's element id.
         /// </summary>
         internal static int CountdownBar(
             InfoDemoTimelineBuilder builder,
@@ -167,7 +169,8 @@ namespace MustyBlockBlast.Presentation.Views
             float trackAlpha,
             float appearTime,
             float drainStart,
-            float drainEnd)
+            float drainEnd,
+            float endFraction = 0f)
         {
             Vector2 size = new Vector2(length, thickness);
             float corner = thickness * 0.5f;
@@ -178,8 +181,10 @@ namespace MustyBlockBlast.Presentation.Views
             builder.Fade(fill, appearTime, 0.15f, 0f, 1f, InfoDemoEasing.EaseOutCubic);
 
             float drainDuration = Mathf.Max(0.01f, drainEnd - drainStart);
-            builder.Stretch(fill, drainStart, drainDuration, Vector2.one, new Vector2(0f, 1f));
-            builder.Move(fill, drainStart, drainDuration, centre, centre - new Vector2(length * 0.5f, 0f));
+            float remaining = Mathf.Clamp01(endFraction);
+            builder.Stretch(fill, drainStart, drainDuration, Vector2.one, new Vector2(remaining, 1f));
+            builder.Move(
+                fill, drainStart, drainDuration, centre, centre - new Vector2(length * 0.5f * (1f - remaining), 0f));
             return fill;
         }
 

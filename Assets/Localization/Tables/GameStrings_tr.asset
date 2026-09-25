@@ -131,11 +131,11 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 149663859597312
-    m_Localized: "Yerle\u015Ftirdi\u011Fin her {0} \u015Feklindeki par\xE7a bu hedefe katk\u0131 sa\u011Flar."
+    m_Localized: "Her {0} par\xE7a say\u0131l\u0131r; boyu ve y\xF6n\xFC fark etmez."
     m_Metadata:
       m_Items: []
   - m_Id: 149663863791616
-    m_Localized: "Tek bir ko\u015Fu boyunca puan topla \u2014 bu ko\u015Fuda yapt\u0131\u011F\u0131n her yerle\u015Ftirme, temizlik ve kombo bu hedefe say\u0131l\u0131r."
+    m_Localized: "Tek bir ko\u015Fuda hedef puana ula\u015F."
     m_Metadata:
       m_Items: []
   - m_Id: 149663863791617
@@ -171,7 +171,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 209334783959040
-    m_Localized: "Art arda yapt\u0131\u011F\u0131n yerle\u015Ftirmelerde arada bo\u015Fluk b\u0131rakmadan sat\u0131r/s\xFCtun temizleyerek bir kombo serisi olu\u015Ftur."
+    m_Localized: "Art arda her hamlende \xE7izgi temizle; hi\xE7bir \u015Fey temizlemeyen hamle seriyi s\u0131f\u0131rlar."
     m_Metadata:
       m_Items: []
   - m_Id: 217997032546304
@@ -183,7 +183,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 227150882922496
-    m_Localized: "Tahta neredeyse dolmu\u015Fken, yer kalmadan hemen \xF6nce bir sat\u0131r ya da s\xFCtun temizle."
+    m_Localized: "Tahtada en az {0} blok varken bir sat\u0131r ya da s\xFCtun temizle."
     m_Metadata:
       m_Items: []
   - m_Id: 228634777346048
@@ -191,7 +191,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 230162711961600
-    m_Localized: "Tahtaya en az bir tane {0} par\xE7as\u0131 yerle\u015Ftir."
+    m_Localized: "Yerle\u015Ftirdi\u011Fin her {0} say\u0131l\u0131r; ailesindeki di\u011Fer par\xE7alar say\u0131lmaz."
     m_Metadata:
       m_Items: []
   - m_Id: 230162825207808
@@ -227,7 +227,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 280945016954880
-    m_Localized: "Tepsindeki hi\xE7bir par\xE7a yerle\u015Fmiyorken, oyunu kaybetmek yerine Yeniden \xC7ek kullanarak kurtar."
+    m_Localized: "Tepsideki hi\xE7bir par\xE7a s\u0131\u011Fmazken Yeniden \xC7ek kullan. Saklanan par\xE7a say\u0131lmaz."
     m_Metadata:
       m_Items: []
   - m_Id: 288624816939008
@@ -1112,6 +1112,34 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 4097099539931150
     m_Localized: "Z\u0131rh k\u0131r\u0131ld\u0131!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4106798595301376
+    m_Localized: KURTAR
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4106798788239360
+    m_Localized: "Hepsi say\u0131l\u0131r!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4106798788239361
+    m_Localized: "Bu par\xE7a say\u0131l\u0131r!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4106798792433664
+    m_Localized: Hedef puan!
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4106798792433665
+    m_Localized: Kombo x{0}!
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4106798792433666
+    m_Localized: Son anda!
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4106798792433667
+    m_Localized: "Kurtar\u0131ld\u0131!"
     m_Metadata:
       m_Items: []
   references:

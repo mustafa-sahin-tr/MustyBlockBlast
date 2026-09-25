@@ -131,11 +131,11 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 149663859597312
-    m_Localized: Every {0}-shaped piece you place counts toward this goal.
+    m_Localized: Every {0} piece counts, any size or direction.
     m_Metadata:
       m_Items: []
   - m_Id: 149663863791616
-    m_Localized: "Rack up points during a single run \u2014 every placement, clear and combo you score this run counts toward this goal."
+    m_Localized: Reach the target score in a single run.
     m_Metadata:
       m_Items: []
   - m_Id: 149663863791617
@@ -171,7 +171,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 209334783959040
-    m_Localized: Clear lines on consecutive placements without a gap to build up a combo streak.
+    m_Localized: Clear a line with every placement in a row; one that clears nothing resets the streak.
     m_Metadata:
       m_Items: []
   - m_Id: 217997032546304
@@ -183,7 +183,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 227150882922496
-    m_Localized: Clear a row or column while the board is nearly full, right before you'd run out of room.
+    m_Localized: Clear a row or column while the board holds at least {0} blocks.
     m_Metadata:
       m_Items: []
   - m_Id: 228634777346048
@@ -191,7 +191,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 230162711961600
-    m_Localized: Place at least one {0} piece on the board.
+    m_Localized: Every {0} you place counts; other pieces of its family don't.
     m_Metadata:
       m_Items: []
   - m_Id: 230162825207808
@@ -227,7 +227,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 280945016954880
-    m_Localized: When none of your dock pieces have a legal move left, use Reroll to save the run instead of losing it.
+    m_Localized: Use Reroll while no dock piece fits anywhere. Your held piece doesn't count.
     m_Metadata:
       m_Items: []
   - m_Id: 288624816939008
@@ -1112,6 +1112,34 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 4097099539931150
     m_Localized: Armour broken!
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4106798595301376
+    m_Localized: SAVE
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4106798788239360
+    m_Localized: They all count!
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4106798788239361
+    m_Localized: This piece counts!
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4106798792433664
+    m_Localized: Target score!
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4106798792433665
+    m_Localized: Combo x{0}!
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4106798792433666
+    m_Localized: Close call!
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4106798792433667
+    m_Localized: Saved!
     m_Metadata:
       m_Items: []
   references:

@@ -68,6 +68,9 @@ namespace MustyBlockBlast.Presentation.Views
         private TimerRunSystem _timerRunSystem;
         private BoardView _boardView;
         private PowerUpInventoryView _powerUpInventoryView;
+        private StreakPillView _streakPillView;
+        private HoldSlotView _holdSlotView;
+        private TimerHudView _timerHudView;
 
         private Canvas _canvas;
         private GameObject _panel;
@@ -97,7 +100,10 @@ namespace MustyBlockBlast.Presentation.Views
             ObjectiveIconCatalog iconCatalog,
             TimerRunSystem timerRunSystem,
             BoardView boardView,
-            PowerUpInventoryView powerUpInventoryView)
+            PowerUpInventoryView powerUpInventoryView,
+            StreakPillView streakPillView,
+            HoldSlotView holdSlotView,
+            TimerHudView timerHudView)
         {
             _objectiveModel = objectiveModel;
             _localizationModel = localizationModel;
@@ -107,6 +113,9 @@ namespace MustyBlockBlast.Presentation.Views
             _timerRunSystem = timerRunSystem;
             _boardView = boardView;
             _powerUpInventoryView = powerUpInventoryView;
+            _streakPillView = streakPillView;
+            _holdSlotView = holdSlotView;
+            _timerHudView = timerHudView;
         }
 
         private void Awake()
@@ -118,7 +127,8 @@ namespace MustyBlockBlast.Presentation.Views
         {
             if (_objectiveModel == null || _localizationModel == null || _localizationSystem == null
                 || _settingsModel == null || _timerRunSystem == null || _boardView == null
-                || _powerUpInventoryView == null)
+                || _powerUpInventoryView == null || _streakPillView == null || _holdSlotView == null
+                || _timerHudView == null)
             {
                 Debug.LogError(
                     $"{nameof(ObjectiveInfoPopupView)} was not injected. Is it registered in the LifetimeScope?",
@@ -382,7 +392,9 @@ namespace MustyBlockBlast.Presentation.Views
             BuildHero();
             _demoStage = new InfoDemoStage(
                 _chrome.DemoRootRect,
-                new InfoDemoResources(_boardView, _powerUpInventoryView, _localizationSystem),
+                new InfoDemoResources(
+                    _boardView, _powerUpInventoryView, _localizationSystem, _holdSlotView, streakPillView: _streakPillView,
+                    objectiveIconCatalog: _iconCatalog, timerHudView: _timerHudView),
                 this.GetCancellationTokenOnDestroy());
 
             _panel = panelObject;

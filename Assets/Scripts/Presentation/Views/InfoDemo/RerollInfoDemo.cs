@@ -12,8 +12,8 @@ namespace MustyBlockBlast.Presentation.Views
     /// <para>
     /// Choreography (5.4 s loop; board rows top to bottom, '.' empty, letters are block colours):
     /// <code>
-    /// row0 gg.bbuu.
-    /// row1 ubbgg.pp
+    /// row0 .g.bbuu.
+    /// row1 u.bgg.pp
     /// row2 gpp.bbgu
     /// row3 bbgguu.g     no 3x3, 1x5 or 4-cell L fits anywhere:
     /// row4 pu.ggbbp     the largest empty group is (6,6),(6,7),(7,6)
@@ -21,6 +21,8 @@ namespace MustyBlockBlast.Presentation.Views
     /// row6 uuppgg..
     /// row7 bbuugg.p
     /// </code>
+    /// No row or column is full — a real board never holds one (a line clears the moment it fills); the gaps
+    /// at (0,0) and (1,1) keep columns 0 and 1 open (issue #454).
     /// The strip holds the teal Reroll button (count 1) and a dock of a 3x3, a 1x5 and an L.
     /// 0.3 s a red cross pops on each piece · 0.55 s "Nothing fits" · 1.05 s the button is pressed, count
     /// 1 → 0 · 1.15 s the three pieces drop away · 1.5 / 1.6 / 1.7 s a 1x2, a single and a 2x2 are dealt ·
@@ -51,8 +53,8 @@ namespace MustyBlockBlast.Presentation.Views
 
         internal static readonly string[] Rows =
         {
-            "gg.bbuu.",
-            "ubbgg.pp",
+            ".g.bbuu.",
+            "u.bgg.pp",
             "gpp.bbgu",
             "bbgguu.g",
             "pu.ggbbp",

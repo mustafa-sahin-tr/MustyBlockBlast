@@ -168,27 +168,6 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.AreEqual(0, NoIsolatedHolesStreakInfoDemo.ChipStart(2));
         }
 
-        [Test]
-        public void PieceFamilyAndTheOtherSubIssue454Types_StillHaveNoDemo()
-        {
-            ObjectiveType[] without =
-            {
-                ObjectiveType.PieceFamilyCount,
-                ObjectiveType.ScoreInRun,
-                ObjectiveType.StreakThreshold,
-                ObjectiveType.ClutchRecoveryClear,
-                ObjectiveType.PieceIdCount,
-                ObjectiveType.EarlyScoreRush,
-                ObjectiveType.RerollSave,
-            };
-
-            InfoDemoCatalog catalog = new InfoDemoCatalog();
-            for (int typeIndex = 0; typeIndex < without.Length; typeIndex++)
-            {
-                Assert.IsNull(catalog.FindObjective(Plain(without[typeIndex])), without[typeIndex].ToString());
-            }
-        }
-
         // ---------------------------------------------------------------- Board Wipe
 
         [Test]

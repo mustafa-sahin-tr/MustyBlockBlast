@@ -64,6 +64,14 @@ namespace MustyBlockBlast.Presentation.Views
         /// since a sprite has its own transparent margin.</summary>
         private const float MOCK_CHIP_ICON_SIZE = 20f;
 
+        /// <summary>Mockup-unit geometry of a top line that carries both an icon and a caption (issue #454 — a
+        /// clock beside "15 SEC"): the icon's centre and size, the caption's centre and width, all relative to
+        /// the chip centre.</summary>
+        private const float MOCK_CHIP_SIDE_ICON_OFFSET_X = -20f;
+        private const float MOCK_CHIP_SIDE_ICON_SIZE = 12f;
+        private const float MOCK_CHIP_SIDE_CAPTION_OFFSET_X = 6f;
+        private const float MOCK_CHIP_SIDE_CAPTION_WIDTH = 40f;
+
         /// <summary>A progress chip's size in board units (it sits at <see cref="InfoDemoLayout.ChipCentre"/>),
         /// for beats that decorate it — a countdown bar along its foot (issue #452).</summary>
         internal static Vector2 ChipSize => new Vector2(
@@ -810,7 +818,9 @@ namespace MustyBlockBlast.Presentation.Views
         /// </summary>
         internal static InfoDemoProgressChip ProgressChip(
             InfoDemoTimelineBuilder builder, string captionKey, string captionArgument, int startValue, int target)
-            => AddProgressChip(builder, captionKey, captionArgument, null, InfoDemoPaint.NONE, InfoDemoSprite.None, 0, startValue, target);
+            => AddProgressChip(
+                builder, captionKey, captionArgument, null, InfoDemoPaint.NONE, InfoDemoSprite.None, 0,
+                CountingValues(startValue, target), target);
 
         /// <summary>
         /// As <see cref="ProgressChip(InfoDemoTimelineBuilder, string, string, int, int)"/>, with a miniature
@@ -821,7 +831,8 @@ namespace MustyBlockBlast.Presentation.Views
         /// </summary>
         internal static InfoDemoProgressChip ProgressChip(
             InfoDemoTimelineBuilder builder, Vector2Int[] glyphShape, int glyphPaint, int startValue, int target)
-            => AddProgressChip(builder, null, null, glyphShape, glyphPaint, InfoDemoSprite.None, 0, startValue, target);
+            => AddProgressChip(
+                builder, null, null, glyphShape, glyphPaint, InfoDemoSprite.None, 0, CountingValues(startValue, target), target);
 
         /// <summary>
         /// As <see cref="ProgressChip(InfoDemoTimelineBuilder, string, string, int, int)"/>, with the game's
@@ -832,7 +843,40 @@ namespace MustyBlockBlast.Presentation.Views
         /// </summary>
         internal static InfoDemoProgressChip ProgressChip(
             InfoDemoTimelineBuilder builder, InfoDemoSprite icon, int iconParameter, int iconPaint, int startValue, int target)
-            => AddProgressChip(builder, null, null, null, iconPaint, icon, iconParameter, startValue, target);
+            => AddProgressChip(builder, null, null, null, iconPaint, icon, iconParameter, CountingValues(startValue, target), target);
+
+        /// <summary>
+        /// A reading chip (issue #454 — a score objective): as
+        /// <see cref="ProgressChip(InfoDemoTimelineBuilder, InfoDemoSprite, int, int, int, int)"/>, but its counter
+        /// holds only the readings in <paramref name="values"/> (ascending, the first showing from loop time 0),
+        /// which <see cref="AdvanceChipTo"/> jumps between — a score that moves by a whole placement's points at
+        /// once. With <paramref name="captionKey"/> too the top line carries the icon on its left and the caption
+        /// (its <c>{0}</c> filled with <paramref name="captionArgument"/>) on its right — a clock and "15 SEC".
+        /// </summary>
+        internal static InfoDemoProgressChip ReadingChip(
+            InfoDemoTimelineBuilder builder,
+            InfoDemoSprite icon,
+            int iconParameter,
+            int iconPaint,
+            string captionKey,
+            string captionArgument,
+            int[] values,
+            int target)
+            => AddProgressChip(builder, captionKey, captionArgument, null, iconPaint, icon, iconParameter, values, target);
+
+        /// <summary>Every whole number from <paramref name="startValue"/> to <paramref name="target"/> — a
+        /// counting chip's readings.</summary>
+        private static int[] CountingValues(int startValue, int target)
+        {
+            int valueCount = Mathf.Max(1, target - startValue + 1);
+            int[] values = new int[valueCount];
+            for (int valueIndex = 0; valueIndex < valueCount; valueIndex++)
+            {
+                values[valueIndex] = startValue + valueIndex;
+            }
+
+            return values;
+        }
 
         /// <summary>Where a chip's glyph or icon sits (board units) — the target a thing collected flies to
         /// (issue #453, a diamond landing on its chip).</summary>
@@ -863,7 +907,7 @@ namespace MustyBlockBlast.Presentation.Views
             int glyphPaint,
             InfoDemoSprite icon,
             int iconParameter,
-            int startValue,
+            int[] values,
             int target)
         {
             Vector2 centre = InfoDemoLayout.ChipCentre;
@@ -877,7 +921,30 @@ namespace MustyBlockBlast.Presentation.Views
             int panelId = builder.AddPanel(centre, chipSize, corner, InfoDemoPaint.WHITE);
 
             int captionId;
-            if (icon != InfoDemoSprite.None)
+            if (icon != InfoDemoSprite.None && captionKey != null)
+            {
+                // Icon and caption share the top line: the icon on the left, the caption beside it.
+                builder.AddIcon(
+                    icon,
+                    iconParameter,
+                    centre + new Vector2(
+                        InfoDemoLayout.FromMockLength(MOCK_CHIP_SIDE_ICON_OFFSET_X),
+                        InfoDemoLayout.FromMockLength(MOCK_CHIP_CAPTION_OFFSET_Y)),
+                    MOCK_CHIP_SIDE_ICON_SIZE / InfoDemoLayout.MOCK_CELL,
+                    1f,
+                    glyphPaint);
+                captionId = builder.AddLabel(
+                    captionKey,
+                    centre + new Vector2(
+                        InfoDemoLayout.FromMockLength(MOCK_CHIP_SIDE_CAPTION_OFFSET_X),
+                        InfoDemoLayout.FromMockLength(MOCK_CHIP_CAPTION_OFFSET_Y)),
+                    InfoDemoLayout.FromMockLength(MOCK_CHIP_SIDE_CAPTION_WIDTH),
+                    InfoDemoLayout.FromMockLength(MOCK_CHIP_CAPTION_FONT),
+                    InfoDemoPaint.SOFT_INK,
+                    1f,
+                    captionArgument);
+            }
+            else if (icon != InfoDemoSprite.None)
             {
                 captionId = builder.AddIcon(
                     icon,
@@ -909,13 +976,11 @@ namespace MustyBlockBlast.Presentation.Views
 
             Vector2 counterPosition = centre + new Vector2(0f, InfoDemoLayout.FromMockLength(MOCK_CHIP_COUNTER_OFFSET_Y));
             float counterFont = InfoDemoLayout.FromMockLength(MOCK_CHIP_COUNTER_FONT);
-            int valueCount = Mathf.Max(1, target - startValue + 1);
-            int[] counterLabelIds = new int[valueCount];
-            for (int valueIndex = 0; valueIndex < valueCount; valueIndex++)
+            int[] counterLabelIds = new int[values.Length];
+            for (int valueIndex = 0; valueIndex < values.Length; valueIndex++)
             {
-                int value = startValue + valueIndex;
                 counterLabelIds[valueIndex] = builder.AddText(
-                    value + "/" + target, counterPosition, textWidth, counterFont, InfoDemoPaint.INK,
+                    values[valueIndex] + "/" + target, counterPosition, textWidth, counterFont, InfoDemoPaint.INK,
                     valueIndex == 0 ? 1f : 0f);
             }
 
@@ -930,7 +995,7 @@ namespace MustyBlockBlast.Presentation.Views
             int checkId = builder.AddIcon(
                 InfoDemoSprite.CheckMark, 0, badgeCentre, MOCK_CHIP_CHECK_SIZE / InfoDemoLayout.MOCK_CELL, 0f);
 
-            return new InfoDemoProgressChip(panelId, captionId, counterLabelIds, startValue, target, badgeId, checkId);
+            return new InfoDemoProgressChip(panelId, captionId, counterLabelIds, values, target, badgeId, checkId);
         }
 
         /// <summary>
@@ -954,6 +1019,29 @@ namespace MustyBlockBlast.Presentation.Views
 
             int oldLabel = chip.CounterLabelId(chip.Value);
             chip.Advance(steps);
+            return CrossfadeChip(builder, chip, oldLabel, time);
+        }
+
+        /// <summary>
+        /// Moves a reading chip (<see cref="ReadingChip"/>, issue #454) straight to <paramref name="value"/> at
+        /// <paramref name="time"/> — one of the readings it was built with — with the same crossfade, and the
+        /// green check when that reaches the target. A chip already at its target is left alone. Returns the time
+        /// the beat settles.
+        /// </summary>
+        internal static float AdvanceChipTo(InfoDemoTimelineBuilder builder, InfoDemoProgressChip chip, int value, float time)
+        {
+            if (chip.IsComplete || value <= chip.Value)
+            {
+                return time;
+            }
+
+            int oldLabel = chip.CounterLabelId(chip.Value);
+            chip.AdvanceTo(value);
+            return CrossfadeChip(builder, chip, oldLabel, time);
+        }
+
+        private static float CrossfadeChip(InfoDemoTimelineBuilder builder, InfoDemoProgressChip chip, int oldLabel, float time)
+        {
             int newLabel = chip.CounterLabelId(chip.Value);
 
             builder.Fade(oldLabel, time, CHIP_COUNTER_CROSSFADE, 1f, 0f, InfoDemoEasing.EaseInCubic);

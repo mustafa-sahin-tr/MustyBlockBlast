@@ -10,17 +10,21 @@ namespace MustyBlockBlast.Presentation.Views
     internal sealed class InfoDemoProgressChip
     {
         private readonly int[] _counterLabelIds;
-        private readonly int _startValue;
+
+        /// <summary>The value each of <see cref="_counterLabelIds"/> reads, ascending — every whole number from
+        /// the start to the target for a counting chip, or just the readings a score chip jumps between
+        /// (issue #454), so a 2820 → 3000 chip holds two labels rather than a hundred and eighty-one.</summary>
+        private readonly int[] _values;
 
         internal InfoDemoProgressChip(
-            int panelId, int captionId, int[] counterLabelIds, int startValue, int target, int badgeId, int checkId)
+            int panelId, int captionId, int[] counterLabelIds, int[] values, int target, int badgeId, int checkId)
         {
             PanelId = panelId;
             CaptionId = captionId;
             _counterLabelIds = counterLabelIds;
-            _startValue = startValue;
+            _values = values;
             Target = target;
-            Value = startValue;
+            Value = values[0];
             BadgeId = badgeId;
             CheckId = checkId;
         }
@@ -45,13 +49,30 @@ namespace MustyBlockBlast.Presentation.Views
 
         internal bool IsComplete => Value >= Target;
 
-        /// <summary>Id of the counter label reading "<paramref name="value"/>/<see cref="Target"/>".</summary>
-        internal int CounterLabelId(int value) => _counterLabelIds[value - _startValue];
+        /// <summary>Id of the counter label reading "<paramref name="value"/>/<see cref="Target"/>". Throws for
+        /// a value the chip was not built with — an authoring mistake, caught while the timeline is built.</summary>
+        internal int CounterLabelId(int value)
+        {
+            int valueIndex = System.Array.IndexOf(_values, value);
+            if (valueIndex < 0)
+            {
+                throw new System.ArgumentOutOfRangeException(nameof(value), value, "The chip has no label for this value.");
+            }
 
-        internal void Advance() => Value++;
+            return _counterLabelIds[valueIndex];
+        }
+
+        /// <summary>Whether the chip was built with a label reading <paramref name="value"/>.</summary>
+        internal bool HasValue(int value) => System.Array.IndexOf(_values, value) >= 0;
+
+        internal void Advance() => Advance(1);
 
         /// <summary>Moves <see cref="Value"/> on by <paramref name="steps"/> at once (issue #453 — one clear
         /// that destroys several counted things), never past <see cref="Target"/>.</summary>
         internal void Advance(int steps) => Value = System.Math.Min(Target, Value + System.Math.Max(0, steps));
+
+        /// <summary>Moves <see cref="Value"/> straight to <paramref name="value"/> (issue #454 — a score chip
+        /// jumping by a whole placement's points).</summary>
+        internal void AdvanceTo(int value) => Value = value;
     }
 }

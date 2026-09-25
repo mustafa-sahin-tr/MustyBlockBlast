@@ -86,6 +86,10 @@ namespace MustyBlockBlast.Presentation.Views
         private readonly CompositeDisposable _disposables = new CompositeDisposable();
         private readonly StringBuilder _stringBuilder = new StringBuilder(8);
 
+        /// <summary>The white clock this pill wears, or null when unassigned — borrowed by the Early Score
+        /// Rush objective's info demo (issue #454) so its deadline shows the HUD's own clock.</summary>
+        internal Sprite ClockSprite => _clockSprite;
+
         private TimerModel _timerModel;
         private GameModeSystem _gameModeSystem;
         private TimedModeSystem _timedModeSystem;

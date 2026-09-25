@@ -161,19 +161,26 @@ namespace MustyBlockBlast.Presentation.Views
             InfoDemoTrayChoreography.SlidePiece(builder, pieceId, from, to, scale * LIFTED_FRACTION, scale, moveStart, MOVE_DURATION);
         }
 
-        /// <summary>The empty pocket as the real HUD draws it — a faint well inside a thin solid outline
-        /// (<c>HoldSlotView</c>: the mockup's dashed border, drawn solid) with the pocket's own glyph.
-        /// Returns the glyph's element id.</summary>
-        private static int AddPocket(InfoDemoTimelineBuilder builder, Vector2 centre)
+        /// <summary>The pocket's well and outline alone, <paramref name="mockSide"/> mockup units square — for a
+        /// pocket that already holds a piece, which hides the glyph (issue #454, Reroll Save's parked piece).</summary>
+        internal static void AddPocketWell(InfoDemoTimelineBuilder builder, Vector2 centre, float mockSide)
         {
-            float side = InfoDemoLayout.FromMockLength(MOCK_POCKET_SIDE);
+            float side = InfoDemoLayout.FromMockLength(mockSide);
             Vector2 size = new Vector2(side, side);
-            float corner = InfoDemoLayout.FromMockLength(MOCK_POCKET_CORNER);
+            float corner = InfoDemoLayout.FromMockLength(MOCK_POCKET_CORNER * mockSide / MOCK_POCKET_SIDE);
 
             builder.AddPanel(centre, size, corner, InfoDemoPaint.INK, POCKET_WELL_ALPHA);
             builder.AddRing(
                 centre, size, corner, InfoDemoLayout.FromMockLength(MOCK_POCKET_STROKE), InfoDemoPaint.SOFT_INK,
                 POCKET_RING_ALPHA);
+        }
+
+        /// <summary>The empty pocket as the real HUD draws it — a faint well inside a thin solid outline
+        /// (<c>HoldSlotView</c>: the mockup's dashed border, drawn solid) with the pocket's own glyph.
+        /// Returns the glyph's element id.</summary>
+        private static int AddPocket(InfoDemoTimelineBuilder builder, Vector2 centre)
+        {
+            AddPocketWell(builder, centre, MOCK_POCKET_SIDE);
 
             return builder.AddIcon(
                 InfoDemoSprite.HoldPocket, 0, centre, MOCK_POCKET_GLYPH_SIZE / InfoDemoLayout.MOCK_CELL, POCKET_GLYPH_ALPHA,

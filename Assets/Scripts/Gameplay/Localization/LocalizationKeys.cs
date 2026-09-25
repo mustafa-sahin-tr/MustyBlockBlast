@@ -207,6 +207,30 @@ namespace MustyBlockBlast.Gameplay.Localization
         /// <summary>The floating label the Reinforced Cells demo shows as the armoured cell breaks (issue #453).</summary>
         public const string INFO_POPUP_DEMO_ARMOUR_BROKEN = "info_popup.demo.armour_broken";
 
+        /// <summary>The Clutch Recovery and Reroll Save objective demos' progress-chip caption (issue #454, "SAVE").</summary>
+        public const string INFO_POPUP_DEMO_CHIP_SAVE = "info_popup.demo.chip.save";
+
+        /// <summary>The floating label the Piece Family demo shows once two different members of the family have
+        /// counted (issue #454). Family-generic — the chip's glyph names the family.</summary>
+        public const string INFO_POPUP_DEMO_FAMILY_COUNTS = "info_popup.demo.family_counts";
+
+        /// <summary>The floating label the Piece Id Count demo shows once the named piece has counted twice (issue #454).</summary>
+        public const string INFO_POPUP_DEMO_THIS_PIECE = "info_popup.demo.this_piece";
+
+        /// <summary>The floating label the Score In Run and Early Score Rush demos show as the score crosses the
+        /// target (issue #454).</summary>
+        public const string INFO_POPUP_DEMO_TARGET_SCORE = "info_popup.demo.target_score";
+
+        /// <summary>The floating label the Streak Threshold demo shows at its target streak (issue #454); its
+        /// <c>{0}</c> is the streak, written with the HUD streak pill's own "x".</summary>
+        public const string INFO_POPUP_DEMO_COMBO = "info_popup.demo.combo";
+
+        /// <summary>The pill label the Clutch Recovery demo shows once the near-full board clears (issue #454).</summary>
+        public const string INFO_POPUP_DEMO_LAST_MOMENT = "info_popup.demo.last_moment";
+
+        /// <summary>The floating label the Reroll Save demo shows once the dead dock is rerolled (issue #454).</summary>
+        public const string INFO_POPUP_DEMO_SAVED = "info_popup.demo.saved";
+
         public const string INFO_POPUP_SPECIAL_CELL_CHAIN_LIGHTNING_HEADER = "info_popup.special_cell.chain_lightning.header";
         public const string INFO_POPUP_SPECIAL_CELL_CHAIN_LIGHTNING_BODY = "info_popup.special_cell.chain_lightning.body";
         public const string INFO_POPUP_SPECIAL_CELL_SCORE_GEM_HEADER = "info_popup.special_cell.score_gem.header";

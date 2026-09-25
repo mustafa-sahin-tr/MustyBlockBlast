@@ -116,43 +116,40 @@ namespace MustyBlockBlast.Tests.EditMode
         }
 
         [Test]
-        public void EveryOtherObjectiveType_HasNoDemo()
+        public void EveryObjectiveType_HasADemo_ForItsAuthoringDefaults()
         {
-            // The line-clear objectives of issue #452 are covered by InfoDemoLineClearObjectiveTests.
-            ObjectiveType[] withDemo =
-            {
-                ObjectiveType.SimultaneousLineClear,
-                ObjectiveType.AtLeastLineClear,
-                ObjectiveType.RowAndColumnCrossClear,
-                ObjectiveType.BombInducedLineClear,
-                ObjectiveType.PieceIdLineClear,
-                ObjectiveType.RollingLineClearWindow,
-
-                // The board-layout objectives of issue #453 are covered by InfoDemoBoardLayoutObjectiveTests.
-                ObjectiveType.BoardWipeCount,
-                ObjectiveType.FourCornersCleared,
-                ObjectiveType.CenterCoreEvacuated,
-                ObjectiveType.NoIsolatedHolesStreak,
-                ObjectiveType.ColourCleared,
-                ObjectiveType.DiamondsCleared,
-                ObjectiveType.IceCellsCleared,
-                ObjectiveType.ReinforcedCellsCleared,
-                ObjectiveType.TimerCellsMeltedInTime,
-            };
-
+            // With issue #454 every objective type has a demo path. Each is asked for with the level authoring
+            // defaults (LevelObjectiveConfig: 2 lines, square_3x3, 52 occupied cells, 15 s, colour 1) and a target
+            // of 2; the per-type test classes cover the values each demo can and cannot draw.
             InfoDemoCatalog catalog = new InfoDemoCatalog();
             Array types = Enum.GetValues(typeof(ObjectiveType));
 
             for (int typeIndex = 0; typeIndex < types.Length; typeIndex++)
             {
                 ObjectiveType type = (ObjectiveType)types.GetValue(typeIndex);
-                if (Array.IndexOf(withDemo, type) >= 0)
-                {
-                    continue;
-                }
+                ObjectiveDefinition definition = new ObjectiveDefinition(
+                    "test", type, ObjectiveScope.PerRun, 2, requiredLineCount: 2, requiredPieceFamily: PieceFamily.Corner,
+                    requiredOccupancyThreshold: 52, requiredPieceId: "square_3x3", windowSeconds: 15f, requiredColourId: 1);
 
-                Assert.IsNull(catalog.FindObjective(Objective(type, 2)), type.ToString());
+                Assert.IsNotNull(catalog.FindObjective(definition), type.ToString());
             }
+        }
+
+        [Test]
+        public void AParameterADemoCannotDrawHonestly_StillFallsBackToTheGlyph()
+        {
+            InfoDemoCatalog catalog = new InfoDemoCatalog();
+
+            Assert.IsNull(catalog.FindObjective(Objective(ObjectiveType.SimultaneousLineClear, 6)));
+            Assert.IsNull(catalog.FindObjective(new ObjectiveDefinition(
+                "test", ObjectiveType.StreakThreshold, ObjectiveScope.PerRun, StreakThresholdInfoDemo.MAX_TARGET + 1)));
+            Assert.IsNull(catalog.FindObjective(new ObjectiveDefinition(
+                "test", ObjectiveType.ClutchRecoveryClear, ObjectiveScope.PerRun, 1,
+                requiredOccupancyThreshold: ClutchRecoveryClearInfoDemo.OccupiedAfterLanding + 1)));
+            Assert.IsNull(catalog.FindObjective(new ObjectiveDefinition(
+                "test", ObjectiveType.EarlyScoreRush, ObjectiveScope.PerRun, 1000, windowSeconds: 1f)));
+            Assert.IsNull(catalog.FindObjective(new ObjectiveDefinition(
+                "test", ObjectiveType.PieceIdCount, ObjectiveScope.PerRun, 2, requiredPieceId: "not_a_piece")));
         }
 
         [Test]
