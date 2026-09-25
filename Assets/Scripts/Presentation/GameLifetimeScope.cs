@@ -689,20 +689,34 @@ namespace MustyBlockBlast.Presentation
             // The fifth seam (issue #465): the out-of-moves sheet's "+moves" ad.
             builder.Register<DeterministicExtraMovesRewardSource>(Lifetime.Singleton)
                 .As<IExtraMovesRewardSource>().AsSelf();
+
+            // The forced-ad seam (issue #501): always "shows" instantly with nothing on screen, but still
+            // honours "remove ads" so the placement logic behaves the same as on device.
+            builder.Register<DeterministicInterstitialAdSource>(Lifetime.Singleton)
+                .As<IInterstitialAdSource>().AsSelf();
 #else
+            // Consent, SDK init and the one-full-screen-ad slot, shared by both AdMob formats below
+            // (split out of AdMobRewardSource in issue #501 so consent runs once for both).
+            builder.Register<AdMobSdk>(Lifetime.Singleton);
+
             // The real thing on Android and iOS devices (issue #380): Google AdMob behind all four
             // seams (the lives one since issue #478). One class because the three are one mechanic underneath — load a rewarded ad, show
-            // it, pay only on the SDK's reward-earned callback — and the only type in the project that
-            // touches the ad SDK. Live App IDs/unit ids per platform; see the class for the swap-out note.
+            // it, pay only on the SDK's reward-earned callback. Live App IDs/unit ids per platform; see
+            // the class for the swap-out note.
             builder.Register<AdMobRewardSource>(Lifetime.Singleton)
                 .As<IRewardSource>().As<ICoinRewardSource>().As<IRescueRewardSource>().As<ILivesRewardSource>()
-                .As<IExtraMovesRewardSource>()
-                .AsSelf();
+                .As<IExtraMovesRewardSource>();
 
-            // Runs consent + SDK init at boot rather than on the player's first reward request, per
-            // Google's own latency guidance. AsSelf above is what lets this take the concrete type
-            // directly — there is nothing to warm up behind the Deterministic stubs in the #if branch,
-            // so this entry point only exists where AdMobRewardSource itself does.
+            // The interstitial format (issue #501): preloaded ahead, shown only when ready, never
+            // requested for a player who bought "remove ads". IDisposable, so the container releases
+            // its loaded ad and background loads with the scope.
+            builder.Register<AdMobInterstitialSource>(Lifetime.Singleton)
+                .As<IInterstitialAdSource>();
+
+            // Runs consent + SDK init at boot rather than on the player's first ad request, per Google's
+            // own latency guidance, then preloads the first interstitial. There is nothing to warm up
+            // behind the Deterministic stubs in the #if branch, so this entry point only exists where
+            // AdMobSdk itself does.
             builder.RegisterEntryPoint<AdWarmUpSystem>();
 #endif
 
