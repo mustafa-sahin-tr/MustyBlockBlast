@@ -155,6 +155,13 @@ namespace MustyBlockBlast.Gameplay.Systems
         private readonly IPublisher<ChainLightningTriggeredMessage> _chainLightningTriggeredPublisher;
         private readonly IPublisher<CoinCellsClearedMessage> _coinCellsClearedPublisher;
 
+        /// <summary>Where opened locks are announced for the board's effect (issue #481). Optional: null in
+        /// test constructions, which still pay the coins.</summary>
+        private readonly IPublisher<LockedCellsOpenedMessage> _lockedCellsOpenedPublisher;
+
+        /// <summary>What an opened lock pays — the Coin cell's own base payout (issue #481 AC1).</summary>
+        private readonly int _coinCellPayout;
+
         /// <summary>Optional: null in every existing test construction, which predates issue #278.
         /// Guarded on every publish so an un-injected instance behaves exactly as it did before.</summary>
         private readonly IPublisher<SpecialCellSpawnedMessage> _specialCellSpawnedPublisher;
@@ -349,7 +356,8 @@ namespace MustyBlockBlast.Gameplay.Systems
             DiamondPieceDecorator diamondPieceDecorator = null,
             LevelTargetIceCellSeeder targetIceCellSeeder = null,
             LevelLockedCellSeeder lockedCellSeeder = null,
-            LevelBoardShapeSource boardShapeSource = null)
+            LevelBoardShapeSource boardShapeSource = null,
+            IPublisher<LockedCellsOpenedMessage> lockedCellsOpenedPublisher = null)
             : this(
                 boardModel, trayModel, scoreGemProgressModel, vortexProgressModel, pieceDraw,
                 runStartedPublisher, piecePlacedPublisher, linesClearedPublisher, gameOverPublisher,
@@ -358,7 +366,8 @@ namespace MustyBlockBlast.Gameplay.Systems
                 coinCellsClearedPublisher, currencyConfig, Environment.TickCount, reinforcedCellSeeder,
                 powerUpModel, specialCellSpawnedPublisher, specialPieceSpawnedPublisher,
                 timerCellSeeder, gameModeModel, rescueRewardSource, runRescuedPublisher,
-                diamondPieceDecorator, targetIceCellSeeder, lockedCellSeeder, boardShapeSource)
+                diamondPieceDecorator, targetIceCellSeeder, lockedCellSeeder, boardShapeSource,
+                lockedCellsOpenedPublisher)
         {
         }
 
@@ -392,7 +401,8 @@ namespace MustyBlockBlast.Gameplay.Systems
             DiamondPieceDecorator diamondPieceDecorator = null,
             LevelTargetIceCellSeeder targetIceCellSeeder = null,
             LevelLockedCellSeeder lockedCellSeeder = null,
-            LevelBoardShapeSource boardShapeSource = null)
+            LevelBoardShapeSource boardShapeSource = null,
+            IPublisher<LockedCellsOpenedMessage> lockedCellsOpenedPublisher = null)
         {
             _boardShapeSource = boardShapeSource;
             _reinforcedCellSeeder = reinforcedCellSeeder;
@@ -424,6 +434,8 @@ namespace MustyBlockBlast.Gameplay.Systems
             _vortexIslandFilledPublisher = vortexIslandFilledPublisher;
             _chainLightningTriggeredPublisher = chainLightningTriggeredPublisher;
             _coinCellsClearedPublisher = coinCellsClearedPublisher;
+            _lockedCellsOpenedPublisher = lockedCellsOpenedPublisher;
+            _coinCellPayout = currencyConfig.CoinCellPayout;
             _coinEffect = new CoinEffect(currencyConfig.CoinCellPayout);
             _specialCellEffects = new CompositeSpecialCellEffect(
                 _explosiveCoreEffect, _laserEffect, _scoreGemEffect, _vortexEffect, _chainLightningEffect,
@@ -870,6 +882,9 @@ namespace MustyBlockBlast.Gameplay.Systems
             // rocket wipe that ran before it, was destroyed just the same and is owed just the same.
             PublishCoinsAwarded();
 
+            // And every lock this placement opened, anywhere in its resolution, reveals its gold (#481).
+            PayOpenedLocks();
+
             // Last of all, and deliberately after PiecePlacedMessage: the spawn occupies a cell, and
             // that message reports whether this placement emptied the board, cleared the centre core
             // and so on. Spawning first would quietly cost the player every perfect-clear reward they
@@ -1313,6 +1328,11 @@ namespace MustyBlockBlast.Gameplay.Systems
 
             ApplyHammerTriggeredSpecials();
 
+            // A hammer that opened a lock — hit directly, or as its neighbour — pays its gold (#481), and
+            // so does one its triggered specials opened. Outside ApplyHammerTriggeredSpecials, which
+            // returns early when the hammer destroyed no special cell.
+            PayOpenedLocks();
+
             // Destroying a cell can never complete a line, so there is nothing to cascade — but the dock
             // may now be empty, and a hammer is not a placement, so nothing else would refill it. Without
             // this the run would end on the very next check with an empty dock.
@@ -1751,6 +1771,11 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// cell is not an event, so no subscriber ever has to handle a nil payout.
         /// </para>
         /// </summary>
+        /// <summary>Pays and forgets every lock the board recorded as opened (issue #481), through
+        /// <see cref="LockedCellPayout"/>.</summary>
+        private void PayOpenedLocks() => LockedCellPayout.PayAndDrain(
+            _boardModel.Board, _coinCellPayout, _coinCellsClearedPublisher, _lockedCellsOpenedPublisher);
+
         private void PublishCoinsAwarded()
         {
             int coinsAwarded = _coinEffect.TotalCoinsAwarded;

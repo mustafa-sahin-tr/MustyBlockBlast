@@ -163,6 +163,13 @@ namespace MustyBlockBlast.Presentation.Views
         [Tooltip("Reinforced cell's rock by hits left: 0 = 1 hit left (crumbling), 1 = 2 left (cracked), 2 = 3 left (solid).")]
         [SerializeField] private Sprite[] _reinforcedStageSprites = new Sprite[REINFORCED_STAGE_COUNT];
 
+        [Header("Locked Cell Opens (issue #481)")]
+        [Tooltip("The open chest spilling gold that pops out of a lock the moment it opens.")]
+        [SerializeField] private Sprite _lockedOpenSprite;
+
+        [Tooltip("Seconds the open-chest pop and its coin chip play for.")]
+        [SerializeField] private float _lockedOpenDuration = 0.9f;
+
         [Header("Empty-Cell Bonus Count (issue #424)")]
         [Tooltip("The chunky display face the level-completion empty-cell bonus count is drawn in — the same asset ScoreView draws the score and best figures in, so the on-board count reads as the same digits the score counter is about to gain. Falls back to the builtin font when unassigned.")]
         [SerializeField] private Font _bonusNumberFont;
@@ -274,6 +281,11 @@ namespace MustyBlockBlast.Presentation.Views
         /// </para>
         /// </summary>
         private static readonly Color CoinIconTint = new Color(1f, 0.82f, 0.25f, 1f);
+
+        /// <summary>The "+N" on an opened lock's coin chip (issue #481): the coin's own gold, outlined in a
+        /// dark brown so it reads over any block colour or the empty board.</summary>
+        private static readonly Color LockedOpenChipInk = new Color(1f, 0.85f, 0.3f, 1f);
+        private static readonly Color LockedOpenChipOutline = new Color(0.36f, 0.22f, 0.05f, 0.9f);
 
         /// <summary>
         /// Colour a <see cref="SpecialCellKind.ExplosiveCore"/>'s glow halo is drawn in (see
@@ -478,6 +490,7 @@ namespace MustyBlockBlast.Presentation.Views
         private ISubscriber<PiercingRocketFiredMessage> _piercingRocketFiredSubscriber;
         private ISubscriber<VortexIslandFilledMessage> _vortexIslandFilledSubscriber;
         private ISubscriber<ChainLightningTriggeredMessage> _chainLightningTriggeredSubscriber;
+        private ISubscriber<LockedCellsOpenedMessage> _lockedCellsOpenedSubscriber;
         private ISubscriber<SpecialCellSpawnedMessage> _specialCellSpawnedSubscriber;
         private ISubscriber<EmptyCellBonusCountingMessage> _emptyCellBonusCountingSubscriber;
         private IPublisher<EmptyCellBonusCountingCompletedMessage> _emptyCellBonusCountingCompletedPublisher;
@@ -511,8 +524,10 @@ namespace MustyBlockBlast.Presentation.Views
             ISubscriber<ChainLightningTriggeredMessage> chainLightningTriggeredSubscriber,
             ISubscriber<SpecialCellSpawnedMessage> specialCellSpawnedSubscriber,
             ISubscriber<EmptyCellBonusCountingMessage> emptyCellBonusCountingSubscriber,
-            IPublisher<EmptyCellBonusCountingCompletedMessage> emptyCellBonusCountingCompletedPublisher)
+            IPublisher<EmptyCellBonusCountingCompletedMessage> emptyCellBonusCountingCompletedPublisher,
+            ISubscriber<LockedCellsOpenedMessage> lockedCellsOpenedSubscriber)
         {
+            _lockedCellsOpenedSubscriber = lockedCellsOpenedSubscriber;
             _emptyCellBonusCountingSubscriber = emptyCellBonusCountingSubscriber;
             _emptyCellBonusCountingCompletedPublisher = emptyCellBonusCountingCompletedPublisher;
             _explosiveCoreDetonatedSubscriber = explosiveCoreDetonatedSubscriber;
@@ -680,6 +695,9 @@ namespace MustyBlockBlast.Presentation.Views
             // cell's seeding, not a vortex carrying an existing kind to a new position, both of which
             // also raise BoardModel.SpecialKindChanged but neither of which publish this message.
             _specialCellSpawnedSubscriber.Subscribe(OnSpecialCellSpawned).AddTo(_disposables);
+
+            // Issue #481: an opened lock reveals gold — the chest pops open where it stood.
+            _lockedCellsOpenedSubscriber.Subscribe(OnLockedCellsOpened).AddTo(_disposables);
 
             // Issue #424: a cleared Path level pays one point per empty cell, and the system holds the
             // result screen back until this view has counted those cells out over the board.
@@ -2887,6 +2905,121 @@ namespace MustyBlockBlast.Presentation.Views
         /// <see cref="UiSpriteFactory.RoundedSquare"/> so it costs no new texture, sliced so its corner
         /// radius holds at any size. Parented to <see cref="_cellLayerRoot"/> and left for its spawner
         /// to destroy once its own timeline ends.</summary>
+        /// <summary>Each lock that just opened (issue #481) plays the "gold spills out" beat where it
+        /// stood: see <see cref="PlayLockedOpenAsync"/>. Fire-and-forget per position, like the shatter
+        /// shards — the cell itself is already an ordinary empty one.</summary>
+        private void OnLockedCellsOpened(LockedCellsOpenedMessage message)
+        {
+            IReadOnlyList<GridPosition> positions = message.Positions;
+            for (int positionIndex = 0; positionIndex < positions.Count; positionIndex++)
+            {
+                PlayLockedOpenAsync(positions[positionIndex], message.CoinsPerLock).Forget();
+            }
+        }
+
+        /// <summary>
+        /// The opened-lock beat (issue #481 AC3): the open chest spilling gold pops up out of the cell
+        /// (overshooting a little, then settling) while a "+N" coin chip — the Coin cell's own coin and
+        /// the amount just paid — floats up above it; both fade over the last part of
+        /// <see cref="_lockedOpenDuration"/>. Parented to the cell layer and never generation-checked,
+        /// exactly as <see cref="SpawnShatterShardsAsync"/>, since the cell under it may be refilled while
+        /// it plays. Allocates its few objects once per opened lock — an event, never per frame.
+        /// </summary>
+        private async UniTaskVoid PlayLockedOpenAsync(GridPosition cell, int coins)
+        {
+            if (_cellLayerRoot == null || _lockedOpenSprite == null)
+            {
+                return;
+            }
+
+            const float chestStartScale = 0.6f;
+            const float chestOvershootScale = 1.2f;
+            const float chestRiseFraction = 0.25f;
+            const float chipRiseFraction = 1.1f;
+            const float chipCoinSizeFraction = 0.42f;
+            const float fadeStartFraction = 0.55f;
+
+            Vector2 basePosition = CellAnchoredPosition(cell);
+            float duration = Mathf.Max(0.01f, _lockedOpenDuration);
+
+            var chestObject = new GameObject("LockedOpenChest", typeof(RectTransform), typeof(Image));
+            var chest = (RectTransform)chestObject.transform;
+            chest.SetParent(_cellLayerRoot, false);
+            chest.sizeDelta = new Vector2(_cellSize, _cellSize);
+            chest.anchoredPosition = basePosition;
+            Image chestImage = chestObject.GetComponent<Image>();
+            chestImage.sprite = _lockedOpenSprite;
+            chestImage.preserveAspect = true;
+            chestImage.raycastTarget = false;
+
+            var chipObject = new GameObject("LockedOpenCoinChip", typeof(RectTransform));
+            var chip = (RectTransform)chipObject.transform;
+            chip.SetParent(_cellLayerRoot, false);
+            chip.sizeDelta = new Vector2(_cellSize * 1.4f, _cellSize * chipCoinSizeFraction);
+            chip.anchoredPosition = basePosition;
+
+            float coinSize = _cellSize * chipCoinSizeFraction;
+            var coinObject = new GameObject("Coin", typeof(RectTransform), typeof(Image));
+            var coin = (RectTransform)coinObject.transform;
+            coin.SetParent(chip, false);
+            coin.sizeDelta = new Vector2(coinSize, coinSize);
+            coin.anchoredPosition = new Vector2(-coinSize * 0.55f, 0f);
+            Image coinImage = coinObject.GetComponent<Image>();
+            coinImage.sprite = IconSprite(SpecialCellKind.Coin);
+            coinImage.preserveAspect = true;
+            coinImage.raycastTarget = false;
+
+            Text amount = UiTextFactory.Create(
+                chip, "Amount", Mathf.RoundToInt(coinSize * 0.8f), FontStyle.Bold, LockedOpenChipInk, _bonusNumberFont);
+            amount.alignment = TextAnchor.MiddleLeft;
+            amount.raycastTarget = false;
+            var amountRect = (RectTransform)amount.transform;
+            amountRect.sizeDelta = new Vector2(_cellSize, coinSize);
+            amountRect.anchoredPosition = new Vector2(_cellSize * 0.5f, 0f);
+            amount.text = "+" + coins.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            Outline amountOutline = amount.gameObject.AddComponent<Outline>();
+            amountOutline.effectColor = LockedOpenChipOutline;
+            amountOutline.effectDistance = new Vector2(2f, -2f);
+
+            try
+            {
+                float elapsed = 0f;
+                while (elapsed < duration)
+                {
+                    float t = elapsed / duration;
+                    float pop = t < 0.35f
+                        ? Mathf.Lerp(chestStartScale, chestOvershootScale, EaseOutCubic(t / 0.35f))
+                        : Mathf.Lerp(chestOvershootScale, 1f, EaseOutCubic((t - 0.35f) / 0.65f));
+                    float alpha = t < fadeStartFraction ? 1f : 1f - ((t - fadeStartFraction) / (1f - fadeStartFraction));
+
+                    chest.localScale = new Vector3(pop, pop, 1f);
+                    chest.anchoredPosition = basePosition + new Vector2(0f, _cellSize * chestRiseFraction * EaseOutCubic(t));
+                    chip.anchoredPosition = basePosition + new Vector2(0f, _cellSize * (0.5f + (chipRiseFraction * EaseOutCubic(t))));
+
+                    SetImageAlpha(chestImage, alpha);
+                    SetImageAlpha(coinImage, alpha);
+                    Color ink = amount.color;
+                    ink.a = alpha;
+                    amount.color = ink;
+                    Color outline = amountOutline.effectColor;
+                    outline.a = alpha * LockedOpenChipOutline.a;
+                    amountOutline.effectColor = outline;
+
+                    await UniTask.Yield(PlayerLoopTiming.Update, _destroyToken);
+                    elapsed += Time.unscaledDeltaTime;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // The board view was destroyed mid-beat — the chest and chip go with it.
+            }
+            finally
+            {
+                Destroy(chestObject);
+                Destroy(chipObject);
+            }
+        }
+
         private RectTransform CreateEffectParticle(Vector2 position, float size, Color tint)
         {
             var particleObject = new GameObject("LineClearParticle", typeof(RectTransform), typeof(Image));
@@ -3177,6 +3310,11 @@ namespace MustyBlockBlast.Presentation.Views
                     break;
                 case SpecialCellKind.Diamond:
                     sprite = _diamondIconSprite;
+                    break;
+                case SpecialCellKind.Locked:
+                    // Never drawn as a board icon (a lock wears its stage overlay instead, see
+                    // ApplyCellIcon) — this is the info card's hero art (issue #481): the closed chest.
+                    sprite = StageSprite(_lockedStageSprites, 0);
                     break;
                 default:
                     sprite = null;

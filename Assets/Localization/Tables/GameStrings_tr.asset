@@ -1718,6 +1718,14 @@ MonoBehaviour:
     m_Localized: "Can paketi i\xE7in yeterli paran yok."
     m_Metadata:
       m_Items: []
+  - m_Id: 4318261960237056
+    m_Localized: "Kilitli Sand\u0131k"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4318262010568704
+    m_Localized: "Yeterince farkl\u0131 kom\u015Fusu temizlenince a\xE7\u0131l\u0131r ve alt\u0131n sa\xE7ar: bir Coin h\xFCcresi kadar coin kazand\u0131r\u0131r."
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

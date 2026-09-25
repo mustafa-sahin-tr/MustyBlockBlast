@@ -181,6 +181,13 @@ namespace MustyBlockBlast.Gameplay.Systems
 
         private readonly IPublisher<CoinCellsClearedMessage> _coinCellsClearedPublisher;
 
+        /// <summary>Where opened locks are announced for the board's effect (issue #481). Optional: null in
+        /// test constructions, which still pay the coins.</summary>
+        private readonly IPublisher<LockedCellsOpenedMessage> _lockedCellsOpenedPublisher;
+
+        /// <summary>What an opened lock pays — the Coin cell's own base payout (issue #481 AC1).</summary>
+        private readonly int _coinCellPayout;
+
         public PowerUpSystem(
             PowerUpModel powerUpModel,
             LevelProgressionModel levelProgressionModel,
@@ -205,8 +212,11 @@ namespace MustyBlockBlast.Gameplay.Systems
             ISubscriber<RunStartedMessage> runStartedSubscriber,
             ISubscriber<GameOverMessage> gameOverSubscriber,
             IPublisher<PowerUpUnlockedMessage> powerUpUnlockedPublisher = null,
-            IPublisher<HoldFirstUseMessage> holdFirstUsePublisher = null)
+            IPublisher<HoldFirstUseMessage> holdFirstUsePublisher = null,
+            IPublisher<LockedCellsOpenedMessage> lockedCellsOpenedPublisher = null)
         {
+            _lockedCellsOpenedPublisher = lockedCellsOpenedPublisher;
+            _coinCellPayout = currencyConfig.CoinCellPayout;
             _explosiveCoreDetonatedPublisher = explosiveCoreDetonatedPublisher;
             _laserFiredPublisher = laserFiredPublisher;
             _vortexIslandFilledPublisher = vortexIslandFilledPublisher;
@@ -433,6 +443,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             // those lines is destroyed just the same — and a destroyed core blasts whatever destroyed
             // it, so this path applies its triggers exactly as the region-clearing kinds do.
             ApplyTriggeredSpecials(result.TriggeredSpecials);
+            PayOpenedLocks();
 
             Disarm();
             return true;
@@ -1197,7 +1208,16 @@ namespace MustyBlockBlast.Gameplay.Systems
                 iceCellsMeltedCount: iceCellsMelted));
 
             ApplyTriggeredSpecials(result.TriggeredSpecials);
+
+            // A lock this power-up opened — or one its triggered specials opened — reveals its gold
+            // (issue #481). Outside ApplyTriggeredSpecials, which returns early when nothing triggered.
+            PayOpenedLocks();
         }
+
+        /// <summary>Pays and forgets every lock the board recorded as opened (issue #481), through
+        /// <see cref="LockedCellPayout"/>.</summary>
+        private void PayOpenedLocks() => LockedCellPayout.PayAndDrain(
+            _boardModel.Board, _coinCellPayout, _coinCellsClearedPublisher, _lockedCellsOpenedPublisher);
 
         /// <summary>
         /// Detonates the special cells this power-up's clear destroyed. A special block behaves the

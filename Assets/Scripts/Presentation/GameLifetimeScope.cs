@@ -250,6 +250,7 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterMessageBroker<ScoreConvertedToCoinsMessage>(options);
             builder.RegisterMessageBroker<CoinsGrantedFromAdMessage>(options);
             builder.RegisterMessageBroker<CoinCellsClearedMessage>(options);
+            builder.RegisterMessageBroker<LockedCellsOpenedMessage>(options);
             builder.RegisterMessageBroker<CoinsGrantedFromPurchaseMessage>(options);
             builder.RegisterMessageBroker<CoinProductsFetchedMessage>(options);
 

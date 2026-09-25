@@ -1711,6 +1711,14 @@ MonoBehaviour:
     m_Key: lives.sheet.pack_refused
     m_Metadata:
       m_Items: []
+  - m_Id: 4318261960237056
+    m_Key: info_popup.special_cell.locked.header
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4318262010568704
+    m_Key: info_popup.special_cell.locked.body
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

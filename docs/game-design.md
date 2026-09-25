@@ -275,6 +275,14 @@ zones repeat every 10 levels: Meadow, Winter, City, Neighborhood):
 clears when its playable cells are full. Endless and Timed roll through levels inside one run, so
 they always play the plain square.
 
+**Locked cells.** A level can start with locked cells: pre-filled wooden chests that no piece can
+be placed on and that no line clear removes (a row or column through one completes without it).
+A chest opens once a set number (1–3) of its *different* neighbours have each been destroyed at
+least once. A hit aimed at the chest itself (a power-up, a hammer) counts as one of those. When it
+opens it **reveals gold**: it pays the same coins as a Coin cell's base payout, once, straight
+into the wallet like any other board coins, and the cell becomes an ordinary empty one. A chest
+still locked when the run ends pays nothing.
+
 **v1 scope:** this is the tracking engine only. There is no level content, no objective UI and
 no persistence of objective progress yet — those are tracked separately in epic "Levels &
 Objectives" (sub-issues #72 and #73).
