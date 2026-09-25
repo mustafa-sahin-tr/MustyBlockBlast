@@ -38,8 +38,9 @@ namespace MustyBlockBlast.Presentation.Views
     /// <see cref="ResolveIcon"/>).
     /// </para>
     /// <para>
-    /// A subject with an authored animated demo (<see cref="InfoDemoCatalog"/>, issues #446–#450 —
-    /// every power-up, the Hold pocket and the special cells but Diamond and Locked) swaps the hero icon for the chrome's demo slot and loops the demo on
+    /// A subject with an authored animated demo (<see cref="InfoDemoCatalog"/>, issues #446–#451 —
+    /// every power-up, the Hold pocket, every special piece and the special cells but Diamond and
+    /// Locked) swaps the hero icon for the chrome's demo slot and loops the demo on
     /// an <see cref="InfoDemoStage"/> while the card is open; closing the card stops it on the spot.
     /// Every other subject keeps its hero icon exactly as before.
     /// </para>
@@ -73,6 +74,7 @@ namespace MustyBlockBlast.Presentation.Views
         private PowerUpInventoryView _powerUpInventoryView;
         private HoldSlotView _holdSlotView;
         private CoinTotalHudView _coinTotalHudView;
+        private StreakPillView _streakPillView;
 
         /// <summary>
         /// Whether THIS popup is the one holding <see cref="TimerRunSystem"/>'s menu-pause flag. This
@@ -96,24 +98,6 @@ namespace MustyBlockBlast.Presentation.Views
         private ThemeDefinition _currentTheme;
         private InfoPopupContent? _currentContent;
 
-        /// <summary>
-        /// Colour a <see cref="SpecialPieceKind.Golden"/>'s hero icon is drawn in. The same gold
-        /// <c>SpecialPieceVisuals.GoldFill</c> paints the piece's own dock plate with — "this one is
-        /// golden" should read as the one consistent hue everywhere it appears.
-        /// </summary>
-        private static readonly Color GoldenIconTint = new Color(1f, 0.78f, 0.20f, 1f);
-
-        /// <summary>Colour a <see cref="SpecialPieceKind.PiercingRocket"/>'s hero icon is drawn in. A
-        /// distinct warm hue from <see cref="GoldenIconTint"/>, matching what the piece itself
-        /// launches: fire, not gold — see the negative-test requirement in issue #283 that Golden and
-        /// Demolition Hammer must never again share one undistinguished placeholder.</summary>
-        private static readonly Color PiercingRocketIconTint = new Color(1f, 0.47f, 0.24f, 1f);
-
-        /// <summary>Colour a <see cref="SpecialPieceKind.DemolitionHammer"/>'s hero icon is drawn in. A
-        /// cool steel hue, deliberately the furthest from <see cref="GoldenIconTint"/> of the three, for
-        /// the reason <see cref="PiercingRocketIconTint"/> is.</summary>
-        private static readonly Color DemolitionHammerIconTint = new Color(0.72f, 0.76f, 0.84f, 1f);
-
         [Inject]
         public void Construct(
             InfoPopupModel infoPopupModel,
@@ -126,7 +110,8 @@ namespace MustyBlockBlast.Presentation.Views
             BoardView boardView,
             PowerUpInventoryView powerUpInventoryView,
             HoldSlotView holdSlotView,
-            CoinTotalHudView coinTotalHudView)
+            CoinTotalHudView coinTotalHudView,
+            StreakPillView streakPillView)
         {
             _infoPopupModel = infoPopupModel;
             _infoPopupSystem = infoPopupSystem;
@@ -139,6 +124,7 @@ namespace MustyBlockBlast.Presentation.Views
             _powerUpInventoryView = powerUpInventoryView;
             _holdSlotView = holdSlotView;
             _coinTotalHudView = coinTotalHudView;
+            _streakPillView = streakPillView;
         }
 
         private void Awake()
@@ -152,7 +138,7 @@ namespace MustyBlockBlast.Presentation.Views
                 || _localizationSystem == null || _settingsModel == null || _timerRunSystem == null
                 || _runPauseModel == null
                 || _boardView == null || _powerUpInventoryView == null || _holdSlotView == null
-                || _coinTotalHudView == null)
+                || _coinTotalHudView == null || _streakPillView == null)
             {
                 Debug.LogError(
                     $"{nameof(InfoPopupView)} was not injected. Is it registered in the LifetimeScope?", this);
@@ -365,15 +351,15 @@ namespace MustyBlockBlast.Presentation.Views
             {
                 case SpecialPieceKind.Golden:
                     icon = _goldenIconSprite;
-                    tint = GoldenIconTint;
+                    tint = SpecialPieceVisuals.IdentityColour(SpecialPieceKind.Golden);
                     break;
                 case SpecialPieceKind.PiercingRocket:
                     icon = _piercingRocketIconSprite;
-                    tint = PiercingRocketIconTint;
+                    tint = SpecialPieceVisuals.IdentityColour(SpecialPieceKind.PiercingRocket);
                     break;
                 case SpecialPieceKind.DemolitionHammer:
                     icon = _demolitionHammerIconSprite;
-                    tint = DemolitionHammerIconTint;
+                    tint = SpecialPieceVisuals.IdentityColour(SpecialPieceKind.DemolitionHammer);
                     break;
                 default:
                     icon = UiSpriteFactory.Starburst;
@@ -414,7 +400,8 @@ namespace MustyBlockBlast.Presentation.Views
             _demoStage = new InfoDemoStage(
                 _chrome.DemoRootRect,
                 new InfoDemoResources(
-                    _boardView, _powerUpInventoryView, _localizationSystem, _holdSlotView, _coinTotalHudView),
+                    _boardView, _powerUpInventoryView, _localizationSystem, _holdSlotView, _coinTotalHudView,
+                    _streakPillView),
                 this.GetCancellationTokenOnDestroy());
 
             _panel = panelObject;

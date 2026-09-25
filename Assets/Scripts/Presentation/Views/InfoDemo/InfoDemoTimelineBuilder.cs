@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using MustyBlockBlast.Core;
 using UnityEngine;
 
 namespace MustyBlockBlast.Presentation.Views
@@ -76,6 +77,21 @@ namespace MustyBlockBlast.Presentation.Views
             InfoDemoElementState initial = InfoDemoElementState.At(position, paint, alpha);
             initial.Scale = scale;
             return AddElement(InfoDemoElementKind.Piece, Vector2.one, InfoDemoSprite.None, 0, shape, null, null, 0f, 0f, initial);
+        }
+
+        /// <summary>
+        /// As <see cref="AddPiece"/>, for a dock piece carrying special piece <paramref name="kind"/>
+        /// (issue #451): every cell wears the dock's own mark for it (<c>SpecialPieceVisuals.ApplyGlyph</c>
+        /// — the rocket's arrow, the hammer). Paint a golden piece <see cref="InfoDemoPaint.GOLDEN_PIECE"/>,
+        /// the dock's gold emboss; the other kinds keep an ordinary block colour, as in the dock.
+        /// </summary>
+        internal int AddSpecialPiece(
+            SpecialPieceKind kind, Vector2Int[] shape, int paint, Vector2 position, float scale, float alpha = 1f)
+        {
+            InfoDemoElementState initial = InfoDemoElementState.At(position, paint, alpha);
+            initial.Scale = scale;
+            return AddElement(
+                InfoDemoElementKind.Piece, Vector2.one, InfoDemoSprite.None, (int)kind, shape, null, null, 0f, 0f, initial);
         }
 
         /// <summary>A sprite <paramref name="size"/> board-cell widths square, tinted as

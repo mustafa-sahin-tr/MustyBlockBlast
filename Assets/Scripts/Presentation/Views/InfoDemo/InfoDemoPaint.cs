@@ -76,6 +76,14 @@ namespace MustyBlockBlast.Presentation.Views
         /// no charge is left.</summary>
         internal const int OFFER_PINK = 53;
 
+        /// <summary>The gold emboss a <see cref="SpecialPieceKind.Golden"/> dock plate is painted in
+        /// (<c>SpecialPieceVisuals.TryGetFill</c>, issue #451) — a block paint, for a piece's cells.</summary>
+        internal const int GOLDEN_PIECE = 54;
+
+        /// <summary>The theme's valid-target tint (<c>ThemeDefinition.ValidPreview</c>) — the cell a
+        /// power-up or the demolition hammer is aimed at (<c>BoardView.ShowPowerUpTargetHighlight</c>).</summary>
+        internal const int VALID_PREVIEW = 55;
+
         /// <summary>The theme block colour the real Ghost Fit silhouette and tray hint ring are drawn in
         /// (<c>BoardView.GHOST_KIND</c>) — a block colour id, resolved against the current theme.</summary>
         internal const int GHOST_FIT = BLOCK_2;
@@ -108,6 +116,33 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             kind = (SpecialCellKind)(paint - SPECIAL_CELL_GLOW_BASE);
+            return true;
+        }
+
+        /// <summary>First of the special-piece identity paints (issue #451): <see cref="SpecialPieceIdentity"/>
+        /// gives one per <see cref="SpecialPieceKind"/>, resolved to its identity hue
+        /// (<c>SpecialPieceVisuals.IdentityColour</c> — the card's hero-icon tint): the golden piece's
+        /// gold, the rocket's fire orange, the hammer's steel.</summary>
+        internal const int SPECIAL_PIECE_IDENTITY_BASE = 80;
+
+        /// <summary>Last id reserved for <see cref="SpecialPieceIdentity"/> (room for 10 kinds).</summary>
+        internal const int SPECIAL_PIECE_IDENTITY_LAST = SPECIAL_PIECE_IDENTITY_BASE + 9;
+
+        /// <summary>The identity paint of special piece <paramref name="kind"/> — see
+        /// <see cref="SPECIAL_PIECE_IDENTITY_BASE"/>.</summary>
+        internal static int SpecialPieceIdentity(SpecialPieceKind kind) => SPECIAL_PIECE_IDENTITY_BASE + (int)kind;
+
+        /// <summary>True when <paramref name="paint"/> is a <see cref="SpecialPieceIdentity"/> paint; its
+        /// kind comes back in <paramref name="kind"/>.</summary>
+        internal static bool TryGetSpecialPieceIdentity(int paint, out SpecialPieceKind kind)
+        {
+            if (paint < SPECIAL_PIECE_IDENTITY_BASE || paint > SPECIAL_PIECE_IDENTITY_LAST)
+            {
+                kind = SpecialPieceKind.None;
+                return false;
+            }
+
+            kind = (SpecialPieceKind)(paint - SPECIAL_PIECE_IDENTITY_BASE);
             return true;
         }
 

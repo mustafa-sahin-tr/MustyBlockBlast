@@ -663,7 +663,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300704
-    m_Localized: "Se a\xF1ade a tu bandeja cuando logras una racha de combo de cinco despejes seguidos. Se coloca igual que un bloque normal: es solo una recompensa visual por la racha."
+    m_Localized: 'Llega con un combo x5. Se coloca como un bloque simple: es tu premio.'
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300705
@@ -671,7 +671,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300706
-    m_Localized: "Se a\xF1ade a tu bandeja cuando una sola colocaci\xF3n despeja tres o m\xE1s l\xEDneas a la vez. Al colocar esta pieza, despeja toda la fila y columna de la celda donde cae."
+    m_Localized: "Llega al despejar 3+ l\xEDneas de una vez. Borra toda la fila y la columna donde cae."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479866494976
@@ -679,7 +679,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479866494977
-    m_Localized: "Se te entrega como \xFAltimo recurso cuando el tablero est\xE1 casi lleno y ninguna pieza encaja. No se arrastra: toca su icono para armarlo y luego toca la \xFAnica celda que quieres destruir."
+    m_Localized: "Una vez por partida, con el tablero lleno y sin jugadas. T\xF3calo y destruye un bloque."
     m_Metadata:
       m_Items: []
   - m_Id: 2010649772154880
@@ -1020,6 +1020,14 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 4067957532516354
     m_Localized: "\xA1A tiempo!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4074928885194752
+    m_Localized: "\xA1Fila + columna!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4074928906166272
+    m_Localized: "\xA1\xDAltimo recurso!"
     m_Metadata:
       m_Items: []
   references:

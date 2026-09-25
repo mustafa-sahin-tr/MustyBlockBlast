@@ -663,7 +663,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300704
-    m_Localized: "Art arda be\u015F hamlede sat\u0131r/s\xFCtun temizleyerek be\u015Fli bir kombo yakalad\u0131\u011F\u0131nda tepsine eklenir. Yerle\u015Ftirili\u015Fi tamamen s\u0131radan bir tekli blok gibidir \u2014 bu sadece ba\u015Far\u0131n\u0131 kutlayan g\xF6rsel bir \xF6d\xFCl."
+    m_Localized: "5'li komboda gelir. S\u0131radan bir tekli blok gibi yerle\u015Fir; kombo \xF6d\xFCl\xFCn."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300705
@@ -671,15 +671,15 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300706
-    m_Localized: "Tek bir par\xE7a yerle\u015Ftirmesiyle \xFC\xE7 veya daha fazla sat\u0131r/s\xFCtunu birden temizledi\u011Finde tepsine eklenir. Bu par\xE7ay\u0131 tahtaya yerle\u015Ftirdi\u011Finde, d\xFC\u015Ft\xFC\u011F\xFC h\xFCcrenin bulundu\u011Fu sat\u0131r\u0131 ve s\xFCtunu tamamen temizler."
+    m_Localized: "Tek hamlede 3+ \xE7izgi temizleyince gelir. D\xFC\u015Ft\xFC\u011F\xFC sat\u0131r\u0131 ve s\xFCtunu tamamen siler."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479866494976
-    m_Localized: "Y\u0131k\u0131m \xC7eki"
+    m_Localized: "Y\u0131k\u0131m \xC7ekici"
     m_Metadata:
       m_Items: []
   - m_Id: 1892479866494977
-    m_Localized: "Tahta neredeyse doldu\u011Funda ve hi\xE7bir par\xE7a yerle\u015Fmiyorsa son \xE7are olarak tepsine eklenir. S\xFCr\xFCklenmez \u2014 ikonuna dokunup silahland\u0131ktan sonra yok etmek istedi\u011Fin tek bir h\xFCcreye dokun."
+    m_Localized: "Tahta dolup hamle bitince bir kez gelir. Dokundu\u011Fun tek h\xFCcreyi yok eder."
     m_Metadata:
       m_Items: []
   - m_Id: 2010649772154880
@@ -1020,6 +1020,14 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 4067957532516354
     m_Localized: "Zaman\u0131nda!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4074928885194752
+    m_Localized: "Sat\u0131r + s\xFCtun!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4074928906166272
+    m_Localized: "Son \xE7are!"
     m_Metadata:
       m_Items: []
   references:

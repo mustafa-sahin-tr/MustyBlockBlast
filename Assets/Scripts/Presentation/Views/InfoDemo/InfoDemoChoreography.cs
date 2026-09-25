@@ -125,7 +125,8 @@ namespace MustyBlockBlast.Presentation.Views
         /// Drops piece <paramref name="pieceId"/> (sitting in the tray at <paramref name="trayPosition"/>)
         /// onto the board with its top-left cell at (<paramref name="row"/>, <paramref name="column"/>):
         /// lifts, glides while growing to full cell size, then hands over to the board blocks under it,
-        /// which pop in. Returns the landing time.
+        /// which pop in. <paramref name="restScale"/> is the piece's resting tray scale (a special
+        /// single is drawn larger, issue #451). Returns the landing time.
         /// </summary>
         internal static float PlacePiece(
             InfoDemoTimelineBuilder builder,
@@ -135,11 +136,12 @@ namespace MustyBlockBlast.Presentation.Views
             Vector2 trayPosition,
             int row,
             int column,
-            float startTime)
+            float startTime,
+            float restScale = InfoDemoLayout.TRAY_PIECE_SCALE)
         {
             builder.Scale(
                 pieceId, startTime, LIFT_DURATION,
-                InfoDemoLayout.TRAY_PIECE_SCALE, InfoDemoLayout.LIFTED_PIECE_SCALE, InfoDemoEasing.EaseOutCubic);
+                restScale, InfoDemoLayout.LIFTED_PIECE_SCALE, InfoDemoEasing.EaseOutCubic);
 
             float glideStart = startTime + LIFT_DURATION;
             Vector2 target = InfoDemoLayout.PieceCentre(shape, row, column);

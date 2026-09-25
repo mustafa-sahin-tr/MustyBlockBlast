@@ -302,14 +302,17 @@
     <div class="card">
       <h4 style="margin-top:0">🔨 Demolition Hammer</h4>
       <p class="muted" style="margin:0">Board tehlikeli derecede dolu ve hiç geçerli hamle kalmadığında son çare olarak dock'a düşer. Şeritteki gibi silah (dock slotuna dokun → board hücresine dokun) ama sadece tek bir hücreyi yok eder — o hücrenin özel efekti varsa yine tetiklenir, reinforced hücrede bir vuruş harcar. Satın alınamaz, envantere girmez.</p>
+      <p class="muted" style="margin:.5em 0 0"><strong>Bilgi kartı (#451):</strong> Döngülü demo (5.2 sn): %95 dolu tahta, dock'ta 3×3 ve 1×5 (ikisine de kırmızı ✕), boş slot 1'e çekiç gelir, "Son çare!"; çekice dokunulur (kalkar, sarı halka), (4,4) hücresine dokunulur ve sadece o hücre yok olur, çekiç dock'tan gider. Kart metni: "Tahta dolup hamle bitince bir kez gelir. Dokunduğun tek hücreyi yok eder." Kod: <code>DemolitionHammerInfoDemo.cs</code></p>
     </div>
     <div class="card">
       <h4 style="margin-top:0">⭐ Golden 1×1</h4>
       <p class="muted" style="margin:0">Art arda 5 hamle hiç ıskalamadan kombo streak'i <strong>5</strong>'e taşıdığında bir sonraki dock yenilemesine eklenir. Sıradan 1×1 gibi davranır (doldurur, tamamlarsa temizler) — "golden" etiketi sadece kozmetik.</p>
+      <p class="muted" style="margin:.5em 0 0"><strong>Bilgi kartı (#451):</strong> Döngülü demo (5.0 sn): şeritteki kombo hapı x4 → x5, ardından dock yenilenir ve altın tekli slot 0'a gelir (gerçekte de ilk slota enjekte edilir); parmak onu satır 7'nin tek boşluğuna sürükler ve satır sıradan bir tekli gibi temizlenir. Kart metni: "5'li komboda gelir. Sıradan bir tekli blok gibi yerleşir; kombo ödülün." Kod: <code>GoldenPieceInfoDemo.cs</code></p>
     </div>
     <div class="card">
       <h4 style="margin-top:0">🚀 Piercing Rocket 1×1</h4>
       <p class="muted" style="margin:0">Tek hamlede 3+ satır/sütun temizlenince kazanılır (bir sonraki dock'a eklenir). Yerleştirilince hücresine oturur, sonra o hücrenin <em>tam</em> satır ve <em>tam</em> sütununu siler — ikisi de tamamlanmış olsun olmasın. Sildiği hücre başına <strong>+1 skor</strong> öder (<code>PiercingRocketScoreSystem</code>), Laser'la aynı oranda.</p>
+      <p class="muted" style="margin:.5em 0 0"><strong>Bilgi kartı (#451):</strong> Döngülü demo (5.0 sn): dock yenilenir, roket slot 0'a gelir; (3,4)'e sürüklenir, satır 3 ve sütun 4 boyunca turuncu ışınlar, ikisi de dolu olmadığı halde baştan uca silinir (roketin kendi hücresi dahil), "Satır + sütun!". Kart metni: "Tek hamlede 3+ çizgi temizleyince gelir. Düştüğü satırı ve sütunu tamamen siler." Kod: <code>PiercingRocketInfoDemo.cs</code></p>
     </div>
   </div>
 </section>

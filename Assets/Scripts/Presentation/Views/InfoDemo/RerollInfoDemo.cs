@@ -64,17 +64,17 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>The dock before the reroll (none fits the board above), slot by slot.</summary>
         internal static readonly Vector2Int[][] OldShapes =
         {
-            Rectangle(3, 3),
-            Rectangle(5, 1),
+            InfoDemoLayout.Rectangle(3, 3),
+            InfoDemoLayout.Rectangle(5, 1),
             new[] { new Vector2Int(0, 0), new Vector2Int(0, 1), new Vector2Int(0, 2), new Vector2Int(1, 2) },
         };
 
         /// <summary>The dock after it, slot by slot: a 1x2 (the one that fits), a single and a 2x2.</summary>
         internal static readonly Vector2Int[][] NewShapes =
         {
-            Rectangle(2, 1),
-            Rectangle(1, 1),
-            Rectangle(2, 2),
+            InfoDemoLayout.Rectangle(2, 1),
+            InfoDemoLayout.Rectangle(1, 1),
+            InfoDemoLayout.Rectangle(2, 2),
         };
 
         private static readonly int[] OldPaints = { InfoDemoPaint.BLOCK_3, InfoDemoPaint.BLOCK_1, InfoDemoPaint.BLOCK_5 };
@@ -99,7 +99,9 @@ namespace MustyBlockBlast.Presentation.Views
                 // 1. The dock as dealt: none of it fits, and each piece says so.
                 int oldPiece = builder.AddPiece(OldShapes[slotIndex], OldPaints[slotIndex], slot, OldScales[slotIndex]);
                 InfoDemoTrayChoreography.RejectMark(
-                    builder, TopRightCorner(OldShapes[slotIndex], slot, OldScales[slotIndex]), REJECT_TIME + (slotIndex * 0.05f),
+                    builder,
+                    InfoDemoLayout.TopRightCorner(OldShapes[slotIndex], slot, OldScales[slotIndex]),
+                    REJECT_TIME + (slotIndex * 0.05f),
                     DISCARD_TIME);
 
                 // 3. ...the whole dock is discarded and three new pieces are drawn.
@@ -132,29 +134,6 @@ namespace MustyBlockBlast.Presentation.Views
             InfoDemoChoreography.ClearRow(builder, LAND_ROW, CLEAR_START);
 
             return builder.Build();
-        }
-
-        private static Vector2Int[] Rectangle(int columns, int rows)
-        {
-            Vector2Int[] cells = new Vector2Int[columns * rows];
-            for (int row = 0; row < rows; row++)
-            {
-                for (int column = 0; column < columns; column++)
-                {
-                    cells[(row * columns) + column] = new Vector2Int(column, row);
-                }
-            }
-
-            return cells;
-        }
-
-        /// <summary>Where a "doesn't fit" mark hangs on a tray piece: its bounding box's top-right corner.</summary>
-        private static Vector2 TopRightCorner(Vector2Int[] shape, Vector2 centre, float scale)
-        {
-            InfoDemoLayout.ShapeBounds(shape, out Vector2Int min, out Vector2Int max);
-            float halfWidth = (max.x - min.x + 1) * scale * 0.5f;
-            float halfHeight = (max.y - min.y + 1) * scale * 0.5f;
-            return centre + new Vector2(halfWidth, -halfHeight);
         }
     }
 }

@@ -10,7 +10,8 @@ namespace MustyBlockBlast.Presentation.Views
     /// <see cref="InfoDemoStage"/> (<see cref="InfoPopupView"/>, <see cref="ObjectiveInfoPopupView"/>,
     /// issue #447): sprites and cell metrics borrowed from <see cref="BoardView"/>, which owns the
     /// board's authored art and proportions, power-up icons from <see cref="PowerUpInventoryView"/>
-    /// (issue #448 — the same sprites the strip and shop draw), and text from
+    /// (issue #448 — the same sprites the strip and shop draw), the streak pill's flame from
+    /// <see cref="StreakPillView"/> (issue #451), and text from
     /// <see cref="LocalizationSystem"/>. A plain
     /// read-only adapter each host builds from its own injected dependencies — it holds no state and
     /// exposes nothing of the board or run beyond what the interface names (issue #445 AC5).
@@ -22,6 +23,7 @@ namespace MustyBlockBlast.Presentation.Views
         private readonly LocalizationSystem _localizationSystem;
         private readonly HoldSlotView _holdSlotView;
         private readonly CoinTotalHudView _coinTotalHudView;
+        private readonly StreakPillView _streakPillView;
 
         /// <param name="powerUpInventoryView">Source of <see cref="InfoDemoSprite.PowerUpIcon"/>; null for
         /// a host that plays no power-up demo (an icon it cannot resolve is simply hidden).</param>
@@ -29,18 +31,22 @@ namespace MustyBlockBlast.Presentation.Views
         /// for a host that plays no Hold demo.</param>
         /// <param name="coinTotalHudView">Source of <see cref="InfoDemoSprite.Coin"/> (issue #449); null
         /// for a host that plays no coin demo.</param>
+        /// <param name="streakPillView">Source of <see cref="InfoDemoSprite.StreakFlame"/> (issue #451); null
+        /// for a host that plays no Golden piece demo.</param>
         internal InfoDemoResources(
             BoardView boardView,
             PowerUpInventoryView powerUpInventoryView,
             LocalizationSystem localizationSystem,
             HoldSlotView holdSlotView = null,
-            CoinTotalHudView coinTotalHudView = null)
+            CoinTotalHudView coinTotalHudView = null,
+            StreakPillView streakPillView = null)
         {
             _boardView = boardView;
             _powerUpInventoryView = powerUpInventoryView;
             _localizationSystem = localizationSystem;
             _holdSlotView = holdSlotView;
             _coinTotalHudView = coinTotalHudView;
+            _streakPillView = streakPillView;
         }
 
         public bool TryGetSprite(InfoDemoSprite sprite, int parameter, out Sprite resolved, out Color tint)
@@ -77,6 +83,10 @@ namespace MustyBlockBlast.Presentation.Views
                     }
 
                     _coinTotalHudView.GetCoinFace(out resolved, out tint);
+                    return resolved != null;
+                case InfoDemoSprite.StreakFlame:
+                    resolved = _streakPillView != null ? _streakPillView.FlameSprite : null;
+                    tint = Color.white;
                     return resolved != null;
                 case InfoDemoSprite.HoldPocket:
                     resolved = _holdSlotView != null ? _holdSlotView.PocketSprite : null;

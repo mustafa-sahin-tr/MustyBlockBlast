@@ -40,6 +40,10 @@ namespace MustyBlockBlast.Presentation.Views
         internal Vector2 Size { get; }
 
         internal InfoDemoSprite Sprite { get; }
+
+        /// <summary>An <see cref="InfoDemoElementKind.Icon"/>'s sprite variant (see <see cref="InfoDemoSprite"/>);
+        /// for a <see cref="InfoDemoElementKind.Piece"/>, the <c>SpecialPieceKind</c> it carries (issue #451 —
+        /// 0, an ordinary piece, unless added with <see cref="InfoDemoTimelineBuilder.AddSpecialPiece"/>).</summary>
         internal int SpriteParameter { get; }
 
         /// <summary>A <see cref="InfoDemoElementKind.Piece"/>'s cells as (column, row) offsets from its

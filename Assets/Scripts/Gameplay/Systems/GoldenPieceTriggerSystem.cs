@@ -35,8 +35,9 @@ namespace MustyBlockBlast.Gameplay.Systems
     /// </summary>
     public sealed class GoldenPieceTriggerSystem : IDisposable
     {
-        /// <summary>The streak that earns a golden 1x1.</summary>
-        private const int TRIGGER_STREAK = 5;
+        /// <summary>The streak that earns a golden 1x1. Public because the Golden piece's info demo
+        /// (issue #451) counts its combo pill up to exactly this value.</summary>
+        public const int TRIGGER_STREAK = 5;
 
         private readonly BoardSystem _boardSystem;
         private readonly IDisposable _subscription;
