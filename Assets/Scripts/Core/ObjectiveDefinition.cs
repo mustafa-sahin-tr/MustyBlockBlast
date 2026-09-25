@@ -16,7 +16,8 @@ namespace MustyBlockBlast.Core
             int requiredOccupancyThreshold = 0,
             string requiredPieceId = null,
             float windowSeconds = 0f,
-            int requiredColourId = 0)
+            int requiredColourId = 0,
+            int moveLimit = 0)
         {
             if (targetValue <= 0)
             {
@@ -35,6 +36,18 @@ namespace MustyBlockBlast.Core
             if (type == ObjectiveType.EarlyScoreRush && scope == ObjectiveScope.Cumulative)
             {
                 throw new System.ArgumentException("EarlyScoreRush objectives cannot be Cumulative — they always reset with the run.", nameof(scope));
+            }
+
+            // ScoreInMoves mirrors the live score too (issue #465), and its move budget is spent per run.
+            if (type == ObjectiveType.ScoreInMoves && scope == ObjectiveScope.Cumulative)
+            {
+                throw new System.ArgumentException("ScoreInMoves objectives cannot be Cumulative — the score and the move budget both reset with the run.", nameof(scope));
+            }
+
+            // A budget of no moves could never place the piece that scores the first point.
+            if (type == ObjectiveType.ScoreInMoves && moveLimit <= 0)
+            {
+                throw new System.ArgumentOutOfRangeException(nameof(moveLimit), moveLimit, "ScoreInMoves needs a move limit of 1 or more.");
             }
 
             // RollingLineClearWindow's window is measured against elapsed-time-since-run-start, a clock that
@@ -78,6 +91,7 @@ namespace MustyBlockBlast.Core
             RequiredPieceId = requiredPieceId;
             WindowSeconds = windowSeconds;
             RequiredColourId = requiredColourId;
+            MoveLimit = type == ObjectiveType.ScoreInMoves ? moveLimit : 0;
         }
 
         /// <summary>Stable identifier; carried by the progress/completion messages so views can key off it.</summary>
@@ -120,5 +134,9 @@ namespace MustyBlockBlast.Core
         /// diamonds of (by the gem's own colour). Zero for every other type. Refers to the theme-agnostic
         /// id, never to a theme's colour, so progress survives a theme switch untouched.</summary>
         public int RequiredColourId { get; }
+
+        /// <summary>Board placements a <see cref="ObjectiveType.ScoreInMoves"/> objective allows before a
+        /// rewarded offer of extra moves (issue #465). Zero for every other type.</summary>
+        public int MoveLimit { get; }
     }
 }

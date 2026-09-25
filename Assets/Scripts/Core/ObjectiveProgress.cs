@@ -79,6 +79,9 @@ namespace MustyBlockBlast.Core
                     break;
 
                 case ObjectiveType.ScoreInRun:
+                case ObjectiveType.ScoreInMoves:
+                    // ScoreInMoves (issue #465) reads the score exactly as ScoreInRun does; its move budget
+                    // is enforced before a placement ever reaches here (see ObjectiveType.ScoreInMoves).
                     // Mirrors the score rather than counting events. Only monotonic within a single run
                     // (the run score only grows), which is why ObjectiveDefinition forbids pairing this
                     // type with Cumulative scope — ResetForNewRun is what keeps it from going backwards.

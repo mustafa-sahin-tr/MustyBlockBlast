@@ -111,6 +111,7 @@ namespace MustyBlockBlast.Presentation.Views
         private LivesSystem _livesSystem;
         private LivesHudView _livesHudView;
         private OutOfLivesSheetView _outOfLivesSheetView;
+        private OutOfMovesSheetView _outOfMovesSheetView;
 
         private int _draggedSlot = -1;
 
@@ -208,7 +209,8 @@ namespace MustyBlockBlast.Presentation.Views
             PaintCrossColourPickerView paintCrossColourPickerView,
             LivesSystem livesSystem,
             LivesHudView livesHudView,
-            OutOfLivesSheetView outOfLivesSheetView)
+            OutOfLivesSheetView outOfLivesSheetView,
+            OutOfMovesSheetView outOfMovesSheetView)
         {
             _boardSystem = boardSystem;
             _boardModel = boardModel;
@@ -237,6 +239,7 @@ namespace MustyBlockBlast.Presentation.Views
             _livesSystem = livesSystem;
             _livesHudView = livesHudView;
             _outOfLivesSheetView = outOfLivesSheetView;
+            _outOfMovesSheetView = outOfMovesSheetView;
         }
 
         private void Awake()
@@ -411,6 +414,14 @@ namespace MustyBlockBlast.Presentation.Views
             if (_outOfLivesSheetView.IsOpen)
             {
                 _outOfLivesSheetView.HandleTap(screenPosition);
+                return;
+            }
+
+            // The out-of-moves sheet (issue #465) holds the run until it is answered, so while it is up
+            // every tap is its — nothing on the board, the dock or the HUD may move under it.
+            if (_outOfMovesSheetView.IsOpen)
+            {
+                _outOfMovesSheetView.HandleTap(screenPosition);
                 return;
             }
 

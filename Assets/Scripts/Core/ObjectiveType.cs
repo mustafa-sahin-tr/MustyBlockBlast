@@ -213,5 +213,16 @@ namespace MustyBlockBlast.Core
         /// path — through the same per-collectible tally; a fruit has no other effect (no score, no coin).
         /// </summary>
         FruitsCollected = 22,
+
+        /// <summary>
+        /// "Reach S points within N moves" (issue #465, Path mode only): mirrors the live run score
+        /// against <see cref="ObjectiveDefinition.TargetValue"/> exactly like <see cref="ScoreInRun"/>,
+        /// under a budget of <see cref="ObjectiveDefinition.MoveLimit"/> board placements. The budget
+        /// itself — counting moves, refusing a placement once it is spent, the one rewarded "+moves"
+        /// offer and the failure after it — is not a progress rule and lives in the Gameplay layer's
+        /// <c>MoveBudgetSystem</c>; progress here can only ever be reached inside the budget because no
+        /// placement is allowed past it.
+        /// </summary>
+        ScoreInMoves = 23,
     }
 }

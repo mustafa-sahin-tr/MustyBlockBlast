@@ -1790,6 +1790,54 @@ MonoBehaviour:
     m_Localized: Avokado
     m_Metadata:
       m_Items: []
+  - m_Id: 4350167263207424
+    m_Localized: Hamle Limitli Skor
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4350167317733376
+    m_Localized: "{1} hamle i\xE7inde {0} puana ula\u015F. G\xFC\xE7lendiriciler hamle harcamaz; kalan her hamle bonus puan kazand\u0131r\u0131r."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4350167317733377
+    m_Localized: '{0} puan / {1} hamle'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4350167317733378
+    m_Localized: HAMLE
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4350167317733379
+    m_Localized: "HAMLEN B\u0130TT\u0130"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4350167317733380
+    m_Localized: "{0} puan daha laz\u0131m"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4350167317733381
+    m_Localized: "K\u0131sa bir reklam izle, +{0} hamle ile devam et. Bu seviyede yaln\u0131zca bir kez."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4350167317733382
+    m_Localized: +{0} HAMLE
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4350167317733383
+    m_Localized: "Vazge\xE7"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4350167317733384
+    m_Localized: "Hedef Ka\xE7t\u0131"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4350167317733385
+    m_Localized: Seviye {0}'de hamlelerin bitti
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4350167317733386
+    m_Localized: "Kalan hamle bonusu: {0} hamle \xB7 +{1}"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

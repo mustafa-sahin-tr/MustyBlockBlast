@@ -55,6 +55,8 @@ MonoBehaviour:
     _icon: {fileID: 21300000, guid: c259929c0fcae4d10ad422ea61980be1, type: 3}
   - _type: 22
     _icon: {fileID: 21300000, guid: 9ca90c34e565c43e1b5405cd649491ce, type: 3}
+  - _type: 23
+    _icon: {fileID: 21300000, guid: dccf4c57780ae4d7f840f8ecc23665a0, type: 3}
   _fruitIcons:
   - {fileID: 21300000, guid: 9ca90c34e565c43e1b5405cd649491ce, type: 3}
   - {fileID: 21300000, guid: 7e4a8b653c51c4aedb88a43fe1463fff, type: 3}

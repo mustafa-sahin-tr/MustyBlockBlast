@@ -294,6 +294,23 @@ board effect). Fruits are drawn on their own with no block colour behind them, l
 special cells. Undo brings a fruit back with its cell. The HUD goal chip, the level card and the
 goal's info card show the fruit. Classic and Şölen show neither fruit goals nor fruits.
 
+**Score within N moves (Hamle Limitli Skor, Path only).** A Path level can ask the player to reach
+**S points within N moves**. A move is one piece that actually lands on the board; power-ups
+(Bomb, Row/Column Clear, Joker, Cleanser, Paint Cross, Hammer), Rotate, Reroll and Hold never
+spend one, and a refused drop costs nothing. The goal's progress is the run score, as for "score
+this run". The HUD shows the moves left beside the lives in the goal bar and turns coral and
+pulses at 3 moves or fewer. The level card reads "S puan / N hamle". When the last move is spent
+short of the target the run is **held**: no piece can be placed and an out-of-moves sheet offers
+a rewarded ad for **+6 moves**, **once per level attempt**. Watching it adds the moves and play
+goes on. Declining, or an ad that does not pay, fails the level (a life is lost, like any Path
+failure), and running out a second time fails it at once with no offer. The no-moves rescue ad
+does not spend or refund moves. When the target is reached, **every move left over pays +20
+points** into the run score (so it counts toward the high score), announced with the empty-cell
+bonus and named on the result card. The ad's moves, the bonus per move and the warning threshold
+are tuned in `MoveBudgetConfig`; each level's S and N are authored in the level catalog. Undo
+(below) restores the moves used with the rest of its snapshot; the ad's moves are kept apart from
+them, so an undo never takes back moves an ad paid for. (Undo itself is not built yet.)
+
 **Power Star (Güç Yıldızı).** A level can place power stars: star cubes that line clears *charge*
 instead of removing. Every completed row or column through a star adds one charge (a row and a
 column completed through it at once add two), and the star stays where it is; its charge shows as

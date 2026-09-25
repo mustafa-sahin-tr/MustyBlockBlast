@@ -54,7 +54,7 @@ namespace MustyBlockBlast.Presentation.Services
     /// </para>
     /// </summary>
     public sealed class AdMobRewardSource
-        : IRewardSource, ICoinRewardSource, IRescueRewardSource, ILivesRewardSource
+        : IRewardSource, ICoinRewardSource, IRescueRewardSource, ILivesRewardSource, IExtraMovesRewardSource
     {
         // ------------------------------------------------------------------------------------------
         // Google's public test rewarded units — always fill, every ad is stamped "Test Ad" and earns
@@ -143,6 +143,12 @@ namespace MustyBlockBlast.Presentation.Services
 
             // Paid in full or not at all, as the coin seam is; LivesSystem clamps what it banks.
             return new LivesRewardResult(earned ? amount : 0, earned);
+        }
+
+        public async UniTask<ExtraMovesRewardResult> RequestExtraMovesRewardAsync(CancellationToken cancellationToken)
+        {
+            bool earned = await ShowRewardedAdAsync(cancellationToken);
+            return new ExtraMovesRewardResult(earned);
         }
 
         /// <summary>

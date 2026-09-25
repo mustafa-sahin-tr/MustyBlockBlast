@@ -127,6 +127,11 @@ namespace MustyBlockBlast.Gameplay.Settings
             "seconds from run start for EarlyScoreRush. Unused otherwise.")]
         [SerializeField] private float _windowSeconds = 15f;
 
+        [Tooltip("Board placements a ScoreInMoves objective allows (issue #465, Path mode only): reach the " +
+            "target score within this many moves. Power-ups, Rotate, Reroll and Hold never spend one. " +
+            "Unused otherwise.")]
+        [SerializeField] private int _moveLimit = 20;
+
         [Header("Board shape")]
         [Tooltip("Columns on this level's board. 8 (the default) is the standard square board every " +
             "level authored before board shapes existed uses.")]
@@ -231,6 +236,10 @@ namespace MustyBlockBlast.Gameplay.Settings
         /// </para>
         /// </summary>
         public int CoinCellCount => _coinCellCount;
+
+        /// <summary>The move budget a <see cref="ObjectiveType.ScoreInMoves"/> row allows (issue #465); 0 for
+        /// every other type, so nothing but that objective ever reads a budget off a level.</summary>
+        public int MoveLimit => _objectiveType == ObjectiveType.ScoreInMoves ? _moveLimit : 0;
 
         /// <summary>Colour id a <see cref="ObjectiveType.ColourCleared"/> objective counts.</summary>
         public int RequiredColourId => _requiredColourId;
@@ -393,7 +402,8 @@ namespace MustyBlockBlast.Gameplay.Settings
                 _requiredOccupancyThreshold,
                 _requiredPieceId,
                 _windowSeconds,
-                RequiredCollectibleOrColourId());
+                RequiredCollectibleOrColourId(),
+                MoveLimit);
         }
 
         /// <summary>What the definition's <c>RequiredColourId</c> carries: the colour for a colour-scoped
@@ -819,6 +829,21 @@ namespace MustyBlockBlast.Gameplay.Settings
             {
                 error = $"{_objectiveType} needs a required colour id between 1 and {Board.COLOUR_COUNT} — no other id is ever drawn.";
                 return false;
+            }
+
+            if (_objectiveType == ObjectiveType.ScoreInMoves)
+            {
+                if (_moveLimit <= 0)
+                {
+                    error = "ScoreInMoves needs a move limit of 1 or more — no placement could ever score.";
+                    return false;
+                }
+
+                if (_scope == ObjectiveScope.Cumulative)
+                {
+                    error = "ScoreInMoves objectives cannot be Cumulative — the score and the move budget reset with the run.";
+                    return false;
+                }
             }
 
             if (_objectiveType == ObjectiveType.RollingLineClearWindow || _objectiveType == ObjectiveType.EarlyScoreRush)

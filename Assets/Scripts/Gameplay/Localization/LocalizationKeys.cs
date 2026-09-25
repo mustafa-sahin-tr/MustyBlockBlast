@@ -777,6 +777,47 @@ namespace MustyBlockBlast.Gameplay.Localization
         /// <summary>"Collect {0}" (issue #484); <c>{0}</c> is the fruit's name (<see cref="FruitName"/>).</summary>
         public const string OBJECTIVE_FRUITS_COLLECTED = "objective.fruits_collected";
 
+        /// <summary>ScoreInMoves's title (issue #465).</summary>
+        public const string OBJECTIVE_NAME_SCORE_IN_MOVES = "objective.name.score_in_moves";
+
+        /// <summary>ScoreInMoves's full description, the info card's (issue #465). <c>{0}</c> is the target
+        /// score, <c>{1}</c> the move limit.</summary>
+        public const string OBJECTIVE_SCORE_IN_MOVES = "objective.score_in_moves";
+
+        /// <summary>ScoreInMoves on the level card's detail line (issue #465): "1500 points / 18 moves".
+        /// <c>{0}</c> is the target score, <c>{1}</c> the move limit.</summary>
+        public const string OBJECTIVE_SCORE_IN_MOVES_SHORT = "objective.score_in_moves_short";
+
+        // --- Move budget: HUD counter, out-of-moves sheet, result card (issue #465) ---
+
+        /// <summary>The small caption under the HUD's moves-left figure: "MOVES".</summary>
+        public const string MOVES_HUD_LABEL = "moves.hud.label";
+
+        /// <summary>The out-of-moves sheet's title.</summary>
+        public const string MOVES_SHEET_TITLE = "moves.sheet.title";
+
+        /// <summary>Under the sheet's score bar. <c>{0}</c> is the points still missing.</summary>
+        public const string MOVES_SHEET_NEEDED = "moves.sheet.needed";
+
+        /// <summary>The offer's explanation. <c>{0}</c> is the moves the ad adds.</summary>
+        public const string MOVES_SHEET_BODY = "moves.sheet.body";
+
+        /// <summary>The ad button's caption. <c>{0}</c> is the moves the ad adds: "+6 MOVES".</summary>
+        public const string MOVES_SHEET_WATCH_AD = "moves.sheet.watch_ad";
+
+        /// <summary>The quiet decline link under the ad button.</summary>
+        public const string MOVES_SHEET_DECLINE = "moves.sheet.decline";
+
+        /// <summary>The end-of-run title when a move budget ran out short of its target.</summary>
+        public const string GAME_OVER_TITLE_OUT_OF_MOVES = "gameover.title.out_of_moves";
+
+        /// <summary>The end-of-run reason line for the same. <c>{0}</c> is the level number.</summary>
+        public const string RUN_RESULT_REASON_OUT_OF_MOVES = "result.reason.out_of_moves";
+
+        /// <summary>A cleared move-limited level's reason line: the leftover-move bonus. <c>{0}</c> is the
+        /// moves left over, <c>{1}</c> the points they paid.</summary>
+        public const string RUN_RESULT_REASON_LEFTOVER_MOVES = "result.reason.leftover_moves";
+
         /// <summary>The fruits' display names (issue #484), one per <see cref="MustyBlockBlast.Core.FruitKind"/>.</summary>
         public const string FRUIT_POMEGRANATE = "fruit.pomegranate";
         public const string FRUIT_PASSION_FRUIT = "fruit.passion_fruit";

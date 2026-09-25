@@ -1790,6 +1790,54 @@ MonoBehaviour:
     m_Localized: Aguacate
     m_Metadata:
       m_Items: []
+  - m_Id: 4350167263207424
+    m_Localized: Puntos en Jugadas
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4350167317733376
+    m_Localized: Consigue {0} puntos en {1} jugadas. Los potenciadores no gastan jugadas y cada jugada sobrante da puntos extra.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4350167317733377
+    m_Localized: '{0} puntos / {1} jugadas'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4350167317733378
+    m_Localized: JUGADAS
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4350167317733379
+    m_Localized: SIN JUGADAS
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4350167317733380
+    m_Localized: Faltan {0} puntos
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4350167317733381
+    m_Localized: Mira un anuncio corto y sigue con +{0} jugadas. Solo una vez por nivel.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4350167317733382
+    m_Localized: +{0} JUGADAS
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4350167317733383
+    m_Localized: No, gracias
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4350167317733384
+    m_Localized: Sin jugadas
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4350167317733385
+    m_Localized: Te quedaste sin jugadas en el Nivel {0}
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4350167317733386
+    m_Localized: "Bonus por jugadas sobrantes: {0} \xB7 +{1}"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []
