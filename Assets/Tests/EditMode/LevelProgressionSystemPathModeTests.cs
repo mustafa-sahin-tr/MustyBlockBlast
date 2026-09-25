@@ -79,7 +79,7 @@ namespace MustyBlockBlast.Tests.EditMode
             PlayerPrefs.DeleteKey(LEVEL_SAVE_KEY);
             PlayerPrefs.DeleteKey(HIGH_SCORE_KEY);
             PlayerPrefs.DeleteKey(GAME_MODE_KEY);
-            PlayerPrefs.DeleteKey(PowerUpInventoryKey.For(PowerUpKind.RowClear));
+            ClearPowerUpInventory();
 
             _objectiveCompletedBroker = new TestMessageBroker<ObjectiveCompletedMessage>();
             _objectiveProgressBroker = new TestMessageBroker<ObjectiveProgressChangedMessage>();
@@ -102,8 +102,17 @@ namespace MustyBlockBlast.Tests.EditMode
             PlayerPrefs.DeleteKey(GAME_MODE_KEY);
 
             // A level-up reward is persisted the moment it is granted, so a test that earns one would
-            // otherwise hand the next fixture a stocked inventory.
-            PlayerPrefs.DeleteKey(PowerUpInventoryKey.For(PowerUpKind.RowClear));
+            // otherwise hand the next fixture a stocked inventory. Every level now rewards some kind
+            // (issue #462), so every kind's slot is cleared, not just one.
+            ClearPowerUpInventory();
+        }
+
+        private static void ClearPowerUpInventory()
+        {
+            foreach (PowerUpKind kind in System.Enum.GetValues(typeof(PowerUpKind)))
+            {
+                PlayerPrefs.DeleteKey(PowerUpInventoryKey.For(kind));
+            }
         }
 
         // --- AC1: the mode exists and is selectable ---
@@ -413,9 +422,9 @@ namespace MustyBlockBlast.Tests.EditMode
         /// <summary>
         /// The corruption this issue's trickiest interaction could cause: replaying a level the player
         /// has long since cleared must not drag the persisted frontier back to just after it, and must
-        /// not re-pay that level's power-up — which would turn any cleared rewarding level into an
-        /// unlimited reward farm. Level 2 therefore authors a reward here specifically so that the
-        /// second half of that has something to fail on.
+        /// not re-pay that level's power-up — which would turn any cleared level into an unlimited
+        /// reward farm. Every level rewards on a first clear (issue #462), so the second half of that
+        /// always has something to fail on.
         /// </summary>
         [Test]
         public void ReplayingAClearedLevel_LeavesTheFrontierWhereItWas()
@@ -423,7 +432,7 @@ namespace MustyBlockBlast.Tests.EditMode
             PersistFrontier(5);
             LevelProgressionSystem system = CreateSystem(ACatalogOf(
                 Level(1),
-                Level(2, completionScoreBonus: 70, grantsLevelUpReward: true),
+                Level(2, completionScoreBonus: 70),
                 Level(3), Level(4), Level(5), Level(6)));
             _gameModeSystem.SelectMode(GameMode.Path);
             Assert.IsTrue(system.TryStartPathLevel(2));
@@ -448,15 +457,15 @@ namespace MustyBlockBlast.Tests.EditMode
         }
 
         /// <summary>
-        /// The positive counterpart to <see cref="ReplayingAClearedLevel_LeavesTheFrontierWhereItWas"/>.
-        /// Level 1 authors the same reward that test proves is withheld on a replay, so "no power-up was
-        /// granted" there is a real guard rather than a rewardless catalog passing by default.
+        /// The positive counterpart to <see cref="ReplayingAClearedLevel_LeavesTheFrontierWhereItWas"/>:
+        /// a first clear pays exactly the rule's reward, so "no power-up was granted" there is a real
+        /// guard rather than a rewardless level passing by default.
         /// </summary>
         [Test]
         public void ClearingTheFrontierLevel_InPathMode_MovesAndPersistsTheFrontier()
         {
             LevelProgressionSystem system = CreateSystem(ACatalogOf(
-                Level(1, grantsLevelUpReward: true), Level(2), Level(3)));
+                Level(1), Level(2), Level(3)));
             Assert.IsNotNull(system);
             _gameModeSystem.SelectMode(GameMode.Path);
 
@@ -467,9 +476,89 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.AreEqual(2, _levelAdvancedBroker.Published[0].CurrentLevelNumber);
             Assert.IsTrue(PlayerPrefs.GetString(LEVEL_SAVE_KEY, string.Empty).Contains("\"currentLevelNumber\":2"));
 
-            // A first clear does pay the level's reward.
+            // A first clear does pay the level's reward — exactly the rule's, the same one the Level
+            // Path previews.
             Assert.AreEqual(1, _powerUpGrantedBroker.Published.Count);
-            Assert.AreEqual(PowerUpKind.RowClear, _powerUpGrantedBroker.Published[0].Kind);
+            Assert.AreEqual(LevelCompletionRewards.For(1)[0], _powerUpGrantedBroker.Published[0].Kind);
+        }
+
+        // --- Issue #462: every level completion rewards, by rule ---
+
+        /// <summary>A first clear of a milestone pays the whole bundle — three separate grants, three
+        /// different kinds, exactly the rule's list in the rule's order — through the real
+        /// <see cref="PowerUpSystem"/>, so the inventory holds each of them.</summary>
+        [Test]
+        public void ClearingAMilestoneLevel_InPathMode_GrantsTheRulesThreeDifferentKinds()
+        {
+            PersistFrontier(5);
+            LevelProgressionSystem system = CreateSystem(ACatalogOf(
+                Level(1), Level(2), Level(3), Level(4), Level(5), Level(6)));
+            Assert.IsNotNull(system);
+            _gameModeSystem.SelectMode(GameMode.Path);
+            Assert.AreEqual(5, _pathRunModel.ActiveLevelNumber.Value);
+
+            CompleteCurrentObjective();
+
+            IReadOnlyList<PowerUpKind> expected = LevelCompletionRewards.For(5);
+            Assert.AreEqual(3, _powerUpGrantedBroker.Published.Count);
+            for (int grantIndex = 0; grantIndex < expected.Count; grantIndex++)
+            {
+                Assert.AreEqual(expected[grantIndex], _powerUpGrantedBroker.Published[grantIndex].Kind);
+                Assert.AreEqual(1, PlayerPrefs.GetInt(PowerUpInventoryKey.For(expected[grantIndex]), 0));
+            }
+        }
+
+        /// <summary>Clearing level 4 moves the frontier to 5, which is Joker's gate — so that clear is
+        /// the one that unlocks Joker, and Joker is what it pays.</summary>
+        [Test]
+        public void ClearingTheLevelThatUnlocksJoker_InEndlessMode_GrantsJoker()
+        {
+            PersistFrontier(4);
+            LevelProgressionSystem system = CreateSystem(ACatalogOf(
+                Level(1), Level(2), Level(3), Level(4), Level(5)));
+            Assert.IsNotNull(system);
+            _gameModeSystem.SelectMode(GameMode.Endless);
+
+            CompleteCurrentObjective();
+
+            Assert.AreEqual(5, _progressionModel.CurrentLevelNumber.Value);
+            Assert.AreEqual(1, _powerUpGrantedBroker.Published.Count);
+            Assert.AreEqual(PowerUpKind.Joker, _powerUpGrantedBroker.Published[0].Kind);
+        }
+
+        /// <summary>Negative: a regular (non-milestone) level never pays the bundle, in either mode
+        /// that can pay a first clear.</summary>
+        [TestCase(GameMode.Path)]
+        [TestCase(GameMode.Endless)]
+        public void ClearingARegularLevel_GrantsExactlyOnePowerUp(GameMode mode)
+        {
+            PersistFrontier(3);
+            LevelProgressionSystem system = CreateSystem(ACatalogOf(
+                Level(1), Level(2), Level(3), Level(4)));
+            Assert.IsNotNull(system);
+            _gameModeSystem.SelectMode(mode);
+
+            CompleteCurrentObjective();
+
+            Assert.AreEqual(1, _powerUpGrantedBroker.Published.Count);
+            Assert.AreEqual(LevelCompletionRewards.For(3)[0], _powerUpGrantedBroker.Published[0].Kind);
+        }
+
+        /// <summary>Replaying a cleared milestone pays nothing either — the bundle is as much a
+        /// first-clear-only reward as a single power-up.</summary>
+        [Test]
+        public void ReplayingAClearedMilestoneLevel_GrantsNothing()
+        {
+            PersistFrontier(7);
+            LevelProgressionSystem system = CreateSystem(ACatalogOf(
+                Level(1), Level(2), Level(3), Level(4), Level(5), Level(6), Level(7), Level(8)));
+            _gameModeSystem.SelectMode(GameMode.Path);
+            Assert.IsTrue(system.TryStartPathLevel(5));
+
+            CompleteCurrentObjective();
+
+            Assert.AreEqual(0, _powerUpGrantedBroker.Published.Count);
+            Assert.AreEqual(7, _progressionModel.CurrentLevelNumber.Value);
         }
 
         // --- AC6: failing a Path level ends the run distinguishably ---
@@ -1135,7 +1224,6 @@ namespace MustyBlockBlast.Tests.EditMode
         private static string Level(
             int levelNumber,
             int completionScoreBonus = 0,
-            bool grantsLevelUpReward = false,
             ObjectiveScope scope = ObjectiveScope.PerRun,
             ObjectiveType objectiveType = ObjectiveType.SimultaneousLineClear)
         {
@@ -1145,8 +1233,6 @@ namespace MustyBlockBlast.Tests.EditMode
                 + $"\"_scope\":{(int)scope},"
                 + "\"_targetValue\":1,"
                 + "\"_requiredLineCount\":1,"
-                + $"\"_grantsLevelUpReward\":{(grantsLevelUpReward ? "true" : "false")},"
-                + $"\"_levelUpReward\":{(int)PowerUpKind.RowClear},"
                 + $"\"_completionScoreBonus\":{completionScoreBonus}"
                 + "}";
         }

@@ -294,7 +294,7 @@
       <li><strong>Mağazadan satın alma</strong> — <code>CurrencySystem.TryPurchasePowerUp</code>: coin düşer, envantere ekler.</li>
       <li><strong>Ödüllü reklam</strong> — <code>PowerUpSystem.GrantRewardAsync</code>: şu anki implementasyon (<code>DeterministicRewardSource</code>) her zaman verir — gerçek reklam SDK'sı bağlanana kadar yer tutucu (kod içinde "DO NOT SHIP" uyarısı var).</li>
     </ol>
-    <p>Ayrıca bir level tamamlandığında <code>LevelObjectiveConfig.GrantsLevelUpReward</code> ile ücretsiz, coin/açılış şartı olmadan doğrudan bir power-up verilebilir (bkz. Level'lar sekmesindeki "Ödül" sütunu).</p>
+    <p>Ayrıca <strong>her level'ın ilk tamamlanışı</strong> ücretsiz power-up verir (issue #462) — level başına authoring yok, kural kodda: <code>LevelCompletionRewards</code>. Normal level 1, her 5. level (5, 10, 15…) 3 farklı power-up verir. Tamamlanınca bir tür açılıyorsa (N−1'i bitirmek N'de açılan türü açar: 4 → Joker, 9 → Color Cleanser…) o tür garantidir; gerisi level numarasından seed'lenen deterministik rastgele seçimdir (açılmış strip türleri arasından; Hold ve Coin Sower hariç). Tekrar oynamak ödül vermez; katalogdaki son level da vermez. Level Path her level'ın ödülünü önceden gösterir (bkz. Level'lar sekmesindeki "Ödül" sütunu).</p>
   </div>
 
   <h3>Mağazadan satılmayan, dock'a otomatik enjekte edilen özel parçalar</h3>
@@ -573,32 +573,59 @@
   });
 
   // ---------- Levels ----------
-  // [level, type('S'|'F'|'W'|'R'), target, extra, rewardCode(0=none,1=RowClear,2=ColumnClear,3=Joker)]
+  // [level, type('S'|'F'|'W'|'R'), target, extra]
+  // Rewards come from LevelCompletionRewards (issue #462), exported from the rule — see REWARDS below.
   var FAM = {Single:"Tek Hücre", Line:"Çizgi", Square:"Kare", Corner:"L Şekli", TShape:"T Şekli", SShape:"S Şekli", ZShape:"Z Şekli"};
   var levels = [
-    [1,'S',2,2,0],[2,'S',2,2,0],[3,'S',2,2,0],[4,'S',2,2,0],[5,'S',3,2,1],
-    [6,'S',3,2,0],[7,'S',3,2,0],[8,'S',3,2,0],[9,'S',4,2,0],[10,'S',4,2,2],
-    [11,'F',5,'Single',0],[12,'F',5,'Line',0],[13,'S',4,2,0],[14,'F',6,'Corner',0],[15,'F',6,'TShape',3],
-    [16,'S',4,2,0],[17,'F',7,'ZShape',0],[18,'F',7,'Single',0],[19,'S',5,2,0],[20,'F',24,'Square',1],
-    [21,'F',25,'Corner',0],[22,'S',5,2,0],[23,'F',27,'SShape',0],[24,'F',28,'ZShape',0],[25,'S',6,2,2],
-    [26,'F',30,'Line',0],[27,'F',31,'Square',0],[28,'S',6,2,0],[29,'F',33,'TShape',0],[30,'F',34,'SShape',3],
-    [31,'S',3,3,0],[32,'F',42,'Line',0],[33,'W',1,null,0],[34,'S',3,3,0],[35,'F',48,'TShape',1],
-    [36,'W',2,null,0],[37,'S',3,3,0],[38,'F',54,'Single',0],[39,'W',1,null,0],[40,'S',3,3,2],
-    [41,'F',60,'Corner',0],[42,'W',3,null,0],[43,'S',4,4,0],[44,'F',66,'ZShape',0],[45,'W',1,null,3],
-    [46,'S',4,4,0],[47,'F',72,'Square',0],[48,'W',3,null,0],[49,'S',4,4,0],[50,'F',78,'SShape',1],
-    [51,'W',1,null,0],[52,'S',5,4,0],[53,'F',84,'Line',0],[54,'W',4,null,0],[55,'S',5,3,2],
-    [56,'F',90,'TShape',0],[57,'W',1,null,0],[58,'S',5,3,0],[59,'F',96,'Single',0],[60,'W',4,null,3],
-    [61,'R',3000,null,0],[62,'S',5,3,0],[63,'F',110,'Square',0],[64,'W',5,null,0],[65,'R',4000,null,1],
-    [66,'S',5,3,0],[67,'F',130,'ZShape',0],[68,'W',5,null,0],[69,'R',5000,null,0],[70,'S',5,4,2],
-    [71,'F',150,'Corner',0],[72,'W',6,null,0],[73,'R',6000,null,0],[74,'S',6,4,0],[75,'F',170,'Single',3],
-    [76,'W',6,null,0],[77,'R',7000,null,0],[78,'S',6,3,0],[79,'F',190,'TShape',0],[80,'W',7,null,1],
-    [81,'R',8000,null,0],[82,'S',7,3,0],[83,'F',210,'Line',0],[84,'W',7,null,0],[85,'R',9000,null,2],
-    [86,'S',7,4,0],[87,'F',230,'SShape',0],[88,'W',8,null,0],[89,'R',10000,null,0],[90,'S',7,4,3],
-    [91,'F',250,'Square',0],[92,'W',8,null,0],[93,'R',11000,null,0],[94,'S',8,3,0],[95,'F',270,'ZShape',1],
-    [96,'W',9,null,0],[97,'R',12000,null,0],[98,'S',8,3,0],[99,'F',290,'Corner',0],[100,'W',9,null,2]
+    [1,'S',2,2],[2,'S',2,2],[3,'S',2,2],[4,'S',2,2],[5,'S',3,2],
+    [6,'S',3,2],[7,'S',3,2],[8,'S',3,2],[9,'S',4,2],[10,'S',4,2],
+    [11,'F',5,'Single'],[12,'F',5,'Line'],[13,'S',4,2],[14,'F',6,'Corner'],[15,'F',6,'TShape'],
+    [16,'S',4,2],[17,'F',7,'ZShape'],[18,'F',7,'Single'],[19,'S',5,2],[20,'F',24,'Square'],
+    [21,'F',25,'Corner'],[22,'S',5,2],[23,'F',27,'SShape'],[24,'F',28,'ZShape'],[25,'S',6,2],
+    [26,'F',30,'Line'],[27,'F',31,'Square'],[28,'S',6,2],[29,'F',33,'TShape'],[30,'F',34,'SShape'],
+    [31,'S',3,3],[32,'F',42,'Line'],[33,'W',1,null],[34,'S',3,3],[35,'F',48,'TShape'],
+    [36,'W',2,null],[37,'S',3,3],[38,'F',54,'Single'],[39,'W',1,null],[40,'S',3,3],
+    [41,'F',60,'Corner'],[42,'W',3,null],[43,'S',4,4],[44,'F',66,'ZShape'],[45,'W',1,null],
+    [46,'S',4,4],[47,'F',72,'Square'],[48,'W',3,null],[49,'S',4,4],[50,'F',78,'SShape'],
+    [51,'W',1,null],[52,'S',5,4],[53,'F',84,'Line'],[54,'W',4,null],[55,'S',5,3],
+    [56,'F',90,'TShape'],[57,'W',1,null],[58,'S',5,3],[59,'F',96,'Single'],[60,'W',4,null],
+    [61,'R',3000,null],[62,'S',5,3],[63,'F',110,'Square'],[64,'W',5,null],[65,'R',4000,null],
+    [66,'S',5,3],[67,'F',130,'ZShape'],[68,'W',5,null],[69,'R',5000,null],[70,'S',5,4],
+    [71,'F',150,'Corner'],[72,'W',6,null],[73,'R',6000,null],[74,'S',6,4],[75,'F',170,'Single'],
+    [76,'W',6,null],[77,'R',7000,null],[78,'S',6,3],[79,'F',190,'TShape'],[80,'W',7,null],
+    [81,'R',8000,null],[82,'S',7,3],[83,'F',210,'Line'],[84,'W',7,null],[85,'R',9000,null],
+    [86,'S',7,4],[87,'F',230,'SShape'],[88,'W',8,null],[89,'R',10000,null],[90,'S',7,4],
+    [91,'F',250,'Square'],[92,'W',8,null],[93,'R',11000,null],[94,'S',8,3],[95,'F',270,'ZShape'],
+    [96,'W',9,null],[97,'R',12000,null],[98,'S',8,3],[99,'F',290,'Corner'],[100,'W',9,null]
   ];
   var TYPE_LABEL = {S:'SimultaneousLineClear', F:'PieceFamilyCount', W:'BoardWipeCount', R:'ScoreInRun'};
-  var REWARD_LABEL = {0:'—', 1:'Row Clear', 2:'Column Clear', 3:'Joker'};
+  // First-completion power-up reward per level, exported from LevelCompletionRewards.For(level).
+  var REWARDS = {
+    1:['RowClear'],2:['Bomb'],3:['ColumnClear'],4:['Joker'],5:['Bomb','Joker','ColumnClear'],6:['Joker'],
+    7:['Joker'],8:['Joker'],9:['ColorCleanser'],10:['RowClear','ColumnClear','ColorCleanser'],11:['RowClear'],12:['RowClear'],
+    13:['Bomb'],14:['Rotate'],15:['Joker','ColorCleanser','Bomb'],16:['Rotate'],17:['Joker'],18:['Joker'],
+    19:['Reroll'],20:['Bomb','RowClear','Reroll'],21:['ColorCleanser'],22:['ColumnClear'],23:['ColumnClear'],24:['DoubleMultiplier'],
+    25:['Bomb','DoubleMultiplier','ColorCleanser'],26:['Rotate'],27:['ColumnClear'],28:['Bomb'],29:['GhostFit'],30:['ColorCleanser','Joker','Rotate'],
+    31:['Bomb'],32:['GhostFit'],33:['RowClear'],34:['Rotate'],35:['DoubleMultiplier','Bomb','Rotate'],36:['Rotate'],
+    37:['ColumnClear'],38:['ColorCleanser'],39:['PaintCross'],40:['ColumnClear','RowClear','Joker'],41:['Reroll'],42:['Reroll'],
+    43:['ColumnClear'],44:['DoubleMultiplier'],45:['PaintCross','Bomb','GhostFit'],46:['Reroll'],47:['GhostFit'],48:['Bomb'],
+    49:['Rotate'],50:['Rotate','PaintCross','ColorCleanser'],51:['GhostFit'],52:['PaintCross'],53:['ColumnClear'],54:['GhostFit'],
+    55:['Bomb','Rotate','RowClear'],56:['Bomb'],57:['Bomb'],58:['Rotate'],59:['GhostFit'],60:['ColumnClear','DoubleMultiplier','Bomb'],
+    61:['DoubleMultiplier'],62:['RowClear'],63:['Rotate'],64:['RowClear'],65:['ColorCleanser','PaintCross','Rotate'],66:['ColorCleanser'],
+    67:['Reroll'],68:['Rotate'],69:['DoubleMultiplier'],70:['Bomb','PaintCross','RowClear'],71:['RowClear'],72:['DoubleMultiplier'],
+    73:['ColorCleanser'],74:['ColorCleanser'],75:['ColorCleanser','DoubleMultiplier','Rotate'],76:['Bomb'],77:['ColumnClear'],78:['ColorCleanser'],
+    79:['Joker'],80:['RowClear','Rotate','Bomb'],81:['Joker'],82:['Rotate'],83:['RowClear'],84:['ColorCleanser'],
+    85:['Joker','DoubleMultiplier','ColorCleanser'],86:['RowClear'],87:['ColumnClear'],88:['ColorCleanser'],89:['PaintCross'],90:['PaintCross','Rotate','Joker'],
+    91:['Reroll'],92:['PaintCross'],93:['ColorCleanser'],94:['DoubleMultiplier'],95:['ColumnClear','Bomb','ColorCleanser'],96:['Rotate'],
+    97:['ColorCleanser'],98:['Joker'],99:['ColorCleanser'],100:['ColumnClear','Bomb','Rotate']
+  };
+  var KIND_LABEL = {Bomb:'Bomb', RowClear:'Row Clear', ColumnClear:'Column Clear', Joker:'Joker',
+    ColorCleanser:'Color Cleanser', Rotate:'Rotate', Reroll:'Reroll', DoubleMultiplier:'Double Multiplier',
+    GhostFit:'Ghost Fit', PaintCross:'Paint Cross'};
+  function rewardLabels(row){
+    var kinds = REWARDS[row[0]] || [];
+    return kinds.map(function(k){ return KIND_LABEL[k] || k; });
+  }
 
   function extraText(row){
     if(row[1]==='S') return row[3] + ' satır/sütun aynı anda';
@@ -616,7 +643,7 @@
     levels.forEach(function(row){
       if(filterType && row[1] !== filterType) return;
       var typeLabel = TYPE_LABEL[row[1]];
-      var rewardLabel = REWARD_LABEL[row[4]];
+      var rewardLabel = rewardLabels(row).join(' · ');
       var extra = extraText(row);
       var hay = (row[0]+' '+typeLabel+' '+extra+' '+rewardLabel).toLowerCase();
       if(ft && hay.indexOf(ft)===-1) return;
@@ -628,7 +655,7 @@
         '<td>'+row[2]+'</td>'+
         '<td>'+extra+'</td>'+
         '<td><span class="chip good">8×8 standart</span></td>'+
-        '<td>'+(row[4] ? '<span class="chip accent">'+rewardLabel+'</span>' : '<span class="muted">—</span>')+'</td>';
+        '<td>'+(rewardLabel ? rewardLabels(row).map(function(l){ return '<span class="chip accent">'+l+'</span>'; }).join(' ') : '<span class="muted">—</span>')+'</td>';
       tbody.appendChild(tr);
     });
     document.getElementById('levelCount').textContent = shown + ' / ' + levels.length + ' level gösteriliyor';
@@ -650,13 +677,13 @@
       sortState = {key:key, asc:asc};
       document.querySelectorAll('#levelTable th').forEach(function(h){ h.classList.remove('sorted','asc'); });
       th.classList.add('sorted'); if(asc) th.classList.add('asc');
-      var idxMap = {lvl:0, type:1, target:2, extra:3, reward:4};
+      var idxMap = {lvl:0, type:1, target:2, extra:3};
       var idx = idxMap[key];
       levels.sort(function(a,b){
         var va, vb;
         if(key==='type'){ va = TYPE_LABEL[a[1]]; vb = TYPE_LABEL[b[1]]; }
         else if(key==='extra'){ va = extraText(a); vb = extraText(b); }
-        else if(key==='reward'){ va = a[4]; vb = b[4]; }
+        else if(key==='reward'){ va = rewardLabels(a).join(' · '); vb = rewardLabels(b).join(' · '); }
         else if(key==='lvl'){ va = a[0]; vb = b[0]; }
         else if(key==='target'){ va = a[2]; vb = b[2]; }
         else { va = a[idx]; vb = b[idx]; }

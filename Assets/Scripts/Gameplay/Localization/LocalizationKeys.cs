@@ -328,6 +328,10 @@ namespace MustyBlockBlast.Gameplay.Localization
         /// level itself paid out.</summary>
         public const string RUN_RESULT_COIN_LABEL = "result.coin_label";
 
+        /// <summary>Caption on a Path level-complete card's reward box, beside the power-up(s) the
+        /// level's first clear paid (issue #462).</summary>
+        public const string RUN_RESULT_LEVEL_REWARD_LABEL = "result.level_reward_label";
+
         /// <summary>Tag on the record plate when this run set a new record.</summary>
         public const string RUN_RESULT_NEW_RECORD = "result.new_record";
 

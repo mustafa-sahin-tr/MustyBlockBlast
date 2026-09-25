@@ -57,8 +57,9 @@ namespace MustyBlockBlast.Presentation.Views
     /// the two panels can never be open at once.
     /// </para>
     /// <para>
-    /// Two more things are drawn onto this same built-once trail (issue #278): a milestone-reward badge
-    /// on the nodes that grant one (see <see cref="RefreshNode"/>), and a decorative
+    /// Two more things are drawn onto this same built-once trail (issue #278): the level's power-up
+    /// reward badges — one per kind a first clear pays, three on a milestone (issue #462, see
+    /// <see cref="LevelCompletionRewards"/> and <see cref="RefreshNode"/>) — and a decorative
     /// scenery backdrop that cycles through four zones every ten levels regardless of the active
     /// theme's season (see <see cref="LevelPathZones"/>, <see cref="BuildScenery"/>). Both reuse
     /// <see cref="LevelPathTrailLayout"/>'s content-local Y so neither can ever drift out of sync with
@@ -137,6 +138,19 @@ namespace MustyBlockBlast.Presentation.Views
         private const float REWARD_BADGE_SIZE = 44f;
 
         private const float REWARD_BADGE_ICON_SIZE = 28f;
+
+        /// <summary>
+        /// Where a node's reward badges sit, as angles (degrees, counter-clockwise from +X) around the
+        /// node's centre at <see cref="REWARD_BADGE_RADIUS"/>. A single reward keeps the original
+        /// top-right corner; a milestone's three fan across the top so they never cover the number or
+        /// the bottom-right done dot (issue #462).
+        /// </summary>
+        private static readonly float[] SingleRewardBadgeAngles = { 45f };
+        private static readonly float[] MilestoneRewardBadgeAngles = { 90f, 45f, 135f };
+
+        /// <summary>Centre-to-badge distance: the diagonal of the original corner offset
+        /// (<c>NODE_SIZE / 2 − 22</c> on each axis), so a single badge lands exactly where it always has.</summary>
+        private const float REWARD_BADGE_RADIUS = ((NODE_SIZE * 0.5f) - 22f) * 1.41421356f;
 
         /// <summary>Scale applied to the node the player is on, so "you are here" reads without new art.</summary>
         private const float CURRENT_NODE_SCALE = 1.08f;
@@ -274,8 +288,8 @@ namespace MustyBlockBlast.Presentation.Views
                 Image highlightImage,
                 Image doneDot,
                 Text numberText,
-                Image rewardBadgeImage,
-                Image rewardIconImage)
+                Image[] rewardBadgeImages,
+                Image[] rewardIconImages)
             {
                 Root = root;
                 PlateImage = plateImage;
@@ -284,8 +298,8 @@ namespace MustyBlockBlast.Presentation.Views
                 HighlightImage = highlightImage;
                 DoneDot = doneDot;
                 NumberText = numberText;
-                RewardBadgeImage = rewardBadgeImage;
-                RewardIconImage = rewardIconImage;
+                RewardBadgeImages = rewardBadgeImages;
+                RewardIconImages = rewardIconImages;
             }
 
             internal RectTransform Root { get; }
@@ -304,13 +318,14 @@ namespace MustyBlockBlast.Presentation.Views
 
             internal Text NumberText { get; }
 
-            /// <summary>Null for the great majority of nodes: only built for a level where
-            /// <see cref="LevelObjectiveConfig.GrantsLevelUpReward"/> is true.</summary>
-            internal Image RewardBadgeImage { get; }
+            /// <summary>One plate per power-up a first clear of this level pays (issue #462): one for a
+            /// regular level, three for a milestone, none for the last level (which advances nowhere, so
+            /// pays nothing).</summary>
+            internal Image[] RewardBadgeImages { get; }
 
-            /// <summary>The granted <see cref="PowerUpKind"/>'s glyph, null alongside
-            /// <see cref="RewardBadgeImage"/>.</summary>
-            internal Image RewardIconImage { get; }
+            /// <summary>Each rewarded <see cref="PowerUpKind"/>'s glyph, parallel to
+            /// <see cref="RewardBadgeImages"/>.</summary>
+            internal Image[] RewardIconImages { get; }
         }
 
         /// <summary>
@@ -603,8 +618,10 @@ namespace MustyBlockBlast.Presentation.Views
         /// level here, so what the card draws as reachable and what it will actually let the player
         /// start are the same rule.
         /// <para>
-        /// The milestone reward badge dims by the exact same alpha as the plate around it — a locked
-        /// node has to read as one locked thing, not as a bright badge sitting on a dimmed plate.
+        /// The reward badges dim by the exact same alpha as the plate around it — a locked node has to
+        /// read as one locked thing, not as bright badges sitting on a dimmed plate. A cleared node's
+        /// badges are hidden: the reward is paid on the first clear only, so a replay has nothing to
+        /// offer and the node must not promise it (issue #462).
         /// </para>
         /// <para>
         /// A node's fill cycles through the game's five piece kinds by level number (issue #416), so
@@ -637,10 +654,18 @@ namespace MustyBlockBlast.Presentation.Views
             node.HighlightImage.color = WithAlpha(Color.white, isLocked ? NODE_SHEEN_ALPHA * LOCKED_NODE_ALPHA : NODE_SHEEN_ALPHA);
             node.NumberText.color = FadeIfLocked(numberColour, isLocked);
 
-            if (node.RewardBadgeImage != null)
+            bool isCleared = levelNumber < currentLevel;
+            // On the current node the plate is itself accent-filled, so the badges take the plate's
+            // own darker lip shade there — otherwise they would melt into the plate they sit on.
+            Color badgeFill = isCurrent ? Darken(_currentTheme.Accent, NODE_LIP_SHADE) : _currentTheme.Accent;
+            Color badgeColour = isCleared ? Color.clear : FadeIfLocked(badgeFill, isLocked);
+            Color rewardIconColour = isCleared
+                ? Color.clear
+                : WithAlpha(Color.white, isLocked ? LOCKED_NODE_ALPHA : 1f);
+            for (int rewardIndex = 0; rewardIndex < node.RewardBadgeImages.Length; rewardIndex++)
             {
-                node.RewardBadgeImage.color = FadeIfLocked(_currentTheme.Accent, isLocked);
-                node.RewardIconImage.color = WithAlpha(Color.white, isLocked ? LOCKED_NODE_ALPHA : 1f);
+                node.RewardBadgeImages[rewardIndex].color = badgeColour;
+                node.RewardIconImages[rewardIndex].color = rewardIconColour;
             }
 
             // Only a cleared node carries the accent dot: the current node is already accent-filled,
@@ -1182,34 +1207,27 @@ namespace MustyBlockBlast.Presentation.Views
             var dotImage = dotObject.GetComponent<Image>();
             ConfigureCircle(dotImage);
 
-            // The milestone reward badge (issue #278): only built for a level where
-            // GrantsLevelUpReward is true — a handful out of the whole catalog — in the opposite
-            // corner from the done dot so the two can never collide.
-            Image rewardBadgeImage = null;
-            Image rewardIconImage = null;
-            if (config != null && config.GrantsLevelUpReward)
+            // The reward badges (issue #278, every level since #462): one per power-up a first clear
+            // pays, straight from the same rule LevelProgressionSystem grants by, so the preview is the
+            // payout. The last level advances nowhere and so pays nothing — it gets none.
+            Image[] rewardBadgeImages = System.Array.Empty<Image>();
+            Image[] rewardIconImages = System.Array.Empty<Image>();
+            if (_levelCatalog.Find(levelNumber + 1) != null)
             {
-                var badgeObject = new GameObject("RewardBadge", typeof(RectTransform), typeof(Image));
-                var badgeRect = (RectTransform)badgeObject.transform;
-                badgeRect.SetParent(nodeRect, false);
-                Centre(badgeRect, new Vector2(REWARD_BADGE_SIZE, REWARD_BADGE_SIZE));
-                badgeRect.anchoredPosition = new Vector2(
-                    (NODE_SIZE * 0.5f) - 22f, (NODE_SIZE * 0.5f) - 22f);
-                rewardBadgeImage = badgeObject.GetComponent<Image>();
-                ConfigureCircle(rewardBadgeImage);
-
-                // Mirrors ResolveIcon's PowerUp case in InfoPopupView: an authored power-up glyph is
-                // rendered as-is, tinted plain white rather than the theme's ink.
-                var rewardIconObject = new GameObject("RewardIcon", typeof(RectTransform), typeof(Image));
-                var rewardIconRect = (RectTransform)rewardIconObject.transform;
-                rewardIconRect.SetParent(badgeRect, false);
-                Centre(rewardIconRect, new Vector2(REWARD_BADGE_ICON_SIZE, REWARD_BADGE_ICON_SIZE));
-                rewardIconImage = rewardIconObject.GetComponent<Image>();
-                rewardIconImage.type = Image.Type.Simple;
-                rewardIconImage.preserveAspect = true;
-                rewardIconImage.color = Color.clear;
-                rewardIconImage.raycastTarget = false;
-                rewardIconImage.sprite = _powerUpInventoryView.IconFor(config.LevelUpReward);
+                IReadOnlyList<PowerUpKind> rewards = LevelCompletionRewards.For(levelNumber);
+                float[] angles = rewards.Count > 1 ? MilestoneRewardBadgeAngles : SingleRewardBadgeAngles;
+                int badgeCount = Mathf.Min(rewards.Count, angles.Length);
+                rewardBadgeImages = new Image[badgeCount];
+                rewardIconImages = new Image[badgeCount];
+                for (int rewardIndex = 0; rewardIndex < badgeCount; rewardIndex++)
+                {
+                    float radians = angles[rewardIndex] * Mathf.Deg2Rad;
+                    Vector2 badgePosition = new Vector2(
+                        Mathf.Cos(radians) * REWARD_BADGE_RADIUS, Mathf.Sin(radians) * REWARD_BADGE_RADIUS);
+                    BuildRewardBadge(
+                        nodeRect, rewards[rewardIndex], badgePosition,
+                        out rewardBadgeImages[rewardIndex], out rewardIconImages[rewardIndex]);
+                }
             }
 
             // The number never changes for a given widget, so it is written here rather than in
@@ -1220,7 +1238,33 @@ namespace MustyBlockBlast.Presentation.Views
 
             return new LevelNode(
                 nodeRect, plateImage, shadowImage, lipImage, highlightImage, dotImage, numberText,
-                rewardBadgeImage, rewardIconImage);
+                rewardBadgeImages, rewardIconImages);
+        }
+
+        /// <summary>One reward badge: an accent disc carrying <paramref name="kind"/>'s strip glyph.
+        /// Mirrors ResolveIcon's PowerUp case in InfoPopupView: an authored power-up glyph is rendered
+        /// as-is, tinted plain white rather than the theme's ink.</summary>
+        private void BuildRewardBadge(
+            RectTransform nodeRect, PowerUpKind kind, Vector2 position, out Image badgeImage, out Image iconImage)
+        {
+            var badgeObject = new GameObject("RewardBadge", typeof(RectTransform), typeof(Image));
+            var badgeRect = (RectTransform)badgeObject.transform;
+            badgeRect.SetParent(nodeRect, false);
+            Centre(badgeRect, new Vector2(REWARD_BADGE_SIZE, REWARD_BADGE_SIZE));
+            badgeRect.anchoredPosition = position;
+            badgeImage = badgeObject.GetComponent<Image>();
+            ConfigureCircle(badgeImage);
+
+            var rewardIconObject = new GameObject("RewardIcon", typeof(RectTransform), typeof(Image));
+            var rewardIconRect = (RectTransform)rewardIconObject.transform;
+            rewardIconRect.SetParent(badgeRect, false);
+            Centre(rewardIconRect, new Vector2(REWARD_BADGE_ICON_SIZE, REWARD_BADGE_ICON_SIZE));
+            iconImage = rewardIconObject.GetComponent<Image>();
+            iconImage.type = Image.Type.Simple;
+            iconImage.preserveAspect = true;
+            iconImage.color = Color.clear;
+            iconImage.raycastTarget = false;
+            iconImage.sprite = _powerUpInventoryView.IconFor(kind);
         }
 
         /// <summary>

@@ -95,6 +95,12 @@ namespace MustyBlockBlast.Presentation.Views
         private const float COIN_PILL_WIDTH = 220f;
         private const float COIN_PILL_HEIGHT = 84f;
 
+        /// <summary>The level-reward box (issue #462): the coin box's plate and caption, with one
+        /// accent disc per power-up the level paid, right-aligned where the coin box has its pill.
+        /// Discs are the coin box's icon disc size, so both rows read as the same family.</summary>
+        private const float REWARD_BOX_ICON_GAP = 14f;
+        private const float REWARD_GLYPH_SIZE = 56f;
+
         /// <summary>Seconds the coin balance takes to count up to its post-level figure. The score
         /// card's own count-up length (<see cref="ScoreView"/>), so the two read as the same gesture.</summary>
         private const float COIN_COUNT_UP_DURATION = 0.4f;
@@ -213,6 +219,11 @@ namespace MustyBlockBlast.Presentation.Views
 
         private ScoreModel _scoreModel;
         private ProfileModel _profileModel;
+
+        /// <summary>Source of a power-up's glyph for the level-reward box — the strip's own art, as
+        /// the Level Path's reward badges and the info popup use.</summary>
+        private PowerUpInventoryView _powerUpInventoryView;
+        private ISubscriber<LevelAdvancedMessage> _levelAdvancedSubscriber;
         private PathRunModel _pathRunModel;
         private TimedHighScoreModel _timedHighScoreModel;
         private BadgeModel _badgeModel;
@@ -267,6 +278,22 @@ namespace MustyBlockBlast.Presentation.Views
         private Text _coinBoxValueText;
         private Image _coinBoxPillPlate;
         private Text _coinBoxPillText;
+
+        private RectTransform _rewardBoxRoot;
+        private Image _rewardBoxShadow;
+        private Image _rewardBoxPlate;
+        private Text _rewardBoxCaptionText;
+        private readonly Image[] _rewardDiscs = new Image[LevelCompletionRewards.MILESTONE_REWARD_COUNT];
+        private readonly Image[] _rewardGlyphs = new Image[LevelCompletionRewards.MILESTONE_REWARD_COUNT];
+
+        /// <summary>
+        /// The level whose first clear this run paid its power-up reward, or 0 when none did. Set off
+        /// <see cref="LevelAdvancedMessage"/> — published only when a clear moves the frontier, which is
+        /// exactly when <see cref="LevelProgressionSystem"/> pays the reward, and before the game over
+        /// that opens this card — and cleared on run start. A replay never advances the frontier, so a
+        /// replayed level's card shows no reward box: it paid none.
+        /// </summary>
+        private int _rewardedLevelNumber;
 
         private Text _badgesHeadingText;
         private Text _claimHintText;
@@ -437,6 +464,8 @@ namespace MustyBlockBlast.Presentation.Views
             GameModeSystem gameModeSystem,
             TimedModeSystem timedModeSystem,
             LevelCatalog levelCatalog,
+            PowerUpInventoryView powerUpInventoryView,
+            ISubscriber<LevelAdvancedMessage> levelAdvancedSubscriber,
             ISubscriber<GameOverMessage> gameOverSubscriber,
             ISubscriber<RunStartedMessage> runStartedSubscriber,
             ISubscriber<NewRecordMessage> newRecordSubscriber,
@@ -455,6 +484,8 @@ namespace MustyBlockBlast.Presentation.Views
             _gameModeSystem = gameModeSystem;
             _timedModeSystem = timedModeSystem;
             _levelCatalog = levelCatalog;
+            _powerUpInventoryView = powerUpInventoryView;
+            _levelAdvancedSubscriber = levelAdvancedSubscriber;
             _gameOverSubscriber = gameOverSubscriber;
             _runStartedSubscriber = runStartedSubscriber;
             _newRecordSubscriber = newRecordSubscriber;
@@ -475,7 +506,8 @@ namespace MustyBlockBlast.Presentation.Views
                 || _badgeModel == null || _badgeSystem == null || _badgeCatalog == null || _settingsModel == null
                 || _localizationModel == null || _localizationSystem == null || _gameModeSystem == null
                 || _timedModeSystem == null || _gameOverSubscriber == null || _runStartedSubscriber == null
-                || _newRecordSubscriber == null || _runRescuedSubscriber == null)
+                || _newRecordSubscriber == null || _runRescuedSubscriber == null
+                || _powerUpInventoryView == null || _levelAdvancedSubscriber == null)
             {
                 Debug.LogError($"{nameof(RunResultView)} was not injected. Is it registered in the LifetimeScope?", this);
                 return;
@@ -494,6 +526,7 @@ namespace MustyBlockBlast.Presentation.Views
             _runStartedSubscriber.Subscribe(OnRunStarted).AddTo(_disposables);
             _newRecordSubscriber.Subscribe(OnNewRecord).AddTo(_disposables);
             _runRescuedSubscriber.Subscribe(OnRunRescued).AddTo(_disposables);
+            _levelAdvancedSubscriber.Subscribe(OnLevelAdvanced).AddTo(_disposables);
 
             // A defensive baseline: every real run start replaces this, but a card that somehow opens
             // without one then reads "nothing earned" rather than crediting the whole balance.
@@ -612,6 +645,7 @@ namespace MustyBlockBlast.Presentation.Views
         private void OnRunStarted(RunStartedMessage message)
         {
             _isNewRecordThisRun = false;
+            _rewardedLevelNumber = 0;
             _coinsAtRunStart = _profileModel.CoinBalance.Value;
             CancelCoinCountUp();
             _panel.SetActive(false);
@@ -627,6 +661,11 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         private void OnNewRecord(NewRecordMessage message) => _isNewRecordThisRun = true;
+
+        /// <summary>A first clear just moved the frontier past the level it cleared — and paid that
+        /// level's reward. See <see cref="_rewardedLevelNumber"/>.</summary>
+        private void OnLevelAdvanced(LevelAdvancedMessage message)
+            => _rewardedLevelNumber = message.CurrentLevelNumber - 1;
 
         private void OnLifetimeTotalChanged(int total) => RefreshStats();
 
@@ -676,6 +715,7 @@ namespace MustyBlockBlast.Presentation.Views
             _newTagText.color = Color.white;
 
             PaintCoinBox();
+            PaintRewardBox();
 
             _badgesHeadingText.color = theme.SoftInk;
             _claimHintText.color = theme.Accent;
@@ -705,6 +745,25 @@ namespace MustyBlockBlast.Presentation.Views
             _coinBoxValueText.color = _currentTheme.Ink;
             _coinBoxPillPlate.color = _currentTheme.GetFill(HudChrome.GREEN_KIND);
             _coinBoxPillText.color = Color.white;
+        }
+
+        /// <summary>The level-reward box in the coin box's vocabulary: same plate, same caption ink, and
+        /// accent discs carrying the power-up glyphs as the Level Path's reward badges do.</summary>
+        private void PaintRewardBox()
+        {
+            if (_rewardBoxRoot == null || _currentTheme == null)
+            {
+                return;
+            }
+
+            _rewardBoxShadow.color = _currentTheme.CardShadow;
+            _rewardBoxPlate.color = _currentTheme.CardBackground;
+            _rewardBoxCaptionText.color = _currentTheme.SoftInk;
+            for (int rewardIndex = 0; rewardIndex < _rewardDiscs.Length; rewardIndex++)
+            {
+                _rewardDiscs[rewardIndex].color = _currentTheme.Accent;
+                _rewardGlyphs[rewardIndex].color = Color.white;
+            }
         }
 
         private void PaintStatPlate(StatPlate statPlate, Color valueColour)
@@ -742,6 +801,7 @@ namespace MustyBlockBlast.Presentation.Views
             RefreshHeader();
             RefreshStats();
             RefreshCoinBox();
+            RefreshRewardBox();
             RefreshBadges();
             RefreshButtons();
             Layout();
@@ -926,6 +986,57 @@ namespace MustyBlockBlast.Presentation.Views
             {
                 SetCoinFigure(_coinsAtRunStart);
                 AnimateCoinsToAsync(_profileModel.CoinBalance.Value).Forget();
+            }
+        }
+
+        /// <summary>
+        /// The level-reward box (issue #462), shown only on a cleared Path level whose clear paid its
+        /// power-up reward — a first clear. Shows the very kinds the rule paid, one disc each (three on
+        /// a milestone); the fly-in to the strip is <see cref="PowerUpGrantAnimationView"/>'s, not
+        /// this card's. Every other card leaves the row hidden, and <see cref="Layout"/> then gives it
+        /// no height at all.
+        /// </summary>
+        private void RefreshRewardBox()
+        {
+            if (_rewardBoxRoot == null || _localizationSystem == null || _powerUpInventoryView == null)
+            {
+                return;
+            }
+
+            bool show = _lastMode == GameMode.Path
+                && _lastReason == GameOverReason.LevelCompleted
+                && _rewardedLevelNumber > 0
+                && _rewardedLevelNumber == _playedLevelNumber;
+            _rewardBoxRoot.gameObject.SetActive(show);
+            if (!show)
+            {
+                return;
+            }
+
+            _rewardBoxCaptionText.text = _localizationSystem.Translate(LocalizationKeys.RUN_RESULT_LEVEL_REWARD_LABEL);
+
+            IReadOnlyList<PowerUpKind> rewards = LevelCompletionRewards.For(_playedLevelNumber);
+            float rowWidth = _cardWidth - (SIDE_INSET * 2f);
+            float rightEdge = (rowWidth * 0.5f) - COIN_BOX_PAD;
+            for (int rewardIndex = 0; rewardIndex < _rewardDiscs.Length; rewardIndex++)
+            {
+                bool hasReward = rewardIndex < rewards.Count;
+                _rewardDiscs[rewardIndex].gameObject.SetActive(hasReward);
+                _rewardGlyphs[rewardIndex].gameObject.SetActive(hasReward);
+                if (!hasReward)
+                {
+                    continue;
+                }
+
+                // Right-aligned, first reward rightmost-last: laid out left to right so the list reads
+                // in grant order, the same order the fly-ins arrive in.
+                int slotFromRight = rewards.Count - 1 - rewardIndex;
+                float discX = rightEdge - (COIN_DISC_SIZE * 0.5f)
+                    - (slotFromRight * (COIN_DISC_SIZE + REWARD_BOX_ICON_GAP));
+                Vector2 position = new Vector2(discX, 0f);
+                _rewardDiscs[rewardIndex].rectTransform.anchoredPosition = position;
+                _rewardGlyphs[rewardIndex].rectTransform.anchoredPosition = position;
+                _rewardGlyphs[rewardIndex].sprite = _powerUpInventoryView.IconFor(rewards[rewardIndex]);
             }
         }
 
@@ -1210,6 +1321,14 @@ namespace MustyBlockBlast.Presentation.Views
                 y += COIN_BOX_HEIGHT;
             }
 
+            // Straight under the coin box, on the same terms: only a Path first clear shows it.
+            if (_rewardBoxRoot.gameObject.activeSelf)
+            {
+                y += COIN_BOX_TOP_GAP;
+                HangCentre(_rewardBoxRoot, 0f, y + (COIN_BOX_HEIGHT * 0.5f));
+                y += COIN_BOX_HEIGHT;
+            }
+
             if (_badgesHeadingText.gameObject.activeSelf)
             {
                 y += BADGES_TOP_GAP;
@@ -1331,6 +1450,7 @@ namespace MustyBlockBlast.Presentation.Views
 
             BuildWell();
             BuildCoinBox();
+            BuildRewardBox();
 
             _badgesHeadingText = HudChrome.CreateLabel(
                 _cardRect, "BadgesHeading", _captionFontSize, FontStyle.Bold, TextAnchor.MiddleLeft, Vector2.zero, _labelFont);
@@ -1478,6 +1598,37 @@ namespace MustyBlockBlast.Presentation.Views
                 new Vector2(0f, -2f), _displayFont);
 
             _coinBoxRoot.gameObject.SetActive(false);
+        }
+
+        /// <summary>
+        /// The level-reward box (issue #462): the coin box's plate, its caption on the left, and up to
+        /// <see cref="LevelCompletionRewards.MILESTONE_REWARD_COUNT"/> accent discs carrying power-up
+        /// glyphs, positioned per open by <see cref="RefreshRewardBox"/>. Built hidden.
+        /// </summary>
+        private void BuildRewardBox()
+        {
+            float rowWidth = _cardWidth - (SIDE_INSET * 2f);
+            var rowSize = new Vector2(rowWidth, COIN_BOX_HEIGHT);
+            _rewardBoxRoot = HudChrome.CreateRect(_cardRect, "RewardBox", rowSize, Vector2.zero);
+            HudChrome.BuildPlate(
+                _rewardBoxRoot, "Body", rowSize, Vector2.zero, COIN_BOX_RADIUS, HudChrome.PLATE_SHADOW_DROP,
+                out _rewardBoxShadow, out _rewardBoxPlate);
+
+            float captionX = (-rowWidth * 0.5f) + COIN_BOX_PAD + COIN_ICON_TEXT_GAP;
+            _rewardBoxCaptionText = HudChrome.CreateLabel(
+                _rewardBoxRoot, "Caption", _captionFontSize, FontStyle.Bold, TextAnchor.MiddleLeft,
+                new Vector2(captionX, 0f), _labelFont);
+
+            for (int rewardIndex = 0; rewardIndex < _rewardDiscs.Length; rewardIndex++)
+            {
+                _rewardDiscs[rewardIndex] = HudChrome.BuildCircle(
+                    _rewardBoxRoot, $"RewardDisc_{rewardIndex}", COIN_DISC_SIZE, Vector2.zero);
+                _rewardGlyphs[rewardIndex] = HudChrome.BuildGlyph(
+                    _rewardBoxRoot, $"RewardGlyph_{rewardIndex}", null,
+                    new Vector2(REWARD_GLYPH_SIZE, REWARD_GLYPH_SIZE), Vector2.zero);
+            }
+
+            _rewardBoxRoot.gameObject.SetActive(false);
         }
 
         private StatPlate BuildStatPlate(string objectName, float width, Vector2 anchoredPosition)
