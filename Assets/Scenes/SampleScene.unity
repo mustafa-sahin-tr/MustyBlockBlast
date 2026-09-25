@@ -864,57 +864,6 @@ MonoBehaviour:
   _sectionFontSize: 30
   _rowFontSize: 32
   _scrimColour: {r: 0.17, g: 0.15, b: 0.2, a: 0.55}
---- !u!1 &663350231
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 663350232}
-  - component: {fileID: 663350233}
-  m_Layer: 0
-  m_Name: PathLevelBadge
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!224 &663350232
-RectTransform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 663350231}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1595068338}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 1}
-  m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 32, y: -188}
-  m_SizeDelta: {x: 68, y: 68}
-  m_Pivot: {x: 0, y: 1}
---- !u!114 &663350233
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 663350231}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3f3ac9e6aa63c435eb22ebfd1c34a8b6, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.PathLevelBadgeView
-  _cornerOffset: {x: 2, y: 2}
-  _badgeDiameter: 48
-  _rimThickness: 6
 --- !u!1 &737113204
 GameObject:
   m_ObjectHideFlags: 0
@@ -2317,6 +2266,7 @@ MonoBehaviour:
   _coinBundleConfig: {fileID: 11400000, guid: eb3e91b3d5d5343eeaf64dd26cd6962f, type: 2}
   _removeAdsProductConfig: {fileID: 11400000, guid: 8d78666af0edb4a9eb24de1f12842ce8, type: 2}
   _promotionConfig: {fileID: 11400000, guid: 7388f93f45ba1487b8604089e57a0e81, type: 2}
+  _livesConfig: {fileID: 11400000, guid: b7313c2d9ebe74853a89d6df35306a8b, type: 2}
 --- !u!4 &1490060644
 Transform:
   m_ObjectHideFlags: 0
@@ -2389,7 +2339,11 @@ MonoBehaviour:
   _chipPaddingRight: 22
   _chipGap: 13
   _chipSpacing: 18
-  _trailingInset: 30
+  _trailingInset: 18
+  _leadingInset: 18
+  _barHeight: 92
+  _barRadius: 34
+  _sectionGap: 28
   _progressFontSize: 34
   _displayFont: {fileID: 12800000, guid: 0879445ee55bb4fc5bfdc99e4b94f899, type: 3}
 --- !u!1 &1552735300
@@ -2470,6 +2424,63 @@ MonoBehaviour:
   m_EditorClassIdentifier: Unity.InputSystem::UnityEngine.InputSystem.InputActionReference
   m_Asset: {fileID: -944628639613478452, guid: 2bcd2660ca9b64942af0de543d8d7100, type: 3}
   m_ActionId: 44b200b1-1557-4083-816c-b22cbdf77ddf
+--- !u!1 &1591165624
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1591165625}
+  - component: {fileID: 1591165626}
+  m_Layer: 0
+  m_Name: LivesHud
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &1591165625
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1591165624}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1595068338}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 100, y: 100}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &1591165626
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1591165624}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1152edb2667e44ffcb6a29dcdb66adf2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.LivesHudView
+  _sectionWidth: 84
+  _sectionHeight: 80
+  _heartSize: 60
+  _heartLift: 11
+  _countdownY: -29
+  _countFontSize: 28
+  _countdownFontSize: 22
+  _displayFont: {fileID: 12800000, guid: 0879445ee55bb4fc5bfdc99e4b94f899, type: 3}
+  _heartSprite: {fileID: 21300000, guid: 2dbf5b39c82b24b0684829f33b0d5125, type: 3}
 --- !u!1 &1595068337
 GameObject:
   m_ObjectHideFlags: 0
@@ -2503,7 +2514,6 @@ RectTransform:
   - {fileID: 1077023709}
   - {fileID: 1020096755}
   - {fileID: 1262375242}
-  - {fileID: 663350232}
   - {fileID: 1770068465}
   - {fileID: 1274277862}
   - {fileID: 1443061545}
@@ -2519,6 +2529,7 @@ RectTransform:
   - {fileID: 1625024003}
   - {fileID: 652924323}
   - {fileID: 1541961979}
+  - {fileID: 1591165625}
   - {fileID: 1408565922}
   - {fileID: 941606220}
   - {fileID: 314965631}
@@ -2597,15 +2608,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: MustyBlockBlast.Presentation::MustyBlockBlast.Presentation.Views.LevelPathButtonView
   _pillHeight: 70
+  _levelIconSize: 64
   _discSize: 52
   _glyphSize: 32
-  _paddingLeft: 10
-  _paddingRight: 22
   _gap: 10
-  _captionFontSize: 24
   _numberFontSize: 38
   _displayFont: {fileID: 12800000, guid: 0879445ee55bb4fc5bfdc99e4b94f899, type: 3}
-  _labelFont: {fileID: 12800000, guid: 6537f3bea187e4d82b1d0969d9d00fa6, type: 3}
   _trailSprite: {fileID: 21300000, guid: 094a691f57671453a914e0a347f9164b, type: 3}
 --- !u!1 &1618923934
 GameObject:

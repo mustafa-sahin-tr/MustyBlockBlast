@@ -300,6 +300,36 @@ does, the run is over — subject to two life-lines, tried in order, before it a
 This check is also what powers the "no moves" hint state, so it must be cheap enough to run
 every placement.
 
+## Lives
+
+Path mode has a pool of **lives**, so a failed level has a cost. Endless and Timed never read or
+write lives.
+
+- **Start:** new installs, and existing installs that update into this feature, begin with **20**.
+- **Losing a life:** a Path run that ends in any way other than completing the level (no moves
+  left, time up) costs **1 life**. This applies to every Path level, including replays of levels
+  already cleared. Completing a level costs nothing. Leaving a run before it ends (home, mode
+  switch, closing the app) costs nothing either, because only a run that actually ends counts.
+  Lives never go below 0.
+- **Rescued failures are free:** if the player takes the no-moves rescue ad (see "Game over"),
+  the life that ending cost is refunded, so the player never pays with both the ad and a life. A
+  rescued run that dead-ends again costs a life again, which nets to 1.
+- **Hourly refill:** at every wall-clock hour boundary (xx:00, device local time), lives go up by
+  **+5**, up to a cap of **20**. Hours that pass while the app is closed count too. For example,
+  3 lives at 10:40 become 8 at 11:00, and 3 lives at 10:40 reopened at 14:10 have crossed four
+  boundaries and are capped at 20. The refill only tops up to 20. A count already above 20 (from a
+  coin pack, see below) is left as it is and never lowered. If the device clock moves backwards,
+  the refill re-anchors to the current hour and grants nothing.
+- **HUD:** in Path mode the goal row is one status bar: `[level icon + number] | [goal chips] |
+  [heart with the life count]`. While lives are below 20, the time left to the next refill
+  ("mm:ss") shows under the heart. At 20 or above, no countdown is shown. The top centre of the
+  screen stays empty for the Dynamic Island.
+- **Not yet:** in this first slice, 0 lives does not stop a Path level from starting. The
+  out-of-lives gate and the rewarded-ad top-up (+3, capped at 20) arrive in #478. The coin pack
+  (+10, not capped) arrives in #479.
+- Tuning values (cap, refill amount, starting lives) live in `LivesConfig`
+  (`Assets/Content/Lives/LivesConfig.asset`).
+
 ## Timed mode
 
 Two modes are selectable: **Sınırsız** (endless, the default) and **Süreli** (timed). Switching
