@@ -176,6 +176,19 @@ namespace MustyBlockBlast.Presentation.Views
                 literalText, 0f, 0f, InfoDemoElementState.At(position, paint, alpha));
         }
 
+        /// <summary>Draws <paramref name="elementId"/> in the stage's overlay layer, over every tray piece
+        /// (issue #449) — a finger pressing a piece, a badge on a piece. Overlay elements keep their
+        /// relative order (element id order), so a tap ring added after its finger still draws over it.</summary>
+        internal void BringToFront(int elementId)
+        {
+            if (elementId < 0 || elementId >= _elements.Count)
+            {
+                throw new ArgumentOutOfRangeException(nameof(elementId), elementId, "No such demo element.");
+            }
+
+            _elements[elementId].MarkOnTop();
+        }
+
         /// <summary>Queues one step. Steps may be added in any order; <see cref="Build"/> sorts them.</summary>
         internal void Animate(
             int elementId,

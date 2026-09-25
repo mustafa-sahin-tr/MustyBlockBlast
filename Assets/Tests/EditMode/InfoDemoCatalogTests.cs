@@ -45,14 +45,14 @@ namespace MustyBlockBlast.Tests.EditMode
         }
 
         [Test]
-        public void SpecialPiecesAndHold_HaveNoDemo_EvenWithTheVortexKindValue()
+        public void SpecialPieces_HaveNoDemo_EvenWithTheVortexKindValue()
         {
-            // Power-ups are covered by InfoDemoPowerUpTests (issue #448 gave six of them a demo — one of
-            // which, ColorCleanser, shares the Vortex's kind value 4).
+            // Power-ups are covered by InfoDemoPowerUpTests (#448) and InfoDemoTrayPowerUpTests (#449) —
+            // every power-up has a demo now, ColorCleanser among them with the Vortex's kind value 4. The
+            // Hold subject has one too (issue #449; see InfoDemoTrayPowerUpTests).
             InfoDemoCatalog catalog = new InfoDemoCatalog();
 
             AssertNoneFor(catalog, InfoPopupSubjectKind.SpecialPiece, typeof(SpecialPieceKind));
-            Assert.IsNull(catalog.Find(InfoPopupSubjectKind.Hold, 0));
             Assert.IsNull(catalog.Find(InfoPopupSubjectKind.SpecialPiece, (int)SpecialCellKind.Vortex));
         }
 

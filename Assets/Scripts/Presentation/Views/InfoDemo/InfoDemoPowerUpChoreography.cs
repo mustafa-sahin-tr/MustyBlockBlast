@@ -1,4 +1,3 @@
-using System.Globalization;
 using MustyBlockBlast.Gameplay;
 using UnityEngine;
 
@@ -42,7 +41,6 @@ namespace MustyBlockBlast.Presentation.Views
         private const float PLATE_SHADOW_ALPHA = 0.14f;
         private const float ARMED_GLOW_ALPHA = 0.75f;
         private const float ARMED_RING_START_SCALE = 1.15f;
-        private const float COUNT_CROSSFADE_DURATION = 0.22f;
 
         /// <summary>Mockup-unit geometry of the colour picker pill: its swatches (rounded squares, like the
         /// real picker's), their pitch, the pill's padding and how far above the tapped cell it floats.</summary>
@@ -71,6 +69,16 @@ namespace MustyBlockBlast.Presentation.Views
         /// </summary>
         internal static InfoDemoPowerUpButton PowerUpButton(
             InfoDemoTimelineBuilder builder, PowerUpKind kind, int platePaint, int count)
+            => PowerUpButton(builder, InfoDemoSprite.PowerUpIcon, (int)kind, platePaint, count);
+
+        /// <summary>
+        /// As <see cref="PowerUpButton(InfoDemoTimelineBuilder, PowerUpKind, int, int)"/>, with any icon
+        /// sprite on the plate — for a power-up that has no strip icon of its own (Coin Sower, issue
+        /// #449, whose charges are spent at the level-start picker rather than from the strip, so it is
+        /// drawn with the coin face instead).
+        /// </summary>
+        internal static InfoDemoPowerUpButton PowerUpButton(
+            InfoDemoTimelineBuilder builder, InfoDemoSprite iconSprite, int iconParameter, int platePaint, int count)
         {
             Vector2 centre = InfoDemoLayout.ChipCentre;
             float plateSide = InfoDemoLayout.FromMockLength(MOCK_PLATE_SIZE);
@@ -84,8 +92,7 @@ namespace MustyBlockBlast.Presentation.Views
                 centre + new Vector2(0f, InfoDemoLayout.FromMockLength(MOCK_PLATE_SHADOW_DROP)),
                 plateSize, plateCorner, InfoDemoPaint.INK, PLATE_SHADOW_ALPHA);
             int plate = builder.AddPanel(centre, plateSize, plateCorner, platePaint);
-            int icon = builder.AddIcon(
-                InfoDemoSprite.PowerUpIcon, (int)kind, centre, MOCK_ICON_SIZE / InfoDemoLayout.MOCK_CELL);
+            int icon = builder.AddIcon(iconSprite, iconParameter, centre, MOCK_ICON_SIZE / InfoDemoLayout.MOCK_CELL);
 
             float ringSide = InfoDemoLayout.FromMockLength(MOCK_ARMED_RING_SIZE);
             int armedRing = builder.AddRing(
@@ -94,19 +101,16 @@ namespace MustyBlockBlast.Presentation.Views
 
             float badgeOffset = InfoDemoLayout.FromMockLength((MOCK_PLATE_SIZE * 0.5f) - MOCK_BADGE_INSET);
             Vector2 badgeCentre = centre + new Vector2(badgeOffset, -badgeOffset);
-            float badgeDiameter = InfoDemoLayout.FromMockLength(MOCK_BADGE_DIAMETER);
-            float rimDiameter = InfoDemoLayout.FromMockLength(MOCK_BADGE_DIAMETER + (MOCK_BADGE_RIM * 2f));
-            builder.AddPanel(badgeCentre, new Vector2(rimDiameter, rimDiameter), rimDiameter * 0.5f, InfoDemoPaint.WHITE);
-            builder.AddPanel(badgeCentre, new Vector2(badgeDiameter, badgeDiameter), badgeDiameter * 0.5f, InfoDemoPaint.BADGE_RED);
+            InfoDemoCountBadge badge = InfoDemoHudChoreography.CountBadge(
+                builder,
+                badgeCentre,
+                count,
+                InfoDemoPaint.BADGE_RED,
+                InfoDemoLayout.FromMockLength(MOCK_BADGE_DIAMETER),
+                InfoDemoLayout.FromMockLength(MOCK_BADGE_RIM),
+                InfoDemoLayout.FromMockLength(MOCK_BADGE_FONT));
 
-            float countFont = InfoDemoLayout.FromMockLength(MOCK_BADGE_FONT);
-            int countLabel = builder.AddText(
-                count.ToString(CultureInfo.InvariantCulture), badgeCentre, badgeDiameter, countFont, InfoDemoPaint.WHITE, 1f);
-            int spentCountLabel = builder.AddText(
-                Mathf.Max(0, count - 1).ToString(CultureInfo.InvariantCulture), badgeCentre, badgeDiameter, countFont,
-                InfoDemoPaint.WHITE, 0f);
-
-            return new InfoDemoPowerUpButton(centre, shadow, armedGlow, armedRing, plate, icon, countLabel, spentCountLabel);
+            return new InfoDemoPowerUpButton(centre, shadow, armedGlow, armedRing, plate, icon, badge);
         }
 
         /// <summary>
@@ -140,15 +144,10 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         /// <summary>The count badge ticks down by one at <paramref name="time"/> — the charge the
-        /// application just spent. Returns the time the crossfade settles.</summary>
+        /// application just spent. Call it once per charge: a Coin Sower sowing three coins ticks 3 → 2 →
+        /// 1 → 0 (issue #449). Returns the time the crossfade settles.</summary>
         internal static float SpendCharge(InfoDemoTimelineBuilder builder, InfoDemoPowerUpButton button, float time)
-        {
-            builder.Fade(button.CountLabelId, time, COUNT_CROSSFADE_DURATION, 1f, 0f, InfoDemoEasing.EaseInCubic);
-            builder.Fade(button.SpentCountLabelId, time, COUNT_CROSSFADE_DURATION, 0f, 1f, InfoDemoEasing.EaseOutCubic);
-            builder.Scale(
-                button.SpentCountLabelId, time, COUNT_CROSSFADE_DURATION + 0.1f, 1.4f, 1f, InfoDemoEasing.EaseOutBack);
-            return time + COUNT_CROSSFADE_DURATION + 0.1f;
-        }
+            => InfoDemoHudChoreography.AdvanceCounter(builder, button.Badge.Counter, time);
 
         /// <summary>The idle tray beside a power-up button — an L corner (green), a 1x2 (blue) and a
         /// single (purple) in the strip's right-zone slots. Nothing is played from it: it is there so the

@@ -543,7 +543,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1869058130567172
-    m_Localized: "Tepsindeki bir par\xE7ay\u0131 \u015Fu an yerle\u015Ftirmek istemiyorsan, onu buraya s\xFCr\xFCkleyip bekletebilirsin. Daha sonra, ihtiyac\u0131n oldu\u011Funda buradan al\u0131p tahtaya yerle\u015Ftirebilirsin \u2014 cepte ayn\u0131 anda sadece bir par\xE7a durabilir."
+    m_Localized: "Par\xE7ay\u0131 cebe s\xFCr\xFCkleyip sakla. Dolu cebe b\u0131rak\u0131rsan ikisi yer de\u011Fi\u015Ftirir."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300672
@@ -575,7 +575,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300682
-    m_Localized: "Tepsindeki par\xE7alardan birini se\xE7; yerle\u015Ftirmeden \xF6nce onu 90 derece d\xF6nd\xFCrerek tahtaya daha iyi oturmas\u0131n\u0131 sa\u011Flayabilirsin."
+    m_Localized: "Tepsideki bir par\xE7aya dokun: 90\xB0 d\xF6ner. Her dokunu\u015F bir tur daha \xE7evirir."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300683
@@ -583,7 +583,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300684
-    m_Localized: "Elindeki hi\xE7bir par\xE7a i\u015Fine yaram\u0131yorsa, tepsideki \xFC\xE7 par\xE7an\u0131n hepsini tek seferde yeni, rastgele par\xE7alarla de\u011Fi\u015Ftirir."
+    m_Localized: "Tepsideki \xFC\xE7 par\xE7ay\u0131 yenileriyle de\u011Fi\u015Ftirir; en az biri mutlaka s\u0131\u011Far."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300685
@@ -591,7 +591,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300686
-    m_Localized: "Aktif etti\u011Finde belirli bir s\xFCre boyunca yapt\u0131\u011F\u0131n her hamleden kazand\u0131\u011F\u0131n puan ikiye katlan\u0131r \u2014 b\xFCy\xFCk bir skor ata\u011F\u0131 yapmak i\xE7in do\u011Fru an\u0131 se\xE7."
+    m_Localized: "15 saniye boyunca kazand\u0131\u011F\u0131n her puan ikiye katlan\u0131r."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300687
@@ -599,7 +599,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300688
-    m_Localized: "Tepsindeki par\xE7alardan birini se\xE7ip, o par\xE7a i\xE7in tahtadaki en uygun yeri saydam bir hayalet siluetiyle g\xF6sterir; par\xE7ay\u0131 oraya s\xFCr\xFCklemen yeterli."
+    m_Localized: "Tahtadaki en iyi hamleyi parlayan bir siluetle g\xF6sterir."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300689
@@ -607,7 +607,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300690
-    m_Localized: "Tahtan\u0131n rastgele h\xFCcrelerine coin simgeleri yerle\u015Ftirir. Bu h\xFCcreleri sat\u0131r veya s\xFCtun temizleyerek yok etti\u011Finde coin kazan\u0131rs\u0131n."
+    m_Localized: "Level ba\u015F\u0131nda tahtaya coin h\xFCcreleri eker; onlar\u0131 temizledik\xE7e coin kazan\u0131rs\u0131n."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300691
@@ -980,6 +980,30 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 4052349499727874
     m_Localized: "Hi\xE7bir \u015Fey silinmez"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4060774321348608
+    m_Localized: "Art\u0131k s\u0131\u011F\u0131yor!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4060774346514432
+    m_Localized: "Hi\xE7biri s\u0131\u011Fm\u0131yor"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4060774346514433
+    m_Localized: En iyi hamle
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4060774346514434
+    m_Localized: +coin
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4060774346514435
+    m_Localized: "Sakland\u0131"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4060774346514436
+    m_Localized: "Yer de\u011Fi\u015Ftirdi"
     m_Metadata:
       m_Items: []
   references:

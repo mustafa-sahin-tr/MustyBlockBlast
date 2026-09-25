@@ -16,8 +16,7 @@ namespace MustyBlockBlast.Presentation.Views
             int armedRingId,
             int plateId,
             int iconId,
-            int countLabelId,
-            int spentCountLabelId)
+            InfoDemoCountBadge badge)
         {
             Centre = centre;
             ShadowId = shadowId;
@@ -25,8 +24,7 @@ namespace MustyBlockBlast.Presentation.Views
             ArmedRingId = armedRingId;
             PlateId = plateId;
             IconId = iconId;
-            CountLabelId = countLabelId;
-            SpentCountLabelId = spentCountLabelId;
+            Badge = badge;
         }
 
         /// <summary>The button's centre in board units — where a tap on it lands.</summary>
@@ -45,10 +43,13 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>The power-up's own icon on the plate.</summary>
         internal int IconId { get; }
 
+        /// <summary>The red count badge at the plate's top-right, counting its charges down (issue #449).</summary>
+        internal InfoDemoCountBadge Badge { get; }
+
         /// <summary>The count badge's number before the charge is spent.</summary>
-        internal int CountLabelId { get; }
+        internal int CountLabelId => Badge.LabelIdForCount(Badge.StartCount);
 
         /// <summary>The count badge's number after one charge is spent (hidden until then).</summary>
-        internal int SpentCountLabelId { get; }
+        internal int SpentCountLabelId => Badge.LabelIdForCount(Badge.StartCount - 1);
     }
 }

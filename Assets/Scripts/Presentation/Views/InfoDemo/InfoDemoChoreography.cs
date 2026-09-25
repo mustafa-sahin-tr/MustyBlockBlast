@@ -235,6 +235,30 @@ namespace MustyBlockBlast.Presentation.Views
             return labelId;
         }
 
+        /// <summary>As <see cref="FloatLabel"/>, for language-neutral literal text — a score like "+11"
+        /// (issue #449). <paramref name="fontHeight"/> is in board units.</summary>
+        internal static int FloatText(
+            InfoDemoTimelineBuilder builder,
+            string literalText,
+            Vector2 position,
+            float rise,
+            int paint,
+            float fontHeight,
+            float startTime,
+            float duration)
+        {
+            const float labelWidth = 7.6f;
+
+            int labelId = builder.AddText(literalText, position, labelWidth, fontHeight, paint);
+            builder.Fade(labelId, startTime, 0.15f, 0f, 1f, InfoDemoEasing.EaseOutCubic);
+            builder.Scale(labelId, startTime, 0.3f, 0.6f, 1f, InfoDemoEasing.EaseOutBack);
+            builder.Move(labelId, startTime, duration, position, position + new Vector2(0f, -rise), InfoDemoEasing.EaseOutCubic);
+
+            float fadeOutDuration = duration * 0.25f;
+            builder.Fade(labelId, startTime + duration - fadeOutDuration, fadeOutDuration, 1f, 0f, InfoDemoEasing.EaseInCubic);
+            return labelId;
+        }
+
         /// <summary>
         /// A simulated tap at <paramref name="position"/> (board units) landing at <paramref name="time"/>
         /// (issue #448): a white fingertip — soft shadow, thin dark rim — glides in from below-right over
@@ -250,16 +274,7 @@ namespace MustyBlockBlast.Presentation.Views
                 InfoDemoLayout.FromMockLength(MOCK_FINGER_START_OFFSET_Y));
             Vector2 shadowDrop = new Vector2(0f, InfoDemoLayout.FromMockLength(MOCK_FINGER_SHADOW_DROP));
 
-            // Icon sizes are in board-cell widths (MOCK_CELL), not pitches. Back to front: shadow, rim, face.
-            int shadow = builder.AddIcon(
-                InfoDemoSprite.SoftDisc, 0, position + startOffset + shadowDrop,
-                MOCK_FINGER_SHADOW_DIAMETER / InfoDemoLayout.MOCK_CELL, 0f, InfoDemoPaint.INK);
-            int rim = builder.AddIcon(
-                InfoDemoSprite.Disc, 0, position + startOffset,
-                (MOCK_FINGER_DIAMETER + (MOCK_FINGER_BORDER * 2f)) / InfoDemoLayout.MOCK_CELL, 0f, InfoDemoPaint.INK);
-            int face = builder.AddIcon(
-                InfoDemoSprite.Disc, 0, position + startOffset,
-                MOCK_FINGER_DIAMETER / InfoDemoLayout.MOCK_CELL, 0f, InfoDemoPaint.WHITE);
+            AddFinger(builder, position + startOffset, shadowDrop, out int shadow, out int rim, out int face);
 
             AnimateFingerPart(builder, shadow, glideStart, time, position + startOffset + shadowDrop, position + shadowDrop, FINGER_SHADOW_ALPHA);
             AnimateFingerPart(builder, rim, glideStart, time, position + startOffset, position, FINGER_BORDER_ALPHA);
@@ -271,8 +286,55 @@ namespace MustyBlockBlast.Presentation.Views
                 InfoDemoLayout.FromMockLength(MOCK_TAP_RING_STROKE), InfoDemoPaint.WHITE);
             builder.Scale(ring, time, TAP_RING_DURATION, TAP_RING_START_SCALE, TAP_RING_END_SCALE, InfoDemoEasing.EaseOutCubic);
             builder.Fade(ring, time, TAP_RING_DURATION, TAP_RING_START_ALPHA, 0f, InfoDemoEasing.EaseInCubic);
+            builder.BringToFront(ring);
 
             return time + TAP_RING_DURATION;
+        }
+
+        /// <summary>
+        /// A simulated drag (issue #449 — a tray piece dragged onto the Hold pocket): the same fingertip as
+        /// <see cref="Tap"/> glides in and touches down on <paramref name="from"/> at
+        /// <paramref name="grabTime"/>, stays pressed while it travels to <paramref name="to"/> over
+        /// [<paramref name="moveStart"/>, <paramref name="moveStart"/> + <paramref name="moveDuration"/>],
+        /// then lifts and fades. Move whatever it carries along the same path with the same easing
+        /// (<see cref="InfoDemoEasing.EaseInOutCubic"/>). Returns the release time.
+        /// </summary>
+        internal static float Drag(
+            InfoDemoTimelineBuilder builder, float grabTime, Vector2 from, Vector2 to, float moveStart, float moveDuration)
+        {
+            float glideStart = Mathf.Max(0f, grabTime - TAP_GLIDE_DURATION);
+            float glideDuration = Mathf.Max(0.01f, grabTime - glideStart);
+            float releaseTime = moveStart + moveDuration;
+            Vector2 startOffset = new Vector2(
+                InfoDemoLayout.FromMockLength(MOCK_FINGER_START_OFFSET_X),
+                InfoDemoLayout.FromMockLength(MOCK_FINGER_START_OFFSET_Y));
+            Vector2 shadowDrop = new Vector2(0f, InfoDemoLayout.FromMockLength(MOCK_FINGER_SHADOW_DROP));
+
+            AddFinger(builder, from + startOffset, shadowDrop, out int shadow, out int rim, out int face);
+
+            int[] parts = { shadow, rim, face };
+            float[] peakAlphas = { FINGER_SHADOW_ALPHA, FINGER_BORDER_ALPHA, 1f };
+            Vector2[] offsets = { shadowDrop, Vector2.zero, Vector2.zero };
+            for (int partIndex = 0; partIndex < parts.Length; partIndex++)
+            {
+                int part = parts[partIndex];
+                Vector2 offset = offsets[partIndex];
+                float peakAlpha = peakAlphas[partIndex];
+
+                builder.Move(part, glideStart, glideDuration, from + startOffset + offset, from + offset, InfoDemoEasing.EaseOutCubic);
+                builder.Fade(part, glideStart, Mathf.Min(0.12f, glideDuration), 0f, peakAlpha, InfoDemoEasing.EaseOutCubic);
+                builder.Scale(
+                    part, grabTime - FINGER_PRESS_IN_DURATION, FINGER_PRESS_IN_DURATION, 1f, FINGER_PRESS_SCALE,
+                    InfoDemoEasing.EaseInCubic);
+
+                builder.Move(part, moveStart, moveDuration, from + offset, to + offset, InfoDemoEasing.EaseInOutCubic);
+
+                builder.Scale(part, releaseTime, FINGER_RELEASE_DURATION, FINGER_PRESS_SCALE, 1f, InfoDemoEasing.EaseOutCubic);
+                builder.Fade(
+                    part, releaseTime + FINGER_FADE_DELAY, FINGER_FADE_DURATION, peakAlpha, 0f, InfoDemoEasing.EaseInCubic);
+            }
+
+            return releaseTime;
         }
 
         /// <summary><see cref="Tap"/> on the centre of board cell (<paramref name="row"/>, <paramref name="column"/>).</summary>
@@ -479,6 +541,27 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             return ordered;
+        }
+
+        /// <summary>A demo finger's three parts at <paramref name="position"/>, all hidden and drawn over
+        /// the tray pieces (a finger touching a tray piece is on top of it). Icon sizes are in board-cell
+        /// widths (MOCK_CELL), not pitches. Back to front: shadow, rim, face.</summary>
+        private static void AddFinger(
+            InfoDemoTimelineBuilder builder, Vector2 position, Vector2 shadowDrop, out int shadow, out int rim, out int face)
+        {
+            shadow = builder.AddIcon(
+                InfoDemoSprite.SoftDisc, 0, position + shadowDrop,
+                MOCK_FINGER_SHADOW_DIAMETER / InfoDemoLayout.MOCK_CELL, 0f, InfoDemoPaint.INK);
+            rim = builder.AddIcon(
+                InfoDemoSprite.Disc, 0, position,
+                (MOCK_FINGER_DIAMETER + (MOCK_FINGER_BORDER * 2f)) / InfoDemoLayout.MOCK_CELL, 0f, InfoDemoPaint.INK);
+            face = builder.AddIcon(
+                InfoDemoSprite.Disc, 0, position,
+                MOCK_FINGER_DIAMETER / InfoDemoLayout.MOCK_CELL, 0f, InfoDemoPaint.WHITE);
+
+            builder.BringToFront(shadow);
+            builder.BringToFront(rim);
+            builder.BringToFront(face);
         }
 
         private static void AnimateFingerPart(

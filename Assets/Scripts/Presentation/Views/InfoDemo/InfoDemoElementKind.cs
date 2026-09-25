@@ -2,7 +2,9 @@ namespace MustyBlockBlast.Presentation.Views
 {
     /// <summary>
     /// What an <see cref="InfoDemoElement"/> is drawn as. Each kind has its own pooled visual on the
-    /// <see cref="InfoDemoStage"/>, and its own layer there (listed here back to front).
+    /// <see cref="InfoDemoStage"/>, and its own layer there (listed here back to front). An element
+    /// marked <see cref="InfoDemoElement.OnTop"/> is drawn in an overlay layer between
+    /// <see cref="Piece"/> and <see cref="Label"/> instead, whatever its kind (issue #449).
     /// </summary>
     internal enum InfoDemoElementKind
     {

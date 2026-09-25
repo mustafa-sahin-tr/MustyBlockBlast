@@ -65,5 +65,12 @@ namespace MustyBlockBlast.Presentation.Views
 
         /// <summary>The element's state at loop time 0. Mutable only while the builder owns it.</summary>
         internal InfoDemoElementState Initial;
+
+        /// <summary>Drawn in the stage's overlay layer — over every piece, under the labels — instead of
+        /// its kind's own layer (issue #449): a finger touching a tray piece, a badge hung on one. Set only
+        /// while the builder owns the element (<see cref="InfoDemoTimelineBuilder.BringToFront"/>).</summary>
+        internal bool OnTop { get; private set; }
+
+        internal void MarkOnTop() => OnTop = true;
     }
 }

@@ -543,7 +543,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1869058130567172
-    m_Localized: "Si no quieres colocar una pieza de la bandeja ahora mismo, arr\xE1strala aqu\xED para guardarla. Cu\xE1ndo la necesites, s\xE1cala y col\xF3cala en el tablero \u2014 el bolsillo solo guarda una pieza a la vez."
+    m_Localized: Arrastra una pieza al bolsillo para guardarla. Si la sueltas en un bolsillo lleno, las dos se intercambian.
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300672
@@ -575,7 +575,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300682
-    m_Localized: "Elige una de tus piezas de la bandeja y g\xEDrala 90 grados antes de colocarla, para que encaje mejor en el tablero."
+    m_Localized: "Toca una pieza de la bandeja para girarla 90\xB0. Cada toque la gira un cuarto m\xE1s."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300683
@@ -583,7 +583,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300684
-    m_Localized: Si ninguna de tus piezas actuales te sirve, esto reemplaza las tres a la vez por un nuevo conjunto aleatorio.
+    m_Localized: "Cambia las tres piezas de la bandeja por otras nuevas; al menos una encajar\xE1 seguro."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300685
@@ -591,7 +591,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300686
-    m_Localized: "Al activarla, todos los puntos que ganes se duplican durante un tiempo limitado \u2014 act\xEDvala en tus mejores jugadas."
+    m_Localized: Durante 15 segundos, cada punto que ganes se duplica.
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300687
@@ -599,7 +599,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300688
-    m_Localized: "Elige una de tus piezas y te muestra el mejor lugar para ella en el tablero con una silueta fantasma; solo arr\xE1strala hasta all\xED."
+    m_Localized: Muestra la mejor jugada del tablero con una silueta brillante.
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300689
@@ -607,7 +607,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300690
-    m_Localized: Coloca iconos de moneda en celdas aleatorias del tablero. Despeja esas celdas completando su fila o columna para recoger las monedas.
+    m_Localized: "Siembra celdas de moneda en el tablero al empezar el nivel; desp\xE9jalas para ganar monedas."
     m_Metadata:
       m_Items: []
   - m_Id: 1892479862300691
@@ -980,6 +980,30 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 4052349499727874
     m_Localized: No se borra nada
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4060774321348608
+    m_Localized: "\xA1Ahora encaja!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4060774346514432
+    m_Localized: No cabe nada
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4060774346514433
+    m_Localized: Mejor jugada
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4060774346514434
+    m_Localized: +moneda
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4060774346514435
+    m_Localized: Guardada
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4060774346514436
+    m_Localized: Intercambiadas
     m_Metadata:
       m_Items: []
   references:

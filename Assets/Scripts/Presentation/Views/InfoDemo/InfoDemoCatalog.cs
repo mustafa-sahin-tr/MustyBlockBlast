@@ -5,7 +5,8 @@ namespace MustyBlockBlast.Presentation.Views
 {
     /// <summary>
     /// Which info-popup subjects have an animated demo, and the demo for each (the Vortex special cell,
-    /// #446; the six board-targeted power-ups, #448; objective cards via <see cref="FindObjective"/>, #447). A subject with none
+    /// #446; the six board-targeted power-ups, #448; the tray / targetless power-ups and the Hold pocket,
+    /// #449; objective cards via <see cref="FindObjective"/>, #447). A subject with none
     /// returns null and its card keeps today's static hero icon (issue #445 AC9). Each demo is built
     /// once, the first time it is asked for, and cached — a timeline is immutable, so replaying it
     /// every time the card opens costs nothing.
@@ -20,6 +21,9 @@ namespace MustyBlockBlast.Presentation.Views
     internal sealed class InfoDemoCatalog
     {
         private InfoDemoTimeline _vortex;
+
+        /// <summary>The Hold demo (issue #449), shared by both subjects that open the Hold card.</summary>
+        private InfoDemoTimeline _hold;
 
         /// <summary>Power-up demos (issue #448), indexed by <see cref="PowerUpKind"/> value; a kind with
         /// no demo stays null.</summary>
@@ -48,16 +52,39 @@ namespace MustyBlockBlast.Presentation.Views
                 return FindPowerUp(kindValue);
             }
 
+            // The Hold card opens as its own subject (first park, a tap on the pocket) and also as the
+            // Hold power-up (its first granted charge) — InfoPopupSystem maps both to the same card.
+            if (subjectKind == InfoPopupSubjectKind.Hold)
+            {
+                return FindHold();
+            }
+
             return null;
         }
 
-        /// <summary>The board-targeted power-ups' demos (issue #448) — Bomb, Row/Column Clear, Joker,
-        /// Color Cleanser and Paint Cross; every other kind keeps its static icon.</summary>
+        private InfoDemoTimeline FindHold()
+        {
+            if (_hold == null)
+            {
+                _hold = HoldInfoDemo.Build();
+            }
+
+            return _hold;
+        }
+
+        /// <summary>The power-up demos — the board-targeted Bomb, Row/Column Clear, Joker, Color Cleanser
+        /// and Paint Cross (issue #448) and the tray / targetless Rotate, Reroll, Double Multiplier, Ghost
+        /// Fit, Coin Sower and Hold (issue #449). Every power-up kind has one.</summary>
         private InfoDemoTimeline FindPowerUp(int kindValue)
         {
             if (kindValue < 0 || kindValue >= _powerUps.Length)
             {
                 return null;
+            }
+
+            if (kindValue == (int)PowerUpKind.Hold)
+            {
+                return FindHold();
             }
 
             if (_powerUps[kindValue] == null)
@@ -84,6 +111,16 @@ namespace MustyBlockBlast.Presentation.Views
                     return ColorCleanserInfoDemo.Build();
                 case PowerUpKind.PaintCross:
                     return PaintCrossInfoDemo.Build();
+                case PowerUpKind.Rotate:
+                    return RotateInfoDemo.Build();
+                case PowerUpKind.Reroll:
+                    return RerollInfoDemo.Build();
+                case PowerUpKind.DoubleMultiplier:
+                    return DoubleMultiplierInfoDemo.Build();
+                case PowerUpKind.GhostFit:
+                    return GhostFitInfoDemo.Build();
+                case PowerUpKind.CoinSower:
+                    return CoinSowerInfoDemo.Build();
                 default:
                     return null;
             }

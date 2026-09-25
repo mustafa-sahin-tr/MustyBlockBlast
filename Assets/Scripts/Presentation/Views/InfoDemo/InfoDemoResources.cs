@@ -20,15 +20,27 @@ namespace MustyBlockBlast.Presentation.Views
         private readonly BoardView _boardView;
         private readonly PowerUpInventoryView _powerUpInventoryView;
         private readonly LocalizationSystem _localizationSystem;
+        private readonly HoldSlotView _holdSlotView;
+        private readonly CoinTotalHudView _coinTotalHudView;
 
         /// <param name="powerUpInventoryView">Source of <see cref="InfoDemoSprite.PowerUpIcon"/>; null for
         /// a host that plays no power-up demo (an icon it cannot resolve is simply hidden).</param>
+        /// <param name="holdSlotView">Source of <see cref="InfoDemoSprite.HoldPocket"/> (issue #449); null
+        /// for a host that plays no Hold demo.</param>
+        /// <param name="coinTotalHudView">Source of <see cref="InfoDemoSprite.Coin"/> (issue #449); null
+        /// for a host that plays no coin demo.</param>
         internal InfoDemoResources(
-            BoardView boardView, PowerUpInventoryView powerUpInventoryView, LocalizationSystem localizationSystem)
+            BoardView boardView,
+            PowerUpInventoryView powerUpInventoryView,
+            LocalizationSystem localizationSystem,
+            HoldSlotView holdSlotView = null,
+            CoinTotalHudView coinTotalHudView = null)
         {
             _boardView = boardView;
             _powerUpInventoryView = powerUpInventoryView;
             _localizationSystem = localizationSystem;
+            _holdSlotView = holdSlotView;
+            _coinTotalHudView = coinTotalHudView;
         }
 
         public bool TryGetSprite(InfoDemoSprite sprite, int parameter, out Sprite resolved, out Color tint)
@@ -56,6 +68,20 @@ namespace MustyBlockBlast.Presentation.Views
                     resolved = UiSpriteFactory.RadialGlow;
                     tint = Color.white;
                     return true;
+                case InfoDemoSprite.Coin:
+                    if (_coinTotalHudView == null)
+                    {
+                        resolved = null;
+                        tint = Color.clear;
+                        return false;
+                    }
+
+                    _coinTotalHudView.GetCoinFace(out resolved, out tint);
+                    return resolved != null;
+                case InfoDemoSprite.HoldPocket:
+                    resolved = _holdSlotView != null ? _holdSlotView.PocketSprite : null;
+                    tint = Color.white;
+                    return resolved != null;
                 default:
                     resolved = null;
                     tint = Color.clear;

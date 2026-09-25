@@ -67,6 +67,12 @@ namespace MustyBlockBlast.Presentation.Views
         private static readonly Color BlastPreview = new Color(1f, 0.706f, 0.635f, 1f);
         private static readonly Color BadgeRed = new Color(0.898f, 0.224f, 0.208f, 1f);
 
+        /// <summary>Tray / targetless power-up demo accents (issue #449) — see <see cref="InfoDemoPaint"/>.</summary>
+        private static readonly Color PlateGold = new Color(0.878f, 0.655f, 0.180f, 1f);
+        private static readonly Color PlateReroll = new Color(0.149f, 0.651f, 0.604f, 1f);
+        private static readonly Color PlateDouble = new Color(0.961f, 0.486f, 0f, 1f);
+        private static readonly Color PlateGhost = new Color(0.494f, 0.341f, 0.761f, 1f);
+
         /// <summary>Smallest a label's font may shrink to (as a fraction of its authored height) to fit
         /// a long translation on one line.</summary>
         private const float LABEL_MIN_FONT_FRACTION = 0.55f;
@@ -103,6 +109,7 @@ namespace MustyBlockBlast.Presentation.Views
         private RectTransform _iconLayer;
         private RectTransform _ringLayer;
         private RectTransform _pieceLayer;
+        private RectTransform _overlayLayer;
         private RectTransform _labelLayer;
 
         private Image _stageBaseImage;
@@ -414,6 +421,16 @@ namespace MustyBlockBlast.Presentation.Views
                     return BlastPreview;
                 case InfoDemoPaint.BADGE_RED:
                     return BadgeRed;
+                case InfoDemoPaint.PLATE_GOLD:
+                    return PlateGold;
+                case InfoDemoPaint.PLATE_REROLL:
+                    return PlateReroll;
+                case InfoDemoPaint.PLATE_DOUBLE:
+                    return PlateDouble;
+                case InfoDemoPaint.PLATE_GHOST:
+                    return PlateGhost;
+                case InfoDemoPaint.OFFER_PINK:
+                    return HudChrome.OfferPink;
                 default:
                     return _theme.GetFill(paint);
             }
@@ -554,6 +571,7 @@ namespace MustyBlockBlast.Presentation.Views
                     }
                 }
 
+                PlaceInLayer(element, _elementRects[elementIndex]);
                 _appliedValid[elementIndex] = false;
 
                 // Parked until the first Render decides; ApplyElement flips it on when visible.
@@ -576,6 +594,53 @@ namespace MustyBlockBlast.Presentation.Views
             for (int pieceIndex = piecesUsed; pieceIndex < _piecePool.Count; pieceIndex++)
             {
                 _piecePool[pieceIndex].Root.gameObject.SetActive(false);
+            }
+        }
+
+        /// <summary>
+        /// Parents a bound visual under its layer — the overlay for an <see cref="InfoDemoElement.OnTop"/>
+        /// element (issue #449), its kind's own layer otherwise — and moves it to the end of that layer,
+        /// so within every layer visuals draw in element id order however the pools were last shuffled.
+        /// Bind-time only. Board blocks never move: they are permanent and already in id order.
+        /// </summary>
+        private void PlaceInLayer(InfoDemoElement element, RectTransform rect)
+        {
+            if (element.Kind == InfoDemoElementKind.BoardBlock)
+            {
+                return;
+            }
+
+            RectTransform layer = element.OnTop ? _overlayLayer : LayerFor(element.Kind);
+            if (rect.parent != layer)
+            {
+                rect.SetParent(layer, false);
+            }
+
+            rect.SetAsLastSibling();
+        }
+
+        private RectTransform LayerFor(InfoDemoElementKind kind)
+        {
+            switch (kind)
+            {
+                case InfoDemoElementKind.Band:
+                    return _bandLayer;
+                case InfoDemoElementKind.Outline:
+                    return _outlineLayer;
+                case InfoDemoElementKind.Glow:
+                    return _glowLayer;
+                case InfoDemoElementKind.Panel:
+                    return _panelLayer;
+                case InfoDemoElementKind.Icon:
+                    return _iconLayer;
+                case InfoDemoElementKind.Ring:
+                    return _ringLayer;
+                case InfoDemoElementKind.Piece:
+                    return _pieceLayer;
+                case InfoDemoElementKind.Label:
+                    return _labelLayer;
+                default:
+                    return _blockLayer;
             }
         }
 
@@ -809,6 +874,7 @@ namespace MustyBlockBlast.Presentation.Views
             _iconLayer = CreateLayer(contentRect, "Icons", contentRect.anchoredPosition);
             _ringLayer = CreateLayer(contentRect, "Rings", contentRect.anchoredPosition);
             _pieceLayer = CreateLayer(contentRect, "Pieces", contentRect.anchoredPosition);
+            _overlayLayer = CreateLayer(contentRect, "Overlay", contentRect.anchoredPosition);
             _labelLayer = CreateLayer(contentRect, "Labels", contentRect.anchoredPosition);
 
             for (int cellIndex = 0; cellIndex < InfoDemoLayout.BOARD_CELL_COUNT; cellIndex++)
