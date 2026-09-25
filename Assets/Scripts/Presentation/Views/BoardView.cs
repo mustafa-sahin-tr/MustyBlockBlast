@@ -1735,8 +1735,8 @@ namespace MustyBlockBlast.Presentation.Views
         /// Counts what this view actually shows as empty (<see cref="_cellColourIds"/>, minus holes)
         /// rather than trusting <paramref name="totalCount"/> blindly, so the numbers on screen can
         /// never disagree with the board they are written on. The per-cell delay shrinks with the count,
-        /// so a handful of cells still feels deliberate while a whole empty board finishes in about a
-        /// second and a half. The completion is published even if this view is destroyed mid-count —
+        /// so a handful of cells still feels deliberate while a whole empty board finishes in under a
+        /// second. The completion is published even if this view is destroyed mid-count —
         /// the system has its own timeout, but there is no reason to make it wait for one.
         /// </para>
         /// </summary>
@@ -1758,7 +1758,7 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             int count = emptyIndices.Count;
-            float perCellDelay = Mathf.Clamp(1.6f / Mathf.Max(1, count), 0.03f, 0.12f);
+            float perCellDelay = Mathf.Clamp(0.8f / Mathf.Max(1, count), 0.015f, 0.06f);
             TimeSpan perCellWait = TimeSpan.FromSeconds(perCellDelay);
 
             try
@@ -1772,7 +1772,7 @@ namespace MustyBlockBlast.Presentation.Views
                 // A short hold so the final total is readable before the numbers go.
                 if (count > 0)
                 {
-                    await UniTask.Delay(TimeSpan.FromSeconds(0.4f), cancellationToken: _destroyToken);
+                    await UniTask.Delay(TimeSpan.FromSeconds(0.3f), cancellationToken: _destroyToken);
                 }
             }
             catch (OperationCanceledException)

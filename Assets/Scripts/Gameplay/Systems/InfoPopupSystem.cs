@@ -65,7 +65,15 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// </summary>
         private static readonly TimeSpan GrantAnimationTimeout = TimeSpan.FromSeconds(2f);
 
+        /// <summary>
+        /// The special-cell twin of <see cref="GrantAnimationTimeout"/>. Longer, because one move can
+        /// spawn several cells and their flights play one after another; defensive only, since the
+        /// fly-in publishes <see cref="SpecialCellFlightCompletedMessage"/> for every spawn it sees.
+        /// </summary>
+        private static readonly TimeSpan SpecialCellFlightTimeout = TimeSpan.FromSeconds(4f);
+
         private readonly InfoPopupModel _model;
+        private readonly PathRunModel _pathRunModel;
 
         private readonly IDisposable _specialCellSpawnedSubscription;
         private readonly IDisposable _powerUpGrantedSubscription;
@@ -73,6 +81,7 @@ namespace MustyBlockBlast.Gameplay.Systems
         private readonly IDisposable _specialPieceSpawnedSubscription;
 
         private readonly ISubscriber<PowerUpGrantAnimationCompletedMessage> _grantAnimationCompletedSubscriber;
+        private readonly ISubscriber<SpecialCellFlightCompletedMessage> _specialCellFlightCompletedSubscriber;
 
         /// <summary>Cancelled on <see cref="Dispose"/> so a pending <see cref="TryAutoOpenAfterGrantAnimationAsync"/>
         /// wait can never touch <see cref="_model"/> after this System is torn down.</summary>
@@ -86,9 +95,13 @@ namespace MustyBlockBlast.Gameplay.Systems
             ISubscriber<PowerUpGrantedMessage> powerUpGrantedSubscriber,
             ISubscriber<PowerUpGrantAnimationCompletedMessage> grantAnimationCompletedSubscriber,
             ISubscriber<HoldFirstUseMessage> holdFirstUseSubscriber,
-            ISubscriber<SpecialPieceSpawnedMessage> specialPieceSpawnedSubscriber)
+            ISubscriber<SpecialPieceSpawnedMessage> specialPieceSpawnedSubscriber,
+            ISubscriber<SpecialCellFlightCompletedMessage> specialCellFlightCompletedSubscriber,
+            PathRunModel pathRunModel)
         {
             _model = model;
+            _pathRunModel = pathRunModel;
+            _specialCellFlightCompletedSubscriber = specialCellFlightCompletedSubscriber;
             _grantAnimationCompletedSubscriber = grantAnimationCompletedSubscriber;
 
             RunAlreadyGrantedPowerUpMigration(powerUpModel);
@@ -132,7 +145,81 @@ namespace MustyBlockBlast.Gameplay.Systems
                 return;
             }
 
-            TryAutoOpen(InfoPopupSubjectKind.SpecialCell, (int)message.Kind);
+            TryAutoOpenAfterSpecialCellLandsAsync(message.Kind).Forget();
+        }
+
+        /// <summary>
+        /// <see cref="TryAutoOpenAfterGrantAnimationAsync"/> for a special cell (issue #464): the same
+        /// seen/already-open gating, marked seen synchronously, but the card opens only once the cell's
+        /// icon has landed on the board — so on a level's final move the explainer follows the cell onto
+        /// the board instead of popping up before it gets there.
+        /// </summary>
+        private async UniTaskVoid TryAutoOpenAfterSpecialCellLandsAsync(SpecialCellKind kind)
+        {
+            BuildContent(InfoPopupSubjectKind.SpecialCell, (int)kind, out string id, out string headerKey, out string bodyKey);
+            if (IsSeen(id))
+            {
+                return;
+            }
+
+            if (_model.OpenContent.Value != null)
+            {
+                MarkSeen(id);
+                return;
+            }
+
+            MarkSeen(id);
+
+            try
+            {
+                await AwaitMatchingAsync(
+                    _specialCellFlightCompletedSubscriber, message => message.Kind == kind,
+                    SpecialCellFlightTimeout, _disposeCts.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+
+            // Won on the move that finished a Path level: the cell just lands and the level-complete
+            // sequence carries on uninterrupted. Not seen yet, so it is explained the next time it is
+            // won mid-level.
+            if (_pathRunModel != null && _pathRunModel.IsLevelCompleting)
+            {
+                UnmarkSeen(id);
+                return;
+            }
+
+            if (_model.OpenContent.Value == null)
+            {
+                _model.OpenContent.Value = new InfoPopupContent(id, InfoPopupSubjectKind.SpecialCell, (int)kind, headerKey, bodyKey);
+            }
+        }
+
+        /// <summary>Awaits the next <typeparamref name="TMessage"/> that <paramref name="matches"/>, or
+        /// <paramref name="timeout"/>, whichever comes first.</summary>
+        private static async UniTask AwaitMatchingAsync<TMessage>(
+            ISubscriber<TMessage> subscriber, Func<TMessage, bool> matches, TimeSpan timeout, CancellationToken cancellationToken)
+        {
+            UniTaskCompletionSource<bool> completionSource = new UniTaskCompletionSource<bool>();
+            IDisposable subscription = subscriber.Subscribe(message =>
+            {
+                if (matches(message))
+                {
+                    completionSource.TrySetResult(true);
+                }
+            });
+
+            try
+            {
+                await UniTask.WhenAny(
+                    completionSource.Task.AttachExternalCancellation(cancellationToken),
+                    UniTask.Delay(timeout, cancellationToken: cancellationToken));
+            }
+            finally
+            {
+                subscription.Dispose();
+            }
         }
 
         /// <summary>
@@ -481,6 +568,12 @@ namespace MustyBlockBlast.Gameplay.Systems
         private static void MarkSeen(string id)
         {
             PlayerPrefs.SetInt(InfoPopupSeenKey.For(id), 1);
+            PlayerPrefs.Save();
+        }
+
+        private static void UnmarkSeen(string id)
+        {
+            PlayerPrefs.DeleteKey(InfoPopupSeenKey.For(id));
             PlayerPrefs.Save();
         }
     }

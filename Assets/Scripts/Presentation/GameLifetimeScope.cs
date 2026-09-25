@@ -32,6 +32,14 @@ namespace MustyBlockBlast.Presentation
         [Tooltip("Authored badge content. Required — without it there are no badges to track or unlock.")]
         [SerializeField] private BadgeCatalog _badgeCatalog;
 
+        [Tooltip("Rule-based power-up rewards, e.g. \"3 first-try levels in a row pays one more\" (issue #464). "
+            + "Optional — an unassigned catalog simply means no rule ever pays.")]
+        [SerializeField] private RewardRuleCatalog _rewardRuleCatalog;
+
+        [Tooltip("Every level's name and icon, shown on the level-start card (issue #464). Optional — a "
+            + "level without a row shows no name and the fallback icon.")]
+        [SerializeField] private LevelIdentityCatalog _levelIdentityCatalog;
+
         [Tooltip("Authored objective glyphs. Optional — a missing catalog or entry falls back to the procedural glyph.")]
         [SerializeField] private ObjectiveIconCatalog _objectiveIconCatalog;
 
@@ -161,6 +169,10 @@ namespace MustyBlockBlast.Presentation
                 // placements by the time that objective can be progressed.
                 container.Resolve<LevelProgressionSystem>();
 
+                // Subscribes in its constructor and loads the saved first-try streak there, so it must
+                // be listening before the first Path level can be cleared or failed (issue #464).
+                container.Resolve<RewardRuleSystem>();
+
                 // Subscribes in its constructor and loads the lifetime counters there too, so it must
                 // exist before the first placement — and before BadgeSystem, which reads those
                 // already-loaded counters at its own construction to decide what is already unlocked.
@@ -203,6 +215,9 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterMessageBroker<PowerUpGrantAnimationCompletedMessage>(options);
             builder.RegisterMessageBroker<EmptyCellBonusCountingMessage>(options);
             builder.RegisterMessageBroker<EmptyCellBonusCountingCompletedMessage>(options);
+            builder.RegisterMessageBroker<PendingFlightsDrainMessage>(options);
+            builder.RegisterMessageBroker<PendingFlightsDrainedMessage>(options);
+            builder.RegisterMessageBroker<SpecialCellFlightCompletedMessage>(options);
             builder.RegisterMessageBroker<BadgeUnlockedMessage>(options);
             builder.RegisterMessageBroker<ExplosiveCoreDetonatedMessage>(options);
             builder.RegisterMessageBroker<LaserFiredMessage>(options);
@@ -238,6 +253,8 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterInstance(ResolveTimedModeConfig());
             builder.RegisterInstance(ResolveLevelCatalog());
             builder.RegisterInstance(ResolveBadgeCatalog());
+            builder.RegisterInstance(ResolveRewardRuleCatalog());
+            builder.RegisterInstance(ResolveLevelIdentityCatalog());
             builder.RegisterInstance(ResolveObjectiveIconCatalog());
             builder.RegisterInstance(ResolveCurrencyConfig());
             builder.RegisterInstance(ResolvePowerUpPriceConfig());
@@ -269,6 +286,7 @@ namespace MustyBlockBlast.Presentation
             builder.Register<ObjectiveModel>(Lifetime.Singleton);
             builder.Register<LevelProgressionModel>(Lifetime.Singleton);
             builder.Register<PathRunModel>(Lifetime.Singleton);
+            builder.Register<RewardRuleModel>(Lifetime.Singleton);
             builder.Register<BadgeStatsModel>(Lifetime.Singleton);
             builder.Register<BadgeModel>(Lifetime.Singleton);
             builder.Register<PendingScoreModel>(Lifetime.Singleton);
@@ -395,6 +413,37 @@ namespace MustyBlockBlast.Presentation
                 $"{nameof(GameLifetimeScope)} has no {nameof(BadgeCatalog)} assigned. " +
                 "No badges will be tracked or unlocked.", this);
             return ScriptableObject.CreateInstance<BadgeCatalog>();
+        }
+
+        /// <summary>Optional: a level with no identity row still starts, it just shows no name.</summary>
+        private LevelIdentityCatalog ResolveLevelIdentityCatalog()
+        {
+            if (_levelIdentityCatalog != null)
+            {
+                return _levelIdentityCatalog;
+            }
+
+            Debug.LogWarning(
+                $"{nameof(GameLifetimeScope)} has no {nameof(LevelIdentityCatalog)} assigned. " +
+                "Level names and icons will not be shown.", this);
+            return ScriptableObject.CreateInstance<LevelIdentityCatalog>();
+        }
+
+        /// <summary>
+        /// Optional by design, like <see cref="ResolvePromotionConfig"/>: an empty catalog is a valid
+        /// "no rule pays" configuration, so a missing asset only warns.
+        /// </summary>
+        private RewardRuleCatalog ResolveRewardRuleCatalog()
+        {
+            if (_rewardRuleCatalog != null)
+            {
+                return _rewardRuleCatalog;
+            }
+
+            Debug.LogWarning(
+                $"{nameof(GameLifetimeScope)} has no {nameof(RewardRuleCatalog)} assigned. " +
+                "No rule-based power-up rewards will be paid.", this);
+            return ScriptableObject.CreateInstance<RewardRuleCatalog>();
         }
 
         /// <summary>
@@ -633,6 +682,7 @@ namespace MustyBlockBlast.Presentation
             builder.Register<DiamondPieceDecorator>(Lifetime.Singleton).AsSelf();
             builder.Register<ObjectiveSystem>(Lifetime.Singleton);
             builder.Register<LevelProgressionSystem>(Lifetime.Singleton);
+            builder.Register<RewardRuleSystem>(Lifetime.Singleton);
             builder.Register<BadgeStatsSystem>(Lifetime.Singleton);
             builder.Register<BadgeSystem>(Lifetime.Singleton);
 
@@ -677,9 +727,9 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterComponentInHierarchy<LeaderboardPanelView>();
             builder.RegisterComponentInHierarchy<PowerUpShopView>();
 
-            // The level-start Coin Sower picker. Taken as a dependency by LevelPathPanelView, whose node
-            // tap opens this instead of starting the run itself (see CoinSowerPickerView).
-            builder.RegisterComponentInHierarchy<CoinSowerPickerView>();
+            // The level-start card (issue #464). Taken as a dependency by LevelPathPanelView, whose node
+            // tap opens this instead of starting the run itself (see LevelStartCardView).
+            builder.RegisterComponentInHierarchy<LevelStartCardView>();
             builder.RegisterComponentInHierarchy<PieceTrayView>();
             builder.RegisterComponentInHierarchy<HoldSlotView>();
             builder.RegisterComponentInHierarchy<ScoreView>();

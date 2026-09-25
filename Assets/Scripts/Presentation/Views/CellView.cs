@@ -82,7 +82,11 @@ namespace MustyBlockBlast.Presentation.Views
 
         /// <summary>Reference-pixel font size for the level-completion empty-cell bonus number (issue
         /// #424) — the same size as the timer countdown, so the two number layers read as one family.</summary>
-        private const int BONUS_NUMBER_FONT_SIZE = 34;
+        private const int BONUS_NUMBER_FONT_SIZE = 42;
+
+        /// <summary>How far the bonus number's same-colour outline reaches: a faux-bold stroke, since the
+        /// display face has no heavier weight to switch to.</summary>
+        private static readonly Vector2 BonusNumberStroke = new Vector2(1.5f, -1.5f);
 
         /// <summary>Fallback ink for the bonus number before <see cref="SetBonusNumberStyle"/> has ever
         /// been called — dark enough to stay legible on the theme's light grey empty-cell fill
@@ -141,6 +145,7 @@ namespace MustyBlockBlast.Presentation.Views
         private Image _ghostRingImage;
         private Text _timerCountdownText;
         private Text _bonusNumberText;
+        private Outline _bonusNumberOutline;
 
         /// <summary>The resting alpha the glow halo was last shown at (issue #365) — the target
         /// <see cref="SetGlowPulse"/> multiplies against, since the halo's own colour alpha is
@@ -310,6 +315,9 @@ namespace MustyBlockBlast.Presentation.Views
             // rather than a reuse of the timer countdown so the two can never fight over one Text.
             _bonusNumberText = UiTextFactory.Create(
                 countdownRect, "BonusNumber", BONUS_NUMBER_FONT_SIZE, FontStyle.Bold, BonusNumberColour);
+            _bonusNumberOutline = _bonusNumberText.gameObject.AddComponent<Outline>();
+            _bonusNumberOutline.effectDistance = BonusNumberStroke;
+            _bonusNumberOutline.effectColor = BonusNumberColour;
             _bonusNumberText.gameObject.SetActive(false);
         }
 
@@ -629,6 +637,7 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             _bonusNumberText.color = colour;
+            _bonusNumberOutline.effectColor = colour;
         }
 
         /// <summary>Flat two-layer look: empty cells and the drag preview tint. <paramref name="shade"/>

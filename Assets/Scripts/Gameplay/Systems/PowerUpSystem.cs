@@ -898,7 +898,8 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// persist and publish identically — there is exactly one place a grant happens.
         /// </para>
         /// </summary>
-        public void GrantDirect(PowerUpKind kind) => Grant(kind);
+        public void GrantDirect(PowerUpKind kind, PowerUpGrantSource source = PowerUpGrantSource.Reward)
+            => Grant(kind, source);
 
         /// <summary>
         /// Banks <paramref name="quantity"/> of <paramref name="kind"/> for a purchase that has already
@@ -928,7 +929,7 @@ namespace MustyBlockBlast.Gameplay.Systems
         {
             for (int grantIndex = 0; grantIndex < quantity; grantIndex++)
             {
-                Grant(kind);
+                Grant(kind, PowerUpGrantSource.Purchase);
             }
         }
 
@@ -1124,12 +1125,14 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// earning path funnels through here so the three steps can never drift out of step with each
         /// other, whatever gate (or lack of one) got the player this far.
         /// </summary>
-        private void Grant(PowerUpKind kind)
+        /// <param name="source">Carried on the message so the fly-in can say why the power-up arrived;
+        /// it changes nothing about the grant itself.</param>
+        private void Grant(PowerUpKind kind, PowerUpGrantSource source = PowerUpGrantSource.Reward)
         {
             ReactiveProperty<int> count = CountOf(kind);
             count.Value += 1;
             Persist(kind, count.Value);
-            _grantedPublisher.Publish(new PowerUpGrantedMessage(kind, count.Value));
+            _grantedPublisher.Publish(new PowerUpGrantedMessage(kind, count.Value, source));
         }
 
         /// <summary>Decrements and persists the inventory, or reports that there was none to spend.</summary>

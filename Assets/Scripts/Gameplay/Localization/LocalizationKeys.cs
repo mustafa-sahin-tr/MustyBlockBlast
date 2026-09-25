@@ -332,6 +332,10 @@ namespace MustyBlockBlast.Gameplay.Localization
         /// level's first clear paid (issue #462).</summary>
         public const string RUN_RESULT_LEVEL_REWARD_LABEL = "result.level_reward_label";
 
+        /// <summary>Caption on a Path level-complete card's streak-bonus box, beside the extra
+        /// power-up(s) a first-try streak rule paid on this clear (issue #464).</summary>
+        public const string RUN_RESULT_STREAK_BONUS_LABEL = "result.streak_bonus_label";
+
         /// <summary>Tag on the record plate when this run set a new record.</summary>
         public const string RUN_RESULT_NEW_RECORD = "result.new_record";
 
@@ -364,6 +368,192 @@ namespace MustyBlockBlast.Gameplay.Localization
         public const string MODE_TIMED_DESCRIPTION = "mode.timed.description";
         public const string MODE_PATH_DESCRIPTION = "mode.path.description";
 
+        /// <summary>Title over an earned power-up while the grant fly-in holds it at the centre of the
+        /// screen (issue #464). Not shown for a purchase.</summary>
+        public const string GRANT_WON = "grant.won";
+
+        /// <summary>Title over a first-try streak bonus while the grant fly-in holds it (issue #464), so
+        /// the bonus does not read as a second level reward.</summary>
+        public const string GRANT_STREAK_BONUS = "grant.streak_bonus";
+
+        // --- Level-start card (issue #464) ---
+
+        /// <summary>Zone name: Meadow.</summary>
+        public const string LEVEL_START_ZONE_MEADOW = "level_start.zone.meadow";
+
+        /// <summary>Zone name: Winter.</summary>
+        public const string LEVEL_START_ZONE_WINTER = "level_start.zone.winter";
+
+        /// <summary>Zone name: City.</summary>
+        public const string LEVEL_START_ZONE_CITY = "level_start.zone.city";
+
+        /// <summary>Zone name: Neighborhood.</summary>
+        public const string LEVEL_START_ZONE_NEIGHBORHOOD = "level_start.zone.neighborhood";
+
+        /// <summary>The pill under the level name. <c>{0}</c> is the zone name, <c>{1}</c> the level number.</summary>
+        public const string LEVEL_START_PILL = "level_start.pill";
+
+        /// <summary>Chip beside the pill on every 5th level.</summary>
+        public const string LEVEL_START_MILESTONE = "level_start.milestone";
+
+        /// <summary>Caption over the rewards a first clear pays.</summary>
+        public const string LEVEL_START_CLEAR_TO_WIN = "level_start.clear_to_win";
+
+        /// <summary>Caption over the rewards on a locked level's preview.</summary>
+        public const string LEVEL_START_LOCKED_CAPTION = "level_start.locked_caption";
+
+        /// <summary>Caption over a replayed level's rewards.</summary>
+        public const string LEVEL_START_COLLECTED_CAPTION = "level_start.collected_caption";
+
+        /// <summary>Streak row while the clear would not complete a rule. <c>{0}</c> is "x/n".</summary>
+        public const string LEVEL_START_STREAK_PROGRESS = "level_start.streak_progress";
+
+        /// <summary>Streak row when a first-try clear of this level completes a rule. <c>{0}</c> is "n/n".</summary>
+        public const string LEVEL_START_STREAK_LANDS = "level_start.streak_lands";
+
+        /// <summary>Streak row on a replay or a level already failed this attempt.</summary>
+        public const string LEVEL_START_STREAK_REPLAY = "level_start.streak_replay";
+
+        /// <summary>Caption under the streak row's pending bonus. <c>{0}</c> is the count, <c>{1}</c> "n/n".</summary>
+        public const string LEVEL_START_STREAK_AT = "level_start.streak_at";
+
+        /// <summary>Caption under the bonus a first-try clear of this level pays. <c>{0}</c> is the count.</summary>
+        public const string LEVEL_START_STREAK_BONUS = "level_start.streak_bonus";
+
+        /// <summary>Caption over the inventory grid.</summary>
+        public const string LEVEL_START_YOUR_POWER_UPS = "level_start.your_power_ups";
+
+
+        /// <summary>Footer of a locked preview. <c>{0}</c> is the frontier level.</summary>
+        public const string LEVEL_START_UNLOCK_HINT = "level_start.unlock_hint";
+
+        /// <summary>Start button.</summary>
+        public const string LEVEL_START_START = "level_start.start";
+
+        /// <summary>Start button while coin cells are picked. <c>{0}</c> is the quantity.</summary>
+        public const string LEVEL_START_START_SOW = "level_start.start_sow";
+
+        /// <summary>Start button on a replay.</summary>
+        public const string LEVEL_START_PLAY_AGAIN = "level_start.play_again";
+
+        /// <summary>Watch ad button.</summary>
+        public const string LEVEL_START_WATCH_AD = "level_start.watch_ad";
+
+        /// <summary>Coin Sower row title.</summary>
+        public const string LEVEL_START_SOW_ROW = "level_start.sow_row";
+
+        /// <summary>Coin Sower row subtitle. <c>{0}</c> is the banked charge count.</summary>
+        public const string LEVEL_START_CHARGES = "level_start.charges";
+
+        /// <summary>Shown when the sow spend is refused.</summary>
+        public const string LEVEL_START_SOW_FAILED = "level_start.sow_failed";
+
+        /// <summary>Shown when the start is refused.</summary>
+        public const string LEVEL_START_CANNOT_START = "level_start.cannot_start";
+
+        // Each level's name (issue #464), one key per level like the BADGE_NAME_* keys: the rows of
+        // LevelIdentityCatalog carry these, and every key must be declared here for the table tests.
+        public const string LEVEL_NAME_1 = "level.name.1";
+        public const string LEVEL_NAME_2 = "level.name.2";
+        public const string LEVEL_NAME_3 = "level.name.3";
+        public const string LEVEL_NAME_4 = "level.name.4";
+        public const string LEVEL_NAME_5 = "level.name.5";
+        public const string LEVEL_NAME_6 = "level.name.6";
+        public const string LEVEL_NAME_7 = "level.name.7";
+        public const string LEVEL_NAME_8 = "level.name.8";
+        public const string LEVEL_NAME_9 = "level.name.9";
+        public const string LEVEL_NAME_10 = "level.name.10";
+        public const string LEVEL_NAME_11 = "level.name.11";
+        public const string LEVEL_NAME_12 = "level.name.12";
+        public const string LEVEL_NAME_13 = "level.name.13";
+        public const string LEVEL_NAME_14 = "level.name.14";
+        public const string LEVEL_NAME_15 = "level.name.15";
+        public const string LEVEL_NAME_16 = "level.name.16";
+        public const string LEVEL_NAME_17 = "level.name.17";
+        public const string LEVEL_NAME_18 = "level.name.18";
+        public const string LEVEL_NAME_19 = "level.name.19";
+        public const string LEVEL_NAME_20 = "level.name.20";
+        public const string LEVEL_NAME_21 = "level.name.21";
+        public const string LEVEL_NAME_22 = "level.name.22";
+        public const string LEVEL_NAME_23 = "level.name.23";
+        public const string LEVEL_NAME_24 = "level.name.24";
+        public const string LEVEL_NAME_25 = "level.name.25";
+        public const string LEVEL_NAME_26 = "level.name.26";
+        public const string LEVEL_NAME_27 = "level.name.27";
+        public const string LEVEL_NAME_28 = "level.name.28";
+        public const string LEVEL_NAME_29 = "level.name.29";
+        public const string LEVEL_NAME_30 = "level.name.30";
+        public const string LEVEL_NAME_31 = "level.name.31";
+        public const string LEVEL_NAME_32 = "level.name.32";
+        public const string LEVEL_NAME_33 = "level.name.33";
+        public const string LEVEL_NAME_34 = "level.name.34";
+        public const string LEVEL_NAME_35 = "level.name.35";
+        public const string LEVEL_NAME_36 = "level.name.36";
+        public const string LEVEL_NAME_37 = "level.name.37";
+        public const string LEVEL_NAME_38 = "level.name.38";
+        public const string LEVEL_NAME_39 = "level.name.39";
+        public const string LEVEL_NAME_40 = "level.name.40";
+        public const string LEVEL_NAME_41 = "level.name.41";
+        public const string LEVEL_NAME_42 = "level.name.42";
+        public const string LEVEL_NAME_43 = "level.name.43";
+        public const string LEVEL_NAME_44 = "level.name.44";
+        public const string LEVEL_NAME_45 = "level.name.45";
+        public const string LEVEL_NAME_46 = "level.name.46";
+        public const string LEVEL_NAME_47 = "level.name.47";
+        public const string LEVEL_NAME_48 = "level.name.48";
+        public const string LEVEL_NAME_49 = "level.name.49";
+        public const string LEVEL_NAME_50 = "level.name.50";
+        public const string LEVEL_NAME_51 = "level.name.51";
+        public const string LEVEL_NAME_52 = "level.name.52";
+        public const string LEVEL_NAME_53 = "level.name.53";
+        public const string LEVEL_NAME_54 = "level.name.54";
+        public const string LEVEL_NAME_55 = "level.name.55";
+        public const string LEVEL_NAME_56 = "level.name.56";
+        public const string LEVEL_NAME_57 = "level.name.57";
+        public const string LEVEL_NAME_58 = "level.name.58";
+        public const string LEVEL_NAME_59 = "level.name.59";
+        public const string LEVEL_NAME_60 = "level.name.60";
+        public const string LEVEL_NAME_61 = "level.name.61";
+        public const string LEVEL_NAME_62 = "level.name.62";
+        public const string LEVEL_NAME_63 = "level.name.63";
+        public const string LEVEL_NAME_64 = "level.name.64";
+        public const string LEVEL_NAME_65 = "level.name.65";
+        public const string LEVEL_NAME_66 = "level.name.66";
+        public const string LEVEL_NAME_67 = "level.name.67";
+        public const string LEVEL_NAME_68 = "level.name.68";
+        public const string LEVEL_NAME_69 = "level.name.69";
+        public const string LEVEL_NAME_70 = "level.name.70";
+        public const string LEVEL_NAME_71 = "level.name.71";
+        public const string LEVEL_NAME_72 = "level.name.72";
+        public const string LEVEL_NAME_73 = "level.name.73";
+        public const string LEVEL_NAME_74 = "level.name.74";
+        public const string LEVEL_NAME_75 = "level.name.75";
+        public const string LEVEL_NAME_76 = "level.name.76";
+        public const string LEVEL_NAME_77 = "level.name.77";
+        public const string LEVEL_NAME_78 = "level.name.78";
+        public const string LEVEL_NAME_79 = "level.name.79";
+        public const string LEVEL_NAME_80 = "level.name.80";
+        public const string LEVEL_NAME_81 = "level.name.81";
+        public const string LEVEL_NAME_82 = "level.name.82";
+        public const string LEVEL_NAME_83 = "level.name.83";
+        public const string LEVEL_NAME_84 = "level.name.84";
+        public const string LEVEL_NAME_85 = "level.name.85";
+        public const string LEVEL_NAME_86 = "level.name.86";
+        public const string LEVEL_NAME_87 = "level.name.87";
+        public const string LEVEL_NAME_88 = "level.name.88";
+        public const string LEVEL_NAME_89 = "level.name.89";
+        public const string LEVEL_NAME_90 = "level.name.90";
+        public const string LEVEL_NAME_91 = "level.name.91";
+        public const string LEVEL_NAME_92 = "level.name.92";
+        public const string LEVEL_NAME_93 = "level.name.93";
+        public const string LEVEL_NAME_94 = "level.name.94";
+        public const string LEVEL_NAME_95 = "level.name.95";
+        public const string LEVEL_NAME_96 = "level.name.96";
+        public const string LEVEL_NAME_97 = "level.name.97";
+        public const string LEVEL_NAME_98 = "level.name.98";
+        public const string LEVEL_NAME_99 = "level.name.99";
+        public const string LEVEL_NAME_100 = "level.name.100";
+
         // --- Level path overlay ---
 
         /// <summary>The walk's running total on the level path card. <c>{0}</c> is the total. Shown
@@ -373,6 +563,11 @@ namespace MustyBlockBlast.Gameplay.Localization
         /// <summary>Hint under the node grid in Path mode, telling the player the nodes are tappable —
         /// they are inert status lights in every other mode, so the affordance has to be stated.</summary>
         public const string LEVEL_PATH_TAP_HINT = "level_path.tap_hint";
+
+        /// <summary>Path-mode line on the level path card showing progress towards the next
+        /// rule-based bonus (issue #464). <c>{0}</c> is "progress/threshold" (e.g. "2/3"), <c>{1}</c> is
+        /// how many power-ups that bonus pays.</summary>
+        public const string LEVEL_PATH_STREAK_HINT = "level_path.streak_hint";
 
         // --- Settings panel ---
 

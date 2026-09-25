@@ -1,3 +1,4 @@
+using MessagePipe;
 using MustyBlockBlast.Core;
 using MustyBlockBlast.Gameplay;
 using MustyBlockBlast.Gameplay.Messages;
@@ -28,6 +29,11 @@ namespace MustyBlockBlast.Tests.EditMode
         private TestMessageBroker<PowerUpGrantAnimationCompletedMessage> _grantAnimationCompletedBroker;
         private TestMessageBroker<HoldFirstUseMessage> _holdFirstUseBroker;
         private TestMessageBroker<SpecialPieceSpawnedMessage> _specialPieceSpawnedBroker;
+
+        /// <summary>Stands in for the fly-in landing every spawned special cell at once, so a test
+        /// asserting a special-cell popup opened can still do so synchronously (issue #464).</summary>
+        private TestMessageBroker<SpecialCellFlightCompletedMessage> _specialCellFlightCompletedBroker;
+        private PathRunModel _pathRunModel;
         private InfoPopupSystem _system;
 
         [SetUp]
@@ -42,8 +48,15 @@ namespace MustyBlockBlast.Tests.EditMode
             _grantAnimationCompletedBroker = new TestMessageBroker<PowerUpGrantAnimationCompletedMessage>();
             _holdFirstUseBroker = new TestMessageBroker<HoldFirstUseMessage>();
             _specialPieceSpawnedBroker = new TestMessageBroker<SpecialPieceSpawnedMessage>();
+            _specialCellFlightCompletedBroker = new TestMessageBroker<SpecialCellFlightCompletedMessage>();
+            _pathRunModel = new PathRunModel();
 
             _system = CreateInfoPopupSystem();
+
+            // Subscribed after the System, so its handler is already awaiting the landing when this
+            // publishes it.
+            _specialCellSpawnedBroker.Subscribe(
+                message => _specialCellFlightCompletedBroker.Publish(new SpecialCellFlightCompletedMessage(message.Kind)));
         }
 
         [TearDown]
@@ -62,7 +75,9 @@ namespace MustyBlockBlast.Tests.EditMode
                 _powerUpGrantedBroker,
                 _grantAnimationCompletedBroker,
                 _holdFirstUseBroker,
-                _specialPieceSpawnedBroker);
+                _specialPieceSpawnedBroker,
+                _specialCellFlightCompletedBroker,
+                _pathRunModel);
         }
 
         /// <summary>
@@ -131,6 +146,40 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.IsNull(_model.OpenContent.Value);
         }
 
+        /// <summary>The explainer waits for the cell to land on the board (issue #464).</summary>
+        [Test]
+        public void SpecialCellSpawnedMessage_OpensOnlyOnceTheCellHasLanded()
+        {
+            var broker = new TestMessageBroker<SpecialCellSpawnedMessage>();
+            var landed = new TestMessageBroker<SpecialCellFlightCompletedMessage>();
+            _system.Dispose();
+            _system = new InfoPopupSystem(
+                _model, _powerUpModel, broker, _powerUpGrantedBroker, _grantAnimationCompletedBroker,
+                _holdFirstUseBroker, _specialPieceSpawnedBroker, landed, _pathRunModel);
+
+            broker.Publish(new SpecialCellSpawnedMessage(SpecialCellKind.ExplosiveCore, new GridPosition(0, 0)));
+            Assert.IsNull(_model.OpenContent.Value, "Opened before the cell reached the board.");
+
+            landed.Publish(new SpecialCellFlightCompletedMessage(SpecialCellKind.ExplosiveCore));
+            Assert.IsNotNull(_model.OpenContent.Value);
+        }
+
+        /// <summary>A cell won on the move that finishes a level just lands — no explainer — and stays
+        /// unseen, so it is explained the next time it is won mid-level (issue #464).</summary>
+        [Test]
+        public void SpecialCellSpawnedMessage_WhileALevelIsCompleting_DoesNotOpen_AndStaysUnseen()
+        {
+            _pathRunModel.IsLevelCompleting = true;
+            _specialCellSpawnedBroker.Publish(
+                new SpecialCellSpawnedMessage(SpecialCellKind.ExplosiveCore, new GridPosition(0, 0)));
+            Assert.IsNull(_model.OpenContent.Value);
+
+            _pathRunModel.IsLevelCompleting = false;
+            _specialCellSpawnedBroker.Publish(
+                new SpecialCellSpawnedMessage(SpecialCellKind.ExplosiveCore, new GridPosition(1, 1)));
+            Assert.IsNotNull(_model.OpenContent.Value, "The next mid-level win still explains it.");
+        }
+
         [Test]
         public void SpecialCellSpawnedMessage_SameKindTwice_OnlyAutoOpensOnce()
         {
@@ -158,7 +207,7 @@ namespace MustyBlockBlast.Tests.EditMode
             var freshBroker = new TestMessageBroker<SpecialCellSpawnedMessage>();
             _system = new InfoPopupSystem(
                 _model, _powerUpModel, freshBroker, _powerUpGrantedBroker, _grantAnimationCompletedBroker,
-                _holdFirstUseBroker, _specialPieceSpawnedBroker);
+                _holdFirstUseBroker, _specialPieceSpawnedBroker, _specialCellFlightCompletedBroker, _pathRunModel);
 
             freshBroker.Publish(new SpecialCellSpawnedMessage(SpecialCellKind.ExplosiveCore, new GridPosition(2, 2)));
 

@@ -5,13 +5,22 @@ namespace MustyBlockBlast.Gameplay.Messages
     public readonly struct PowerUpGrantedMessage
     {
         public PowerUpGrantedMessage(PowerUpKind kind, int newInventoryCount)
+            : this(kind, newInventoryCount, PowerUpGrantSource.Reward)
+        {
+        }
+
+        public PowerUpGrantedMessage(PowerUpKind kind, int newInventoryCount, PowerUpGrantSource source)
         {
             Kind = kind;
             NewInventoryCount = newInventoryCount;
+            Source = source;
         }
 
         public PowerUpKind Kind { get; }
 
         public int NewInventoryCount { get; }
+
+        /// <summary>Why the power-up was granted — what the fly-in's caption says (issue #464).</summary>
+        public PowerUpGrantSource Source { get; }
     }
 }

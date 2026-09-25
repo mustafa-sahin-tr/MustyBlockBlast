@@ -1,0 +1,315 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d58dafc81ee6e4e708d1868f799847ba, type: 3}
+  m_Name: LevelIdentityCatalog
+  m_EditorClassIdentifier: MustyBlockBlast.Gameplay::MustyBlockBlast.Gameplay.Settings.LevelIdentityCatalog
+  _levels:
+  - _levelNumber: 1
+    _nameKey: level.name.1
+    _icon: {fileID: 21300000, guid: 6b3ef8a670cf34fac84737b54e3057af, type: 3}
+  - _levelNumber: 2
+    _nameKey: level.name.2
+    _icon: {fileID: 21300000, guid: 6e73f128f0862467a9d212df425e5a86, type: 3}
+  - _levelNumber: 3
+    _nameKey: level.name.3
+    _icon: {fileID: 21300000, guid: ec82969b1bf0e48f1948e48c60884222, type: 3}
+  - _levelNumber: 4
+    _nameKey: level.name.4
+    _icon: {fileID: 21300000, guid: c6ae71082a9174bc992365d2872b3226, type: 3}
+  - _levelNumber: 5
+    _nameKey: level.name.5
+    _icon: {fileID: 21300000, guid: 9838eb36c53ed4f308ad748393d53409, type: 3}
+  - _levelNumber: 6
+    _nameKey: level.name.6
+    _icon: {fileID: 21300000, guid: 9a4ed1badb343416e80f5b5c836c1ed9, type: 3}
+  - _levelNumber: 7
+    _nameKey: level.name.7
+    _icon: {fileID: 21300000, guid: c2c5e3dff0bd54de0974388394f0aad7, type: 3}
+  - _levelNumber: 8
+    _nameKey: level.name.8
+    _icon: {fileID: 21300000, guid: 2113713635057438a92a69f9e1d2dddd, type: 3}
+  - _levelNumber: 9
+    _nameKey: level.name.9
+    _icon: {fileID: 21300000, guid: 13049feee2e154cd293143e672a5e603, type: 3}
+  - _levelNumber: 10
+    _nameKey: level.name.10
+    _icon: {fileID: 21300000, guid: f7c5b4d7174d345aaab1d0115dcb5355, type: 3}
+  - _levelNumber: 11
+    _nameKey: level.name.11
+    _icon: {fileID: 21300000, guid: 61e85ad2d7d364116a112d0e1049a668, type: 3}
+  - _levelNumber: 12
+    _nameKey: level.name.12
+    _icon: {fileID: 21300000, guid: 8c252a141d59f47618ef1c57def86f63, type: 3}
+  - _levelNumber: 13
+    _nameKey: level.name.13
+    _icon: {fileID: 21300000, guid: f56173a4d61ad40e380b6e13ea10382c, type: 3}
+  - _levelNumber: 14
+    _nameKey: level.name.14
+    _icon: {fileID: 21300000, guid: 76e312c6a271f47c6bf49ee93ec84f03, type: 3}
+  - _levelNumber: 15
+    _nameKey: level.name.15
+    _icon: {fileID: 21300000, guid: 02459fa51fbc34e8789ef83d113e54b7, type: 3}
+  - _levelNumber: 16
+    _nameKey: level.name.16
+    _icon: {fileID: 21300000, guid: c818d24bcbd2d428aa09db5f5031bb78, type: 3}
+  - _levelNumber: 17
+    _nameKey: level.name.17
+    _icon: {fileID: 21300000, guid: cfe4540c7cacc47229c1db252a2b0da9, type: 3}
+  - _levelNumber: 18
+    _nameKey: level.name.18
+    _icon: {fileID: 21300000, guid: d8a4620a895624adf8d570ce09a6237c, type: 3}
+  - _levelNumber: 19
+    _nameKey: level.name.19
+    _icon: {fileID: 21300000, guid: 969a5355228fe46fdaa91a70a2739d96, type: 3}
+  - _levelNumber: 20
+    _nameKey: level.name.20
+    _icon: {fileID: 21300000, guid: bcee52778abb04e4db087a5ece5a4b32, type: 3}
+  - _levelNumber: 21
+    _nameKey: level.name.21
+    _icon: {fileID: 21300000, guid: 3f47da9a4339343449926c1c0517d31b, type: 3}
+  - _levelNumber: 22
+    _nameKey: level.name.22
+    _icon: {fileID: 21300000, guid: ab4106b56b01047d7ba4f0ca800df598, type: 3}
+  - _levelNumber: 23
+    _nameKey: level.name.23
+    _icon: {fileID: 21300000, guid: f8d1a98820f3244649eb512096167c73, type: 3}
+  - _levelNumber: 24
+    _nameKey: level.name.24
+    _icon: {fileID: 21300000, guid: 4510888c68e6d4d39916bd1d7556f52a, type: 3}
+  - _levelNumber: 25
+    _nameKey: level.name.25
+    _icon: {fileID: 21300000, guid: e41794ec5ccbc4ea0bbd8bf6078f189c, type: 3}
+  - _levelNumber: 26
+    _nameKey: level.name.26
+    _icon: {fileID: 21300000, guid: 9e8249110b19c42edbf8a49425581248, type: 3}
+  - _levelNumber: 27
+    _nameKey: level.name.27
+    _icon: {fileID: 21300000, guid: 7beccdde5da17452bbaadd63d4829f7a, type: 3}
+  - _levelNumber: 28
+    _nameKey: level.name.28
+    _icon: {fileID: 21300000, guid: 4c79e6c6699c747bfbab681272049b42, type: 3}
+  - _levelNumber: 29
+    _nameKey: level.name.29
+    _icon: {fileID: 21300000, guid: e9d8ae8e7ee3d443e8a87373ef918762, type: 3}
+  - _levelNumber: 30
+    _nameKey: level.name.30
+    _icon: {fileID: 21300000, guid: 3e541020efbf24df7aeb74c89d4a3def, type: 3}
+  - _levelNumber: 31
+    _nameKey: level.name.31
+    _icon: {fileID: 21300000, guid: 8e63d75ec42344fcfaf9e01584d7f482, type: 3}
+  - _levelNumber: 32
+    _nameKey: level.name.32
+    _icon: {fileID: 21300000, guid: c138a6d994f7c480e88c225ffb0c76fb, type: 3}
+  - _levelNumber: 33
+    _nameKey: level.name.33
+    _icon: {fileID: 21300000, guid: 9aeb4a21f7b2e4b248617fcfbca836cd, type: 3}
+  - _levelNumber: 34
+    _nameKey: level.name.34
+    _icon: {fileID: 21300000, guid: 99adec4b2c4f641f8b465dbcda3c3578, type: 3}
+  - _levelNumber: 35
+    _nameKey: level.name.35
+    _icon: {fileID: 21300000, guid: cdc2569a524f44b1885518f7e5c72d0a, type: 3}
+  - _levelNumber: 36
+    _nameKey: level.name.36
+    _icon: {fileID: 21300000, guid: a25813f4b1f9a4f4799f4aca03849a30, type: 3}
+  - _levelNumber: 37
+    _nameKey: level.name.37
+    _icon: {fileID: 21300000, guid: 02e024b8cb85f4fe28eac1b9b7a6aecc, type: 3}
+  - _levelNumber: 38
+    _nameKey: level.name.38
+    _icon: {fileID: 21300000, guid: 966366862640f42a8ba9c1f823c1a770, type: 3}
+  - _levelNumber: 39
+    _nameKey: level.name.39
+    _icon: {fileID: 21300000, guid: 09c7d8776aa8f4f4b994e6a076e45486, type: 3}
+  - _levelNumber: 40
+    _nameKey: level.name.40
+    _icon: {fileID: 21300000, guid: 3bd28c93f96ea4f1dac13b03d804d0ff, type: 3}
+  - _levelNumber: 41
+    _nameKey: level.name.41
+    _icon: {fileID: 21300000, guid: 3a5394f54dbde42f7bd6b6936a275149, type: 3}
+  - _levelNumber: 42
+    _nameKey: level.name.42
+    _icon: {fileID: 21300000, guid: a19dc0e8089fc43fc9da70dfc7bb8a86, type: 3}
+  - _levelNumber: 43
+    _nameKey: level.name.43
+    _icon: {fileID: 21300000, guid: 1231ca7aceab6421a9d91c19e110fc2e, type: 3}
+  - _levelNumber: 44
+    _nameKey: level.name.44
+    _icon: {fileID: 21300000, guid: 04ed6e69828f04f859d5dc240236ddfc, type: 3}
+  - _levelNumber: 45
+    _nameKey: level.name.45
+    _icon: {fileID: 21300000, guid: 03b6b4f24ce3240818a7e8b069b0d85e, type: 3}
+  - _levelNumber: 46
+    _nameKey: level.name.46
+    _icon: {fileID: 21300000, guid: 5fd697b13016e4ec1b3d2c3c36673d27, type: 3}
+  - _levelNumber: 47
+    _nameKey: level.name.47
+    _icon: {fileID: 21300000, guid: f326b437dd6eb49dc8a45a1c144fa824, type: 3}
+  - _levelNumber: 48
+    _nameKey: level.name.48
+    _icon: {fileID: 21300000, guid: cf4a4f4c7324a4aebb2f2b31cd5a9b30, type: 3}
+  - _levelNumber: 49
+    _nameKey: level.name.49
+    _icon: {fileID: 21300000, guid: b794794d37b5e43a0a62a344dd87b58a, type: 3}
+  - _levelNumber: 50
+    _nameKey: level.name.50
+    _icon: {fileID: 21300000, guid: d53d11af48b2e42359bb40c09d630fb4, type: 3}
+  - _levelNumber: 51
+    _nameKey: level.name.51
+    _icon: {fileID: 21300000, guid: 642ba4fa37b774f7ca4f5e0e480979d5, type: 3}
+  - _levelNumber: 52
+    _nameKey: level.name.52
+    _icon: {fileID: 21300000, guid: 545814dc156d54c128a5cc946b210d4f, type: 3}
+  - _levelNumber: 53
+    _nameKey: level.name.53
+    _icon: {fileID: 21300000, guid: 1ac4094ab8c7d47a2af873eeb2509f0f, type: 3}
+  - _levelNumber: 54
+    _nameKey: level.name.54
+    _icon: {fileID: 21300000, guid: 836fbce8c35214f5cb2a7f1d5a82bd3d, type: 3}
+  - _levelNumber: 55
+    _nameKey: level.name.55
+    _icon: {fileID: 21300000, guid: 3866d93b54b894f0dae9e0ee1789c507, type: 3}
+  - _levelNumber: 56
+    _nameKey: level.name.56
+    _icon: {fileID: 21300000, guid: d13669f70c05549278e122ad8a98f930, type: 3}
+  - _levelNumber: 57
+    _nameKey: level.name.57
+    _icon: {fileID: 21300000, guid: 112fb4d84e2354ea0b9fd51dc4d7899b, type: 3}
+  - _levelNumber: 58
+    _nameKey: level.name.58
+    _icon: {fileID: 21300000, guid: 9267a642e09504236818fc196a38922b, type: 3}
+  - _levelNumber: 59
+    _nameKey: level.name.59
+    _icon: {fileID: 21300000, guid: deed8eeb0dc854badb2becd78b2637dc, type: 3}
+  - _levelNumber: 60
+    _nameKey: level.name.60
+    _icon: {fileID: 21300000, guid: 8f352e3ddc5f941bcb2ffdb59acb0704, type: 3}
+  - _levelNumber: 61
+    _nameKey: level.name.61
+    _icon: {fileID: 21300000, guid: 8d3fbd7a2e29c4188bd06aeb42ea58ba, type: 3}
+  - _levelNumber: 62
+    _nameKey: level.name.62
+    _icon: {fileID: 21300000, guid: 39c5e8740b4d54e98bf323bc5c9dfa01, type: 3}
+  - _levelNumber: 63
+    _nameKey: level.name.63
+    _icon: {fileID: 21300000, guid: 0df7ea6cdc14f490d827e284c2842440, type: 3}
+  - _levelNumber: 64
+    _nameKey: level.name.64
+    _icon: {fileID: 21300000, guid: 356088e083ff94037a285ee4f149a6b1, type: 3}
+  - _levelNumber: 65
+    _nameKey: level.name.65
+    _icon: {fileID: 21300000, guid: 525a618a7a918439393bd2c985308492, type: 3}
+  - _levelNumber: 66
+    _nameKey: level.name.66
+    _icon: {fileID: 21300000, guid: 4a02e3784a46a45be949f54b75b8fb9b, type: 3}
+  - _levelNumber: 67
+    _nameKey: level.name.67
+    _icon: {fileID: 21300000, guid: 670b21992de9f4919bc3acb57119b444, type: 3}
+  - _levelNumber: 68
+    _nameKey: level.name.68
+    _icon: {fileID: 21300000, guid: 1b6b2bac3201b4c058147a623d16ebe0, type: 3}
+  - _levelNumber: 69
+    _nameKey: level.name.69
+    _icon: {fileID: 21300000, guid: 53ba69f2d52be4634bfcd10b5832cf74, type: 3}
+  - _levelNumber: 70
+    _nameKey: level.name.70
+    _icon: {fileID: 21300000, guid: 2eda4a48b25c246839a5deef3d0cb604, type: 3}
+  - _levelNumber: 71
+    _nameKey: level.name.71
+    _icon: {fileID: 21300000, guid: 4a3f8f3433150498099a95554d6386d0, type: 3}
+  - _levelNumber: 72
+    _nameKey: level.name.72
+    _icon: {fileID: 21300000, guid: d86cb2538bc5d47ee84c07f9691dba32, type: 3}
+  - _levelNumber: 73
+    _nameKey: level.name.73
+    _icon: {fileID: 21300000, guid: 17340fa38211e417fa0a565f8352572b, type: 3}
+  - _levelNumber: 74
+    _nameKey: level.name.74
+    _icon: {fileID: 21300000, guid: 9a829cd1f4448479cbc267f5e243469b, type: 3}
+  - _levelNumber: 75
+    _nameKey: level.name.75
+    _icon: {fileID: 21300000, guid: 2ba6882f29788434b8853f159604b676, type: 3}
+  - _levelNumber: 76
+    _nameKey: level.name.76
+    _icon: {fileID: 21300000, guid: 30964406686004e53a5698fe228f1820, type: 3}
+  - _levelNumber: 77
+    _nameKey: level.name.77
+    _icon: {fileID: 21300000, guid: cba36afbb93b742879eafde7a094115b, type: 3}
+  - _levelNumber: 78
+    _nameKey: level.name.78
+    _icon: {fileID: 21300000, guid: c07c751d7189f461db4f312a6132fa3a, type: 3}
+  - _levelNumber: 79
+    _nameKey: level.name.79
+    _icon: {fileID: 21300000, guid: 8a8997af383e94ed980a838d814b238d, type: 3}
+  - _levelNumber: 80
+    _nameKey: level.name.80
+    _icon: {fileID: 21300000, guid: f509612b93d0c42f2bd52cd93e210f9a, type: 3}
+  - _levelNumber: 81
+    _nameKey: level.name.81
+    _icon: {fileID: 21300000, guid: 286582b0e757d4a658d62e9d96368b81, type: 3}
+  - _levelNumber: 82
+    _nameKey: level.name.82
+    _icon: {fileID: 21300000, guid: e6b3a54d57f894a048d691a1a50c0f4d, type: 3}
+  - _levelNumber: 83
+    _nameKey: level.name.83
+    _icon: {fileID: 21300000, guid: e65d7f08344b24447961d556cdc867de, type: 3}
+  - _levelNumber: 84
+    _nameKey: level.name.84
+    _icon: {fileID: 21300000, guid: 8e3a5ccf05c1e4a70b18ead4ef72f18f, type: 3}
+  - _levelNumber: 85
+    _nameKey: level.name.85
+    _icon: {fileID: 21300000, guid: 92a5d6ae040b14acca2c2627297ed54e, type: 3}
+  - _levelNumber: 86
+    _nameKey: level.name.86
+    _icon: {fileID: 21300000, guid: 7985dee6a763b4b65a3eb04ba823280d, type: 3}
+  - _levelNumber: 87
+    _nameKey: level.name.87
+    _icon: {fileID: 21300000, guid: e36d2ca38d08a4371938eed62f5f8ca2, type: 3}
+  - _levelNumber: 88
+    _nameKey: level.name.88
+    _icon: {fileID: 21300000, guid: 3d2fc8da81b6b4f2ca24a347d2439b5b, type: 3}
+  - _levelNumber: 89
+    _nameKey: level.name.89
+    _icon: {fileID: 21300000, guid: f8844f4c864444b0990209028e60c810, type: 3}
+  - _levelNumber: 90
+    _nameKey: level.name.90
+    _icon: {fileID: 21300000, guid: 70263e6125f0b4ef98785a13365f14b3, type: 3}
+  - _levelNumber: 91
+    _nameKey: level.name.91
+    _icon: {fileID: 21300000, guid: bbecb84cc7d7f49a287354485aa9d594, type: 3}
+  - _levelNumber: 92
+    _nameKey: level.name.92
+    _icon: {fileID: 21300000, guid: 22f28538423324f679d6774cab37f576, type: 3}
+  - _levelNumber: 93
+    _nameKey: level.name.93
+    _icon: {fileID: 21300000, guid: 4bc4a0eefd14b47218bac36b9214a5b1, type: 3}
+  - _levelNumber: 94
+    _nameKey: level.name.94
+    _icon: {fileID: 21300000, guid: 8f4ec5217b2264dfaabb4efcdd23e117, type: 3}
+  - _levelNumber: 95
+    _nameKey: level.name.95
+    _icon: {fileID: 21300000, guid: 48f4a7201e34042f7a0b5b69d9e6c435, type: 3}
+  - _levelNumber: 96
+    _nameKey: level.name.96
+    _icon: {fileID: 21300000, guid: 3102190d59db54b28abbb9fa46f9f249, type: 3}
+  - _levelNumber: 97
+    _nameKey: level.name.97
+    _icon: {fileID: 21300000, guid: 5673419523fbb4918b7ff09250738376, type: 3}
+  - _levelNumber: 98
+    _nameKey: level.name.98
+    _icon: {fileID: 21300000, guid: 605c22523191442f7bdcb4e2f5590f68, type: 3}
+  - _levelNumber: 99
+    _nameKey: level.name.99
+    _icon: {fileID: 21300000, guid: bb443100ab74142378a16ff352a0c8fd, type: 3}
+  - _levelNumber: 100
+    _nameKey: level.name.100
+    _icon: {fileID: 21300000, guid: 65106220a3c6e419fbe77419b258efc7, type: 3}

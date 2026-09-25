@@ -1045,7 +1045,9 @@ namespace MustyBlockBlast.Presentation.Views
             _toastRect.sizeDelta = new Vector2(_toastText.preferredWidth + TOAST_PADDING, TOAST_HEIGHT);
         }
 
-        private static string NameKeyOf(PowerUpKind kind)
+        /// <summary>String-table key of a kind's display name. Internal so the level-start card
+        /// (<see cref="LevelStartCardView"/>) names its rewards with the shop's own words.</summary>
+        internal static string NameKeyOf(PowerUpKind kind)
         {
             switch (kind)
             {

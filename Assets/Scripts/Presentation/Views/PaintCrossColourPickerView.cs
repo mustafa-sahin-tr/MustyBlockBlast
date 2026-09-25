@@ -57,7 +57,7 @@ namespace MustyBlockBlast.Presentation.Views
         private const float SELECTED_RING_THICKNESS = 8f;
 
         /// <summary>Corner multiplier the confirm plate is sliced at — the same as the picker's other
-        /// wide buttons (<see cref="CoinSowerPickerView"/>).</summary>
+        /// wide buttons (<see cref="LevelStartCardView"/>).</summary>
         private const float BUTTON_CORNER_MULTIPLIER = 0.7f;
 
         [Header("Layout")]
@@ -382,7 +382,7 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         /// <summary>The one action plate, lifted off the sheet with the same offset shadow every card
-        /// here wears — the shape <see cref="CoinSowerPickerView"/> gives its own wide buttons.</summary>
+        /// here wears — the shape <see cref="LevelStartCardView"/> gives its own wide buttons.</summary>
         private void BuildConfirmButton()
         {
             _confirmButtonRect = CellFactory.CreateCard(

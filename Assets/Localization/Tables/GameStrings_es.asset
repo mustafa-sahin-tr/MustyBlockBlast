@@ -1146,6 +1146,518 @@ MonoBehaviour:
     m_Localized: PREMIO DEL NIVEL
     m_Metadata:
       m_Items: []
+  - m_Id: 4184519664984065
+    m_Localized: "BONO DE RACHA"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984066
+    m_Localized: "Racha al primer intento {0} \u00b7 +{1}"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984067
+    m_Localized: "Colina de Margaritas"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984068
+    m_Localized: "Arroyo del Tr\u00e9bol"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984069
+    m_Localized: "Puente Soleado"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984070
+    m_Localized: "Sendero de Botones de Oro"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984071
+    m_Localized: "Estanque del Sauce"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984072
+    m_Localized: "Campo de Abejas"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984073
+    m_Localized: "Vuelo de Dientes de Le\u00f3n"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984074
+    m_Localized: "Valle de Amapolas"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984075
+    m_Localized: "Arroyo Arco\u00edris"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984076
+    m_Localized: "Corona del Prado"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984077
+    m_Localized: "Pino Escarchado"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984078
+    m_Localized: "Senda de Campanillas"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984079
+    m_Localized: "Cresta de Car\u00e1mbanos"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984080
+    m_Localized: "Lago Polar"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984081
+    m_Localized: "Colina de los Mitones"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984082
+    m_Localized: "Paso de la Ventisca"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984083
+    m_Localized: "Plaza del Mu\u00f1eco de Nieve"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984084
+    m_Localized: "Pico de la Aurora"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984085
+    m_Localized: "Puerta del Glaciar"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984086
+    m_Localized: "Cumbre Invernal"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984087
+    m_Localized: "Calle Mayor"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984088
+    m_Localized: "Calle de las Farolas"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984089
+    m_Localized: "Esquina del Tranv\u00eda"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984090
+    m_Localized: "Vista del Horizonte"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984091
+    m_Localized: "Plaza de la Fuente"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984092
+    m_Localized: "Plaza del Mercado"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984093
+    m_Localized: "Torre del Reloj"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984094
+    m_Localized: "Avenida de Ne\u00f3n"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984095
+    m_Localized: "Luces del Puerto"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984096
+    m_Localized: "Gran Estadio"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984097
+    m_Localized: "Esquina de la Panader\u00eda"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984098
+    m_Localized: "Patio del Colegio"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984099
+    m_Localized: "Calle del Arce"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984100
+    m_Localized: "Puerta del Jard\u00edn"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984101
+    m_Localized: "Tienda de la Esquina"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984102
+    m_Localized: "Paseo de la Biblioteca"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984103
+    m_Localized: "Parque Infantil"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984104
+    m_Localized: "Oficina de Correos"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984105
+    m_Localized: "Casa del \u00c1rbol"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984106
+    m_Localized: "Feria del Barrio"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984107
+    m_Localized: "Terrazas de Tulipanes"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984108
+    m_Localized: "Campos de Lavanda"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984109
+    m_Localized: "Arroyo del Molino"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984110
+    m_Localized: "Fila del Huerto"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984111
+    m_Localized: "Colina de Girasoles"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984112
+    m_Localized: "Hondonada del Zorro"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984113
+    m_Localized: "Huerto de Bayas"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984114
+    m_Localized: "Vado de Guijarros"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984115
+    m_Localized: "Prado de la Alondra"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984116
+    m_Localized: "Corona de la Cosecha"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984117
+    m_Localized: "Valle de Copos"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984118
+    m_Localized: "Cascada Helada"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984119
+    m_Localized: "Pista de Trineos"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984120
+    m_Localized: "Caba\u00f1a del Cacao"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984121
+    m_Localized: "Cueva de Cristal"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984122
+    m_Localized: "Punta Ping\u00fcino"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984123
+    m_Localized: "Luces del Norte"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984124
+    m_Localized: "Palacio de Hielo"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984125
+    m_Localized: "Cresta de la Avalancha"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984126
+    m_Localized: "Corona de Escarcha"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984127
+    m_Localized: "Parada de Autob\u00fas"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984128
+    m_Localized: "Calle del Puente"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984129
+    m_Localized: "Jard\u00edn en la Azotea"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984130
+    m_Localized: "L\u00ednea de Metro"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984131
+    m_Localized: "Escalinata del Museo"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984132
+    m_Localized: "Calle de los Cines"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984133
+    m_Localized: "Rascacielos"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984134
+    m_Localized: "Paseo del R\u00edo"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984135
+    m_Localized: "Festival de Faroles"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984136
+    m_Localized: "Corona de la Ciudad"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984137
+    m_Localized: "Puesto de Helados"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984138
+    m_Localized: "Tienda de Mascotas"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984139
+    m_Localized: "Carril Bici"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984140
+    m_Localized: "Puesto de Flores"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984141
+    m_Localized: "Jugueter\u00eda"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984142
+    m_Localized: "Cochera de Autobuses"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984143
+    m_Localized: "Estaci\u00f3n de Bomberos"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984144
+    m_Localized: "Mercado Nocturno"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984145
+    m_Localized: "Tejados"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984146
+    m_Localized: "Fiesta del Barrio"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984147
+    m_Localized: "Roc\u00edo Matinal"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984148
+    m_Localized: "Claro de Mariposas"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984149
+    m_Localized: "Roble Viejo"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984150
+    m_Localized: "Granja de Heno"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984151
+    m_Localized: "Colina del Molino"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984152
+    m_Localized: "Pasto del Atardecer"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984153
+    m_Localized: "Campo de Luci\u00e9rnagas"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984154
+    m_Localized: "Recodo del Arroyo"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984155
+    m_Localized: "Colina de las Cometas"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984156
+    m_Localized: "Prado Dorado"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984157
+    m_Localized: "Nieve Silenciosa"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984158
+    m_Localized: "Farol de Escarcha"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984159
+    m_Localized: "Pista de Hielo"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984160
+    m_Localized: "Fuerte de Nieve"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984161
+    m_Localized: "Ladera Estrellada"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984162
+    m_Localized: "Puerto Helado"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984163
+    m_Localized: "Sendero del Yeti"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984164
+    m_Localized: "Corona del Glaciar"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984165
+    m_Localized: "Noche Polar"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984166
+    m_Localized: "La \u00daltima Cumbre"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984167
+    m_Localized: "Pradera"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984168
+    m_Localized: "Invierno"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984169
+    m_Localized: "Ciudad"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984170
+    m_Localized: "Barrio"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984171
+    m_Localized: "{0} \u00b7 Nivel {1}"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984172
+    m_Localized: "Hito"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984173
+    m_Localized: "SUP\u00c9RALO Y GANA"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984174
+    m_Localized: "BLOQUEADO \u00b7 SUP\u00c9RALO Y GANA"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984175
+    m_Localized: "PREMIOS \u00b7 YA COBRADOS"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984176
+    m_Localized: "Racha al primer intento \u00b7 vas {0}"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984177
+    m_Localized: "Racha al primer intento \u00b7 con esta llegas a {0}"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984178
+    m_Localized: "Racha al primer intento \u00b7 repetir no cuenta"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984179
+    m_Localized: "+{0} AL {1}"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984180
+    m_Localized: "+{0} EXTRA"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984181
+    m_Localized: "TUS POTENCIADORES"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984183
+    m_Localized: "Supera el nivel {0} para desbloquear"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984184
+    m_Localized: "Empezar"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984185
+    m_Localized: "Empezar \u00b7 Sembrar {0}"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984186
+    m_Localized: "Jugar de nuevo"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984187
+    m_Localized: "Ver anuncio"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984188
+    m_Localized: "Sembrar monedas"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984189
+    m_Localized: "{0} cargas guardadas"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984190
+    m_Localized: "No se pudieron sembrar las monedas. Tus cargas siguen guardadas."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984191
+    m_Localized: "Este nivel no se puede empezar ahora."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984192
+    m_Localized: "\u00a1GANASTE!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4184519664984193
+    m_Localized: "\u00a1BONO DE RACHA!"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

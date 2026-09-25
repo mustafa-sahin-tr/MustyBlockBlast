@@ -25,9 +25,10 @@ namespace MustyBlockBlast.Presentation.Views
     /// <see cref="LevelProgressionSystem.TryStartPathLevel"/>, which refuses outside Path mode.
     /// </para>
     /// <para>
-    /// A node tap no longer starts that run directly. It opens <see cref="CoinSowerPickerView"/> for the
-    /// tapped level — the level-start screen where extra coin cells may be bought — and that card is
-    /// what asks the System to start the run once the player commits, with a purchase or without one.
+    /// A node tap no longer starts that run directly. It opens <see cref="LevelStartCardView"/> for the
+    /// tapped level — the level-start card showing what the level pays (issue #464) — and that card is
+    /// what asks the System to start the run once the player commits. A locked node opens the same card
+    /// as a read-only preview.
     /// </para>
     /// <para>
     /// Scrolled rather than paged, which is why this is the one overlay in the scene driven by an
@@ -82,6 +83,14 @@ namespace MustyBlockBlast.Presentation.Views
         /// value, and it shares its line with the running total.</summary>
         private const int TAP_HINT_FONT_SIZE = 28;
 
+        /// <summary>Least room kept between the header counter and the right-aligned streak hint that
+        /// shares its line (issue #464); the hint is truncated rather than allowed to close it.</summary>
+        private const float STREAK_HINT_GAP = 32f;
+
+        /// <summary>Separator between the streak's progress and the rule's threshold in the hint. A
+        /// symbol, not a word, like <see cref="COUNTER_SEPARATOR"/>.</summary>
+        private const string STREAK_PROGRESS_SEPARATOR = "/";
+
         // The scrolling window: everything between the running-total line and the description at the
         // foot of the card.
         private const float TRAIL_TOP_INSET = 194f;
@@ -131,6 +140,33 @@ namespace MustyBlockBlast.Presentation.Views
         private const int ACCENT_GAP_STRIDE = 2;
 
         private const float NODE_SIZE = 124f;
+
+        /// <summary>The level's icon inside the bead (issue #464). Sized so the rounded-square icon's
+        /// corners fall under <see cref="NODE_RIM"/>, which is what makes it read as a round window
+        /// without a stencil mask per node.</summary>
+        private const float NODE_ICON_SIZE = 92f;
+
+        /// <summary>The bead's coloured rim over the icon: a ring from the bead's edge inwards.</summary>
+        private const float NODE_RIM = (NODE_SIZE - NODE_ICON_SIZE) * 0.5f + 2f;
+
+        /// <summary>The "12 · Daisy Hill" label under every node (issue #464): its gap below the bead's
+        /// lip, height, side padding and widest allowed width (a longer name is truncated).</summary>
+        private const float NODE_LABEL_GAP = 8f;
+        private const float NODE_LABEL_HEIGHT = 40f;
+        private const int NODE_LABEL_FONT_SIZE = 25;
+        private const float NODE_LABEL_PADDING = 28f;
+        private const float NODE_LABEL_MAX_WIDTH = 300f;
+        private const float NODE_LABEL_BACKDROP_ALPHA = 0.9f;
+
+        /// <summary>The big level number beside the bead (issue #464): its size, gap from the bead's edge
+        /// and the width reserved for it, so "100" never reaches back onto the bead.</summary>
+        private const int NODE_NUMBER_FONT_SIZE = 50;
+        private const float NODE_NUMBER_GAP = 14f;
+        private const float NODE_NUMBER_WIDTH = 110f;
+        private static readonly Vector2 NodeNumberOutline = new Vector2(3f, -3f);
+
+        /// <summary>The sheen is kept faint now that it sits over artwork rather than a flat plate.</summary>
+        private const float NODE_ICON_SHEEN_ALPHA = 0.16f;
         private const float NODE_DOT_SIZE = 22f;
 
         /// <summary>Milestone level-up reward plate, mirroring the corner treatment of
@@ -169,7 +205,6 @@ namespace MustyBlockBlast.Presentation.Views
         private const float NODE_SHADOW_DROP = 18f;
         private const float NODE_SHEEN_ALPHA = 0.38f;
 
-        private static readonly Color NodeNumberShadow = new Color(0f, 0f, 0f, 0.28f);
 
         /// <summary>How much of the trail's own colour is mixed into the card behind it, so the
         /// scrolling band reads as this theme's ground rather than as bare card.</summary>
@@ -207,7 +242,6 @@ namespace MustyBlockBlast.Presentation.Views
         [Header("Layout")]
         [SerializeField] private Vector2 _cardSize = new Vector2(880f, 1336f);
         [SerializeField] private int _headerFontSize = 64;
-        [SerializeField] private int _nodeFontSize = 40;
         [SerializeField] private int _descriptionFontSize = 34;
 
         [Header("Palette")]
@@ -230,6 +264,9 @@ namespace MustyBlockBlast.Presentation.Views
         private LevelProgressionModel _levelProgressionModel;
         private PathRunModel _pathRunModel;
         private LevelCatalog _levelCatalog;
+        private LevelIdentityCatalog _levelIdentityCatalog;
+        private RewardRuleModel _rewardRuleModel;
+        private RewardRuleCatalog _rewardRuleCatalog;
         private SettingsModel _settingsModel;
         private LocalizationModel _localizationModel;
         private LocalizationSystem _localizationSystem;
@@ -244,7 +281,7 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>The level-start screen a node tap opens. A View dependency rather than a System one
         /// because the insertion is entirely presentational: what a node tap does now is show another
         /// card, which is what eventually starts the run.</summary>
-        private CoinSowerPickerView _coinSowerPickerView;
+        private LevelStartCardView _levelStartCardView;
 
         private GameObject _panel;
         private RectTransform _cardRect;
@@ -266,6 +303,10 @@ namespace MustyBlockBlast.Presentation.Views
 
         private Text _pathTotalText;
         private Text _tapHintText;
+
+        /// <summary>Path-mode progress towards the next first-try streak bonus (issue #464), right-aligned
+        /// on the header line.</summary>
+        private Text _streakHintText;
 
         /// <summary>The floating circular close button, borrowed whole from the info card family so
         /// this overlay's close reads exactly like theirs (issue #416).</summary>
@@ -289,8 +330,18 @@ namespace MustyBlockBlast.Presentation.Views
                 Image doneDot,
                 Text numberText,
                 Image[] rewardBadgeImages,
-                Image[] rewardIconImages)
+                Image[] rewardIconImages,
+                Image iconImage,
+                Image rimImage,
+                Image labelBackdrop,
+                Text sideNumberText,
+                Outline sideNumberOutline)
             {
+                SideNumberText = sideNumberText;
+                SideNumberOutline = sideNumberOutline;
+                IconImage = iconImage;
+                RimImage = rimImage;
+                LabelBackdrop = labelBackdrop;
                 Root = root;
                 PlateImage = plateImage;
                 ShadowImage = shadowImage;
@@ -316,7 +367,25 @@ namespace MustyBlockBlast.Presentation.Views
 
             internal Image DoneDot { get; }
 
+            /// <summary>The level's name label under the bead (issue #464).</summary>
             internal Text NumberText { get; }
+
+            /// <summary>The big level number beside the bead (issue #464), so "which level is this"
+            /// reads at a glance now that the icon fills the bead.</summary>
+            internal Text SideNumberText { get; }
+
+            /// <summary>The card-coloured outline that keeps <see cref="SideNumberText"/> legible.</summary>
+            internal Outline SideNumberOutline { get; }
+
+            /// <summary>The level's icon inside the bead (issue #464).</summary>
+            internal Image IconImage { get; }
+
+            /// <summary>The coloured ring over the icon's corners — the bead's colour now that the icon
+            /// covers its middle.</summary>
+            internal Image RimImage { get; }
+
+            /// <summary>The soft pill behind <see cref="NumberText"/>, so it reads over the trail.</summary>
+            internal Image LabelBackdrop { get; }
 
             /// <summary>One plate per power-up a first clear of this level pays (issue #462): one for a
             /// regular level, three for a milestone, none for the last level (which advances nowhere, so
@@ -351,19 +420,25 @@ namespace MustyBlockBlast.Presentation.Views
             LevelProgressionModel levelProgressionModel,
             PathRunModel pathRunModel,
             LevelCatalog levelCatalog,
+            LevelIdentityCatalog levelIdentityCatalog,
+            RewardRuleModel rewardRuleModel,
+            RewardRuleCatalog rewardRuleCatalog,
             SettingsModel settingsModel,
             LocalizationModel localizationModel,
             LocalizationSystem localizationSystem,
             LevelProgressionSystem levelProgressionSystem,
             GameModeSystem gameModeSystem,
             TimerRunSystem timerRunSystem,
-            CoinSowerPickerView coinSowerPickerView,
+            LevelStartCardView levelStartCardView,
             PowerUpInventoryView powerUpInventoryView)
         {
-            _coinSowerPickerView = coinSowerPickerView;
+            _levelStartCardView = levelStartCardView;
             _levelProgressionModel = levelProgressionModel;
             _pathRunModel = pathRunModel;
             _levelCatalog = levelCatalog;
+            _levelIdentityCatalog = levelIdentityCatalog;
+            _rewardRuleModel = rewardRuleModel;
+            _rewardRuleCatalog = rewardRuleCatalog;
             _settingsModel = settingsModel;
             _localizationModel = localizationModel;
             _localizationSystem = localizationSystem;
@@ -376,9 +451,10 @@ namespace MustyBlockBlast.Presentation.Views
         private void Start()
         {
             if (_levelProgressionModel == null || _pathRunModel == null || _levelCatalog == null
-                || _settingsModel == null || _localizationModel == null || _localizationSystem == null
+                || _levelIdentityCatalog == null
+                || _rewardRuleModel == null || _rewardRuleCatalog == null || _settingsModel == null || _localizationModel == null || _localizationSystem == null
                 || _levelProgressionSystem == null || _gameModeSystem == null || _timerRunSystem == null
-                || _coinSowerPickerView == null || _powerUpInventoryView == null)
+                || _levelStartCardView == null || _powerUpInventoryView == null)
             {
                 Debug.LogError(
                     $"{nameof(LevelPathPanelView)} was not injected. Is it registered in the LifetimeScope?", this);
@@ -400,6 +476,7 @@ namespace MustyBlockBlast.Presentation.Views
             // Same reason for both: the walk's tally moves and the mode changes while the card is
             // hidden, and each decides something the card renders.
             _pathRunModel.PathTotalScore.Subscribe(OnPathTotalChanged).AddTo(_disposables);
+            _rewardRuleModel.FirstTryStreak.Subscribe(OnFirstTryStreakChanged).AddTo(_disposables);
             _gameModeSystem.CurrentMode.Subscribe(OnModeChanged).AddTo(_disposables);
 
             // Last, once the card is built and painted: an Open() that arrived before Start — the
@@ -490,34 +567,28 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         /// <summary>
-        /// Hands this node's level to <see cref="CoinSowerPickerView"/>, which offers the level-start
-        /// purchase and is what goes on to ask
-        /// <see cref="LevelProgressionSystem.TryStartPathLevel"/> once the player has committed (see
-        /// issue #167).
+        /// Hands this node's level to <see cref="LevelStartCardView"/>, which shows what the level pays
+        /// and is what goes on to ask <see cref="LevelProgressionSystem.TryStartPathLevel"/> once the
+        /// player commits (issues #167, #464).
         /// <para>
-        /// A locked node is a disabled button: its tap does nothing at all — no picker, no card closing.
-        /// Opening the picker for it only led to a "cannot be started" refusal one tap later. The lock is
-        /// asked of <see cref="LevelProgressionSystem.IsUnlocked"/>, the same rule
-        /// <see cref="RefreshNode"/> draws the node with, so what looks disabled is exactly what is.
-        /// The mode is still not gated here: the System keeps owning "only in Path mode", and the picker
-        /// reports that refusal on its own card.
+        /// A locked node opens the same card as a read-only preview of its rewards — no Start, no Watch
+        /// Ad (issue #464). Only a node the catalog does not author does nothing.
         /// </para>
         /// <para>
-        /// This card is closed before the picker opens because the two are mutually exclusive overlays
-        /// and both hold the countdown through the same single <see cref="TimerRunSystem"/> flag — see
-        /// the gate chain in <see cref="BoardInputView"/>. Closing releases the hold this card took, and
-        /// the picker takes its own; leaving both open would give that flag two owners.
+        /// This card is closed before the level-start card opens because the two are mutually exclusive
+        /// overlays and both hold the countdown through the same single <see cref="TimerRunSystem"/>
+        /// flag — see the gate chain in <see cref="BoardInputView"/>.
         /// </para>
         /// </summary>
         private void OnNodeClicked(int levelNumber)
         {
-            if (!_levelProgressionSystem.IsUnlocked(levelNumber))
+            if (_levelCatalog.Find(levelNumber) == null)
             {
                 return;
             }
 
             Close();
-            _coinSowerPickerView.Open(levelNumber);
+            _levelStartCardView.Open(levelNumber);
         }
 
         private void OnThemeChanged(ThemeDefinition theme)
@@ -536,6 +607,8 @@ namespace MustyBlockBlast.Presentation.Views
         private void OnCurrentLevelChanged(int levelNumber) => Refresh();
 
         private void OnPathTotalChanged(int pathTotal) => Refresh();
+
+        private void OnFirstTryStreakChanged(int streak) => Refresh();
 
         private void OnModeChanged(GameMode mode) => Refresh();
 
@@ -591,6 +664,8 @@ namespace MustyBlockBlast.Presentation.Views
                 _tapHintText.text = _localizationSystem.Translate(LocalizationKeys.LEVEL_PATH_TAP_HINT);
             }
 
+            RefreshStreakHint(isPathMode);
+
             RefreshTrailPieces(_ribbonPieces, _currentTheme.TrailPathColor);
             RefreshTrailPieces(_accentPieces, _currentTheme.TrailWeatherAccentColor);
 
@@ -598,6 +673,42 @@ namespace MustyBlockBlast.Presentation.Views
             {
                 RefreshNode(_nodes[nodeIndex], nodeIndex + 1, currentLevel);
             }
+        }
+
+        /// <summary>
+        /// The "next reward" hint (issue #464): how far the first-try streak is into the cycle of the
+        /// rule closest to paying, and what that rule pays — e.g. "First-try streak 2/3 · +1". Read
+        /// through <see cref="RewardRules.TryGetNextPayout"/>, the same rule the payout uses, so the hint
+        /// cannot promise something the system will not pay. Path mode only, and hidden when no rule is
+        /// authored.
+        /// </summary>
+        private void RefreshStreakHint(bool isPathMode)
+        {
+            bool hasRule = RewardRules.TryGetNextPayout(
+                _rewardRuleCatalog.Rules, RewardRuleCondition.ConsecutiveFirstTryClears,
+                _rewardRuleModel.FirstTryStreak.Value, out RewardRuleConfig nextRule, out int progress);
+            bool show = isPathMode && hasRule;
+            _streakHintText.gameObject.SetActive(show);
+            if (!show)
+            {
+                return;
+            }
+
+            _streakHintText.color = _currentTheme.Accent;
+
+            _stringBuilder.Clear();
+            _stringBuilder.Append(progress);
+            _stringBuilder.Append(STREAK_PROGRESS_SEPARATOR);
+            _stringBuilder.Append(nextRule.Threshold);
+            string progressText = _stringBuilder.ToString();
+
+            _stringBuilder.Clear();
+            _stringBuilder.Append(nextRule.RewardCount);
+            string hint = _localizationSystem.Format(
+                LocalizationKeys.LEVEL_PATH_STREAK_HINT, progressText, _stringBuilder.ToString());
+
+            float maxWidth = _cardSize.x - (SIDE_INSET * 2f) - _headerText.preferredWidth - STREAK_HINT_GAP;
+            SetTruncated(_streakHintText, hint, maxWidth);
         }
 
         /// <summary>Tints one bucket of trail scraps, dimming the stretch that runs past the player's
@@ -642,17 +753,19 @@ namespace MustyBlockBlast.Presentation.Views
                 ? _currentTheme.Accent
                 : _currentTheme.GetFill(KindOf(levelNumber));
 
-            // Punched out of the plate whatever colour the plate is: every node is now a saturated
-            // fill, so the card's own background is the one number colour that reads on all of them.
-            Color numberColour = _currentTheme.CardBackground;
-
             // A locked node is faded toward the card rather than made translucent: the bead is stacked
             // layers (shadow, lip, plate, sheen), and translucent layers would show through each other.
             node.PlateImage.color = FadeIfLocked(plateColour, isLocked);
             node.LipImage.color = FadeIfLocked(Darken(plateColour, NODE_LIP_SHADE), isLocked);
             node.ShadowImage.color = WithAlpha(_currentTheme.CardShadow, isLocked ? LOCKED_NODE_ALPHA : 1f);
-            node.HighlightImage.color = WithAlpha(Color.white, isLocked ? NODE_SHEEN_ALPHA * LOCKED_NODE_ALPHA : NODE_SHEEN_ALPHA);
-            node.NumberText.color = FadeIfLocked(numberColour, isLocked);
+            node.HighlightImage.color = WithAlpha(
+                Color.white, isLocked ? NODE_ICON_SHEEN_ALPHA * LOCKED_NODE_ALPHA : NODE_ICON_SHEEN_ALPHA);
+            node.RimImage.color = FadeIfLocked(plateColour, isLocked);
+            node.IconImage.color = FadeIfLocked(Color.white, isLocked);
+            RefreshNodeLabel(node, levelNumber, isLocked);
+            node.SideNumberText.color = FadeIfLocked(isCurrent ? _currentTheme.Accent : _currentTheme.Ink, isLocked);
+            node.SideNumberOutline.effectColor = WithAlpha(
+                _currentTheme.CardBackground, isLocked ? LOCKED_NODE_ALPHA : 1f);
 
             bool isCleared = levelNumber < currentLevel;
             // On the current node the plate is itself accent-filled, so the badges take the plate's
@@ -674,6 +787,28 @@ namespace MustyBlockBlast.Presentation.Views
 
             float scale = isCurrent ? CURRENT_NODE_SCALE : 1f;
             node.Root.localScale = new Vector3(scale, scale, 1f);
+        }
+
+        /// <summary>
+        /// The name label under a node (issue #464): the level's localized name on a soft card-coloured
+        /// pill, truncated to <see cref="NODE_LABEL_MAX_WIDTH"/>. Rewritten
+        /// on every repaint so a language switch renames the whole walk.
+        /// </summary>
+        private void RefreshNodeLabel(LevelNode node, int levelNumber, bool isLocked)
+        {
+            LevelIdentityConfig identity = _levelIdentityCatalog.Find(levelNumber);
+            string levelName = identity != null && !string.IsNullOrEmpty(identity.NameKey)
+                ? _localizationSystem.Translate(identity.NameKey)
+                : string.Empty;
+            node.NumberText.gameObject.SetActive(levelName.Length > 0);
+            node.LabelBackdrop.gameObject.SetActive(levelName.Length > 0);
+            SetTruncated(node.NumberText, levelName, NODE_LABEL_MAX_WIDTH - NODE_LABEL_PADDING);
+            node.NumberText.color = FadeIfLocked(_currentTheme.Ink, isLocked);
+
+            float width = node.NumberText.preferredWidth + NODE_LABEL_PADDING;
+            node.LabelBackdrop.rectTransform.sizeDelta = new Vector2(width, NODE_LABEL_HEIGHT);
+            node.LabelBackdrop.color = WithAlpha(
+                _currentTheme.CardBackground, NODE_LABEL_BACKDROP_ALPHA * (isLocked ? LOCKED_NODE_ALPHA + 0.3f : 1f));
         }
 
         /// <summary>
@@ -817,6 +952,12 @@ namespace MustyBlockBlast.Presentation.Views
             _headerText = CreateLabel(
                 _cardRect, "Header", _headerFontSize, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(-cardHalfWidth + SIDE_INSET, headerY));
+
+            // The header line's right half is otherwise empty; the band under it already holds the
+            // running total and the tap hint.
+            _streakHintText = CreateLabel(
+                _cardRect, "StreakHint", TAP_HINT_FONT_SIZE, FontStyle.Bold, TextAnchor.MiddleRight,
+                new Vector2(cardHalfWidth - SIDE_INSET, headerY));
 
             // Both sit in the band between the header line and the top of the trail — the one strip of
             // the card that is otherwise empty. The foot of the card is not an option: the level
@@ -1180,21 +1321,33 @@ namespace MustyBlockBlast.Presentation.Views
             // of its own, and uGUI dispatches a click up the hierarchy from whatever graphic it hit.
             plateImage.raycastTarget = true;
 
+            // The level's own icon fills the bead (issue #464), under a rim in the bead's colour that
+            // hides the icon's square corners — the node still reads as a coloured bead, now with the
+            // level's picture in it.
+            LevelIdentityConfig identity = _levelIdentityCatalog.Find(levelNumber);
+            Image iconImage = HudChrome.BuildGlyph(
+                nodeRect, "Icon", identity != null ? identity.Icon : null,
+                new Vector2(NODE_ICON_SIZE, NODE_ICON_SIZE), Vector2.zero);
+            iconImage.enabled = iconImage.sprite != null;
+            Image rimImage = HudChrome.BuildOutline(
+                nodeRect, "Rim", new Vector2(NODE_SIZE, NODE_SIZE), Vector2.zero, NODE_SIZE * 0.5f, NODE_RIM);
+
             Image highlightImage = HudChrome.BuildRounded(
                 nodeRect, "Sheen", new Vector2(NODE_SIZE * 0.56f, NODE_SIZE * 0.2f),
                 new Vector2(0f, NODE_SIZE * 0.27f), NODE_SIZE * 0.1f);
 
             LevelObjectiveConfig config = _levelCatalog.Find(levelNumber);
 
-            // The level number is the whole content of the plate now that the objective glyph is gone
-            // (issue #416): one large bold number, centred. Several objectives on one node never read
-            // as anything but clutter at this size, and the goal is spelled out in words at the foot of
-            // the card for the level the player is actually on.
+            // The number moved off the bead when the icon moved in (issue #464): it heads the name
+            // label under the node instead, "12 · Daisy Hill", on a soft pill so it reads over the
+            // ribbon and the scenery. RefreshNodeLabel writes and sizes it.
+            float labelY = (-NODE_SIZE * 0.5f) - NODE_LIP_DEPTH - NODE_LABEL_GAP - (NODE_LABEL_HEIGHT * 0.5f);
+            Image labelBackdrop = HudChrome.BuildRounded(
+                nodeRect, "LabelBackdrop", new Vector2(NODE_LABEL_HEIGHT, NODE_LABEL_HEIGHT), new Vector2(0f, labelY),
+                NODE_LABEL_HEIGHT * 0.5f);
             Text numberText = UiTextFactory.Create(
-                nodeRect, "Number", _nodeFontSize, FontStyle.Bold, Color.clear);
-            var numberShadow = numberText.gameObject.AddComponent<Shadow>();
-            numberShadow.effectColor = NodeNumberShadow;
-            numberShadow.effectDistance = new Vector2(0f, -3f);
+                nodeRect, "Label", NODE_LABEL_FONT_SIZE, FontStyle.Bold, Color.clear);
+            numberText.rectTransform.anchoredPosition = new Vector2(0f, labelY);
 
             // Same filled accent dot the objective HUD uses for "done", in the corner so it never
             // crowds the number.
@@ -1230,15 +1383,26 @@ namespace MustyBlockBlast.Presentation.Views
                 }
             }
 
-            // The number never changes for a given widget, so it is written here rather than in
-            // Refresh — one less string built per repaint, times the whole catalog.
+            // The big number beside the bead, on the side facing the middle of the trail so it never
+            // runs off the card at the far end of a sweep. A card-coloured outline keeps it legible over
+            // the ribbon and the scenery.
+            float side = waypoint.x > 0.5f ? -1f : 1f;
+            Text sideNumberText = UiTextFactory.Create(
+                nodeRect, "Number", NODE_NUMBER_FONT_SIZE, FontStyle.Bold, Color.clear);
+            sideNumberText.alignment = side > 0f ? TextAnchor.MiddleLeft : TextAnchor.MiddleRight;
+            RectTransform sideNumberRect = sideNumberText.rectTransform;
+            sideNumberRect.pivot = new Vector2(side > 0f ? 0f : 1f, 0.5f);
+            sideNumberRect.sizeDelta = new Vector2(NODE_NUMBER_WIDTH, NODE_NUMBER_FONT_SIZE * 1.4f);
+            sideNumberRect.anchoredPosition = new Vector2(side * ((NODE_SIZE * 0.5f) + NODE_NUMBER_GAP), 0f);
+            var sideNumberOutline = sideNumberText.gameObject.AddComponent<Outline>();
+            sideNumberOutline.effectDistance = NodeNumberOutline;
             _stringBuilder.Clear();
             _stringBuilder.Append(levelNumber);
-            numberText.text = _stringBuilder.ToString();
+            sideNumberText.text = _stringBuilder.ToString();
 
             return new LevelNode(
                 nodeRect, plateImage, shadowImage, lipImage, highlightImage, dotImage, numberText,
-                rewardBadgeImages, rewardIconImages);
+                rewardBadgeImages, rewardIconImages, iconImage, rimImage, labelBackdrop, sideNumberText, sideNumberOutline);
         }
 
         /// <summary>One reward badge: an accent disc carrying <paramref name="kind"/>'s strip glyph.
