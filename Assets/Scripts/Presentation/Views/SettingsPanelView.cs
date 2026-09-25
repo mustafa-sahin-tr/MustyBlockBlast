@@ -22,7 +22,7 @@ namespace MustyBlockBlast.Presentation.Views
     /// small uppercase label, the value in the display face, and a chevron disc or a 3D toggle on the
     /// right. Several screens live inside the one card:
     /// <list type="bullet">
-    /// <item>Settings — the five plates (mode, theme, language, sound, round length) and, at the foot
+    /// <item>Settings — the plates (mode, theme, language, sound, board punch) and, at the foot
     /// of the well, the one call to action: the Remove Ads button, or the "ads removed" strip once it
     /// is owned.</item>
     /// <item>Theme — a 2×2 grid of cards, each previewing its own theme's gradient with a 4×4 mini
@@ -245,6 +245,7 @@ namespace MustyBlockBlast.Presentation.Views
         private const int THEME_KIND = 3;
         private const int LANGUAGE_KIND = 4;
         private const int SOUND_KIND = 2;
+        private const int BOARD_PUNCH_KIND = 1;
         private const int PRIMARY_KIND = 1;
         private const int TOGGLE_KIND = 5;
         private const int OWNED_KIND = 5;
@@ -343,6 +344,7 @@ namespace MustyBlockBlast.Presentation.Views
         private RectTransform _themeRowRect;
         private RectTransform _languageRowRect;
         private RectTransform _soundRowRect;
+        private RectTransform _boardPunchRowRect;
 
         private RectTransform _themeBackButtonRect;
         private RectTransform _modeBackButtonRect;
@@ -362,10 +364,15 @@ namespace MustyBlockBlast.Presentation.Views
         private Image _toggleFace;
         private Image _toggleLip;
 
+        private RectTransform _boardPunchToggleThumbRect;
+        private Image _boardPunchToggleFace;
+        private Image _boardPunchToggleLip;
+
         private Text _themeValueText;
         private RectTransform _themeValueRect;
         private Text _modeValueText;
         private Text _soundValueText;
+        private Text _boardPunchValueText;
         private Text _languageValueText;
 
         /// <summary>The mode row's tile wears the active mode's own glyph, one per selectable mode.</summary>
@@ -500,6 +507,7 @@ namespace MustyBlockBlast.Presentation.Views
 
             _settingsModel.CurrentTheme.Subscribe(OnThemeChanged).AddTo(_disposables);
             _sfxModel.IsMuted.Subscribe(OnMutedChanged).AddTo(_disposables);
+            _settingsModel.BoardPunchEnabled.Subscribe(OnBoardPunchEnabledChanged).AddTo(_disposables);
 
             // Observed rather than read once: the flag is one-way, but it is set while this card is the
             // open screen — the purchase is started from it — so the foot of the well has to repaint on
@@ -638,6 +646,12 @@ namespace MustyBlockBlast.Presentation.Views
             if (RectTransformUtility.RectangleContainsScreenPoint(_soundRowRect, screenPosition, eventCamera))
             {
                 _sfxService.SetMuted(!_sfxModel.IsMuted.Value);
+                return true;
+            }
+
+            if (RectTransformUtility.RectangleContainsScreenPoint(_boardPunchRowRect, screenPosition, eventCamera))
+            {
+                _settingsSystem.SetBoardPunchEnabled(!_settingsModel.BoardPunchEnabled.Value);
                 return true;
             }
 
@@ -994,9 +1008,10 @@ namespace MustyBlockBlast.Presentation.Views
             RefreshLanguageSelection();
             RefreshRemoveAdsAction();
 
-            // Last: the bulk loop above repaints the toggle's parts too, so its state-dependent colours
-            // have to be reapplied on top of it.
+            // Last: the toggles' colours depend on their state as well as the theme, so they are
+            // painted by their own handlers rather than by a bucket above.
             OnMutedChanged(_sfxModel.IsMuted.Value);
+            OnBoardPunchEnabledChanged(_settingsModel.BoardPunchEnabled.Value);
         }
 
         /// <summary>
@@ -1016,6 +1031,7 @@ namespace MustyBlockBlast.Presentation.Views
             _modePlates.Relocalize();
             RefreshModeValue();
             RefreshSoundValue();
+            RefreshBoardPunchValue();
             RefreshThemeNames();
             RefreshConfirmTitle();
 
@@ -1036,14 +1052,30 @@ namespace MustyBlockBlast.Presentation.Views
                 return;
             }
 
-            // On is the toggle kind's bevel pair, off the empty-cell pair — so the switch, like every
-            // other element on the card, is painted from the theme rather than a fixed green.
-            _toggleFace.color = muted ? _currentTheme.EmptyCellFill : _currentTheme.GetFill(TOGGLE_KIND);
-            _toggleLip.color = muted ? _currentTheme.EmptyCellOutline : _currentTheme.GetShade(TOGGLE_KIND);
-            _toggleThumbRect.anchoredPosition =
-                new Vector2(muted ? -TOGGLE_THUMB_TRAVEL : TOGGLE_THUMB_TRAVEL, TOGGLE_LIP * 0.5f);
-
+            PaintToggle(_toggleFace, _toggleLip, _toggleThumbRect, !muted);
             RefreshSoundValue();
+        }
+
+        private void OnBoardPunchEnabledChanged(bool enabled)
+        {
+            if (_boardPunchToggleFace == null || _currentTheme == null)
+            {
+                return;
+            }
+
+            PaintToggle(_boardPunchToggleFace, _boardPunchToggleLip, _boardPunchToggleThumbRect, enabled);
+            RefreshBoardPunchValue();
+        }
+
+        /// <summary>
+        /// On is the toggle kind's bevel pair, off the empty-cell pair — so the switch, like every
+        /// other element on the card, is painted from the theme rather than a fixed green.
+        /// </summary>
+        private void PaintToggle(Image face, Image lip, RectTransform thumb, bool isOn)
+        {
+            face.color = isOn ? _currentTheme.GetFill(TOGGLE_KIND) : _currentTheme.EmptyCellFill;
+            lip.color = isOn ? _currentTheme.GetShade(TOGGLE_KIND) : _currentTheme.EmptyCellOutline;
+            thumb.anchoredPosition = new Vector2(isOn ? TOGGLE_THUMB_TRAVEL : -TOGGLE_THUMB_TRAVEL, TOGGLE_LIP * 0.5f);
         }
 
         private void OnAdsRemovedChanged(bool adsRemoved) => RefreshRemoveAdsAction();
@@ -1278,6 +1310,18 @@ namespace MustyBlockBlast.Presentation.Views
                 : LocalizationKeys.SETTINGS_SOUND_ON);
         }
 
+        private void RefreshBoardPunchValue()
+        {
+            if (_boardPunchValueText == null)
+            {
+                return;
+            }
+
+            _boardPunchValueText.text = _localizationSystem.Translate(_settingsModel.BoardPunchEnabled.Value
+                ? LocalizationKeys.SETTINGS_SOUND_ON
+                : LocalizationKeys.SETTINGS_SOUND_OFF);
+        }
+
         /// <summary>
         /// Records <paramref name="label"/> as rendering <paramref name="key"/> and paints it once, so
         /// a label is correct from the moment it is built rather than only after the first switch.
@@ -1482,6 +1526,10 @@ namespace MustyBlockBlast.Presentation.Views
             _languageRowRect = BuildRow(root, 2, "LanguageRow", LANGUAGE_KIND, LocalizationKeys.SETTINGS_ROW_LANGUAGE, out _, out _languageValueText, out RectTransform languageTile);
             _soundRowRect = BuildRow(root, 3, "SoundRow", SOUND_KIND, LocalizationKeys.SETTINGS_ROW_SOUND, out _, out _soundValueText, out RectTransform soundTile);
 
+            // Under the sound row: both are on/off switches for how the game feels rather than how it
+            // looks or reads (issue #367).
+            _boardPunchRowRect = BuildRow(root, 4, "BoardPunchRow", BOARD_PUNCH_KIND, LocalizationKeys.SETTINGS_ROW_BOARD_PUNCH, out _, out _boardPunchValueText, out RectTransform boardPunchTile);
+
             _themeValueRect = (RectTransform)_themeValueText.transform;
 
             // The mode row's tile shows whichever mode is being played; all three glyphs are built and
@@ -1495,11 +1543,13 @@ namespace MustyBlockBlast.Presentation.Views
             BuildPaletteGlyph(themeTile, THEME_KIND);
             BuildGlobeGlyph(languageTile, LANGUAGE_KIND);
             BuildVolumeGlyph(soundTile);
+            BuildShakeGlyph(boardPunchTile);
 
             BuildChevronDisc(_modeRowRect, contentWidth);
             BuildChevronDisc(_themeRowRect, contentWidth);
             BuildChevronDisc(_languageRowRect, contentWidth);
-            BuildToggle(_soundRowRect, contentWidth);
+            BuildToggle(_soundRowRect, contentWidth, out _toggleFace, out _toggleLip, out _toggleThumbRect);
+            BuildToggle(_boardPunchRowRect, contentWidth, out _boardPunchToggleFace, out _boardPunchToggleLip, out _boardPunchToggleThumbRect);
 
             // Same dots as the theme cards' boards use, just smaller, moved into the value: one visual
             // language for "theme". Positioned after the value by RefreshThemeNames, since the wording
@@ -1611,10 +1661,11 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         /// <summary>
-        /// The sound toggle: a rounded track with the same lip the tiles have, and a white thumb that
-        /// slides between its two ends. Painted by <see cref="OnMutedChanged"/>.
+        /// An on/off toggle: a rounded track with the same lip the tiles have, and a white thumb that
+        /// slides between its two ends. Painted by <see cref="PaintToggle"/>.
         /// </summary>
-        private void BuildToggle(RectTransform rowRect, float contentWidth)
+        private static void BuildToggle(
+            RectTransform rowRect, float contentWidth, out Image face, out Image lip, out RectTransform thumbRect)
         {
             var trackObject = new GameObject("Toggle", typeof(RectTransform));
             var trackRect = (RectTransform)trackObject.transform;
@@ -1622,14 +1673,14 @@ namespace MustyBlockBlast.Presentation.Views
             Centre(trackRect, new Vector2(TOGGLE_WIDTH, TOGGLE_HEIGHT));
             trackRect.anchoredPosition = new Vector2((contentWidth * 0.5f) - ROW_PADDING_X - (TOGGLE_WIDTH * 0.5f), 0f);
 
-            _toggleLip = BuildRounded(trackRect, "Lip", new Vector2(TOGGLE_WIDTH, TOGGLE_HEIGHT), Vector2.zero, TOGGLE_HEIGHT * 0.5f);
-            _toggleFace = BuildRounded(
+            lip = BuildRounded(trackRect, "Lip", new Vector2(TOGGLE_WIDTH, TOGGLE_HEIGHT), Vector2.zero, TOGGLE_HEIGHT * 0.5f);
+            face = BuildRounded(
                 trackRect, "Face", new Vector2(TOGGLE_WIDTH, TOGGLE_HEIGHT - TOGGLE_LIP), new Vector2(0f, TOGGLE_LIP * 0.5f),
                 (TOGGLE_HEIGHT - TOGGLE_LIP) * 0.5f);
 
             Image thumb = BuildCircle(trackRect, "Thumb", TOGGLE_THUMB_SIZE, new Vector2(TOGGLE_THUMB_TRAVEL, TOGGLE_LIP * 0.5f));
             thumb.color = Color.white;
-            _toggleThumbRect = (RectTransform)thumb.transform;
+            thumbRect = (RectTransform)thumb.transform;
         }
 
         /// <summary>
@@ -1793,6 +1844,30 @@ namespace MustyBlockBlast.Presentation.Views
                     tileRect, $"VolumeBar_{barIndex}", new Vector2(BAR_WIDTH, barHeight),
                     new Vector2((barIndex - ((BAR_COUNT - 1) * 0.5f)) * BAR_SPACING, BAR_BASE_Y + (barHeight * 0.5f)),
                     BAR_WIDTH * 0.5f).color = Color.white;
+            }
+        }
+
+        /// <summary>A small board with two short bars either side of it — the usual "shaking" glyph.</summary>
+        private static void BuildShakeGlyph(RectTransform tileRect)
+        {
+            const float BOARD_SIZE = 34f;
+            const float BAR_WIDTH = 6f;
+            const float INNER_BAR_HEIGHT = 34f;
+            const float OUTER_BAR_HEIGHT = 22f;
+            const float INNER_BAR_X = 26f;
+            const float OUTER_BAR_X = 37f;
+
+            BuildRounded(tileRect, "ShakeBoard", new Vector2(BOARD_SIZE, BOARD_SIZE), Vector2.zero, 7f).color = Color.white;
+
+            for (int sideIndex = 0; sideIndex < 2; sideIndex++)
+            {
+                float sign = sideIndex == 0 ? -1f : 1f;
+                BuildRounded(
+                    tileRect, $"ShakeInnerBar_{sideIndex}", new Vector2(BAR_WIDTH, INNER_BAR_HEIGHT),
+                    new Vector2(sign * INNER_BAR_X, 0f), BAR_WIDTH * 0.5f).color = Color.white;
+                BuildRounded(
+                    tileRect, $"ShakeOuterBar_{sideIndex}", new Vector2(BAR_WIDTH, OUTER_BAR_HEIGHT),
+                    new Vector2(sign * OUTER_BAR_X, 0f), BAR_WIDTH * 0.5f).color = Color.white;
             }
         }
 

@@ -1838,6 +1838,10 @@ MonoBehaviour:
     m_Localized: "Leftover moves bonus: {0} moves \xB7 +{1}"
     m_Metadata:
       m_Items: []
+  - m_Id: 4350167317733401
+    m_Localized: Board Shake
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []
