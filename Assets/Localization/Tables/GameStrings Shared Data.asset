@@ -1107,6 +1107,34 @@ MonoBehaviour:
     m_Key: info_popup.demo.armour_broken
     m_Metadata:
       m_Items: []
+  - m_Id: 4106798595301376
+    m_Key: info_popup.demo.chip.save
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4106798788239360
+    m_Key: info_popup.demo.family_counts
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4106798788239361
+    m_Key: info_popup.demo.this_piece
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4106798792433664
+    m_Key: info_popup.demo.target_score
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4106798792433665
+    m_Key: info_popup.demo.combo
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4106798792433666
+    m_Key: info_popup.demo.last_moment
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4106798792433667
+    m_Key: info_popup.demo.saved
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

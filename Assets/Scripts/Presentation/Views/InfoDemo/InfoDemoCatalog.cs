@@ -11,7 +11,8 @@ namespace MustyBlockBlast.Presentation.Views
     /// #449; the Golden, Piercing Rocket and Demolition Hammer special pieces, #451; objective cards via
     /// <see cref="FindObjective"/> — Simultaneous Line Clear, #447; At Least, Row and Column Cross, Bomb-induced,
     /// Piece Id and Rolling Window line clears, #452; Board Wipe, Four Corners, Center Core, No Isolated Holes,
-    /// Colour, Diamonds, Ice, Reinforced and Timer cells, #453). A subject with none
+    /// Colour, Diamonds, Ice, Reinforced and Timer cells, #453; Piece Family, Score In Run, Streak Threshold, Piece Id
+    /// Count, Clutch Recovery, Early Score Rush and Reroll Save, #454 — every objective type now has one). A subject with none
     /// returns null and its card keeps today's static hero icon (issue #445 AC9). Each demo is built
     /// once, the first time it is asked for, and cached — a timeline is immutable, so replaying it
     /// every time the card opens costs nothing.
@@ -72,6 +73,19 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>Colour Cleared and Diamonds Cleared demos (issue #453), one per colour id, indexed by it.</summary>
         private readonly InfoDemoTimeline[] _colourCleared = new InfoDemoTimeline[Board.COLOUR_COUNT + 1];
         private readonly InfoDemoTimeline[] _diamondsCleared = new InfoDemoTimeline[Board.COLOUR_COUNT + 1];
+
+        /// <summary>The counter / streak objective demos (issue #454), each cached per the parameters it draws:
+        /// Piece Family per (family, target), Piece Id Count per (piece id, target), Score In Run per target,
+        /// Early Score Rush per (window seconds, target), Streak Threshold per target (indexed by it), and
+        /// Clutch Recovery and Reroll Save per target.</summary>
+        private readonly Dictionary<(PieceFamily, int), InfoDemoTimeline> _pieceFamilyCount =
+            new Dictionary<(PieceFamily, int), InfoDemoTimeline>();
+        private readonly Dictionary<(string, int), InfoDemoTimeline> _pieceIdCount = new Dictionary<(string, int), InfoDemoTimeline>();
+        private readonly Dictionary<int, InfoDemoTimeline> _scoreInRun = new Dictionary<int, InfoDemoTimeline>();
+        private readonly Dictionary<(int, int), InfoDemoTimeline> _earlyScoreRush = new Dictionary<(int, int), InfoDemoTimeline>();
+        private readonly InfoDemoTimeline[] _streakThreshold = new InfoDemoTimeline[StreakThresholdInfoDemo.MAX_TARGET + 1];
+        private readonly Dictionary<int, InfoDemoTimeline> _clutchRecoveryClear = new Dictionary<int, InfoDemoTimeline>();
+        private readonly Dictionary<int, InfoDemoTimeline> _rerollSave = new Dictionary<int, InfoDemoTimeline>();
 
         /// <summary>The demo for (<paramref name="subjectKind"/>, <paramref name="kindValue"/>), or null
         /// when that subject has none.</summary>
@@ -242,8 +256,9 @@ namespace MustyBlockBlast.Presentation.Views
         /// objective has none (its card keeps its static glyph). A parameterised demo shows the objective's
         /// own parameter — the required line count (Simultaneous, #447; At Least, #452), the required
         /// piece (Piece Id Line Clear, #452), the window (Rolling Line Clear Window, #452), the colour (Colour and
-        /// Diamonds Cleared, #453), the streak target (No Isolated Holes, #453) — and a value the demo cannot draw
-        /// gets null rather than a demo showing a different one.</summary>
+        /// Diamonds Cleared, #453), the streak target (No Isolated Holes, #453), the family, piece, deadline and
+        /// occupancy threshold and the target of the counter / streak objectives (#454) — and a value the demo
+        /// cannot draw gets null rather than a demo showing a different one.</summary>
         internal InfoDemoTimeline FindObjective(ObjectiveDefinition definition)
         {
             if (definition == null)
@@ -431,6 +446,136 @@ namespace MustyBlockBlast.Presentation.Views
                     }
 
                     return _timerCellsMeltedInTime;
+
+                case ObjectiveType.PieceFamilyCount:
+                case ObjectiveType.PieceIdCount:
+                case ObjectiveType.ScoreInRun:
+                case ObjectiveType.EarlyScoreRush:
+                case ObjectiveType.StreakThreshold:
+                case ObjectiveType.ClutchRecoveryClear:
+                case ObjectiveType.RerollSave:
+                    return FindCounterObjective(definition);
+
+                default:
+                    return null;
+            }
+        }
+
+        /// <summary>The counter / streak objective demos (issue #454), each for the objective's own target and
+        /// parameter — the family, the piece, the deadline, the occupancy threshold — or null for a value the
+        /// demo cannot honestly draw.</summary>
+        private InfoDemoTimeline FindCounterObjective(ObjectiveDefinition definition)
+        {
+            int target = definition.TargetValue;
+            InfoDemoTimeline demo;
+
+            switch (definition.Type)
+            {
+                case ObjectiveType.PieceFamilyCount:
+                {
+                    PieceFamily family = definition.RequiredPieceFamily;
+                    if (!PieceFamilyCountInfoDemo.Supports(family, target))
+                    {
+                        return null;
+                    }
+
+                    if (!_pieceFamilyCount.TryGetValue((family, target), out demo))
+                    {
+                        demo = PieceFamilyCountInfoDemo.Build(family, target);
+                        _pieceFamilyCount.Add((family, target), demo);
+                    }
+
+                    return demo;
+                }
+
+                case ObjectiveType.PieceIdCount:
+                {
+                    string pieceId = definition.RequiredPieceId;
+                    if (!PieceIdCountInfoDemo.Supports(pieceId, target))
+                    {
+                        return null;
+                    }
+
+                    if (!_pieceIdCount.TryGetValue((pieceId, target), out demo))
+                    {
+                        demo = PieceIdCountInfoDemo.Build(pieceId, target);
+                        _pieceIdCount.Add((pieceId, target), demo);
+                    }
+
+                    return demo;
+                }
+
+                case ObjectiveType.ScoreInRun:
+                    if (!ScoreInRunInfoDemo.Supports(target))
+                    {
+                        return null;
+                    }
+
+                    if (!_scoreInRun.TryGetValue(target, out demo))
+                    {
+                        demo = ScoreInRunInfoDemo.Build(target);
+                        _scoreInRun.Add(target, demo);
+                    }
+
+                    return demo;
+
+                case ObjectiveType.EarlyScoreRush:
+                {
+                    if (!EarlyScoreRushInfoDemo.Supports(definition.WindowSeconds, target))
+                    {
+                        return null;
+                    }
+
+                    int seconds = EarlyScoreRushInfoDemo.WholeSeconds(definition.WindowSeconds);
+                    if (!_earlyScoreRush.TryGetValue((seconds, target), out demo))
+                    {
+                        demo = EarlyScoreRushInfoDemo.Build(seconds, target);
+                        _earlyScoreRush.Add((seconds, target), demo);
+                    }
+
+                    return demo;
+                }
+
+                case ObjectiveType.StreakThreshold:
+                    if (!StreakThresholdInfoDemo.Supports(target))
+                    {
+                        return null;
+                    }
+
+                    if (_streakThreshold[target] == null)
+                    {
+                        _streakThreshold[target] = StreakThresholdInfoDemo.Build(target);
+                    }
+
+                    return _streakThreshold[target];
+
+                case ObjectiveType.ClutchRecoveryClear:
+                    if (!ClutchRecoveryClearInfoDemo.Supports(definition.RequiredOccupancyThreshold, target))
+                    {
+                        return null;
+                    }
+
+                    if (!_clutchRecoveryClear.TryGetValue(target, out demo))
+                    {
+                        demo = ClutchRecoveryClearInfoDemo.Build(target);
+                        _clutchRecoveryClear.Add(target, demo);
+                    }
+
+                    return demo;
+
+                case ObjectiveType.RerollSave:
+                    if (!RerollSaveInfoDemo.Supports(target))
+                    {
+                        return null;
+                    }
+
+                    if (!_rerollSave.TryGetValue(target, out demo))
+                    {
+                        demo = RerollSaveInfoDemo.Build(target);
+                        _rerollSave.Add(target, demo);
+                    }
+
+                    return demo;
 
                 default:
                     return null;

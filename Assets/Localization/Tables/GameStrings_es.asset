@@ -131,11 +131,11 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 149663859597312
-    m_Localized: Cada pieza con forma de {0} que coloques cuenta para este objetivo.
+    m_Localized: "Cuentan las piezas {0} de todo tama\xF1o y giro."
     m_Metadata:
       m_Items: []
   - m_Id: 149663863791616
-    m_Localized: "Acumula puntos durante una sola partida: cada colocaci\xF3n, despeje y combo que consigas en esta partida cuenta para este objetivo."
+    m_Localized: "Alcanza la puntuaci\xF3n objetivo en una partida."
     m_Metadata:
       m_Items: []
   - m_Id: 149663863791617
@@ -171,7 +171,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 209334783959040
-    m_Localized: "Despeja l\xEDneas en colocaciones consecutivas sin fallar ninguna para acumular una racha de combo."
+    m_Localized: "Despeja l\xEDneas en jugadas seguidas; una jugada sin despeje reinicia la racha."
     m_Metadata:
       m_Items: []
   - m_Id: 217997032546304
@@ -183,7 +183,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 227150882922496
-    m_Localized: "Despeja una fila o columna cuando el tablero est\xE9 casi lleno, justo antes de quedarte sin espacio."
+    m_Localized: Despeja una fila o columna con al menos {0} bloques en el tablero.
     m_Metadata:
       m_Items: []
   - m_Id: 228634777346048
@@ -191,7 +191,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 230162711961600
-    m_Localized: Coloca al menos una pieza {0} en el tablero.
+    m_Localized: "Cuenta cada {0} que coloques; las dem\xE1s piezas de su familia no."
     m_Metadata:
       m_Items: []
   - m_Id: 230162825207808
@@ -223,11 +223,11 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 240837534408704
-    m_Localized: "Alcanza la puntuaci\xF3n objetivo antes de que pasen los primeros {0} segundos de la partida."
+    m_Localized: "Alcanza la puntuaci\xF3n objetivo en los primeros {0} segundos de la partida."
     m_Metadata:
       m_Items: []
   - m_Id: 280945016954880
-    m_Localized: "Cuando ninguna pieza de tu bandeja tenga un movimiento v\xE1lido, usa Redistribuir para salvar la partida en vez de perderla."
+    m_Localized: Usa Redistribuir cuando ninguna pieza de la bandeja quepa. La guardada no cuenta.
     m_Metadata:
       m_Items: []
   - m_Id: 288624816939008
@@ -1112,6 +1112,34 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 4097099539931150
     m_Localized: "\xA1Blindaje roto!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4106798595301376
+    m_Localized: SALVAR
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4106798788239360
+    m_Localized: "\xA1Todas cuentan!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4106798788239361
+    m_Localized: "\xA1Esta pieza cuenta!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4106798792433664
+    m_Localized: "\xA1Puntuaci\xF3n lograda!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4106798792433665
+    m_Localized: "\xA1Combo x{0}!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4106798792433666
+    m_Localized: "\xA1Por los pelos!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4106798792433667
+    m_Localized: "\xA1Salvado!"
     m_Metadata:
       m_Items: []
   references:

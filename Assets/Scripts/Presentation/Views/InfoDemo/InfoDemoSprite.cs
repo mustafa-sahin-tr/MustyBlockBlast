@@ -48,5 +48,14 @@ namespace MustyBlockBlast.Presentation.Views
         /// <c>DiamondVisuals.Tint</c> tints it on the board (issue #453: a gem flying to the objective chip,
         /// the chip's own glyph). The sprite parameter is unused.</summary>
         DiamondIcon,
+
+        /// <summary>An objective's own authored icon — the art its HUD goal chip wears
+        /// (<c>ObjectiveIconCatalog.Find</c>) — for the <c>ObjectiveType</c> in the element's sprite parameter,
+        /// untinted: the Score In Run demo's trophy (issue #454).</summary>
+        ObjectiveIcon,
+
+        /// <summary>The HUD countdown pill's white clock (<c>TimerHudView.ClockSprite</c>), tinted by the
+        /// element's paint — the Early Score Rush demo's deadline (issue #454). The sprite parameter is unused.</summary>
+        HudClock,
     }
 }

@@ -225,8 +225,8 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         /// <summary>The required piece's resting tray scale: the usual one, shrunk for a long piece so it
-        /// stays inside its slot.</summary>
-        private static float TrayScale(Vector2Int[] shape)
+        /// stays inside its slot. Shared with the other piece-naming demos (issue #454).</summary>
+        internal static float TrayScale(Vector2Int[] shape)
         {
             InfoDemoLayout.ShapeBounds(shape, out Vector2Int min, out Vector2Int max);
             float widest = InfoDemoLayout.FromMockLength(MOCK_TRAY_MAX_PIECE_WIDTH) / (max.x - min.x + 1);

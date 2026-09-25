@@ -1,5 +1,6 @@
 using MustyBlockBlast.Core;
 using MustyBlockBlast.Gameplay;
+using MustyBlockBlast.Gameplay.Settings;
 using MustyBlockBlast.Gameplay.Systems;
 using UnityEngine;
 
@@ -24,6 +25,8 @@ namespace MustyBlockBlast.Presentation.Views
         private readonly HoldSlotView _holdSlotView;
         private readonly CoinTotalHudView _coinTotalHudView;
         private readonly StreakPillView _streakPillView;
+        private readonly ObjectiveIconCatalog _objectiveIconCatalog;
+        private readonly TimerHudView _timerHudView;
 
         /// <param name="powerUpInventoryView">Source of <see cref="InfoDemoSprite.PowerUpIcon"/>; null for
         /// a host that plays no power-up demo (an icon it cannot resolve is simply hidden).</param>
@@ -33,13 +36,19 @@ namespace MustyBlockBlast.Presentation.Views
         /// for a host that plays no coin demo.</param>
         /// <param name="streakPillView">Source of <see cref="InfoDemoSprite.StreakFlame"/> (issue #451); null
         /// for a host that plays no Golden piece demo.</param>
+        /// <param name="objectiveIconCatalog">Source of <see cref="InfoDemoSprite.ObjectiveIcon"/> (issue #454);
+        /// null for a host that plays no objective demo.</param>
+        /// <param name="timerHudView">Source of <see cref="InfoDemoSprite.HudClock"/> (issue #454); null for a
+        /// host that plays no Early Score Rush demo.</param>
         internal InfoDemoResources(
             BoardView boardView,
             PowerUpInventoryView powerUpInventoryView,
             LocalizationSystem localizationSystem,
             HoldSlotView holdSlotView = null,
             CoinTotalHudView coinTotalHudView = null,
-            StreakPillView streakPillView = null)
+            StreakPillView streakPillView = null,
+            ObjectiveIconCatalog objectiveIconCatalog = null,
+            TimerHudView timerHudView = null)
         {
             _boardView = boardView;
             _powerUpInventoryView = powerUpInventoryView;
@@ -47,6 +56,8 @@ namespace MustyBlockBlast.Presentation.Views
             _holdSlotView = holdSlotView;
             _coinTotalHudView = coinTotalHudView;
             _streakPillView = streakPillView;
+            _objectiveIconCatalog = objectiveIconCatalog;
+            _timerHudView = timerHudView;
         }
 
         public bool TryGetSprite(InfoDemoSprite sprite, int parameter, out Sprite resolved, out Color tint)
@@ -91,6 +102,14 @@ namespace MustyBlockBlast.Presentation.Views
                     return resolved != null;
                 case InfoDemoSprite.StreakFlame:
                     resolved = _streakPillView != null ? _streakPillView.FlameSprite : null;
+                    tint = Color.white;
+                    return resolved != null;
+                case InfoDemoSprite.ObjectiveIcon:
+                    resolved = _objectiveIconCatalog != null ? _objectiveIconCatalog.Find((ObjectiveType)parameter) : null;
+                    tint = Color.white;
+                    return resolved != null;
+                case InfoDemoSprite.HudClock:
+                    resolved = _timerHudView != null ? _timerHudView.ClockSprite : null;
                     tint = Color.white;
                     return resolved != null;
                 case InfoDemoSprite.HoldPocket:
