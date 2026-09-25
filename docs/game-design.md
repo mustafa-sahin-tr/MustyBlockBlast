@@ -444,6 +444,19 @@ old per-duration keys no longer match any selectable length and become orphaned:
 PlayerPrefs but are never read or shown again. This is deliberate — those bests were set under a
 different mechanic, so they are not migrated.
 
+### Classic skins
+
+In a Classic (timed) run the blocks change **skin** as the score climbs: the board starts on the
+plain colour blocks, and each score threshold of the configured sequence (for example jelly at
+2,000, pomegranate at 5,000, wood at 10,000) converts **every block on the board** to the next skin
+in a wave, and pieces are dealt in it from then on. Only one skin is ever on the board, and a run
+never goes back to an earlier one. A skin that is tinted by block colour (jelly) keeps each block's
+colour readable; others (fruit, wood) replace it. Each skin breaks its own way when a line clears
+it: jelly splats into droplets, fruit is sliced in two, wood cracks into splinters. Special cells
+keep their own art on top of any skin. Skins are purely cosmetic: they change no rule, no score and
+no special-cell effect. Path and Şölen always use the colour blocks. The sequence and thresholds
+live in the `ClassicSkinConfig` asset.
+
 ## Undo
 
 - Depth: **1 step**. Only the most recent placement can be undone.

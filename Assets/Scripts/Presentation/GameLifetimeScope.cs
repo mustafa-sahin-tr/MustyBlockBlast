@@ -43,6 +43,9 @@ namespace MustyBlockBlast.Presentation
         [Tooltip("Authored objective glyphs. Optional — a missing catalog or entry falls back to the procedural glyph.")]
         [SerializeField] private ObjectiveIconCatalog _objectiveIconCatalog;
 
+        [Tooltip("Classic-mode skin sequence (issue #333). Optional — without it Classic keeps the colour blocks.")]
+        [SerializeField] private ClassicSkinConfig _classicSkinConfig;
+
         [Tooltip("Score-to-coin rate and the rewarded-ad coin grant. Required — without it there is no economy.")]
         [SerializeField] private CurrencyConfig _currencyConfig;
 
@@ -125,6 +128,9 @@ namespace MustyBlockBlast.Presentation
                 container.Resolve<LaserScoreSystem>();
                 container.Resolve<PiercingRocketScoreSystem>();
                 container.Resolve<PuzzleLinkScoreSystem>();
+
+                // Watches the score from construction (issue #333), so it must exist before the first run.
+                container.Resolve<ClassicSkinSystem>();
 
                 // Subscribes to ScoreModel.Streak in its constructor, so it must be watching before the
                 // first placement can build a streak — nothing else resolves it, so without this line
@@ -279,6 +285,7 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterInstance(ResolveRewardRuleCatalog());
             builder.RegisterInstance(ResolveLevelIdentityCatalog());
             builder.RegisterInstance(ResolveObjectiveIconCatalog());
+            builder.RegisterInstance(ResolveClassicSkinConfig());
             builder.RegisterInstance(ResolveCurrencyConfig());
             builder.RegisterInstance(ResolvePowerUpPriceConfig());
             builder.RegisterInstance(ResolveShopPaletteConfig());
@@ -298,6 +305,7 @@ namespace MustyBlockBlast.Presentation
             builder.Register<ScoreModel>(Lifetime.Singleton);
             builder.Register<TimedHighScoreModel>(Lifetime.Singleton);
             builder.Register<GameModeModel>(Lifetime.Singleton);
+            builder.Register<ClassicSkinModel>(Lifetime.Singleton);
             builder.Register<TimedModeModel>(Lifetime.Singleton);
             builder.Register<TimerModel>(Lifetime.Singleton);
             builder.Register<RunPauseModel>(Lifetime.Singleton);
@@ -492,6 +500,21 @@ namespace MustyBlockBlast.Presentation
         /// Unlike the other catalogs this one is optional by design — every objective type still has a
         /// procedural glyph — so a missing asset only warns rather than errors.
         /// </summary>
+        /// <summary>The Classic skin sequence (issue #333), or an empty one — Classic then simply keeps the
+        /// colour blocks — so a missing asset only warns.</summary>
+        private ClassicSkinConfig ResolveClassicSkinConfig()
+        {
+            if (_classicSkinConfig != null)
+            {
+                return _classicSkinConfig;
+            }
+
+            Debug.LogWarning(
+                $"{nameof(GameLifetimeScope)} has no {nameof(ClassicSkinConfig)} assigned. Classic mode keeps the colour blocks.",
+                this);
+            return ScriptableObject.CreateInstance<ClassicSkinConfig>();
+        }
+
         private ObjectiveIconCatalog ResolveObjectiveIconCatalog()
         {
             if (_objectiveIconCatalog != null)
@@ -685,6 +708,7 @@ namespace MustyBlockBlast.Presentation
             builder.Register<PowerUpScoreSystem>(Lifetime.Singleton).AsSelf();
             builder.Register<ExplosiveCoreScoreSystem>(Lifetime.Singleton).AsSelf();
             builder.Register<PuzzleLinkScoreSystem>(Lifetime.Singleton).AsSelf();
+            builder.Register<ClassicSkinSystem>(Lifetime.Singleton).AsSelf();
             builder.Register<LaserScoreSystem>(Lifetime.Singleton).AsSelf();
             builder.Register<PiercingRocketScoreSystem>(Lifetime.Singleton).AsSelf();
             builder.Register<LaserSpawnSystem>(Lifetime.Singleton).AsSelf();

@@ -1309,6 +1309,7 @@ namespace MustyBlockBlast.Presentation.Views
                 var rect = (RectTransform)cell.transform;
                 rect.anchoredPosition = new Vector2(offsetX + (offset.X * pitch), offsetY + (offset.Y * pitch));
                 SpecialPieceVisuals.Apply(cell, specialKind, _currentTheme, colourId);
+                _boardView.ApplyBlockSkin(cell, colourId, specialKind);
                 int collectibleId = _trayModel.GetDiamondColourId(slotIndex, i);
                 DiamondVisuals.Apply(cell, collectibleId, _currentTheme, _boardView.CollectibleSprite(collectibleId));
 

@@ -149,6 +149,9 @@ namespace MustyBlockBlast.Presentation.Views
         private LocalizationModel _localizationModel;
         private LocalizationSystem _localizationSystem;
         private BoardView _boardView;
+
+        /// <summary>The Classic skin stage (issue #333): the pieces here repaint when it changes.</summary>
+        private ClassicSkinModel _skinModel;
         private ThemeDefinition _currentTheme;
         private bool _isHovered;
         private int _holdCount;
@@ -162,8 +165,10 @@ namespace MustyBlockBlast.Presentation.Views
             SettingsModel settingsModel,
             LocalizationModel localizationModel,
             LocalizationSystem localizationSystem,
-            BoardView boardView)
+            BoardView boardView,
+            ClassicSkinModel skinModel)
         {
+            _skinModel = skinModel;
             _trayModel = trayModel;
             _powerUpModel = powerUpModel;
             _powerUpSystem = powerUpSystem;
@@ -196,6 +201,9 @@ namespace MustyBlockBlast.Presentation.Views
             // Subscribed first so _currentTheme is set before the initial rebuild paints a cell.
             _settingsModel.CurrentTheme.Subscribe(OnThemeChanged).AddTo(_disposables);
             _localizationModel.CurrentLocale.Subscribe(OnLocaleChanged).AddTo(_disposables);
+
+            // Issue #333: the held piece changes skin with the board.
+            _skinModel.StageIndex.Subscribe(_ => RebuildHeldPiece()).AddTo(_disposables);
             _powerUpModel.HoldCount.Subscribe(OnHoldCountChanged).AddTo(_disposables);
 
             _trayModel.HeldChanged += OnHeldChanged;
@@ -453,6 +461,7 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             SpecialPieceVisuals.Apply(cell, specialKind, _currentTheme, colourId);
+            _boardView.ApplyBlockSkin(cell, colourId, specialKind);
             DiamondVisuals.Apply(cell, diamondColourId, _currentTheme, _boardView.CollectibleSprite(diamondColourId));
         }
 

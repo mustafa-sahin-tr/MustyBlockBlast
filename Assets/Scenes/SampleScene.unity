@@ -2343,6 +2343,7 @@ MonoBehaviour:
   _rewardRuleCatalog: {fileID: 11400000, guid: 21defc5058f434f6abad722a7cbc9f12, type: 2}
   _levelIdentityCatalog: {fileID: 11400000, guid: ada5446258ca041d78d25d0fb14f9451, type: 2}
   _objectiveIconCatalog: {fileID: 11400000, guid: fadafff29d78b4ecf8a72d927fa23418, type: 2}
+  _classicSkinConfig: {fileID: 11400000, guid: 6c01eceb3568c46cbab8b92de00a0b5b, type: 2}
   _currencyConfig: {fileID: 11400000, guid: 36f18b394e8614ca0a06e153de8be6d3, type: 2}
   _powerUpPriceConfig: {fileID: 11400000, guid: e31dd2862241042cf84ab7666973315a, type: 2}
   _shopPaletteConfig: {fileID: 11400000, guid: 5a84fbb2d11fc427eb0dc587291c2a95, type: 2}

@@ -214,6 +214,14 @@ namespace MustyBlockBlast.Presentation.Views
         /// that art is the whole block too (issue #480), so the block look stays hidden under it.</summary>
         private bool _stageOverlayShown;
 
+        /// <summary>The Classic skin art (issue #333) drawn in place of the block look, full-bleed. Shown
+        /// only while <see cref="_skinRequested"/> and the block look is wanted and nothing full-bleed (a
+        /// special cell's art, a stage overlay) stands in for the block — so special cells keep their own
+        /// art on top of any skin.</summary>
+        private Image _skinImage;
+
+        private bool _skinRequested;
+
         private void Awake() => CacheOuter();
 
         /// <summary>Creates both layer sets. Called by the builder right after AddComponent.
@@ -256,6 +264,15 @@ namespace MustyBlockBlast.Presentation.Views
             glossRect.offsetMax = Vector2.zero;
 
             _blockRoot.SetActive(false);
+
+            _skinImage = CreateStretchedImage(transform, "Skin");
+            _skinImage.type = Image.Type.Simple;
+            _skinImage.preserveAspect = true;
+            _skinImage.raycastTarget = false;
+            SetStretchInsets(
+                (RectTransform)_skinImage.transform,
+                -FULL_BLEED_ICON_OVERHANG, -FULL_BLEED_ICON_OVERHANG, -FULL_BLEED_ICON_OVERHANG, -FULL_BLEED_ICON_OVERHANG);
+            _skinImage.gameObject.SetActive(false);
 
             // The ice-socket overlay (issue #433): one flat, rounded, semi-transparent plate over the
             // whole cell. Built right after both looks so it draws over whichever is showing (an ice
@@ -961,6 +978,9 @@ namespace MustyBlockBlast.Presentation.Views
             // with it rather than floating over an emptying cell. Restored by the next SetStageOverlay.
             ApplyAlpha(_lockedOverlayImage, alpha);
 
+            // And a Classic skin (issue #333): it IS the block, so it fades with it.
+            ApplyAlpha(_skinImage, alpha);
+
             // And a puzzle link's teeth (issue #483), which go with the link.
             ApplyAlpha(_puzzleToothLeftRim, alpha);
             ApplyAlpha(_puzzleToothLeft, alpha);
@@ -996,12 +1016,57 @@ namespace MustyBlockBlast.Presentation.Views
                 return;
             }
 
-            bool show = _blockLookRequested && !_iconFullBleed && !_stageOverlayShown;
+            bool uncovered = _blockLookRequested && !_iconFullBleed && !_stageOverlayShown;
+            bool showSkin = uncovered && _skinRequested && _skinImage != null;
+            bool show = uncovered && !showSkin;
             if (_blockRoot.activeSelf != show)
             {
                 _blockRoot.SetActive(show);
             }
+
+            if (_skinImage != null && _skinImage.gameObject.activeSelf != showSkin)
+            {
+                _skinImage.gameObject.SetActive(showSkin);
+            }
         }
+
+        /// <summary>
+        /// Draws this block in a Classic skin (issue #333): <paramref name="sprite"/>, multiplied by
+        /// <paramref name="tint"/>, full-bleed in place of the colour block. The block's colours are still
+        /// set as usual underneath, so clearing the skin simply shows them again. Allocation-free.
+        /// </summary>
+        internal void SetBlockSkin(Sprite sprite, Color tint)
+        {
+            if (_skinImage == null || sprite == null)
+            {
+                ClearBlockSkin();
+                return;
+            }
+
+            if (_skinImage.sprite != sprite)
+            {
+                _skinImage.sprite = sprite;
+            }
+
+            _skinImage.color = tint;
+            _skinRequested = true;
+            RefreshBlockLook();
+        }
+
+        /// <summary>Back to the colour block (issue #333). Safe on a cell that never wore a skin.</summary>
+        internal void ClearBlockSkin()
+        {
+            if (!_skinRequested)
+            {
+                return;
+            }
+
+            _skinRequested = false;
+            RefreshBlockLook();
+        }
+
+        /// <summary>The skin art's transform (issue #333), for the board's skin-change pop.</summary>
+        internal RectTransform SkinTransform => _skinImage != null ? (RectTransform)_skinImage.transform : null;
 
         private static void ShowLayer(Image image, Color colour)
         {

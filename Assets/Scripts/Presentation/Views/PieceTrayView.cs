@@ -108,6 +108,9 @@ namespace MustyBlockBlast.Presentation.Views
         private TrayModel _trayModel;
         private SettingsModel _settingsModel;
         private BoardView _boardView;
+
+        /// <summary>The Classic skin stage (issue #333): the pieces here repaint when it changes.</summary>
+        private ClassicSkinModel _skinModel;
         private ThemeDefinition _currentTheme;
 
         /// <summary><paramref name="boardView"/> is consulted for one thing only: the diamond glyph
@@ -115,11 +118,13 @@ namespace MustyBlockBlast.Presentation.Views
         /// will draw once it lands — the same borrowing <see cref="InfoPopupView"/> does for its hero
         /// icon, rather than a second serialized copy of the same asset here.</summary>
         [Inject]
-        public void Construct(TrayModel trayModel, SettingsModel settingsModel, BoardView boardView)
+        public void Construct(
+            TrayModel trayModel, SettingsModel settingsModel, BoardView boardView, ClassicSkinModel skinModel)
         {
             _trayModel = trayModel;
             _settingsModel = settingsModel;
             _boardView = boardView;
+            _skinModel = skinModel;
         }
 
         private void Awake()
@@ -153,6 +158,17 @@ namespace MustyBlockBlast.Presentation.Views
             _settingsModel.CurrentTheme.Subscribe(OnThemeChanged).AddTo(_disposables);
 
             _trayModel.SlotChanged += OnSlotChanged;
+            for (int i = 0; i < TrayModel.SLOT_COUNT; i++)
+            {
+                RebuildSlot(i);
+            }
+
+            // Issue #333: the dealt pieces change skin with the board.
+            _skinModel.StageIndex.Subscribe(OnSkinStageChanged).AddTo(_disposables);
+        }
+
+        private void OnSkinStageChanged(int stageIndex)
+        {
             for (int i = 0; i < TrayModel.SLOT_COUNT; i++)
             {
                 RebuildSlot(i);
@@ -382,6 +398,7 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             SpecialPieceVisuals.Apply(cell, specialKind, _currentTheme, colourId);
+            _boardView.ApplyBlockSkin(cell, colourId, specialKind);
             DiamondVisuals.Apply(cell, diamondColourId, _currentTheme, _boardView.CollectibleSprite(diamondColourId));
         }
 
