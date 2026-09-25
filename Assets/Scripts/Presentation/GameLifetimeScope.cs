@@ -65,6 +65,10 @@ namespace MustyBlockBlast.Presentation
             + "simply means no sale is running and every kind costs its standard price.")]
         [SerializeField] private PromotionConfig _promotionConfig;
 
+        [Tooltip("Path-mode lives: the hourly refill's cap and amount, and the starting count (issue #477). "
+            + "Required — without it every value falls back to the built-in defaults.")]
+        [SerializeField] private LivesConfig _livesConfig;
+
         protected override void Configure(IContainerBuilder builder)
         {
             RegisterMessaging(builder);
@@ -173,6 +177,11 @@ namespace MustyBlockBlast.Presentation
                 // be listening before the first Path level can be cleared or failed (issue #464).
                 container.Resolve<RewardRuleSystem>();
 
+                // Loads the saved lives and subscribes in its constructor (issue #477), so it must be
+                // listening before the first Path run can fail — the same reason as the line above. Its
+                // countdown loop starts later, from IStartable, like any entry point.
+                container.Resolve<LivesSystem>();
+
                 // Subscribes in its constructor and loads the lifetime counters there too, so it must
                 // exist before the first placement — and before BadgeSystem, which reads those
                 // already-loaded counters at its own construction to decide what is already unlocked.
@@ -262,6 +271,7 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterInstance(ResolveCoinBundleConfig());
             builder.RegisterInstance(ResolveRemoveAdsProductConfig());
             builder.RegisterInstance(ResolvePromotionConfig());
+            builder.RegisterInstance(ResolveLivesConfig());
 
             // Languages come from the project's Locale assets rather than a scene field: a new
             // language is a Locale asset plus a String Table column, with no scene edit.
@@ -287,6 +297,7 @@ namespace MustyBlockBlast.Presentation
             builder.Register<LevelProgressionModel>(Lifetime.Singleton);
             builder.Register<PathRunModel>(Lifetime.Singleton);
             builder.Register<RewardRuleModel>(Lifetime.Singleton);
+            builder.Register<LivesModel>(Lifetime.Singleton);
             builder.Register<BadgeStatsModel>(Lifetime.Singleton);
             builder.Register<BadgeModel>(Lifetime.Singleton);
             builder.Register<PendingScoreModel>(Lifetime.Singleton);
@@ -427,6 +438,23 @@ namespace MustyBlockBlast.Presentation
                 $"{nameof(GameLifetimeScope)} has no {nameof(LevelIdentityCatalog)} assigned. " +
                 "Level names and icons will not be shown.", this);
             return ScriptableObject.CreateInstance<LevelIdentityCatalog>();
+        }
+
+        /// <summary>
+        /// Same defensive shape as <see cref="ResolveCurrencyConfig"/>: a default-valued instance still
+        /// boots, with the built-in cap, refill and starting count.
+        /// </summary>
+        private LivesConfig ResolveLivesConfig()
+        {
+            if (_livesConfig != null)
+            {
+                return _livesConfig;
+            }
+
+            Debug.LogError(
+                $"{nameof(GameLifetimeScope)} has no {nameof(LivesConfig)} assigned. " +
+                "Lives will use the built-in defaults.", this);
+            return ScriptableObject.CreateInstance<LivesConfig>();
         }
 
         /// <summary>
@@ -687,6 +715,10 @@ namespace MustyBlockBlast.Presentation
             builder.Register<ObjectiveSystem>(Lifetime.Singleton);
             builder.Register<LevelProgressionSystem>(Lifetime.Singleton);
             builder.Register<RewardRuleSystem>(Lifetime.Singleton);
+
+            // Entry point for its countdown loop (IStartable); AsSelf because the build callback
+            // resolves the concrete system to have it listening before the first run.
+            builder.RegisterEntryPoint<LivesSystem>(Lifetime.Singleton).AsSelf();
             builder.Register<BadgeStatsSystem>(Lifetime.Singleton);
             builder.Register<BadgeSystem>(Lifetime.Singleton);
 
@@ -737,9 +769,6 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterComponentInHierarchy<PieceTrayView>();
             builder.RegisterComponentInHierarchy<HoldSlotView>();
             builder.RegisterComponentInHierarchy<ScoreView>();
-
-            // Worn on the corner of LevelPathButtonView (registered above), which it takes as a dependency.
-            builder.RegisterComponentInHierarchy<PathLevelBadgeView>();
             builder.RegisterComponentInHierarchy<TimerHudView>();
 
             // The combo streak pill (issue #265). Takes ScoreView and ObjectiveIconContainerView as
@@ -758,6 +787,10 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterComponentInHierarchy<PowerUpGrantAnimationView>();
             builder.RegisterComponentInHierarchy<PowerUpGrantSfxView>();
             builder.RegisterComponentInHierarchy<ObjectiveIconContainerView>();
+
+            // The lives section at the goal bar's trailing end (issue #477). Takes
+            // ObjectiveIconContainerView, registered above, as a dependency.
+            builder.RegisterComponentInHierarchy<LivesHudView>();
             builder.RegisterComponentInHierarchy<ObjectiveInfoPopupView>();
             builder.RegisterComponentInHierarchy<InfoPopupView>();
 

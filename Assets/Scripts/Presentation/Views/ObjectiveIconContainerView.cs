@@ -16,10 +16,10 @@ namespace MustyBlockBlast.Presentation.Views
 {
     /// <summary>
     /// The run's objectives as the goal row under the score card (issue #265): one chip per objective
-    /// the current level asks for — a card-coloured pill holding the objective's icon at full size, a
-    /// "2/5" counter in the display face, and a green tick disc once that objective is done.
+    /// the current level asks for — the objective's icon at full size, a "2/5" counter in the display
+    /// face, and a green tick disc once that objective is done, all on the bar's card-coloured plate.
     /// <para>
-    /// The icon sits straight on the chip's own pill, with no tinted plate behind it (issue #415): the
+    /// The icon sits straight on the card colour, with no tinted plate behind it (issue #415): the
     /// authored art is full-colour illustration rather than a flat silhouette, so shrinking it onto a
     /// second coloured plate made it unreadable, and the plate's colour — assigned by slot order —
     /// carried no meaning to read in the first place. The one case where colour did mean something,
@@ -52,9 +52,18 @@ namespace MustyBlockBlast.Presentation.Views
     /// </para>
     /// <para>
     /// Goals belong to Path mode only (issue #269): in Endless and Timed the row hides itself whatever
-    /// the model tracks, and the level pill in its trailing slot follows the same rule on its own
-    /// group. <see cref="CentreSlot"/> stays usable while the row is hidden, so the band it leaves
+    /// the model tracks, and the guests in its leading and trailing slots follow the same rule on their
+    /// own groups. <see cref="CentreSlot"/> stays usable while the row is hidden, so the band it leaves
     /// empty in Timed mode can host the streak pill.
+    /// </para>
+    /// <para>
+    /// Since issue #477 the row is one status bar rather than a line of separate pills: a single
+    /// card-coloured plate holding <c>[level icon + number] | [goal chips] | [lives]</c>, with a thin
+    /// rule between the sections. The chips therefore draw no plate of their own — the bar is their
+    /// plate — and the level (<see cref="LevelPathButtonView"/>, in <see cref="LeadingSlot"/>) and the
+    /// lives (<see cref="LivesHudView"/>, in <see cref="TrailingSlot"/>) are guests that lay themselves
+    /// out and report their width through <see cref="NotifySlotsChanged"/>. The bar spans the row's
+    /// full width, so the top centre of the screen above it stays clear for the Dynamic Island.
     /// </para>
     /// </summary>
     [DisallowMultipleComponent]
@@ -92,10 +101,14 @@ namespace MustyBlockBlast.Presentation.Views
         /// </summary>
         private const float CHIP_FIT_MARGIN = 2f;
 
-        /// <summary>How far in from the row's left edge the first chip starts: where the "goal" caption
-        /// used to begin before it was dropped (issue #415), so the row still lines up with the card
-        /// above it.</summary>
-        private const float LEADING_INSET = 4f;
+        /// <summary>Width of the thin rule between two sections of the bar, in reference pixels.</summary>
+        private const float SEPARATOR_WIDTH = 3f;
+
+        /// <summary>The rule's height as a fraction of the bar's.</summary>
+        private const float SEPARATOR_HEIGHT_FRACTION = 0.55f;
+
+        /// <summary>How strongly the rule's ink shows over the card: a hairline, not a divider wall.</summary>
+        private const float SEPARATOR_ALPHA = 0.18f;
 
         [Header("Layout")]
         [Tooltip("Centre of the row, in reference pixels from the canvas centre. The band under the score card.")]
@@ -114,10 +127,21 @@ namespace MustyBlockBlast.Presentation.Views
         [Tooltip("Gap between chips, and between the last chip and the trailing group.")]
         [SerializeField] private float _chipSpacing = 18f;
 
-        [Tooltip("How far in from the row's right edge the trailing group ends, in reference pixels: " +
-            "room for the level pill's star badge, which overhangs the pill's corner by its offset plus " +
-            "half its diameter, to stay inside the score card's edge (issue #269).")]
+        [Tooltip("How far in from the bar's right edge the trailing group (the lives) ends, in reference pixels.")]
         [SerializeField] private float _trailingInset = 30f;
+
+        [Tooltip("How far in from the bar's left edge the leading group (the level) starts, in reference pixels.")]
+        [SerializeField] private float _leadingInset = 18f;
+
+        [Tooltip("Height of the bar's card-coloured plate (issue #477). A little taller than the chips so " +
+            "the lives section's countdown fits under its heart.")]
+        [SerializeField] private float _barHeight = 92f;
+
+        [Tooltip("Corner radius of the bar's plate, in reference pixels.")]
+        [SerializeField] private float _barRadius = 34f;
+
+        [Tooltip("Gap between two sections of the bar; the thin rule sits in its middle.")]
+        [SerializeField] private float _sectionGap = 28f;
 
         [SerializeField] private int _progressFontSize = 34;
 
@@ -141,6 +165,11 @@ namespace MustyBlockBlast.Presentation.Views
         private Canvas _canvas;
         private CanvasGroup _canvasGroup;
         private RectTransform _rowRect;
+        private Image _barShadowImage;
+        private Image _barPlateImage;
+        private Image _leadingSeparator;
+        private Image _trailingSeparator;
+        private RectTransform _leadingSlot;
         private RectTransform _trailingSlot;
         private RectTransform _centreSlot;
         private ThemeDefinition _currentTheme;
@@ -156,13 +185,15 @@ namespace MustyBlockBlast.Presentation.Views
         /// The chips may not run into it.</summary>
         private float _trailingWidth;
 
+        /// <summary>Width of the leading group as last laid out, gaps included; zero when it is empty.
+        /// The chips start after it.</summary>
+        private float _leadingWidth;
+
         /// <summary>One built chip. Rebuilt never — except its silhouette, on a level change.</summary>
         private sealed class Chip
         {
             internal Chip(
                 RectTransform root,
-                Image shadowImage,
-                Image plateImage,
                 RectTransform iconSlotRect,
                 RectTransform glyphRoot,
                 Image iconImage,
@@ -172,8 +203,6 @@ namespace MustyBlockBlast.Presentation.Views
                 Image checkMark)
             {
                 Root = root;
-                ShadowImage = shadowImage;
-                PlateImage = plateImage;
                 IconSlotRect = iconSlotRect;
                 GlyphRoot = glyphRoot;
                 IconImage = iconImage;
@@ -188,10 +217,6 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             internal RectTransform Root { get; }
-
-            internal Image ShadowImage { get; }
-
-            internal Image PlateImage { get; }
 
             /// <summary>Where the icon sits inside the chip. A bare positioning rect — it draws
             /// nothing, since the icon has no plate behind it any more (issue #415).</summary>
@@ -226,12 +251,19 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         /// <summary>
-        /// A zero-width rect pinned to the row's right end: the trailing group. Its children are laid
-        /// out right to left in sibling order, last sibling flush with the row's edge, by
-        /// <see cref="NotifyTrailingChanged"/>. <see cref="LevelPathButtonView"/> lives here. Built in
-        /// Awake, so it is safe to parent onto from any sibling's Start.
+        /// A zero-width rect pinned to the bar's right end: the trailing group. Its children are laid
+        /// out right to left in sibling order, last sibling flush with the bar's edge, by
+        /// <see cref="NotifySlotsChanged"/>. <see cref="LivesHudView"/> lives here. Built in Awake, so it
+        /// is safe to parent onto from any sibling's Start. A child must pivot on its right edge.
         /// </summary>
         internal RectTransform TrailingSlot => _trailingSlot;
+
+        /// <summary>
+        /// The mirror of <see cref="TrailingSlot"/> at the bar's left end: children laid out left to
+        /// right in sibling order, the first flush with the bar's edge, and the chips starting after
+        /// them. <see cref="LevelPathButtonView"/> lives here. A child must pivot on its left edge.
+        /// </summary>
+        internal RectTransform LeadingSlot => _leadingSlot;
 
         /// <summary>
         /// A zero-sized anchor at the row's centre for a guest that should sit in the goals band
@@ -241,12 +273,13 @@ namespace MustyBlockBlast.Presentation.Views
         internal RectTransform CentreSlot => _centreSlot;
 
         /// <summary>
-        /// Called by a trailing child whenever it is added, shown, hidden or re-measured. Re-packs the
-        /// trailing group against the row's right edge and repaints the chips, since how many of them
-        /// fit depends on how much of the row the group takes.
+        /// Called by a leading or trailing child whenever it is added, shown, hidden or re-measured.
+        /// Re-packs both groups against the bar's edges and repaints the chips, since where they start
+        /// and how many of them fit depends on how much of the bar the two groups take.
         /// </summary>
-        internal void NotifyTrailingChanged()
+        internal void NotifySlotsChanged()
         {
+            LayOutLeadingGroup();
             LayOutTrailingGroup();
             Refresh();
         }
@@ -401,28 +434,37 @@ namespace MustyBlockBlast.Presentation.Views
 
             int objectiveCount = tracked != null ? Mathf.Min(tracked.Count, MAX_SLOT_COUNT) : 0;
             bool isPathMode = _gameModeSystem != null && _gameModeSystem.CurrentMode.Value == GameMode.Path;
-            if (!isPathMode || objectiveCount == 0 || _currentTheme == null || _isYieldingToMultiplier)
+            if (!isPathMode || _currentTheme == null || _isYieldingToMultiplier)
             {
-                // Outside Path mode the goals are not the player's concern (issue #269). Otherwise,
-                // nothing tracked (or no theme to paint with): an empty row reads as a bug, so the row
-                // hides itself rather than leaving placeholders on screen.
+                // Outside Path mode the goals are not the player's concern (issue #269), and with no
+                // theme there is nothing to paint with.
                 _visibleSlotCount = 0;
                 SetVisible(false);
                 return;
             }
 
+            // In Path mode the bar shows even before any goal is tracked: its level and lives sections
+            // are never empty, so the bar never reads as a row of placeholders.
             SetVisible(true);
             _visibleSlotCount = 0;
+            PaintBar();
 
-            float x = (-_rowSize.x * 0.5f) + LEADING_INSET;
+            float left = -_rowSize.x * 0.5f;
+            float right = _rowSize.x * 0.5f;
 
-            // The chips flow from the left and stop short of the trailing group: one that would run
-            // into it is hidden rather than drawn underneath, and so are those after it, so the row
-            // never shows chip three without chip two.
-            float limit = _rowSize.x * 0.5f;
+            float x = left + _leadingInset;
+            if (_leadingWidth > 0f)
+            {
+                x += _leadingWidth + _sectionGap;
+            }
+
+            // The chips flow from after the leading group and stop short of the trailing group: one
+            // that would run into it is hidden rather than drawn underneath, and so are those after it,
+            // so the row never shows chip three without chip two.
+            float limit = right - _trailingInset;
             if (_trailingWidth > 0f)
             {
-                limit -= _trailingInset + _trailingWidth + _chipSpacing;
+                limit -= _trailingWidth + _sectionGap;
             }
 
             float chipScale = MeasureChipScale(tracked, objectiveCount, x, limit);
@@ -442,12 +484,65 @@ namespace MustyBlockBlast.Presentation.Views
                     isClipped = true;
                 }
             }
+
+            PlaceSeparators(left, right);
+        }
+
+        /// <summary>The bar's plate follows the card, like every other plate on the HUD.</summary>
+        private void PaintBar()
+        {
+            _barShadowImage.color = _currentTheme.CardShadow;
+            _barPlateImage.color = _currentTheme.CardBackground;
         }
 
         /// <summary>
-        /// Packs the trailing slot's visible children against the row's right edge, right to left in
+        /// Puts a rule in the middle of each section gap that separates two things actually showing: a
+        /// rule next to an empty section would read as a stray mark.
+        /// </summary>
+        private void PlaceSeparators(float left, float right)
+        {
+            Color ruleColour = HudChrome.WithAlpha(_currentTheme.Ink, SEPARATOR_ALPHA);
+            bool hasChips = _visibleSlotCount > 0;
+
+            bool showLeading = _leadingWidth > 0f && (hasChips || _trailingWidth > 0f);
+            _leadingSeparator.color = showLeading ? ruleColour : Color.clear;
+            _leadingSeparator.rectTransform.anchoredPosition =
+                new Vector2(left + _leadingInset + _leadingWidth + (_sectionGap * 0.5f), 0f);
+
+            // With no chips a single rule between level and lives is enough.
+            bool showTrailing = _trailingWidth > 0f && hasChips;
+            _trailingSeparator.color = showTrailing ? ruleColour : Color.clear;
+            _trailingSeparator.rectTransform.anchoredPosition =
+                new Vector2(right - _trailingInset - _trailingWidth - (_sectionGap * 0.5f), 0f);
+        }
+
+        /// <summary>
+        /// Packs the leading slot's visible children against the bar's left edge, left to right in
         /// sibling order, a chip's spacing apart. A child hidden through its own CanvasGroup takes no
-        /// room, so a streak that breaks hands its width back to the chips.
+        /// room, exactly as in <see cref="LayOutTrailingGroup"/>.
+        /// </summary>
+        private void LayOutLeadingGroup()
+        {
+            float x = 0f;
+            for (int childIndex = 0; childIndex < _leadingSlot.childCount; childIndex++)
+            {
+                RectTransform child = (RectTransform)_leadingSlot.GetChild(childIndex);
+                if (child.TryGetComponent(out CanvasGroup childGroup) && childGroup.alpha <= 0f)
+                {
+                    continue;
+                }
+
+                child.anchoredPosition = new Vector2(x, 0f);
+                x += child.sizeDelta.x + _chipSpacing;
+            }
+
+            _leadingWidth = x > 0f ? x - _chipSpacing : 0f;
+        }
+
+        /// <summary>
+        /// Packs the trailing slot's visible children against the bar's right edge, right to left in
+        /// sibling order, a chip's spacing apart. A child hidden through its own CanvasGroup takes no
+        /// room, so a section that hides hands its width back to the chips.
         /// </summary>
         private void LayOutTrailingGroup()
         {
@@ -538,9 +633,6 @@ namespace MustyBlockBlast.Presentation.Views
 
             bool isComplete = objective.IsComplete;
 
-            chip.ShadowImage.color = _currentTheme.CardShadow;
-            chip.PlateImage.color = _currentTheme.CardBackground;
-
             if (chip.IconImage.sprite != null)
             {
                 // The authored art is full-colour illustration, so white — an identity multiply —
@@ -553,15 +645,15 @@ namespace MustyBlockBlast.Presentation.Views
                         : Color.white;
             }
 
-            // The procedural fallback glyph now sits on the chip's own card-coloured pill rather than
-            // on a saturated plate (issue #415), so it is drawn in the theme's ink — the same colour
-            // as the counter beside it — instead of the white it wore against a coloured plate.
+            // The procedural fallback glyph sits on the card colour — the bar's plate since issue #477,
+            // the chip's own pill before it — so it is drawn in the theme's ink, the same colour as the
+            // counter beside it.
             for (int inkIndex = 0; inkIndex < chip.GlyphInkImages.Count; inkIndex++)
             {
                 chip.GlyphInkImages[inkIndex].color = _currentTheme.Ink;
             }
 
-            // The punched-out parts follow whatever is behind the glyph — now the chip's own pill —
+            // The punched-out parts follow whatever is behind the glyph — the bar's card-coloured plate —
             // not the ink: that is what makes them read as holes rather than as another stroke.
             for (int coreIndex = 0; coreIndex < chip.GlyphCoreImages.Count; coreIndex++)
             {
@@ -589,10 +681,7 @@ namespace MustyBlockBlast.Presentation.Views
 
             isShown = true;
 
-            var chipSize = new Vector2(chipWidth, _chipHeight);
-            chip.Root.sizeDelta = chipSize;
-            chip.ShadowImage.rectTransform.sizeDelta = chipSize;
-            chip.PlateImage.rectTransform.sizeDelta = chipSize;
+            chip.Root.sizeDelta = new Vector2(chipWidth, _chipHeight);
 
             // The chip is built at its natural size and scaled as a whole, so every inner position
             // below stays in unscaled chip space and the row shrinks without any of it being re-laid.
@@ -611,8 +700,6 @@ namespace MustyBlockBlast.Presentation.Views
 
         private static void HideChip(Chip chip)
         {
-            chip.ShadowImage.color = Color.clear;
-            chip.PlateImage.color = Color.clear;
             chip.IconImage.color = Color.clear;
             chip.CheckDisc.color = Color.clear;
             chip.CheckMark.color = Color.clear;
@@ -694,8 +781,8 @@ namespace MustyBlockBlast.Presentation.Views
             _canvasGroup.blocksRaycasts = isVisible;
         }
 
-        /// <summary>The row, its five chips and the trailing slot. Built before the theme is known;
-        /// Refresh paints it.</summary>
+        /// <summary>The bar's plate, its five chips, the two rules and the three slots. Built before
+        /// the theme is known; Refresh paints it.</summary>
         private void BuildRow()
         {
             _rowRect = (RectTransform)transform;
@@ -703,21 +790,41 @@ namespace MustyBlockBlast.Presentation.Views
             _rowRect.anchoredPosition = _anchoredPosition;
             _rowRect.localScale = Vector3.one;
 
+            // First, so everything else in the bar draws over it.
+            HudChrome.BuildPlate(
+                _rowRect, "Bar", new Vector2(_rowSize.x, _barHeight), Vector2.zero, _barRadius,
+                HudChrome.PILL_SHADOW_DROP, out _barShadowImage, out _barPlateImage);
+
             for (int slotIndex = 0; slotIndex < MAX_SLOT_COUNT; slotIndex++)
             {
                 _chips[slotIndex] = BuildChip(slotIndex);
             }
 
-            var trailingObject = new GameObject("TrailingSlot", typeof(RectTransform));
-            _trailingSlot = (RectTransform)trailingObject.transform;
-            _trailingSlot.SetParent(_rowRect, false);
-            _trailingSlot.anchorMin = new Vector2(1f, 0.5f);
-            _trailingSlot.anchorMax = new Vector2(1f, 0.5f);
-            _trailingSlot.pivot = new Vector2(1f, 0.5f);
-            _trailingSlot.sizeDelta = new Vector2(0f, _rowSize.y);
-            _trailingSlot.anchoredPosition = new Vector2(-_trailingInset, 0f);
+            Vector2 separatorSize = new Vector2(SEPARATOR_WIDTH, _barHeight * SEPARATOR_HEIGHT_FRACTION);
+            _leadingSeparator = HudChrome.BuildRounded(
+                _rowRect, "LeadingSeparator", separatorSize, Vector2.zero, SEPARATOR_WIDTH * 0.5f);
+            _trailingSeparator = HudChrome.BuildRounded(
+                _rowRect, "TrailingSeparator", separatorSize, Vector2.zero, SEPARATOR_WIDTH * 0.5f);
+
+            _trailingSlot = BuildEdgeSlot("TrailingSlot", 1f, -_trailingInset);
+            _leadingSlot = BuildEdgeSlot("LeadingSlot", 0f, _leadingInset);
 
             _centreSlot = HudChrome.CreateRect(_rowRect, "CentreSlot", new Vector2(0f, _rowSize.y), Vector2.zero);
+        }
+
+        /// <summary>A zero-width rect pinned to one end of the row (<paramref name="edge"/> 0 = left,
+        /// 1 = right), <paramref name="inset"/> in from it, for a group of guests to hang off.</summary>
+        private RectTransform BuildEdgeSlot(string objectName, float edge, float inset)
+        {
+            GameObject slotObject = new GameObject(objectName, typeof(RectTransform));
+            RectTransform slot = (RectTransform)slotObject.transform;
+            slot.SetParent(_rowRect, false);
+            slot.anchorMin = new Vector2(edge, 0.5f);
+            slot.anchorMax = new Vector2(edge, 0.5f);
+            slot.pivot = new Vector2(edge, 0.5f);
+            slot.sizeDelta = new Vector2(0f, _rowSize.y);
+            slot.anchoredPosition = new Vector2(inset, 0f);
+            return slot;
         }
 
         private Chip BuildChip(int slotIndex)
@@ -725,13 +832,9 @@ namespace MustyBlockBlast.Presentation.Views
             var chipSize = new Vector2(_chipHeight * 2f, _chipHeight);
             RectTransform chipRect = HudChrome.CreateRect(_rowRect, $"Chip_{slotIndex}", chipSize, Vector2.zero);
 
-            Image shadowImage = HudChrome.BuildRounded(
-                chipRect, "Shadow", chipSize, new Vector2(0f, -HudChrome.PILL_SHADOW_DROP), _chipHeight * 0.5f);
-            Image plateImage = HudChrome.BuildRounded(chipRect, "Plate", chipSize, Vector2.zero, _chipHeight * 0.5f);
-
-            // A bare positioning rect, drawing nothing: the icon sits on the chip's own pill now, with
-            // no plate behind it (issue #415). Keeping the slot means one anchored position places
-            // whichever of the two glyphs is in use.
+            // No plate of its own: the chip sits on the bar's plate (issue #477). The icon slot is a
+            // bare positioning rect, drawing nothing (issue #415); keeping it means one anchored
+            // position places whichever of the two glyphs is in use.
             var iconSlotSize = new Vector2(_iconSize, _iconSize);
             RectTransform iconSlotRect = HudChrome.CreateRect(chipRect, "IconSlot", iconSlotSize, Vector2.zero);
 
@@ -752,8 +855,7 @@ namespace MustyBlockBlast.Presentation.Views
                 checkRect, "Mark", UiSpriteFactory.CheckMark, new Vector2(_checkSize * 0.6f, _checkSize * 0.6f), Vector2.zero);
 
             return new Chip(
-                chipRect, shadowImage, plateImage, iconSlotRect, glyphRoot, iconImage,
-                progressText, checkRect, checkDisc, checkMark);
+                chipRect, iconSlotRect, glyphRoot, iconImage, progressText, checkRect, checkDisc, checkMark);
         }
     }
 }
