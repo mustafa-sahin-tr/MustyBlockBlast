@@ -19,17 +19,17 @@ MonoBehaviour:
     _tintByBlockColour: 0
     _clearEffect: 0
   - _name: Jelly
-    _scoreThreshold: 2000
+    _scoreThreshold: 500
     _sprite: {fileID: 21300000, guid: 73230bbc774414c4d9408c51bbc152bd, type: 3}
     _tintByBlockColour: 1
     _clearEffect: 1
   - _name: Pomegranate
-    _scoreThreshold: 5000
+    _scoreThreshold: 750
     _sprite: {fileID: 21300000, guid: 9ca90c34e565c43e1b5405cd649491ce, type: 3}
     _tintByBlockColour: 0
     _clearEffect: 2
   - _name: Wood
-    _scoreThreshold: 10000
+    _scoreThreshold: 1000
     _sprite: {fileID: 21300000, guid: 93c60cb7a758c4bec9d6c4ae31f53fa0, type: 3}
     _tintByBlockColour: 0
     _clearEffect: 3
