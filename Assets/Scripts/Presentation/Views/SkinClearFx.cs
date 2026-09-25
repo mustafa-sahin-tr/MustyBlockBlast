@@ -9,8 +9,9 @@ namespace MustyBlockBlast.Presentation.Views
 {
     /// <summary>
     /// The skin-specific break a Classic skin's cell plays when a line clears it (issue #333): jelly
-    /// bursts into droplets of its own colour, a fruit is sliced into two halves that fall apart with juice,
-    /// wood cracks into spinning splinters. Fire-and-forget, parented to the board's cell layer next to the
+    /// bursts into droplets of its own colour, a fruit is sliced into two halves that fall apart with juice
+    /// of its own colour, wood cracks into spinning splinters, stone crumbles into rubble, a crystal
+    /// shatters into shards. Fire-and-forget, parented to the board's cell layer next to the
     /// cell and never tied to the cell's own fade, exactly like BoardView's shatter shards. Creates a few
     /// short-lived images per cleared cell — an event, never per frame.
     /// </summary>
@@ -20,8 +21,9 @@ namespace MustyBlockBlast.Presentation.Views
         private const int JELLY_DROPLETS = 7;
         private const int JUICE_DROPLETS = 5;
         private const int SPLINTERS = 6;
+        private const int RUBBLE = 6;
+        private const int SHARDS = 7;
 
-        private static readonly Color JuiceColour = new Color(0.86f, 0.12f, 0.22f, 1f);
         private static readonly Color WoodColour = new Color(0.62f, 0.38f, 0.18f, 1f);
 
         internal static async UniTaskVoid PlayAsync(
@@ -31,6 +33,7 @@ namespace MustyBlockBlast.Presentation.Views
             ClassicSkinClearEffect effect,
             Sprite sprite,
             Color tint,
+            Color particleColour,
             CancellationToken token)
         {
             if (parent == null || effect == ClassicSkinClearEffect.None)
@@ -47,6 +50,12 @@ namespace MustyBlockBlast.Presentation.Views
                 case ClassicSkinClearEffect.FruitSlice:
                     count = 2 + JUICE_DROPLETS;
                     break;
+                case ClassicSkinClearEffect.StoneCrumble:
+                    count = RUBBLE;
+                    break;
+                case ClassicSkinClearEffect.CrystalShatter:
+                    count = SHARDS;
+                    break;
                 default:
                     count = SPLINTERS;
                     break;
@@ -59,10 +68,11 @@ namespace MustyBlockBlast.Presentation.Views
 
             for (int index = 0; index < count; index++)
             {
-                BuildParticle(parent, centre, cellSize, effect, sprite, tint, index, count, out rects[index], out images[index]);
+                BuildParticle(
+                    parent, centre, cellSize, effect, sprite, tint, particleColour, index, out rects[index], out images[index]);
                 float angle = ((index + 0.5f) / count) * Mathf.PI * 2f;
                 directions[index] = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle) * 0.6f + 0.4f);
-                spins[index] = (index % 2 == 0 ? 1f : -1f) * (effect == ClassicSkinClearEffect.WoodSplinters ? 540f : 60f);
+                spins[index] = (index % 2 == 0 ? 1f : -1f) * SpinFor(effect);
             }
 
             if (effect == ClassicSkinClearEffect.FruitSlice)
@@ -114,6 +124,23 @@ namespace MustyBlockBlast.Presentation.Views
             }
         }
 
+        /// <summary>Degrees per clear a particle turns: splinters and shards whirl, rubble tumbles, drops
+        /// barely turn at all.</summary>
+        private static float SpinFor(ClassicSkinClearEffect effect)
+        {
+            switch (effect)
+            {
+                case ClassicSkinClearEffect.WoodSplinters:
+                    return 540f;
+                case ClassicSkinClearEffect.CrystalShatter:
+                    return 420f;
+                case ClassicSkinClearEffect.StoneCrumble:
+                    return 180f;
+                default:
+                    return 60f;
+            }
+        }
+
         private static bool IsHalf(ClassicSkinClearEffect effect, int index)
             => effect == ClassicSkinClearEffect.FruitSlice && index < 2;
 
@@ -124,8 +151,8 @@ namespace MustyBlockBlast.Presentation.Views
             ClassicSkinClearEffect effect,
             Sprite sprite,
             Color tint,
+            Color particleColour,
             int index,
-            int count,
             out RectTransform rect,
             out Image image)
         {
@@ -150,6 +177,29 @@ namespace MustyBlockBlast.Presentation.Views
                 return;
             }
 
+            if (effect == ClassicSkinClearEffect.StoneCrumble)
+            {
+                // Chunky, uneven rubble in the stone's own greys.
+                float chunk = cellSize * (0.2f - ((index % 3) * 0.04f));
+                rect.sizeDelta = new Vector2(chunk, chunk * 0.85f);
+                image.sprite = UiSpriteFactory.RoundedSquare;
+                image.type = Image.Type.Sliced;
+                image.pixelsPerUnitMultiplier = 8f;
+                image.color = Color.Lerp(particleColour, Color.black, (index % 3) * 0.15f);
+                return;
+            }
+
+            if (effect == ClassicSkinClearEffect.CrystalShatter)
+            {
+                // Sharp facets in the crystal's own (block) colour, a little lighter so they glint.
+                float shard = cellSize * (0.24f - ((index % 3) * 0.05f));
+                rect.sizeDelta = new Vector2(shard, shard);
+                image.sprite = UiSpriteFactory.TriangleFacet;
+                image.type = Image.Type.Simple;
+                image.color = Color.Lerp(tint, Color.white, 0.35f + ((index % 2) * 0.2f));
+                return;
+            }
+
             if (effect == ClassicSkinClearEffect.WoodSplinters)
             {
                 rect.sizeDelta = new Vector2(cellSize * 0.36f, cellSize * 0.09f);
@@ -164,7 +214,7 @@ namespace MustyBlockBlast.Presentation.Views
             rect.sizeDelta = new Vector2(size, size);
             image.sprite = UiSpriteFactory.Circle;
             image.type = Image.Type.Simple;
-            image.color = effect == ClassicSkinClearEffect.JellySplat ? Color.Lerp(tint, Color.white, 0.15f) : JuiceColour;
+            image.color = effect == ClassicSkinClearEffect.JellySplat ? Color.Lerp(tint, Color.white, 0.15f) : particleColour;
         }
     }
 }

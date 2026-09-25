@@ -51,6 +51,10 @@ namespace MustyBlockBlast.Presentation.Views
         private ISubscriber<SpecialCellSpawnedMessage> _specialCellSpawnedSubscriber;
         private ISfxService _sfxService;
 
+        /// <summary>The board (issue #333): asked which Classic skin the cleared blocks wear, so a skin with
+        /// its own clear sound plays it in place of <see cref="_lineClearClip"/>.</summary>
+        private BoardView _boardView;
+
         private CancellationToken _destroyToken;
         private bool _grantedOrSpawnedThisPlacement;
 
@@ -59,8 +63,10 @@ namespace MustyBlockBlast.Presentation.Views
             ISubscriber<LinesClearedMessage> linesClearedSubscriber,
             ISubscriber<PowerUpGrantedMessage> powerUpGrantedSubscriber,
             ISubscriber<SpecialCellSpawnedMessage> specialCellSpawnedSubscriber,
-            ISfxService sfxService)
+            ISfxService sfxService,
+            BoardView boardView)
         {
+            _boardView = boardView;
             _linesClearedSubscriber = linesClearedSubscriber;
             _powerUpGrantedSubscriber = powerUpGrantedSubscriber;
             _specialCellSpawnedSubscriber = specialCellSpawnedSubscriber;
@@ -96,7 +102,7 @@ namespace MustyBlockBlast.Presentation.Views
 
         private void OnLinesCleared(LinesClearedMessage message)
         {
-            _sfxService.PlayOneShot(_lineClearClip);
+            _sfxService.PlayOneShot(BaseClearClip(message));
 
             AudioClip tierClip = ClipForLineCount(message.LineCount);
             if (tierClip == null)
@@ -113,6 +119,15 @@ namespace MustyBlockBlast.Presentation.Views
         /// strictly after <see cref="LinesClearedMessage"/>, in the same synchronous call) has a chance
         /// to set <see cref="_grantedOrSpawnedThisPlacement"/> before the tier voice would play.
         /// </summary>
+        /// <summary>The clear's base sound: that of the Classic skin most of the cleared blocks were placed
+        /// in (jelly squish, fruit slice, wood crack…) when it has one, otherwise the ordinary line-clear
+        /// clip. The combo and tier voices are layered on top either way.</summary>
+        private AudioClip BaseClearClip(LinesClearedMessage message)
+        {
+            AudioClip skinClip = _boardView != null ? _boardView.SkinClearSoundFor(message.Rows, message.Columns) : null;
+            return skinClip != null ? skinClip : _lineClearClip;
+        }
+
         private async UniTaskVoid PlayTierVoiceUnlessGrantedAsync(AudioClip tierClip)
         {
             _grantedOrSpawnedThisPlacement = false;

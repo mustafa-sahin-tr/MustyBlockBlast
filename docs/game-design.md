@@ -446,16 +446,24 @@ different mechanic, so they are not migrated.
 
 ### Classic skins
 
-In a Classic (timed) run the blocks change **skin** as the score climbs: the board starts on the
-plain colour blocks, and each score threshold of the configured sequence (jelly at 500,
-pomegranate at 750, wood at 1,000) converts **every block on the board** to the next skin
-in a wave, and pieces are dealt in it from then on. Only one skin is ever on the board, and a run
-never goes back to an earlier one. A skin that is tinted by block colour (jelly) keeps each block's
-colour readable; others (fruit, wood) replace it. Each skin breaks its own way when a line clears
-it: jelly splats into droplets, fruit is sliced in two, wood cracks into splinters. Special cells
-keep their own art on top of any skin. Skins are purely cosmetic: they change no rule, no score and
-no special-cell effect. Path and Şölen always use the colour blocks. The sequence and thresholds
-live in the `ClassicSkinConfig` asset.
+In a Classic (timed) run the blocks change **skin** as the score climbs. A run starts on the plain
+colour blocks, and then a new skin arrives at 500, 750, 1,000 and every 250 points after that:
+jelly, pomegranate, wood, peach, stone, passion fruit, diamond, fig, coconut, mangosteen, guava,
+rambutan, avocado. When the list runs out it starts again from jelly, so a long run keeps getting
+new skins (the colour blocks never come back mid-run). The sequence, thresholds and loop step live
+in the `ClassicSkinConfig` asset.
+
+A skin only changes what is **placed from then on**: blocks already on the board keep the skin they
+were placed in until they are cleared, so the board can hold several skins at once. Pieces in the
+dock and the pocket always show the current skin, which is what they will wear once placed. Jelly
+and diamond are tinted in each block's colour; the fruits, wood and stone carry their own colours.
+
+Each skin breaks its own way when a line clears it (jelly splats into droplets, fruit is sliced in
+two with juice of its colour, wood cracks into splinters, stone crumbles into rubble, diamond
+shatters into shards) and has its own clear sound. A line clear plays the sound of whatever most of
+the cleared blocks wear; if plain colour blocks are the most, it is the ordinary clear sound.
+Special cells keep their own art on top of any skin. Skins are purely cosmetic: they change no
+rule, no score and no special-cell effect. Path and Şölen always use the colour blocks.
 
 ## Undo
 

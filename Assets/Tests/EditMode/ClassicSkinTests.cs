@@ -23,10 +23,26 @@ namespace MustyBlockBlast.Tests.EditMode
         [TestCase(1999, 0)]
         [TestCase(2000, 1)]
         [TestCase(7000, 2)]
-        [TestCase(50000, 3)]
-        public void StageIndexFor_IsTheLastThresholdReached(int score, int expected)
+        [TestCase(10000, 3)]
+        [TestCase(10249, 3)]
+        [TestCase(10250, 4)]
+        [TestCase(10750, 6)]
+        public void StageIndexFor_IsTheLastThresholdReached_ThenOneStepPerLoopInterval(int score, int expected)
         {
             Assert.AreEqual(expected, ASequence().StageIndexFor(score));
+        }
+
+        /// <summary>Past the last authored stage the sequence starts over from stage 1 — never the colour
+        /// blocks — so a long run keeps getting new skins.</summary>
+        [Test]
+        public void StageAt_PastTheEnd_CyclesThroughTheSkinsAgain()
+        {
+            ClassicSkinConfig config = ASequence();
+
+            Assert.AreEqual("Jelly", config.StageAt(4).Name);
+            Assert.AreEqual("Fruit", config.StageAt(5).Name);
+            Assert.AreEqual("Wood", config.StageAt(6).Name);
+            Assert.AreEqual("Jelly", config.StageAt(7).Name);
         }
 
         [Test]
@@ -37,7 +53,7 @@ namespace MustyBlockBlast.Tests.EditMode
 
             scoreModel.Score.Value = 2500;
             Assert.AreEqual(1, skinModel.StageIndex.Value);
-            scoreModel.Score.Value = 12000;
+            scoreModel.Score.Value = 10000;
             Assert.AreEqual(3, skinModel.StageIndex.Value);
             scoreModel.Score.Value = 100;
             Assert.AreEqual(3, skinModel.StageIndex.Value, "A lower score never brings a skin back.");
