@@ -482,6 +482,13 @@ namespace MustyBlockBlast.Gameplay.Localization
         /// <summary>Shown under the button when the ad was declined, dismissed or did not fill.</summary>
         public const string LIVES_SHEET_AD_REFUSED = "lives.sheet.ad_refused";
 
+        /// <summary>The coin lives pack button's caption (issue #479); the "+N ♥" pill rides left of it and
+        /// the coin price chip right of it.</summary>
+        public const string LIVES_SHEET_PACK = "lives.sheet.pack";
+
+        /// <summary>Shown under the buttons when a lives pack tap is refused for a short coin balance.</summary>
+        public const string LIVES_SHEET_PACK_REFUSED = "lives.sheet.pack_refused";
+
         /// <summary>The sheet's footer: the modes that never use lives.</summary>
         public const string LIVES_SHEET_FOOTER = "lives.sheet.footer";
 

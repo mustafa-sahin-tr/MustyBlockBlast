@@ -55,6 +55,12 @@ namespace MustyBlockBlast.Gameplay.Systems
     /// refused outright at or above the cap (the seam is never asked), and like the refill it never
     /// lowers a count that is already above it.
     /// </para>
+    /// <para>
+    /// <b>The coin lives pack (issue #479).</b> <see cref="GrantPurchasedLives"/> banks
+    /// <see cref="LivesConfig.LivesPackAmount"/> lives with no cap at all (22 → 32). The coins are
+    /// <see cref="CurrencySystem.TryPurchaseLivesPack"/>'s to debit — that class is the one writer of the
+    /// balance — so this system only grants, and the purchase is flushed there as one write.
+    /// </para>
     /// </summary>
     public sealed class LivesSystem : IStartable, IDisposable
     {
@@ -268,6 +274,39 @@ namespace MustyBlockBlast.Gameplay.Systems
             SetLives((int)Math.Min((long)lives + result.Amount, cap));
             Save();
             return true;
+        }
+
+        /// <summary>
+        /// Banks <paramref name="amount"/> lives for a coin lives pack that has already been paid for
+        /// (issue #479). Called by <see cref="CurrencySystem.TryPurchaseLivesPack"/> and by nothing else:
+        /// it takes no payment and asks no question, so the coins must be debited before it is reached —
+        /// the split <see cref="PowerUpSystem.GrantPurchased"/> has with the power-up purchase.
+        /// <para>
+        /// <b>Uncapped.</b> Unlike the refill and the ad, the pack is not clamped at
+        /// <see cref="LivesConfig.RegenCap"/>: 15 becomes 25 and 22 becomes 32. The count it leaves above
+        /// the cap is kept — <see cref="GrantRefill"/> neither adds to it nor lowers it — and is spent
+        /// normally, one failure at a time, until the refill resumes below the cap.
+        /// </para>
+        /// <para>
+        /// Pays any hour boundary crossed since the last tick first, so the pack lands on the count the
+        /// player is already entitled to rather than being topped over by a refill a second later.
+        /// Persists at once but deliberately does not flush: the caller writes the debit too and flushes
+        /// both together, so a crash keeps the whole purchase or none of it. A non-positive amount is a
+        /// no-op.
+        /// </para>
+        /// </summary>
+        internal void GrantPurchasedLives(int amount)
+        {
+            if (amount <= 0)
+            {
+                return;
+            }
+
+            RefreshRefill();
+
+            // In long for the reason GrantRefill is: stacking packs must not overflow into a negative count.
+            SetLives((int)Math.Min((long)_saveData.lives + amount, int.MaxValue));
+            Save();
         }
 
         /// <summary>

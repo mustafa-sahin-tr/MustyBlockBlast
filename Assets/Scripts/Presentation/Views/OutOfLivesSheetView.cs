@@ -35,10 +35,18 @@ namespace MustyBlockBlast.Presentation.Views
     /// </para>
     /// <para>
     /// The offers sit in their own stack (<see cref="_offersRect"/>) that <see cref="LayoutCard"/> sizes
-    /// from the buttons it holds, so a second offer (the coin pack of issue #479) is one more button in
-    /// that stack, not a re-layout of the card. A successful ad leaves the sheet open on the new count:
-    /// the player sees the lives land, and whatever it opened over — the level-start card, the end-of-run
-    /// card — is still underneath for the start they were after.
+    /// from the buttons it holds, so the second offer — the gold coin lives pack of issue #479, under the
+    /// ad — is one more button in that stack, not a re-layout of the card. A successful ad or pack leaves
+    /// the sheet open on the new count: the player sees the lives land, and whatever it opened over — the
+    /// level-start card, the end-of-run card — is still underneath for the start they were after.
+    /// </para>
+    /// <para>
+    /// The pack (issue #479) is never capped, so it stays gold at 22 lives while the ad beside it reads
+    /// "Lives full". It greys out while the coin balance is short of <see cref="CurrencySystem.LivesPackPrice"/>
+    /// — the shop's unaffordable-row treatment — and repaints on every balance change, so earning the
+    /// coins elsewhere lights it up. A tap on the grey button, or a purchase the System refuses, shows the
+    /// sheet's message line rather than doing nothing silently. Whether the pack is bought is
+    /// <see cref="CurrencySystem.TryPurchaseLivesPack"/>'s answer; this View only reads the price.
     /// </para>
     /// <para>
     /// Modal while open: <see cref="BoardInputView"/> routes every tap into <see cref="HandleTap"/>, above
@@ -75,6 +83,13 @@ namespace MustyBlockBlast.Presentation.Views
         private const float AD_CHIP_HEIGHT = 56f;
         private const float AD_CHIP_GAP = 16f;
         private const float AD_CHIP_HEART_SIZE = 36f;
+        private const float PACK_SIDE_INSET = 22f;
+        private const float PACK_PILL_WIDTH = 150f;
+        private const float PACK_PILL_HEIGHT = 64f;
+        private const float PACK_PILL_HEART_SIZE = 40f;
+        private const float PACK_PRICE_CHIP_WIDTH = 176f;
+        private const float PACK_PRICE_CHIP_HEIGHT = 64f;
+        private const float PACK_PRICE_COIN_SIZE = 42f;
         private const float MESSAGE_HEIGHT = 56f;
         private const float FOOTER_HEIGHT = 44f;
         private const float CLOSE_DISC_SIZE = 92f;
@@ -101,6 +116,13 @@ namespace MustyBlockBlast.Presentation.Views
         private static readonly Color LivesFigureInk = new Color32(0xC8, 0x3A, 0x4B, 0xFF);
 
         private static readonly Color AdBlue = new Color32(0x3F, 0x86, 0xEE, 0xFF);
+
+        /// <summary>The mockup's chunky gold lives-pack button, and the dark gold ink of its price chip
+        /// (the level-start card's milestone ink).</summary>
+        private static readonly Color PackGold = new Color32(0xF5, 0xB3, 0x1B, 0xFF);
+        private static readonly Color PackPillFill = new Color(0.55f, 0.3f, 0f, 0.28f);
+        private static readonly Color PackPriceChipFill = Color.white;
+        private static readonly Color PackPriceInk = new Color32(0x8A, 0x61, 0x00, 0xFF);
         private static readonly Color DisabledGrey = new Color32(0xC9, 0xC4, 0xD2, 0xFF);
         private static readonly Color ChipFill = new Color(1f, 1f, 1f, 0.24f);
         private static readonly Color TextShadowColour = new Color(0f, 0f, 0f, 0.25f);
@@ -136,6 +158,8 @@ namespace MustyBlockBlast.Presentation.Views
         [SerializeField] private Sprite _buttonSprite;
         [Tooltip("Full-colour heart (HudIcon_Heart), the HUD lives section's own.")]
         [SerializeField] private Sprite _heartSprite;
+        [Tooltip("The coin icon on the lives pack's price chip — the shop's and the level-start card's own.")]
+        [SerializeField] private Sprite _coinSprite;
 
         [Header("Palette")]
         [SerializeField] private Color _scrimColour = new Color(0.08f, 0.09f, 0.16f, 0.58f);
@@ -143,6 +167,8 @@ namespace MustyBlockBlast.Presentation.Views
         private LivesModel _livesModel;
         private LivesConfig _livesConfig;
         private LivesSystem _livesSystem;
+        private ProfileModel _profileModel;
+        private CurrencySystem _currencySystem;
         private LocalizationModel _localizationModel;
         private LocalizationSystem _localizationSystem;
         private ISubscriber<OutOfLivesMessage> _outOfLivesSubscriber;
@@ -173,6 +199,12 @@ namespace MustyBlockBlast.Presentation.Views
         private RectTransform _adChipRect;
         private Text _adChipText;
 
+        private RectTransform _packButtonRect;
+        private Image _packButtonPlate;
+        private Text _packButtonText;
+        private Text _packAmountText;
+        private Text _packPriceText;
+
         private RectTransform _messageRect;
         private Text _messageText;
         private Text _footerText;
@@ -189,6 +221,8 @@ namespace MustyBlockBlast.Presentation.Views
             LivesModel livesModel,
             LivesConfig livesConfig,
             LivesSystem livesSystem,
+            ProfileModel profileModel,
+            CurrencySystem currencySystem,
             LocalizationModel localizationModel,
             LocalizationSystem localizationSystem,
             ISubscriber<OutOfLivesMessage> outOfLivesSubscriber)
@@ -196,6 +230,8 @@ namespace MustyBlockBlast.Presentation.Views
             _livesModel = livesModel;
             _livesConfig = livesConfig;
             _livesSystem = livesSystem;
+            _profileModel = profileModel;
+            _currencySystem = currencySystem;
             _localizationModel = localizationModel;
             _localizationSystem = localizationSystem;
             _outOfLivesSubscriber = outOfLivesSubscriber;
@@ -212,7 +248,8 @@ namespace MustyBlockBlast.Presentation.Views
         private void Start()
         {
             if (_livesModel == null || _livesConfig == null || _livesSystem == null
-                || _localizationModel == null || _localizationSystem == null || _outOfLivesSubscriber == null)
+                || _profileModel == null || _currencySystem == null || _localizationModel == null
+                || _localizationSystem == null || _outOfLivesSubscriber == null)
             {
                 Debug.LogError(
                     $"{nameof(OutOfLivesSheetView)} was not injected. Is it registered in the LifetimeScope?", this);
@@ -222,6 +259,7 @@ namespace MustyBlockBlast.Presentation.Views
             _outOfLivesSubscriber.Subscribe(OnOutOfLives).AddTo(_disposables);
             _livesModel.CurrentLives.Subscribe(_ => RefreshIfOpen()).AddTo(_disposables);
             _livesModel.SecondsUntilRefill.Subscribe(OnSecondsUntilRefillChanged).AddTo(_disposables);
+            _profileModel.CoinBalance.Subscribe(_ => RefreshIfOpen()).AddTo(_disposables);
             _localizationModel.CurrentLocale.Subscribe(_ => RefreshIfOpen()).AddTo(_disposables);
         }
 
@@ -249,7 +287,7 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         /// <summary>
-        /// Routes a tap while open: the close cross, the ad button; anything else on the card is
+        /// Routes a tap while open: the close cross, the ad button, the lives pack; anything else on the card is
         /// swallowed, and only a tap on the scrim closes.
         /// </summary>
         internal void HandleTap(Vector2 screenPosition)
@@ -272,6 +310,12 @@ namespace MustyBlockBlast.Presentation.Views
             if (Contains(_adButtonRect, screenPosition, eventCamera))
             {
                 RequestAd();
+                return;
+            }
+
+            if (Contains(_packButtonRect, screenPosition, eventCamera))
+            {
+                BuyLivesPack();
                 return;
             }
 
@@ -346,6 +390,27 @@ namespace MustyBlockBlast.Presentation.Views
             RefreshIfOpen();
         }
 
+        /// <summary>
+        /// The gold lives pack (issue #479). Short of coins — the grey button — it only says so; otherwise
+        /// the System debits, grants and flushes, and the lives and balance subscriptions repaint the
+        /// sheet on the new count. Refused mid-way (the balance moved under the tap), it says so too.
+        /// </summary>
+        private void BuyLivesPack()
+        {
+            if (_isRequestingAd)
+            {
+                return;
+            }
+
+            bool bought = IsPackAffordable() && _currencySystem.TryPurchaseLivesPack();
+            _messageOverride = bought
+                ? null
+                : _localizationSystem.Translate(LocalizationKeys.LIVES_SHEET_PACK_REFUSED);
+            Refresh();
+        }
+
+        private bool IsPackAffordable() => _currencySystem.LivesPackPrice <= _profileModel.CoinBalance.Value;
+
         /// <summary>Repaints every row from the model and re-stacks the card. Runs on open and on every
         /// lives, countdown or locale change while open — never per frame.</summary>
         private void Refresh()
@@ -374,6 +439,7 @@ namespace MustyBlockBlast.Presentation.Views
                 LocalizationKeys.LIVES_SHEET_BODY, refillAmount, FormatCount(_livesConfig.RegenCap));
 
             PaintAdButton();
+            PaintPackButton();
 
             _messageText.text = _messageOverride;
             _messageRect.gameObject.SetActive(!string.IsNullOrEmpty(_messageOverride));
@@ -426,6 +492,22 @@ namespace MustyBlockBlast.Presentation.Views
             _adChipText.text = _stringBuilder.ToString();
 
             LayoutAdButtonContent(!isFull);
+        }
+
+        /// <summary>Gold while the balance covers the price, grey (the shop's unaffordable treatment) while
+        /// it does not, and while an ad is in flight. Never greyed by the cap: the pack is uncapped.</summary>
+        private void PaintPackButton()
+        {
+            bool isEnabled = !_isRequestingAd && IsPackAffordable();
+            _packButtonPlate.color = isEnabled ? PackGold : DisabledGrey;
+            _packButtonText.text = _localizationSystem.Translate(LocalizationKeys.LIVES_SHEET_PACK);
+
+            _stringBuilder.Clear();
+            _stringBuilder.Append(PLUS);
+            _stringBuilder.Append(_livesConfig.LivesPackAmount);
+            _packAmountText.text = _stringBuilder.ToString();
+
+            _packPriceText.text = FormatCount(_currencySystem.LivesPackPrice);
         }
 
         /// <summary>Centres the caption and, when shown, its "+N ♥" chip as one group.</summary>
@@ -602,6 +684,7 @@ namespace MustyBlockBlast.Presentation.Views
 
             _offersRect = HudChrome.CreateRect(_cardRect, "Offers", new Vector2(CONTENT_WIDTH, BUTTON_HEIGHT), Vector2.zero);
             BuildAdButton();
+            BuildPackButton();
 
             _messageText = CreateText(_cardRect, "Message", _bodyFontSize - 6, _bodyFont, MutedInk);
             _messageText.horizontalOverflow = HorizontalWrapMode.Wrap;
@@ -671,6 +754,63 @@ namespace MustyBlockBlast.Presentation.Views
                 _adChipRect, "Heart", _heartSprite, new Vector2(AD_CHIP_HEART_SIZE, AD_CHIP_HEART_SIZE), new Vector2(30f, 0f));
             chipHeart.preserveAspect = true;
             chipHeart.color = _heartSprite != null ? Color.white : Color.clear;
+        }
+
+        /// <summary>
+        /// The gold "[♥ +10] Lives pack [coin 150]" button (issue #479), second child of the offers stack:
+        /// the lives pill hugs the left edge, the white price chip the right, and the caption sits centred
+        /// between them.
+        /// </summary>
+        private void BuildPackButton()
+        {
+            var size = new Vector2(CONTENT_WIDTH, BUTTON_HEIGHT);
+            _packButtonRect = HudChrome.CreateRect(_offersRect, "LivesPackButton", size, Vector2.zero);
+            _packButtonPlate = BuildSlicedPlate(_packButtonRect, "Plate", _buttonSprite, size, BUTTON_SLICE_SCALE);
+            _packButtonPlate.color = PackGold;
+
+            float halfWidth = CONTENT_WIDTH * 0.5f;
+
+            var pillSize = new Vector2(PACK_PILL_WIDTH, PACK_PILL_HEIGHT);
+            var pillCentre = new Vector2(-halfWidth + PACK_SIDE_INSET + (PACK_PILL_WIDTH * 0.5f), BUTTON_LABEL_RISE);
+            RectTransform pillRect = HudChrome.CreateRect(_packButtonRect, "LivesPill", pillSize, pillCentre);
+            HudChrome.BuildRounded(pillRect, "Plate", pillSize, Vector2.zero, PACK_PILL_HEIGHT * 0.5f).color =
+                PackPillFill;
+            Image pillHeart = HudChrome.BuildGlyph(
+                pillRect, "Heart", _heartSprite, new Vector2(PACK_PILL_HEART_SIZE, PACK_PILL_HEART_SIZE),
+                new Vector2((-PACK_PILL_WIDTH * 0.5f) + 12f + (PACK_PILL_HEART_SIZE * 0.5f), 0f));
+            pillHeart.preserveAspect = true;
+            pillHeart.color = _heartSprite != null ? Color.white : Color.clear;
+            _packAmountText = CreateText(pillRect, "Amount", _bodyFontSize, _bodyFont, Color.white);
+            _packAmountText.rectTransform.sizeDelta =
+                new Vector2(PACK_PILL_WIDTH - PACK_PILL_HEART_SIZE - 16f, PACK_PILL_HEIGHT);
+            _packAmountText.rectTransform.anchoredPosition = new Vector2(PACK_PILL_HEART_SIZE * 0.5f, 2f);
+            AddTextShadow(_packAmountText);
+
+            var chipSize = new Vector2(PACK_PRICE_CHIP_WIDTH, PACK_PRICE_CHIP_HEIGHT);
+            var chipCentre = new Vector2(
+                halfWidth - PACK_SIDE_INSET - (PACK_PRICE_CHIP_WIDTH * 0.5f), BUTTON_LABEL_RISE);
+            RectTransform chipRect = HudChrome.CreateRect(_packButtonRect, "PriceChip", chipSize, chipCentre);
+            HudChrome.BuildRounded(chipRect, "Plate", chipSize, Vector2.zero, PACK_PRICE_CHIP_HEIGHT * 0.5f).color =
+                PackPriceChipFill;
+            Image coin = HudChrome.BuildGlyph(
+                chipRect, "Coin", _coinSprite, new Vector2(PACK_PRICE_COIN_SIZE, PACK_PRICE_COIN_SIZE),
+                new Vector2((-PACK_PRICE_CHIP_WIDTH * 0.5f) + 12f + (PACK_PRICE_COIN_SIZE * 0.5f), 0f));
+            coin.preserveAspect = true;
+            coin.color = _coinSprite != null ? Color.white : Color.clear;
+            _packPriceText = CreateText(chipRect, "Price", _bodyFontSize, _bodyFont, PackPriceInk);
+            _packPriceText.rectTransform.sizeDelta =
+                new Vector2(PACK_PRICE_CHIP_WIDTH - PACK_PRICE_COIN_SIZE - 16f, PACK_PRICE_CHIP_HEIGHT);
+            _packPriceText.rectTransform.anchoredPosition = new Vector2(PACK_PRICE_COIN_SIZE * 0.5f, 2f);
+
+            float captionWidth =
+                CONTENT_WIDTH - (2f * (PACK_SIDE_INSET + Mathf.Max(PACK_PILL_WIDTH, PACK_PRICE_CHIP_WIDTH)));
+            _packButtonText = CreateText(_packButtonRect, "Caption", _buttonFontSize, _bodyFont, Color.white);
+            _packButtonText.rectTransform.sizeDelta = new Vector2(captionWidth, BUTTON_HEIGHT);
+            _packButtonText.rectTransform.anchoredPosition = new Vector2(0f, BUTTON_LABEL_RISE);
+            _packButtonText.resizeTextForBestFit = true;
+            _packButtonText.resizeTextMinSize = 24;
+            _packButtonText.resizeTextMaxSize = _buttonFontSize;
+            AddTextShadow(_packButtonText);
         }
 
         /// <summary>The close cross on a soft disc, drawn as two rotated bars so it needs no glyph asset.</summary>

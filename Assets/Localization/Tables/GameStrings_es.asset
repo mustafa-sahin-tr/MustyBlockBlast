@@ -1710,6 +1710,14 @@ MonoBehaviour:
     m_Localized: +{0} en {1}
     m_Metadata:
       m_Items: []
+  - m_Id: 4293722148691968
+    m_Localized: Pack de vidas
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4293722182246400
+    m_Localized: No tienes suficientes monedas para el pack de vidas.
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []
