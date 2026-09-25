@@ -583,9 +583,35 @@ level.
 Both are earned by watching a **rewarded ad**, opt-in only. No forced interstitials in v1.
 
 Power-ups are additionally granted outright — no ad — on two earned events: unlocking a
-badge, and completing a level that authors a level-up reward. Which levels reward, and with
-what, is authored per level in the level catalog rather than derived in code; the reward
-belongs to the level **completed**, not the one advanced into.
+badge, and completing a level.
+
+**Level completion rewards.** Every level pays power-ups on its **first** completion. Which
+kinds is a rule in code (`LevelCompletionRewards`), not authored per level, and the reward
+belongs to the level **completed**, not the one advanced into:
+
+- **Regular level:** one power-up.
+- **Milestone level (every 5th: 5, 10, 15, …):** three **different** power-ups.
+- **Unlock guarantee:** if completing the level unlocks a power-up kind, that kind is always
+  one of the rewards. A kind unlocks when the level frontier reaches its unlock level, and the
+  frontier moves to N+1 when level N is first completed — so completing level **N−1** is what
+  unlocks a kind with unlock level N (level 4 pays Joker, 9 Color Cleanser, 14 Rotate, …).
+  Because every unlock level is a multiple of five, no unlock clear is itself a milestone.
+- **Otherwise random:** every remaining reward is a random kind among those unlocked once the
+  level is completed, never repeating a kind within one level's reward. The pick is seeded from
+  the level number, so it is deterministic: the Level Path shows each level's exact reward
+  before it is played, and the same level always pays the same kinds.
+- **Rewardable kinds** are the ones in the power-up strip. Hold and Coin Sower are earned by
+  rewarded ad only and are never a level reward; the level that unlocks Coin Sower pays a
+  random strip kind instead.
+- **First completion only:** replaying an already-completed level pays nothing, and its node
+  on the Level Path stops showing a reward. The last level in the catalog advances nowhere,
+  so it pays nothing.
+- If fewer kinds are unlocked than a milestone pays, each unlocked kind is paid once rather
+  than repeated (this cannot happen with the shipped unlock table, which always has the three
+  starters).
+
+Rewards arrive through the ordinary grant path, so each one flies into its strip slot one after
+another, and a Path level's result card lists what the level paid.
 
 The game logic must not know that ads exist. `Core` and `Gameplay` depend on an interface
 such as `IRewardSource` that grants a reward; the ad SDK lives entirely in `Presentation`

@@ -1142,6 +1142,10 @@ MonoBehaviour:
     m_Localized: "\xA1Salvado!"
     m_Metadata:
       m_Items: []
+  - m_Id: 4184519664984064
+    m_Localized: PREMIO DEL NIVEL
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

@@ -96,12 +96,10 @@ namespace MustyBlockBlast.Gameplay.Settings
             + "theme at runtime. Unused otherwise.")]
         [SerializeField] private int _requiredColourId = 1;
 
-        [Tooltip("Grant a power-up when this level is completed. Off by default — milestone levels " +
-            "are the reward levels, not every level.")]
-        [SerializeField] private bool _grantsLevelUpReward;
-
-        [Tooltip("Power-up granted on completing this level. Used only when Grants Level Up Reward is on.")]
-        [SerializeField] private PowerUpKind _levelUpReward = PowerUpKind.RowClear;
+        // The authored per-level power-up reward (_grantsLevelUpReward / _levelUpReward) was removed
+        // in issue #462: every level now rewards by a rule in code — see LevelCompletionRewards. The
+        // catalog asset may still carry the two orphaned YAML keys until it is next re-saved; Unity
+        // ignores keys with no matching field, so they are harmless.
 
         [Tooltip("Score paid into the run's own score when this level is completed in Path mode. " +
             "0 (the default) means the level pays nothing, which is what every level authored before " +
@@ -189,22 +187,10 @@ namespace MustyBlockBlast.Gameplay.Settings
         public int TargetValue => _targetValue;
 
         /// <summary>
-        /// Whether completing this level pays out <see cref="LevelUpReward"/>. False for most levels:
-        /// which levels reward, and with what, is authored content rather than a rule, so it is tuned
-        /// in the catalog asset rather than derived from the level number in code.
-        /// </summary>
-        public bool GrantsLevelUpReward => _grantsLevelUpReward;
-
-        /// <summary>The power-up completing this level grants. Meaningless unless
-        /// <see cref="GrantsLevelUpReward"/> is true.</summary>
-        public PowerUpKind LevelUpReward => _levelUpReward;
-
-        /// <summary>
         /// Points completing this level adds to that run's score in <see cref="GameMode.Path"/>. Zero
         /// for a level that pays nothing.
         /// <para>
-        /// Authored per level rather than computed from the level number, matching
-        /// <see cref="GrantsLevelUpReward"/>'s philosophy: which levels pay, and how much, is content
+        /// Authored per level rather than computed from the level number: which levels pay, and how much, is content
         /// to be tuned in the catalog asset, not a formula in C#. Defaulting to zero is what keeps
         /// every level authored before this field existed behaving exactly as it did.
         /// </para>
@@ -216,7 +202,7 @@ namespace MustyBlockBlast.Gameplay.Settings
         /// board for the player to destroy. Zero for a level that seeds none.
         /// <para>
         /// Authored per level rather than derived from the level number, matching
-        /// <see cref="GrantsLevelUpReward"/>'s and <see cref="CompletionScoreBonus"/>'s philosophy: which
+        /// <see cref="CompletionScoreBonus"/>'s philosophy: which
         /// levels are worth coins, and how many, is content to be tuned in the catalog asset rather than a
         /// formula in C#. Defaulting to zero is what keeps every level authored before this field existed
         /// behaving exactly as it did.

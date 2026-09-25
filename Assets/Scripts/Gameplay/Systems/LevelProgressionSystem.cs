@@ -26,9 +26,9 @@ namespace MustyBlockBlast.Gameplay.Systems
     /// value, so the rules engine and the content layer stay separable.
     /// </para>
     /// <para>
-    /// It also pays out the level-up bonus power-up, because advancing is the event that earns it and
-    /// this is the only place advancing happens. Which levels reward and with what is authored in the
-    /// catalog rather than derived here — see <see cref="LevelObjectiveConfig.GrantsLevelUpReward"/>.
+    /// It also pays out the level-up power-up reward, because advancing is the event that earns it and
+    /// this is the only place advancing happens. Every level rewards; which kinds is a rule in code —
+    /// see <see cref="LevelCompletionRewards"/> (issue #462).
     /// </para>
     /// <para>
     /// <b>Path mode.</b> <see cref="GameMode.Path"/> plays the same authored levels under a different
@@ -449,7 +449,16 @@ namespace MustyBlockBlast.Gameplay.Systems
         }
 
         /// <summary>
-        /// Pays out the bonus power-up the player just earned, if the level they finished authored one.
+        /// Pays out the power-ups the player just earned for a first clear of
+        /// <paramref name="completedLevelNumber"/>: every level pays at least one, a milestone pays a
+        /// bundle — see <see cref="LevelCompletionRewards"/> for which kinds. Each is its own
+        /// <see cref="PowerUpSystem.GrantDirect"/>, so a bundle of three publishes three grants and the
+        /// fly-in plays three queued flights.
+        /// <para>
+        /// Only ever reached from a first clear: both callers advance the frontier first, and a Path
+        /// replay of an already-cleared level never gets past
+        /// <see cref="TryAdvanceFrontierAfterPathLevel"/>'s guard — so a replay pays nothing.
+        /// </para>
         /// <para>
         /// The reward belongs to the level that was <em>completed</em>, not the one arrived at: it is
         /// payment for work done, so which level pays is decided by what the player cleared rather than
@@ -465,13 +474,11 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// </summary>
         private void GrantLevelUpReward(int completedLevelNumber)
         {
-            LevelObjectiveConfig completedLevel = _levelCatalog.Find(completedLevelNumber);
-            if (completedLevel == null || !completedLevel.GrantsLevelUpReward)
+            IReadOnlyList<PowerUpKind> rewards = LevelCompletionRewards.For(completedLevelNumber);
+            for (int rewardIndex = 0; rewardIndex < rewards.Count; rewardIndex++)
             {
-                return;
+                _powerUpSystem.GrantDirect(rewards[rewardIndex]);
             }
-
-            _powerUpSystem.GrantDirect(completedLevel.LevelUpReward);
         }
 
         /// <summary>

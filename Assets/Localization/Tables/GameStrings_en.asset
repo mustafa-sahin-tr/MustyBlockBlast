@@ -1142,6 +1142,10 @@ MonoBehaviour:
     m_Localized: Saved!
     m_Metadata:
       m_Items: []
+  - m_Id: 4184519664984064
+    m_Localized: LEVEL REWARD
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

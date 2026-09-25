@@ -1142,6 +1142,10 @@ MonoBehaviour:
     m_Localized: "Kurtar\u0131ld\u0131!"
     m_Metadata:
       m_Items: []
+  - m_Id: 4184519664984064
+    m_Localized: "SEV\u0130YE \xD6D\xDCL\xDC"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []
