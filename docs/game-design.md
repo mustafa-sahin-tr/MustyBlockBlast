@@ -283,6 +283,17 @@ opens it **reveals gold**: it pays the same coins as a Coin cell's base payout, 
 into the wallet like any other board coins, and the cell becomes an ordinary empty one. A chest
 still locked when the run ends pays nothing.
 
+**Fruit goals (Path only).** Besides "clear N diamonds of a colour", a Path level can ask the
+player to **collect N of a fruit** ("collect 10 pomegranates"), with 1–3 fruit goals per level.
+The first set is nine realistic fruits: pomegranate, passion fruit, peach, fig, coconut, mangosteen,
+guava, rambutan and avocado. While a fruit goal is unfinished, dealt pieces carry that fruit on some
+of their cells exactly as they carry diamonds (at the level's diamond decoration settings), and a
+fruit is not tied to its block's colour. A fruit cell destroyed in any way (a line, a special
+cell's effect, a power-up) adds one to its goal; it has no other effect (no score, no coins, no
+board effect). Fruits are drawn on their own with no block colour behind them, like the other
+special cells. Undo brings a fruit back with its cell. The HUD goal chip, the level card and the
+goal's info card show the fruit. Classic and Şölen show neither fruit goals nor fruits.
+
 **Power Star (Güç Yıldızı).** A level can place power stars: star cubes that line clears *charge*
 instead of removing. Every completed row or column through a star adds one charge (a row and a
 column completed through it at once add two), and the star stays where it is; its charge shows as

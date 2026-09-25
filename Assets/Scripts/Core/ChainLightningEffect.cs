@@ -96,7 +96,7 @@ namespace MustyBlockBlast.Core
         /// total.</summary>
         public int TimerCellsDestroyedCount { get; private set; }
 
-        private readonly int[] _diamondsDestroyedCountByColour = new int[ColourTally.LENGTH];
+        private readonly int[] _diamondsDestroyedCountByColour = new int[Collectibles.TALLY_LENGTH];
 
         /// <summary>Of <see cref="VaporizedCells"/>, how many were <see cref="SpecialCellKind.Diamond"/>
         /// cells, per gem colour — destroyed mid-strike rather than through a normal clear phase, so
@@ -223,7 +223,7 @@ namespace MustyBlockBlast.Core
 
                 if (kind == SpecialCellKind.Diamond)
                 {
-                    ColourTally.Increment(_diamondsDestroyedCountByColour, diamondColourId);
+                    Collectibles.Increment(_diamondsDestroyedCountByColour, diamondColourId);
                 }
 
                 if (kind == SpecialCellKind.ChainLightning && !IsStruck(board, cell))

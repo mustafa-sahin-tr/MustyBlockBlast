@@ -80,7 +80,8 @@ namespace MustyBlockBlast.Presentation.Views
             { InfoDemoPaint.BLOCK_5, InfoDemoPaint.BLOCK_3, InfoDemoPaint.BLOCK_2 };
 
         /// <summary>True when <paramref name="colourId"/> is a gem colour id the demo can draw.</summary>
-        internal static bool Supports(int colourId) => colourId >= 1 && colourId <= Board.COLOUR_COUNT;
+        /// Since issue #484 also any fruit id: the same demo then deals fruits instead of gems.
+        internal static bool Supports(int colourId) => Collectibles.IsValid(colourId);
 
         /// <summary>How many gems the demo collects — its chip target.</summary>
         internal static int GemCount
@@ -128,7 +129,11 @@ namespace MustyBlockBlast.Presentation.Views
             InfoDemoTimelineBuilder builder = new InfoDemoTimelineBuilder(LOOP_DURATION);
             InfoDemoBoardPattern.Apply(builder, Rows);
 
-            chip = InfoDemoChoreography.ProgressChip(builder, InfoDemoSprite.DiamondIcon, 0, colourId, 0, GemCount);
+            // A fruit (issue #484) is its own art, untinted; a gem is the crystal tinted in its colour.
+            bool isFruit = Collectibles.IsFruit(colourId);
+            int iconParameter = isFruit ? colourId : 0;
+            int iconPaint = isFruit ? InfoDemoPaint.WHITE : colourId;
+            chip = InfoDemoChoreography.ProgressChip(builder, InfoDemoSprite.DiamondIcon, iconParameter, iconPaint, 0, GemCount);
 
             float scale = InfoDemoLayout.TRAY_PIECE_SCALE;
             int piecePaint = PiecePaint(colourId);
@@ -157,13 +162,13 @@ namespace MustyBlockBlast.Presentation.Views
                 float gone = GemGoneTime(column);
                 InfoDemoSpecialCellChoreography.LayerGoes(builder, gem, gone);
                 InfoDemoHudChoreography.FlyTo(
-                    builder, InfoDemoSprite.DiamondIcon, 0, FLY_SIZE, InfoDemoLayout.Cell(LAND_ROW, column),
-                    InfoDemoChoreography.ChipGlyphCentre, gone, FLY_DURATION, FLY_ARC, colourId);
+                    builder, InfoDemoSprite.DiamondIcon, iconParameter, FLY_SIZE, InfoDemoLayout.Cell(LAND_ROW, column),
+                    InfoDemoChoreography.ChipGlyphCentre, gone, FLY_DURATION, FLY_ARC, iconPaint);
                 InfoDemoChoreography.AdvanceChip(builder, chip, gone + FLY_DURATION);
             }
 
             InfoDemoChoreography.FloatLabel(
-                builder, LocalizationKeys.INFO_POPUP_DEMO_DIAMONDS_COLLECTED,
+                builder, isFruit ? LocalizationKeys.INFO_POPUP_DEMO_FRUITS_COLLECTED : LocalizationKeys.INFO_POPUP_DEMO_DIAMONDS_COLLECTED,
                 new Vector2((InfoDemoLayout.BOARD_SIZE - 1) * 0.5f, 5.0f), 1.0f, InfoDemoPaint.INK, LABEL_START, 1.3f);
 
             return builder.Build();

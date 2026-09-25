@@ -53,7 +53,7 @@ namespace MustyBlockBlast.Gameplay.Systems
 
         /// <summary>The distinct colour ids the active diamond objectives name, rebuilt per decorated
         /// draw. Sized to the palette, so it can never overflow and never reallocates.</summary>
-        private readonly int[] _colourPool = new int[Board.COLOUR_COUNT];
+        private readonly int[] _colourPool = new int[Board.COLOUR_COUNT + Collectibles.FRUIT_COUNT];
 
         /// <summary>Offset indices of the piece being decorated, partially shuffled to pick the
         /// decorated subset without replacement. Grown to the largest piece seen and reused.</summary>
@@ -249,13 +249,17 @@ namespace MustyBlockBlast.Gameplay.Systems
             {
                 ObjectiveProgress objective = tracked[objectiveIndex];
                 ObjectiveDefinition definition = objective.Definition;
-                if (definition.Type != ObjectiveType.DiamondsCleared || objective.IsComplete)
+                // A fruit objective (issue #484) feeds the same pool: its RequiredColourId is the fruit's
+                // collectible id, so pieces carry fruits exactly as they carry diamonds.
+                bool isCollectibleObjective = definition.Type == ObjectiveType.DiamondsCleared
+                    || definition.Type == ObjectiveType.FruitsCollected;
+                if (!isCollectibleObjective || objective.IsComplete)
                 {
                     continue;
                 }
 
                 int colourId = definition.RequiredColourId;
-                if (colourId < 1 || colourId > Board.COLOUR_COUNT || Contains(_colourPool, poolCount, colourId))
+                if (!Collectibles.IsValid(colourId) || Contains(_colourPool, poolCount, colourId))
                 {
                     continue;
                 }

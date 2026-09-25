@@ -201,6 +201,9 @@ namespace MustyBlockBlast.Gameplay.Localization
         /// <summary>The floating label the Diamonds Cleared demo shows as its gems reach the chip (issue #453).</summary>
         public const string INFO_POPUP_DEMO_DIAMONDS_COLLECTED = "info_popup.demo.diamonds_collected";
 
+        /// <summary>The fruit goal demo's closing label (issue #484).</summary>
+        public const string INFO_POPUP_DEMO_FRUITS_COLLECTED = "info_popup.demo.fruits_collected";
+
         /// <summary>The floating label the Ice Cells demo shows as the socket's last level melts (issue #453).</summary>
         public const string INFO_POPUP_DEMO_ICE_MELTED = "info_popup.demo.ice_melted";
 
@@ -761,6 +764,7 @@ namespace MustyBlockBlast.Gameplay.Localization
 
         /// <summary>DiamondsCleared's title (issue #395).</summary>
         public const string OBJECTIVE_NAME_DIAMONDS_CLEARED = "objective.name.diamonds_cleared";
+        public const string OBJECTIVE_NAME_FRUITS_COLLECTED = "objective.name.fruits_collected";
 
         /// <summary>IceCellsCleared's title (issue #433).</summary>
         public const string OBJECTIVE_NAME_ICE_CELLS_CLEARED = "objective.name.ice_cells_cleared";
@@ -769,6 +773,37 @@ namespace MustyBlockBlast.Gameplay.Localization
         /// same rich-text glyph <see cref="OBJECTIVE_COLOUR_CLEARED"/> uses, since the objective is
         /// scoped by the diamond's colour the way ColourCleared is by the block's.</summary>
         public const string OBJECTIVE_DIAMONDS_CLEARED = "objective.diamonds_cleared";
+
+        /// <summary>"Collect {0}" (issue #484); <c>{0}</c> is the fruit's name (<see cref="FruitName"/>).</summary>
+        public const string OBJECTIVE_FRUITS_COLLECTED = "objective.fruits_collected";
+
+        /// <summary>The fruits' display names (issue #484), one per <see cref="MustyBlockBlast.Core.FruitKind"/>.</summary>
+        public const string FRUIT_POMEGRANATE = "fruit.pomegranate";
+        public const string FRUIT_PASSION_FRUIT = "fruit.passion_fruit";
+        public const string FRUIT_PEACH = "fruit.peach";
+        public const string FRUIT_FIG = "fruit.fig";
+        public const string FRUIT_COCONUT = "fruit.coconut";
+        public const string FRUIT_MANGOSTEEN = "fruit.mangosteen";
+        public const string FRUIT_GUAVA = "fruit.guava";
+        public const string FRUIT_RAMBUTAN = "fruit.rambutan";
+        public const string FRUIT_AVOCADO = "fruit.avocado";
+
+        /// <summary>The name key of <paramref name="fruit"/> — one of the <c>FRUIT_*</c> constants.</summary>
+        public static string FruitName(MustyBlockBlast.Core.FruitKind fruit)
+        {
+            switch (fruit)
+            {
+                case MustyBlockBlast.Core.FruitKind.Pomegranate: return FRUIT_POMEGRANATE;
+                case MustyBlockBlast.Core.FruitKind.PassionFruit: return FRUIT_PASSION_FRUIT;
+                case MustyBlockBlast.Core.FruitKind.Peach: return FRUIT_PEACH;
+                case MustyBlockBlast.Core.FruitKind.Fig: return FRUIT_FIG;
+                case MustyBlockBlast.Core.FruitKind.Coconut: return FRUIT_COCONUT;
+                case MustyBlockBlast.Core.FruitKind.Mangosteen: return FRUIT_MANGOSTEEN;
+                case MustyBlockBlast.Core.FruitKind.Guava: return FRUIT_GUAVA;
+                case MustyBlockBlast.Core.FruitKind.Rambutan: return FRUIT_RAMBUTAN;
+                default: return FRUIT_AVOCADO;
+            }
+        }
 
         /// <summary>TimerCellsMeltedInTime's title (issue #453 — the type had none, so its card and the
         /// Level Path panel fell back to another objective's name).</summary>

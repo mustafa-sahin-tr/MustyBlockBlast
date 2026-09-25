@@ -1017,16 +1017,16 @@ namespace MustyBlockBlast.Core
         /// Overwrites <paramref name="position"/>'s diamond colour. Independent of <see cref="SetSpecialKind"/>
         /// exactly as <see cref="SetCoinValue"/> is: a spawner tags a cell as a diamond and then colours
         /// it in two steps, and the colour is reset only by <see cref="Clear"/>. Refuses an id outside
-        /// <c>0..</c><see cref="COLOUR_COUNT"/> rather than storing it — a diamond can only be a colour a
-        /// <c>DiamondsCleared</c> objective could ever name, or 0 for "none".
+        /// anything that is not a <see cref="Collectibles"/> id rather than storing it — a diamond colour
+        /// (1..<see cref="COLOUR_COUNT"/>) or, since issue #484, a fruit — or 0 for "none".
         /// </summary>
         public void SetDiamondColourId(GridPosition position, int diamondColourId)
         {
-            if (diamondColourId < 0 || diamondColourId > COLOUR_COUNT)
+            if (diamondColourId != 0 && !Collectibles.IsValid(diamondColourId))
             {
                 throw new ArgumentOutOfRangeException(
                     nameof(diamondColourId), diamondColourId,
-                    $"A diamond's colour id must be 0 or between 1 and {COLOUR_COUNT}.");
+                    $"A collectible id must be 0, a diamond colour (1-{COLOUR_COUNT}) or a fruit id.");
             }
 
             _diamondColourIds[Index(position)] = diamondColourId;

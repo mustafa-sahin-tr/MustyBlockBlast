@@ -60,6 +60,14 @@ namespace MustyBlockBlast.Core
                     $"{type} needs a colour id between 1 and {Board.COLOUR_COUNT}.");
             }
 
+            // A fruit objective names its fruit by collectible id (issue #484); anything else could never be
+            // dealt, so the objective could never advance.
+            if (type == ObjectiveType.FruitsCollected && !Collectibles.IsFruit(requiredColourId))
+            {
+                throw new System.ArgumentOutOfRangeException(
+                    nameof(requiredColourId), requiredColourId, "FruitsCollected needs a fruit collectible id.");
+            }
+
             Id = id;
             Type = type;
             Scope = scope;

@@ -317,6 +317,17 @@ namespace MustyBlockBlast.Presentation.Views
             // (issue #395), tinted here in the gem's own theme colour — the colour the objective is
             // scoped by — exactly as the board's cells and the GOAL chip tint it. Left as-is when the
             // hero fell back to the procedural glyph, which is already painted in ink above.
+            // A fruit goal's hero is its own fruit (issue #484), full colour.
+            if (objective.Definition.Type == ObjectiveType.FruitsCollected && _iconCatalog != null)
+            {
+                Sprite fruit = _iconCatalog.FindFruit(objective.Definition.RequiredColourId);
+                if (fruit != null)
+                {
+                    _heroIconImage.sprite = fruit;
+                    _heroIconImage.color = Color.white;
+                }
+            }
+
             if (objective.Definition.Type == ObjectiveType.DiamondsCleared && _heroIconImage.sprite != null)
             {
                 _heroIconImage.color = DiamondVisuals.Tint(_currentTheme, objective.Definition.RequiredColourId);

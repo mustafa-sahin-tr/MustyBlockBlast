@@ -453,7 +453,7 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             SpecialPieceVisuals.Apply(cell, specialKind, _currentTheme, colourId);
-            DiamondVisuals.Apply(cell, diamondColourId, _currentTheme, _boardView.IconSprite(SpecialCellKind.Diamond));
+            DiamondVisuals.Apply(cell, diamondColourId, _currentTheme, _boardView.CollectibleSprite(diamondColourId));
         }
 
         private void RebuildHeldPiece()

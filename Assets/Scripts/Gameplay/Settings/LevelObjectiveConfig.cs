@@ -104,6 +104,10 @@ namespace MustyBlockBlast.Gameplay.Settings
             + "theme at runtime. Unused otherwise.")]
         [SerializeField] private int _requiredColourId = 1;
 
+        [Tooltip("The fruit a FruitsCollected objective counts (issue #484, Path mode only): fruits ride on "
+            + "dealt pieces the way diamonds do, at the diamond decoration settings below. Unused otherwise.")]
+        [SerializeField] private FruitKind _requiredFruit = FruitKind.Pomegranate;
+
         // The authored per-level power-up reward (_grantsLevelUpReward / _levelUpReward) was removed
         // in issue #462: every level now rewards by a rule in code — see LevelCompletionRewards. The
         // catalog asset may still carry the two orphaned YAML keys until it is next re-saved; Unity
@@ -230,6 +234,9 @@ namespace MustyBlockBlast.Gameplay.Settings
 
         /// <summary>Colour id a <see cref="ObjectiveType.ColourCleared"/> objective counts.</summary>
         public int RequiredColourId => _requiredColourId;
+
+        /// <summary>The fruit a <see cref="ObjectiveType.FruitsCollected"/> row counts (issue #484).</summary>
+        public FruitKind RequiredFruit => _requiredFruit;
 
         /// <summary>
         /// The reinforced cells this level pre-fills its board with, in authored order. Empty for a
@@ -386,7 +393,20 @@ namespace MustyBlockBlast.Gameplay.Settings
                 _requiredOccupancyThreshold,
                 _requiredPieceId,
                 _windowSeconds,
-                IsColourScoped(_objectiveType) ? _requiredColourId : 0);
+                RequiredCollectibleOrColourId());
+        }
+
+        /// <summary>What the definition's <c>RequiredColourId</c> carries: the colour for a colour-scoped
+        /// type, the fruit's collectible id for <see cref="ObjectiveType.FruitsCollected"/> (issue #484),
+        /// 0 for every other type.</summary>
+        private int RequiredCollectibleOrColourId()
+        {
+            if (_objectiveType == ObjectiveType.FruitsCollected)
+            {
+                return Collectibles.FruitId(_requiredFruit);
+            }
+
+            return IsColourScoped(_objectiveType) ? _requiredColourId : 0;
         }
 
         /// <summary>The types that read <c>_requiredColourId</c>: <see cref="ObjectiveType.ColourCleared"/>
@@ -785,6 +805,13 @@ namespace MustyBlockBlast.Gameplay.Settings
                     error = $"\"{_requiredPieceId}\" is not a piece id in PieceCatalog — check for a typo.";
                     return false;
                 }
+            }
+
+            if (_objectiveType == ObjectiveType.FruitsCollected
+                && !Collectibles.IsFruit(Collectibles.FruitId(_requiredFruit)))
+            {
+                error = $"FruitsCollected names fruit {(int)_requiredFruit}, which does not exist.";
+                return false;
             }
 
             if (IsColourScoped(_objectiveType)

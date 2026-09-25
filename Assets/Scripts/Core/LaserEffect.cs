@@ -75,7 +75,7 @@ namespace MustyBlockBlast.Core
         /// total.</summary>
         public int TimerCellsDestroyedCount { get; private set; }
 
-        private readonly int[] _diamondsDestroyedCountByColour = new int[ColourTally.LENGTH];
+        private readonly int[] _diamondsDestroyedCountByColour = new int[Collectibles.TALLY_LENGTH];
 
         /// <summary>Of <see cref="WipedCells"/>, how many were <see cref="SpecialCellKind.Diamond"/>
         /// cells, per gem colour — destroyed mid-wipe rather than through a normal clear phase, so they
@@ -217,7 +217,7 @@ namespace MustyBlockBlast.Core
 
                 if (kind == SpecialCellKind.Diamond)
                 {
-                    ColourTally.Increment(_diamondsDestroyedCountByColour, diamondColourId);
+                    Collectibles.Increment(_diamondsDestroyedCountByColour, diamondColourId);
                 }
 
                 if (kind == SpecialCellKind.Laser && !IsFired(board, cell))

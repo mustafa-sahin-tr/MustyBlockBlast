@@ -49,6 +49,12 @@ namespace MustyBlockBlast.Presentation.Views
                     return localization.Format(
                         LocalizationKeys.OBJECTIVE_COLOUR_CLEARED, Swatch(definition.RequiredColourId, theme));
 
+                case ObjectiveType.FruitsCollected:
+                    // Named by the fruit (issue #484): a fruit has no colour swatch to borrow.
+                    return localization.Format(
+                        LocalizationKeys.OBJECTIVE_FRUITS_COLLECTED,
+                        localization.Translate(LocalizationKeys.FruitName(Collectibles.FruitOf(definition.RequiredColourId))));
+
                 case ObjectiveType.DiamondsCleared:
                     // Scoped by the gem's colour exactly as ColourCleared is by the block's, so it
                     // borrows the same inline swatch rather than a colour name (issue #395).
@@ -224,6 +230,8 @@ namespace MustyBlockBlast.Presentation.Views
                     return LocalizationKeys.OBJECTIVE_NAME_COLOUR_CLEARED;
                 case ObjectiveType.DiamondsCleared:
                     return LocalizationKeys.OBJECTIVE_NAME_DIAMONDS_CLEARED;
+                case ObjectiveType.FruitsCollected:
+                    return LocalizationKeys.OBJECTIVE_NAME_FRUITS_COLLECTED;
                 case ObjectiveType.IceCellsCleared:
                     return LocalizationKeys.OBJECTIVE_NAME_ICE_CELLS_CLEARED;
                 case ObjectiveType.TimerCellsMeltedInTime:
