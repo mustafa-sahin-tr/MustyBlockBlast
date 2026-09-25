@@ -55,9 +55,8 @@ namespace MustyBlockBlast.Presentation.Services
     {
         // ------------------------------------------------------------------------------------------
         // Google's public test rewarded units — always fill, every ad is stamped "Test Ad" and earns
-        // nothing. Kept only as a fallback for the Editor/EditMode-adjacent build configs this class
-        // never actually runs under (see GameLifetimeScope's #if) and as a quick manual revert if a
-        // real unit below ever needs pulling. Test ids: https://developers.google.com/admob/unity/test-ads
+        // nothing. Used by every development build (see RewardedAdUnitId). Test ids:
+        // https://developers.google.com/admob/unity/test-ads
         // ------------------------------------------------------------------------------------------
         private const string TEST_ANDROID_REWARDED_AD_UNIT_ID = "ca-app-pub-3940256099942544/5224354917";
         private const string TEST_IOS_REWARDED_AD_UNIT_ID = "ca-app-pub-3940256099942544/1712485313";
@@ -73,11 +72,19 @@ namespace MustyBlockBlast.Presentation.Services
         private const string LIVE_ANDROID_REWARDED_AD_UNIT_ID = "ca-app-pub-8909172296809126/7402111707";
         private const string LIVE_IOS_REWARDED_AD_UNIT_ID = "ca-app-pub-8909172296809126/2022610757";
 
-        /// <summary>The unit every request loads.</summary>
+        /// <summary>
+        /// The unit every load requests: Google's test unit in a development build, the real one in a
+        /// release build. Development builds (anything built with "Development Build", including every
+        /// run from Xcode or Build And Run) therefore always get fill-guaranteed "Test Ad" creatives on any
+        /// device with no test-device registration, and a developer tapping one can never register as
+        /// invalid traffic on the live account. Only release builds ever touch the live unit.
+        /// </summary>
 #if UNITY_IOS
-        private const string REWARDED_AD_UNIT_ID = LIVE_IOS_REWARDED_AD_UNIT_ID;
+        private static string RewardedAdUnitId =>
+            Debug.isDebugBuild ? TEST_IOS_REWARDED_AD_UNIT_ID : LIVE_IOS_REWARDED_AD_UNIT_ID;
 #else
-        private const string REWARDED_AD_UNIT_ID = LIVE_ANDROID_REWARDED_AD_UNIT_ID;
+        private static string RewardedAdUnitId =>
+            Debug.isDebugBuild ? TEST_ANDROID_REWARDED_AD_UNIT_ID : LIVE_ANDROID_REWARDED_AD_UNIT_ID;
 #endif
 
         private readonly AdMobSdk _sdk;
@@ -188,7 +195,7 @@ namespace MustyBlockBlast.Presentation.Services
         private static async UniTask<RewardedAd> LoadAsync(CancellationToken cancellationToken)
         {
             var loadSource = new UniTaskCompletionSource<RewardedAd>();
-            RewardedAd.Load(REWARDED_AD_UNIT_ID, new AdRequest(), (loadedAd, loadError) =>
+            RewardedAd.Load(RewardedAdUnitId, new AdRequest(), (loadedAd, loadError) =>
             {
                 if (loadError != null || loadedAd == null)
                 {
