@@ -241,7 +241,11 @@ namespace MustyBlockBlast.Gameplay.Systems
         private readonly Random _random;
         // Sized for the three dock slots plus the parked piece, which CheckGameOver appends.
         private readonly List<Piece> _remainingBuffer = new List<Piece>(TrayModel.SLOT_COUNT + 1);
-        private readonly Board _previewScratchBoard;
+        private Board _previewScratchBoard;
+
+        /// <summary>Picks each run's board outline (issue #472). Null in tests that never shape a board:
+        /// every run is then the standard square.</summary>
+        private readonly LevelBoardShapeSource _boardShapeSource;
         // Reroll draws a whole set at once and only then writes it to the tray, so a draw that has to
         // be retried never touches a slot. Owned here and reused, so a reroll allocates nothing.
         private readonly Piece[] _rerollPieceBuffer = new Piece[TrayModel.SLOT_COUNT];
@@ -344,7 +348,8 @@ namespace MustyBlockBlast.Gameplay.Systems
             IPublisher<RunRescuedMessage> runRescuedPublisher = null,
             DiamondPieceDecorator diamondPieceDecorator = null,
             LevelTargetIceCellSeeder targetIceCellSeeder = null,
-            LevelLockedCellSeeder lockedCellSeeder = null)
+            LevelLockedCellSeeder lockedCellSeeder = null,
+            LevelBoardShapeSource boardShapeSource = null)
             : this(
                 boardModel, trayModel, scoreGemProgressModel, vortexProgressModel, pieceDraw,
                 runStartedPublisher, piecePlacedPublisher, linesClearedPublisher, gameOverPublisher,
@@ -353,7 +358,7 @@ namespace MustyBlockBlast.Gameplay.Systems
                 coinCellsClearedPublisher, currencyConfig, Environment.TickCount, reinforcedCellSeeder,
                 powerUpModel, specialCellSpawnedPublisher, specialPieceSpawnedPublisher,
                 timerCellSeeder, gameModeModel, rescueRewardSource, runRescuedPublisher,
-                diamondPieceDecorator, targetIceCellSeeder, lockedCellSeeder)
+                diamondPieceDecorator, targetIceCellSeeder, lockedCellSeeder, boardShapeSource)
         {
         }
 
@@ -386,8 +391,10 @@ namespace MustyBlockBlast.Gameplay.Systems
             IPublisher<RunRescuedMessage> runRescuedPublisher = null,
             DiamondPieceDecorator diamondPieceDecorator = null,
             LevelTargetIceCellSeeder targetIceCellSeeder = null,
-            LevelLockedCellSeeder lockedCellSeeder = null)
+            LevelLockedCellSeeder lockedCellSeeder = null,
+            LevelBoardShapeSource boardShapeSource = null)
         {
+            _boardShapeSource = boardShapeSource;
             _reinforcedCellSeeder = reinforcedCellSeeder;
             _timerCellSeeder = timerCellSeeder;
             _targetIceCellSeeder = targetIceCellSeeder;
@@ -445,6 +452,15 @@ namespace MustyBlockBlast.Gameplay.Systems
 
         public void StartNewRun()
         {
+            // First of all (issue #472): the run is played on its level's outline, so the board takes
+            // that shape before it is cleared and seeded. A changed shape is a fresh empty board, and
+            // the preview scratch board has to match it or it could not be copied onto.
+            BoardShape runShape = _boardShapeSource != null ? _boardShapeSource.ShapeForNewRun() : BoardShape.Standard;
+            if (_boardModel.ApplyShape(runShape))
+            {
+                _previewScratchBoard = new Board(runShape);
+            }
+
             _boardModel.ClearAll();
 
             // Straight after the board is emptied and before the dock is dealt: a reinforced cell is

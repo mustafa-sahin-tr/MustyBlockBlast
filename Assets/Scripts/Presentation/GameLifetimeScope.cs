@@ -674,6 +674,10 @@ namespace MustyBlockBlast.Presentation
             // It also rolls each lock's visual skin from its own seeded Random (AC9).
             builder.Register<LevelLockedCellSeeder>(Lifetime.Singleton).AsSelf();
 
+            // Picks each Path run's board outline from its level (issue #472); BoardSystem asks it at the
+            // top of StartNewRun, before the seeders above place anything.
+            builder.Register<LevelBoardShapeSource>(Lifetime.Singleton).AsSelf();
+
             // Rolls the diamond decoration of every dealt piece (issue #394). BoardSystem asks it per
             // dealt slot; it reads ObjectiveModel and GameModeModel live to gate itself to a Path run
             // with an active DiamondsCleared objective, so it needs no subscription of its own. The

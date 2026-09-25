@@ -627,6 +627,7 @@ namespace MustyBlockBlast.Presentation.Views
             _settingsModel.CurrentTheme.Subscribe(OnThemeChanged).AddTo(_disposables);
 
             _boardModel.CellChanged += OnCellChanged;
+            _boardModel.ShapeChanged += OnShapeChanged;
             _boardModel.SpecialKindChanged += OnSpecialKindChanged;
             _boardModel.HitCountChanged += OnHitCountChanged;
             _boardModel.TimerCountdownChanged += OnTimerCountdownChanged;
@@ -709,6 +710,7 @@ namespace MustyBlockBlast.Presentation.Views
             if (_boardModel != null)
             {
                 _boardModel.CellChanged -= OnCellChanged;
+                _boardModel.ShapeChanged -= OnShapeChanged;
                 _boardModel.SpecialKindChanged -= OnSpecialKindChanged;
                 _boardModel.HitCountChanged -= OnHitCountChanged;
                 _boardModel.TimerCountdownChanged -= OnTimerCountdownChanged;
@@ -1644,6 +1646,26 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>Safety net for <c>BoardModel.ClearAll</c>, which empties cells without ever
         /// publishing a <see cref="LinesClearedMessage"/> to claim them.</summary>
         private void OnRunStarted(RunStartedMessage message) => RedrawAll();
+
+        /// <summary>
+        /// The board took a new outline for the run about to start (issue #472): rebuilds the grid if its
+        /// size changed, re-reads which cells are holes and repaints. Every level shape so far keeps the
+        /// 8x8 frame, so this is normally just the hole mask; the run-start repaint that follows draws
+        /// the new holes.
+        /// </summary>
+        private void OnShapeChanged()
+        {
+            EnsureBuilt();
+            for (int y = 0; y < _height; y++)
+            {
+                for (int x = 0; x < _width; x++)
+                {
+                    _holeMask[(y * _width) + x] = _boardModel.IsHole(new GridPosition(x, y));
+                }
+            }
+
+            RedrawAll();
+        }
 
         /// <summary>
         /// Claims every cell still waiting for a fade, exactly as <see cref="OnPowerUpApplied"/> does.
