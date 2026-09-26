@@ -34,6 +34,14 @@ namespace MustyBlockBlast.Gameplay.Systems
         private readonly int[] _weights;
         private readonly int _totalWeight;
 
+        /// <summary>Each catalog piece's family, parallel to <see cref="_weights"/>. Classified once here
+        /// so <see cref="DrawPieceOfFamily"/> never string-matches an id at draw time.</summary>
+        private readonly PieceFamily[] _pieceFamilies;
+
+        /// <summary>Sum of <see cref="_weights"/> over each family's pieces, indexed by
+        /// <c>(int)PieceFamily</c>. Zero for a family the catalog has no piece of.</summary>
+        private readonly int[] _familyTotalWeights;
+
         /// <summary>Owned evaluator for <see cref="TryDrawLineClearingSet"/>; it carries its own scratch
         /// board, so the draw's repeated per-piece checks allocate nothing.</summary>
         private readonly LineClearOpportunity _lineClearOpportunity = new LineClearOpportunity();
@@ -55,13 +63,20 @@ namespace MustyBlockBlast.Gameplay.Systems
         {
             _random = new Random(seed);
             _weights = new int[PieceCatalog.AllPieces.Count];
+            _pieceFamilies = new PieceFamily[PieceCatalog.AllPieces.Count];
+            _familyTotalWeights = new int[PieceFamilyClassifier.FamilyCount];
 
             int total = 0;
             for (int i = 0; i < PieceCatalog.AllPieces.Count; i++)
             {
-                int weight = WeightFor(PieceCatalog.AllPieces[i].CellCount);
+                Piece piece = PieceCatalog.AllPieces[i];
+                int weight = WeightFor(piece.CellCount);
                 _weights[i] = weight;
                 total += weight;
+
+                PieceFamily family = PieceFamilyClassifier.Classify(piece.Id);
+                _pieceFamilies[i] = family;
+                _familyTotalWeights[(int)family] += weight;
             }
 
             _totalWeight = total;
@@ -80,6 +95,50 @@ namespace MustyBlockBlast.Gameplay.Systems
             }
 
             return PieceCatalog.AllPieces[PieceCatalog.AllPieces.Count - 1];
+        }
+
+        /// <summary>
+        /// Draws one piece of <paramref name="family"/> for the family-objective guarantee (issue #513).
+        /// The same size weighting as <see cref="DrawPiece"/>, restricted to the family's own pieces — so
+        /// a forced Square is still a 2x2 far more often than a 3x3 — and drawn from the same seeded
+        /// stream, so a guaranteed deal is as reproducible as an ordinary one.
+        /// <para>
+        /// A separate method rather than a parameter on <see cref="DrawPiece"/> for the reason the class
+        /// summary gives for the solvable draws: the ordinary refill draw stays exactly what it is, and
+        /// its roll sequence for a given seed is untouched by this method's existence.
+        /// </para>
+        /// <para>
+        /// <b>Fallback:</b> a family the catalog has no piece of (none today — every
+        /// <see cref="PieceFamily"/> is represented) falls back to the ordinary draw rather than
+        /// throwing, so a future catalog edit degrades the guarantee instead of breaking the refill.
+        /// </para>
+        /// </summary>
+        public Piece DrawPieceOfFamily(PieceFamily family)
+        {
+            int familyIndex = (int)family;
+            if (familyIndex < 0 || familyIndex >= _familyTotalWeights.Length || _familyTotalWeights[familyIndex] <= 0)
+            {
+                return DrawPiece();
+            }
+
+            int roll = _random.Next(_familyTotalWeights[familyIndex]);
+            Piece lastOfFamily = null;
+            for (int i = 0; i < _weights.Length; i++)
+            {
+                if (_pieceFamilies[i] != family)
+                {
+                    continue;
+                }
+
+                lastOfFamily = PieceCatalog.AllPieces[i];
+                roll -= _weights[i];
+                if (roll < 0)
+                {
+                    return lastOfFamily;
+                }
+            }
+
+            return lastOfFamily;
         }
 
         public int DrawColourId() => _random.Next(1, COLOUR_COUNT + 1);

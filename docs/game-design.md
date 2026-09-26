@@ -77,6 +77,22 @@ Both retries are bounded; if the bound is exhausted the last (or best-found) set
 as-is, which can only happen on a board no catalog piece fits at all — a board that was already
 out of moves.
 
+**Family-objective guarantee.** On a level with an incomplete "place N pieces of family F"
+objective, every **5 normal refills** (15 pieces) contain at least one F piece:
+
+- Each such family keeps its own count of consecutive normal refills without an F piece. If
+  refills 1–4 of a window had none, refill 5 is forced to contain one. An F piece arriving on its
+  own restarts the window from that refill.
+- The forced piece replaces one ordinarily drawn slot (drawn from F's pieces with the usual size
+  weighting); the other slots keep their normal draw. It only has to be the right family — it is
+  not guaranteed to fit the board.
+- Earned special pieces (golden 1x1, piercing rocket) keep their slots first. Two families due on
+  the same refill each get a slot; a family that cannot get one stays due for the next refill.
+- Only normal refills (including a run's opening deal) count. Reroll and the no-moves rescue
+  neither advance nor restart a window. Counts reset with every new run.
+- Once F's objective is complete, F is no longer forced. Levels without a family objective are
+  unaffected.
+
 ## Clearing
 
 - A row or column clears when all 8 of its cells are occupied

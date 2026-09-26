@@ -602,6 +602,12 @@ namespace MustyBlockBlast.Presentation
         private static void RegisterSystems(IContainerBuilder builder)
         {
             builder.Register<WeightedPieceDraw>(Lifetime.Singleton);
+
+            // The family-objective piece guarantee (issue #513). BoardSystem takes it and consults it on
+            // every normal refill; it reads ObjectiveModel live to know which families the level still
+            // wants, so it needs no subscription of its own and is inert on a level without one.
+            builder.Register<FamilyPieceGuarantee>(Lifetime.Singleton);
+
             // Each .As<IScoreRule>() adds to the same collection binding, so ScoreSystem's
             // IEnumerable<IScoreRule> resolves all of them. A new bonus = one more line here.
             builder.Register<PlacementScoreRule>(Lifetime.Singleton).As<IScoreRule>();
