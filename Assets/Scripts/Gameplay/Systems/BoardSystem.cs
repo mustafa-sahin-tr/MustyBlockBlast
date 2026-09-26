@@ -1028,8 +1028,9 @@ namespace MustyBlockBlast.Gameplay.Systems
             // placement's reward, read off the placement's own (primary) clear rather than off the whole
             // cascade, because the reward is for the lines the player lined up. Unlike a core it is not
             // put on the board — it is owed to the next refill, which is where a dock injection can
-            // happen at all.
-            if (clearResult.LineCount >= ROCKET_TRIGGER_LINE_COUNT)
+            // happen at all. Gated on ExtrasEnabled like the spawns: Classic mode deals no special
+            // pieces either.
+            if (ExtrasEnabled && clearResult.LineCount >= ROCKET_TRIGGER_LINE_COUNT)
             {
                 _piercingRocketInjectionPending = true;
             }
@@ -1358,7 +1359,14 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// is one piece, not a queue of them.
         /// </para>
         /// </summary>
-        internal void RequestGoldenPieceInjection() => _goldenInjectionPending = true;
+        internal void RequestGoldenPieceInjection()
+        {
+            // Classic mode deals no special pieces, exactly as it spawns no special cells.
+            if (ExtrasEnabled)
+            {
+                _goldenInjectionPending = true;
+            }
+        }
 
         /// <summary>
         /// Spends the <see cref="SpecialPieceKind.DemolitionHammer"/> in <paramref name="slotIndex"/> on

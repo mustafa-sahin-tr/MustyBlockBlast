@@ -78,6 +78,65 @@ namespace MustyBlockBlast.Tests.EditMode
             }
         }
 
+        // --- Special dock pieces: Classic mode deals neither a piercing rocket nor a golden single ---
+
+        [Test]
+        public void TryPlacePiece_InClassicMode_ClearingThreeLines_DealsNoPiercingRocket()
+        {
+            var boardModel = new BoardModel();
+            var trayModel = new TrayModel();
+            var domino = new Piece("test_domino_v", new[] { new GridPosition(0, 0), new GridPosition(0, 1) });
+            trayModel.SetSlot(0, domino, 1);
+            var gameModeModel = new GameModeModel();
+            gameModeModel.CurrentMode.Value = GameMode.Timed;
+            BoardSystem system = CreateBoardSystem(boardModel, trayModel, gameModeModel);
+
+            // The domino lands on (3, 4) and (3, 5), completing rows 4 and 5 and column 3 at once.
+            FillRowExcept(boardModel, y: 4, new GridPosition(3, 4));
+            FillRowExcept(boardModel, y: 5, new GridPosition(3, 5));
+            for (int y = 0; y < Board.SIZE; y++)
+            {
+                if (y != 4 && y != 5)
+                {
+                    boardModel.Occupy(new GridPosition(3, y), 1);
+                }
+            }
+
+            Assert.IsTrue(system.TryPlacePiece(0, new GridPosition(3, 4)));
+
+            AssertNoSpecialPieceInTheDock(trayModel);
+        }
+
+        [Test]
+        public void RequestGoldenPieceInjection_InClassicMode_ThenARefill_DealsNoGoldenPiece()
+        {
+            var trayModel = new TrayModel();
+            trayModel.SetSlot(0, Single, 1);
+            var gameModeModel = new GameModeModel();
+            gameModeModel.CurrentMode.Value = GameMode.Timed;
+            BoardSystem system = CreateBoardSystem(new BoardModel(), trayModel, gameModeModel);
+
+            system.RequestGoldenPieceInjection();
+            Assert.IsTrue(system.TryPlacePiece(0, new GridPosition(0, 0)));
+
+            AssertNoSpecialPieceInTheDock(trayModel);
+        }
+
+        [Test]
+        public void RequestGoldenPieceInjection_InEndlessMode_ThenARefill_StillDealsTheGoldenPiece()
+        {
+            var trayModel = new TrayModel();
+            trayModel.SetSlot(0, Single, 1);
+            var gameModeModel = new GameModeModel();
+            gameModeModel.CurrentMode.Value = GameMode.Endless;
+            BoardSystem system = CreateBoardSystem(new BoardModel(), trayModel, gameModeModel);
+
+            system.RequestGoldenPieceInjection();
+            Assert.IsTrue(system.TryPlacePiece(0, new GridPosition(0, 0)));
+
+            Assert.AreEqual(SpecialPieceKind.Golden, trayModel.GetSpecialKind(0));
+        }
+
         // --- LaserSpawnSystem / CoinStreakEscalationSystem: no streak-earned special cells either ---
 
         [Test]
@@ -194,6 +253,16 @@ namespace MustyBlockBlast.Tests.EditMode
             string second = TimedHighScoreKey.For(TimedModeConfig.ENDLESS_DURATION_SECONDS);
 
             Assert.AreEqual(first, second);
+        }
+
+        private static void AssertNoSpecialPieceInTheDock(TrayModel trayModel)
+        {
+            for (int slotIndex = 0; slotIndex < TrayModel.SLOT_COUNT; slotIndex++)
+            {
+                Assert.AreEqual(
+                    SpecialPieceKind.None, trayModel.GetSpecialKind(slotIndex),
+                    $"Slot {slotIndex} should hold no special piece in Classic mode.");
+            }
         }
 
         private static void AdvanceStreakTo(ScoreModel scoreModel, int streak)
