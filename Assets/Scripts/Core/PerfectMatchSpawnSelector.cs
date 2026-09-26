@@ -94,9 +94,10 @@ namespace MustyBlockBlast.Core
             return count;
         }
 
-        /// <summary>True when <paramref name="candidate"/> could carry the reward: occupied and carrying
-        /// no kind of its own yet.</summary>
+        /// <summary>True when <paramref name="candidate"/> could carry the reward: a plain occupied block
+        /// — no kind of its own yet and not a reinforced cell (issue #441) — see
+        /// <see cref="SpecialCellSpawnEligibility"/>.</summary>
         private static bool IsCandidate(Board board, GridPosition candidate)
-            => board.IsOccupied(candidate) && board.GetSpecialKind(candidate) == SpecialCellKind.None;
+            => SpecialCellSpawnEligibility.CanConvert(board, candidate);
     }
 }

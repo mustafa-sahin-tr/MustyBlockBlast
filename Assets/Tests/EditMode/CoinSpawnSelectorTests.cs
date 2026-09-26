@@ -94,18 +94,17 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.IsTrue(sawSecond);
         }
 
-        /// <summary>A cell that already carries a kind is still a candidate: "already special" is not a
-        /// reason to drop a reward the player earned. AC5's "no cap" rests on this — several coin cells
-        /// can coexist, and one landing on another is a legitimate outcome rather than a blocked spawn.</summary>
+        /// <summary>Issue #441: a cell that already carries a kind is never a candidate — no special
+        /// cell may stack on another, a coin on a coin included.</summary>
         [Test]
-        public void SelectSpawnPosition_OverAnAlreadySpecialCell_StillSelectsIt()
+        public void SelectSpawnPosition_WithTheOnlyOccupiedCellAlreadySpecial_SelectsNothing()
         {
             var board = new Board();
             var only = new GridPosition(2, 2);
             board.Occupy(only, 1);
             board.SetSpecialKind(only, SpecialCellKind.Coin);
 
-            Assert.AreEqual(only, CoinSpawnSelector.SelectSpawnPosition(board, new Random(3)));
+            Assert.IsNull(CoinSpawnSelector.SelectSpawnPosition(board, new Random(3)));
         }
 
         /// <summary>It never writes: tagging the chosen cell belongs to the caller, so the power-up and

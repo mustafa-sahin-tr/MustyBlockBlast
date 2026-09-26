@@ -786,6 +786,10 @@ namespace MustyBlockBlast.Gameplay.Systems
             _diamondClearEffect.BeginResolution();
             _powerStarEffect.BeginResolution();
 
+            // Same reason, on the board itself (issue #441): the spawns at the end of this placement skip
+            // cells where a reinforced block or a lock broke, and that must mean "broke just now".
+            _boardModel.Board.ClearBrokenObstacles();
+
             // Before the cascade, deliberately. The rocket empties its row and column whether or not
             // either was full, so running it first is what keeps a cell from being removed by the wipe
             // *and* counted by a completed line — the cascade re-reads fullness on the board the wipe
