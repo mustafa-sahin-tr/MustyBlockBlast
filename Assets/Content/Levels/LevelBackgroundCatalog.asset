@@ -12,4 +12,34 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3fd23018795b540bc8cd52f207be8033, type: 3}
   m_Name: LevelBackgroundCatalog
   m_EditorClassIdentifier: MustyBlockBlast.Gameplay::MustyBlockBlast.Gameplay.Settings.LevelBackgroundCatalog
-  _backgrounds: []
+  _backgrounds:
+  - _firstLevel: 1
+    _lastLevel: 10
+    _background: {fileID: 21300000, guid: 42a9f5e62ea0a4e7fad2d1954ad617c0, type: 3}
+  - _firstLevel: 11
+    _lastLevel: 20
+    _background: {fileID: 21300000, guid: c08d3fd09621c407e9dab21bfff71aa0, type: 3}
+  - _firstLevel: 21
+    _lastLevel: 30
+    _background: {fileID: 21300000, guid: 88b88363667744b8c9830ad79f380311, type: 3}
+  - _firstLevel: 31
+    _lastLevel: 40
+    _background: {fileID: 21300000, guid: c230e18c6059f4e4095fbb1e632dfd1e, type: 3}
+  - _firstLevel: 41
+    _lastLevel: 50
+    _background: {fileID: 21300000, guid: 6d7f06fcb3ce142f1b582349e9d61a6f, type: 3}
+  - _firstLevel: 51
+    _lastLevel: 60
+    _background: {fileID: 21300000, guid: dbf0b59f98034410ab51c94280c5d981, type: 3}
+  - _firstLevel: 61
+    _lastLevel: 70
+    _background: {fileID: 21300000, guid: 07e1658776c814c669d0c04b627d4c6c, type: 3}
+  - _firstLevel: 71
+    _lastLevel: 80
+    _background: {fileID: 21300000, guid: 5ff03f7a6e3f34165984589fc7e9bdd9, type: 3}
+  - _firstLevel: 81
+    _lastLevel: 90
+    _background: {fileID: 21300000, guid: 66f9b3c1998804719baaa230e2e5ee63, type: 3}
+  - _firstLevel: 91
+    _lastLevel: 100
+    _background: {fileID: 21300000, guid: d1fde2cae3b6f4523a99139610ade38e, type: 3}
