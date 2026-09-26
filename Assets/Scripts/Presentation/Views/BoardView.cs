@@ -1550,7 +1550,7 @@ namespace MustyBlockBlast.Presentation.Views
             Color tint = skin.TintByBlockColour && _currentTheme != null
                 ? _currentTheme.GetFill(colourId)
                 : Color.white;
-            cell.SetBlockSkin(skin.Sprite, tint);
+            cell.SetBlockSkin(skin.Sprite, tint, skin.BorderColour * tint);
         }
 
         private ClassicSkinConfig.Stage SkinStageAt(int position)

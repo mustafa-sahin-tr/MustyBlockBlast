@@ -35,7 +35,7 @@ namespace MustyBlockBlast.Presentation.Views
         private readonly float[] _cumulativeLengths = new float[POINT_COUNT + 1];
 
         private float _cornerRadius;
-        private float _thickness = 1f;
+        private float _thicknessFraction;
         private float _progress = 1f;
         private Rect _pathRect;
         private bool _pathValid;
@@ -85,12 +85,14 @@ namespace MustyBlockBlast.Presentation.Views
             }
         }
 
-        /// <summary>Sets the frame's shape: <paramref name="cornerRadius"/> of its outer edge and a wall
-        /// <paramref name="thickness"/> wide, both in this graphic's local units.</summary>
-        internal void Configure(float cornerRadius, float thickness)
+        /// <summary>Sets the frame's shape: <paramref name="cornerRadius"/> of its outer edge, in this
+        /// graphic's local units, and a wall <paramref name="thicknessFraction"/> of the rect's shorter side
+        /// wide — relative rather than absolute so a small tray block wears the same weight of frame as a
+        /// board cell.</summary>
+        internal void Configure(float cornerRadius, float thicknessFraction)
         {
             _cornerRadius = Mathf.Max(0f, cornerRadius);
-            _thickness = Mathf.Max(0.5f, thickness);
+            _thicknessFraction = Mathf.Max(0f, thicknessFraction);
             _pathValid = false;
             raycastTarget = false;
 
@@ -167,7 +169,7 @@ namespace MustyBlockBlast.Presentation.Views
         private Vector2 MidPoint(int pointIndex) => (_outerPoints[pointIndex] + _innerPoints[pointIndex]) * 0.5f;
 
         /// <summary>Lays the four rounded corners out clockwise from the top-left one, each sampled
-        /// outer and inner at the same angles so the wall stays <see cref="_thickness"/> wide round the
+        /// outer and inner at the same angles so the wall stays one width round the
         /// bend. The outer radius is held at least as wide as the wall so the inner corner never folds
         /// over itself.</summary>
         private void EnsurePath()
@@ -182,8 +184,9 @@ namespace MustyBlockBlast.Presentation.Views
             _pathValid = true;
 
             float halfShortSide = Mathf.Min(rect.width, rect.height) * 0.5f;
-            float outerRadius = Mathf.Min(Mathf.Max(_cornerRadius, _thickness), halfShortSide);
-            float innerRadius = Mathf.Max(0f, outerRadius - _thickness);
+            float thickness = Mathf.Max(0.5f, halfShortSide * 2f * _thicknessFraction);
+            float outerRadius = Mathf.Min(Mathf.Max(_cornerRadius, thickness), halfShortSide);
+            float innerRadius = Mathf.Max(0f, outerRadius - thickness);
 
             for (int cornerIndex = 0; cornerIndex < 4; cornerIndex++)
             {

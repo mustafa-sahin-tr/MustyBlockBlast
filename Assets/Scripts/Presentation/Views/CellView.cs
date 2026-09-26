@@ -29,9 +29,10 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>Thickness of the Ghost Fit ring: the mockup's 2px.</summary>
         private const float GHOST_RING_THICKNESS = 6f;
 
-        /// <summary>Wall of a special cell's border (issue #517), in reference pixels — lighter than
-        /// both rings above so it frames the art without competing with them.</summary>
-        private const float SPECIAL_BORDER_THICKNESS = 4f;
+        /// <summary>Wall of a special cell's or skinned block's border (issues #517, #518), as a fraction
+        /// of the cell's side — 4 reference pixels on a board cell, lighter than both rings above so it
+        /// frames the art without competing with them, and scaled down with a small tray block.</summary>
+        private const float BORDER_THICKNESS_FRACTION = 0.04f;
 
         /// <summary>Alpha a special cell's border rests at.</summary>
         private const float SPECIAL_BORDER_ALPHA = 0.9f;
@@ -238,6 +239,10 @@ namespace MustyBlockBlast.Presentation.Views
         /// art on top of any skin.</summary>
         private Image _skinImage;
 
+        /// <summary>The thin border every skinned block wears in its skin's own colour (issue #518) —
+        /// static, never traced. Shown exactly while <see cref="_skinImage"/> is.</summary>
+        private PerimeterBorderGraphic _skinBorder;
+
         private bool _skinRequested;
 
         private void Awake() => CacheOuter();
@@ -291,6 +296,9 @@ namespace MustyBlockBlast.Presentation.Views
                 (RectTransform)_skinImage.transform,
                 -FULL_BLEED_ICON_OVERHANG, -FULL_BLEED_ICON_OVERHANG, -FULL_BLEED_ICON_OVERHANG, -FULL_BLEED_ICON_OVERHANG);
             _skinImage.gameObject.SetActive(false);
+
+            // Right over the skin art, so it frames it; the same weight as a special cell's border.
+            _skinBorder = CreateBorder(transform, "SkinBorder", cornerRadius);
 
             // The ice-socket overlay (issue #433): one flat, rounded, semi-transparent plate over the
             // whole cell. Built right after both looks so it draws over whichever is showing (an ice
@@ -379,15 +387,7 @@ namespace MustyBlockBlast.Presentation.Views
             // A special cell's border (issue #517): over the full-bleed art so it frames it, but under
             // both rings so a would-clear or Ghost Fit ring still reads on a bordered cell. The spark
             // that draws it in rides on top of the border itself.
-            var borderObject = new GameObject(
-                "SpecialBorder", typeof(RectTransform), typeof(CanvasRenderer), typeof(PerimeterBorderGraphic));
-            var borderRect = (RectTransform)borderObject.transform;
-            borderRect.SetParent(transform, false);
-            StretchToParent(borderRect);
-            _specialBorder = borderObject.GetComponent<PerimeterBorderGraphic>();
-            _specialBorder.Configure(cornerRadius, SPECIAL_BORDER_THICKNESS);
-            _specialBorder.color = Color.clear;
-            borderObject.SetActive(false);
+            _specialBorder = CreateBorder(transform, "SpecialBorder", cornerRadius);
 
             _specialBorderSpark = CreateStretchedImage(transform, "SpecialBorderSpark");
             _specialBorderSpark.sprite = UiSpriteFactory.RadialGlow;
@@ -1113,6 +1113,12 @@ namespace MustyBlockBlast.Presentation.Views
 
             // And a Classic skin (issue #333): it IS the block, so it fades with it.
             ApplyAlpha(_skinImage, alpha);
+            if (_skinBorder != null)
+            {
+                Color skinBorderColour = _skinBorder.color;
+                skinBorderColour.a = alpha * SPECIAL_BORDER_ALPHA;
+                _skinBorder.color = skinBorderColour;
+            }
 
             // And a puzzle link's teeth (issue #483), which go with the link.
             ApplyAlpha(_puzzleToothLeftRim, alpha);
@@ -1161,14 +1167,20 @@ namespace MustyBlockBlast.Presentation.Views
             {
                 _skinImage.gameObject.SetActive(showSkin);
             }
+
+            if (_skinBorder != null && _skinBorder.gameObject.activeSelf != showSkin)
+            {
+                _skinBorder.gameObject.SetActive(showSkin);
+            }
         }
 
         /// <summary>
         /// Draws this block in a Classic skin (issue #333): <paramref name="sprite"/>, multiplied by
-        /// <paramref name="tint"/>, full-bleed in place of the colour block. The block's colours are still
-        /// set as usual underneath, so clearing the skin simply shows them again. Allocation-free.
+        /// <paramref name="tint"/>, full-bleed in place of the colour block, framed by a thin border in
+        /// <paramref name="borderColour"/> (issue #518). The block's colours are still set as usual
+        /// underneath, so clearing the skin simply shows them again. Allocation-free.
         /// </summary>
-        internal void SetBlockSkin(Sprite sprite, Color tint)
+        internal void SetBlockSkin(Sprite sprite, Color tint, Color borderColour)
         {
             if (_skinImage == null || sprite == null)
             {
@@ -1182,6 +1194,12 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             _skinImage.color = tint;
+            if (_skinBorder != null)
+            {
+                _skinBorder.color = new Color(
+                    borderColour.r, borderColour.g, borderColour.b, borderColour.a * SPECIAL_BORDER_ALPHA);
+            }
+
             _skinRequested = true;
             RefreshBlockLook();
         }
@@ -1233,6 +1251,23 @@ namespace MustyBlockBlast.Presentation.Views
             Color colour = image.color;
             colour.a = alpha;
             image.color = colour;
+        }
+
+        /// <summary>A hidden, cell-sized <see cref="PerimeterBorderGraphic"/> at the border weight
+        /// (<see cref="BORDER_THICKNESS_FRACTION"/>) — the special-cell and skin borders alike.</summary>
+        private static PerimeterBorderGraphic CreateBorder(Transform parent, string objectName, float cornerRadius)
+        {
+            var borderObject = new GameObject(
+                objectName, typeof(RectTransform), typeof(CanvasRenderer), typeof(PerimeterBorderGraphic));
+            var borderRect = (RectTransform)borderObject.transform;
+            borderRect.SetParent(parent, false);
+            StretchToParent(borderRect);
+
+            var border = borderObject.GetComponent<PerimeterBorderGraphic>();
+            border.Configure(cornerRadius, BORDER_THICKNESS_FRACTION);
+            border.color = Color.clear;
+            borderObject.SetActive(false);
+            return border;
         }
 
         private static Image CreateStretchedImage(Transform parent, string objectName)
