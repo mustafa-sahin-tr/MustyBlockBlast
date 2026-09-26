@@ -115,11 +115,8 @@ namespace MustyBlockBlast.Presentation.Views
         [Tooltip("Seconds a freshly spawned special cell's icon takes to spin and shrink from _specialSpawnHeroScale down to its resting size.")]
         [SerializeField] private float _specialSpawnPopDuration = 0.55f;
 
-        [Tooltip("Icon scale a spawn-in pop starts from before growing past 1 (see _specialSpawnOvershootScale) and settling back to 1. Only used by the vortex hand-off pop (see _vortexHandOffPopDuration) — the birth pop uses _specialSpawnHeroScale instead.")]
+        [Tooltip("Icon scale a spawn-in pop starts from before easing up to 1. Only used by the vortex hand-off pop (see _vortexHandOffPopDuration) — the birth pop uses _specialSpawnHeroScale instead.")]
         [SerializeField] private float _specialSpawnStartScale = 0.05f;
-
-        [Tooltip("Icon scale a spawn-in pop overshoots to on its way from _specialSpawnStartScale before settling back to 1. Only used by the vortex hand-off pop (see _vortexHandOffPopDuration) — the birth pop uses _specialSpawnLandingOvershootScale instead.")]
-        [SerializeField] private float _specialSpawnOvershootScale = 1.18f;
 
         [Tooltip("Icon scale a freshly spawned special cell's icon starts at, as a multiple of its resting size (so it reads as roughly this many cells wide) before it spins down into its cell.")]
         [SerializeField] private float _specialSpawnHeroScale = 4f;
@@ -127,8 +124,8 @@ namespace MustyBlockBlast.Presentation.Views
         [Tooltip("Degrees a freshly spawned special cell's icon spins around itself while shrinking from _specialSpawnHeroScale down into its cell.")]
         [SerializeField] private float _specialSpawnSpinDegrees = 360f;
 
-        [Tooltip("Icon scale the birth pop dips to just past 1 right before landing, for a soft settle rather than stopping dead at 1.")]
-        [SerializeField] private float _specialSpawnLandingOvershootScale = 1.08f;
+        [Tooltip("Seconds the spark of light takes to draw a special cell's border all the way round once its spawn or vortex hand-off pop has settled (issue #517).")]
+        [SerializeField] private float _specialBorderTraceDuration = 0.25f;
 
         [Header("Vortex Island Fill (issue #349)")]
         [Tooltip("Seconds a cell a vortex reclaimed takes to pop in from _islandFillStartScale to its resting size. At least 0.4s so filling many cells still reads clearly rather than looking instant.")]
@@ -310,6 +307,19 @@ namespace MustyBlockBlast.Presentation.Views
         /// </para>
         /// </summary>
         private static readonly Color ExplosiveCoreGlowTint = new Color(1f, 0.2f, 0.35f, 1f);
+
+        /// <summary>Each special kind's border hue (issue #517): its own colour, lifted from the dominant
+        /// hue of that kind's art and brightened so it reads against any theme's fill. A diamond's
+        /// border takes its gem's per-cell colour instead (see <see cref="BorderColour"/>).</summary>
+        private static readonly Color LaserBorderColour = new Color(0.72f, 0.65f, 1f, 1f);
+        private static readonly Color ScoreGemBorderColour = new Color(0.36f, 0.9f, 0.49f, 1f);
+        private static readonly Color VortexBorderColour = new Color(0.35f, 0.66f, 1f, 1f);
+        private static readonly Color ChainLightningBorderColour = new Color(0.96f, 1f, 0.35f, 1f);
+        private static readonly Color CoinBorderColour = new Color(1f, 0.62f, 0.11f, 1f);
+        private static readonly Color ExplosiveCoreBorderColour = new Color(1f, 0.3f, 0.24f, 1f);
+        private static readonly Color TimerBorderColour = new Color(0.49f, 0.95f, 0.97f, 1f);
+        private static readonly Color PowerStarBorderColour = new Color(1f, 0.84f, 0.43f, 1f);
+        private static readonly Color PuzzleLinkBorderColour = new Color(1f, 0.44f, 0.63f, 1f);
 
         /// <summary>How far a kind's glow halo (issue #365) is blended towards white on top of its own
         /// <see cref="IconTint"/> — bright enough to read as an emissive backing against any theme's
@@ -1540,7 +1550,7 @@ namespace MustyBlockBlast.Presentation.Views
             Color tint = skin.TintByBlockColour && _currentTheme != null
                 ? _currentTheme.GetFill(colourId)
                 : Color.white;
-            cell.SetBlockSkin(skin.Sprite, tint);
+            cell.SetBlockSkin(skin.Sprite, tint, skin.BorderColour * tint);
         }
 
         private ClassicSkinConfig.Stage SkinStageAt(int position)
@@ -1979,13 +1989,12 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             int index = CellIndex(message.Position);
-            RectTransform iconTransform = _cells[index].SpecialIconTransform;
-            if (iconTransform == null)
+            if (_cells[index].SpecialIconTransform == null)
             {
                 return;
             }
 
-            PlaySpecialSpawnPopAsync(iconTransform, index, _cellGenerations[index]).Forget();
+            PlaySpecialSpawnPopAsync(index, _cellGenerations[index]).Forget();
         }
 
         /// <summary>The on-screen anchor a special cell's icon sits at, for a flight animation (e.g.
@@ -2072,10 +2081,12 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         /// <summary>
-        /// A special cell's birth pop: <paramref name="iconTransform"/> starts at
+        /// A special cell's birth pop: the icon of the cell at <paramref name="index"/> starts at
         /// <see cref="_specialSpawnHeroScale"/> — roughly a 4x4-cell icon — spinning
-        /// <see cref="_specialSpawnSpinDegrees"/> around itself as it shrinks down past
-        /// <see cref="_specialSpawnLandingOvershootScale"/> and settles at 1, its resting size. The cell
+        /// <see cref="_specialSpawnSpinDegrees"/> around itself as it shrinks down to 1, its resting size,
+        /// on one ease-out curve — a single decelerating motion that comes to rest exactly as it lands,
+        /// with no overshoot and no second settle phase (issue #516: a stop at 1.08 followed by a
+        /// further shrink to 1 read as the icon twitching after it had landed). The cell
         /// is brought to the front of the shared <see cref="_cellLayerRoot"/> sibling order first (see
         /// <see cref="BuildCellLayer"/>) so the oversized icon draws over every neighbouring cell rather
         /// than being clipped behind whichever one happens to sit later in that order. Watches
@@ -2084,19 +2095,18 @@ namespace MustyBlockBlast.Presentation.Views
         /// leaving whatever repaint path caused the bump to settle the icon's final look, scale and
         /// rotation.
         /// </summary>
-        private async UniTaskVoid PlaySpecialSpawnPopAsync(RectTransform iconTransform, int index, int generation)
+        private async UniTaskVoid PlaySpecialSpawnPopAsync(int index, int generation)
         {
-            const float ShrinkFraction = 0.7f;
-
             float heroScale = Mathf.Max(1f, _specialSpawnHeroScale);
-            float landingOvershoot = Mathf.Max(1f, _specialSpawnLandingOvershootScale);
             float spinDegrees = _specialSpawnSpinDegrees;
             float duration = Mathf.Max(0.01f, _specialSpawnPopDuration);
 
-            _cells[index].transform.SetAsLastSibling();
+            CellView cell = _cells[index];
+            cell.transform.SetAsLastSibling();
+            cell.SetSpecialIconPose(heroScale, 0f);
 
-            iconTransform.localScale = Vector3.one * heroScale;
-            iconTransform.localRotation = Quaternion.identity;
+            // The border is drawn in only once the icon has landed (issue #517).
+            cell.SetSpecialBorderTrace(0f);
 
             try
             {
@@ -2108,13 +2118,8 @@ namespace MustyBlockBlast.Presentation.Views
                         return;
                     }
 
-                    float t = elapsed / duration;
-                    float scale = t < ShrinkFraction
-                        ? Mathf.Lerp(heroScale, landingOvershoot, EaseOutCubic(t / ShrinkFraction))
-                        : Mathf.Lerp(landingOvershoot, 1f, (t - ShrinkFraction) / (1f - ShrinkFraction));
-
-                    iconTransform.localScale = Vector3.one * scale;
-                    iconTransform.localRotation = Quaternion.Euler(0f, 0f, Mathf.Lerp(0f, spinDegrees, EaseOutCubic(t)));
+                    float eased = EaseOutCubic(elapsed / duration);
+                    cell.SetSpecialIconPose(Mathf.Lerp(heroScale, 1f, eased), Mathf.Lerp(0f, spinDegrees, eased));
 
                     await UniTask.Yield(PlayerLoopTiming.Update, _destroyToken);
                     elapsed += Time.unscaledDeltaTime;
@@ -2131,8 +2136,51 @@ namespace MustyBlockBlast.Presentation.Views
                 return;
             }
 
-            iconTransform.localScale = Vector3.one;
-            iconTransform.localRotation = Quaternion.identity;
+            cell.SetSpecialIconPose(1f, 0f);
+            await PlaySpecialBorderTraceAsync(index, generation);
+        }
+
+        /// <summary>
+        /// A settled special cell's border draws itself in (issue #517): a spark of light runs from the
+        /// cell's top-left corner clockwise all the way round in <see cref="_specialBorderTraceDuration"/>,
+        /// leaving the border behind it, which then stays. Played only at the end of a spawn or vortex
+        /// hand-off pop — every other repaint shows the border whole — and guarded by
+        /// <see cref="_cellGenerations"/> exactly as those pops are: a destructive write to the cell
+        /// mid-trace simply ends it, and that write's own repaint settles the border.
+        /// </summary>
+        private async UniTask PlaySpecialBorderTraceAsync(int index, int generation)
+        {
+            CellView cell = _cells[index];
+            float duration = Mathf.Max(0.01f, _specialBorderTraceDuration);
+
+            try
+            {
+                float elapsed = 0f;
+                while (elapsed < duration)
+                {
+                    if (_cellGenerations[index] != generation)
+                    {
+                        return;
+                    }
+
+                    cell.SetSpecialBorderTrace(elapsed / duration);
+
+                    await UniTask.Yield(PlayerLoopTiming.Update, _destroyToken);
+                    elapsed += Time.unscaledDeltaTime;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // The board view was destroyed mid-trace — the border is going with it.
+                return;
+            }
+
+            if (_isDestroyed || _cellGenerations[index] != generation)
+            {
+                return;
+            }
+
+            cell.SetSpecialBorderTrace(1f);
         }
 
         /// <summary>An explosive core detonated and its bonus wipe emptied the line at right angles to
@@ -2226,13 +2274,12 @@ namespace MustyBlockBlast.Presentation.Views
                     }
 
                     int index = CellIndex(cell);
-                    RectTransform iconTransform = _cells[index].SpecialIconTransform;
-                    if (iconTransform == null)
+                    if (_cells[index].SpecialIconTransform == null)
                     {
                         continue;
                     }
 
-                    PlayVortexHandOffPopAsync(iconTransform, index, ++_cellGenerations[index]).Forget();
+                    PlayVortexHandOffPopAsync(index, ++_cellGenerations[index]).Forget();
                 }
             }
         }
@@ -2300,15 +2347,16 @@ namespace MustyBlockBlast.Presentation.Views
         /// remarks — the kind already existed, it just moved cells), so it is played from here rather
         /// than through that message, with its own duration so the two can be tuned independently.
         /// </summary>
-        private async UniTaskVoid PlayVortexHandOffPopAsync(RectTransform iconTransform, int index, int generation)
+        private async UniTaskVoid PlayVortexHandOffPopAsync(int index, int generation)
         {
-            const float GrowFraction = 0.7f;
-
             float startScale = Mathf.Clamp(_specialSpawnStartScale, 0.001f, 1f);
-            float overshootScale = Mathf.Max(1f, _specialSpawnOvershootScale);
             float duration = Mathf.Max(0.01f, _vortexHandOffPopDuration);
 
-            iconTransform.localScale = Vector3.one * startScale;
+            CellView cell = _cells[index];
+            cell.SetSpecialIconPose(startScale, 0f);
+
+            // As the birth pop: the border is drawn in only once the icon has landed (issue #517).
+            cell.SetSpecialBorderTrace(0f);
 
             try
             {
@@ -2320,12 +2368,7 @@ namespace MustyBlockBlast.Presentation.Views
                         return;
                     }
 
-                    float t = elapsed / duration;
-                    float scale = t < GrowFraction
-                        ? Mathf.Lerp(startScale, overshootScale, EaseOutCubic(t / GrowFraction))
-                        : Mathf.Lerp(overshootScale, 1f, (t - GrowFraction) / (1f - GrowFraction));
-
-                    iconTransform.localScale = Vector3.one * scale;
+                    cell.SetSpecialIconPose(Mathf.Lerp(startScale, 1f, EaseOutCubic(elapsed / duration)), 0f);
 
                     await UniTask.Yield(PlayerLoopTiming.Update, _destroyToken);
                     elapsed += Time.unscaledDeltaTime;
@@ -2342,7 +2385,8 @@ namespace MustyBlockBlast.Presentation.Views
                 return;
             }
 
-            iconTransform.localScale = Vector3.one;
+            cell.SetSpecialIconPose(1f, 0f);
+            await PlaySpecialBorderTraceAsync(index, generation);
         }
 
         /// <summary>Where one cell's rect sits in the grid — the same arithmetic
@@ -3397,6 +3441,7 @@ namespace MustyBlockBlast.Presentation.Views
             {
                 cell.ClearSpecialIcon();
                 cell.ClearSpecialGlow();
+                cell.ClearSpecialBorder();
 
                 // Negative test (issue #365 AC7): a None cell never glows, so it never has an entry to
                 // remove — this only fires for a cell that actually was glowing a moment ago.
@@ -3438,10 +3483,46 @@ namespace MustyBlockBlast.Presentation.Views
                 cell.SetSpecialGlow(GlowTint(kind));
             }
 
+            cell.SetSpecialBorder(BorderColour(kind, index));
+
             if (!_glowActiveMask[index])
             {
                 _glowActiveMask[index] = true;
                 _activeGlowCells.Add(cell);
+            }
+        }
+
+        /// <summary>The border hue (issue #517) of the special cell at <paramref name="index"/>: its
+        /// kind's own colour, or — for a diamond — its gem's colour, exactly as the diamond's art is
+        /// tinted, falling back to the flat special tint while no gem colour is known.</summary>
+        private Color BorderColour(SpecialCellKind kind, int index)
+        {
+            switch (kind)
+            {
+                case SpecialCellKind.Laser:
+                    return LaserBorderColour;
+                case SpecialCellKind.ScoreGem:
+                    return ScoreGemBorderColour;
+                case SpecialCellKind.Vortex:
+                    return VortexBorderColour;
+                case SpecialCellKind.ChainLightning:
+                    return ChainLightningBorderColour;
+                case SpecialCellKind.Coin:
+                    return CoinBorderColour;
+                case SpecialCellKind.ExplosiveCore:
+                    return ExplosiveCoreBorderColour;
+                case SpecialCellKind.Timer:
+                    return TimerBorderColour;
+                case SpecialCellKind.PowerStar:
+                    return PowerStarBorderColour;
+                case SpecialCellKind.PuzzleLink:
+                    return PuzzleLinkBorderColour;
+                case SpecialCellKind.Diamond:
+                    return _currentTheme != null && _cellDiamondColourIds[index] != TrayModel.NO_DIAMOND
+                        ? DiamondVisuals.Tint(_currentTheme, _cellDiamondColourIds[index])
+                        : SpecialIconTint;
+                default:
+                    return SpecialIconTint;
             }
         }
 

@@ -41,6 +41,11 @@ namespace MustyBlockBlast.Gameplay.Settings
                 + "stone's rubble. Jelly and crystal use the block's colour instead.")]
             [SerializeField] private Color _particleColour = new Color(0.86f, 0.12f, 0.22f, 1f);
 
+            [Tooltip("Colour of the thin border every block wears in this skin (issue #518). A skin tinted "
+                + "by block colour multiplies this by the block's fill, so white borders each block in its "
+                + "own colour.")]
+            [SerializeField] private Color _borderColour = Color.white;
+
             public string Name => _name;
 
             public int ScoreThreshold => _scoreThreshold;
@@ -54,6 +59,8 @@ namespace MustyBlockBlast.Gameplay.Settings
             public AudioClip ClearSound => _clearSound;
 
             public Color ParticleColour => _particleColour;
+
+            public Color BorderColour => _borderColour;
         }
 
         [SerializeField] private List<Stage> _stages = new List<Stage>();
