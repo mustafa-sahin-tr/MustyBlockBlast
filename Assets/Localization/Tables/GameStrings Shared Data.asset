@@ -1843,6 +1843,10 @@ MonoBehaviour:
     m_Key: objective.at_least_one_line_clear
     m_Metadata:
       m_Items: []
+  - m_Id: 4350167317733404
+    m_Key: settings.row.level_backgrounds
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:
