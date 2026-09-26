@@ -6,10 +6,10 @@ namespace MustyBlockBlast.Presentation.Views
     /// <summary>Shared construction of the runtime placeholder UI pieces (cells, cards).</summary>
     internal static class CellFactory
     {
-        /// <summary>A cell's corner radius as a fraction of its side: the mockup's 6px on a 38px
-        /// board cell and 4px on a 17px tray cell, which agree on about a sixth. Derived rather than
-        /// serialized so a cell at any size — board, tray, pocket, drag ghost — has the same corner.</summary>
-        internal const float CORNER_RADIUS_FRACTION = 0.17f;
+        /// <summary>A cell's corner radius as a fraction of its side: issue #528's near-sharp bevelled
+        /// block (option A), shared by empty cells and rings so they stay flush with it. Derived rather
+        /// than serialized so a cell at any size — board, tray, pocket, drag ghost — has the same corner.</summary>
+        internal const float CORNER_RADIUS_FRACTION = 0.07f;
 
         internal static CellView CreateCell(
             Transform parent, string cellName, float size, float inset, float bevelThickness)

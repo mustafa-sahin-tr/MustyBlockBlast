@@ -30,6 +30,12 @@ namespace MustyBlockBlast.Presentation.Views
         private const int TRIANGLE_SIZE = 128;
         private const int TRIANGLE_RADIUS = 6;
 
+        private const int BEVEL_FACET_SIZE = 128;
+
+        /// <summary>Depth of a block's bevel faces as a fraction of the cell's side (issue #528's
+        /// option A): deep enough that the lines from the corners read at tray size too.</summary>
+        internal const float BEVEL_FACET_DEPTH_FRACTION = 0.22f;
+
         private const int STARBURST_SIZE = 128;
 
         private const int REFRESH_ICON_SIZE = 128;
@@ -77,6 +83,7 @@ namespace MustyBlockBlast.Presentation.Views
         private static readonly Sprite[] _roundedOutlines = new Sprite[ROUNDED_RADIUS + 1];
         private static Sprite _radialGlow;
         private static Sprite _triangleFacet;
+        private static Sprite _bevelFacet;
         private static Sprite _circle;
         private static Sprite _starburst;
         private static Sprite _rocketIcon;
@@ -155,6 +162,30 @@ namespace MustyBlockBlast.Presentation.Views
                 }
 
                 return _radialGlow;
+            }
+        }
+
+        /// <summary>
+        /// The top face of a block's bevel (issue #528): a trapezoid along the top edge of the texture,
+        /// <see cref="BEVEL_FACET_DEPTH_FRACTION"/> of the side deep, its slanted ends running to the
+        /// centre so the four rotations (0/90/180/270) meet along the diagonals and leave a flat inner
+        /// square. The two outer corners are rounded to the block's own corner
+        /// (<see cref="CellFactory.CORNER_RADIUS_FRACTION"/>). Stretch it over a square cell. White —
+        /// tint via Image.color.
+        /// </summary>
+        internal static Sprite BevelFacet
+        {
+            get
+            {
+                if (_bevelFacet == null)
+                {
+                    _bevelFacet = CreateBevelFacet(
+                        BEVEL_FACET_SIZE,
+                        Mathf.RoundToInt(BEVEL_FACET_SIZE * CellFactory.CORNER_RADIUS_FRACTION),
+                        BEVEL_FACET_SIZE * BEVEL_FACET_DEPTH_FRACTION);
+                }
+
+                return _bevelFacet;
             }
         }
 
@@ -448,6 +479,53 @@ namespace MustyBlockBlast.Presentation.Views
             Sprite sprite = Sprite.Create(
                 texture, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect);
             sprite.name = "MustyBlockBlast_TriangleFacetSprite";
+            sprite.hideFlags = HideFlags.HideAndDontSave;
+            return sprite;
+        }
+
+        private static Sprite CreateBevelFacet(int size, int radius, float depth)
+        {
+            var texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
+            {
+                name = "MustyBlockBlast_BevelFacet",
+                wrapMode = TextureWrapMode.Clamp,
+                filterMode = FilterMode.Bilinear,
+                hideFlags = HideFlags.HideAndDontSave,
+            };
+
+            var pixels = new Color32[size * size];
+
+            // The triangle facet's two diagonals, cut off by the inner edge at size - depth.
+            const float INV_SQRT2 = 0.70710678f;
+            float innerEdge = size - depth;
+
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float pixelX = x + 0.5f;
+                    float pixelY = y + 0.5f;
+
+                    float leftCoverage = Mathf.Clamp01((((pixelX + pixelY) - size) * INV_SQRT2) + 0.5f);
+                    float rightCoverage = Mathf.Clamp01(((pixelY - pixelX) * INV_SQRT2) + 0.5f);
+                    float innerCoverage = Mathf.Clamp01(pixelY - innerEdge + 0.5f);
+
+                    float centreX = pixelX < radius ? radius : (pixelX > size - radius ? size - radius : pixelX);
+                    float centreY = pixelY > size - radius ? size - radius : pixelY;
+                    float cornerCoverage = CircleCoverage(pixelX, pixelY, centreX, centreY, radius);
+
+                    float alpha = Mathf.Min(
+                        Mathf.Min(leftCoverage, rightCoverage), Mathf.Min(innerCoverage, cornerCoverage));
+                    pixels[(y * size) + x] = new Color32(255, 255, 255, (byte)Mathf.RoundToInt(alpha * 255f));
+                }
+            }
+
+            texture.SetPixels32(pixels);
+            texture.Apply(false, true);
+
+            Sprite sprite = Sprite.Create(
+                texture, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect);
+            sprite.name = "MustyBlockBlast_BevelFacetSprite";
             sprite.hideFlags = HideFlags.HideAndDontSave;
             return sprite;
         }

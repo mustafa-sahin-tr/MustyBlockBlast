@@ -42,17 +42,9 @@ namespace MustyBlockBlast.Presentation.Views
         private const float SPECIAL_BORDER_SPARK_SIZE = 0.7f;
         private const float SPECIAL_BORDER_SPARK_WHITEN = 0.3f;
 
-        /// <summary>The gloss ellipse's box, as fractions of the cell: the mockup's
-        /// <c>left 12%, top 8%, width 76%, height 32%</c>.</summary>
-        private const float GLOSS_LEFT = 0.12f;
-        private const float GLOSS_RIGHT = 0.88f;
-        private const float GLOSS_TOP = 0.92f;
-        private const float GLOSS_BOTTOM = 0.55f;
-
-        /// <summary>Alpha the gloss ellipse is drawn at: the mockup's white at 0.5 fading to nothing,
-        /// which the soft glow sprite supplies as a falloff. Stored so <see cref="SetAlpha"/> can fade
-        /// it in proportion rather than snapping it to full strength.</summary>
-        private const float GLOSS_ALPHA = 0.7f;
+        /// <summary>How far the side bevel faces lean from the fill towards the highlight (left) and the
+        /// shade (right) — issue #528's mockup mixes 45% fill with 55% of the edge tone.</summary>
+        private const float BEVEL_SIDE_BLEND = 0.55f;
 
         /// <summary>How many bevel thicknesses the special-cell icon is inset by, on top of the cell's
         /// own inset. Half keeps the icon just clear of the bottom bevel on every side, so it sits on
@@ -161,9 +153,11 @@ namespace MustyBlockBlast.Presentation.Views
         private Image _outerImage;
         private Image _flatFaceImage;
         private GameObject _blockRoot;
-        private Image _blockShadeImage;
-        private Image _blockFaceImage;
-        private Image _blockGlossImage;
+        private Image _blockBaseImage;
+        private Image _bevelTopImage;
+        private Image _bevelLeftImage;
+        private Image _bevelRightImage;
+        private Image _bevelBottomImage;
         private Image _specialGlowImage;
         private Image _iceOverlayImage;
         private Image _iceRingImage;
@@ -265,26 +259,17 @@ namespace MustyBlockBlast.Presentation.Views
             blockRect.SetParent(transform, false);
             StretchToParent(blockRect);
 
-            _blockShadeImage = CreateStretchedImage(blockRect, "Shade");
-            HudChrome.ConfigureRounded(_blockShadeImage, cornerRadius);
+            // The bevelled block (issue #528): the whole rounded square in the fill, which the four
+            // faces below leave showing only as the flat inner square.
+            _blockBaseImage = CreateStretchedImage(blockRect, "Base");
+            HudChrome.ConfigureRounded(_blockBaseImage, cornerRadius);
 
-            // Lifted off the bottom edge by the bevel, so the shade underneath reads as the block's
-            // shaded base — the mockup's "inset 0 -4px 0" — and nowhere else.
-            _blockFaceImage = CreateStretchedImage(blockRect, "Face");
-            HudChrome.ConfigureRounded(_blockFaceImage, cornerRadius);
-            SetStretchInsets((RectTransform)_blockFaceImage.transform, 0f, bevelThickness, 0f, 0f);
-
-            // The soft glow stretched into a wide ellipse across the top of the face: its falloff is
-            // what makes the highlight read as a sheen rather than a sticker.
-            _blockGlossImage = CreateStretchedImage(blockRect, "Gloss");
-            _blockGlossImage.sprite = UiSpriteFactory.RadialGlow;
-            _blockGlossImage.type = Image.Type.Simple;
-            _blockGlossImage.raycastTarget = false;
-            var glossRect = (RectTransform)_blockGlossImage.transform;
-            glossRect.anchorMin = new Vector2(GLOSS_LEFT, GLOSS_BOTTOM);
-            glossRect.anchorMax = new Vector2(GLOSS_RIGHT, GLOSS_TOP);
-            glossRect.offsetMin = Vector2.zero;
-            glossRect.offsetMax = Vector2.zero;
+            // One facet sprite turned to each edge; they meet along the diagonals, so the lines run
+            // from the four corners in towards the inner square.
+            _bevelTopImage = CreateBevelFace(blockRect, "BevelTop", 0f);
+            _bevelLeftImage = CreateBevelFace(blockRect, "BevelLeft", 90f);
+            _bevelBottomImage = CreateBevelFace(blockRect, "BevelBottom", 180f);
+            _bevelRightImage = CreateBevelFace(blockRect, "BevelRight", 270f);
 
             _blockRoot.SetActive(false);
 
@@ -1060,9 +1045,11 @@ namespace MustyBlockBlast.Presentation.Views
 
             _blockLookRequested = true;
             RefreshBlockLook();
-            _blockShadeImage.color = shade;
-            _blockFaceImage.color = fill;
-            _blockGlossImage.color = new Color(highlight.r, highlight.g, highlight.b, highlight.a * GLOSS_ALPHA);
+            _blockBaseImage.color = fill;
+            _bevelTopImage.color = highlight;
+            _bevelLeftImage.color = Color.Lerp(fill, highlight, BEVEL_SIDE_BLEND);
+            _bevelRightImage.color = Color.Lerp(fill, shade, BEVEL_SIDE_BLEND);
+            _bevelBottomImage.color = shade;
         }
 
         /// <summary>Applies one alpha to every layer of both looks, so whichever is showing fades
@@ -1072,12 +1059,11 @@ namespace MustyBlockBlast.Presentation.Views
             CacheOuter();
             ApplyAlpha(_outerImage, alpha);
             ApplyAlpha(_flatFaceImage, alpha);
-            ApplyAlpha(_blockShadeImage, alpha);
-            ApplyAlpha(_blockFaceImage, alpha);
-
-            // The gloss is translucent by design, so it fades in proportion to its resting alpha
-            // rather than being snapped to the cell's.
-            ApplyAlpha(_blockGlossImage, alpha * GLOSS_ALPHA);
+            ApplyAlpha(_blockBaseImage, alpha);
+            ApplyAlpha(_bevelTopImage, alpha);
+            ApplyAlpha(_bevelLeftImage, alpha);
+            ApplyAlpha(_bevelRightImage, alpha);
+            ApplyAlpha(_bevelBottomImage, alpha);
 
             // The rings fade with the rest so a highlighted cell cannot stay solid mid-fade. Their own
             // alpha is restored in full by the next SetHighlight / SetGhostRing call. The ice ring is
@@ -1268,6 +1254,18 @@ namespace MustyBlockBlast.Presentation.Views
             border.color = Color.clear;
             borderObject.SetActive(false);
             return border;
+        }
+
+        /// <summary>One bevel face: the facet sprite stretched over the whole (square) cell and turned
+        /// by <paramref name="rotation"/> degrees so its trapezoid lies along that edge.</summary>
+        private static Image CreateBevelFace(Transform parent, string objectName, float rotation)
+        {
+            Image image = CreateStretchedImage(parent, objectName);
+            image.sprite = UiSpriteFactory.BevelFacet;
+            image.type = Image.Type.Simple;
+            image.raycastTarget = false;
+            image.transform.localRotation = Quaternion.Euler(0f, 0f, rotation);
+            return image;
         }
 
         private static Image CreateStretchedImage(Transform parent, string objectName)
