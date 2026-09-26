@@ -256,10 +256,9 @@ MonoBehaviour:
   _colorCleanserBeamThicknessFraction: 0.22
   _specialSpawnPopDuration: 0.28
   _specialSpawnStartScale: 0.05
-  _specialSpawnOvershootScale: 1.18
   _specialSpawnHeroScale: 4
   _specialSpawnSpinDegrees: 360
-  _specialSpawnLandingOvershootScale: 1.08
+  _specialBorderTraceDuration: 0.25
   _islandFillDuration: 0.5
   _islandFillStartScale: 0.05
   _islandFillOvershootScale: 1.12
@@ -2419,6 +2418,7 @@ MonoBehaviour:
   _badgeCatalog: {fileID: 11400000, guid: 70b54e62afe9643e987f413b8119f8c5, type: 2}
   _rewardRuleCatalog: {fileID: 11400000, guid: 21defc5058f434f6abad722a7cbc9f12, type: 2}
   _levelIdentityCatalog: {fileID: 11400000, guid: ada5446258ca041d78d25d0fb14f9451, type: 2}
+  _levelBackgroundCatalog: {fileID: 11400000, guid: 7d3a28b8ad8b049c0a27976ac22a3131, type: 2}
   _objectiveIconCatalog: {fileID: 11400000, guid: fadafff29d78b4ecf8a72d927fa23418, type: 2}
   _classicSkinConfig: {fileID: 11400000, guid: 6c01eceb3568c46cbab8b92de00a0b5b, type: 2}
   _currencyConfig: {fileID: 11400000, guid: 36f18b394e8614ca0a06e153de8be6d3, type: 2}
@@ -2776,8 +2776,11 @@ MonoBehaviour:
   _levelIconSize: 64
   _discSize: 52
   _glyphSize: 32
-  _gap: 10
-  _numberFontSize: 38
+  _iconLift: 8
+  _badgeHeight: 34
+  _badgePaddingX: 9
+  _badgeRim: 4
+  _badgeFontSize: 24
   _displayFont: {fileID: 12800000, guid: 0879445ee55bb4fc5bfdc99e4b94f899, type: 3}
   _trailSprite: {fileID: 21300000, guid: 094a691f57671453a914e0a347f9164b, type: 3}
 --- !u!1 &1618923934
