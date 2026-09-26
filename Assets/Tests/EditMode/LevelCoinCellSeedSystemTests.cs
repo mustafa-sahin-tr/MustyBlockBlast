@@ -288,8 +288,8 @@ namespace MustyBlockBlast.Tests.EditMode
 
         /// <summary>
         /// AC6: asking for more cells than the board has blocks to carry can neither overflow the board
-        /// nor stack two coins onto one cell and call it two. The seeder's bounded re-rolls are what make
-        /// this true, and a purchase is the one thing that can ask for more cells than a level ever
+        /// nor stack two coins onto one cell and call it two. The selector only ever picking a plain block
+        /// (issue #441) is what makes this true, and a purchase is the one thing that can ask for more cells than a level ever
         /// would.
         /// </summary>
         [Test]
@@ -308,7 +308,7 @@ namespace MustyBlockBlast.Tests.EditMode
 
             _piecePlacedBroker.Publish(APlacement());
 
-            Assert.LessOrEqual(CountCoins(), 3);
+            Assert.AreEqual(3, CountCoins(), "Every block carries exactly one coin, none doubled up.");
             for (int y = 0; y < Board.SIZE; y++)
             {
                 for (int x = 0; x < Board.SIZE; x++)

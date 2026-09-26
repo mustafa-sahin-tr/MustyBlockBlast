@@ -89,17 +89,17 @@ namespace MustyBlockBlast.Tests.EditMode
             Assert.IsTrue(sawSecond);
         }
 
-        /// <summary>A cell that already carries a kind is still a candidate: "already special" is not a
-        /// reason to drop a reward the player earned.</summary>
+        /// <summary>Issue #441: a cell that already carries a kind is never a candidate — no special
+        /// cell may stack on another.</summary>
         [Test]
-        public void SelectSpawnPosition_OverAnAlreadySpecialCell_StillSelectsIt()
+        public void SelectSpawnPosition_WithTheOnlyOccupiedCellAlreadySpecial_SelectsNothing()
         {
             var board = new Board();
             var only = new GridPosition(2, 2);
             board.Occupy(only, 1);
             board.SetSpecialKind(only, SpecialCellKind.ExplosiveCore);
 
-            Assert.AreEqual(only, LaserSpawnSelector.SelectSpawnPosition(board, new Random(3)));
+            Assert.IsNull(LaserSpawnSelector.SelectSpawnPosition(board, new Random(3)));
         }
 
         [Test]

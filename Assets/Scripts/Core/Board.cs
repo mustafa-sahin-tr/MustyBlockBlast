@@ -268,6 +268,17 @@ namespace MustyBlockBlast.Core
         /// </summary>
         private readonly bool[] _puzzleHits;
 
+        /// <summary>
+        /// Cells where a reinforced block took its last hit or a <see cref="SpecialCellKind.Locked"/> cell
+        /// opened during the resolution in flight (issue #441), indexed exactly like <see cref="_cells"/>.
+        /// Such a cell is empty and kind-less the moment it breaks, so without this a reward spawned by the
+        /// same placement could land exactly where the obstacle just stood and read as stacked on top of
+        /// it. Accounting for the resolution in flight, like <see cref="_puzzleHits"/>: never copied,
+        /// emptied by <see cref="CopyFrom"/> and by <see cref="ClearBrokenObstacles"/>, and deliberately
+        /// NOT reset by <see cref="Clear"/> — it is written right after the clearing that breaks the cell.
+        /// </summary>
+        private readonly bool[] _brokenObstacles;
+
         /// <summary>Scratch for <see cref="ResolvePuzzleLinks"/>: groups already decided this call.</summary>
         private readonly List<int> _decidedPuzzleGroups = new List<int>(4);
 
@@ -336,6 +347,7 @@ namespace MustyBlockBlast.Core
             _powerStarCharges = new int[shape.CellCount];
             _puzzleGroupIds = new int[shape.CellCount];
             _puzzleHits = new bool[shape.CellCount];
+            _brokenObstacles = new bool[shape.CellCount];
         }
 
         private Board(
@@ -347,6 +359,7 @@ namespace MustyBlockBlast.Core
             _powerStarCharges = powerStarCharges;
             _puzzleGroupIds = puzzleGroupIds;
             _puzzleHits = new bool[shape.CellCount];
+            _brokenObstacles = new bool[shape.CellCount];
             _shape = shape;
             _cells = cells;
             _specialKinds = specialKinds;
@@ -559,7 +572,13 @@ namespace MustyBlockBlast.Core
             if (_hitCounts[index] <= 1)
             {
                 bool wasOccupied = _cells[index] != EMPTY;
+                bool wasReinforced = _hitCounts[index] == 1;
                 Clear(position);
+
+                if (isLock || wasReinforced)
+                {
+                    _brokenObstacles[index] = true;
+                }
 
                 // A lock a direct hit brought to its threshold opened here (issue #481).
                 if (isLock)
@@ -629,6 +648,7 @@ namespace MustyBlockBlast.Core
             {
                 Clear(lockPosition);
                 _openedLocks.Add(lockPosition);
+                _brokenObstacles[lockIndex] = true;
             }
         }
 
@@ -1690,6 +1710,14 @@ namespace MustyBlockBlast.Core
         /// whole-board reset, so no lock is ever paid twice or carried into another run.</summary>
         public void ClearOpenedLocks() => _openedLocks.Clear();
 
+        /// <summary>True when a reinforced block or a lock broke at <paramref name="position"/> since the
+        /// last <see cref="ClearBrokenObstacles"/> (issue #441). See <see cref="_brokenObstacles"/>.</summary>
+        public bool IsBrokenObstacle(GridPosition position) => _brokenObstacles[Index(position)];
+
+        /// <summary>Forgets every <see cref="IsBrokenObstacle"/> mark — called at the start of each
+        /// placement's resolution, so the marks always mean "broke during this placement".</summary>
+        public void ClearBrokenObstacles() => Array.Clear(_brokenObstacles, 0, _brokenObstacles.Length);
+
         public void CopyFrom(Board source)
         {
             if (source == null)
@@ -1721,6 +1749,7 @@ namespace MustyBlockBlast.Core
             Array.Copy(source._powerStarCharges, _powerStarCharges, _powerStarCharges.Length);
             Array.Copy(source._puzzleGroupIds, _puzzleGroupIds, _puzzleGroupIds.Length);
             Array.Clear(_puzzleHits, 0, _puzzleHits.Length);
+            Array.Clear(_brokenObstacles, 0, _brokenObstacles.Length);
         }
 
         /// <summary>Flat index of <paramref name="position"/> — also the index a caller's own per-cell

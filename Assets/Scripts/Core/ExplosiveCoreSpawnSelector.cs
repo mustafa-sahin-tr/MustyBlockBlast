@@ -32,11 +32,12 @@ namespace MustyBlockBlast.Core
         /// which is why the ordinary path lands on an empty cell and the caller only has to occupy it.
         /// </para>
         /// <para>
-        /// The neighbour fallback below cannot be reached on today's full 8x8 grid for exactly that
-        /// reason. It exists so the rule survives a board shape where the intersection is not part of
-        /// the clear (a hole, a masked cell): rather than silently dropping the reward, the core is
-        /// placed on an occupied neighbour, converting that block into a core in place. Which
-        /// neighbour is the only random decision in this feature, and only ever a tie-break.
+        /// The neighbour fallback below covers the intersection that cannot take the core: a reinforced
+        /// block that survived the clear, or one (or a lock) that broke during it (issue #441), plus any
+        /// board shape where the intersection is not part of the clear. Rather than silently dropping
+        /// the reward, the core is placed on a plain occupied neighbour, converting that block into a
+        /// core in place. Which neighbour is the only random decision in this feature, and only ever a
+        /// tie-break.
         /// </para>
         /// </summary>
         public static GridPosition? SelectSpawnPosition(
@@ -67,7 +68,10 @@ namespace MustyBlockBlast.Core
                 return null;
             }
 
-            if (!board.IsOccupied(intersection))
+            // An intersection still standing (a reinforced block that survived the clear) or one where
+            // an obstacle just broke cannot take the core itself (issue #441), so the neighbour fallback
+            // converts a plain block beside it instead.
+            if (SpecialCellSpawnEligibility.CanOccupy(board, intersection))
             {
                 return intersection;
             }
@@ -135,7 +139,9 @@ namespace MustyBlockBlast.Core
         }
 
         /// <summary>True when <paramref name="candidate"/> is a neighbour that could carry the core:
-        /// on the board, not the centre itself, and currently holding a block.</summary>
+        /// on the board, not the centre itself, and a plain block — never one that already is a special
+        /// cell, a lock or a reinforced cell (issue #441), see <see cref="SpecialCellSpawnEligibility"/>.
+        /// </summary>
         private static bool IsCandidate(Board board, GridPosition center, GridPosition candidate)
         {
             if (candidate.X == center.X && candidate.Y == center.Y)
@@ -143,7 +149,7 @@ namespace MustyBlockBlast.Core
                 return false;
             }
 
-            return board.IsPlayable(candidate) && board.IsOccupied(candidate);
+            return SpecialCellSpawnEligibility.CanConvert(board, candidate);
         }
     }
 }

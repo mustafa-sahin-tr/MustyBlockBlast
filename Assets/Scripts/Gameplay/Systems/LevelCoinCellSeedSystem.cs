@@ -61,17 +61,6 @@ namespace MustyBlockBlast.Gameplay.Systems
     /// </summary>
     public sealed class LevelCoinCellSeedSystem : IDisposable
     {
-        /// <summary>
-        /// How many cells one owed coin will try before it accepts overwriting a cell that is already a
-        /// coin. The selector picks uniformly among occupied cells and knows nothing about what is
-        /// already on them, so on a nearly-empty board two owed coins can land on the same cell; a few
-        /// re-rolls make a level authoring three coins actually show three of them without the
-        /// selector having to grow a concept of "cells to avoid" that its other two callers do not want.
-        /// Bounded rather than a loop-until-distinct, because a board with fewer occupied cells than the
-        /// level owes coins has no distinct answer to find.
-        /// </summary>
-        private const int DISTINCT_CELL_ATTEMPTS = 8;
-
         private readonly BoardModel _boardModel;
         private readonly LevelCatalog _levelCatalog;
         private readonly LevelProgressionModel _progressionModel;
@@ -180,11 +169,14 @@ namespace MustyBlockBlast.Gameplay.Systems
         {
             while (_pendingCoinCells > 0)
             {
-                GridPosition? spawn = SelectDistinctSpawn();
+                // The selector only ever returns a plain block (issue #441), so two owed coins can never
+                // land on the same cell and no re-roll is needed.
+                GridPosition? spawn = CoinSpawnSelector.SelectSpawnPosition(_boardModel.Board, _random);
                 if (spawn == null)
                 {
-                    // Nothing on the board to paint — a placement that completed a line and emptied it.
-                    // The debt stays owed for the next placement rather than being dropped.
+                    // No plain block on the board to paint — a placement that emptied it, or one that
+                    // left only special cells standing. The debt stays owed for the next placement
+                    // rather than being dropped.
                     return;
                 }
 
@@ -198,25 +190,6 @@ namespace MustyBlockBlast.Gameplay.Systems
 
                 _pendingCoinCells--;
             }
-        }
-
-        /// <summary>A spawn cell that is not already a coin, or — when a bounded number of picks all
-        /// land on one — whichever the last pick was. Null only when the board holds no block at all,
-        /// which is the selector's own answer and not a failure state.</summary>
-        private GridPosition? SelectDistinctSpawn()
-        {
-            GridPosition? spawn = null;
-
-            for (int attempt = 0; attempt < DISTINCT_CELL_ATTEMPTS; attempt++)
-            {
-                spawn = CoinSpawnSelector.SelectSpawnPosition(_boardModel.Board, _random);
-                if (spawn == null || _boardModel.GetSpecialKind(spawn.Value) != SpecialCellKind.Coin)
-                {
-                    return spawn;
-                }
-            }
-
-            return spawn;
         }
 
         /// <summary>The level the run in progress is playing: the Path run's active level when there is

@@ -140,12 +140,10 @@ namespace MustyBlockBlast.Core
         }
 
         /// <summary>True when <paramref name="candidate"/> could carry the tile: a real cell the clear
-        /// emptied, still empty once everything has settled, and carrying no other kind — a cell that
-        /// already is a core, a laser or a vortex is left as the one it is rather than quietly
-        /// overwritten.</summary>
+        /// emptied, still empty once everything has settled, carrying no other kind, and not where a
+        /// reinforced block or a lock broke during this same clear (issue #441) — see
+        /// <see cref="SpecialCellSpawnEligibility"/>.</summary>
         private static bool IsCandidate(Board board, GridPosition candidate)
-            => board.IsPlayable(candidate)
-                && !board.IsOccupied(candidate)
-                && board.GetSpecialKind(candidate) == SpecialCellKind.None;
+            => SpecialCellSpawnEligibility.CanOccupy(board, candidate);
     }
 }
