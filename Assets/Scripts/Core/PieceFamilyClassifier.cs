@@ -10,6 +10,13 @@ namespace MustyBlockBlast.Core
     public static class PieceFamilyClassifier
     {
         /// <summary>
+        /// Number of <see cref="PieceFamily"/> values. The enum is dense from 0, so this doubles as the
+        /// length of any per-family array indexed by <c>(int)family</c> — computed once rather than
+        /// hard-coded so a new family can never leave such an array one slot short.
+        /// </summary>
+        public static readonly int FamilyCount = Enum.GetValues(typeof(PieceFamily)).Length;
+
+        /// <summary>
         /// Family for the given catalog id. Unknown or null ids fall back to
         /// <see cref="PieceFamily.Single"/> rather than throwing, so a mis-typed id degrades an
         /// objective instead of breaking a run.

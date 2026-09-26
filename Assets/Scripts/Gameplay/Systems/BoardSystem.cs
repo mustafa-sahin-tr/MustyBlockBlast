@@ -146,6 +146,22 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// </summary>
         private readonly DiamondPieceDecorator _diamondPieceDecorator;
 
+        /// <summary>
+        /// Keeps the family-objective windows (issue #513) and says which families the next normal
+        /// refill owes a piece of; <see cref="ApplyFamilyGuarantee"/> decides which slot pays it. Asked
+        /// only from <see cref="RefillTray"/> — reroll and the no-moves rescue are not refills in the
+        /// rule's sense and must neither advance nor restart a window.
+        /// <para>
+        /// Nullable, and null in most unit tests, for the reason <see cref="_reinforcedCellSeeder"/> is:
+        /// without one, no slot is ever overwritten and every refill is exactly the ordinary draw.
+        /// </para>
+        /// </summary>
+        private readonly FamilyPieceGuarantee _familyPieceGuarantee;
+
+        /// <summary>Scratch for <see cref="ApplyFamilyGuarantee"/>: which dock slots are already spoken
+        /// for this refill — by a special injection, or by a due family's naturally drawn piece.</summary>
+        private readonly bool[] _guaranteeClaimedSlots = new bool[TrayModel.SLOT_COUNT];
+
         /// <summary>Receives one dealt piece's decoration from <see cref="_diamondPieceDecorator"/>
         /// before it is copied onto the tray. Grown to the largest piece dealt and reused, so a
         /// decorated deal allocates nothing after the first of its size.</summary>
@@ -388,7 +404,8 @@ namespace MustyBlockBlast.Gameplay.Systems
             LevelPowerStarCellSeeder powerStarCellSeeder = null,
             LevelPuzzleLinkSeeder puzzleLinkSeeder = null,
             IPublisher<PuzzleLinksClearedMessage> puzzleLinksClearedPublisher = null,
-            MoveBudgetModel moveBudgetModel = null)
+            MoveBudgetModel moveBudgetModel = null,
+            FamilyPieceGuarantee familyPieceGuarantee = null)
             : this(
                 boardModel, trayModel, scoreGemProgressModel, vortexProgressModel, pieceDraw,
                 runStartedPublisher, piecePlacedPublisher, linesClearedPublisher, gameOverPublisher,
@@ -399,7 +416,7 @@ namespace MustyBlockBlast.Gameplay.Systems
                 timerCellSeeder, gameModeModel, rescueRewardSource, runRescuedPublisher,
                 diamondPieceDecorator, targetIceCellSeeder, lockedCellSeeder, boardShapeSource,
                 lockedCellsOpenedPublisher, powerStarCellSeeder, puzzleLinkSeeder, puzzleLinksClearedPublisher,
-                moveBudgetModel)
+                moveBudgetModel, familyPieceGuarantee)
         {
         }
 
@@ -438,9 +455,11 @@ namespace MustyBlockBlast.Gameplay.Systems
             LevelPowerStarCellSeeder powerStarCellSeeder = null,
             LevelPuzzleLinkSeeder puzzleLinkSeeder = null,
             IPublisher<PuzzleLinksClearedMessage> puzzleLinksClearedPublisher = null,
-            MoveBudgetModel moveBudgetModel = null)
+            MoveBudgetModel moveBudgetModel = null,
+            FamilyPieceGuarantee familyPieceGuarantee = null)
         {
             _moveBudgetModel = moveBudgetModel;
+            _familyPieceGuarantee = familyPieceGuarantee;
             _boardShapeSource = boardShapeSource;
             _reinforcedCellSeeder = reinforcedCellSeeder;
             _timerCellSeeder = timerCellSeeder;
@@ -576,6 +595,15 @@ namespace MustyBlockBlast.Gameplay.Systems
             _goldenInjectionPending = false;
             _piercingRocketInjectionPending = false;
             _hammerGrantedThisRun = false;
+
+            // Same place and same reason (issue #513): a family window belongs to the run it was counted
+            // in. Reset before the refill below, so the run's opening deal is the first refill of a fresh
+            // window for every family — which is also why a stale IsComplete left over from the previous
+            // run cannot matter here: a window's first refill is never due.
+            if (_familyPieceGuarantee != null)
+            {
+                _familyPieceGuarantee.BeginRun();
+            }
 
             // An offer belongs to the ending it was made for, and this run has no ending yet. The
             // pending flag is left alone on purpose: a request already in flight against the old run
@@ -1932,7 +1960,9 @@ namespace MustyBlockBlast.Gameplay.Systems
         /// offered on is in any case the piece most likely to fit.
         /// </para>
         /// </summary>
-        private void ApplyPendingInjections()
+        /// <returns>How many slots, from 0 upwards, now hold a special piece — the family guarantee
+        /// (<see cref="ApplyFamilyGuarantee"/>) must leave those alone.</returns>
+        private int ApplyPendingInjections()
         {
             int nextSlot = 0;
 
@@ -1946,8 +1976,126 @@ namespace MustyBlockBlast.Gameplay.Systems
             if (_piercingRocketInjectionPending)
             {
                 InjectSpecialPiece(nextSlot, SpecialPieceKind.PiercingRocket);
+                nextSlot++;
                 _piercingRocketInjectionPending = false;
             }
+
+            return nextSlot;
+        }
+
+        /// <summary>
+        /// Gives every family the guarantee says is due (issue #513) a piece of its own on this refill,
+        /// by overwriting ordinarily drawn slots — the same draw-then-overwrite shape as
+        /// <see cref="ApplyPendingInjections"/>, so every slot not overwritten is still exactly what
+        /// <see cref="WeightedPieceDraw"/> weighted it to be (AC3).
+        /// <para>
+        /// <b>Slot priority.</b> Special injections come first and are never overwritten: they are
+        /// rewards the player earned, while a family guarantee can always wait a refill. A due family
+        /// the draw already produced keeps that slot, so a later family's overwrite cannot erase it.
+        /// Only then are the remaining due families written, from the last slot downwards — the
+        /// opposite end from the injections, which claim slots from 0 upwards, so the two never race for
+        /// the same slot and the draw's first slots survive longest. A due family left without a free
+        /// slot is not dropped: it records this refill as another one without it, so it is still due
+        /// next refill and is paid then (AC4).
+        /// </para>
+        /// <para>
+        /// The forced piece goes through <see cref="DealSlot"/> like any ordinary deal, so it is rolled
+        /// for diamonds exactly as the piece it replaced would have been, and it carries no placement
+        /// promise — the rule only asks for the right family.
+        /// </para>
+        /// </summary>
+        private void ApplyFamilyGuarantee(int injectedSlotCount)
+        {
+            for (int slotIndex = 0; slotIndex < TrayModel.SLOT_COUNT; slotIndex++)
+            {
+                _guaranteeClaimedSlots[slotIndex] = slotIndex < injectedSlotCount;
+            }
+
+            // First pass: a due family the ordinary draw already dealt needs no overwrite, but its slot
+            // must be protected from the second pass. An injected 1x1 is already protected, and — being
+            // a Single the player really holds — already satisfies a due Single on its own, exactly as
+            // RecordRefill will count it.
+            for (int familyIndex = 0; familyIndex < PieceFamilyClassifier.FamilyCount; familyIndex++)
+            {
+                PieceFamily family = (PieceFamily)familyIndex;
+                if (_familyPieceGuarantee.IsDue(family))
+                {
+                    ClaimSlotHolding(family);
+                }
+            }
+
+            // Second pass: every due family still missing from the dock takes the highest free slot.
+            for (int familyIndex = 0; familyIndex < PieceFamilyClassifier.FamilyCount; familyIndex++)
+            {
+                PieceFamily family = (PieceFamily)familyIndex;
+                if (!_familyPieceGuarantee.IsDue(family) || DockHoldsFamily(family))
+                {
+                    continue;
+                }
+
+                int freeSlot = HighestUnclaimedSlot();
+                if (freeSlot < 0)
+                {
+                    return;
+                }
+
+                DealSlot(freeSlot, _pieceDraw.DrawPieceOfFamily(family), _pieceDraw.DrawColourId());
+                _guaranteeClaimedSlots[freeSlot] = true;
+            }
+        }
+
+        /// <summary>Claims the first dock slot holding a piece of <paramref name="family"/>, unless a
+        /// claimed slot already holds one — one protected piece per family is all the rule asks for.</summary>
+        private void ClaimSlotHolding(PieceFamily family)
+        {
+            if (DockHoldsFamily(family))
+            {
+                return;
+            }
+
+            for (int slotIndex = 0; slotIndex < TrayModel.SLOT_COUNT; slotIndex++)
+            {
+                if (!_guaranteeClaimedSlots[slotIndex] && SlotHoldsFamily(slotIndex, family))
+                {
+                    _guaranteeClaimedSlots[slotIndex] = true;
+                    return;
+                }
+            }
+        }
+
+        /// <summary>Whether a claimed dock slot already holds <paramref name="family"/> — a special
+        /// injection, a natural draw protected by the first pass, or a piece forced earlier in the second.
+        /// Unclaimed slots do not count: they are still up for overwriting.</summary>
+        private bool DockHoldsFamily(PieceFamily family)
+        {
+            for (int slotIndex = 0; slotIndex < TrayModel.SLOT_COUNT; slotIndex++)
+            {
+                if (_guaranteeClaimedSlots[slotIndex] && SlotHoldsFamily(slotIndex, family))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private bool SlotHoldsFamily(int slotIndex, PieceFamily family)
+        {
+            Piece piece = _trayModel.GetPiece(slotIndex);
+            return piece != null && PieceFamilyClassifier.Classify(piece.Id) == family;
+        }
+
+        private int HighestUnclaimedSlot()
+        {
+            for (int slotIndex = TrayModel.SLOT_COUNT - 1; slotIndex >= 0; slotIndex--)
+            {
+                if (!_guaranteeClaimedSlots[slotIndex])
+                {
+                    return slotIndex;
+                }
+            }
+
+            return -1;
         }
 
         /// <summary>Writes one special piece into a dock slot. Every kind is offered on the ordinary
@@ -2018,7 +2166,16 @@ namespace MustyBlockBlast.Gameplay.Systems
 
             // After the ordinary draw, never instead of it: the injection overrides the slots it claims
             // and leaves the rest weighted exactly as they were drawn (AC3).
-            ApplyPendingInjections();
+            int injectedSlotCount = ApplyPendingInjections();
+
+            // After the injections, so an earned special piece always keeps its slot and the family
+            // guarantee (issue #513) only ever takes what is left. Then the finished dock — whatever it
+            // now holds — is what the windows are counted against.
+            if (_familyPieceGuarantee != null)
+            {
+                ApplyFamilyGuarantee(injectedSlotCount);
+                _familyPieceGuarantee.RecordRefill(_trayModel);
+            }
 
             // Published from here rather than from the two call sites, so the opening draw of a run
             // and every mid-run refill are indistinguishable to subscribers.
