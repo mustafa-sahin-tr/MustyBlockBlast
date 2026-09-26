@@ -124,6 +124,9 @@ namespace MustyBlockBlast.Presentation.Views
         [Tooltip("Degrees a freshly spawned special cell's icon spins around itself while shrinking from _specialSpawnHeroScale down into its cell.")]
         [SerializeField] private float _specialSpawnSpinDegrees = 360f;
 
+        [Tooltip("Seconds the spark of light takes to draw a special cell's border all the way round once its spawn or vortex hand-off pop has settled (issue #517).")]
+        [SerializeField] private float _specialBorderTraceDuration = 0.25f;
+
         [Header("Vortex Island Fill (issue #349)")]
         [Tooltip("Seconds a cell a vortex reclaimed takes to pop in from _islandFillStartScale to its resting size. At least 0.4s so filling many cells still reads clearly rather than looking instant.")]
         [SerializeField] private float _islandFillDuration = 0.5f;
@@ -304,6 +307,19 @@ namespace MustyBlockBlast.Presentation.Views
         /// </para>
         /// </summary>
         private static readonly Color ExplosiveCoreGlowTint = new Color(1f, 0.2f, 0.35f, 1f);
+
+        /// <summary>Each special kind's border hue (issue #517): its own colour, lifted from the dominant
+        /// hue of that kind's art and brightened so it reads against any theme's fill. A diamond's
+        /// border takes its gem's per-cell colour instead (see <see cref="BorderColour"/>).</summary>
+        private static readonly Color LaserBorderColour = new Color(0.72f, 0.65f, 1f, 1f);
+        private static readonly Color ScoreGemBorderColour = new Color(0.36f, 0.9f, 0.49f, 1f);
+        private static readonly Color VortexBorderColour = new Color(0.35f, 0.66f, 1f, 1f);
+        private static readonly Color ChainLightningBorderColour = new Color(0.96f, 1f, 0.35f, 1f);
+        private static readonly Color CoinBorderColour = new Color(1f, 0.62f, 0.11f, 1f);
+        private static readonly Color ExplosiveCoreBorderColour = new Color(1f, 0.3f, 0.24f, 1f);
+        private static readonly Color TimerBorderColour = new Color(0.49f, 0.95f, 0.97f, 1f);
+        private static readonly Color PowerStarBorderColour = new Color(1f, 0.84f, 0.43f, 1f);
+        private static readonly Color PuzzleLinkBorderColour = new Color(1f, 0.44f, 0.63f, 1f);
 
         /// <summary>How far a kind's glow halo (issue #365) is blended towards white on top of its own
         /// <see cref="IconTint"/> — bright enough to read as an emissive backing against any theme's
@@ -2089,6 +2105,9 @@ namespace MustyBlockBlast.Presentation.Views
             cell.transform.SetAsLastSibling();
             cell.SetSpecialIconPose(heroScale, 0f);
 
+            // The border is drawn in only once the icon has landed (issue #517).
+            cell.SetSpecialBorderTrace(0f);
+
             try
             {
                 float elapsed = 0f;
@@ -2118,6 +2137,50 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             cell.SetSpecialIconPose(1f, 0f);
+            await PlaySpecialBorderTraceAsync(index, generation);
+        }
+
+        /// <summary>
+        /// A settled special cell's border draws itself in (issue #517): a spark of light runs from the
+        /// cell's top-left corner clockwise all the way round in <see cref="_specialBorderTraceDuration"/>,
+        /// leaving the border behind it, which then stays. Played only at the end of a spawn or vortex
+        /// hand-off pop — every other repaint shows the border whole — and guarded by
+        /// <see cref="_cellGenerations"/> exactly as those pops are: a destructive write to the cell
+        /// mid-trace simply ends it, and that write's own repaint settles the border.
+        /// </summary>
+        private async UniTask PlaySpecialBorderTraceAsync(int index, int generation)
+        {
+            CellView cell = _cells[index];
+            float duration = Mathf.Max(0.01f, _specialBorderTraceDuration);
+
+            try
+            {
+                float elapsed = 0f;
+                while (elapsed < duration)
+                {
+                    if (_cellGenerations[index] != generation)
+                    {
+                        return;
+                    }
+
+                    cell.SetSpecialBorderTrace(elapsed / duration);
+
+                    await UniTask.Yield(PlayerLoopTiming.Update, _destroyToken);
+                    elapsed += Time.unscaledDeltaTime;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // The board view was destroyed mid-trace — the border is going with it.
+                return;
+            }
+
+            if (_isDestroyed || _cellGenerations[index] != generation)
+            {
+                return;
+            }
+
+            cell.SetSpecialBorderTrace(1f);
         }
 
         /// <summary>An explosive core detonated and its bonus wipe emptied the line at right angles to
@@ -2292,6 +2355,9 @@ namespace MustyBlockBlast.Presentation.Views
             CellView cell = _cells[index];
             cell.SetSpecialIconPose(startScale, 0f);
 
+            // As the birth pop: the border is drawn in only once the icon has landed (issue #517).
+            cell.SetSpecialBorderTrace(0f);
+
             try
             {
                 float elapsed = 0f;
@@ -2320,6 +2386,7 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             cell.SetSpecialIconPose(1f, 0f);
+            await PlaySpecialBorderTraceAsync(index, generation);
         }
 
         /// <summary>Where one cell's rect sits in the grid — the same arithmetic
@@ -3374,6 +3441,7 @@ namespace MustyBlockBlast.Presentation.Views
             {
                 cell.ClearSpecialIcon();
                 cell.ClearSpecialGlow();
+                cell.ClearSpecialBorder();
 
                 // Negative test (issue #365 AC7): a None cell never glows, so it never has an entry to
                 // remove — this only fires for a cell that actually was glowing a moment ago.
@@ -3415,10 +3483,46 @@ namespace MustyBlockBlast.Presentation.Views
                 cell.SetSpecialGlow(GlowTint(kind));
             }
 
+            cell.SetSpecialBorder(BorderColour(kind, index));
+
             if (!_glowActiveMask[index])
             {
                 _glowActiveMask[index] = true;
                 _activeGlowCells.Add(cell);
+            }
+        }
+
+        /// <summary>The border hue (issue #517) of the special cell at <paramref name="index"/>: its
+        /// kind's own colour, or — for a diamond — its gem's colour, exactly as the diamond's art is
+        /// tinted, falling back to the flat special tint while no gem colour is known.</summary>
+        private Color BorderColour(SpecialCellKind kind, int index)
+        {
+            switch (kind)
+            {
+                case SpecialCellKind.Laser:
+                    return LaserBorderColour;
+                case SpecialCellKind.ScoreGem:
+                    return ScoreGemBorderColour;
+                case SpecialCellKind.Vortex:
+                    return VortexBorderColour;
+                case SpecialCellKind.ChainLightning:
+                    return ChainLightningBorderColour;
+                case SpecialCellKind.Coin:
+                    return CoinBorderColour;
+                case SpecialCellKind.ExplosiveCore:
+                    return ExplosiveCoreBorderColour;
+                case SpecialCellKind.Timer:
+                    return TimerBorderColour;
+                case SpecialCellKind.PowerStar:
+                    return PowerStarBorderColour;
+                case SpecialCellKind.PuzzleLink:
+                    return PuzzleLinkBorderColour;
+                case SpecialCellKind.Diamond:
+                    return _currentTheme != null && _cellDiamondColourIds[index] != TrayModel.NO_DIAMOND
+                        ? DiamondVisuals.Tint(_currentTheme, _cellDiamondColourIds[index])
+                        : SpecialIconTint;
+                default:
+                    return SpecialIconTint;
             }
         }
 

@@ -29,6 +29,18 @@ namespace MustyBlockBlast.Presentation.Views
         /// <summary>Thickness of the Ghost Fit ring: the mockup's 2px.</summary>
         private const float GHOST_RING_THICKNESS = 6f;
 
+        /// <summary>Wall of a special cell's border (issue #517), in reference pixels — lighter than
+        /// both rings above so it frames the art without competing with them.</summary>
+        private const float SPECIAL_BORDER_THICKNESS = 4f;
+
+        /// <summary>Alpha a special cell's border rests at.</summary>
+        private const float SPECIAL_BORDER_ALPHA = 0.9f;
+
+        /// <summary>The border trace's spark of light (issue #517): its size as a fraction of the cell,
+        /// and how far its colour is lifted from the border's own hue towards white.</summary>
+        private const float SPECIAL_BORDER_SPARK_SIZE = 0.7f;
+        private const float SPECIAL_BORDER_SPARK_WHITEN = 0.3f;
+
         /// <summary>The gloss ellipse's box, as fractions of the cell: the mockup's
         /// <c>left 12%, top 8%, width 76%, height 32%</c>.</summary>
         private const float GLOSS_LEFT = 0.12f;
@@ -159,6 +171,8 @@ namespace MustyBlockBlast.Presentation.Views
         private Image _specialIconImage;
         private Image _highlightImage;
         private Image _ghostRingImage;
+        private PerimeterBorderGraphic _specialBorder;
+        private Image _specialBorderSpark;
         private Text _timerCountdownText;
 
         /// <summary>A power star's charge pips (issue #482): one per charge up to
@@ -183,6 +197,10 @@ namespace MustyBlockBlast.Presentation.Views
         /// <see cref="SetGlowPulse"/> multiplies against, since the halo's own colour alpha is
         /// overwritten every frame by the pulse rather than by <see cref="SetSpecialGlow"/>.</summary>
         private float _glowBaseAlpha;
+
+        /// <summary>The special border's own hue, last set by <see cref="SetSpecialBorder"/> — what the
+        /// trace spark lifts towards white.</summary>
+        private Color _specialBorderColour;
 
         /// <summary>The icon's own resting tint, last set by <see cref="SetSpecialIcon(Color, Sprite)"/> —
         /// what <see cref="SetIconShine"/> blends towards white from every frame, since the icon's colour
@@ -357,6 +375,28 @@ namespace MustyBlockBlast.Presentation.Views
             _specialIconImage.color = Color.clear;
             SetStretchInsets((RectTransform)_specialIconImage.transform, iconInset, iconInset, iconInset, iconInset);
             _specialIconImage.gameObject.SetActive(false);
+
+            // A special cell's border (issue #517): over the full-bleed art so it frames it, but under
+            // both rings so a would-clear or Ghost Fit ring still reads on a bordered cell. The spark
+            // that draws it in rides on top of the border itself.
+            var borderObject = new GameObject(
+                "SpecialBorder", typeof(RectTransform), typeof(CanvasRenderer), typeof(PerimeterBorderGraphic));
+            var borderRect = (RectTransform)borderObject.transform;
+            borderRect.SetParent(transform, false);
+            StretchToParent(borderRect);
+            _specialBorder = borderObject.GetComponent<PerimeterBorderGraphic>();
+            _specialBorder.Configure(cornerRadius, SPECIAL_BORDER_THICKNESS);
+            _specialBorder.color = Color.clear;
+            borderObject.SetActive(false);
+
+            _specialBorderSpark = CreateStretchedImage(transform, "SpecialBorderSpark");
+            _specialBorderSpark.sprite = UiSpriteFactory.RadialGlow;
+            _specialBorderSpark.type = Image.Type.Simple;
+            _specialBorderSpark.raycastTarget = false;
+            var sparkRect = (RectTransform)_specialBorderSpark.transform;
+            sparkRect.anchorMin = new Vector2(0.5f, 0.5f);
+            sparkRect.anchorMax = new Vector2(0.5f, 0.5f);
+            _specialBorderSpark.gameObject.SetActive(false);
 
             // The two rings are built last so they are the cell's last siblings and therefore draw
             // over whichever look is active. Both use the hollow outline sprite family, so the wall is
@@ -587,6 +627,65 @@ namespace MustyBlockBlast.Presentation.Views
             HideLayer(_specialIconImage);
             HideLayer(_specialIconRimImage);
             SetSpecialIconFullBleed(false);
+        }
+
+        /// <summary>Shows a special cell's border (issue #517) in <paramref name="colour"/>, whole and at
+        /// rest — what every ordinary repaint draws, so only the trace after a pop ever animates it.
+        /// Allocation-free, so it is safe on any repaint path.</summary>
+        internal void SetSpecialBorder(Color colour)
+        {
+            if (_specialBorder == null)
+            {
+                return;
+            }
+
+            _specialBorderColour = colour;
+            _specialBorder.Progress = 1f;
+            _specialBorder.color = new Color(colour.r, colour.g, colour.b, colour.a * SPECIAL_BORDER_ALPHA);
+            if (!_specialBorder.gameObject.activeSelf)
+            {
+                _specialBorder.gameObject.SetActive(true);
+            }
+
+            HideLayer(_specialBorderSpark);
+        }
+
+        /// <summary>Draws the border only <paramref name="progress"/> (0..1) of the way round from its
+        /// top-left corner, with the spark of light riding its leading end — one frame of the trace
+        /// <c>BoardView</c> plays once a special cell has settled (issue #517). 0 hides the border
+        /// entirely; 1 leaves it whole with the spark gone. No-op on a cell with no border showing.</summary>
+        internal void SetSpecialBorderTrace(float progress)
+        {
+            if (_specialBorder == null || !_specialBorder.gameObject.activeSelf)
+            {
+                return;
+            }
+
+            _specialBorder.Progress = progress;
+            if (progress <= 0f || progress >= 1f)
+            {
+                HideLayer(_specialBorderSpark);
+                return;
+            }
+
+            var sparkRect = (RectTransform)_specialBorderSpark.transform;
+            Rect cellRect = ((RectTransform)transform).rect;
+            float sparkSize = Mathf.Min(cellRect.width, cellRect.height) * SPECIAL_BORDER_SPARK_SIZE;
+            sparkRect.sizeDelta = new Vector2(sparkSize, sparkSize);
+            sparkRect.anchoredPosition = _specialBorder.HeadPosition;
+            ShowLayer(_specialBorderSpark, Color.Lerp(_specialBorderColour, Color.white, SPECIAL_BORDER_SPARK_WHITEN));
+        }
+
+        /// <summary>Hides a special cell's border and its trace spark. Safe to call on a cell that never
+        /// had one.</summary>
+        internal void ClearSpecialBorder()
+        {
+            if (_specialBorder != null && _specialBorder.gameObject.activeSelf)
+            {
+                _specialBorder.gameObject.SetActive(false);
+            }
+
+            HideLayer(_specialBorderSpark);
         }
 
         /// <summary>Shows the special-cell glow halo (issue #365) behind the icon in
@@ -997,6 +1096,16 @@ namespace MustyBlockBlast.Presentation.Views
             // SetSpecialGlow call.
             ApplyAlpha(_specialIconRimImage, alpha * SPECIAL_ICON_RIM_ALPHA);
             ApplyAlpha(_specialGlowImage, alpha * _glowBaseAlpha);
+
+            // And its border (issue #517), for the same reason. Restored by the next SetSpecialBorder.
+            if (_specialBorder != null)
+            {
+                Color borderColour = _specialBorder.color;
+                borderColour.a = alpha * SPECIAL_BORDER_ALPHA;
+                _specialBorder.color = borderColour;
+            }
+
+            HideLayer(_specialBorderSpark);
 
             // And the lock skin (issue #434): the lock IS the block, so a lock destroyed outright fades
             // with it rather than floating over an emptying cell. Restored by the next SetStageOverlay.
