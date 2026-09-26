@@ -237,6 +237,11 @@ namespace MustyBlockBlast.Presentation.Views
         /// static, never traced. Shown exactly while <see cref="_skinImage"/> is.</summary>
         private PerimeterBorderGraphic _skinBorder;
 
+        /// <summary>The skin border's resting alpha: the skin's border colour alpha times
+        /// <see cref="SPECIAL_BORDER_ALPHA"/>, so a skin that wants no border (the jelly, issue #532, alpha 0)
+        /// stays borderless through <see cref="SetAlpha"/> fades.</summary>
+        private float _skinBorderBaseAlpha = SPECIAL_BORDER_ALPHA;
+
         private bool _skinRequested;
 
         private void Awake() => CacheOuter();
@@ -1102,7 +1107,7 @@ namespace MustyBlockBlast.Presentation.Views
             if (_skinBorder != null)
             {
                 Color skinBorderColour = _skinBorder.color;
-                skinBorderColour.a = alpha * SPECIAL_BORDER_ALPHA;
+                skinBorderColour.a = alpha * _skinBorderBaseAlpha;
                 _skinBorder.color = skinBorderColour;
             }
 
@@ -1180,10 +1185,11 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             _skinImage.color = tint;
+            _skinBorderBaseAlpha = borderColour.a * SPECIAL_BORDER_ALPHA;
             if (_skinBorder != null)
             {
                 _skinBorder.color = new Color(
-                    borderColour.r, borderColour.g, borderColour.b, borderColour.a * SPECIAL_BORDER_ALPHA);
+                    borderColour.r, borderColour.g, borderColour.b, _skinBorderBaseAlpha);
             }
 
             _skinRequested = true;

@@ -28,7 +28,7 @@ MonoBehaviour:
     _clearEffect: 1
     _clearSound: {fileID: 8300000, guid: c11227cbab21a497cabaa827159ee18f, type: 3}
     _particleColour: {r: 1, g: 1, b: 1, a: 1}
-    _borderColour: {r: 1, g: 1, b: 1, a: 1}
+    _borderColour: {r: 1, g: 1, b: 1, a: 0}
   - _name: Pomegranate
     _scoreThreshold: 750
     _sprite: {fileID: 21300000, guid: 9ca90c34e565c43e1b5405cd649491ce, type: 3}
