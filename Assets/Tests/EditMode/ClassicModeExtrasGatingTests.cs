@@ -188,7 +188,11 @@ namespace MustyBlockBlast.Tests.EditMode
             var timedModeConfig = ScriptableObject.CreateInstance<TimedModeConfig>();
             var timedModeModel = new TimedModeModel();
             var timedModeSystem = new TimedModeSystem(timedModeModel, timedModeConfig);
-            timedModeSystem.SelectDuration(TimedModeConfig.ENDLESS_DURATION_SECONDS);
+
+            // Written to the Model after the System is built, not through SelectDuration: that would
+            // persist the choice to the editor's real PlayerPrefs, which the constructor of every later
+            // TimedModeSystem reads back — leaking this test's duration into the next one.
+            timedModeModel.SelectedDurationSeconds.Value = TimedModeConfig.ENDLESS_DURATION_SECONDS;
 
             var runStartedBroker = new TestMessageBroker<RunStartedMessage>();
             var timerRunSystem = new TimerRunSystem(
@@ -216,8 +220,11 @@ namespace MustyBlockBlast.Tests.EditMode
 
             var timedModeConfig = ScriptableObject.CreateInstance<TimedModeConfig>();
             var timedModeModel = new TimedModeModel();
-            timedModeModel.SelectedDurationSeconds.Value = 180f;
             var timedModeSystem = new TimedModeSystem(timedModeModel, timedModeConfig);
+
+            // After the System is built: its constructor seeds the Model from PlayerPrefs, which would
+            // overwrite a value written before it.
+            timedModeModel.SelectedDurationSeconds.Value = 180f;
 
             var runStartedBroker = new TestMessageBroker<RunStartedMessage>();
             var timerRunSystem = new TimerRunSystem(
