@@ -14,6 +14,7 @@ namespace MustyBlockBlast.Gameplay.Systems
     {
         private const string THEME_ID_PREFS_KEY = "Settings.ThemeId";
         private const string BOARD_PUNCH_PREFS_KEY = "Settings.BoardPunchEnabled";
+        private const string LEVEL_BACKGROUNDS_PREFS_KEY = "Settings.LevelBackgroundsEnabled";
 
         private readonly SettingsModel _settingsModel;
 
@@ -26,6 +27,7 @@ namespace MustyBlockBlast.Gameplay.Systems
             SetTheme(PlayerPrefs.GetInt(THEME_ID_PREFS_KEY, defaultThemeId));
 
             _settingsModel.BoardPunchEnabled.Value = PlayerPrefs.GetInt(BOARD_PUNCH_PREFS_KEY, 1) != 0;
+            _settingsModel.LevelBackgroundsEnabled.Value = PlayerPrefs.GetInt(LEVEL_BACKGROUNDS_PREFS_KEY, 1) != 0;
         }
 
         /// <summary>Switches the board's line-clear punch on or off and persists the choice.</summary>
@@ -33,6 +35,13 @@ namespace MustyBlockBlast.Gameplay.Systems
         {
             _settingsModel.BoardPunchEnabled.Value = enabled;
             PlayerPrefs.SetInt(BOARD_PUNCH_PREFS_KEY, enabled ? 1 : 0);
+        }
+
+        /// <summary>Switches the Path levels' background images on or off and persists the choice.</summary>
+        public void SetLevelBackgroundsEnabled(bool enabled)
+        {
+            _settingsModel.LevelBackgroundsEnabled.Value = enabled;
+            PlayerPrefs.SetInt(LEVEL_BACKGROUNDS_PREFS_KEY, enabled ? 1 : 0);
         }
 
         /// <summary>

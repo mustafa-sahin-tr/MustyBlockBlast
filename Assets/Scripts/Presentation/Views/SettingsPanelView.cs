@@ -246,6 +246,7 @@ namespace MustyBlockBlast.Presentation.Views
         private const int LANGUAGE_KIND = 4;
         private const int SOUND_KIND = 2;
         private const int BOARD_PUNCH_KIND = 1;
+        private const int LEVEL_BACKGROUNDS_KIND = 0;
         private const int PRIMARY_KIND = 1;
         private const int TOGGLE_KIND = 5;
         private const int OWNED_KIND = 5;
@@ -345,6 +346,7 @@ namespace MustyBlockBlast.Presentation.Views
         private RectTransform _languageRowRect;
         private RectTransform _soundRowRect;
         private RectTransform _boardPunchRowRect;
+        private RectTransform _levelBackgroundsRowRect;
 
         private RectTransform _themeBackButtonRect;
         private RectTransform _modeBackButtonRect;
@@ -368,11 +370,16 @@ namespace MustyBlockBlast.Presentation.Views
         private Image _boardPunchToggleFace;
         private Image _boardPunchToggleLip;
 
+        private RectTransform _levelBackgroundsToggleThumbRect;
+        private Image _levelBackgroundsToggleFace;
+        private Image _levelBackgroundsToggleLip;
+
         private Text _themeValueText;
         private RectTransform _themeValueRect;
         private Text _modeValueText;
         private Text _soundValueText;
         private Text _boardPunchValueText;
+        private Text _levelBackgroundsValueText;
         private Text _languageValueText;
 
         /// <summary>The mode row's tile wears the active mode's own glyph, one per selectable mode.</summary>
@@ -508,6 +515,7 @@ namespace MustyBlockBlast.Presentation.Views
             _settingsModel.CurrentTheme.Subscribe(OnThemeChanged).AddTo(_disposables);
             _sfxModel.IsMuted.Subscribe(OnMutedChanged).AddTo(_disposables);
             _settingsModel.BoardPunchEnabled.Subscribe(OnBoardPunchEnabledChanged).AddTo(_disposables);
+            _settingsModel.LevelBackgroundsEnabled.Subscribe(OnLevelBackgroundsEnabledChanged).AddTo(_disposables);
 
             // Observed rather than read once: the flag is one-way, but it is set while this card is the
             // open screen — the purchase is started from it — so the foot of the well has to repaint on
@@ -652,6 +660,12 @@ namespace MustyBlockBlast.Presentation.Views
             if (RectTransformUtility.RectangleContainsScreenPoint(_boardPunchRowRect, screenPosition, eventCamera))
             {
                 _settingsSystem.SetBoardPunchEnabled(!_settingsModel.BoardPunchEnabled.Value);
+                return true;
+            }
+
+            if (RectTransformUtility.RectangleContainsScreenPoint(_levelBackgroundsRowRect, screenPosition, eventCamera))
+            {
+                _settingsSystem.SetLevelBackgroundsEnabled(!_settingsModel.LevelBackgroundsEnabled.Value);
                 return true;
             }
 
@@ -1012,6 +1026,7 @@ namespace MustyBlockBlast.Presentation.Views
             // painted by their own handlers rather than by a bucket above.
             OnMutedChanged(_sfxModel.IsMuted.Value);
             OnBoardPunchEnabledChanged(_settingsModel.BoardPunchEnabled.Value);
+            OnLevelBackgroundsEnabledChanged(_settingsModel.LevelBackgroundsEnabled.Value);
         }
 
         /// <summary>
@@ -1032,6 +1047,7 @@ namespace MustyBlockBlast.Presentation.Views
             RefreshModeValue();
             RefreshSoundValue();
             RefreshBoardPunchValue();
+            RefreshLevelBackgroundsValue();
             RefreshThemeNames();
             RefreshConfirmTitle();
 
@@ -1065,6 +1081,17 @@ namespace MustyBlockBlast.Presentation.Views
 
             PaintToggle(_boardPunchToggleFace, _boardPunchToggleLip, _boardPunchToggleThumbRect, enabled);
             RefreshBoardPunchValue();
+        }
+
+        private void OnLevelBackgroundsEnabledChanged(bool enabled)
+        {
+            if (_levelBackgroundsToggleFace == null || _currentTheme == null)
+            {
+                return;
+            }
+
+            PaintToggle(_levelBackgroundsToggleFace, _levelBackgroundsToggleLip, _levelBackgroundsToggleThumbRect, enabled);
+            RefreshLevelBackgroundsValue();
         }
 
         /// <summary>
@@ -1322,6 +1349,18 @@ namespace MustyBlockBlast.Presentation.Views
                 : LocalizationKeys.SETTINGS_SOUND_OFF);
         }
 
+        private void RefreshLevelBackgroundsValue()
+        {
+            if (_levelBackgroundsValueText == null)
+            {
+                return;
+            }
+
+            _levelBackgroundsValueText.text = _localizationSystem.Translate(_settingsModel.LevelBackgroundsEnabled.Value
+                ? LocalizationKeys.SETTINGS_SOUND_ON
+                : LocalizationKeys.SETTINGS_SOUND_OFF);
+        }
+
         /// <summary>
         /// Records <paramref name="label"/> as rendering <paramref name="key"/> and paints it once, so
         /// a label is correct from the moment it is built rather than only after the first switch.
@@ -1530,6 +1569,10 @@ namespace MustyBlockBlast.Presentation.Views
             // looks or reads (issue #367).
             _boardPunchRowRect = BuildRow(root, 4, "BoardPunchRow", BOARD_PUNCH_KIND, LocalizationKeys.SETTINGS_ROW_BOARD_PUNCH, out _, out _boardPunchValueText, out RectTransform boardPunchTile);
 
+            // Last: the one switch that changes how a level looks rather than how the game feels, and
+            // it only matters on the level path (issue #522).
+            _levelBackgroundsRowRect = BuildRow(root, 5, "LevelBackgroundsRow", LEVEL_BACKGROUNDS_KIND, LocalizationKeys.SETTINGS_ROW_LEVEL_BACKGROUNDS, out _, out _levelBackgroundsValueText, out RectTransform levelBackgroundsTile);
+
             _themeValueRect = (RectTransform)_themeValueText.transform;
 
             // The mode row's tile shows whichever mode is being played; all three glyphs are built and
@@ -1544,12 +1587,14 @@ namespace MustyBlockBlast.Presentation.Views
             BuildGlobeGlyph(languageTile, LANGUAGE_KIND);
             BuildVolumeGlyph(soundTile);
             BuildShakeGlyph(boardPunchTile);
+            BuildPictureGlyph(levelBackgroundsTile, LEVEL_BACKGROUNDS_KIND);
 
             BuildChevronDisc(_modeRowRect, contentWidth);
             BuildChevronDisc(_themeRowRect, contentWidth);
             BuildChevronDisc(_languageRowRect, contentWidth);
             BuildToggle(_soundRowRect, contentWidth, out _toggleFace, out _toggleLip, out _toggleThumbRect);
             BuildToggle(_boardPunchRowRect, contentWidth, out _boardPunchToggleFace, out _boardPunchToggleLip, out _boardPunchToggleThumbRect);
+            BuildToggle(_levelBackgroundsRowRect, contentWidth, out _levelBackgroundsToggleFace, out _levelBackgroundsToggleLip, out _levelBackgroundsToggleThumbRect);
 
             // Same dots as the theme cards' boards use, just smaller, moved into the value: one visual
             // language for "theme". Positioned after the value by RefreshThemeNames, since the wording
@@ -1869,6 +1914,49 @@ namespace MustyBlockBlast.Presentation.Views
                     tileRect, $"ShakeOuterBar_{sideIndex}", new Vector2(BAR_WIDTH, OUTER_BAR_HEIGHT),
                     new Vector2(sign * OUTER_BAR_X, 0f), BAR_WIDTH * 0.5f).color = Color.white;
             }
+        }
+
+        /// <summary>
+        /// A framed picture with a sun and two peaks — the usual "image" glyph. Built with the same
+        /// fake cut-outs as the globe: the tile is one opaque colour, so shapes in that colour hollow
+        /// the frame and trim the peaks.
+        /// </summary>
+        private void BuildPictureGlyph(RectTransform tileRect, int tileKind)
+        {
+            const float FRAME_WIDTH = 62f;
+            const float FRAME_HEIGHT = 48f;
+            const float LINE_THICKNESS = 6f;
+            const float SUN_DIAMETER = 11f;
+            const float LARGE_PEAK_SIZE = 22f;
+            const float SMALL_PEAK_SIZE = 16f;
+
+            float innerBottom = -(FRAME_HEIGHT * 0.5f) + LINE_THICKNESS;
+
+            BuildRounded(tileRect, "PictureFrame", new Vector2(FRAME_WIDTH, FRAME_HEIGHT), Vector2.zero, 8f).color = Color.white;
+            _kindFills.Add(new KindImage(
+                BuildRounded(
+                    tileRect, "PictureHole",
+                    new Vector2(FRAME_WIDTH - (LINE_THICKNESS * 2f), FRAME_HEIGHT - (LINE_THICKNESS * 2f)),
+                    Vector2.zero, 4f),
+                tileKind));
+
+            BuildCircle(tileRect, "PictureSun", SUN_DIAMETER, new Vector2(13f, 8f)).color = Color.white;
+
+            // Squares turned 45 degrees, centred on the frame's inner bottom edge, so only their top
+            // halves show as peaks; the halves below are hidden by the frame and the trim under it.
+            Image largePeak = BuildRounded(tileRect, "PictureLargePeak", new Vector2(LARGE_PEAK_SIZE, LARGE_PEAK_SIZE), new Vector2(-7f, innerBottom), 3f);
+            largePeak.color = Color.white;
+            largePeak.rectTransform.localRotation = Quaternion.Euler(0f, 0f, 45f);
+            Image smallPeak = BuildRounded(tileRect, "PictureSmallPeak", new Vector2(SMALL_PEAK_SIZE, SMALL_PEAK_SIZE), new Vector2(10f, innerBottom), 3f);
+            smallPeak.color = Color.white;
+            smallPeak.rectTransform.localRotation = Quaternion.Euler(0f, 0f, 45f);
+
+            const float TRIM_HEIGHT = 12f;
+            _kindFills.Add(new KindImage(
+                BuildRounded(
+                    tileRect, "PictureTrim", new Vector2(FRAME_WIDTH + 4f, TRIM_HEIGHT),
+                    new Vector2(0f, -(FRAME_HEIGHT * 0.5f) - (TRIM_HEIGHT * 0.5f)), 2f),
+                tileKind));
         }
 
         /// <summary>

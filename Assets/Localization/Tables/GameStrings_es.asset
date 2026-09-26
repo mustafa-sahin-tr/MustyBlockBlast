@@ -1850,6 +1850,10 @@ MonoBehaviour:
     m_Localized: "Limpia una fila o columna: cada jugada que limpia al menos una l\u00ednea cuenta."
     m_Metadata:
       m_Items: []
+  - m_Id: 4350167317733404
+    m_Localized: Fondos de nivel
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

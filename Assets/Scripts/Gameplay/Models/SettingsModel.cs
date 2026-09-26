@@ -33,5 +33,12 @@ namespace MustyBlockBlast.Gameplay.Models
         /// reads it.
         /// </summary>
         public ReactiveProperty<bool> BoardPunchEnabled { get; } = new ReactiveProperty<bool>(true);
+
+        /// <summary>
+        /// Whether a Path level shows its level-group background image behind the board and tray
+        /// instead of the theme gradient (issue #488). On by default; the player can switch it off
+        /// from the settings card. Presentation-only — no rule reads it.
+        /// </summary>
+        public ReactiveProperty<bool> LevelBackgroundsEnabled { get; } = new ReactiveProperty<bool>(true);
     }
 }

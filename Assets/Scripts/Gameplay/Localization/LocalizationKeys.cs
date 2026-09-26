@@ -653,6 +653,10 @@ namespace MustyBlockBlast.Gameplay.Localization
         /// and <see cref="SETTINGS_SOUND_OFF"/>, which are plain "On"/"Off" in every language.</summary>
         public const string SETTINGS_ROW_BOARD_PUNCH = "settings.row.board_punch";
 
+        /// <summary>The level-backgrounds row's label (issue #522). Its value reuses <see cref="SETTINGS_SOUND_ON"/>
+        /// and <see cref="SETTINGS_SOUND_OFF"/>, as the board-punch row does.</summary>
+        public const string SETTINGS_ROW_LEVEL_BACKGROUNDS = "settings.row.level_backgrounds";
+
         /// <summary>The note under the round-length row's value, saying which mode unlocks it (issue #260).</summary>
         public const string SETTINGS_ROW_DURATION_TIMED_ONLY = "settings.row.duration.timed_only";
 

@@ -1850,6 +1850,10 @@ MonoBehaviour:
     m_Localized: "Bir sat\u0131r veya s\u00fctun temizle \u2014 en az bir sat\u0131r temizleyen her hamle say\u0131l\u0131r."
     m_Metadata:
       m_Items: []
+  - m_Id: 4350167317733404
+    m_Localized: "Level Arka Planlar\u0131"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []
