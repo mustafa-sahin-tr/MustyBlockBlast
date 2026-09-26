@@ -40,6 +40,10 @@ namespace MustyBlockBlast.Presentation
             + "level without a row shows no name and the fallback icon.")]
         [SerializeField] private LevelIdentityCatalog _levelIdentityCatalog;
 
+        [Tooltip("Path levels' background images, one per level group (issue #523). Optional — without it "
+            + "every level keeps the theme gradient.")]
+        [SerializeField] private LevelBackgroundCatalog _levelBackgroundCatalog;
+
         [Tooltip("Authored objective glyphs. Optional — a missing catalog or entry falls back to the procedural glyph.")]
         [SerializeField] private ObjectiveIconCatalog _objectiveIconCatalog;
 
@@ -303,6 +307,7 @@ namespace MustyBlockBlast.Presentation
             builder.RegisterInstance(ResolveBadgeCatalog());
             builder.RegisterInstance(ResolveRewardRuleCatalog());
             builder.RegisterInstance(ResolveLevelIdentityCatalog());
+            builder.RegisterInstance(ResolveLevelBackgroundCatalog());
             builder.RegisterInstance(ResolveObjectiveIconCatalog());
             builder.RegisterInstance(ResolveClassicSkinConfig());
             builder.RegisterInstance(ResolveCurrencyConfig());
@@ -537,6 +542,20 @@ namespace MustyBlockBlast.Presentation
         /// </summary>
         /// <summary>The Classic skin sequence (issue #333), or an empty one — Classic then simply keeps the
         /// colour blocks — so a missing asset only warns.</summary>
+        /// <summary>Optional: without it the background is always the theme gradient.</summary>
+        private LevelBackgroundCatalog ResolveLevelBackgroundCatalog()
+        {
+            if (_levelBackgroundCatalog != null)
+            {
+                return _levelBackgroundCatalog;
+            }
+
+            Debug.LogWarning(
+                $"{nameof(GameLifetimeScope)} has no {nameof(LevelBackgroundCatalog)} assigned. " +
+                "Path levels keep the theme gradient.", this);
+            return ScriptableObject.CreateInstance<LevelBackgroundCatalog>();
+        }
+
         private ClassicSkinConfig ResolveClassicSkinConfig()
         {
             if (_classicSkinConfig != null)
