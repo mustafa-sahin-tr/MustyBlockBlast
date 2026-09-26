@@ -115,20 +115,14 @@ namespace MustyBlockBlast.Presentation.Views
         [Tooltip("Seconds a freshly spawned special cell's icon takes to spin and shrink from _specialSpawnHeroScale down to its resting size.")]
         [SerializeField] private float _specialSpawnPopDuration = 0.55f;
 
-        [Tooltip("Icon scale a spawn-in pop starts from before growing past 1 (see _specialSpawnOvershootScale) and settling back to 1. Only used by the vortex hand-off pop (see _vortexHandOffPopDuration) — the birth pop uses _specialSpawnHeroScale instead.")]
+        [Tooltip("Icon scale a spawn-in pop starts from before easing up to 1. Only used by the vortex hand-off pop (see _vortexHandOffPopDuration) — the birth pop uses _specialSpawnHeroScale instead.")]
         [SerializeField] private float _specialSpawnStartScale = 0.05f;
-
-        [Tooltip("Icon scale a spawn-in pop overshoots to on its way from _specialSpawnStartScale before settling back to 1. Only used by the vortex hand-off pop (see _vortexHandOffPopDuration) — the birth pop uses _specialSpawnLandingOvershootScale instead.")]
-        [SerializeField] private float _specialSpawnOvershootScale = 1.18f;
 
         [Tooltip("Icon scale a freshly spawned special cell's icon starts at, as a multiple of its resting size (so it reads as roughly this many cells wide) before it spins down into its cell.")]
         [SerializeField] private float _specialSpawnHeroScale = 4f;
 
         [Tooltip("Degrees a freshly spawned special cell's icon spins around itself while shrinking from _specialSpawnHeroScale down into its cell.")]
         [SerializeField] private float _specialSpawnSpinDegrees = 360f;
-
-        [Tooltip("Icon scale the birth pop dips to just past 1 right before landing, for a soft settle rather than stopping dead at 1.")]
-        [SerializeField] private float _specialSpawnLandingOvershootScale = 1.08f;
 
         [Header("Vortex Island Fill (issue #349)")]
         [Tooltip("Seconds a cell a vortex reclaimed takes to pop in from _islandFillStartScale to its resting size. At least 0.4s so filling many cells still reads clearly rather than looking instant.")]
@@ -1979,13 +1973,12 @@ namespace MustyBlockBlast.Presentation.Views
             }
 
             int index = CellIndex(message.Position);
-            RectTransform iconTransform = _cells[index].SpecialIconTransform;
-            if (iconTransform == null)
+            if (_cells[index].SpecialIconTransform == null)
             {
                 return;
             }
 
-            PlaySpecialSpawnPopAsync(iconTransform, index, _cellGenerations[index]).Forget();
+            PlaySpecialSpawnPopAsync(index, _cellGenerations[index]).Forget();
         }
 
         /// <summary>The on-screen anchor a special cell's icon sits at, for a flight animation (e.g.
@@ -2072,10 +2065,12 @@ namespace MustyBlockBlast.Presentation.Views
         }
 
         /// <summary>
-        /// A special cell's birth pop: <paramref name="iconTransform"/> starts at
+        /// A special cell's birth pop: the icon of the cell at <paramref name="index"/> starts at
         /// <see cref="_specialSpawnHeroScale"/> — roughly a 4x4-cell icon — spinning
-        /// <see cref="_specialSpawnSpinDegrees"/> around itself as it shrinks down past
-        /// <see cref="_specialSpawnLandingOvershootScale"/> and settles at 1, its resting size. The cell
+        /// <see cref="_specialSpawnSpinDegrees"/> around itself as it shrinks down to 1, its resting size,
+        /// on one ease-out curve — a single decelerating motion that comes to rest exactly as it lands,
+        /// with no overshoot and no second settle phase (issue #516: a stop at 1.08 followed by a
+        /// further shrink to 1 read as the icon twitching after it had landed). The cell
         /// is brought to the front of the shared <see cref="_cellLayerRoot"/> sibling order first (see
         /// <see cref="BuildCellLayer"/>) so the oversized icon draws over every neighbouring cell rather
         /// than being clipped behind whichever one happens to sit later in that order. Watches
@@ -2084,19 +2079,15 @@ namespace MustyBlockBlast.Presentation.Views
         /// leaving whatever repaint path caused the bump to settle the icon's final look, scale and
         /// rotation.
         /// </summary>
-        private async UniTaskVoid PlaySpecialSpawnPopAsync(RectTransform iconTransform, int index, int generation)
+        private async UniTaskVoid PlaySpecialSpawnPopAsync(int index, int generation)
         {
-            const float ShrinkFraction = 0.7f;
-
             float heroScale = Mathf.Max(1f, _specialSpawnHeroScale);
-            float landingOvershoot = Mathf.Max(1f, _specialSpawnLandingOvershootScale);
             float spinDegrees = _specialSpawnSpinDegrees;
             float duration = Mathf.Max(0.01f, _specialSpawnPopDuration);
 
-            _cells[index].transform.SetAsLastSibling();
-
-            iconTransform.localScale = Vector3.one * heroScale;
-            iconTransform.localRotation = Quaternion.identity;
+            CellView cell = _cells[index];
+            cell.transform.SetAsLastSibling();
+            cell.SetSpecialIconPose(heroScale, 0f);
 
             try
             {
@@ -2108,13 +2099,8 @@ namespace MustyBlockBlast.Presentation.Views
                         return;
                     }
 
-                    float t = elapsed / duration;
-                    float scale = t < ShrinkFraction
-                        ? Mathf.Lerp(heroScale, landingOvershoot, EaseOutCubic(t / ShrinkFraction))
-                        : Mathf.Lerp(landingOvershoot, 1f, (t - ShrinkFraction) / (1f - ShrinkFraction));
-
-                    iconTransform.localScale = Vector3.one * scale;
-                    iconTransform.localRotation = Quaternion.Euler(0f, 0f, Mathf.Lerp(0f, spinDegrees, EaseOutCubic(t)));
+                    float eased = EaseOutCubic(elapsed / duration);
+                    cell.SetSpecialIconPose(Mathf.Lerp(heroScale, 1f, eased), Mathf.Lerp(0f, spinDegrees, eased));
 
                     await UniTask.Yield(PlayerLoopTiming.Update, _destroyToken);
                     elapsed += Time.unscaledDeltaTime;
@@ -2131,8 +2117,7 @@ namespace MustyBlockBlast.Presentation.Views
                 return;
             }
 
-            iconTransform.localScale = Vector3.one;
-            iconTransform.localRotation = Quaternion.identity;
+            cell.SetSpecialIconPose(1f, 0f);
         }
 
         /// <summary>An explosive core detonated and its bonus wipe emptied the line at right angles to
@@ -2226,13 +2211,12 @@ namespace MustyBlockBlast.Presentation.Views
                     }
 
                     int index = CellIndex(cell);
-                    RectTransform iconTransform = _cells[index].SpecialIconTransform;
-                    if (iconTransform == null)
+                    if (_cells[index].SpecialIconTransform == null)
                     {
                         continue;
                     }
 
-                    PlayVortexHandOffPopAsync(iconTransform, index, ++_cellGenerations[index]).Forget();
+                    PlayVortexHandOffPopAsync(index, ++_cellGenerations[index]).Forget();
                 }
             }
         }
@@ -2300,15 +2284,13 @@ namespace MustyBlockBlast.Presentation.Views
         /// remarks — the kind already existed, it just moved cells), so it is played from here rather
         /// than through that message, with its own duration so the two can be tuned independently.
         /// </summary>
-        private async UniTaskVoid PlayVortexHandOffPopAsync(RectTransform iconTransform, int index, int generation)
+        private async UniTaskVoid PlayVortexHandOffPopAsync(int index, int generation)
         {
-            const float GrowFraction = 0.7f;
-
             float startScale = Mathf.Clamp(_specialSpawnStartScale, 0.001f, 1f);
-            float overshootScale = Mathf.Max(1f, _specialSpawnOvershootScale);
             float duration = Mathf.Max(0.01f, _vortexHandOffPopDuration);
 
-            iconTransform.localScale = Vector3.one * startScale;
+            CellView cell = _cells[index];
+            cell.SetSpecialIconPose(startScale, 0f);
 
             try
             {
@@ -2320,12 +2302,7 @@ namespace MustyBlockBlast.Presentation.Views
                         return;
                     }
 
-                    float t = elapsed / duration;
-                    float scale = t < GrowFraction
-                        ? Mathf.Lerp(startScale, overshootScale, EaseOutCubic(t / GrowFraction))
-                        : Mathf.Lerp(overshootScale, 1f, (t - GrowFraction) / (1f - GrowFraction));
-
-                    iconTransform.localScale = Vector3.one * scale;
+                    cell.SetSpecialIconPose(Mathf.Lerp(startScale, 1f, EaseOutCubic(elapsed / duration)), 0f);
 
                     await UniTask.Yield(PlayerLoopTiming.Update, _destroyToken);
                     elapsed += Time.unscaledDeltaTime;
@@ -2342,7 +2319,7 @@ namespace MustyBlockBlast.Presentation.Views
                 return;
             }
 
-            iconTransform.localScale = Vector3.one;
+            cell.SetSpecialIconPose(1f, 0f);
         }
 
         /// <summary>Where one cell's rect sits in the grid — the same arithmetic

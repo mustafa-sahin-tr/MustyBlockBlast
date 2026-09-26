@@ -662,6 +662,30 @@ namespace MustyBlockBlast.Presentation.Views
         internal RectTransform SpecialIconTransform
             => _specialIconImage != null ? (RectTransform)_specialIconImage.transform : null;
 
+        /// <summary>Poses the special icon for a pop animation (issue #516): scales and spins the icon
+        /// and its rim-light copy together, so the rim never sits still at its resting size behind a
+        /// moving icon and flashes its own silhouette out from under it as the icon lands.
+        /// <see cref="SetSpecialIcon(Color, Sprite)"/> still puts both back at rest on any repaint.</summary>
+        internal void SetSpecialIconPose(float scale, float spinDegrees)
+        {
+            if (_specialIconImage == null)
+            {
+                return;
+            }
+
+            Quaternion rotation = Quaternion.Euler(0f, 0f, spinDegrees);
+            Transform iconTransform = _specialIconImage.transform;
+            iconTransform.localScale = Vector3.one * scale;
+            iconTransform.localRotation = rotation;
+
+            if (_specialIconRimImage != null)
+            {
+                Transform rimTransform = _specialIconRimImage.transform;
+                rimTransform.localScale = Vector3.one * (scale * SPECIAL_ICON_RIM_SCALE);
+                rimTransform.localRotation = rotation;
+            }
+        }
+
         /// <summary>The block layer's own transform, exposed only for
         /// <c>BoardView.OnVortexIslandFilled</c>'s fill-in pop animation (issue #349 AC4) to animate its
         /// <c>localScale</c> without touching the cell's own rect (which the fade/stagger effects in
